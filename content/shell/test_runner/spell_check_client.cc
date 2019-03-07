@@ -44,7 +44,7 @@ void SpellCheckClient::Reset() {
 
 // blink::WebSpellCheckClient
 bool SpellCheckClient::IsSpellCheckingEnabled() const {
-  // Ensure that the spellchecker code paths are always tested in layout tests.
+  // Ensure that the spellchecker code paths are always tested in web tests.
   return true;
 }
 
@@ -88,13 +88,6 @@ void SpellCheckClient::RequestCheckingOfText(
     delegate_->PostTask(base::BindOnce(&SpellCheckClient::FinishLastTextCheck,
                                        weak_factory_.GetWeakPtr()));
   }
-}
-
-void SpellCheckClient::CancelAllPendingRequests() {
-  if (!last_requested_text_checking_completion_)
-    return;
-  last_requested_text_checking_completion_->DidCancelCheckingText();
-  last_requested_text_checking_completion_ = nullptr;
 }
 
 void SpellCheckClient::FinishLastTextCheck() {

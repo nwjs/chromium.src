@@ -17,9 +17,7 @@ QuicControlFrameManager::QuicControlFrameManager(QuicSession* session)
     : last_control_frame_id_(kInvalidControlFrameId),
       least_unacked_(1),
       least_unsent_(1),
-      session_(session),
-      donot_retransmit_old_window_updates_(
-          GetQuicReloadableFlag(quic_donot_retransmit_old_window_update2)) {}
+      session_(session) {}
 
 QuicControlFrameManager::~QuicControlFrameManager() {
   while (!control_frames_.empty()) {
@@ -90,6 +88,25 @@ void QuicControlFrameManager::WriteOrBufferMaxStreamId(QuicStreamId id) {
       QuicFrame(QuicMaxStreamIdFrame(++last_control_frame_id_, id)));
 }
 
+void QuicControlFrameManager::WriteOrBufferRstStreamStopSending(
+    QuicStreamId stream_id,
+    QuicRstStreamErrorCode error_code,
+    QuicStreamOffset bytes_written) {
+  const bool had_buffered_frames = HasBufferedFrames();
+  QUIC_DVLOG(1) << "Queuing RST_STREAM_FRAME";
+  control_frames_.emplace_back(QuicFrame(new QuicRstStreamFrame(
+      ++last_control_frame_id_, stream_id, error_code, bytes_written)));
+  if (session_->connection()->transport_version() == QUIC_VERSION_99) {
+    QUIC_DVLOG(1) << "Version 99, Queuing STOP_SENDING";
+    control_frames_.emplace_back(QuicFrame(new QuicStopSendingFrame(
+        ++last_control_frame_id_, stream_id, error_code)));
+  }
+  if (had_buffered_frames) {
+    return;
+  }
+  WriteBufferedFrames();
+}
+
 void QuicControlFrameManager::WritePing() {
   QUIC_DVLOG(1) << "Writing PING_FRAME";
   if (HasBufferedFrames()) {
@@ -110,14 +127,11 @@ void QuicControlFrameManager::OnControlFrameSent(const QuicFrame& frame) {
         << "Send or retransmit a control frame with invalid control frame id";
     return;
   }
-  if (donot_retransmit_old_window_updates_ &&
-      frame.type == WINDOW_UPDATE_FRAME) {
+  if (frame.type == WINDOW_UPDATE_FRAME) {
     QuicStreamId stream_id = frame.window_update_frame->stream_id;
     if (QuicContainsKey(window_update_frames_, stream_id) &&
         id > window_update_frames_[stream_id]) {
       // Consider the older window update of the same stream as acked.
-      QUIC_FLAG_COUNT(
-          quic_reloadable_flag_quic_donot_retransmit_old_window_update2);
       OnControlFrameIdAcked(window_update_frames_[stream_id]);
     }
     window_update_frames_[stream_id] = id;
@@ -143,8 +157,7 @@ bool QuicControlFrameManager::OnControlFrameAcked(const QuicFrame& frame) {
   if (!OnControlFrameIdAcked(id)) {
     return false;
   }
-  if (donot_retransmit_old_window_updates_ &&
-      frame.type == WINDOW_UPDATE_FRAME) {
+  if (frame.type == WINDOW_UPDATE_FRAME) {
     QuicStreamId stream_id = frame.window_update_frame->stream_id;
     if (QuicContainsKey(window_update_frames_, stream_id) &&
         window_update_frames_[stream_id] == id) {

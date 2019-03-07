@@ -822,6 +822,12 @@
             "type": "android"
           },
           "gl_renderer": ".*Google.*"
+        },
+        {
+          "os": {
+            "type": "android"
+          },
+          "gl_renderer": "ANGLE.*"
         }
       ],
       "features": [
@@ -1358,7 +1364,7 @@
     },
     {
       "id": 137,
-      "description": "GPU rasterization on CrOS is blacklisted on anything but Intel, Imagination, or AMD GPUs for now.",
+      "description": "GPU rasterization on CrOS is blacklisted on anything but Intel, Mali, Imagination, or AMD GPUs for now.",
       "cr_bugs": [684094],
       "os": {
         "type": "chromeos"
@@ -1368,6 +1374,7 @@
       ],
       "exceptions": [
         { "vendor_id": "0x8086" },
+        { "gl_renderer": "Mali-T.*" },
         { "gl_renderer": "PowerVR.*" },
         { "vendor_id": "0x1002" }
       ]
@@ -1650,7 +1657,7 @@
       ]
     },
     {
-      "id":156,
+      "id": 156,
       "cr_bugs": [870964],
       "description": "Frequent crashes on Adreno (TM) on L and below",
       "os": {
@@ -1680,6 +1687,42 @@
       "features": [
         "accelerated_webgl",
         "accelerated_webgl2"
+      ]
+    },
+    {
+      "id": 158,
+      "cr_bugs": [829435],
+      "description": "OOP rasterization on top of ANGLE not supported",
+      "gl_renderer": "ANGLE.*",
+      "features": [
+        "oop_rasterization"
+      ]
+    },
+    {
+      "id": 159,
+      "cr_bugs": [902247],
+      "description": "Disallow OpenGL use on Mac with old NVIDIA GPUs",
+      "os": {
+        "type": "macosx"
+      },
+      "vendor_id": "0x10de",
+      "device_id": ["0x0861", "0x0866", "0x0867", "0x0869", "0x08a0", "0x08a2",
+                    "0x08a4", "0x0a29"],
+      "features": [
+        "all"
+      ]
+    },
+    {
+      "id": 160,
+      "cr_bugs": [902247],
+      "description": "Disallow OpenGL use on Mac with old AMD GPUs",
+      "os": {
+        "type": "macosx"
+      },
+      "vendor_id": "0x1002",
+      "device_id": ["0x944a", "0x9488", "0x94c8", "0x9583"],
+      "features": [
+        "all"
       ]
     }
   ]

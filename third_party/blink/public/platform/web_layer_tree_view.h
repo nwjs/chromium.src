@@ -32,6 +32,7 @@
 #include "cc/input/layer_selection_bound.h"
 #include "cc/input/overscroll_behavior.h"
 #include "cc/layers/layer.h"
+#include "cc/paint/paint_worklet_layer_painter.h"
 #include "cc/trees/element_id.h"
 #include "cc/trees/layer_tree_host.h"
 #include "cc/trees/layer_tree_mutator.h"
@@ -137,13 +138,6 @@ class WebLayerTreeView {
 
   // Flow control and scheduling ---------------------------------------
 
-  // Indicates that blink needs a BeginFrame, but that nothing might actually be
-  // dirty.
-  virtual void SetNeedsBeginFrame() {}
-
-  // Run layout and paint of all pending document changes asynchronously.
-  virtual void LayoutAndPaintAsync(base::OnceClosure callback) {}
-
   virtual void CompositeAndReadbackAsync(
       base::OnceCallback<void(const SkBitmap&)> callback) {}
 
@@ -179,6 +173,10 @@ class WebLayerTreeView {
   // Mutations are plumbed back to the layer tree via the mutator client.
   virtual void SetMutatorClient(std::unique_ptr<cc::LayerTreeMutator>) {}
 
+  // Paints are plumbed back to the layer tree via the painter client.
+  virtual void SetPaintWorkletLayerPainterClient(
+      std::unique_ptr<cc::PaintWorkletLayerPainter>) {}
+
   // For when the embedder itself change scales on the page (e.g. devtools)
   // and wants all of the content at the new scale to be crisp.
   virtual void ForceRecalculateRasterScales() {}
@@ -201,21 +199,6 @@ class WebLayerTreeView {
   virtual bool HaveScrollEventHandlers() const { return false; }
 
   virtual int LayerTreeId() const { return 0; }
-
-  // Toggles the FPS counter in the HUD layer
-  virtual void SetShowFPSCounter(bool) {}
-
-  // Toggles the paint rects in the HUD layer
-  virtual void SetShowPaintRects(bool) {}
-
-  // Toggles the debug borders on layers
-  virtual void SetShowDebugBorders(bool) {}
-
-  // Toggles scroll bottleneck rects on the HUD layer
-  virtual void SetShowScrollBottleneckRects(bool) {}
-
-  // Toggles the hit-test borders on layers
-  virtual void SetShowHitTestBorders(bool) {}
 
   // ReportTimeCallback is a callback that should be fired when the
   // corresponding Swap completes (either with DidSwap or DidNotSwap).

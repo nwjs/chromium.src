@@ -48,7 +48,6 @@ class ASH_EXPORT TrayBackgroundView : public ActionableView,
   const char* GetClassName() const override;
   void AboutToRequestFocusFromTabTraversal(bool reverse) override;
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
-  void Layout() override;
   void ChildPreferredSizeChanged(views::View* child) override;
 
   // ActionableView:
@@ -108,9 +107,6 @@ class ASH_EXPORT TrayBackgroundView : public ActionableView,
   // Updates the arrow visibility based on the launcher visibility.
   void UpdateBubbleViewArrow(TrayBubbleView* bubble_view);
 
-  // ShelfBackgroundAnimatorObserver:
-  void UpdateShelfItemBackground(SkColor color) override;
-
   // Updates the visibility of this tray's separator.
   void set_separator_visibility(bool visible) { separator_visible_ = visible; }
 
@@ -130,7 +126,7 @@ class ASH_EXPORT TrayBackgroundView : public ActionableView,
 
  protected:
   // ActionableView:
-  std::unique_ptr<views::InkDropMask> CreateInkDropMask() const override;
+  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   bool ShouldEnterPushedState(const ui::Event& event) override;
   bool PerformAction(const ui::Event& event) override;
   void HandlePerformActionResult(bool action_performed,

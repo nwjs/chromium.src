@@ -16,6 +16,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "base/single_thread_task_runner.h"
+#include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/unguessable_token.h"
 #include "content/child/thread_safe_sender.h"
@@ -125,6 +126,7 @@ class CONTENT_EXPORT GpuVideoAcceleratorFactoriesImpl
 
   scoped_refptr<ws::ContextProviderCommandBuffer> GetMediaContextProvider()
       override;
+  gpu::ContextSupport* GetMediaContextProviderContextSupport() override;
 
   void SetRenderingColorSpace(const gfx::ColorSpace& color_space) override;
 
@@ -156,8 +158,7 @@ class CONTENT_EXPORT GpuVideoAcceleratorFactoriesImpl
   void SetContextProviderLostOnMainThread();
 
   void OnSupportedDecoderConfigs(
-      std::vector<media::mojom::SupportedVideoDecoderConfigPtr>
-          supported_configs);
+      const std::vector<media::SupportedVideoDecoderConfig>& supported_configs);
 
   const scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner_;
   const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
@@ -190,8 +191,12 @@ class CONTENT_EXPORT GpuVideoAcceleratorFactoriesImpl
 
   // SupportedDecoderConfigs state.
   mojo::InterfacePtr<media::mojom::VideoDecoder> video_decoder_;
-  base::Optional<std::vector<media::mojom::SupportedVideoDecoderConfigPtr>>
-      supported_decoder_configs_;
+  base::Lock supported_decoder_configs_lock_;
+  // If the Optional is empty, then we have not yet gotten the configs.  If the
+  // Optional contains an empty vector, then we have gotten the result and there
+  // are no supported configs.
+  base::Optional<std::vector<media::SupportedVideoDecoderConfig>>
+      supported_decoder_configs_ GUARDED_BY(supported_decoder_configs_lock_);
 
   // For sending requests to allocate shared memory in the Browser process.
   scoped_refptr<ThreadSafeSender> thread_safe_sender_;

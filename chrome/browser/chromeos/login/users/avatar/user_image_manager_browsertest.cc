@@ -42,14 +42,13 @@
 #include "chrome/browser/chromeos/settings/stub_install_attributes.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_downloader.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
-#include "chromeos/chromeos_paths.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
+#include "chromeos/dbus/constants/dbus_paths.h"
 #include "chromeos/dbus/cryptohome_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
@@ -62,20 +61,19 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "components/signin/core/browser/profile_oauth2_token_service.h"
+#include "components/signin/core/browser/account_info.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_image/user_image.h"
 #include "components/user_manager/user_manager.h"
 #include "crypto/rsa_private_key.h"
-#include "google_apis/gaia/gaia_oauth_client.h"
 #include "google_apis/gaia/gaia_urls.h"
-#include "google_apis/gaia/oauth2_token_service.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "net/url_request/url_request_status.h"
+#include "services/identity/public/cpp/identity_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/layout.h"
@@ -90,10 +88,8 @@ namespace {
 // Because policy is not needed in some tests it is better to use e-mails that
 // are definitely not enterprise. This lets us to avoid faking of policy fetch
 // procedure.
-constexpr char kTestUser1[] = "test-user@gmail.com";
-constexpr char kTestUser1GaiaId[] = "1111111111";
-constexpr char kTestUser2[] = "test-user2@gmail.com";
-constexpr char kTestUser2GaiaId[] = "2222222222";
+constexpr char kTestUserEmail1[] = "test-user@gmail.com";
+constexpr char kTestUserEmail2[] = "test-user2@gmail.com";
 
 constexpr char kRandomTokenStrForTesting[] = "random-token-str-for-testing";
 
@@ -214,7 +210,8 @@ class UserImageManagerTest : public LoginManagerTest,
     token_info.token = kRandomTokenStrForTesting;
     token_info.email = test_account_id1_.GetUserEmail();
     fake_gaia_.IssueOAuthToken(kRandomTokenStrForTesting, token_info);
-    fake_gaia_.MapEmailToGaiaId(kTestUser1, kTestUser1GaiaId);
+    fake_gaia_.MapEmailToGaiaId(
+        kTestUserEmail1, identity::GetTestGaiaIdForEmail(kTestUserEmail1));
   }
 
   void TearDownOnMainThread() override {
@@ -275,22 +272,19 @@ class UserImageManagerTest : public LoginManagerTest,
         .AddExtension(extension);
   }
 
-  // Seeds the AccountTrackerService with test data so the ProfileDownloader can
-  // retrieve the picture URL and fetch the image.
-  void SeedAccountTrackerService(const AccountId& account_id,
-                                 Profile* profile) {
-    AccountInfo info;
-    info.account_id = std::string();
-    info.gaia = account_id.GetUserEmail();
-    info.email = account_id.GetUserEmail();
-    info.full_name = account_id.GetUserEmail();
-    info.given_name = account_id.GetUserEmail();
-    info.hosted_domain = AccountTrackerService::kNoHostedDomainFound;
-    info.locale = account_id.GetUserEmail();
-    info.picture_url = embedded_test_server()->GetURL("/avatar.jpg").spec();
-    info.is_child_account = false;
-
-    AccountTrackerServiceFactory::GetForProfile(profile)->SeedAccountInfo(info);
+  void UpdatePrimaryAccountInfo(Profile* profile) {
+    auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
+    identity::SetRefreshTokenForPrimaryAccount(identity_manager,
+                                               kRandomTokenStrForTesting);
+    auto account_info = identity_manager->GetPrimaryAccountInfo();
+    account_info.full_name = account_info.email;
+    account_info.given_name = account_info.email;
+    account_info.hosted_domain = kNoHostedDomainFound;
+    account_info.locale = account_info.email;
+    account_info.picture_url =
+        embedded_test_server()->GetURL("/avatar.jpg").spec();
+    account_info.is_child_account = false;
+    identity::UpdateAccountInfoForAccount(identity_manager, account_info);
   }
 
   // Completes the download of the currently logged-in user's profile image.
@@ -332,12 +326,15 @@ class UserImageManagerTest : public LoginManagerTest,
   std::unique_ptr<net::test_server::ControllableHttpResponse>
       controllable_http_response_;
 
-  const AccountId test_account_id1_ =
-      AccountId::FromUserEmailGaiaId(kTestUser1, kTestUser1GaiaId);
-  const AccountId test_account_id2_ =
-      AccountId::FromUserEmailGaiaId(kTestUser2, kTestUser2GaiaId);
-  const AccountId enterprise_account_id_ =
-      AccountId::FromUserEmailGaiaId(kEnterpriseUser1, kEnterpriseUser1GaiaId);
+  const AccountId test_account_id1_ = AccountId::FromUserEmailGaiaId(
+      kTestUserEmail1,
+      identity::GetTestGaiaIdForEmail(kTestUserEmail1));
+  const AccountId test_account_id2_ = AccountId::FromUserEmailGaiaId(
+      kTestUserEmail2,
+      identity::GetTestGaiaIdForEmail(kTestUserEmail2));
+  const AccountId enterprise_account_id_ = AccountId::FromUserEmailGaiaId(
+      kEnterpriseUser1,
+      identity::GetTestGaiaIdForEmail(kEnterpriseUser1));
   const cryptohome::AccountIdentifier cryptohome_id_ =
       cryptohome::CreateAccountIdentifierFromAccountId(enterprise_account_id_);
 
@@ -530,10 +527,7 @@ IN_PROC_BROWSER_TEST_F(UserImageManagerTest, SaveUserImageFromProfileImage) {
 
   UserImageManagerImpl::IgnoreProfileDataDownloadDelayForTesting();
   LoginUser(test_account_id1_);
-  Profile* profile = ProfileHelper::Get()->GetProfileByUserUnsafe(user);
-  ProfileOAuth2TokenServiceFactory::GetForProfile(profile)->UpdateCredentials(
-      test_account_id1_.GetUserEmail(), kRandomTokenStrForTesting);
-  SeedAccountTrackerService(test_account_id1_, profile);
+  UpdatePrimaryAccountInfo(ProfileHelper::Get()->GetProfileByUserUnsafe(user));
 
   run_loop_.reset(new base::RunLoop);
   UserImageManager* user_image_manager =
@@ -583,10 +577,7 @@ IN_PROC_BROWSER_TEST_F(UserImageManagerTest,
 
   UserImageManagerImpl::IgnoreProfileDataDownloadDelayForTesting();
   LoginUser(test_account_id1_);
-  Profile* profile = ProfileHelper::Get()->GetProfileByUserUnsafe(user);
-  ProfileOAuth2TokenServiceFactory::GetForProfile(profile)->UpdateCredentials(
-      test_account_id1_.GetUserEmail(), kRandomTokenStrForTesting);
-  SeedAccountTrackerService(test_account_id1_, profile);
+  UpdatePrimaryAccountInfo(ProfileHelper::Get()->GetProfileByUserUnsafe(user));
 
   run_loop_.reset(new base::RunLoop);
   UserImageManager* user_image_manager =
@@ -632,8 +623,8 @@ class UserImageManagerPolicyTest : public UserImageManagerTest,
     UserImageManagerTest::SetUpOnMainThread();
 
     base::FilePath user_keys_dir;
-    ASSERT_TRUE(
-        base::PathService::Get(chromeos::DIR_USER_POLICY_KEYS, &user_keys_dir));
+    ASSERT_TRUE(base::PathService::Get(
+        chromeos::dbus_paths::DIR_USER_POLICY_KEYS, &user_keys_dir));
     const std::string sanitized_username =
         chromeos::CryptohomeClient::GetStubSanitizedUsername(cryptohome_id_);
     const base::FilePath user_key_file =

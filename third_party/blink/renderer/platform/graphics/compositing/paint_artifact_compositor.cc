@@ -10,6 +10,7 @@
 #include "cc/layers/layer.h"
 #include "cc/layers/picture_layer.h"
 #include "cc/paint/display_item_list.h"
+#include "cc/trees/effect_node.h"
 #include "cc/trees/layer_tree_host.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/content_layer_client_impl.h"
@@ -67,8 +68,9 @@ PaintArtifactCompositor::PaintArtifactCompositor(
     base::RepeatingCallback<void(const gfx::ScrollOffset&,
                                  const cc::ElementId&)> scroll_callback)
     : scroll_callback_(std::move(scroll_callback)),
-      tracks_raster_invalidations_(false) {
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled() &&
+      tracks_raster_invalidations_(false),
+      needs_update_(true) {
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
       !RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
     return;
   root_layer_ = cc::Layer::Create();
@@ -86,6 +88,8 @@ PaintArtifactCompositor::~PaintArtifactCompositor() {
 }
 
 void PaintArtifactCompositor::EnableExtraDataForTesting() {
+  if (!extra_data_for_testing_enabled_)
+    SetNeedsUpdate(true);
   extra_data_for_testing_enabled_ = true;
   extra_data_for_testing_ = std::make_unique<ExtraDataForTesting>();
 }
@@ -205,7 +209,7 @@ PaintArtifactCompositor::ScrollHitTestLayerForPendingLayer(
   // match (see: crbug.com/753124).
   auto bounds = scroll_node.ContainerRect().Size();
   // Mark the layer as scrollable.
-  // TODO(pdr): When SPV2 launches this parameter for bounds will not be needed.
+  // TODO(pdr): When CAP launches this parameter for bounds will not be needed.
   scroll_layer->SetScrollable(static_cast<gfx::Size>(bounds));
   // Set the layer's bounds equal to the container because the scroll layer
   // does not scroll.
@@ -412,11 +416,13 @@ static bool CanUpcastTo(const PropertyTreeState& guest,
       guest.Transform()->IsBackfaceHidden())
     return false;
 
-  auto* home_clip = home.Clip()->Unalias();
-  for (const ClipPaintPropertyNode* current_clip = guest.Clip()->Unalias();
+  // TODO(crbug.com/923729): Note that SafeUnalias() is a speculative fix for
+  // the referenced bug. The home and guest Clips should always exist, so we can
+  // just call Unalias on them.
+  auto* home_clip = SafeUnalias(home.Clip());
+  for (const ClipPaintPropertyNode* current_clip = SafeUnalias(guest.Clip());
        current_clip != home_clip;
-       current_clip = current_clip->Parent() ? current_clip->Parent()->Unalias()
-                                             : nullptr) {
+       current_clip = SafeUnalias(current_clip->Parent())) {
     if (!current_clip || current_clip->HasDirectCompositingReasons())
       return false;
     if (!IsNonCompositingAncestorOf(
@@ -518,6 +524,7 @@ static bool SkipGroupIfEffectivelyInvisible(
 
 void PaintArtifactCompositor::LayerizeGroup(
     const PaintArtifact& paint_artifact,
+    const Settings& settings,
     Vector<PendingLayer>& pending_layers,
     const EffectPaintPropertyNode& current_group,
     Vector<PaintChunk>::const_iterator& chunk_it) {
@@ -578,8 +585,8 @@ void PaintArtifactCompositor::LayerizeGroup(
       // Case C: The following chunks belong to a subgroup. Process them by
       //         a recursion call.
       wtf_size_t first_layer_in_subgroup = pending_layers.size();
-      LayerizeGroup(paint_artifact, pending_layers, *unaliased_subgroup,
-                    chunk_it);
+      LayerizeGroup(paint_artifact, settings, pending_layers,
+                    *unaliased_subgroup, chunk_it);
       // Now the chunk iterator stepped over the subgroup we just saw.
       // If the subgroup generated 2 or more layers then the subgroup must be
       // composited to satisfy grouping requirement.
@@ -624,11 +631,12 @@ void PaintArtifactCompositor::LayerizeGroup(
 
 void PaintArtifactCompositor::CollectPendingLayers(
     const PaintArtifact& paint_artifact,
+    const Settings& settings,
     Vector<PendingLayer>& pending_layers) {
   Vector<PaintChunk>::const_iterator cursor =
       paint_artifact.PaintChunks().begin();
-  LayerizeGroup(paint_artifact, pending_layers, EffectPaintPropertyNode::Root(),
-                cursor);
+  LayerizeGroup(paint_artifact, settings, pending_layers,
+                EffectPaintPropertyNode::Root(), cursor);
   DCHECK_EQ(paint_artifact.PaintChunks().end(), cursor);
 }
 
@@ -651,6 +659,7 @@ class SynthesizedClip : private cc::ContentLayerClient {
         CompositorElementIdFromUniqueObjectId(NewUniqueObjectId());
     layer_->SetIsDrawable(true);
   }
+  ~SynthesizedClip() override { layer_->ClearClient(); }
 
   void Update(const FloatRoundedRect& rrect,
               scoped_refptr<const RefCountedPath> path) {
@@ -749,16 +758,43 @@ cc::Layer* PaintArtifactCompositor::CreateOrReuseSynthesizedClipLayer(
   return synthesized_clip.GetLayer();
 }
 
+static void UpdateCompositorViewportProperties(
+    const PaintArtifactCompositor::ViewportProperties& properties,
+    PropertyTreeManager& property_tree_manager,
+    cc::LayerTreeHost* layer_tree_host) {
+  cc::LayerTreeHost::ViewportPropertyIds ids;
+  // This is also needed by pre-CompositeAfterPaint, so is not guarded by
+  // CompositeAfterPaintEnabled().
+  if (properties.page_scale) {
+    ids.page_scale_transform =
+        property_tree_manager.EnsureCompositorPageScaleTransformNode(
+            properties.page_scale);
+  }
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    if (properties.inner_scroll_translation) {
+      ids.inner_scroll = property_tree_manager.EnsureCompositorScrollNode(
+          properties.inner_scroll_translation);
+    }
+    layer_tree_host->RegisterViewportPropertyIds(ids);
+  }
+}
+
 void PaintArtifactCompositor::Update(
     scoped_refptr<const PaintArtifact> paint_artifact,
     CompositorElementIdSet& composited_element_ids,
-    TransformPaintPropertyNode* viewport_scale_node) {
+    const ViewportProperties& viewport_properties,
+    const Settings& settings) {
   DCHECK(root_layer_);
 
   // The tree will be null after detaching and this update can be ignored.
   // See: WebViewImpl::detachPaintArtifactCompositor().
   cc::LayerTreeHost* host = root_layer_->layer_tree_host();
   if (!host)
+    return;
+
+  // Skip updating property trees, pushing cc::Layers, and issuing raster
+  // invalidations if possible.
+  if (!NeedsUpdate())
     return;
 
   // When using BlinkGenPropertyTrees, the compositor accepts a list of layers
@@ -778,16 +814,10 @@ void PaintArtifactCompositor::Update(
   PropertyTreeManager property_tree_manager(
       *this, *host->property_trees(), root_layer_.get(), &layer_list_builder);
   Vector<PendingLayer, 0> pending_layers;
-  CollectPendingLayers(*paint_artifact, pending_layers);
+  CollectPendingLayers(*paint_artifact, settings, pending_layers);
 
-  cc::LayerTreeHost::ViewportPropertyIds viewport_property_ids;
-  if (viewport_scale_node) {
-    viewport_property_ids.page_scale_transform =
-        property_tree_manager.EnsureCompositorPageScaleTransformNode(
-            viewport_scale_node);
-  }
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
-    host->RegisterViewportPropertyIds(viewport_property_ids);
+  UpdateCompositorViewportProperties(viewport_properties, property_tree_manager,
+                                     host);
 
   Vector<std::unique_ptr<ContentLayerClientImpl>> new_content_layer_clients;
   new_content_layer_clients.ReserveCapacity(pending_layers.size());
@@ -796,6 +826,8 @@ void PaintArtifactCompositor::Update(
   for (auto& entry : synthesized_clip_cache_)
     entry.in_use = false;
 
+  // Clear prior frame ids before inserting new ones.
+  composited_element_ids.clear();
   for (auto& pending_layer : pending_layers) {
     const auto& property_state = pending_layer.property_tree_state;
     const auto* transform = property_state.Transform();
@@ -817,9 +849,9 @@ void PaintArtifactCompositor::Update(
         paint_artifact, pending_layer, layer_offset, new_content_layer_clients,
         new_scroll_hit_test_layers);
 
-    // Pre-SPV2, touch action rects are updated through
+    // Pre-CompositeAfterPaint, touch action rects are updated through
     // ScrollingCoordinator::UpdateLayerTouchActionRects.
-    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
       auto paint_chunks = paint_artifact->GetPaintChunkSubset(
           pending_layer.paint_chunk_indices);
       UpdateTouchActionRects(layer.get(), layer_offset, property_state,
@@ -866,8 +898,10 @@ void PaintArtifactCompositor::Update(
     // Calling |PropertyTreeStateChanged| for every pending layer is
     // O(|property nodes|^2) and could be optimized by caching the lookup of
     // nodes known to be changed/unchanged.
-    if (PropertyTreeStateChanged(property_state))
+    if (PropertyTreeStateChanged(property_state)) {
       layer->SetSubtreePropertyChanged();
+      root_layer_->SetNeedsCommit();
+    }
   }
   property_tree_manager.Finalize();
   content_layer_clients_.swap(new_content_layer_clients);
@@ -885,15 +919,21 @@ void PaintArtifactCompositor::Update(
     }
   }
 
-  root_layer_->SetChildLayerList(layer_list_builder.Finalize());
+  // This should be done before UpdateRenderSurfaceForEffects() for which to
+  // get property tree node ids from the layers.
+  host->property_trees()->sequence_number = g_s_property_tree_sequence_number;
+
+  auto layers = layer_list_builder.Finalize();
+  UpdateRenderSurfaceForEffects(*host, layers);
+  root_layer_->SetChildLayerList(std::move(layers));
 
   // Update the host's active registered element ids.
   host->SetActiveRegisteredElementIds(composited_element_ids);
 
   // Mark the property trees as having been rebuilt.
-  host->property_trees()->sequence_number = g_s_property_tree_sequence_number;
   host->property_trees()->needs_rebuild = false;
   host->property_trees()->ResetCachedData();
+  SetNeedsUpdate(false);
 
   g_s_property_tree_sequence_number++;
 
@@ -910,6 +950,33 @@ void PaintArtifactCompositor::Update(
     }
   }
 #endif
+}
+
+// Every effect is supposed to have render surface enabled for grouping, but we
+// can omit one if the effect is opacity-only, render surface is not forced,
+// and the effect has only one compositing child. This is both for optimization
+// and not introducing sub-pixel differences in web tests.
+// TODO(crbug.com/504464): There is ongoing work in cc to delay render surface
+// decision until later phase of the pipeline. Remove premature optimization
+// here once the work is ready.
+void PaintArtifactCompositor::UpdateRenderSurfaceForEffects(
+    cc::LayerTreeHost& host,
+    const cc::LayerList& layers) {
+  HashSet<int> pending_render_surfaces;
+  auto& effect_tree = host.property_trees()->effect_tree;
+  for (const auto& layer : layers) {
+    for (auto* effect = effect_tree.Node(layer->effect_tree_index());
+         !effect->has_render_surface;
+         effect = effect_tree.Node(effect->parent_id)) {
+      if (effect->opacity != 1.f &&
+          !pending_render_surfaces.insert(effect->id).is_new_entry) {
+        // The opacity-only effect is seen the second time, which means that it
+        // has more than one compositing child and needs a render surface.
+        effect->has_render_surface = true;
+        break;
+      }
+    }
+  }
 }
 
 void LayerListBuilder::Add(scoped_refptr<cc::Layer> layer) {

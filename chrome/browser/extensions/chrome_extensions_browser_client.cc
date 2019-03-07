@@ -12,6 +12,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/extensions/activity_log/activity_log.h"
 #include "chrome/browser/extensions/api/chrome_extensions_api_client.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_service.h"
@@ -67,7 +68,7 @@
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/extensions/updater/chromeos_extension_cache_delegate.h"
 #include "chrome/browser/extensions/updater/extension_cache_impl.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/user_manager/user_manager.h"
 #else
 #include "extensions/browser/updater/null_extension_cache.h"
@@ -565,6 +566,10 @@ UserScriptListener* ChromeExtensionsBrowserClient::GetUserScriptListener() {
   if (!user_script_listener_)
     user_script_listener_ = std::make_unique<UserScriptListener>();
   return user_script_listener_.get();
+}
+
+std::string ChromeExtensionsBrowserClient::GetUserAgent() const {
+  return ::GetUserAgent();
 }
 
 // static

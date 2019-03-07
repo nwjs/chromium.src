@@ -29,7 +29,6 @@
 #include "chrome/browser/plugins/plugin_utils.h"
 #include "chrome/browser/prerender/prerender_manager.h"
 #include "chrome/browser/prerender/prerender_manager_factory.h"
-#include "chrome/browser/prerender/prerender_resource_throttle.h"
 #include "chrome/browser/prerender/prerender_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_io_data.h"
@@ -104,11 +103,6 @@
 #if defined(OS_ANDROID)
 #include "chrome/browser/android/download/intercept_download_resource_throttle.h"
 #include "chrome/browser/loader/data_reduction_proxy_resource_throttle_android.h"
-#endif
-
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/login/signin/merge_session_resource_throttle.h"
-#include "chrome/browser/chromeos/login/signin/merge_session_throttling_utils.h"
 #endif
 
 using content::BrowserThread;
@@ -334,21 +328,6 @@ void ChromeResourceDispatcherHostDelegate::RequestBeginning(
                      info->GetResourceType()));
 #endif  // BUILDFLAG(ENABLE_OFFLINE_PAGES)
 
-#if defined(OS_CHROMEOS)
-  // Check if we need to add merge session throttle. This throttle will postpone
-  // loading of XHR requests.
-  if (resource_type == content::RESOURCE_TYPE_XHR) {
-    // Add interstitial page while merge session process (cookie
-    // reconstruction from OAuth2 refresh token in ChromeOS login) is still in
-    // progress while we are attempting to load a google property.
-    if (!merge_session_throttling_utils::AreAllSessionMergedAlready() &&
-        request->url().SchemeIsHTTPOrHTTPS()) {
-      throttles->push_back(
-          std::make_unique<MergeSessionResourceThrottle>(request));
-    }
-  }
-#endif
-
   // Don't attempt to append headers to requests that have already started.
   // TODO(stevet): Remove this once the request ordering issues are resolved
   // in crbug.com/128048.
@@ -448,18 +427,6 @@ void ChromeResourceDispatcherHostDelegate::AppendStandardResourceThrottles(
 
   if (first_throttle)
     throttles->push_back(base::WrapUnique(first_throttle));
-
-  const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
-  if (info->IsPrerendering()) {
-    // TODO(jam): remove this throttle once http://crbug.com/740130 is fixed and
-    // PrerendererURLLoaderThrottle can be used for frame requests in the
-    // network-service-disabled mode.
-    if (!base::FeatureList::IsEnabled(network::features::kNetworkService) &&
-        content::IsResourceTypeFrame(info->GetResourceType())) {
-      throttles->push_back(
-          std::make_unique<prerender::PrerenderResourceThrottle>(request));
-    }
-  }
 }
 
 bool ChromeResourceDispatcherHostDelegate::ShouldInterceptResourceAsStream(

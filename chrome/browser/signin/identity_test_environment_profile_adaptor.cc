@@ -13,22 +13,6 @@
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
 
-namespace {
-
-TestingProfile::TestingFactories GetIdentityTestEnvironmentFactories(
-    bool create_fake_url_loader_factory_for_cookie_requests = true) {
-  return {
-      {GaiaCookieManagerServiceFactory::GetInstance(),
-       base::BindRepeating(&BuildFakeGaiaCookieManagerServiceWithOptions,
-                           create_fake_url_loader_factory_for_cookie_requests)},
-      {ProfileOAuth2TokenServiceFactory::GetInstance(),
-       base::BindRepeating(&BuildFakeProfileOAuth2TokenService)},
-      {SigninManagerFactory::GetInstance(),
-       base::BindRepeating(&BuildFakeSigninManagerForTesting)}};
-}
-
-}  // namespace
-
 // static
 std::unique_ptr<TestingProfile> IdentityTestEnvironmentProfileAdaptor::
     CreateProfileForIdentityTestEnvironment() {
@@ -39,25 +23,21 @@ std::unique_ptr<TestingProfile> IdentityTestEnvironmentProfileAdaptor::
 // static
 std::unique_ptr<TestingProfile>
 IdentityTestEnvironmentProfileAdaptor::CreateProfileForIdentityTestEnvironment(
-    const TestingProfile::TestingFactories& input_factories,
-    bool create_fake_url_loader_factory_for_cookie_requests) {
+    const TestingProfile::TestingFactories& input_factories) {
   TestingProfile::Builder builder;
 
   for (auto& input_factory : input_factories) {
     builder.AddTestingFactory(input_factory.first, input_factory.second);
   }
 
-  return CreateProfileForIdentityTestEnvironment(
-      builder, create_fake_url_loader_factory_for_cookie_requests);
+  return CreateProfileForIdentityTestEnvironment(builder);
 }
 
 // static
 std::unique_ptr<TestingProfile>
 IdentityTestEnvironmentProfileAdaptor::CreateProfileForIdentityTestEnvironment(
-    TestingProfile::Builder& builder,
-    bool create_fake_url_loader_factory_for_cookie_requests) {
-  for (auto& identity_factory : GetIdentityTestEnvironmentFactories(
-           create_fake_url_loader_factory_for_cookie_requests)) {
+    TestingProfile::Builder& builder) {
+  for (auto& identity_factory : GetIdentityTestEnvironmentFactories()) {
     builder.AddTestingFactory(identity_factory.first, identity_factory.second);
   }
 
@@ -67,10 +47,8 @@ IdentityTestEnvironmentProfileAdaptor::CreateProfileForIdentityTestEnvironment(
 // static
 void IdentityTestEnvironmentProfileAdaptor::
     SetIdentityTestEnvironmentFactoriesOnBrowserContext(
-        content::BrowserContext* context,
-        bool create_fake_url_loader_factory_for_cookie_requests) {
-  for (const auto& factory_pair : GetIdentityTestEnvironmentFactories(
-           create_fake_url_loader_factory_for_cookie_requests)) {
+        content::BrowserContext* context) {
+  for (const auto& factory_pair : GetIdentityTestEnvironmentFactories()) {
     factory_pair.first->SetTestingFactory(context, factory_pair.second);
   }
 }
@@ -78,13 +56,23 @@ void IdentityTestEnvironmentProfileAdaptor::
 // static
 void IdentityTestEnvironmentProfileAdaptor::
     AppendIdentityTestEnvironmentFactories(
-        TestingProfile::TestingFactories* factories_to_append_to,
-        bool create_fake_url_loader_factory_for_cookie_requests) {
+        TestingProfile::TestingFactories* factories_to_append_to) {
   TestingProfile::TestingFactories identity_factories =
       GetIdentityTestEnvironmentFactories();
   factories_to_append_to->insert(factories_to_append_to->end(),
                                  identity_factories.begin(),
                                  identity_factories.end());
+}
+
+// static
+TestingProfile::TestingFactories
+IdentityTestEnvironmentProfileAdaptor::GetIdentityTestEnvironmentFactories() {
+  return {{GaiaCookieManagerServiceFactory::GetInstance(),
+           base::BindRepeating(&BuildFakeGaiaCookieManagerService)},
+          {ProfileOAuth2TokenServiceFactory::GetInstance(),
+           base::BindRepeating(&BuildFakeProfileOAuth2TokenService)},
+          {SigninManagerFactory::GetInstance(),
+           base::BindRepeating(&BuildFakeSigninManagerForTesting)}};
 }
 
 IdentityTestEnvironmentProfileAdaptor::IdentityTestEnvironmentProfileAdaptor(

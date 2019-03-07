@@ -47,6 +47,10 @@ class PictureInPictureWindowController {
   // by the user or the content.
   virtual void Close(bool should_pause_video, bool should_reset_pip_player) = 0;
 
+  // Called to notify the controller that the window was requested to be closed
+  // by the content and that initiator should be focused.
+  virtual void CloseAndFocusInitiator() = 0;
+
   // Called by the window implementation to notify the controller that the
   // window was requested to be closed and destroyed by the system.
   virtual void OnWindowDestroyed() = 0;
@@ -62,6 +66,9 @@ class PictureInPictureWindowController {
   virtual void UpdatePlaybackState(bool is_playing,
                                    bool reached_end_of_stream) = 0;
   virtual void SetAlwaysHidePlayPauseButton(bool is_visible) = 0;
+
+  // Called when the user interacts with the "Skip Ad" control.
+  virtual void SkipAd() = 0;
 
   // Commands.
   // Returns true if the player is active (i.e. currently playing) after this

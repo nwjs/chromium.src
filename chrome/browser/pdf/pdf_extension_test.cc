@@ -79,8 +79,8 @@
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_tree.h"
 #include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/test/test_clipboard.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/base/test/test_clipboard.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/gfx/geometry/point.h"
 #include "url/gurl.h"
@@ -655,12 +655,21 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, Beep) {
   RunTestsInFile("beep_test.js", "test-beep.pdf");
 }
 
-IN_PROC_BROWSER_TEST_F(PDFAnnotationsTest, AnnotationsFeatureEnabled) {
+#if defined(OS_CHROMEOS)
+// TODO(https://crbug.com/920684): Test times out.
+#if defined(MEMORY_SANITIZER) || defined(LEAK_SANITIZER) || \
+    defined(ADDRESS_SANITIZER)
+#define MAYBE_AnnotationsFeatureEnabled DISABLED_AnnotationsFeatureEnabled
+#else
+#define MAYBE_AnnotationsFeatureEnabled AnnotationsFeatureEnabled
+#endif
+IN_PROC_BROWSER_TEST_F(PDFAnnotationsTest, MAYBE_AnnotationsFeatureEnabled) {
   RunTestsInFile("annotations_feature_enabled_test.js", "test.pdf");
 }
 IN_PROC_BROWSER_TEST_F(PDFExtensionTest, AnnotationsFeatureDisabled) {
   RunTestsInFile("annotations_feature_disabled_test.js", "test.pdf");
 }
+#endif
 
 // TODO(tsepez): See https://crbug.com/696650.
 IN_PROC_BROWSER_TEST_F(PDFExtensionTest, DISABLED_NoBeep) {
@@ -1883,7 +1892,16 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, CtrlWheelInvokesCustomZoom) {
                                std::move(send_ctrl_wheel));
 }
 
-IN_PROC_BROWSER_TEST_F(PDFExtensionTest, TouchscreenPinchInvokesCustomZoom) {
+// Flaky on ChromeOS (https://crbug.com/922974)
+#if defined(OS_CHROMEOS)
+#define MAYBE_TouchscreenPinchInvokesCustomZoom \
+  DISABLED_TouchscreenPinchInvokesCustomZoom
+#else
+#define MAYBE_TouchscreenPinchInvokesCustomZoom \
+  TouchscreenPinchInvokesCustomZoom
+#endif
+IN_PROC_BROWSER_TEST_F(PDFExtensionTest,
+                       MAYBE_TouchscreenPinchInvokesCustomZoom) {
   GURL test_pdf_url(embedded_test_server()->GetURL("/pdf/test.pdf"));
   WebContents* guest_contents = LoadPdfGetGuestContents(test_pdf_url);
   ASSERT_TRUE(guest_contents);
@@ -2046,4 +2064,51 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTest, ServiceWorkerNetworkFallback) {
 // provides a response.
 IN_PROC_BROWSER_TEST_F(PDFExtensionTest, ServiceWorkerInterception) {
   RunServiceWorkerTest("respond_with_fetch_worker.js");
+}
+
+IN_PROC_BROWSER_TEST_F(PDFExtensionTest, EmbeddedPdfGetsFocus) {
+  GURL test_iframe_url(embedded_test_server()->GetURL(
+      "/pdf/test-offset-cross-site-iframe.html"));
+  ui_test_utils::NavigateToURL(browser(), test_iframe_url);
+  WebContents* contents = GetActiveWebContents();
+
+  // Get BrowserPluginGuest for the PDF.
+  WebContents* guest_contents = nullptr;
+  content::BrowserPluginGuestManager* guest_manager =
+      contents->GetBrowserContext()->GetGuestManager();
+  guest_manager->ForEachGuest(
+      contents, base::BindRepeating(&RetrieveGuestContents, &guest_contents));
+  ASSERT_TRUE(guest_contents);
+  EXPECT_NE(contents, guest_contents);
+  // Wait for the guest's view to be created.
+  while (!guest_contents->GetRenderWidgetHostView()) {
+    base::RunLoop run_loop;
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
+    run_loop.Run();
+  }
+  WaitForHitTestDataOrGuestSurfaceReady(guest_contents);
+
+  // Verify it's not focused.
+  EXPECT_FALSE(IsWebContentsBrowserPluginFocused(guest_contents));
+
+  // Send mouse-click.
+  gfx::Point point_in_pdf(10, 10);
+  gfx::Point point_in_root =
+      guest_contents->GetRenderWidgetHostView()->TransformPointToRootCoordSpace(
+          point_in_pdf);
+  EXPECT_NE(point_in_pdf, point_in_root);
+  content::SimulateRoutedMouseClickAt(contents, kDefaultKeyModifier,
+                                      blink::WebMouseEvent::Button::kLeft,
+                                      point_in_root);
+
+  // Wait for the BPG to get focus. This test will timeout if the focus fails
+  // to occur. Alternatively, we could add an IPC filter to the guest's
+  // RenderProcessHost.
+  while (!IsWebContentsBrowserPluginFocused(guest_contents)) {
+    base::RunLoop run_loop;
+    base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), TestTimeouts::tiny_timeout());
+    run_loop.Run();
+  }
 }

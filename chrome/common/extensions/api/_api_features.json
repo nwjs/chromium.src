@@ -93,10 +93,6 @@
     "dependencies": ["permission:appview"],
     "contexts": ["blessed_extension"]
   },
-  "arcAppsPrivate": {
-    "dependencies": ["permission:arcAppsPrivate"],
-    "contexts": ["blessed_extension"]
-  },
   "autofillPrivate": [{
     "dependencies": ["permission:autofillPrivate"],
     "contexts": ["blessed_extension"]
@@ -254,6 +250,7 @@
     "matches": [
       "chrome://chrome-signin/*",
       "chrome://discards/*",
+      "chrome://hats/*",
       "chrome://media-router/*",
       "chrome://mobilesetup/*",
       "chrome://oobe/*",
@@ -296,7 +293,7 @@
   "dashboardPrivate": [{
     "channel": "stable",
     "contexts": ["blessed_web_page", "web_page"],
-    "matches": ["https://chrome.google.com/*"]
+    "matches": ["https://chrome.google.com/webstore/*"]
   }, {
     "channel": "stable",
     "contexts": ["blessed_extension"],

@@ -5,8 +5,8 @@
 // require: event_target.js
 
 cr.define('cr.ui', function() {
-  /** @const */ var EventTarget = cr.EventTarget;
-  /** @const */ var Menu = cr.ui.Menu;
+  /** @const */ const EventTarget = cr.EventTarget;
+  /** @const */ const Menu = cr.ui.Menu;
 
   /**
    * Handles context menus.
@@ -39,8 +39,9 @@ cr.define('cr.ui', function() {
      */
     showMenu: function(e, menu) {
       menu.updateCommands(assertInstanceof(e.currentTarget, Node));
-      if (!menu.hasVisibleItems())
+      if (!menu.hasVisibleItems()) {
         return;
+      }
 
       this.menu_ = menu;
       menu.classList.remove('hide-delayed');
@@ -48,8 +49,8 @@ cr.define('cr.ui', function() {
       menu.contextElement = e.currentTarget;
 
       // When the menu is shown we steal a lot of events.
-      var doc = menu.ownerDocument;
-      var win = /** @type {!Window} */ (doc.defaultView);
+      const doc = menu.ownerDocument;
+      const win = /** @type {!Window} */ (doc.defaultView);
       this.showingEvents_.add(doc, 'keydown', this, true);
       this.showingEvents_.add(doc, 'mousedown', this, true);
       this.showingEvents_.add(doc, 'touchstart', this, true);
@@ -61,7 +62,7 @@ cr.define('cr.ui', function() {
       this.showingEvents_.add(menu, 'activate', this);
       this.positionMenu_(e, menu);
 
-      var ev = new Event('show');
+      const ev = new Event('show');
       ev.element = menu.contextElement;
       ev.menu = menu;
       this.dispatchEvent(ev);
@@ -73,16 +74,18 @@ cr.define('cr.ui', function() {
      *     default: cr.ui.HideType.INSTANT.
      */
     hideMenu: function(opt_hideType) {
-      var menu = this.menu;
-      if (!menu)
+      const menu = this.menu;
+      if (!menu) {
         return;
+      }
 
-      if (opt_hideType == cr.ui.HideType.DELAYED)
+      if (opt_hideType == cr.ui.HideType.DELAYED) {
         menu.classList.add('hide-delayed');
-      else
+      } else {
         menu.classList.remove('hide-delayed');
+      }
       menu.hide();
-      var originalContextElement = menu.contextElement;
+      const originalContextElement = menu.contextElement;
       menu.contextElement = null;
       this.showingEvents_.removeAll();
       menu.selectedIndex = -1;
@@ -93,7 +96,7 @@ cr.define('cr.ui', function() {
       // to be shown again.
       this.hideTimestamp_ = cr.isWindows ? Date.now() : 0;
 
-      var ev = new Event('hide');
+      const ev = new Event('hide');
       ev.element = originalContextElement;
       ev.menu = menu;
       this.dispatchEvent(ev);
@@ -108,15 +111,15 @@ cr.define('cr.ui', function() {
     positionMenu_: function(e, menu) {
       // TODO(arv): Handle scrolled documents when needed.
 
-      var element = e.currentTarget;
-      var x, y;
+      const element = e.currentTarget;
+      let x, y;
       // When the user presses the context menu key (on the keyboard) we need
       // to detect this.
       if (this.keyIsDown_) {
-        var rect = element.getRectForContextMenu ?
+        const rect = element.getRectForContextMenu ?
             element.getRectForContextMenu() :
             element.getBoundingClientRect();
-        var offset = Math.min(rect.width, rect.height) / 2;
+        const offset = Math.min(rect.width, rect.height) / 2;
         x = rect.left + offset;
         y = rect.top + offset;
       } else {
@@ -147,8 +150,9 @@ cr.define('cr.ui', function() {
       }
 
       // Context menu is handled even when we have no menu.
-      if (e.type != 'contextmenu' && !this.menu)
+      if (e.type != 'contextmenu' && !this.menu) {
         return;
+      }
 
       switch (e.type) {
         case 'mousedown':
@@ -160,13 +164,15 @@ cr.define('cr.ui', function() {
               e.preventDefault();
               e.stopPropagation();
             }
-          } else
+          } else {
             e.preventDefault();
+          }
           break;
 
         case 'touchstart':
-          if (!this.menu.contains(e.target))
+          if (!this.menu.contains(e.target)) {
             this.hideMenu();
+          }
           break;
 
         case 'keydown':
@@ -184,15 +190,16 @@ cr.define('cr.ui', function() {
           break;
 
         case 'activate':
-          var hideDelayed =
+          const hideDelayed =
               e.target instanceof cr.ui.MenuItem && e.target.checkable;
           this.hideMenu(
               hideDelayed ? cr.ui.HideType.DELAYED : cr.ui.HideType.INSTANT);
           break;
 
         case 'focus':
-          if (!this.menu.contains(e.target))
+          if (!this.menu.contains(e.target)) {
             this.hideMenu();
+          }
           break;
 
         case 'blur':
@@ -206,8 +213,9 @@ cr.define('cr.ui', function() {
 
         case 'contextmenu':
           if ((!this.menu || !this.menu.contains(e.target)) &&
-              (!this.hideTimestamp_ || Date.now() - this.hideTimestamp_ > 50))
+              (!this.hideTimestamp_ || Date.now() - this.hideTimestamp_ > 50)) {
             this.showMenu(e, e.currentTarget.contextMenu);
+          }
           e.preventDefault();
           // Don't allow elements further up in the DOM to show their menus.
           e.stopPropagation();
@@ -221,7 +229,7 @@ cr.define('cr.ui', function() {
      *     the contextMenu property to.
      */
     addContextMenuProperty: function(elementOrClass) {
-      var target = typeof elementOrClass == 'function' ?
+      const target = typeof elementOrClass == 'function' ?
           elementOrClass.prototype :
           elementOrClass;
 
@@ -229,15 +237,16 @@ cr.define('cr.ui', function() {
         return this.contextMenu_;
       });
       target.__defineSetter__('contextMenu', function(menu) {
-        var oldContextMenu = this.contextMenu;
+        const oldContextMenu = this.contextMenu;
 
         if (typeof menu == 'string' && menu[0] == '#') {
           menu = this.ownerDocument.getElementById(menu.slice(1));
           cr.ui.decorate(menu, Menu);
         }
 
-        if (menu === oldContextMenu)
+        if (menu === oldContextMenu) {
           return;
+        }
 
         if (oldContextMenu && !menu) {
           this.removeEventListener('contextmenu', contextMenuHandler);
@@ -252,8 +261,9 @@ cr.define('cr.ui', function() {
 
         this.contextMenu_ = menu;
 
-        if (menu && menu.id)
+        if (menu && menu.id) {
           this.setAttribute('contextmenu', '#' + menu.id);
+        }
 
         cr.dispatchPropertyChange(this, 'contextMenu', menu, oldContextMenu);
       });
@@ -276,8 +286,9 @@ cr.define('cr.ui', function() {
      * @param {!cr.ui.Menu} contextMenu The contextMenu property to be set.
      */
     setContextMenu: function(element, contextMenu) {
-      if (!element.contextMenu)
+      if (!element.contextMenu) {
         this.addContextMenuProperty(element);
+      }
       element.contextMenu = contextMenu;
     }
   };
@@ -286,7 +297,7 @@ cr.define('cr.ui', function() {
    * The singleton context menu handler.
    * @type {!ContextMenuHandler}
    */
-  var contextMenuHandler = new ContextMenuHandler;
+  const contextMenuHandler = new ContextMenuHandler;
 
   // Export
   return {

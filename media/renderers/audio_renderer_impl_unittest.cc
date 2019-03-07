@@ -57,12 +57,8 @@ class MockMediaClient : public MediaClient {
       std::vector<std::unique_ptr<KeySystemProperties>>* key_systems) override {
   }
   bool IsKeySystemsUpdateNeeded() override { return false; }
-  bool IsSupportedAudioConfig(const AudioConfig& config) override {
-    return true;
-  }
-  bool IsSupportedVideoConfig(const VideoConfig& config) override {
-    return true;
-  }
+  bool IsSupportedAudioType(const AudioType& type) override { return true; }
+  bool IsSupportedVideoType(const VideoType& type) override { return true; }
   bool IsSupportedBitstreamAudioCodec(AudioCodec codec) override {
     return true;
   }
@@ -192,16 +188,17 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
     last_statistics_.audio_memory_usage += stats.audio_memory_usage;
   }
   MOCK_METHOD1(OnBufferingStateChange, void(BufferingState));
-  MOCK_METHOD0(OnWaitingForDecryptionKey, void(void));
+  MOCK_METHOD1(OnWaiting, void(WaitingReason));
   MOCK_METHOD1(OnAudioConfigChange, void(const AudioDecoderConfig&));
   MOCK_METHOD1(OnVideoConfigChange, void(const VideoDecoderConfig&));
   MOCK_METHOD1(OnVideoNaturalSizeChange, void(const gfx::Size&));
   MOCK_METHOD1(OnVideoOpacityChange, void(bool));
   MOCK_METHOD1(OnDurationChange, void(base::TimeDelta));
+  MOCK_METHOD1(OnRemotePlayStateChange, void(MediaStatus::State state));
 
   void InitializeRenderer(DemuxerStream* demuxer_stream,
                           const PipelineStatusCB& pipeline_status_cb) {
-    EXPECT_CALL(*this, OnWaitingForDecryptionKey()).Times(0);
+    EXPECT_CALL(*this, OnWaiting(_)).Times(0);
     EXPECT_CALL(*this, OnVideoNaturalSizeChange(_)).Times(0);
     EXPECT_CALL(*this, OnVideoOpacityChange(_)).Times(0);
     EXPECT_CALL(*this, OnVideoConfigChange(_)).Times(0);
@@ -511,7 +508,7 @@ class AudioRendererImplTest : public ::testing::Test, public RendererClient {
   AudioParameters hardware_params_;
   base::test::ScopedTaskEnvironment task_environment_;
   const scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner_;
-  MediaLog media_log_;
+  NullMediaLog media_log_;
   std::unique_ptr<AudioRendererImpl> renderer_;
   scoped_refptr<FakeAudioRendererSink> sink_;
   base::SimpleTestTickClock tick_clock_;

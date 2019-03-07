@@ -80,9 +80,6 @@ extern NSString* const kProxyPassthroughHeaderValue;
 // The Webstate associated with this Tab.
 @property(nonatomic, readonly) web::WebState* webState;
 
-@property(nonatomic, readonly) BOOL canGoBack;
-@property(nonatomic, readonly) BOOL canGoForward;
-
 @property(nonatomic, readonly)
     OverscrollActionsController* overscrollActionsController;
 @property(nonatomic, weak) id<OverscrollActionsControllerDelegate>
@@ -90,9 +87,6 @@ extern NSString* const kProxyPassthroughHeaderValue;
 
 // Delegate used to show HTTP Authentication dialogs.
 @property(nonatomic, weak) id<TabDialogDelegate> dialogDelegate;
-
-// |YES| if the tab has finished loading.
-@property(nonatomic, readonly) BOOL loadFinished;
 
 // Creates a new Tab with the given WebState.
 - (instancetype)initWithWebState:(web::WebState*)webState;
@@ -115,22 +109,8 @@ extern NSString* const kProxyPassthroughHeaderValue;
 // be populated. Can return null.
 - (web::NavigationManager*)navigationManager;
 
-// Navigates forwards or backwards.
-// TODO(crbug.com/661664): These are passthroughs to the Tab's WebState's
-// NavigationManager. Convert all callers and remove these methods.
-- (void)goBack;
-- (void)goForward;
-
 // Called before capturing a snapshot for Tab.
 - (void)willUpdateSnapshot;
-
-// Whether or not desktop user agent is used for the currently visible page.
-@property(nonatomic, readonly) BOOL usesDesktopUserAgent;
-
-// Loads the original url of the last non-redirect item (including non-history
-// items). Used by request desktop/mobile site so that the updated user agent is
-// used.
-- (void)reloadWithUserAgentType:(web::UserAgentType)userAgentType;
 
 // Evaluates U2F result.
 - (void)evaluateU2FResultFromURL:(const GURL&)url;

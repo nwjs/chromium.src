@@ -230,7 +230,7 @@ class LayerTreeHostTestRequestedMainFrame : public LayerTreeHostTest {
 
   void NextStep() {
     // The MainFrame request is cleared once a MainFrame happens.
-    EXPECT_FALSE(layer_tree_host()->RequestedMainFramePending());
+    EXPECT_FALSE(layer_tree_host()->RequestedMainFramePendingForTesting());
     switch (layer_tree_host()->SourceFrameNumber()) {
       case 0:
         ADD_FAILURE()
@@ -250,7 +250,7 @@ class LayerTreeHostTestRequestedMainFrame : public LayerTreeHostTest {
         return;
     }
     // SetNeeds{Animate,UpdateLayers,Commit}() will mean a MainFrame is pending.
-    EXPECT_TRUE(layer_tree_host()->RequestedMainFramePending());
+    EXPECT_TRUE(layer_tree_host()->RequestedMainFramePendingForTesting());
   }
 
   void AfterTest() override {}
@@ -3412,10 +3412,6 @@ class LayerTreeHostTestDeviceScaleFactorScalesViewportAndLayers
     FakePictureLayerImpl* child = static_cast<FakePictureLayerImpl*>(
         impl->active_tree()->LayerById(child_layer_->id()));
 
-    // Positions remain in layout pixels.
-    EXPECT_EQ(gfx::PointF(), root->position());
-    EXPECT_EQ(gfx::PointF(2.f, 2.f), child->position());
-
     // Compute all the layer transforms for the frame.
     LayerTreeHostImpl::FrameData frame_data;
     impl->PrepareToDraw(&frame_data);
@@ -4114,7 +4110,7 @@ class OnDrawLayerTreeFrameSink : public viz::TestLayerTreeFrameSink {
       base::SingleThreadTaskRunner* task_runner,
       bool synchronous_composite,
       double refresh_rate,
-      base::Closure invalidate_callback)
+      base::RepeatingClosure invalidate_callback)
       : TestLayerTreeFrameSink(std::move(compositor_context_provider),
                                std::move(worker_context_provider),
                                gpu_memory_buffer_manager,
@@ -4135,7 +4131,7 @@ class OnDrawLayerTreeFrameSink : public viz::TestLayerTreeFrameSink {
   }
 
  private:
-  const base::Closure invalidate_callback_;
+  const base::RepeatingClosure invalidate_callback_;
 };
 
 class LayerTreeHostTestAbortedCommitDoesntStallSynchronousCompositor
@@ -4152,7 +4148,7 @@ class LayerTreeHostTestAbortedCommitDoesntStallSynchronousCompositor
       scoped_refptr<viz::ContextProvider> compositor_context_provider,
       scoped_refptr<viz::RasterContextProvider> worker_context_provider)
       override {
-    auto on_draw_callback = base::Bind(
+    auto on_draw_callback = base::BindRepeating(
         &LayerTreeHostTestAbortedCommitDoesntStallSynchronousCompositor::
             CallOnDraw,
         base::Unretained(this));
@@ -4300,32 +4296,32 @@ class LayerTreeHostTestUIResource : public LayerTreeHostTest {
   }
 
   void DidActivateTreeOnThread(LayerTreeHostImpl* impl) override {
-    auto* context = static_cast<viz::TestContextProvider*>(
-                        impl->layer_tree_frame_sink()->context_provider())
-                        ->TestContextGL();
+    auto* sii = static_cast<viz::TestContextProvider*>(
+                    impl->layer_tree_frame_sink()->context_provider())
+                    ->SharedImageInterface();
 
     int frame = impl->active_tree()->source_frame_number();
     switch (frame) {
       case 0:
-        ASSERT_EQ(0u, context->NumTextures());
+        ASSERT_EQ(0u, sii->shared_image_count());
         break;
       case 1:
         // Created two textures.
-        ASSERT_EQ(2u, context->NumTextures());
+        ASSERT_EQ(2u, sii->shared_image_count());
         break;
       case 2:
         // One texture left after one deletion.
-        ASSERT_EQ(1u, context->NumTextures());
+        ASSERT_EQ(1u, sii->shared_image_count());
         break;
       case 3:
         // Resource manager state should not change when delete is called on an
         // invalid id.
-        ASSERT_EQ(1u, context->NumTextures());
+        ASSERT_EQ(1u, sii->shared_image_count());
         break;
       case 4:
         // Creation after deletion: two more creates should total up to
         // three textures.
-        ASSERT_EQ(3u, context->NumTextures());
+        ASSERT_EQ(3u, sii->shared_image_count());
         break;
     }
   }
@@ -5352,10 +5348,10 @@ class LayerTreeHostTestTreeActivationCallback : public LayerTreeHostTest {
   void SetCallback(LayerTreeHostImpl* host_impl, bool enable) {
     host_impl->SetTreeActivationCallback(
         enable
-            ? base::Bind(
+            ? base::BindRepeating(
                   &LayerTreeHostTestTreeActivationCallback::ActivationCallback,
                   base::Unretained(this))
-            : base::Closure());
+            : base::RepeatingClosure());
   }
 
   void ActivationCallback() { ++callback_count_; }
@@ -5899,10 +5895,10 @@ class LayerTreeHostTestKeepSwapPromise : public LayerTreeHostTest {
 
   void SetCallback(LayerTreeHostImpl* host_impl, bool enable) {
     host_impl->SetTreeActivationCallback(
-        enable
-            ? base::Bind(&LayerTreeHostTestKeepSwapPromise::ActivationCallback,
-                         base::Unretained(this))
-            : base::Closure());
+        enable ? base::BindRepeating(
+                     &LayerTreeHostTestKeepSwapPromise::ActivationCallback,
+                     base::Unretained(this))
+               : base::RepeatingClosure());
   }
 
   void DisplayDidDrawAndSwapOnThread() override {
@@ -6016,10 +6012,10 @@ class LayerTreeHostTestKeepSwapPromiseMFBA : public LayerTreeHostTest {
 
   void SetCallback(LayerTreeHostImpl* host_impl, bool enable) {
     host_impl->SetTreeActivationCallback(
-        enable ? base::Bind(
+        enable ? base::BindRepeating(
                      &LayerTreeHostTestKeepSwapPromiseMFBA::ActivationCallback,
                      base::Unretained(this))
-               : base::Closure());
+               : base::RepeatingClosure());
   }
 
   void DisplayDidDrawAndSwapOnThread() override {
@@ -7849,55 +7845,15 @@ class LayerTreeHostTestPaintedDeviceScaleFactor : public LayerTreeHostTest {
 };
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestPaintedDeviceScaleFactor);
 
-// Makes sure that presentation-time requests are correctly propagated to the
-// frame's metadata.
-class LayerTreeHostTestPresentationTimeRequest : public LayerTreeHostTest {
+// Tests that a presentation-timestamps are received for a frame.
+class LayerTreeHostTestPresentationTime : public LayerTreeHostTest {
  protected:
   void BeginTest() override {
-    layer_tree_host()->RequestPresentationTimeForNextFrame(base::DoNothing());
     PostSetNeedsCommitToMainThread();
   }
 
   void DisplayReceivedCompositorFrameOnThread(
       const viz::CompositorFrame& frame) override {
-    EXPECT_TRUE(frame.metadata.request_presentation_feedback);
-    EndTest();
-  }
-
-  void AfterTest() override {}
-};
-SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestPresentationTimeRequest);
-
-// A SwapPromise that turns on |request_presentation_feedback| during
-// WillSwap().
-class RequestPresentationFeedbackSwapPromise : public SwapPromise {
- public:
-  RequestPresentationFeedbackSwapPromise() = default;
-  ~RequestPresentationFeedbackSwapPromise() override = default;
-
-  // SwapPromise:
-  void DidActivate() override {}
-  void WillSwap(viz::CompositorFrameMetadata* metadata) override {
-    metadata->request_presentation_feedback = true;
-  }
-  void DidSwap() override {}
-  void DidNotSwap(DidNotSwapReason reason) override {}
-  int64_t TraceId() const override { return 0; }
-};
-
-// Tests that a presentation-token can be requested during swap.
-class LayerTreeHostTestPresentationTimeRequestDuringSwap
-    : public LayerTreeHostTest {
- protected:
-  void BeginTest() override {
-    layer_tree_host()->QueueSwapPromise(
-        std::make_unique<RequestPresentationFeedbackSwapPromise>());
-    PostSetNeedsCommitToMainThread();
-  }
-
-  void DisplayReceivedCompositorFrameOnThread(
-      const viz::CompositorFrame& frame) override {
-    EXPECT_TRUE(frame.metadata.request_presentation_feedback);
     frame_token_ = frame.metadata.frame_token;
   }
 
@@ -7914,8 +7870,7 @@ class LayerTreeHostTestPresentationTimeRequestDuringSwap
  private:
   uint32_t frame_token_ = 0;
 };
-SINGLE_AND_MULTI_THREAD_TEST_F(
-    LayerTreeHostTestPresentationTimeRequestDuringSwap);
+SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestPresentationTime);
 
 // Makes sure that viz::LocalSurfaceId is propagated to the LayerTreeFrameSink.
 class LayerTreeHostTestLocalSurfaceId : public LayerTreeHostTest {
@@ -7970,15 +7925,8 @@ class LayerTreeHostTestLocalSurfaceIdSkipChildNum : public LayerTreeHostTest {
         allocator_.GetCurrentLocalSurfaceIdAllocation();
     EXPECT_TRUE(child_allocator_.UpdateFromParent(
         allocator_.GetCurrentLocalSurfaceIdAllocation()));
-    child_allocator_.GenerateId();
-    child_local_surface_id_allocation_ =
-        child_allocator_.GetCurrentLocalSurfaceIdAllocation();
-    EXPECT_NE(expected_local_surface_id_allocation_,
-              child_local_surface_id_allocation_);
     PostSetLocalSurfaceIdAllocationToMainThread(
         expected_local_surface_id_allocation_);
-    PostSetLocalSurfaceIdAllocationToMainThread(
-        child_local_surface_id_allocation_);
   }
 
   DrawResult PrepareToDrawOnThread(LayerTreeHostImpl* host_impl,
@@ -7989,6 +7937,26 @@ class LayerTreeHostTestLocalSurfaceIdSkipChildNum : public LayerTreeHostTest {
     EXPECT_EQ(
         expected_local_surface_id_allocation_,
         host_impl->active_tree()->local_surface_id_allocation_from_parent());
+
+    // This initial test setup triggers a commit and subsequent draw. Upon the
+    // first draw, enqueue the second portion of the test. The newly pushed id,
+    // with an advanced child sequence number, but no change in parent sequence,
+    // should not trigger a commit. If it does, then PrepareToDrawOnThread will
+    // be called a second time, and the expectation upon viz::LocalSurfaceId
+    // will fail. We do not assert on frame number, as that interferes with
+    // returning from this method. We do not just have an expectation either,
+    // as then we would continuously increment that child sequence until the
+    // test times out.
+    if (!host_impl->active_tree()->source_frame_number()) {
+      child_allocator_.GenerateId();
+      child_local_surface_id_allocation_ =
+          child_allocator_.GetCurrentLocalSurfaceIdAllocation();
+      EXPECT_NE(expected_local_surface_id_allocation_,
+                child_local_surface_id_allocation_);
+      PostSetLocalSurfaceIdAllocationToMainThread(
+          child_local_surface_id_allocation_);
+    }
+
     return draw_result;
   }
 
@@ -8344,9 +8312,9 @@ class LayerTreeHostTestQueueImageDecode : public LayerTreeHostTest {
     image_ = DrawImage(CreateDiscardablePaintImage(gfx::Size(400, 400)),
                        SkIRect::MakeWH(400, 400), kNone_SkFilterQuality,
                        SkMatrix::I(), PaintImage::kDefaultFrameIndex);
-    auto callback =
-        base::Bind(&LayerTreeHostTestQueueImageDecode::ImageDecodeFinished,
-                   base::Unretained(this));
+    auto callback = base::BindRepeating(
+        &LayerTreeHostTestQueueImageDecode::ImageDecodeFinished,
+        base::Unretained(this));
     // Schedule the decode twice for the same image.
     layer_tree_host()->QueueImageDecode(image_.paint_image(), callback);
     layer_tree_host()->QueueImageDecode(image_.paint_image(), callback);
@@ -8401,10 +8369,10 @@ class LayerTreeHostTestQueueImageDecodeNonLazy : public LayerTreeHostTest {
                            .set_image(SkImage::MakeFromBitmap(bitmap_),
                                       PaintImage::GetNextContentId())
                            .TakePaintImage();
-    auto callback = base::Bind(
+    auto callback = base::BindOnce(
         &LayerTreeHostTestQueueImageDecodeNonLazy::ImageDecodeFinished,
         base::Unretained(this));
-    layer_tree_host()->QueueImageDecode(image, callback);
+    layer_tree_host()->QueueImageDecode(image, std::move(callback));
   }
 
   void ImageDecodeFinished(bool decode_succeeded) {
@@ -8476,9 +8444,9 @@ class LayerTreeHostTestDiscardAckAfterRelease : public LayerTreeHostTest {
     // that WillReceiveCompositorFrameAck which we PostTask below will be called
     // before DidReceiveCompositorFrameAck.
     MainThreadTaskRunner()->PostTask(
-        FROM_HERE, base::Bind(&LayerTreeHostTestDiscardAckAfterRelease::
-                                  WillReceiveCompositorFrameAck,
-                              base::Unretained(this)));
+        FROM_HERE, base::BindOnce(&LayerTreeHostTestDiscardAckAfterRelease::
+                                      WillReceiveCompositorFrameAck,
+                                  base::Unretained(this)));
   }
 
   void WillReceiveCompositorFrameAck() {
@@ -8505,8 +8473,8 @@ class LayerTreeHostTestDiscardAckAfterRelease : public LayerTreeHostTest {
     // before we are in CheckFrameAck.
     MainThreadTaskRunner()->PostTask(
         FROM_HERE,
-        base::Bind(&LayerTreeHostTestDiscardAckAfterRelease::CheckFrameAck,
-                   base::Unretained(this)));
+        base::BindOnce(&LayerTreeHostTestDiscardAckAfterRelease::CheckFrameAck,
+                       base::Unretained(this)));
   }
 
   void DidReceiveCompositorFrameAck() override { received_ack_ = true; }

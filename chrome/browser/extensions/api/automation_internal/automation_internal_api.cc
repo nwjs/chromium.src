@@ -29,6 +29,7 @@
 #include "content/public/browser/browser_plugin_guest_manager.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
@@ -38,8 +39,8 @@
 #include "extensions/common/manifest_handlers/automation.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_action_handler.h"
 #include "ui/accessibility/ax_enum_util.h"
-#include "ui/accessibility/ax_host_delegate.h"
 #include "ui/accessibility/ax_tree_id_registry.h"
 
 #if defined(USE_AURA)
@@ -241,8 +242,12 @@ class AutomationWebContentsObserver
 
   content::BrowserContext* browser_context_;
 
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
+
   DISALLOW_COPY_AND_ASSIGN(AutomationWebContentsObserver);
 };
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(AutomationWebContentsObserver)
 
 ExtensionFunction::ResponseAction
 AutomationInternalEnableTabFunction::Run() {
@@ -292,8 +297,9 @@ AutomationInternalEnableTabFunction::Run() {
       source_process_id(),
       ax_tree_id);
 
-  return RespondNow(ArgumentList(
-      api::automation_internal::EnableTab::Results::Create(ax_tree_id)));
+  return RespondNow(
+      ArgumentList(api::automation_internal::EnableTab::Results::Create(
+          ax_tree_id.ToString())));
 }
 
 ExtensionFunction::ResponseAction AutomationInternalEnableFrameFunction::Run() {
@@ -488,61 +494,53 @@ AutomationInternalPerformActionFunction::Run() {
   std::unique_ptr<Params> params(Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
   ui::AXTreeIDRegistry* registry = ui::AXTreeIDRegistry::GetInstance();
-  ui::AXHostDelegate* delegate =
-      registry->GetHostDelegate(ui::AXTreeID::FromString(params->args.tree_id));
-  if (delegate) {
-#if defined(USE_AURA)
+  ui::AXActionHandler* action_handler = registry->GetActionHandler(
+      ui::AXTreeID::FromString(params->args.tree_id));
+  if (action_handler) {
+    // Handle an AXActionHandler with a rfh first. Some actions require a rfh ->
+    // web contents and this api requires web contents to perform a permissions
+    // check.
+    content::RenderFrameHost* rfh = content::RenderFrameHost::FromAXTreeID(
+        ui::AXTreeID::FromString(params->args.tree_id));
+    if (rfh) {
+      content::WebContents* contents =
+          content::WebContents::FromRenderFrameHost(rfh);
+      if (!CanRequestAutomation(extension(), automation_info, contents)) {
+        return RespondNow(
+            Error(kCannotRequestAutomationOnPage, contents->GetURL().spec()));
+      }
+
+      // Handle internal actions.
+      api::automation_internal::ActionTypePrivate internal_action_type =
+          api::automation_internal::ParseActionTypePrivate(
+              params->args.action_type);
+      content::MediaSession* session = content::MediaSession::Get(contents);
+      switch (internal_action_type) {
+        case api::automation_internal::ACTION_TYPE_PRIVATE_STARTDUCKINGMEDIA:
+          session->StartDucking();
+          return RespondNow(NoArguments());
+        case api::automation_internal::ACTION_TYPE_PRIVATE_STOPDUCKINGMEDIA:
+          session->StopDucking();
+          return RespondNow(NoArguments());
+        case api::automation_internal::ACTION_TYPE_PRIVATE_RESUMEMEDIA:
+          session->Resume(content::MediaSession::SuspendType::kSystem);
+          return RespondNow(NoArguments());
+        case api::automation_internal::ACTION_TYPE_PRIVATE_SUSPENDMEDIA:
+          session->Suspend(content::MediaSession::SuspendType::kSystem);
+          return RespondNow(NoArguments());
+        case api::automation_internal::ACTION_TYPE_PRIVATE_NONE:
+          // Not a private action.
+          break;
+      }
+    }
+
     ui::AXActionData data;
     ExtensionFunction::ResponseAction result =
         ConvertToAXActionData(params.get(), &data);
-    delegate->PerformAction(data);
+    action_handler->PerformAction(data);
     return result;
-#else
-    NOTREACHED();
-    return RespondNow(Error("Unexpected action on desktop automation tree;"
-                            " platform does not support desktop automation"));
-#endif  // defined(USE_AURA)
   }
-  content::RenderFrameHost* rfh = content::RenderFrameHost::FromAXTreeID(
-      ui::AXTreeID::FromString(params->args.tree_id));
-  if (!rfh)
-    return RespondNow(Error("Ignoring action on destroyed node"));
-
-  content::WebContents* contents =
-      content::WebContents::FromRenderFrameHost(rfh);
-  if (!CanRequestAutomation(extension(), automation_info, contents)) {
-    return RespondNow(
-        Error(kCannotRequestAutomationOnPage, contents->GetURL().spec()));
-  }
-
-  // Handle internal actions.
-  api::automation_internal::ActionTypePrivate internal_action_type =
-      api::automation_internal::ParseActionTypePrivate(
-          params->args.action_type);
-  content::MediaSession* session = content::MediaSession::Get(contents);
-  switch (internal_action_type) {
-    case api::automation_internal::ACTION_TYPE_PRIVATE_STARTDUCKINGMEDIA:
-      session->StartDucking();
-      return RespondNow(NoArguments());
-    case api::automation_internal::ACTION_TYPE_PRIVATE_STOPDUCKINGMEDIA:
-      session->StopDucking();
-      return RespondNow(NoArguments());
-    case api::automation_internal::ACTION_TYPE_PRIVATE_RESUMEMEDIA:
-      session->Resume(content::MediaSession::SuspendType::kSystem);
-      return RespondNow(NoArguments());
-    case api::automation_internal::ACTION_TYPE_PRIVATE_SUSPENDMEDIA:
-      session->Suspend(content::MediaSession::SuspendType::kSystem);
-      return RespondNow(NoArguments());
-    case api::automation_internal::ACTION_TYPE_PRIVATE_NONE:
-      // Not a private action.
-      break;
-  }
-
-  ui::AXActionData data;
-  ExtensionFunction::ResponseAction result =
-      ConvertToAXActionData(params.get(), &data);
-  rfh->AccessibilityPerformAction(data);
-  return result;
+  return RespondNow(Error("Unable to perform action on unknown tree."));
 }
 
 ExtensionFunction::ResponseAction
@@ -557,7 +555,10 @@ AutomationInternalEnableDesktopFunction::Run() {
       extension_id(), source_process_id());
 
   AutomationManagerAura::GetInstance()->Enable();
-  return RespondNow(NoArguments());
+  ui::AXTreeID ax_tree_id = AutomationManagerAura::GetInstance()->ax_tree_id();
+  return RespondNow(
+      ArgumentList(api::automation_internal::EnableDesktop::Results::Create(
+          ax_tree_id.ToString())));
 #else
   return RespondNow(Error("getDesktop is unsupported by this platform"));
 #endif  // defined(USE_AURA)

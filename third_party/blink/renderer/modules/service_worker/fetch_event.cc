@@ -96,7 +96,7 @@ FetchEvent::FetchEvent(ScriptState* script_state,
     : ExtendableEvent(type, initializer, wait_until_observer),
       ContextClient(ExecutionContext::From(script_state)),
       observer_(respond_with_observer),
-      preload_response_property_(new PreloadResponseProperty(
+      preload_response_property_(MakeGarbageCollected<PreloadResponseProperty>(
           ExecutionContext::From(script_state),
           this,
           PreloadResponseProperty::kPreloadResponse)) {
@@ -124,20 +124,21 @@ void FetchEvent::OnNavigationPreloadResponse(
   DataPipeBytesConsumer* bytes_consumer = nullptr;
   if (data_pipe.is_valid()) {
     DataPipeBytesConsumer::CompletionNotifier* completion_notifier = nullptr;
-    bytes_consumer =
-        new DataPipeBytesConsumer(ExecutionContext::From(script_state),
-                                  std::move(data_pipe), &completion_notifier);
+    bytes_consumer = MakeGarbageCollected<DataPipeBytesConsumer>(
+        ExecutionContext::From(script_state), std::move(data_pipe),
+        &completion_notifier);
     body_completion_notifier_ = completion_notifier;
   }
   // TODO(ricea): Verify that this response can't be aborted from JS.
   FetchResponseData* response_data =
-      bytes_consumer
-          ? FetchResponseData::CreateWithBuffer(new BodyStreamBuffer(
-                script_state, bytes_consumer,
-                new AbortSignal(ExecutionContext::From(script_state))))
-          : FetchResponseData::Create();
+      bytes_consumer ? FetchResponseData::CreateWithBuffer(
+                           MakeGarbageCollected<BodyStreamBuffer>(
+                               script_state, bytes_consumer,
+                               MakeGarbageCollected<AbortSignal>(
+                                   ExecutionContext::From(script_state))))
+                     : FetchResponseData::Create();
   Vector<KURL> url_list(1);
-  url_list[0] = preload_response_->Url();
+  url_list[0] = preload_response_->CurrentRequestUrl();
   response_data->SetURLList(url_list);
   response_data->SetStatus(preload_response_->HttpStatusCode());
   response_data->SetStatusMessage(preload_response_->HttpStatusText());

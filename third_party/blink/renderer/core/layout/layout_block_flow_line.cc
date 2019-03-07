@@ -1584,8 +1584,8 @@ static inline void AdjustMarginForInlineReplaced(LayoutObject* child,
                                                  LayoutUnit& child_max) {
   // Inline replaced elts add in their margins to their min/max values.
   const ComputedStyle& child_style = child->StyleRef();
-  Length start_margin = child_style.MarginStart();
-  Length end_margin = child_style.MarginEnd();
+  const Length& start_margin = child_style.MarginStart();
+  const Length& end_margin = child_style.MarginEnd();
   LayoutUnit margins;
   if (start_margin.IsFixed())
     margins += AdjustFloatForSubPixelLayout(start_margin.Value());
@@ -2482,8 +2482,7 @@ void LayoutBlockFlow::CheckLinesForTextOverflow() {
         LogicalRightOffsetForLine(curr->LineTop(), indent_text);
     LayoutUnit block_left_edge =
         LogicalLeftOffsetForLine(curr->LineTop(), indent_text);
-    LayoutUnit line_box_edge = ltr ? curr->LogicalRightLayoutOverflow()
-                                   : curr->LogicalLeftLayoutOverflow();
+    LayoutUnit line_box_edge = ltr ? curr->LogicalRight() : curr->LogicalLeft();
     if ((ltr && line_box_edge > block_right_edge) ||
         (!ltr && line_box_edge < block_left_edge)) {
       // This line spills out of our box in the appropriate direction. Now we

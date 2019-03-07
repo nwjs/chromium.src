@@ -29,6 +29,7 @@
 #include "chrome/browser/resource_coordinator/utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/usb/usb_tab_helper.h"
+#include "components/device_event_log/device_event_log.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -123,7 +124,9 @@ bool IsValidStateChange(LifecycleUnitState from,
         //   - The freeze timeout expires, or,
         //   - The renderer notifies the browser that the page has been frozen.
         case LifecycleUnitState::DISCARDED:
-          return reason == StateChangeReason::BROWSER_INITIATED;
+          return reason == StateChangeReason::BROWSER_INITIATED ||
+                 reason == StateChangeReason::SYSTEM_MEMORY_PRESSURE ||
+                 reason == StateChangeReason::EXTENSION_INITIATED;
         // The WebContents is focused.
         case LifecycleUnitState::PENDING_FREEZE:
           return reason == StateChangeReason::USER_INITIATED;
@@ -725,7 +728,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::FinishDiscard(
   // when activated. If it was true, there would be an immediate reload when the
   // active tab of a non-visible window is discarded. SetFocused() will take
   // care of reloading the tab when it becomes active in a focused window.
-  null_contents->GetController().CopyStateFrom(old_contents->GetController(),
+  null_contents->GetController().CopyStateFrom(&old_contents->GetController(),
                                                /* needs_reload */ false);
 
   // First try to fast-kill the process, if it's just running a single tab.
@@ -779,8 +782,12 @@ void TabLifecycleUnitSource::TabLifecycleUnit::FinishDiscard(
 bool TabLifecycleUnitSource::TabLifecycleUnit::DiscardImpl(
     LifecycleUnitDiscardReason reason) {
   // Can't discard a tab when it isn't in a tabstrip.
-  if (!tab_strip_model_)
+  if (!tab_strip_model_) {
+    // Logs are used to diagnose user feedback reports.
+    MEMORY_LOG(ERROR) << "Skipped discarding " << GetTitle()
+                      << " because it isn't in a tab strip.";
     return false;
+  }
 
   const LifecycleUnitState target_state =
       reason == LifecycleUnitDiscardReason::PROACTIVE &&
@@ -789,6 +796,10 @@ bool TabLifecycleUnitSource::TabLifecycleUnit::DiscardImpl(
           : LifecycleUnitState::DISCARDED;
   if (!IsValidStateChange(GetState(), target_state,
                           DiscardReasonToStateChangeReason(reason))) {
+    // Logs are used to diagnose user feedback reports.
+    MEMORY_LOG(ERROR) << "Skipped discarding " << GetTitle()
+                      << " because a transition from " << GetState() << " to "
+                      << target_state << " is not allowed.";
     return false;
   }
 

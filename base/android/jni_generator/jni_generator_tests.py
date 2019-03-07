@@ -92,6 +92,8 @@ class BaseTest(unittest.TestCase):
     return jni_from_java.GetContent()
 
   def AssertObjEquals(self, first, second):
+    if isinstance(first, str):
+      return self.assertEquals(first,second)
     dict_first = first.__dict__
     dict_second = second.__dict__
     self.assertEquals(dict_first.keys(), dict_second.keys())
@@ -632,7 +634,8 @@ class TestGenerator(BaseTest):
           name='updateStatus',
           method_id_var_name='updateStatus',
           java_class_name='',
-          params=[Param(datatype='int', name='status')],
+          params=[Param(annotations=['@Status'], datatype='int',
+                        name='status')],
           env_call=('Integer', ''),
           unchecked=False,
         ),
@@ -1201,6 +1204,25 @@ class Foo {
         test_data, 'org/chromium/foo/Foo', options_with_tracing)
     self.AssertGoldenTextEquals(jni_from_java.GetContent())
 
+  def testStaticBindingCaller(self):
+    test_data = """
+    package org.chromium.foo;
+
+    class Bar {
+      static native void nativeShouldBindCaller(@JCaller Object caller);
+      static native void nativeShouldBindCaller(@JCaller Object caller, int a);
+      static native void nativeFoo(@JCaller Bar caller,
+                          long nativeNativeObject);
+      static native void nativeFoo(@JCaller Bar caller,
+                          long nativeNativeObject, int a);
+      native void nativeCallNativeMethod(long nativePtr);
+    }
+    """
+
+    jni_from_java = jni_generator.JNIFromJavaSource(
+      test_data, 'org/chromium/foo/Foo', TestOptions())
+    self.AssertGoldenTextEquals(jni_from_java.GetContent())
+
 
 class ProxyTestGenerator(BaseTest):
 
@@ -1222,7 +1244,7 @@ class ProxyTestGenerator(BaseTest):
 
     class Foo {
 
-    @JniStaticNatives
+    @NativeMethods
     interface Natives {
        void foo();
        String bar(String s, int y, char x, short z);
@@ -1245,7 +1267,7 @@ class ProxyTestGenerator(BaseTest):
   def testEscapingProxyNatives(self):
     test_data = """
     class SampleProxyJni {
-      @JniStaticNatives
+      @NativeMethods
       interface Natives {
         void foo_bar();
         void foo__bar();
@@ -1284,7 +1306,7 @@ class ProxyTestGenerator(BaseTest):
     test_data = """
     @MainDex
     class Foo() {
-      @JniStaticNatives
+      @NativeMethods
       interface Natives {
         void thisismaindex();
       }
@@ -1296,7 +1318,7 @@ class ProxyTestGenerator(BaseTest):
 
     non_main_dex_test_data = """
     class Bar() {
-      @JniStaticNatives
+      @NativeMethods
       interface Natives {
         void foo();
         void bar();
@@ -1360,7 +1382,7 @@ class ProxyTestGenerator(BaseTest):
     test_data = """
     class SampleProxyJni {
       private void do_not_match();
-      @JniStaticNatives
+      @NativeMethods
       interface Natives {
         void foo();
         int bar(int x, int y);
@@ -1374,7 +1396,7 @@ class ProxyTestGenerator(BaseTest):
 
     bad_spaced_test_data = """
     class SampleProxyJni{
-      @JniStaticNatives interface 
+      @NativeMethods interface 
       Natives 
       
       

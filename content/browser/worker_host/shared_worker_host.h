@@ -16,22 +16,23 @@
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
-#include "content/common/service_worker/service_worker_provider.mojom.h"
-#include "content/common/shared_worker/shared_worker.mojom.h"
-#include "content/common/shared_worker/shared_worker_client.mojom.h"
 #include "content/common/shared_worker/shared_worker_factory.mojom.h"
-#include "content/common/shared_worker/shared_worker_host.mojom.h"
 #include "content/public/browser/global_routing_id.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "services/service_manager/public/mojom/interface_provider.mojom.h"
-#include "third_party/blink/public/mojom/shared_worker/worker_main_script_load_params.mojom.h"
-#include "third_party/blink/public/web/devtools_agent.mojom.h"
+#include "third_party/blink/public/mojom/devtools/devtools_agent.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
+#include "third_party/blink/public/mojom/worker/shared_worker.mojom.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_client.mojom.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_host.mojom.h"
+#include "third_party/blink/public/mojom/worker/worker_main_script_load_params.mojom.h"
 
 class GURL;
 
 namespace blink {
 class MessagePortChannel;
+class URLLoaderFactoryBundleInfo;
 }
 
 namespace content {
@@ -40,7 +41,6 @@ class AppCacheNavigationHandle;
 class SharedWorkerContentSettingsProxyImpl;
 class SharedWorkerInstance;
 class SharedWorkerServiceImpl;
-class URLLoaderFactoryBundleInfo;
 struct SubresourceLoaderParams;
 
 // The SharedWorkerHost is the interface that represents the browser side of
@@ -48,7 +48,7 @@ struct SubresourceLoaderParams;
 // SharedWorkerServiceImpl and destructed when a worker context or worker's
 // message filter is closed.
 class CONTENT_EXPORT SharedWorkerHost
-    : public mojom::SharedWorkerHost,
+    : public blink::mojom::SharedWorkerHost,
       public service_manager::mojom::InterfaceProvider {
  public:
   SharedWorkerHost(SharedWorkerServiceImpl* service,
@@ -91,12 +91,13 @@ class CONTENT_EXPORT SharedWorkerHost
   // service worker controller is sent via ServiceWorkerContainer#SetController.
   void Start(
       mojom::SharedWorkerFactoryPtr factory,
-      mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+      blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
           service_worker_provider_info,
       network::mojom::URLLoaderFactoryAssociatedPtrInfo
           main_script_loader_factory,
       blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
-      std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loader_factories,
+      std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+          subresource_loader_factories,
       base::Optional<SubresourceLoaderParams> subresource_loader_params);
 
   void AllowFileSystem(const GURL& url,
@@ -106,7 +107,7 @@ class CONTENT_EXPORT SharedWorkerHost
   // Terminates the given worker, i.e. based on a UI action.
   void TerminateWorker();
 
-  void AddClient(mojom::SharedWorkerClientPtr client,
+  void AddClient(blink::mojom::SharedWorkerClientPtr client,
                  int process_id,
                  int frame_id,
                  const blink::MessagePortChannel& port);
@@ -137,12 +138,12 @@ class CONTENT_EXPORT SharedWorkerHost
   class ScopedDevToolsHandle;
 
   struct ClientInfo {
-    ClientInfo(mojom::SharedWorkerClientPtr client,
+    ClientInfo(blink::mojom::SharedWorkerClientPtr client,
                int connection_request_id,
                int process_id,
                int frame_id);
     ~ClientInfo();
-    mojom::SharedWorkerClientPtr client;
+    blink::mojom::SharedWorkerClientPtr client;
     const int connection_request_id;
     const int process_id;
     const int frame_id;
@@ -150,7 +151,7 @@ class CONTENT_EXPORT SharedWorkerHost
 
   using ClientList = std::list<ClientInfo>;
 
-  // mojom::SharedWorkerHost methods:
+  // blink::mojom::SharedWorkerHost methods:
   void OnConnected(int connection_request_id) override;
   void OnContextClosed() override;
   void OnReadyForInspection() override;
@@ -174,15 +175,15 @@ class CONTENT_EXPORT SharedWorkerHost
 
   void AdvanceTo(Phase phase);
 
-  mojo::Binding<mojom::SharedWorkerHost> binding_;
+  mojo::Binding<blink::mojom::SharedWorkerHost> binding_;
 
   // |service_| owns |this|.
   SharedWorkerServiceImpl* service_;
   std::unique_ptr<SharedWorkerInstance> instance_;
   ClientList clients_;
 
-  mojom::SharedWorkerRequest worker_request_;
-  mojom::SharedWorkerPtr worker_;
+  blink::mojom::SharedWorkerRequest worker_request_;
+  blink::mojom::SharedWorkerPtr worker_;
 
   const int process_id_;
   int next_connection_request_id_;

@@ -87,7 +87,7 @@ class ListAttributeTargetObserver : public IdTargetObserver {
 
   ListAttributeTargetObserver(const AtomicString& id, HTMLInputElement*);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   void IdTargetChanged() override;
 
  private:
@@ -135,7 +135,7 @@ HTMLInputElement* HTMLInputElement::Create(Document& document,
   return input_element;
 }
 
-void HTMLInputElement::Trace(blink::Visitor* visitor) {
+void HTMLInputElement::Trace(Visitor* visitor) {
   visitor->Trace(input_type_);
   visitor->Trace(input_type_view_);
   visitor->Trace(list_attribute_target_observer_);
@@ -143,10 +143,12 @@ void HTMLInputElement::Trace(blink::Visitor* visitor) {
   TextControlElement::Trace(visitor);
 }
 
-const HashSet<AtomicString>& HTMLInputElement::GetCheckedAttributeNames()
+const AttrNameToTrustedType& HTMLInputElement::GetCheckedAttributeTypes()
     const {
-  DEFINE_STATIC_LOCAL(HashSet<AtomicString>, attribute_set, ({"src"}));
-  return attribute_set;
+  DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
+                      ({{"formaction", SpecificTrustedType::kTrustedURL},
+                        {"src", SpecificTrustedType::kTrustedURL}}));
+  return attribute_map;
 }
 
 bool HTMLInputElement::HasPendingActivity() const {
@@ -385,7 +387,7 @@ void HTMLInputElement::InitializeTypeInParsing() {
     CreateShadowSubtree();
   }
 
-  SetNeedsWillValidateCheck();
+  UpdateWillValidateCache();
 
   if (!default_value.IsNull())
     input_type_->WarnIfValueIsInvalid(default_value);
@@ -444,7 +446,7 @@ void HTMLInputElement::UpdateType() {
     CreateShadowSubtree();
   }
 
-  SetNeedsWillValidateCheck();
+  UpdateWillValidateCache();
 
   if (placeholder_changed) {
     // We need to update the UA shadow and then the placeholder visibility flag
@@ -889,9 +891,6 @@ void HTMLInputElement::AttachLayoutTree(AttachContext& context) {
 }
 
 void HTMLInputElement::DetachLayoutTree(const AttachContext& context) {
-  if (GetLayoutObject()) {
-    input_type_->OnDetachWithLayoutObject();
-  }
   TextControlElement::DetachLayoutTree(context);
   needs_to_update_view_value_ = true;
   input_type_view_->ClosePopupView();
@@ -1701,7 +1700,7 @@ bool HTMLInputElement::IsEnumeratable() const {
   return input_type_->IsEnumeratable();
 }
 
-bool HTMLInputElement::SupportLabels() const {
+bool HTMLInputElement::IsLabelable() const {
   return input_type_->IsInteractiveContent();
 }
 
@@ -1830,7 +1829,7 @@ ListAttributeTargetObserver::ListAttributeTargetObserver(
                        id),
       element_(element) {}
 
-void ListAttributeTargetObserver::Trace(blink::Visitor* visitor) {
+void ListAttributeTargetObserver::Trace(Visitor* visitor) {
   visitor->Trace(element_);
   IdTargetObserver::Trace(visitor);
 }

@@ -40,8 +40,8 @@ class DummyTextInputClient : public TextInputClient {
   ui::TextInputClient::FocusReason GetFocusReason() const override;
   bool GetTextRange(gfx::Range* range) const override;
   bool GetCompositionTextRange(gfx::Range* range) const override;
-  bool GetSelectionRange(gfx::Range* range) const override;
-  bool SetSelectionRange(const gfx::Range& range) override;
+  bool GetEditableSelectionRange(gfx::Range* range) const override;
+  bool SetEditableSelectionRange(const gfx::Range& range) override;
   bool DeleteRange(const gfx::Range& range) override;
   bool GetTextFromRange(const gfx::Range& range,
                         base::string16* text) const override;
@@ -63,6 +63,9 @@ class DummyTextInputClient : public TextInputClient {
   const std::vector<CompositionText>& composition_history() const {
     return composition_history_;
   }
+  const std::vector<gfx::Range>& selection_history() const {
+    return selection_history_;
+  }
 
   TextInputType text_input_type_;
   TextInputMode text_input_mode_;
@@ -74,6 +77,7 @@ class DummyTextInputClient : public TextInputClient {
   base::char16 last_insert_char_;
   std::vector<base::string16> insert_text_history_;
   std::vector<CompositionText> composition_history_;
+  std::vector<gfx::Range> selection_history_;
 };
 
 }  // namespace ui

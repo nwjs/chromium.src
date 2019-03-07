@@ -83,8 +83,7 @@ const char kHeadlessCrashKey[] = "headless";
 
 HeadlessContentMainDelegate::HeadlessContentMainDelegate(
     std::unique_ptr<HeadlessBrowserImpl> browser)
-    : content_client_(browser->options()),
-      browser_(std::move(browser)),
+    : browser_(std::move(browser)),
       headless_crash_key_(base::debug::AllocateCrashKeyString(
           kHeadlessCrashKey,
           base::debug::CrashKeySize::Size32)) {
@@ -289,8 +288,8 @@ int HeadlessContentMainDelegate::RunProcess(
   base::trace_event::TraceLog::GetInstance()->SetProcessSortIndex(
       kTraceEventBrowserProcessSortIndex);
 
-  std::unique_ptr<content::BrowserMainRunner> browser_runner(
-      content::BrowserMainRunner::Create());
+  std::unique_ptr<content::BrowserMainRunner> browser_runner =
+      content::BrowserMainRunner::Create();
 
   int exit_code = browser_runner->Initialize(main_function_params);
   DCHECK_LT(exit_code, 0) << "content::BrowserMainRunner::Initialize failed in "

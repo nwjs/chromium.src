@@ -38,6 +38,7 @@ import org.chromium.components.signin.AccountIdProvider;
 import org.chromium.components.signin.AccountManagerDelegateException;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountManagerResult;
+import org.chromium.components.signin.AccountTrackerService;
 import org.chromium.components.signin.AccountsChangeObserver;
 import org.chromium.components.signin.ChildAccountStatus;
 import org.chromium.components.signin.GmsAvailabilityException;
@@ -334,18 +335,24 @@ public abstract class SigninFragmentBase
     /** Sets texts for immutable elements. Accept button text is set by {@link #setHasAccounts}. */
     private void updateConsentText() {
         mConsentTextTracker.setText(mView.getTitleView(), R.string.signin_title);
-        mConsentTextTracker.setText(
-                mView.getSyncDescriptionView(), R.string.signin_sync_description);
 
-        final @StringRes int personalizationDescription =
+        mConsentTextTracker.setText(mView.getSyncTitleView(), R.string.signin_sync_title);
+        final @StringRes int syncDescription =
                 mChildAccountStatus == ChildAccountStatus.REGULAR_CHILD
-                ? R.string.signin_personalization_description_child_account
-                : R.string.signin_personalization_description;
-        mConsentTextTracker.setText(
-                mView.getPersonalizationDescriptionView(), personalizationDescription);
+                ? R.string.signin_sync_description_child_account
+                : R.string.signin_sync_description;
+        mConsentTextTracker.setText(mView.getSyncDescriptionView(), syncDescription);
 
-        mConsentTextTracker.setText(mView.getGoogleServicesDescriptionView(),
-                R.string.signin_google_services_description);
+        mConsentTextTracker.setText(
+                mView.getTapToSearchTitleView(), R.string.signin_tap_to_search_title);
+        mConsentTextTracker.setText(
+                mView.getTapToSearchDescriptionView(), R.string.signin_tap_to_search_description);
+
+        mConsentTextTracker.setText(
+                mView.getSafeBrowsingTitleView(), R.string.signin_safe_browsing_title);
+        mConsentTextTracker.setText(
+                mView.getSafeBrowsingDescriptionView(), R.string.signin_safe_browsing_description);
+
         mConsentTextTracker.setText(mView.getRefuseButton(), getNegativeButtonTextId());
         mConsentTextTracker.setText(mView.getMoreButton(), R.string.more);
     }
@@ -422,7 +429,9 @@ public abstract class SigninFragmentBase
         // Ensure that the AccountTrackerService has a fully up to date GAIA id <-> email mapping,
         // as this is needed for the previous account check.
         final long seedingStartTime = SystemClock.elapsedRealtime();
-        if (AccountTrackerService.get().checkAndSeedSystemAccounts()) {
+        final AccountTrackerService accountTrackerService =
+                IdentityServicesProvider.getAccountTrackerService();
+        if (accountTrackerService.checkAndSeedSystemAccounts()) {
             recordAccountTrackerServiceSeedingTime(seedingStartTime);
             runStateMachineAndSignin(settingsClicked);
             return;
@@ -432,7 +441,7 @@ public abstract class SigninFragmentBase
                 new AccountTrackerService.OnSystemAccountsSeededListener() {
                     @Override
                     public void onSystemAccountsSeedingComplete() {
-                        AccountTrackerService.get().removeSystemAccountsSeededListener(this);
+                        accountTrackerService.removeSystemAccountsSeededListener(this);
                         recordAccountTrackerServiceSeedingTime(seedingStartTime);
 
                         // Don't start sign-in if this fragment has been destroyed.
@@ -443,7 +452,7 @@ public abstract class SigninFragmentBase
                     @Override
                     public void onSystemAccountsChanged() {}
                 };
-        AccountTrackerService.get().addSystemAccountsSeededListener(listener);
+        accountTrackerService.addSystemAccountsSeededListener(listener);
     }
 
     private void runStateMachineAndSignin(boolean settingsClicked) {

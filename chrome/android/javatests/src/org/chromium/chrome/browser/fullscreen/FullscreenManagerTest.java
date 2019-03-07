@@ -67,7 +67,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({
         ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
-        "disable-features=" + ChromeFeatureList.FULLSCREEN_ACTIVITY,
         "enable-blink-features=FullscreenUnprefixed,FullscreenOptions",
 })
 @RetryOnFailure
@@ -289,10 +288,10 @@ public class FullscreenManagerTest {
         ChromeFullscreenManager.FullscreenListener fullscreenListener =
                 new ChromeFullscreenManager.FullscreenListener() {
                     @Override
-                    public void onContentOffsetChanged(float offset) {}
+                    public void onContentOffsetChanged(int offset) {}
                     @Override
                     public void onControlsOffsetChanged(
-                            float topOffset, float bottomOffset, boolean needsAnimate) {}
+                            int topOffset, int bottomOffset, boolean needsAnimate) {}
                     @Override
                     public void onToggleOverlayVideoMode(boolean enabled) {}
                     @Override
@@ -431,9 +430,9 @@ public class FullscreenManagerTest {
         TouchCommon.dragStart(mActivityTestRule.getActivity(), dragX, dragStartY, downTime);
         TouchCommon.dragTo(mActivityTestRule.getActivity(), dragX, dragX, dragStartY, dragFullY,
                 100, downTime);
-        FullscreenManagerTestUtils.waitForBrowserControlsPosition(mActivityTestRule, 0f);
+        FullscreenManagerTestUtils.waitForBrowserControlsPosition(mActivityTestRule, 0);
         TouchCommon.dragEnd(mActivityTestRule.getActivity(), dragX, dragFullY, downTime);
-        FullscreenManagerTestUtils.waitForBrowserControlsPosition(mActivityTestRule, 0f);
+        FullscreenManagerTestUtils.waitForBrowserControlsPosition(mActivityTestRule, 0);
     }
 
     @Test
@@ -458,7 +457,7 @@ public class FullscreenManagerTest {
                 delegate.rendererUnresponsive();
             }
         });
-        FullscreenManagerTestUtils.waitForBrowserControlsPosition(mActivityTestRule, 0f);
+        FullscreenManagerTestUtils.waitForBrowserControlsPosition(mActivityTestRule, 0);
 
         ThreadUtils.runOnUiThread(new Runnable() {
             @Override

@@ -93,21 +93,6 @@ namespace mojo {
 
 namespace {
 
-blink::mojom::NotificationDirection ToMojomNotificationDirection(
-    blink::WebNotificationData::Direction input) {
-  switch (input) {
-    case blink::WebNotificationData::kDirectionLeftToRight:
-      return blink::mojom::NotificationDirection::LEFT_TO_RIGHT;
-    case blink::WebNotificationData::kDirectionRightToLeft:
-      return blink::mojom::NotificationDirection::RIGHT_TO_LEFT;
-    case blink::WebNotificationData::kDirectionAuto:
-      return blink::mojom::NotificationDirection::AUTO;
-  }
-
-  NOTREACHED();
-  return blink::mojom::NotificationDirection::AUTO;
-}
-
 blink::mojom::NotificationActionType ToMojomNotificationActionType(
     blink::WebNotificationAction::Type input) {
   switch (input) {
@@ -158,11 +143,10 @@ struct TypeConverter<blink::mojom::blink::NotificationDataPtr,
     }
 
     return blink::mojom::blink::NotificationData::New(
-        input.title, ToMojomNotificationDirection(input.direction), input.lang,
-        input.body, input.tag, input.image, input.icon, input.badge,
-        std::move(vibration_pattern), input.timestamp, input.renotify,
-        input.silent, input.require_interaction, std::move(data),
-        std::move(actions));
+        input.title, input.direction, input.lang, input.body, input.tag,
+        input.image, input.icon, input.badge, std::move(vibration_pattern),
+        input.timestamp, input.renotify, input.silent,
+        input.require_interaction, std::move(data), std::move(actions));
   }
 };
 
@@ -220,7 +204,7 @@ void ServiceWorkerGlobalScopeProxy::DispatchBackgroundFetchAbortEvent(
   ScriptState::Scope scope(script_state);
 
   BackgroundFetchEventInit* init = BackgroundFetchEventInit::Create();
-  init->setRegistration(new BackgroundFetchRegistration(
+  init->setRegistration(MakeGarbageCollected<BackgroundFetchRegistration>(
       WorkerGlobalScope()->registration() /* service_worker_registration */,
       registration));
 
@@ -238,7 +222,7 @@ void ServiceWorkerGlobalScopeProxy::DispatchBackgroundFetchClickEvent(
       WorkerGlobalScope(), WaitUntilObserver::kBackgroundFetchClick, event_id);
 
   BackgroundFetchEventInit* init = BackgroundFetchEventInit::Create();
-  init->setRegistration(new BackgroundFetchRegistration(
+  init->setRegistration(MakeGarbageCollected<BackgroundFetchRegistration>(
       WorkerGlobalScope()->registration() /* service_worker_registration */,
       registration));
 
@@ -263,7 +247,7 @@ void ServiceWorkerGlobalScopeProxy::DispatchBackgroundFetchFailEvent(
   ScriptState::Scope scope(script_state);
 
   BackgroundFetchEventInit* init = BackgroundFetchEventInit::Create();
-  init->setRegistration(new BackgroundFetchRegistration(
+  init->setRegistration(MakeGarbageCollected<BackgroundFetchRegistration>(
       WorkerGlobalScope()->registration() /* service_worker_registration */,
       registration));
 
@@ -290,7 +274,7 @@ void ServiceWorkerGlobalScopeProxy::DispatchBackgroundFetchSuccessEvent(
   ScriptState::Scope scope(script_state);
 
   BackgroundFetchEventInit* init = BackgroundFetchEventInit::Create();
-  init->setRegistration(new BackgroundFetchRegistration(
+  init->setRegistration(MakeGarbageCollected<BackgroundFetchRegistration>(
       WorkerGlobalScope()->registration() /* service_worker_registration */,
       registration));
 
@@ -545,8 +529,8 @@ void ServiceWorkerGlobalScopeProxy::DispatchAbortPaymentEvent(int event_id) {
   WaitUntilObserver* wait_until_observer = WaitUntilObserver::Create(
       WorkerGlobalScope(), WaitUntilObserver::kAbortPayment, event_id);
   AbortPaymentRespondWithObserver* respond_with_observer =
-      new AbortPaymentRespondWithObserver(WorkerGlobalScope(), event_id,
-                                          wait_until_observer);
+      MakeGarbageCollected<AbortPaymentRespondWithObserver>(
+          WorkerGlobalScope(), event_id, wait_until_observer);
 
   Event* event = AbortPaymentEvent::Create(
       event_type_names::kAbortpayment, ExtendableEventInit::Create(),
@@ -563,8 +547,8 @@ void ServiceWorkerGlobalScopeProxy::DispatchCanMakePaymentEvent(
   WaitUntilObserver* wait_until_observer = WaitUntilObserver::Create(
       WorkerGlobalScope(), WaitUntilObserver::kCanMakePayment, event_id);
   CanMakePaymentRespondWithObserver* respond_with_observer =
-      new CanMakePaymentRespondWithObserver(WorkerGlobalScope(), event_id,
-                                            wait_until_observer);
+      MakeGarbageCollected<CanMakePaymentRespondWithObserver>(
+          WorkerGlobalScope(), event_id, wait_until_observer);
 
   Event* event = CanMakePaymentEvent::Create(
       event_type_names::kCanmakepayment,

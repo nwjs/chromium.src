@@ -18,12 +18,12 @@
 #include "base/stl_util.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "chromeos/chromeos_paths.h"
 #include "chromeos/dbus/attestation/attestation.pb.h"
+#include "chromeos/dbus/constants/dbus_paths.h"
+#include "chromeos/dbus/cryptohome/install_attributes.pb.h"
 #include "chromeos/dbus/cryptohome/key.pb.h"
 #include "chromeos/dbus/cryptohome/rpc.pb.h"
 #include "chromeos/dbus/util/account_identifier_operators.h"
-#include "components/policy/proto/install_attributes.pb.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
 namespace chromeos {
@@ -44,14 +44,15 @@ constexpr size_t kInstallAttributesFileMaxSize = 16384;
 
 FakeCryptohomeClient::FakeCryptohomeClient()
     : service_is_available_(true),
+      remove_firmware_management_parameters_from_tpm_call_count_(0),
       async_call_id_(1),
       unmount_result_(true),
       system_salt_(GetStubSystemSalt()),
       weak_ptr_factory_(this) {
   base::FilePath cache_path;
-  locked_ =
-      base::PathService::Get(chromeos::FILE_INSTALL_ATTRIBUTES, &cache_path) &&
-      base::PathExists(cache_path);
+  locked_ = base::PathService::Get(dbus_paths::FILE_INSTALL_ATTRIBUTES,
+                                   &cache_path) &&
+            base::PathExists(cache_path);
   if (locked_)
     LoadInstallAttributes();
 }
@@ -263,8 +264,10 @@ bool FakeCryptohomeClient::InstallAttributesFinalize(bool* successful) {
   // browser is restarted. This is used for ease of development when device
   // enrollment is required.
   base::FilePath cache_path;
-  if (!base::PathService::Get(chromeos::FILE_INSTALL_ATTRIBUTES, &cache_path))
+  if (!base::PathService::Get(dbus_paths::FILE_INSTALL_ATTRIBUTES,
+                              &cache_path)) {
     return false;
+  }
 
   cryptohome::SerializedInstallAttributes install_attrs_proto;
   for (const auto& it : install_attrs_) {
@@ -277,8 +280,10 @@ bool FakeCryptohomeClient::InstallAttributesFinalize(bool* successful) {
                                         value.data() + value.size());
   }
 
-  std::string result;
-  install_attrs_proto.SerializeToString(&result);
+  // Set default version (note that version is required).
+  install_attrs_proto.set_version(install_attrs_proto.version());
+  std::string result = install_attrs_proto.SerializeAsString();
+  DCHECK(!result.empty());
 
   // The real implementation does a blocking wait on the dbus call; the fake
   // implementation must have this file written before returning.
@@ -662,6 +667,7 @@ void FakeCryptohomeClient::MigrateToDircrypto(
 void FakeCryptohomeClient::RemoveFirmwareManagementParametersFromTpm(
     const cryptohome::RemoveFirmwareManagementParametersRequest& request,
     DBusMethodCallback<cryptohome::BaseReply> callback) {
+  remove_firmware_management_parameters_from_tpm_call_count_++;
   ReturnProtobufMethodCallback(cryptohome::BaseReply(), std::move(callback));
 }
 
@@ -746,8 +752,8 @@ void FakeCryptohomeClient::NotifyLowDiskSpace(uint64_t disk_free_bytes) {
 // static
 std::vector<uint8_t> FakeCryptohomeClient::GetStubSystemSalt() {
   const char kStubSystemSalt[] = "stub_system_salt";
-  return std::vector<uint8_t>(kStubSystemSalt,
-                              kStubSystemSalt + arraysize(kStubSystemSalt) - 1);
+  return std::vector<uint8_t>(
+      kStubSystemSalt, kStubSystemSalt + base::size(kStubSystemSalt) - 1);
 }
 
 void FakeCryptohomeClient::ReturnProtobufMethodCallback(
@@ -837,10 +843,11 @@ void FakeCryptohomeClient::NotifyDircryptoMigrationProgress(
 bool FakeCryptohomeClient::LoadInstallAttributes() {
   base::FilePath cache_file;
   const bool file_exists =
-      base::PathService::Get(FILE_INSTALL_ATTRIBUTES, &cache_file) &&
+      base::PathService::Get(dbus_paths::FILE_INSTALL_ATTRIBUTES,
+                             &cache_file) &&
       base::PathExists(cache_file);
   DCHECK(file_exists);
-  // Mostly copied from chrome/browser/chromeos/settings/install_attributes.cc.
+  // Mostly copied from chrome/browser/chromeos/tpm/install_attributes.cc.
   std::string file_blob;
   if (!base::ReadFileToStringWithMaxSize(cache_file, &file_blob,
                                          kInstallAttributesFileMaxSize)) {

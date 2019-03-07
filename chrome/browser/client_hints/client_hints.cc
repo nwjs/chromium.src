@@ -210,10 +210,14 @@ double RoundKbpsToMbps(const std::string& host,
 
 }  // namespace internal
 
-std::unique_ptr<net::HttpRequestHeaders>
-GetAdditionalNavigationRequestClientHintsHeaders(
-    content::BrowserContext* context,
-    const GURL& url) {
+ClientHints::ClientHints(content::BrowserContext* context)
+    : context_(context) {}
+
+ClientHints::~ClientHints() = default;
+
+void ClientHints::GetAdditionalNavigationRequestClientHintsHeaders(
+    const GURL& url,
+    net::HttpRequestHeaders* additional_headers) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   DCHECK_EQ(blink::kWebEffectiveConnectionTypeMappingCount,
             net::EFFECTIVE_CONNECTION_TYPE_4G + 1u);
@@ -222,26 +226,25 @@ GetAdditionalNavigationRequestClientHintsHeaders(
 
   // Get the client hint headers.
   if (!url.is_valid())
-    return nullptr;
+    return;
 
   if (!url.SchemeIsHTTPOrHTTPS())
-    return nullptr;
+    return;
 
   if (url.SchemeIs(url::kHttpScheme) && !net::IsLocalhost(url))
-    return nullptr;
+    return;
 
   DCHECK(url.SchemeIs(url::kHttpsScheme) ||
          (url.SchemeIs(url::kHttpScheme) && net::IsLocalhost(url)));
 
-  Profile* profile = Profile::FromBrowserContext(context);
+  Profile* profile = Profile::FromBrowserContext(context_);
   if (!profile)
-    return nullptr;
+    return;
 
   // Check if |url| is allowed to run JavaScript. If not, client hints are not
   // attached to the requests that initiate on the browser side.
-  if (!IsJavaScriptAllowed(profile, url)) {
-    return nullptr;
-  }
+  if (!IsJavaScriptAllowed(profile, url))
+    return;
 
   ContentSettingsForOneType client_hints_host_settings;
   HostContentSettingsMapFactory::GetForProfile(profile)->GetSettingsForOneType(
@@ -252,9 +255,6 @@ GetAdditionalNavigationRequestClientHintsHeaders(
 
   GetAllowedClientHintsFromSource(
       url /* resource url */, client_hints_host_settings, &web_client_hints);
-
-  std::unique_ptr<net::HttpRequestHeaders> additional_headers(
-      std::make_unique<net::HttpRequestHeaders>());
 
   // Currently, only "device-memory" client hint request header is added from
   // the browser process.
@@ -274,7 +274,7 @@ GetAdditionalNavigationRequestClientHintsHeaders(
   if (web_client_hints.IsEnabled(blink::mojom::WebClientHintsType::kDpr)) {
     double device_scale_factor = GetDeviceScaleFactor();
 
-    double zoom_factor = GetZoomFactor(context, url);
+    double zoom_factor = GetZoomFactor(context_, url);
     additional_headers->SetHeader(
         blink::kClientHintsHeaderMapping[static_cast<int>(
             blink::mojom::WebClientHintsType::kDpr)],
@@ -293,7 +293,7 @@ GetAdditionalNavigationRequestClientHintsHeaders(
                           ->GetPrimaryDisplay()
                           .GetSizeInPixel()
                           .width()) /
-                     GetZoomFactor(context, url) / device_scale_factor;
+                     GetZoomFactor(context_, url) / device_scale_factor;
 #endif  // !OS_ANDROID
     DCHECK_LT(0, viewport_width);
     if (viewport_width > 0) {
@@ -380,7 +380,6 @@ GetAdditionalNavigationRequestClientHintsHeaders(
   // headers stay attached to the redirected request. Consider removing/adding
   // the client hints headers if the request is redirected with a change in
   // scheme or a change in the origin.
-  return additional_headers;
 }
 
 }  // namespace client_hints

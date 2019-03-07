@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/bind.h"
+#include "base/stl_util.h"
 #include "extensions/renderer/script_context.h"
 #include "v8/include/v8.h"
 
@@ -18,18 +19,18 @@ AppBindings::AppBindings(Dispatcher* dispatcher, ScriptContext* context)
 AppBindings::~AppBindings() {}
 
 void AppBindings::AddRoutes() {
-  RouteHandlerFunction(
-      "GetIsInstalled", "app.getIsInstalled",
-      base::Bind(&AppBindings::GetIsInstalled, base::Unretained(this)));
+  RouteHandlerFunction("GetIsInstalled", "app.getIsInstalled",
+                       base::BindRepeating(&AppBindings::GetIsInstalled,
+                                           base::Unretained(this)));
   RouteHandlerFunction(
       "GetDetails", "app.getDetails",
-      base::Bind(&AppBindings::GetDetails, base::Unretained(this)));
-  RouteHandlerFunction(
-      "GetInstallState", "app.installState",
-      base::Bind(&AppBindings::GetInstallState, base::Unretained(this)));
-  RouteHandlerFunction(
-      "GetRunningState", "app.runningState",
-      base::Bind(&AppBindings::GetRunningState, base::Unretained(this)));
+      base::BindRepeating(&AppBindings::GetDetails, base::Unretained(this)));
+  RouteHandlerFunction("GetInstallState", "app.installState",
+                       base::BindRepeating(&AppBindings::GetInstallState,
+                                           base::Unretained(this)));
+  RouteHandlerFunction("GetRunningState", "app.runningState",
+                       base::BindRepeating(&AppBindings::GetRunningState,
+                                           base::Unretained(this)));
 }
 
 void AppBindings::GetIsInstalled(
@@ -76,7 +77,7 @@ void AppBindings::OnAppInstallStateResponse(int callback_id,
           .ToLocalChecked(),
       v8::Integer::New(isolate, callback_id)};
   context()->module_system()->CallModuleMethodSafe(
-      "app", "onInstallStateResponse", arraysize(argv), argv);
+      "app", "onInstallStateResponse", base::size(argv), argv);
 }
 
 }  // namespace extensions

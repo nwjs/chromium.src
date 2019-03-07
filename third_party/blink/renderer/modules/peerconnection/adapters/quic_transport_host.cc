@@ -60,10 +60,9 @@ scoped_refptr<base::SingleThreadTaskRunner> QuicTransportHost::host_thread()
   return ice_transport_host_->host_thread();
 }
 
-void QuicTransportHost::Start(
-    std::vector<std::unique_ptr<rtc::SSLFingerprint>> remote_fingerprints) {
+void QuicTransportHost::Start(P2PQuicTransport::StartConfig config) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  quic_transport_->Start(std::move(remote_fingerprints));
+  quic_transport_->Start(std::move(config));
 }
 
 void QuicTransportHost::Stop() {
@@ -79,6 +78,15 @@ void QuicTransportHost::CreateStream(
   stream_host->Initialize(this, p2p_stream);
   stream_hosts_.insert(
       std::make_pair(stream_host.get(), std::move(stream_host)));
+}
+
+void QuicTransportHost::GetStats(uint32_t request_id) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+
+  P2PQuicTransportStats stats = quic_transport_->GetStats();
+  PostCrossThreadTask(
+      *proxy_thread(), FROM_HERE,
+      CrossThreadBind(&QuicTransportProxy::OnStats, proxy_, request_id, stats));
 }
 
 void QuicTransportHost::OnRemoveStream(QuicStreamHost* stream_host_to_remove) {

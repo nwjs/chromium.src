@@ -19,6 +19,7 @@
 <translation id="1591562245178063882">Bulan ini</translation>
 <translation id="1637811476055996098">Pilih Fail</translation>
 <translation id="1650423536718072820">petikan tarik keluar</translation>
+<translation id="1727886345390570319">sembunyikan menu sari kata</translation>
 <translation id="1729654308190250600">Sila masukkan alamat e-mel bukan kosong.</translation>
 <translation id="1758486001363313524">Lain-lain...</translation>
 <translation id="1806710327868736751">dialog_makluman</translation>
@@ -96,6 +97,7 @@
 <translation id="4413860115965805769">butang menu</translation>
 <translation id="4446524499724042288">rujukan glosari</translation>
 <translation id="4522570452068850558">Butiran</translation>
+<translation id="4542388879936266156">masa yang tinggal: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">borang</translation>
 <translation id="4661075872484491155">pohon</translation>
 <translation id="4664250907885839816">Bahagian selepas '<ph name="ATSIGN" />' tidak boleh mengandungi simbol '<ph name="INVALIDCHARACTER" />'.</translation>
@@ -147,6 +149,7 @@
 <translation id="6213469881011901533">glosari</translation>
 <translation id="6398862346408813489">Tunjukkan panel pilihan bulan</translation>
 <translation id="6404546809543547843">pembersih masa audio</translation>
+<translation id="6443871981718447451">tunjukkan menu sari kata</translation>
 <translation id="6453774872122745852">perakuan</translation>
 <translation id="648732519525291180">pemilih masa</translation>
 <translation id="6550675742724504774">Pilihan</translation>
@@ -162,7 +165,6 @@
 <translation id="6820355525329141109">Tidak dapat memuatkan pemalam.</translation>
 <translation id="6820615603175220800">rujukan bibliografi</translation>
 <translation id="6843725295806269523">redam</translation>
-<translation id="6853785296079745596">sembunyikan kapsyen tertutup</translation>
 <translation id="6885760532393684712">direktori</translation>
 <translation id="689129560213475294">kolofon</translation>
 <translation id="6934078000481955284">petikan blok</translation>
@@ -171,7 +173,6 @@
 <translation id="6989848892321993519">Sila panjangkan teks ini kepada <ph name="MIN_CHARACTERS" /> aksara atau lebih (anda sedang menggunakan 1 aksara).</translation>
 <translation id="709897737746224366">Sila padankan dengan format yang diminta.</translation>
 <translation id="7139483182332611405">kata penghantar</translation>
-<translation id="7223624360433298498">masa berlalu</translation>
 <translation id="7263440858009898357">Sila pilih item dalam senarai.</translation>
 <translation id="727747134524199931">pengepala lajur</translation>
 <translation id="7353453495576941748">kredit</translation>
@@ -186,7 +187,6 @@
 <translation id="7661956066982048809">dokumen grafik</translation>
 <translation id="7673697353781729403">Jam</translation>
 <translation id="7681220483256441252">indeks</translation>
-<translation id="7720026100085573005">masa yang tinggal</translation>
 <translation id="7740050170769002709">Kandungan HTML</translation>
 <translation id="7750228210027921155">Gambar dalam gambar</translation>
 <translation id="7789962463072032349">jeda</translation>
@@ -201,6 +201,7 @@
 <translation id="8199524924445686405">yyyy</translation>
 <translation id="8284326494547611709">Kapsyen</translation>
 <translation id="835897206747267392">Nilai tidak sah.</translation>
+<translation id="8403857369060869934">masa berlalu: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">bahagian</translation>
 <translation id="8433900881053900389">bar alat</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> fail</translation>
@@ -225,7 +226,6 @@
 <translation id="8987927404178983737">Bulan</translation>
 <translation id="901493112792887934">masa semasa dalam saat</translation>
 <translation id="9048119486235211610">navigasi</translation>
-<translation id="9050748414552849310">paparkan kapsyen tertutup</translation>
 <translation id="9062295712474918030">dokumen</translation>
 <translation id="9093215626363556771">keluar daripada gambar dalam gambar</translation>
 <translation id="9108370397979208512">matematik</translation>

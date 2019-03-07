@@ -16,10 +16,6 @@
 
 namespace chromeos {
 
-namespace {
-const char kMethodContextChanged[] = "contextChanged";
-}  // namespace
-
 JSCallsContainer::JSCallsContainer() = default;
 
 JSCallsContainer::~JSCallsContainer() = default;
@@ -49,10 +45,16 @@ void BaseWebUIHandler::GetLocalizedStrings(base::DictionaryValue* dict) {
   GetAdditionalParameters(dict);
 }
 
+std::string BaseWebUIHandler::FullMethodPath(const std::string& method) const {
+  DCHECK(!method.empty());
+  return js_screen_path_prefix_ + method;
+}
+
 void BaseWebUIHandler::RegisterMessages() {
-  AddPrefixedCallback("userActed", &BaseScreenHandler::HandleUserAction);
-  AddPrefixedCallback("contextChanged",
-                      &BaseScreenHandler::HandleContextChanged);
+  AddCallback(FullMethodPath("userActed"),
+              &BaseScreenHandler::HandleUserAction);
+  AddCallback(FullMethodPath("contextChanged"),
+              &BaseScreenHandler::HandleContextChanged);
   DeclareJSCallbacks();
 }
 
@@ -60,13 +62,13 @@ void BaseWebUIHandler::CommitContextChanges(const base::DictionaryValue& diff) {
   if (!page_is_ready())
     pending_context_changes_.MergeDictionary(&diff);
   else
-    CallJSWithPrefix(kMethodContextChanged, diff);
+    CallJS(FullMethodPath("contextChanged"), diff);
 }
 
 void BaseWebUIHandler::GetAdditionalParameters(base::DictionaryValue* dict) {}
 
-void BaseWebUIHandler::CallJSWithPrefix(const std::string& method) {
-  web_ui()->CallJavascriptFunctionUnsafe(FullMethodPath(method));
+void BaseWebUIHandler::CallJS(const std::string& method) {
+  web_ui()->CallJavascriptFunctionUnsafe(method);
 }
 
 void BaseWebUIHandler::ShowScreen(OobeScreen screen) {
@@ -109,11 +111,6 @@ void BaseWebUIHandler::SetBaseScreen(BaseScreen* base_screen) {
   base_screen_ = base_screen;
   if (base_screen_)
     base_screen_->set_model_view_channel(this);
-}
-
-std::string BaseWebUIHandler::FullMethodPath(const std::string& method) const {
-  DCHECK(!method.empty());
-  return js_screen_path_prefix_ + method;
 }
 
 void BaseWebUIHandler::HandleUserAction(const std::string& action_id) {

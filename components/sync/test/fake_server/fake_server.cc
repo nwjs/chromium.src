@@ -48,6 +48,19 @@ FakeServer::FakeServer()
   loopback_server_->set_observer_for_tests(this);
 }
 
+FakeServer::FakeServer(const base::FilePath& user_data_dir)
+    : error_type_(sync_pb::SyncEnums::SUCCESS),
+      alternate_triggered_errors_(false),
+      request_counter_(0),
+      weak_ptr_factory_(this) {
+  base::ThreadRestrictions::SetIOAllowed(true);
+  base::FilePath loopback_server_path =
+      user_data_dir.AppendASCII("FakeSyncServer");
+  loopback_server_ = std::make_unique<syncer::LoopbackServer>(
+      loopback_server_path.AppendASCII("profile.pb"));
+  loopback_server_->set_observer_for_tests(this);
+}
+
 FakeServer::~FakeServer() {}
 
 namespace {
@@ -426,6 +439,10 @@ void FakeServer::OnCommit(const std::string& committer_id,
     observer.OnCommit(committer_id, committed_model_types);
 }
 
+void FakeServer::OnHistoryCommit(const std::string& url) {
+  committed_history_urls_.insert(url);
+}
+
 void FakeServer::EnableStrongConsistencyWithConflictDetectionModel() {
   DCHECK(thread_checker_.CalledOnValidThread());
   loopback_server_->EnableStrongConsistencyWithConflictDetectionModel();
@@ -434,6 +451,10 @@ void FakeServer::EnableStrongConsistencyWithConflictDetectionModel() {
 void FakeServer::SetMaxGetUpdatesBatchSize(int batch_size) {
   DCHECK(thread_checker_.CalledOnValidThread());
   loopback_server_->SetMaxGetUpdatesBatchSize(batch_size);
+}
+
+const std::set<std::string>& FakeServer::GetCommittedHistoryURLs() const {
+  return committed_history_urls_;
 }
 
 base::WeakPtr<FakeServer> FakeServer::AsWeakPtr() {

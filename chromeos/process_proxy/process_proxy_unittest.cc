@@ -17,6 +17,7 @@
 #include "base/process/process.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/threading/thread.h"
@@ -113,7 +114,7 @@ class RegistryTestRunner : public TestRunner {
 
  private:
   bool ProcessReceivedCharacter(char received, size_t stream) {
-    if (stream >= arraysize(left_to_check_index_))
+    if (stream >= base::size(left_to_check_index_))
       return false;
     bool success = left_to_check_index_[stream] < expected_line_.length() &&
         expected_line_[left_to_check_index_[stream]] == received;
@@ -206,6 +207,8 @@ class ProcessProxyTest : public testing::Test {
   }
 
   void EndRegistryTest(base::OnceClosure done_closure) {
+    base::ScopedAllowBaseSyncPrimitivesForTesting allow_sync_primitives;
+
     registry_->CloseProcess(terminal_id_);
 
     int unused_exit_code = 0;
@@ -213,7 +216,6 @@ class ProcessProxyTest : public testing::Test {
         base::GetTerminationStatus(terminal_id_, &unused_exit_code);
     EXPECT_NE(base::TERMINATION_STATUS_STILL_RUNNING, status);
     if (status == base::TERMINATION_STATUS_STILL_RUNNING) {
-      base::ScopedAllowBaseSyncPrimitivesForTesting allow_sync_primitives;
       base::Process process =
           base::Process::DeprecatedGetProcessFromHandle(terminal_id_);
       process.Terminate(0, true);

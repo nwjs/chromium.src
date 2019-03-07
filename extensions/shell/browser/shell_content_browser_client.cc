@@ -10,7 +10,7 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/task/post_task.h"
 #include "components/guest_view/browser/guest_view_message_filter.h"
 #include "components/nacl/common/buildflags.h"
@@ -25,6 +25,7 @@
 #include "content/public/common/content_descriptors.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
+#include "content/public/common/user_agent.h"
 #include "content/shell/browser/shell_browser_context.h"
 #include "content/shell/browser/shell_devtools_manager_delegate.h"
 #include "extensions/browser/api/web_request/web_request_api.h"
@@ -47,6 +48,7 @@
 #include "extensions/shell/browser/shell_extension_system.h"
 #include "extensions/shell/browser/shell_navigation_ui_data.h"
 #include "extensions/shell/browser/shell_speech_recognition_manager_delegate.h"
+#include "extensions/shell/common/version.h"  // Generated file.
 #include "storage/browser/quota/quota_settings.h"
 #include "url/gurl.h"
 
@@ -290,6 +292,7 @@ bool ShellContentBrowserClient::WillCreateURLLoaderFactory(
     content::RenderFrameHost* frame,
     int render_process_id,
     bool is_navigation,
+    bool is_download,
     const url::Origin& request_initiator,
     network::mojom::URLLoaderFactoryRequest* factory_request,
     network::mojom::TrustedURLLoaderHeaderClientPtrInfo* header_client,
@@ -298,8 +301,8 @@ bool ShellContentBrowserClient::WillCreateURLLoaderFactory(
       extensions::BrowserContextKeyedAPIFactory<extensions::WebRequestAPI>::Get(
           browser_context);
   bool use_proxy = web_request_api->MaybeProxyURLLoaderFactory(
-      browser_context, frame, render_process_id, is_navigation, factory_request,
-      header_client);
+      browser_context, frame, render_process_id, is_navigation, is_download,
+      factory_request, header_client);
   if (bypass_redirect_checks)
     *bypass_redirect_checks = use_proxy;
   return use_proxy;
@@ -328,6 +331,12 @@ ShellContentBrowserClient::CreateURLLoaderFactoryForNetworkRequests(
       process, network_context, header_client, request_initiator);
 }
 
+std::string ShellContentBrowserClient::GetUserAgent() const {
+  // Must contain a user agent string for version sniffing. For example,
+  // pluginless WebRTC Hangouts checks the Chrome version number.
+  return content::BuildUserAgentFromProduct("Chrome/" PRODUCT_VERSION);
+}
+
 ShellBrowserMainParts* ShellContentBrowserClient::CreateShellBrowserMainParts(
     const content::MainFunctionParams& parameters,
     ShellBrowserMainDelegate* browser_main_delegate) {
@@ -344,7 +353,7 @@ void ShellContentBrowserClient::AppendRendererSwitches(
       switches::kExtensionProcess,
   };
   command_line->CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
-                                 kSwitchNames, arraysize(kSwitchNames));
+                                 kSwitchNames, base::size(kSwitchNames));
 
 #if BUILDFLAG(ENABLE_NACL)
   // NOTE: app_shell does not support non-SFI mode, so it does not pass through
@@ -353,7 +362,8 @@ void ShellContentBrowserClient::AppendRendererSwitches(
       ::switches::kEnableNaClDebug,
   };
   command_line->CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
-                                 kNaclSwitchNames, arraysize(kNaclSwitchNames));
+                                 kNaclSwitchNames,
+                                 base::size(kNaclSwitchNames));
 #endif  // BUILDFLAG(ENABLE_NACL)
 }
 

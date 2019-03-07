@@ -126,15 +126,17 @@
     <dimen name="overlay_panel_bar_height">56dp</dimen>
 
     <!-- Autofill keyboard accessory dimensions -->
-    <dimen name="keyboard_accessory_action_height">36dp</dimen>
-    <dimen name="keyboard_accessory_action_padding">16dp</dimen>
+    <dimen name="keyboard_accessory_bar_item_height">36dp</dimen>
+    <dimen name="keyboard_accessory_bar_item_padding">16dp</dimen>
     <dimen name="keyboard_accessory_half_padding">6dp</dimen>
     <dimen name="keyboard_accessory_height">48dp</dimen>
     <dimen name="keyboard_accessory_height_with_shadow">56dp</dimen>
     <dimen name="keyboard_accessory_padding">6dp</dimen>
     <dimen name="keyboard_accessory_shadow">5dp</dimen>
     <dimen name="keyboard_accessory_sheet_height">330dp</dimen>
+    <dimen name="keyboard_accessory_sheet_padding">8dp</dimen>
     <dimen name="keyboard_accessory_suggestion_padding">16dp</dimen>
+    <dimen name="keyboard_accessory_suggestion_offset">12dp</dimen>
     <dimen name="keyboard_accessory_suggestion_height">48dp</dimen>
     <dimen name="keyboard_accessory_suggestion_icon_size">20dp</dimen>
 
@@ -192,18 +194,17 @@
     <dimen name="signin_chooser_padding">16dp</dimen>
     <dimen name="signin_screen_top_padding">50dp</dimen>
 
-    <dimen name="signin_margin_start">16dp</dimen>
+    <dimen name="signin_margin_start">22dp</dimen>
     <dimen name="signin_margin_end">16dp</dimen>
-    <dimen name="signin_divider_margin_start">48dp</dimen>
-    <dimen name="signin_drawable_padding">16dp</dimen>
+    <dimen name="signin_drawable_padding">22dp</dimen>
 
     <!-- Signin promo dimensions -->
     <dimen name="signin_promo_account_image_size">48dp</dimen>
     <dimen name="signin_promo_cold_state_image_size">24dp</dimen>
 
-    <!-- Autofill card unmasking prompt dimensions -->
-    <dimen name="autofill_card_unmask_tooltip_horizontal_padding">16dp</dimen>
-    <dimen name="autofill_card_unmask_tooltip_vertical_padding">4dp</dimen>
+    <!-- Autofill tooltip dimensions -->
+    <dimen name="autofill_tooltip_horizontal_padding">16dp</dimen>
+    <dimen name="autofill_tooltip_vertical_padding">16dp</dimen>
 
     <!-- Button bar dimensions -->
     <dimen name="button_bar_stacked_margin">8dp</dimen>
@@ -294,6 +295,7 @@
     <dimen name="omnibox_suggestion_first_line_text_size">16sp</dimen>
     <dimen name="omnibox_suggestion_second_line_text_size">14sp</dimen>
     <dimen name="omnibox_suggestion_answer_line2_vertical_spacing">3dp</dimen>
+    <dimen name="omnibox_suggestion_edit_url_min_height">60dp</dimen>
     <!-- omnibox_suggestion_answer_line2_vertical_spacing + 2dp -->
     <dimen name="omnibox_suggestion_answer_image_vertical_spacing">5dp</dimen>
     <dimen name="omnibox_suggestion_answer_image_horizontal_spacing">4dp</dimen>
@@ -404,7 +406,7 @@
     <dimen name="custom_tabs_toolbar_horizontal_margin_no_close">8dp</dimen>
     <dimen name="toolbar_icon_height">24dp</dimen>
     <dimen name="min_toolbar_icon_side_padding">6dp</dimen>
-    <dimen name="custom_tabs_url_lite_separator_margin">3dp</dimen>
+    <dimen name="custom_tabs_url_lite_separator_margin">4dp</dimen>
     <dimen name="custom_tabs_url_text_size">12sp</dimen>
     <dimen name="custom_tabs_title_text_size">16sp</dimen>
     <dimen name="custom_tabs_bottom_bar_max_height">120dp</dimen>
@@ -551,12 +553,8 @@
     <item type="dimen" name="dialog_fixed_height_minor">100%</item>
 
     <!-- Chip list -->
-    <dimen name="chip_no_icon_padding">16dp</dimen>
-    <dimen name="chip_icon_padding">8dp</dimen>
     <dimen name="chip_list_inter_chip_padding">2.5dp</dimen>
     <dimen name="chip_list_side_padding">16dp</dimen>
-    <item name="chip_background_selected_focused_alpha" format="float" type="dimen">0.12</item>
-    <item name="chip_background_selected_alpha" format="float" type="dimen">0.06</item>
 
     <!-- Download manager dimensions -->
     <dimen name="download_manager_ideal_image_width">150dp</dimen>

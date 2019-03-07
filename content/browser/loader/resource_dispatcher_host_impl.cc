@@ -40,6 +40,7 @@
 #include "content/browser/browsing_data/clear_site_data_throttle.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/frame_host/navigation_request_info.h"
+#include "content/browser/isolation_context.h"
 #include "content/browser/loader/cross_site_document_resource_handler.h"
 #include "content/browser/loader/detachable_resource_handler.h"
 #include "content/browser/loader/intercepting_resource_handler.h"
@@ -465,23 +466,23 @@ ResourceDispatcherHostImpl::MaybeInterceptAsStream(
     network::ResourceResponse* response,
     std::string* payload) {
   payload->clear();
-  ResourceRequestInfoImpl* info = ResourceRequestInfoImpl::ForRequest(request);
   const std::string& mime_type = response->head.mime_type;
 
   GURL origin;
   if (!delegate_ || !delegate_->ShouldInterceptResourceAsStream(
                         request, mime_type, &origin, payload)) {
-    return std::unique_ptr<ResourceHandler>();
+    return nullptr;
   }
 
+  ResourceRequestInfoImpl* info = ResourceRequestInfoImpl::ForRequest(request);
   StreamContext* stream_context =
       GetStreamContextForResourceContext(info->GetContext());
 
-  std::unique_ptr<StreamResourceHandler> handler(new StreamResourceHandler(
-      request, stream_context->registry(), origin, false));
+  auto handler = std::make_unique<StreamResourceHandler>(
+      request, stream_context->registry(), origin, false);
 
   info->set_is_stream(true);
-  std::unique_ptr<StreamInfo> stream_info(new StreamInfo);
+  auto stream_info = std::make_unique<StreamInfo>();
   stream_info->handle = handler->stream()->CreateHandle();
   stream_info->original_url = request->url();
   stream_info->mime_type = mime_type;
@@ -490,7 +491,8 @@ ResourceDispatcherHostImpl::MaybeInterceptAsStream(
   // ResourceDispatcherHostDelegate.
   if (response->head.headers.get()) {
     stream_info->response_headers =
-        new net::HttpResponseHeaders(response->head.headers->raw_headers());
+        base::MakeRefCounted<net::HttpResponseHeaders>(
+            response->head.headers->raw_headers());
   }
   delegate_->OnStreamCreated(request, std::move(stream_info));
   return std::move(handler);
@@ -852,6 +854,7 @@ void ResourceDispatcherHostImpl::ContinuePendingBeginRequest(
 
   new_request->set_method(request_data.method);
   new_request->set_site_for_cookies(request_data.site_for_cookies);
+  new_request->set_top_frame_origin(request_data.top_frame_origin);
   new_request->set_attach_same_site_cookies(
       request_data.attach_same_site_cookies);
   new_request->set_upgrade_if_insecure(request_data.upgrade_if_insecure);
@@ -924,15 +927,11 @@ void ResourceDispatcherHostImpl::ContinuePendingBeginRequest(
     report_raw_headers = false;
   }
 
-  // Do not report raw headers if the request's site needs to be isolated
-  // from the current process.
-  if (report_raw_headers) {
-    bool is_isolated =
-        SiteIsolationPolicy::UseDedicatedProcessesForAllSites() ||
-        policy->IsIsolatedOrigin(url::Origin::Create(request_data.url));
-    if (is_isolated &&
-        !policy->CanAccessDataForOrigin(child_id, request_data.url))
-      report_raw_headers = false;
+  // Do not report raw headers if the current process isn't permitted to access
+  // data for the request's site.
+  if (report_raw_headers &&
+      !policy->CanAccessDataForOrigin(child_id, request_data.url)) {
+    report_raw_headers = false;
   }
 
   if (DoNotPromptForLogin(static_cast<ResourceType>(request_data.resource_type),
@@ -1139,11 +1138,8 @@ ResourceDispatcherHostImpl::AddStandardHandlers(
 
   if (!IsResourceTypeFrame(resource_type)) {
     // Add a handler to block cross-site documents from the renderer process.
-    bool is_nocors_plugin_request =
-        resource_type == RESOURCE_TYPE_PLUGIN_RESOURCE &&
-        fetch_request_mode == network::mojom::FetchRequestMode::kNoCors;
     handler.reset(new CrossSiteDocumentResourceHandler(
-        std::move(handler), request, is_nocors_plugin_request));
+        std::move(handler), request, fetch_request_mode));
   }
 
   // Insert a buffered event handler to sniff the mime type.
@@ -1218,17 +1214,6 @@ void ResourceDispatcherHostImpl::OnRenderViewHostDeleted(int child_id,
   auto* host = ResourceDispatcherHostImpl::Get();
   if (host && host->scheduler_) {
     host->scheduler_->OnClientDeleted(child_id, route_id);
-  }
-}
-
-// static
-void ResourceDispatcherHostImpl::OnRenderViewHostSetIsLoading(int child_id,
-                                                              int route_id,
-                                                              bool is_loading) {
-  auto* host = ResourceDispatcherHostImpl::Get();
-  if (host && host->scheduler_) {
-    host->scheduler_->DeprecatedOnLoadingStateChanged(child_id, route_id,
-                                                      !is_loading);
   }
 }
 
@@ -1476,7 +1461,8 @@ void ResourceDispatcherHostImpl::BeginNavigationRequest(
 
   new_request->set_method(info.common_params.method);
   new_request->set_site_for_cookies(info.site_for_cookies);
-  new_request->set_initiator(info.begin_params->initiator_origin);
+  new_request->set_top_frame_origin(info.top_frame_origin);
+  new_request->set_initiator(info.common_params.initiator_origin);
   new_request->set_upgrade_if_insecure(info.upgrade_if_insecure);
   if (info.is_main_frame) {
     new_request->set_first_party_url_policy(
@@ -1902,7 +1888,7 @@ void ResourceDispatcherHostImpl::UpdateLoadStateOnUI(
 
   std::unique_ptr<LoadInfoMap> info_map =
       PickMoreInterestingLoadInfos(std::move(infos));
-  for (const auto& load_info: *info_map) {
+  for (const auto& load_info : *info_map) {
     loader_delegate->LoadStateChanged(
         load_info.first, load_info.second.host, load_info.second.load_state,
         load_info.second.upload_position, load_info.second.upload_size);
@@ -1993,8 +1979,7 @@ void ResourceDispatcherHostImpl::AckUpdateLoadInfo() {
 void ResourceDispatcherHostImpl::MaybeStartUpdateLoadInfoTimer() {
   // If shutdown has occurred, |update_load_info_timer_| is nullptr.
   if (!is_shutdown_ && !waiting_on_load_state_ack_ &&
-      !update_load_info_timer_->IsRunning() &&
-      scheduler_->DeprecatedHasLoadingClients() && !pending_loaders_.empty()) {
+      !update_load_info_timer_->IsRunning() && !pending_loaders_.empty()) {
     update_load_info_timer_->Start(
         FROM_HERE, TimeDelta::FromMilliseconds(kUpdateLoadStatesIntervalMsec),
         this, &ResourceDispatcherHostImpl::UpdateLoadInfo);

@@ -33,7 +33,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_decode_error_callback.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_decode_success_callback.h"
 #include "third_party/blink/renderer/core/dom/events/event_listener.h"
-#include "third_party/blink/renderer/core/dom/pausable_object.h"
+#include "third_party/blink/renderer/core/execution_context/pausable_object.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_typed_array.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
@@ -119,6 +119,8 @@ class MODULES_EXPORT BaseAudioContext
   }
 
   // Document notification
+  void ContextPaused(PauseState) override;
+  void ContextUnpaused() override;
   void ContextDestroyed(ExecutionContext*) override;
   bool HasPendingActivity() const override;
 
@@ -137,7 +139,7 @@ class MODULES_EXPORT BaseAudioContext
   AudioContextState ContextState() const { return context_state_; }
   void ThrowExceptionForClosedState(ExceptionState&);
 
-  AudioBuffer* createBuffer(unsigned number_of_channels,
+  AudioBuffer* createBuffer(uint32_t number_of_channels,
                             uint32_t number_of_frames,
                             float sample_rate,
                             ExceptionState&);
@@ -184,21 +186,21 @@ class MODULES_EXPORT BaseAudioContext
   DynamicsCompressorNode* createDynamicsCompressor(ExceptionState&);
   AnalyserNode* createAnalyser(ExceptionState&);
   ScriptProcessorNode* createScriptProcessor(ExceptionState&);
-  ScriptProcessorNode* createScriptProcessor(size_t buffer_size,
+  ScriptProcessorNode* createScriptProcessor(uint32_t buffer_size,
                                              ExceptionState&);
-  ScriptProcessorNode* createScriptProcessor(size_t buffer_size,
-                                             size_t number_of_input_channels,
+  ScriptProcessorNode* createScriptProcessor(uint32_t buffer_size,
+                                             uint32_t number_of_input_channels,
                                              ExceptionState&);
-  ScriptProcessorNode* createScriptProcessor(size_t buffer_size,
-                                             size_t number_of_input_channels,
-                                             size_t number_of_output_channels,
+  ScriptProcessorNode* createScriptProcessor(uint32_t buffer_size,
+                                             uint32_t number_of_input_channels,
+                                             uint32_t number_of_output_channels,
                                              ExceptionState&);
   StereoPannerNode* createStereoPanner(ExceptionState&);
   ChannelSplitterNode* createChannelSplitter(ExceptionState&);
-  ChannelSplitterNode* createChannelSplitter(size_t number_of_outputs,
+  ChannelSplitterNode* createChannelSplitter(uint32_t number_of_outputs,
                                              ExceptionState&);
   ChannelMergerNode* createChannelMerger(ExceptionState&);
-  ChannelMergerNode* createChannelMerger(size_t number_of_inputs,
+  ChannelMergerNode* createChannelMerger(uint32_t number_of_inputs,
                                          ExceptionState&);
   OscillatorNode* createOscillator(ExceptionState&);
   PeriodicWave* createPeriodicWave(const Vector<float>& real,
@@ -229,7 +231,8 @@ class MODULES_EXPORT BaseAudioContext
   void NotifySourceNodeFinishedProcessing(AudioHandler*);
 
   // Called at the start of each render quantum.
-  void HandlePreRenderTasks(const AudioIOPosition& output_position);
+  void HandlePreRenderTasks(const AudioIOPosition& output_position,
+                            const AudioIOCallbackMetric& metric);
 
   // Called at the end of each render quantum.
   void HandlePostRenderTasks(const AudioBus* destination_bus);
@@ -255,7 +258,7 @@ class MODULES_EXPORT BaseAudioContext
   using GraphAutoLocker = DeferredTaskHandler::GraphAutoLocker;
 
   // Returns the maximum numuber of channels we can support.
-  static unsigned MaxNumberOfChannels() { return kMaxNumberOfChannels; }
+  static uint32_t MaxNumberOfChannels() { return kMaxNumberOfChannels; }
 
   // EventTarget
   const AtomicString& InterfaceName() const final;
@@ -420,6 +423,7 @@ class MODULES_EXPORT BaseAudioContext
   enum { kMaxNumberOfChannels = 32 };
 
   AudioIOPosition output_position_;
+  AudioIOCallbackMetric callback_metric_;
 
   // The handler associated with the above |destination_node_|.
   scoped_refptr<AudioDestinationHandler> destination_handler_;

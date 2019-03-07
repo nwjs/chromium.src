@@ -11,6 +11,7 @@
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/strings/grit/components_strings.h"
 #include "ios/chrome/browser/autofill/personal_data_manager_factory.h"
+#import "ios/chrome/browser/ui/settings/autofill_credit_card_table_view_controller.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
 #import "ios/chrome/test/app/web_view_interaction_test_util.h"
@@ -48,6 +49,13 @@ const DisplayStringIDToExpectedResult kExpectedFields[] = {
     {IDS_IOS_AUTOFILL_EXP_YEAR, @"2022"}};
 
 NSString* const kCreditCardLabelTemplate = @"Test User, %@";
+
+// Return the edit button from the navigation bar.
+id<GREYMatcher> NavigationBarEditButton() {
+  return grey_allOf(
+      ButtonWithAccessibilityLabelId(IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON),
+      grey_not(grey_accessibilityTrait(UIAccessibilityTraitNotEnabled)), nil);
+}
 
 }  // namespace
 
@@ -170,8 +178,7 @@ NSString* const kCreditCardLabelTemplate = @"Test User, %@";
   [self openEditCreditCard:[self creditCardLabel:creditCard]];
 
   // Switch on edit mode.
-  [[EarlGrey selectElementWithMatcher:ButtonWithAccessibilityLabelId(
-                                          IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON)]
+  [[EarlGrey selectElementWithMatcher:NavigationBarEditButton()]
       performAction:grey_tap()];
   chrome_test_util::VerifyAccessibilityForCurrentScreen();
 
@@ -189,15 +196,13 @@ NSString* const kCreditCardLabelTemplate = @"Test User, %@";
   [self openCreditCardsSettings];
 
   // Switch on edit mode.
-  [[EarlGrey selectElementWithMatcher:ButtonWithAccessibilityLabelId(
-                                          IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON)]
+  [[EarlGrey selectElementWithMatcher:NavigationBarEditButton()]
       performAction:grey_tap()];
 
   // Check the Autofill credit card switch is disabled.
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::LegacySettingsSwitchCell(
-                                   @"cardItem_switch", YES, NO)]
-      assertWithMatcher:grey_notNil()];
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::SettingsSwitchCell(
+                                          kAutofillCreditCardSwitchViewId, YES,
+                                          NO)] assertWithMatcher:grey_notNil()];
 
   [self exitSettingsMenu];
 }
@@ -210,9 +215,9 @@ NSString* const kCreditCardLabelTemplate = @"Test User, %@";
 
   // Toggle the Autofill credit cards switch off.
   [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::LegacySettingsSwitchCell(
-                                   @"cardItem_switch", YES, YES)]
-      performAction:chrome_test_util::TurnLegacySettingsSwitchOn(NO)];
+      selectElementWithMatcher:chrome_test_util::SettingsSwitchCell(
+                                   kAutofillCreditCardSwitchViewId, YES, YES)]
+      performAction:chrome_test_util::TurnSettingsSwitchOn(NO)];
 
   // Expect Autofill credit cards to remain visible.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(
@@ -221,9 +226,9 @@ NSString* const kCreditCardLabelTemplate = @"Test User, %@";
 
   // Toggle the Autofill credit cards switch back on.
   [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::LegacySettingsSwitchCell(
-                                   @"cardItem_switch", NO, YES)]
-      performAction:chrome_test_util::TurnLegacySettingsSwitchOn(YES)];
+      selectElementWithMatcher:chrome_test_util::SettingsSwitchCell(
+                                   kAutofillCreditCardSwitchViewId, NO, YES)]
+      performAction:chrome_test_util::TurnSettingsSwitchOn(YES)];
 
   // Expect Autofill credit cards to remain visible.
   [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(

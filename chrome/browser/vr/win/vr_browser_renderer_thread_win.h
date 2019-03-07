@@ -9,6 +9,7 @@
 #include "chrome/browser/vr/browser_renderer.h"
 #include "chrome/browser/vr/model/web_vr_model.h"
 #include "chrome/browser/vr/service/browser_xr_runtime.h"
+#include "chrome/browser/vr/vr_export.h"
 #include "content/public/browser/web_contents.h"
 #include "device/vr/public/mojom/isolated_xr_service.mojom.h"
 #include "device/vr/public/mojom/vr_service.mojom.h"
@@ -20,57 +21,23 @@ class GraphicsDelegateWin;
 class SchedulerDelegateWin;
 class VRUiBrowserInterface;
 
-// TODO(https://crbug.com/902576) There were issues initializing gfx::FontList
-// on a background thread, so run UI on the main thread.
-#define VR_UI_ON_MAIN_THREAD
-
-#ifdef VR_UI_ON_MAIN_THREAD
-
-class MaybeThread {
- public:
-  explicit MaybeThread(std::string) {}
-  virtual ~MaybeThread() = default;
-  virtual void CleanUp() {}
-  void Start() {}
-  void Stop() { CleanUp(); }
-  scoped_refptr<base::SingleThreadTaskRunner> task_runner() {
-    return scoped_refptr<base::SingleThreadTaskRunner>(
-        base::ThreadTaskRunnerHandle::Get());
-  }
-};
-
-#else
-
-class MaybeThread : public base::Thread {
-  explicit MaybeThread(std::string name) : base::Thread(name) {}
-};
-
-#endif
-
-class VRBrowserRendererThreadWin : public MaybeThread {
+class VR_EXPORT VRBrowserRendererThreadWin {
  public:
   VRBrowserRendererThreadWin();
-  ~VRBrowserRendererThreadWin() override;
+  ~VRBrowserRendererThreadWin();
 
-  // Methods called on the browser's main thread.
   void StartOverlay(device::mojom::XRCompositorHost* host);
+  void StopOverlay();
   void SetVRDisplayInfo(device::mojom::VRDisplayInfoPtr display_info);
   void SetLocationInfo(GURL gurl);
   void SetVisibleExternalPromptNotification(
       ExternalPromptNotificationType prompt);
 
- private:
-  // base::Thread overrides
-  void CleanUp() override;
+  static VRBrowserRendererThreadWin* GetInstanceForTesting();
+  BrowserRenderer* GetBrowserRendererForTesting();
 
-  // Methods called on render thread.
-  void StartOverlayOnRenderThread(
-      device::mojom::ImmersiveOverlayPtrInfo overlay);
-  void SetDisplayInfoOnRenderThread(
-      device::mojom::VRDisplayInfoPtr display_info);
-  void SetLocationInfoOnRenderThread(GURL gurl);
-  void SetVisibleExternalPromptNotificationOnRenderThread(
-      ExternalPromptNotificationType prompt);
+ private:
+  void CleanUp();
   void OnPose(device::mojom::XRFrameDataPtr data);
   void SubmitResult(bool success);
   void SubmitFrame(device::mojom::XRFrameDataPtr data);
@@ -98,6 +65,11 @@ class VRBrowserRendererThreadWin : public MaybeThread {
 
   device::mojom::ImmersiveOverlayPtr overlay_;
   device::mojom::VRDisplayInfoPtr display_info_;
+
+  // This class is effectively a singleton, although it's not actually
+  // implemented as one. Since tests need to access the thread to post tasks,
+  // just keep a static reference to the existing instance.
+  static VRBrowserRendererThreadWin* instance_for_testing_;
 };
 
 }  // namespace vr

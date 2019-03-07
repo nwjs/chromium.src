@@ -60,7 +60,6 @@ class MediaQueryList;
 class MessageEvent;
 class Modulator;
 class Navigator;
-class PostMessageTimer;
 class Screen;
 class ScriptedTaskQueueController;
 class ScriptPromise;
@@ -271,27 +270,22 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
 
   Element* frameElement() const;
 
-  DOMWindow* open(ExecutionContext*,
-                  LocalDOMWindow* current_window,
-                  LocalDOMWindow* entered_window,
-                  const USVStringOrTrustedURL& stringOrUrl,
+  DOMWindow* open(v8::Isolate*,
+                  const USVStringOrTrustedURL& string_or_url,
                   const AtomicString& target,
                   const String& features,
-                  ExceptionState&);
-
-  DOMWindow* open(const USVStringOrTrustedURL& stringOrUrl,
-                  const AtomicString& frame_name,
-                  const String& window_features_string,
-                  LocalDOMWindow* calling_window,
-                  LocalDOMWindow* entered_window,
                   ExceptionState&);
 
   FrameConsole* GetFrameConsole() const;
 
   void PrintErrorMessage(const String&) const;
 
-  void PostMessageTimerFired(PostMessageTimer*);
-  void RemovePostMessageTimer(PostMessageTimer*);
+  void DispatchPostMessage(
+      MessageEvent* event,
+      scoped_refptr<UserGestureToken> token,
+      scoped_refptr<const SecurityOrigin> intended_target_origin,
+      std::unique_ptr<SourceLocation>);
+
   void DispatchMessageEventWithOriginCheck(
       const SecurityOrigin* intended_target_origin,
       Event*,
@@ -347,21 +341,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   void DispatchLoadEvent();
   void ClearDocument();
 
-  DOMWindow* openFromString(ExecutionContext*,
-                            LocalDOMWindow* current_window,
-                            LocalDOMWindow* entered_window,
-                            const String& url,
-                            const AtomicString& target,
-                            const String& features,
-                            ExceptionState&);
-
-  DOMWindow* openFromString(const String& url_string,
-                            const AtomicString& frame_name,
-                            const String& window_features_string,
-                            LocalDOMWindow* calling_window,
-                            LocalDOMWindow* entered_window,
-                            ExceptionState&);
-
   // Return the viewport size including scrollbars.
   IntSize GetViewportSize() const;
 
@@ -397,7 +376,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
 
   scoped_refptr<SerializedScriptValue> pending_state_object_;
 
-  HeapHashSet<Member<PostMessageTimer>> post_message_timers_;
   HeapHashSet<WeakMember<EventListenerObserver>> event_listener_observers_;
 
   mutable Member<TrustedTypePolicyFactory> trusted_types_;

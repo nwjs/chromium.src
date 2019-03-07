@@ -38,9 +38,14 @@ class OSUserManager {
                           DWORD* error);
 
   // Changes the password of the given OS user.
-  virtual HRESULT SetUserPassword(const wchar_t* username,
-                                  const wchar_t* password,
-                                  DWORD* error);
+  virtual HRESULT ChangeUserPassword(const wchar_t* username,
+                                     const wchar_t* old_password,
+                                     const wchar_t* new_password);
+
+  // Checks if the given user's password matches |password|. Returns S_OK if it
+  // matches, S_FALSE if not. Otherwise will return the windows error code.
+  virtual HRESULT IsWindowsPasswordValid(const wchar_t* username,
+                                         const wchar_t* password);
 
   // Creates a logon token for the given user.  If |interactive| is true the
   // token is of type interactive otherwise it is of type batch.
@@ -65,9 +70,9 @@ class OSUserManager {
   // Removes the user from the machine.
   virtual HRESULT RemoveUser(const wchar_t* username, const wchar_t* password);
 
-  // This method is called either from FakeOSUserManager or from dllmain.cc when
-  // setting fakes from one module to another.
-  static void SetInstanceForTesting(OSUserManager* factory);
+  // This method is called from dllmain.cc when setting fakes from one modul
+  // to another.
+  static void SetInstanceForTesting(OSUserManager* instance);
 
  protected:
   OSUserManager() {}

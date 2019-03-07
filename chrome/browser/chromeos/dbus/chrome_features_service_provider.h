@@ -27,6 +27,15 @@ namespace chromeos {
 //     org.chromium.ChromeFeaturesServiceInterface.IsCrostiniEnabled
 //
 // % (returns true if Crostini is enabled, otherwise returns false)
+//
+// IsPluginVmEnabled:
+// % dbus-send --system --type=method_call --print-reply
+//     --dest=org.chromium.ChromeFeaturesService
+//     /org/chromium/ChromeFeaturesService
+//     org.chromium.ChromeFeaturesServiceInterface.IsPluginVmEnabled
+//
+// % (returns true if Plugin VMs are enabled, otherwise returns false)
+
 class ChromeFeaturesServiceProvider
     : public CrosDBusService::ServiceProviderInterface {
  public:
@@ -44,7 +53,11 @@ class ChromeFeaturesServiceProvider
                   bool success);
 
   // Called on UI thread in response to a D-Bus request.
+  void IsFeatureEnabled(dbus::MethodCall* method_call,
+                        dbus::ExportedObject::ResponseSender response_sender);
   void IsCrostiniEnabled(dbus::MethodCall* method_call,
+                         dbus::ExportedObject::ResponseSender response_sender);
+  void IsPluginVmEnabled(dbus::MethodCall* method_call,
                          dbus::ExportedObject::ResponseSender response_sender);
   void IsUsbguardEnabled(dbus::MethodCall* method_call,
                          dbus::ExportedObject::ResponseSender response_sender);

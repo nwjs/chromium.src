@@ -15,6 +15,8 @@ jumbo_static_library("metrics") {
     "client_info.h",
     "cloned_install_detector.cc",
     "cloned_install_detector.h",
+    "cpu_metrics_provider.cc",
+    "cpu_metrics_provider.h",
     "daily_event.cc",
     "daily_event.h",
     "data_use_tracker.cc",
@@ -32,8 +34,6 @@ jumbo_static_library("metrics") {
     "enabled_state_provider.h",
     "environment_recorder.cc",
     "environment_recorder.h",
-    "execution_phase.cc",
-    "execution_phase.h",
     "expired_histogram_util.cc",
     "expired_histogram_util.h",
     "expired_histograms_checker.cc",
@@ -218,7 +218,7 @@ jumbo_static_library("net") {
       "net/wifi_access_point_info_provider_chromeos.cc",
       "net/wifi_access_point_info_provider_chromeos.h",
     ]
-    deps += [ "//chromeos" ]
+    deps += [ "//chromeos/network" ]
   }
 }
 
@@ -423,7 +423,10 @@ source_set("unit_tests") {
   }
 
   if (is_chromeos) {
-    deps += [ "//chromeos" ]
+    deps += [
+      "//chromeos/dbus:test_support",
+      "//chromeos/network:test_support",
+    ]
   }
 
   # iOS is not supported by the profiler and the ios-simulator bot chokes on

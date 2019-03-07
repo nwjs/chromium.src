@@ -25,14 +25,12 @@
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/transform.h"
 
+class SkPath;
+
 namespace base {
 namespace trace_event {
 class TracedValue;
 }
-}
-
-namespace gfx {
-class Path;
 }
 
 namespace viz {
@@ -194,7 +192,7 @@ class Surface final : public ui::PropertyHandler {
   bool HitTest(const gfx::Point& point) const;
 
   // Sets |mask| to the path that delineates the hit test region of the surface.
-  void GetHitTestMask(gfx::Path* mask) const;
+  void GetHitTestMask(SkPath* mask) const;
 
   // Set the surface delegate.
   void SetSurfaceDelegate(SurfaceDelegate* delegate);
@@ -239,6 +237,12 @@ class Surface final : public ui::PropertyHandler {
   bool HasPendingDamageForTesting(const gfx::Rect& damage) const {
     return pending_damage_.Contains(damage);
   }
+
+  // Set occlusion tracking region for surface.
+  void SetOcclusionTracking(bool tracking);
+
+  // Triggers sending an occlusion update to observers.
+  void OnWindowOcclusionChanged();
 
  private:
   struct State {
@@ -393,6 +397,9 @@ class Surface final : public ui::PropertyHandler {
 
   // Surface observer list. Surface does not own the observers.
   base::ObserverList<SurfaceObserver, true>::Unchecked observers_;
+
+  // Whether this surface is tracking occlusion for the client.
+  bool is_tracking_occlusion_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(Surface);
 };

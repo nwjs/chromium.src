@@ -35,7 +35,8 @@ class PaintLayerScrollableAreaTestBase : public RenderingTest {
  public:
   PaintLayerScrollableAreaTestBase()
       : RenderingTest(EmptyLocalFrameClient::Create()),
-        chrome_client_(new ScrollableAreaMockChromeClient) {}
+        chrome_client_(MakeGarbageCollected<ScrollableAreaMockChromeClient>()) {
+  }
 
   ~PaintLayerScrollableAreaTestBase() override {
     testing::Mock::VerifyAndClearExpectations(&GetChromeClient());
@@ -856,7 +857,7 @@ TEST_P(PaintLayerScrollableAreaTest,
 
   // Programmatically changing the scroll offset.
   scrollable_area->SetScrollOffset(ScrollOffset(0, 1), kProgrammaticScroll);
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     // No invalidation because the background paints into scrolling contents.
     EXPECT_FALSE(scroller->ShouldDoFullPaintInvalidation());
     EXPECT_FALSE(scroller->BackgroundNeedsFullPaintInvalidation());
@@ -937,15 +938,8 @@ TEST_P(PaintLayerScrollableAreaTest, ViewScrollWithFixedAttachmentBackground) {
   EXPECT_TRUE(fixed_background_div->ShouldDoFullPaintInvalidation());
   EXPECT_TRUE(fixed_background_div->BackgroundNeedsFullPaintInvalidation());
   EXPECT_FALSE(fixed_background_div->NeedsPaintPropertyUpdate());
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
-    // In SPv2, we assume the view's fixed attachment background is composited
-    // at this time and doesn't need paint invalidation on view scroll.
-    EXPECT_FALSE(GetLayoutView().ShouldDoFullPaintInvalidation());
-    EXPECT_FALSE(GetLayoutView().BackgroundNeedsFullPaintInvalidation());
-  } else {
-    EXPECT_TRUE(GetLayoutView().ShouldDoFullPaintInvalidation());
-    EXPECT_TRUE(GetLayoutView().BackgroundNeedsFullPaintInvalidation());
-  }
+  EXPECT_TRUE(GetLayoutView().ShouldDoFullPaintInvalidation());
+  EXPECT_TRUE(GetLayoutView().BackgroundNeedsFullPaintInvalidation());
   EXPECT_TRUE(GetLayoutView().NeedsPaintPropertyUpdate());
   UpdateAllLifecyclePhasesForTest();
 
@@ -1018,7 +1012,7 @@ TEST_P(PaintLayerScrollableAreaTest, CompositedStickyDescendant) {
   auto* scroller =
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("scroller"));
   auto* scrollable_area = scroller->GetScrollableArea();
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     EXPECT_EQ(kPaintsIntoOwnBacking, scroller->Layer()->GetCompositingState());
   auto* sticky = ToLayoutBoxModelObject(GetLayoutObjectByElementId("sticky"));
 
@@ -1085,6 +1079,77 @@ TEST_P(PaintLayerScrollableAreaTest, ScrollbarMaximum) {
   scrollable_area->ScrollBy(ScrollOffset(0, 1000), kProgrammaticScroll);
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(scrollbar->CurrentPos(), scrollbar->Maximum());
+}
+
+TEST_P(PaintLayerScrollableAreaTest, ScrollingBackgroundDisplayItemClient) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      ::-webkit-scrollbar { display: none; }
+      #scroller {
+        width: 100.7px;
+        height: 100.4px;
+        overflow: scroll;
+        border-top: 2.6px solid blue;
+        border-left: 2.4px solid blue;
+        will-change: transform;
+      }
+      #content {
+        width: 50.7px;
+        height: 200.4px;
+      }
+    </style>
+    <div id="scroller">
+      <div id="content"></div>
+    </div>
+  )HTML");
+
+  EXPECT_EQ(LayoutRect(2, 3, 101, 200),
+            ToLayoutBox(GetLayoutObjectByElementId("scroller"))
+                ->GetScrollableArea()
+                ->GetScrollingBackgroundDisplayItemClient()
+                .VisualRect());
+}
+
+TEST_P(PaintLayerScrollableAreaTest, RtlScrollOriginSnapping) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #container {
+        direction: rtl;
+        display: flex;
+      }
+      #scroller {
+        width: 100%;
+        height: 100px;
+        overflow: hidden;
+      }
+      #scroller-content {
+        width: 200%;
+        height: 200px;
+      }
+    </style>
+    <div id="container">
+      <div id="first-child" style="flex:1; display:none"></div>
+      <div style="flex:2.2">
+        <div id="scroller">
+          <div id ="scroller-content"></div>
+        </div>
+      </div>
+    </div>
+  )HTML");
+
+  // Test that scroll origin is snapped such that maximum scroll offset is
+  // always zero for an rtl block.
+
+  GetFrame().View()->Resize(795, 600);
+  UpdateAllLifecyclePhasesForTest();
+  LayoutBox* scroller = ToLayoutBox(GetLayoutObjectByElementId("scroller"));
+  PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
+  EXPECT_EQ(scrollable_area->MaximumScrollOffsetInt(), IntSize(0, 100));
+
+  Element* first_child = GetElementById("first-child");
+  first_child->RemoveInlineStyleProperty(CSSPropertyDisplay);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(scrollable_area->MaximumScrollOffsetInt(), IntSize(0, 100));
 }
 
 }  // namespace blink

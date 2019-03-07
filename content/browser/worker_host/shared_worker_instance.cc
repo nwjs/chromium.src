@@ -13,7 +13,7 @@ SharedWorkerInstance::SharedWorkerInstance(bool is_node_js, const base::FilePath
     const std::string& name,
     const url::Origin& constructor_origin,
     const std::string& content_security_policy,
-    blink::WebContentSecurityPolicyType security_policy_type,
+    blink::mojom::ContentSecurityPolicyType security_policy_type,
     blink::mojom::IPAddressSpace creation_address_space,
     blink::mojom::SharedWorkerCreationContextType creation_context_type)
     : is_node_js_(is_node_js), root_path_(root_path),

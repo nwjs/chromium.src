@@ -405,6 +405,7 @@ void URLRequestHttpJob::Start() {
 
   request_info_.url = request_->url();
   request_info_.method = request_->method();
+  request_info_.top_frame_origin = request_->top_frame_origin();
   request_info_.load_flags = request_->load_flags();
   request_info_.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(request_->traffic_annotation());
@@ -429,8 +430,6 @@ void URLRequestHttpJob::Start() {
                                           referrer.spec());
   }
 
-  // This should be kept in sync with the corresponding code in
-  // URLRequest::GetUserAgent.
   request_info_.extra_headers.SetHeaderIfMissing(
       HttpRequestHeaders::kUserAgent,
       http_user_agent_settings_ ?
@@ -645,26 +644,33 @@ void URLRequestHttpJob::StartTransactionInternal() {
 void URLRequestHttpJob::AddExtraHeaders() {
   if (!request_info_.extra_headers.HasHeader(
           HttpRequestHeaders::kAcceptEncoding)) {
-    // Advertise "br" encoding only if transferred data is opaque to proxy.
-    bool advertise_brotli = false;
-    if (request()->context()->enable_brotli()) {
-      if (request()->url().SchemeIsCryptographic() ||
-          IsLocalhost(request()->url())) {
-        advertise_brotli = true;
+    // If a range is specifically requested, set the "Accepted Encoding" header
+    // to "identity"
+    if (request_info_.extra_headers.HasHeader(HttpRequestHeaders::kRange)) {
+      request_info_.extra_headers.SetHeader(HttpRequestHeaders::kAcceptEncoding,
+                                            "identity");
+    } else {
+      // Advertise "br" encoding only if transferred data is opaque to proxy.
+      bool advertise_brotli = false;
+      if (request()->context()->enable_brotli()) {
+        if (request()->url().SchemeIsCryptographic() ||
+            IsLocalhost(request()->url())) {
+          advertise_brotli = true;
+        }
       }
-    }
 
-    // Supply Accept-Encoding headers first so that it is more likely that they
-    // will be in the first transmitted packet. This can sometimes make it
-    // easier to filter and analyze the streams to assure that a proxy has not
-    // damaged these headers. Some proxies deliberately corrupt Accept-Encoding
-    // headers.
-    std::string advertised_encodings = "gzip, deflate";
-    if (advertise_brotli)
-      advertised_encodings += ", br";
-    // Tell the server what compression formats are supported.
-    request_info_.extra_headers.SetHeader(HttpRequestHeaders::kAcceptEncoding,
-                                          advertised_encodings);
+      // Supply Accept-Encoding headers first so that it is more likely that
+      // they will be in the first transmitted packet. This can sometimes make
+      // it easier to filter and analyze the streams to assure that a proxy has
+      // not damaged these headers. Some proxies deliberately corrupt
+      // Accept-Encoding headers.
+      std::string advertised_encodings = "gzip, deflate";
+      if (advertise_brotli)
+        advertised_encodings += ", br";
+      // Tell the server what compression formats are supported.
+      request_info_.extra_headers.SetHeader(HttpRequestHeaders::kAcceptEncoding,
+                                            advertised_encodings);
+    }
   }
 
   if (http_user_agent_settings_) {

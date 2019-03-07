@@ -12,8 +12,9 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/sync/driver/sync_driver_switches.h"
-#include "ios/web_view/cwv_web_view_features.h"
+#include "ios/web_view/cwv_web_view_buildflags.h"
 #include "ios/web_view/internal/app/application_context.h"
+#import "ios/web_view/internal/cwv_flags_internal.h"
 #import "ios/web_view/internal/cwv_web_view_configuration_internal.h"
 #include "ios/web_view/internal/translate/web_view_translate_service.h"
 #include "ui/base/l10n/l10n_util_mac.h"
@@ -42,12 +43,16 @@ void WebViewWebMainParts::PreCreateThreads() {
   PrefService* local_state = ApplicationContext::GetInstance()->GetLocalState();
   DCHECK(local_state);
 
+  // Flags are converted here to ensure it is set before being read by others.
+  [[CWVFlags sharedInstance] convertFlagsToCommandLineSwitches];
+
   ApplicationContext::GetInstance()->PreCreateThreads();
 
 #if BUILDFLAG(IOS_WEB_VIEW_ENABLE_SYNC)
   std::unique_ptr<base::FeatureList> feature_list(new base::FeatureList);
   std::string enable_features = base::JoinString(
       {autofill::features::kAutofillEnableAccountWalletStorage.name,
+       autofill::features::kAutofillAlwaysShowServerCardsInSyncTransport.name,
        switches::kSyncStandaloneTransport.name,
        switches::kSyncSupportSecondaryAccount.name,
        switches::kSyncUSSAutofillWalletData.name},

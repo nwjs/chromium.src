@@ -9,7 +9,8 @@
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/ash_view_ids.h"
 #include "ash/public/interfaces/constants.mojom.h"
-#include "ash/public/interfaces/system_tray_test_api.mojom.h"
+#include "ash/public/interfaces/system_tray_test_api.test-mojom-test-utils.h"
+#include "ash/public/interfaces/system_tray_test_api.test-mojom.h"
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/macros.h"
@@ -29,7 +30,7 @@
 #include "chrome/browser/chromeos/settings/device_settings_service.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
 #include "chromeos/dbus/session_manager_client.h"
@@ -237,14 +238,9 @@ class ShutdownPolicyLockerTest : public ShutdownPolicyBaseTest {
     ShutdownPolicyBaseTest::SetUpOnMainThread();
 
     // Bring up the locker screen.
-    ScreenLocker::Show();
     std::unique_ptr<chromeos::ScreenLockerTester> tester =
         chromeos::ScreenLockerTester::Create();
-    content::WindowedNotificationObserver lock_state_observer(
-        chrome::NOTIFICATION_SCREEN_LOCK_STATE_CHANGED,
-        content::NotificationService::AllSources());
-    if (!tester->IsLocked())
-      lock_state_observer.Wait();
+    tester->Lock();
     ScreenLocker* screen_locker = ScreenLocker::default_screen_locker();
     WebUIScreenLocker* web_ui_screen_locker =
         screen_locker->web_ui_for_testing();

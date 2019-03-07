@@ -26,6 +26,7 @@
 #include "components/autofill/core/browser/autofill_profile.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/credit_card.h"
+#include "components/autofill/core/browser/mock_autocomplete_history_manager.h"
 #include "components/autofill/core/browser/payments/test_payments_client.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
@@ -90,7 +91,8 @@ class LocalCardMigrationManagerTest : public testing::Test {
     autofill_client_.set_test_form_data_importer(
         std::unique_ptr<TestFormDataImporter>(test_form_data_importer));
     autofill_manager_.reset(new TestAutofillManager(
-        autofill_driver_.get(), &autofill_client_, &personal_data_));
+        autofill_driver_.get(), &autofill_client_, &personal_data_,
+        &autocomplete_history_manager_));
     autofill_manager_->SetExpectedObservedSubmission(true);
   }
 
@@ -121,8 +123,8 @@ class LocalCardMigrationManagerTest : public testing::Test {
   }
 
   void FormSubmitted(const FormData& form) {
-    autofill_manager_->OnFormSubmitted(
-        form, false, SubmissionSource::FORM_SUBMISSION, base::TimeTicks::Now());
+    autofill_manager_->OnFormSubmitted(form, false,
+                                       SubmissionSource::FORM_SUBMISSION);
   }
 
   void EditCreditCardFrom(FormData& credit_card_form,
@@ -172,6 +174,7 @@ class LocalCardMigrationManagerTest : public testing::Test {
   std::unique_ptr<TestAutofillManager> autofill_manager_;
   scoped_refptr<net::TestURLRequestContextGetter> request_context_;
   TestPersonalDataManager personal_data_;
+  MockAutocompleteHistoryManager autocomplete_history_manager_;
   syncer::TestSyncService sync_service_;
   base::test::ScopedFeatureList scoped_feature_list_;
   // Ends up getting owned (and destroyed) by TestFormDataImporter:
@@ -668,6 +671,99 @@ TEST_F(LocalCardMigrationManagerTest,
   EXPECT_TRUE(
       local_card_migration_manager_->GetDetectedValues() &
       CreditCardSaveManager::DetectedValue::HAS_GOOGLE_PAYMENTS_ACCOUNT);
+}
+
+TEST_F(LocalCardMigrationManagerTest,
+       MigrateCreditCard_ShouldAddMigrateCardsBillableServiceNumberInRequest) {
+  EnableAutofillCreditCardLocalCardMigrationExperiment();
+
+  // Set the billing_customer_number Priority Preference to designate
+  // existence of a Payments account.
+  autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
+                                         12345);
+  // Add a local credit card whose |TypeAndLastFourDigits| matches what we will
+  // enter below.
+  AddLocalCreditCard(personal_data_, "Flo Master", "4111111111111111", "11",
+                     test::NextYear().c_str(), "1", "guid1");
+  // Add another local credit card
+  AddLocalCreditCard(personal_data_, "Flo Master", "5555555555554444", "11",
+                     test::NextYear().c_str(), "1", "guid2");
+
+  // Set up our credit card form data.
+  FormData credit_card_form;
+  test::CreateTestCreditCardFormData(&credit_card_form, true, false);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  EditCreditCardFrom(credit_card_form, "Flo Master", "4111111111111111", "11",
+                     test::NextYear().c_str(), "123");
+  FormSubmitted(credit_card_form);
+  EXPECT_TRUE(local_card_migration_manager_->LocalCardMigrationWasTriggered());
+
+  // Confirm that the preflight request contained
+  // kMigrateCardsBillableServiceNumber in the request.
+  EXPECT_EQ(payments::kMigrateCardsBillableServiceNumber,
+            payments_client_->billable_service_number_in_request());
+}
+
+TEST_F(LocalCardMigrationManagerTest,
+       MigrateCreditCard_ShouldAddUploadCardSourceInRequest_CheckoutFlow) {
+  EnableAutofillCreditCardLocalCardMigrationExperiment();
+
+  // Set the billing_customer_number Priority Preference to designate
+  // existence of a Payments account.
+  autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
+                                         12345);
+  // Add a local credit card whose |TypeAndLastFourDigits| matches what we will
+  // enter below.
+  AddLocalCreditCard(personal_data_, "Flo Master", "4111111111111111", "11",
+                     test::NextYear().c_str(), "1", "guid1");
+  // Add another local credit card
+  AddLocalCreditCard(personal_data_, "Flo Master", "5555555555554444", "11",
+                     test::NextYear().c_str(), "1", "guid2");
+
+  // Set up our credit card form data.
+  FormData credit_card_form;
+  test::CreateTestCreditCardFormData(&credit_card_form, true, false);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  EditCreditCardFrom(credit_card_form, "Flo Master", "4111111111111111", "11",
+                     test::NextYear().c_str(), "123");
+  FormSubmitted(credit_card_form);
+  EXPECT_TRUE(local_card_migration_manager_->LocalCardMigrationWasTriggered());
+
+  // Confirm that the preflight request contained the correct UploadCardSource.
+  EXPECT_EQ(payments::PaymentsClient::UploadCardSource::
+                LOCAL_CARD_MIGRATION_CHECKOUT_FLOW,
+            payments_client_->upload_card_source_in_request());
+}
+
+TEST_F(LocalCardMigrationManagerTest,
+       MigrateCreditCard_ShouldAddUploadCardSourceInRequest_SettingsPage) {
+  EnableAutofillCreditCardLocalCardMigrationExperiment();
+
+  // Set the billing_customer_number Priority Preference to designate
+  // existence of a Payments account.
+  autofill_client_.GetPrefs()->SetDouble(prefs::kAutofillBillingCustomerNumber,
+                                         12345);
+  // Add a local credit card. One migratable credit card will still trigger
+  // migration on settings page.
+  AddLocalCreditCard(personal_data_, "Flo Master", "4111111111111111", "11",
+                     test::NextYear().c_str(), "1", "guid1");
+
+  base::HistogramTester histogram_tester;
+  // Do the same operation as we bridge back from the settings page.
+  local_card_migration_manager_->GetMigratableCreditCards();
+  local_card_migration_manager_->AttemptToOfferLocalCardMigration(true);
+
+  EXPECT_FALSE(local_card_migration_manager_->IntermediatePromptWasShown());
+  EXPECT_TRUE(local_card_migration_manager_->MainPromptWasShown());
+
+  // Confirm that the preflight request contained the correct UploadCardSource.
+  EXPECT_EQ(payments::PaymentsClient::UploadCardSource::
+                LOCAL_CARD_MIGRATION_SETTINGS_PAGE,
+            payments_client_->upload_card_source_in_request());
 }
 
 // Verify that when triggering from settings page, intermediate prompt will not

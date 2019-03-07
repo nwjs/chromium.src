@@ -6,13 +6,16 @@
 
 #include <memory>
 
+#include "base/metrics/user_metrics.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/themes/theme_properties.h"
+#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "components/variations/variations_associated_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/theme_provider.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/text_utils.h"
+#include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/event_monitor.h"
 #include "ui/views/layout/box_layout.h"
@@ -22,11 +25,14 @@ namespace {
 
 // The amount of time the promo should stay onscreen if the user
 // never hovers over it.
-constexpr base::TimeDelta kDelayDefault = base::TimeDelta::FromSeconds(5);
+constexpr base::TimeDelta kDelayDefault = base::TimeDelta::FromSeconds(10);
 
 // The amount of time the promo should stay onscreen after the
 // user stops hovering over it.
-constexpr base::TimeDelta kDelayShort = base::TimeDelta::FromSeconds(1);
+constexpr base::TimeDelta kDelayShort = base::TimeDelta::FromSeconds(3);
+
+// The insets from the bubble border to the text inside.
+constexpr gfx::Insets kBubbleContentsInsets(12, 16);
 
 }  // namespace
 
@@ -73,7 +79,7 @@ FeaturePromoBubbleView::FeaturePromoBubbleView(
       ThemeProperties::COLOR_FEATURE_PROMO_BUBBLE_TEXT);
 
   auto box_layout = std::make_unique<views::BoxLayout>(
-      views::BoxLayout::kVertical, gfx::Insets(), 0);
+      views::BoxLayout::kVertical, kBubbleContentsInsets, 0);
   box_layout->set_main_axis_alignment(
       views::BoxLayout::MAIN_AXIS_ALIGNMENT_CENTER);
   box_layout->set_cross_axis_alignment(
@@ -90,9 +96,15 @@ FeaturePromoBubbleView::FeaturePromoBubbleView(
     set_shadow(views::BubbleBorder::BIG_SHADOW);
   }
 
+  set_margins(gfx::Insets());
+  set_title_margins(gfx::Insets());
+
   set_color(background_color);
 
   views::Widget* widget = views::BubbleDialogDelegateView::CreateBubble(this);
+
+  GetBubbleFrameView()->bubble_border()->SetCornerRadius(
+      ChromeLayoutProvider::Get()->GetCornerRadiusMetric(views::EMPHASIS_HIGH));
 
   widget->Show();
   if (activation_action == ActivationAction::ACTIVATE)
@@ -120,8 +132,9 @@ int FeaturePromoBubbleView::GetDialogButtons() const {
 }
 
 bool FeaturePromoBubbleView::OnMousePressed(const ui::MouseEvent& event) {
-  CloseBubble();
-  return true;
+  base::RecordAction(
+      base::UserMetricsAction("InProductHelp.Promos.BubbleClicked"));
+  return false;
 }
 
 void FeaturePromoBubbleView::OnMouseEntered(const ui::MouseEvent& event) {

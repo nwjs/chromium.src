@@ -39,6 +39,7 @@ class UI_DEVTOOLS_EXPORT UIElement {
   const std::vector<UIElement*>& children() const { return children_; }
   bool is_updating() const { return is_updating_; }
   void set_is_updating(bool is_updating) { is_updating_ = is_updating; }
+  void set_owns_children(bool owns_children) { owns_children_ = owns_children; }
 
   // |child| is inserted in front of |before|. If |before| is null, it
   // is inserted at the end. Parent takes ownership of the added child.
@@ -66,9 +67,9 @@ class UI_DEVTOOLS_EXPORT UIElement {
   virtual void GetVisible(bool* visible) const = 0;
   virtual void SetVisible(bool visible) = 0;
 
-  // If element exists, return its associated native window and its bounds.
-  // Otherwise, return null and empty bounds.
-  virtual std::pair<gfx::NativeWindow, gfx::Rect> GetNodeWindowAndBounds()
+  // If element exists, return its associated native window and its screen
+  // bounds. Otherwise, return null and empty bounds.
+  virtual std::pair<gfx::NativeWindow, gfx::Rect> GetNodeWindowAndScreenBounds()
       const = 0;
   // Get a list of interleaved keys and values of attributes to be displayed
   // on the element in the dev tools hierarchy view.
@@ -92,6 +93,7 @@ class UI_DEVTOOLS_EXPORT UIElement {
   UIElement* parent_;
   UIElementDelegate* delegate_;
   bool is_updating_ = false;
+  bool owns_children_ = true;
 
   DISALLOW_COPY_AND_ASSIGN(UIElement);
 };

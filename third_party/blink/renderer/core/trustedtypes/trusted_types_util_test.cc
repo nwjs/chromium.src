@@ -26,7 +26,7 @@ void GetStringFromTrustedTypeThrows(
     const StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL&
         string_or_trusted_type) {
   Document* document = Document::CreateForTest();
-  document->SetRequireTrustedTypes();
+  document->SetRequireTrustedTypesForTesting();
   DummyExceptionStateForTesting exception_state;
   ASSERT_FALSE(exception_state.HadException());
   String s = GetStringFromTrustedType(string_or_trusted_type, document,
@@ -41,7 +41,7 @@ void GetStringFromTrustedHTMLThrows(
   std::unique_ptr<DummyPageHolder> dummy_page_holder =
       DummyPageHolder::Create(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.SetRequireTrustedTypes();
+  document.SetRequireTrustedTypesForTesting();
   V8TestingScope scope;
   DummyExceptionStateForTesting exception_state;
   ASSERT_FALSE(exception_state.HadException());
@@ -57,7 +57,7 @@ void GetStringFromTrustedScriptThrows(
   std::unique_ptr<DummyPageHolder> dummy_page_holder =
       DummyPageHolder::Create(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.SetRequireTrustedTypes();
+  document.SetRequireTrustedTypesForTesting();
   V8TestingScope scope;
   DummyExceptionStateForTesting exception_state;
   ASSERT_FALSE(exception_state.HadException());
@@ -73,7 +73,7 @@ void GetStringFromTrustedScriptURLThrows(
   std::unique_ptr<DummyPageHolder> dummy_page_holder =
       DummyPageHolder::Create(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.SetRequireTrustedTypes();
+  document.SetRequireTrustedTypesForTesting();
   V8TestingScope scope;
   DummyExceptionStateForTesting exception_state;
   ASSERT_FALSE(exception_state.HadException());
@@ -89,7 +89,7 @@ void GetStringFromTrustedURLThrows(
   std::unique_ptr<DummyPageHolder> dummy_page_holder =
       DummyPageHolder::Create(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.SetRequireTrustedTypes();
+  document.SetRequireTrustedTypesForTesting();
   V8TestingScope scope;
   DummyExceptionStateForTesting exception_state;
   ASSERT_FALSE(exception_state.HadException());
@@ -106,7 +106,7 @@ void GetStringFromTrustedTypeWorks(
         string_or_trusted_type,
     String expected) {
   Document* document = Document::CreateForTest();
-  document->SetRequireTrustedTypes();
+  document->SetRequireTrustedTypesForTesting();
   DummyExceptionStateForTesting exception_state;
   String s = GetStringFromTrustedType(string_or_trusted_type, document,
                                       exception_state);
@@ -119,7 +119,7 @@ void GetStringFromTrustedHTMLWorks(
   std::unique_ptr<DummyPageHolder> dummy_page_holder =
       DummyPageHolder::Create(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.SetRequireTrustedTypes();
+  document.SetRequireTrustedTypesForTesting();
   V8TestingScope scope;
   DummyExceptionStateForTesting exception_state;
   String s = GetStringFromTrustedHTML(string_or_trusted_html, &document,
@@ -133,7 +133,7 @@ void GetStringFromTrustedScriptWorks(
   std::unique_ptr<DummyPageHolder> dummy_page_holder =
       DummyPageHolder::Create(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.SetRequireTrustedTypes();
+  document.SetRequireTrustedTypesForTesting();
   V8TestingScope scope;
   DummyExceptionStateForTesting exception_state;
   String s = GetStringFromTrustedScript(string_or_trusted_script, &document,
@@ -147,7 +147,7 @@ void GetStringFromTrustedScriptURLWorks(
   std::unique_ptr<DummyPageHolder> dummy_page_holder =
       DummyPageHolder::Create(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.SetRequireTrustedTypes();
+  document.SetRequireTrustedTypesForTesting();
   V8TestingScope scope;
   DummyExceptionStateForTesting exception_state;
   String s = GetStringFromTrustedScriptURL(string_or_trusted_script_url,
@@ -161,7 +161,7 @@ void GetStringFromTrustedURLWorks(
   std::unique_ptr<DummyPageHolder> dummy_page_holder =
       DummyPageHolder::Create(IntSize(800, 600));
   Document& document = dummy_page_holder->GetDocument();
-  document.SetRequireTrustedTypes();
+  document.SetRequireTrustedTypesForTesting();
   V8TestingScope scope;
   DummyExceptionStateForTesting exception_state;
   String s = GetStringFromTrustedURL(string_or_trusted_url, &document,
@@ -189,7 +189,7 @@ TEST(TrustedTypesUtilTest, GetStringFromTrustedType_TrustedScript) {
 }
 
 TEST(TrustedTypesUtilTest, GetStringFromTrustedType_TrustedScriptURL) {
-  KURL url_address("http://www.example.com/");
+  String url_address = "http://www.example.com/";
   TrustedScriptURL* script_url = TrustedScriptURL::Create(url_address);
   StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL
       trusted_value =
@@ -198,14 +198,34 @@ TEST(TrustedTypesUtilTest, GetStringFromTrustedType_TrustedScriptURL) {
   GetStringFromTrustedTypeWorks(trusted_value, "http://www.example.com/");
 }
 
+TEST(TrustedTypesUtilTest, GetStringFromTrustedType_TrustedScriptURL_Relative) {
+  String url_address = "relative/url.html";
+  TrustedScriptURL* script_url = TrustedScriptURL::Create(url_address);
+  StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL
+      trusted_value =
+          StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL::
+              FromTrustedScriptURL(script_url);
+  GetStringFromTrustedTypeWorks(trusted_value, "relative/url.html");
+}
+
 TEST(TrustedTypesUtilTest, GetStringFromTrustedType_TrustedURL) {
-  KURL url_address("http://www.example.com/");
+  String url_address = "http://www.example.com/";
   TrustedURL* url = TrustedURL::Create(url_address);
   StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL
       trusted_value =
           StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL::
               FromTrustedURL(url);
   GetStringFromTrustedTypeWorks(trusted_value, "http://www.example.com/");
+}
+
+TEST(TrustedTypesUtilTest, GetStringFromTrustedType_TrustedURL_Relative) {
+  String url_address = "relative/url.html";
+  TrustedURL* url = TrustedURL::Create(url_address);
+  StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL
+      trusted_value =
+          StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL::
+              FromTrustedURL(url);
+  GetStringFromTrustedTypeWorks(trusted_value, "relative/url.html");
 }
 
 TEST(TrustedTypesUtilTest, GetStringFromTrustedType_String) {
@@ -239,7 +259,7 @@ TEST(TrustedTypesUtilTest, GetStringFromTrustedTypeWithoutCheck_TrustedScript) {
 
 TEST(TrustedTypesUtilTest,
      GetStringFromTrustedTypeWithoutCheck_TrustedScriptURL) {
-  KURL url_address("http://www.example.com/");
+  String url_address = "http://www.example.com/";
   TrustedScriptURL* script_url = TrustedScriptURL::Create(url_address);
   StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL
       trusted_value =
@@ -250,7 +270,7 @@ TEST(TrustedTypesUtilTest,
 }
 
 TEST(TrustedTypesUtilTest, GetStringFromTrustedTypeWithoutCheck_TrustedURL) {
-  KURL url_address("http://www.example.com/");
+  String url_address = "http://www.example.com/";
   TrustedURL* url = TrustedURL::Create(url_address);
   StringOrTrustedHTMLOrTrustedScriptOrTrustedScriptURLOrTrustedURL
       trusted_value =
@@ -306,7 +326,7 @@ TEST(TrustedTypesUtilTest, GetStringFromTrustedScript_String) {
 
 // GetStringFromTrustedScriptURL tests
 TEST(TrustedTypesUtilTest, GetStringFromTrustedScriptURL_TrustedScriptURL) {
-  KURL url_address("http://www.example.com/");
+  String url_address = "http://www.example.com/";
   TrustedScriptURL* script_url = TrustedScriptURL::Create(url_address);
   StringOrTrustedScriptURL trusted_value =
       StringOrTrustedScriptURL::FromTrustedScriptURL(script_url);
@@ -321,7 +341,7 @@ TEST(TrustedTypesUtilTest, GetStringFromTrustedScriptURL_String) {
 
 // GetStringFromTrustedURL tests
 TEST(TrustedTypesUtilTest, GetStringFromTrustedURL_TrustedURL) {
-  KURL url_address("http://www.example.com/");
+  String url_address = "http://www.example.com/";
   TrustedURL* url = TrustedURL::Create(url_address);
   USVStringOrTrustedURL trusted_value =
       USVStringOrTrustedURL::FromTrustedURL(url);

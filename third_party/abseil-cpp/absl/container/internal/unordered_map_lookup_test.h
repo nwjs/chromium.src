@@ -26,7 +26,7 @@ namespace container_internal {
 template <class UnordMap>
 class LookupTest : public ::testing::Test {};
 
-TYPED_TEST_CASE_P(LookupTest);
+TYPED_TEST_SUITE_P(LookupTest);
 
 TYPED_TEST_P(LookupTest, At) {
   using T = hash_internal::GeneratedType<TypeParam>;
@@ -111,4 +111,5 @@ REGISTER_TYPED_TEST_CASE_P(LookupTest, At, OperatorBracket, Count, Find,
 
 }  // namespace container_internal
 }  // namespace absl
+
 #endif  // ABSL_CONTAINER_INTERNAL_UNORDERED_MAP_LOOKUP_TEST_H_

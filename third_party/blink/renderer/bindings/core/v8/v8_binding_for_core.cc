@@ -641,6 +641,12 @@ LocalDOMWindow* EnteredDOMWindow(v8::Isolate* isolate) {
   return window;
 }
 
+LocalDOMWindow* IncumbentDOMWindow(v8::Isolate* isolate) {
+  LocalDOMWindow* window = ToLocalDOMWindow(isolate->GetIncumbentContext());
+  DCHECK(window);
+  return window;
+}
+
 LocalDOMWindow* CurrentDOMWindow(v8::Isolate* isolate) {
   return ToLocalDOMWindow(isolate->GetCurrentContext());
 }
@@ -660,11 +666,11 @@ ExecutionContext* ToExecutionContext(v8::Local<v8::Context> context) {
     return nullptr;
 
   const WrapperTypeInfo* wrapper_type_info = ToWrapperTypeInfo(global_proxy);
-  if (wrapper_type_info->Equals(&V8Window::wrapper_type_info))
+  if (wrapper_type_info->Equals(V8Window::GetWrapperTypeInfo()))
     return V8Window::ToImpl(global_proxy)->GetExecutionContext();
-  if (wrapper_type_info->IsSubclass(&V8WorkerGlobalScope::wrapper_type_info))
+  if (wrapper_type_info->IsSubclass(V8WorkerGlobalScope::GetWrapperTypeInfo()))
     return V8WorkerGlobalScope::ToImpl(global_proxy)->GetExecutionContext();
-  if (wrapper_type_info->IsSubclass(&V8WorkletGlobalScope::wrapper_type_info))
+  if (wrapper_type_info->IsSubclass(V8WorkletGlobalScope::GetWrapperTypeInfo()))
     return V8WorkletGlobalScope::ToImpl(global_proxy)->GetExecutionContext();
 
   NOTREACHED();
@@ -697,7 +703,7 @@ void ToFlexibleArrayBufferView(v8::Isolate* isolate,
   }
   size_t length = buffer->ByteLength();
   buffer->CopyContents(storage, length);
-  result.SetSmall(storage, length);
+  result.SetSmall(storage, SafeCast<uint32_t>(length));
 }
 
 static ScriptState* ToScriptStateImpl(LocalFrame* frame,
@@ -870,22 +876,6 @@ bool HasCallableIteratorSymbol(v8::Isolate* isolate,
     return false;
   }
   return iterator_getter->IsFunction();
-}
-
-v8::Isolate* ToIsolate(const ExecutionContext* context) {
-  if (!context)
-    return nullptr;
-
-#if DCHECK_IS_ON()
-  v8::Isolate* isolate;
-  if (context && context->IsDocument())
-    isolate = V8PerIsolateData::MainThreadIsolate();
-  else
-    isolate = v8::Isolate::GetCurrent();
-  DCHECK(context->GetIsolate() == isolate);
-#endif
-
-  return context->GetIsolate();
 }
 
 v8::Isolate* ToIsolate(const LocalFrame* frame) {

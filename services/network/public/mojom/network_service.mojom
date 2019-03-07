@@ -6,6 +6,7 @@ module network.mojom;
 
 import "mojo/public/mojom/base/file.mojom";
 import "mojo/public/mojom/base/file_path.mojom";
+import "mojo/public/mojom/base/memory_pressure_level.mojom";
 import "mojo/public/mojom/base/read_only_buffer.mojom";
 import "mojo/public/mojom/base/string16.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
@@ -15,6 +16,7 @@ import "services/network/public/mojom/host_resolver.mojom";
 import "services/network/public/mojom/net_log.mojom";
 import "services/network/public/mojom/network_change_manager.mojom";
 import "services/network/public/mojom/network_context.mojom";
+import "services/network/public/mojom/network_interface.mojom";
 import "services/network/public/mojom/network_param.mojom";
 import "services/network/public/mojom/network_quality_estimator_manager.mojom";
 import "services/network/public/mojom/url_loader.mojom";
@@ -24,6 +26,9 @@ import "url/mojom/url.mojom";
 
 [EnableIf=is_ct_supported]
 import "services/network/public/mojom/signed_tree_head.mojom";
+
+[EnableIf=is_android]
+import "mojo/public/mojom/base/application_state.mojom";
 
 // The content/browser implementation of this SSLPrivateKey interface wraps the
 // scoped_refptr<net::SSLPrivateKey> that is received from
@@ -163,6 +168,13 @@ interface NetworkServiceClient {
   // identifies the annotation of the request.
   OnDataUseUpdate(int32 network_traffic_annotation_id_hash, int64 recv_bytes,
                   int64 sent_bytes);
+
+  // Called to generate an auth token for SPNEGO authentication on Android.
+  [EnableIf=is_android]
+  OnGenerateHttpNegotiateAuthToken(string server_auth_token, bool can_delegate,
+                                   string auth_negotiate_android_account_type,
+                                   string spn) =>
+                                   (int32 result, string auth_token);
 };
 
 // Values for configuring HTTP authentication that can only be set once.
@@ -223,12 +235,18 @@ struct CryptConfig {
   mojo_base.mojom.FilePath user_data_path;
 };
 
+// Parameters needed to initialize the network service.
+struct NetworkServiceParams {
+  ConnectionType initial_connection_type = CONNECTION_UNKNOWN;
+  ConnectionSubtype initial_connection_subtype = SUBTYPE_UNKNOWN;
+};
+
 // Browser interface to the network service.
 interface NetworkService {
   // Sets client used by all |NetworkContext|s creating by |NetworkService|.
   // Pending requests may hang if the |client| pipe is closed before they
   // complete.
-  SetClient(NetworkServiceClient client);
+  SetClient(NetworkServiceClient client, NetworkServiceParams params);
 
   // Starts observing the NetLog event stream and writing entries to |file|.
   // |constants| is a legend used for decoding constant values in the log; it
@@ -315,6 +333,11 @@ interface NetworkService {
   // Gets the accumulated network usage since the start/restart of the service.
   GetTotalNetworkUsages() => (array<NetworkUsage> total_network_usages);
 
+  // Gets list of network interfaces.
+  // The |policy| parameter is a flag that specifies whether to include/exclude
+  // network interfaces. Corresponds to enum net::HostAddressSelectionPolicy.
+  GetNetworkList(uint32 policy) => (array<NetworkInterface>? networks);
+
   // Updates Signed Tree Heads (STH) used in the handling of Certificate
   // Transparency. Broadcast to each NetworkContext using the NetworkService.
   // NetworkContextes ignore STHs from unrecognized logs.
@@ -353,9 +376,9 @@ interface NetworkService {
   RemoveCorbExceptionForPlugin(uint32 process_id);
 
   // Called when the system is low on memory.
-  OnMemoryPressure(MemoryPressureLevel memory_pressure_level);
+  OnMemoryPressure(mojo_base.mojom.MemoryPressureLevel memory_pressure_level);
 
   // Called on state changes of the Android application.
   [EnableIf=is_android]
-  OnApplicationStateChange(ApplicationState state);
+  OnApplicationStateChange(mojo_base.mojom.ApplicationState state);
 };

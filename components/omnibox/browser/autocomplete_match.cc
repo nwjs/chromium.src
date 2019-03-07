@@ -9,7 +9,7 @@
 
 #include "base/feature_list.h"
 #include "base/logging.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
@@ -20,6 +20,7 @@
 #include "base/time/time.h"
 #include "base/trace_event/memory_usage_estimator.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
+#include "components/omnibox/browser/document_provider.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_pedal.h"
 #include "components/omnibox/browser/suggestion_answer.h"
@@ -212,7 +213,7 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     case Type::NAVSUGGEST:
     case Type::BOOKMARK_TITLE:
     case Type::NAVSUGGEST_PERSONALIZED:
-    case Type::CLIPBOARD:
+    case Type::CLIPBOARD_URL:
     case Type::PHYSICAL_WEB_DEPRECATED:
     case Type::PHYSICAL_WEB_OVERFLOW_DEPRECATED:
     case Type::TAB_SEARCH_DEPRECATED:
@@ -227,6 +228,8 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
     case Type::SEARCH_OTHER_ENGINE:
     case Type::CONTACT_DEPRECATED:
     case Type::VOICE_SUGGEST:
+    case Type::CLIPBOARD_TEXT:
+    case Type::CLIPBOARD_IMAGE:
       return vector_icons::kSearchIcon;
 
     case Type::EXTENSION_APP_DEPRECATED:
@@ -474,6 +477,14 @@ GURL AutocompleteMatch::GURLToStrippedGURL(
   if (!url.is_valid())
     return url;
 
+  // Special-case canonicalizing Docs URLs. This logic is self-contained and
+  // will not participate in the TemplateURL canonicalization.
+  if (base::FeatureList::IsEnabled(omnibox::kDedupeGoogleDriveURLs)) {
+    GURL docs_url = DocumentProvider::GetURLForDeduping(url);
+    if (docs_url.is_valid())
+      return docs_url;
+  }
+
   GURL stripped_destination_url = url;
 
   // If the destination URL looks like it was generated from a TemplateURL,
@@ -507,7 +518,7 @@ GURL AutocompleteMatch::GURLToStrippedGURL(
 
   // Remove the www. prefix from the host.
   static const char prefix[] = "www.";
-  static const size_t prefix_len = arraysize(prefix) - 1;
+  static const size_t prefix_len = base::size(prefix) - 1;
   std::string host = stripped_destination_url.host();
   if (host.compare(0, prefix_len, prefix) == 0 && host.length() > prefix_len) {
     replacements.SetHostStr(base::StringPiece(host).substr(prefix_len));
@@ -721,7 +732,9 @@ AutocompleteMatch::GetMatchWithContentsAndDescriptionPossiblySwapped() const {
 }
 
 void AutocompleteMatch::InlineTailPrefix(const base::string16& common_prefix) {
-  if (type == AutocompleteMatchType::SEARCH_SUGGEST_TAIL) {
+  // Prevent re-addition of prefix.
+  if (type == AutocompleteMatchType::SEARCH_SUGGEST_TAIL &&
+      tail_suggest_common_prefix.empty()) {
     tail_suggest_common_prefix = common_prefix;
     // Insert an ellipsis before uncommon part.
     const auto ellipsis = base::ASCIIToUTF16(kEllipsis);
@@ -766,11 +779,14 @@ bool AutocompleteMatch::IsExceptedFromLineReversal() const {
 }
 
 bool AutocompleteMatch::ShouldShowTabMatch() const {
+  return has_tab_match && !associated_keyword;
+}
+
+bool AutocompleteMatch::ShouldShowButton() const {
   // TODO(orinj): If side button Pedal presentation mode is not kept,
   // the simpler logic (with no pedal checks) can be restored, and if it is
   // kept then some minor refactoring (or at least renaming) is in order.
-  return (has_tab_match && !associated_keyword) ||
-         (pedal && pedal->ShouldPresentButton());
+  return ShouldShowTabMatch() || (pedal && pedal->ShouldPresentButton());
 }
 
 #if DCHECK_IS_ON()

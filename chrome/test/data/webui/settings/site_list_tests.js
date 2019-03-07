@@ -294,6 +294,7 @@ suite('SiteList', function() {
     settings.SiteSettingsPrefsBrowserProxyImpl.instance_ = browserProxy;
     PolymerTest.clearBody();
     testElement = document.createElement('site-list');
+    testElement.searchFilter = '';
     document.body.appendChild(testElement);
 
     if (cr.isChromeOS) {
@@ -311,7 +312,6 @@ suite('SiteList', function() {
     if (cr.isChromeOS) {
       // Reset multidevice enabled flag.
       loadTimeData.overrideValues({
-        enableMultideviceSettings: false,
         multideviceAllowedByPolicy: false
       });
     }
@@ -333,8 +333,9 @@ suite('SiteList', function() {
   /** Closes the action menu. */
   function closeActionMenu() {
     const menu = testElement.$$('cr-action-menu');
-    if (menu.open)
+    if (menu.open) {
       menu.close();
+    }
   }
 
   /**
@@ -346,8 +347,9 @@ suite('SiteList', function() {
     assertTrue(!!menu);
     const menuItems = menu.querySelectorAll('button:not([hidden])');
     assertEquals(items.length, menuItems.length);
-    for (let i = 0; i < items.length; i++)
+    for (let i = 0; i < items.length; i++) {
       assertEquals(items[i], menuItems[i].textContent.trim());
+    }
   }
 
   /**
@@ -399,7 +401,6 @@ suite('SiteList', function() {
 
   if (cr.isChromeOS) {
     test('update androidSmsInfo', function() {
-      loadTimeData.overrideValues({enableMultideviceSettings: true});
       setUpCategory(
           settings.ContentSettingsTypes.NOTIFICATIONS,
           settings.ContentSetting.ALLOW, prefsAndroidSms);

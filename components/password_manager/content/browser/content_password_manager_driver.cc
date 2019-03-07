@@ -69,21 +69,28 @@ void ContentPasswordManagerDriver::FillPasswordForm(
     const autofill::PasswordFormFillData& form_data) {
   password_autofill_manager_.OnAddPasswordFillData(form_data);
   GetPasswordAutofillAgent()->FillPasswordForm(
-      autofill::ClearPasswordValues(form_data));
+      autofill::MaybeClearPasswordValues(form_data));
 }
 
 void ContentPasswordManagerDriver::AllowPasswordGenerationForForm(
     const autofill::PasswordForm& form) {
-  if (!GetPasswordGenerationManager()->IsGenerationEnabled(
+  if (GetPasswordGenerationManager()->IsGenerationEnabled(
           /*log_debug_data=*/true)) {
-    return;
+    GetPasswordGenerationAgent()->FormNotBlacklisted(form);
   }
-  GetPasswordGenerationAgent()->FormNotBlacklisted(form);
 }
 
 void ContentPasswordManagerDriver::FormsEligibleForGenerationFound(
     const std::vector<autofill::PasswordFormGenerationData>& forms) {
   GetPasswordGenerationAgent()->FoundFormsEligibleForGeneration(forms);
+}
+
+void ContentPasswordManagerDriver::FormEligibleForGenerationFound(
+    const autofill::NewPasswordFormGenerationData& form) {
+  if (GetPasswordGenerationManager()->IsGenerationEnabled(
+          /*log_debug_data=*/true)) {
+    GetPasswordGenerationAgent()->FoundFormEligibleForGeneration(form);
+  }
 }
 
 void ContentPasswordManagerDriver::AutofillDataReceived(
@@ -126,10 +133,6 @@ void ContentPasswordManagerDriver::ShowInitialPasswordAccountSuggestions(
 
 void ContentPasswordManagerDriver::ClearPreviewedForm() {
   GetAutofillAgent()->ClearPreviewedForm();
-}
-
-void ContentPasswordManagerDriver::GeneratePassword() {
-  GetPasswordGenerationAgent()->UserTriggeredGeneratePassword();
 }
 
 PasswordGenerationManager*
@@ -175,6 +178,13 @@ void ContentPasswordManagerDriver::DidNavigateFrame(
                                GetPasswordManager());
     GetPasswordAutofillManager()->DidNavigateMainFrame();
   }
+}
+
+void ContentPasswordManagerDriver::GeneratePassword(
+    autofill::mojom::PasswordGenerationAgent::
+        UserTriggeredGeneratePasswordCallback callback) {
+  GetPasswordGenerationAgent()->UserTriggeredGeneratePassword(
+      std::move(callback));
 }
 
 const autofill::mojom::AutofillAgentAssociatedPtr&

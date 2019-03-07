@@ -34,7 +34,6 @@ const CGFloat kMinimalHeight = 48;
 - (void)configureCell:(TableViewDetailTextCell*)cell
            withStyler:(ChromeTableViewStyler*)styler {
   [super configureCell:cell withStyler:styler];
-  cell.accessoryType = self.accessoryType;
   cell.textLabel.text = self.text;
   cell.detailTextLabel.text = self.detailText;
   cell.isAccessibilityElement = YES;
@@ -165,6 +164,21 @@ const CGFloat kMinimalHeight = 48;
       self.detailTextLabel.numberOfLines = 1;
     }
   }
+}
+
+- (void)layoutSubviews {
+  if (UIContentSizeCategoryIsAccessibilityCategory(
+          self.traitCollection.preferredContentSizeCategory)) {
+    // Make sure that the multiline labels width isn't changed when the
+    // accessory is set.
+    self.detailTextLabel.preferredMaxLayoutWidth =
+        self.bounds.size.width -
+        (kTableViewAccessoryWidth + 2 * kTableViewHorizontalSpacing);
+    self.textLabel.preferredMaxLayoutWidth =
+        self.bounds.size.width -
+        (kTableViewAccessoryWidth + 2 * kTableViewHorizontalSpacing);
+  }
+  [super layoutSubviews];
 }
 
 @end

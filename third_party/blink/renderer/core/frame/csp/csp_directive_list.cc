@@ -96,7 +96,8 @@ CSPDirectiveList* CSPDirectiveList::Create(
     ContentSecurityPolicyHeaderType type,
     ContentSecurityPolicyHeaderSource source,
     bool should_parse_wasm_eval) {
-  CSPDirectiveList* directives = new CSPDirectiveList(policy, type, source);
+  CSPDirectiveList* directives =
+      MakeGarbageCollected<CSPDirectiveList>(policy, type, source);
   directives->Parse(begin, end, should_parse_wasm_eval);
 
   if (!directives->CheckEval(directives->OperativeDirective(
@@ -275,8 +276,10 @@ bool CSPDirectiveList::CheckSource(
   // If |url| is empty, fall back to the policy URL to ensure that <object>'s
   // without a `src` can be blocked/allowed, as they can still load plugins
   // even though they don't actually have a URL.
-  return !directive || directive->Allows(url.IsEmpty() ? policy_->Url() : url,
-                                         redirect_status);
+  return !directive ||
+         directive->Allows(
+             url.IsEmpty() ? policy_->FallbackUrlForPlugin() : url,
+             redirect_status);
 }
 
 bool CSPDirectiveList::CheckAncestors(SourceListDirective* directive,
@@ -959,8 +962,7 @@ bool CSPDirectiveList::AllowBaseURI(
       !CheckSource(
           OperativeDirective(ContentSecurityPolicy::DirectiveType::kBaseURI),
           url, redirect_status)) {
-    UseCounter::Count(policy_->GetDocument(),
-                      WebFeature::kBaseWouldBeBlockedByDefaultSrc);
+    policy_->Count(WebFeature::kBaseWouldBeBlockedByDefaultSrc);
   }
 
   return result;
@@ -1123,7 +1125,7 @@ bool CSPDirectiveList::ParseDirective(const UChar* begin,
   // The directive-name must be non-empty.
   if (name_begin == position) {
     // Malformed CSP: directive starts with invalid characters
-    UseCounter::Count(policy_->GetDocument(), WebFeature::kMalformedCSP);
+    policy_->Count(WebFeature::kMalformedCSP);
 
     SkipWhile<UChar, IsNotASCIISpace>(position, end);
     policy_->ReportUnsupportedDirective(
@@ -1139,7 +1141,7 @@ bool CSPDirectiveList::ParseDirective(const UChar* begin,
 
   if (!SkipExactly<UChar, IsASCIISpace>(position, end)) {
     // Malformed CSP: after the directive name we don't have a space
-    UseCounter::Count(policy_->GetDocument(), WebFeature::kMalformedCSP);
+    policy_->Count(WebFeature::kMalformedCSP);
 
     SkipWhile<UChar, IsNotASCIISpace>(position, end);
     policy_->ReportUnsupportedDirective(
@@ -1154,7 +1156,7 @@ bool CSPDirectiveList::ParseDirective(const UChar* begin,
 
   if (position != end) {
     // Malformed CSP: directive value has invalid characters
-    UseCounter::Count(policy_->GetDocument(), WebFeature::kMalformedCSP);
+    policy_->Count(WebFeature::kMalformedCSP);
 
     policy_->ReportInvalidDirectiveValueCharacter(
         *name, String(value_begin, static_cast<wtf_size_t>(end - value_begin)));
@@ -1258,33 +1260,56 @@ void CSPDirectiveList::ParseReportURI(const String& name, const String& value) {
   ParseAndAppendReportEndpoints(value);
 }
 
+// For "report-uri" directive, this method corresponds to:
+// https://w3c.github.io/webappsec-csp/#report-violation
+// Step 3.4.2. For each token returned by splitting a string on ASCII whitespace
+// with directive's value as the input. [spec text]
+
+// For "report-to" directive, the spec says |value| is a single token
+// but we use the same logic as "report-uri" and thus we split |value| by
+// ASCII whitespaces.
+// https://w3c.github.io/webappsec-csp/#directive-report-to
+//
+// TODO(https://crbug.com/916265): Fix this inconsistency.
 void CSPDirectiveList::ParseAndAppendReportEndpoints(const String& value) {
   Vector<UChar> characters;
   value.AppendTo(characters);
 
+  // https://infra.spec.whatwg.org/#split-on-ascii-whitespace
+
+  // Step 2. Let tokens be a list of strings, initially empty. [spec text]
+  DCHECK(report_endpoints_.IsEmpty());
+
   const UChar* position = characters.data();
   const UChar* end = position + characters.size();
 
+  // Step 4. While position is not past the end of input: [spec text]
   while (position < end) {
+    // Step 3. Skip ASCII whitespace within input given position. [spec text]
+    // Step 4.3. Skip ASCII whitespace within input given position. [spec text]
+    //
+    // Note: IsASCIISpace returns true for U+000B which is not included in
+    // https://infra.spec.whatwg.org/#ascii-whitespace.
+    // TODO(mkwst): Investigate why the restrictions in the infra spec are
+    // different than those in Blink here.
     SkipWhile<UChar, IsASCIISpace>(position, end);
 
+    // Step 4.1. Let token be the result of collecting a sequence of code points
+    // that are not ASCII whitespace from input, given position. [spec text]
     const UChar* endpoint_begin = position;
     SkipWhile<UChar, IsNotASCIISpace>(position, end);
 
     if (endpoint_begin < position) {
+      // Step 4.2. Append token to tokens. [spec text]
       String endpoint = String(
           endpoint_begin, static_cast<wtf_size_t>(position - endpoint_begin));
       report_endpoints_.push_back(endpoint);
     }
   }
 
-  if (report_endpoints_.size() > 1) {
-    UseCounter::Count(policy_->GetDocument(),
-                      WebFeature::kReportUriMultipleEndpoints);
-  } else {
-    UseCounter::Count(policy_->GetDocument(),
-                      WebFeature::kReportUriSingleEndpoint);
-  }
+  policy_->Count(report_endpoints_.size() > 1
+                     ? WebFeature::kReportUriMultipleEndpoints
+                     : WebFeature::kReportUriSingleEndpoint);
 }
 
 template <class CSPDirectiveType>
@@ -1306,7 +1331,7 @@ void CSPDirectiveList::SetCSPDirective(const String& name,
     return;
   }
 
-  directive = new CSPDirectiveType(name, value, policy_);
+  directive = MakeGarbageCollected<CSPDirectiveType>(name, value, policy_);
 }
 
 void CSPDirectiveList::ApplySandboxPolicy(const String& name,
@@ -1362,7 +1387,8 @@ void CSPDirectiveList::RequireTrustedTypes(const String& name,
     return;
   }
   policy_->RequireTrustedTypes();
-  trusted_types_ = new StringListDirective(name, value, policy_);
+  trusted_types_ =
+      MakeGarbageCollected<StringListDirective>(name, value, policy_);
 }
 
 void CSPDirectiveList::EnforceStrictMixedContentChecking(const String& name,
@@ -1475,12 +1501,11 @@ void CSPDirectiveList::AddDirective(const String& name, const String& value) {
   } else if (type == ContentSecurityPolicy::DirectiveType::kReportTo &&
              base::FeatureList::IsEnabled(network::features::kReporting)) {
     ParseReportTo(name, value);
+  } else if (type == ContentSecurityPolicy::DirectiveType::kTrustedTypes) {
+    RequireTrustedTypes(name, value);
   } else if (policy_->ExperimentalFeaturesEnabled()) {
     if (type == ContentSecurityPolicy::DirectiveType::kRequireSRIFor) {
       ParseRequireSRIFor(name, value);
-    } else if (type == ContentSecurityPolicy::DirectiveType::kTrustedTypes &&
-               RuntimeEnabledFeatures::TrustedDOMTypesEnabled()) {
-      RequireTrustedTypes(name, value);
     } else if (type == ContentSecurityPolicy::DirectiveType::kPrefetchSrc) {
       SetCSPDirective<SourceListDirective>(name, value, prefetch_src_);
     } else {
@@ -1704,7 +1729,8 @@ bool CSPDirectiveList::Subsumes(const CSPDirectiveListVector& other) {
 
 WebContentSecurityPolicy CSPDirectiveList::ExposeForNavigationalChecks() const {
   WebContentSecurityPolicy policy;
-  policy.disposition = static_cast<WebContentSecurityPolicyType>(header_type_);
+  policy.disposition =
+      static_cast<mojom::ContentSecurityPolicyType>(header_type_);
   policy.source = static_cast<WebContentSecurityPolicySource>(header_source_);
   std::vector<WebContentSecurityPolicyDirective> directives;
   for (const auto& directive :

@@ -222,7 +222,7 @@ As shorthand, a constructor with no arguments can be written as `[Constructor]` 
 Whether you should allow an interface to have constructor depends on the spec of the interface.
 
 *** note
-Currently `[Constructor(...)]` does not yet support optional arguments w/o defaults. It just supports optional `[Default=Undefined]`.
+Currently `[Constructor(...)]` does not yet support optional arguments w/o defaults. It just supports optional `[DefaultValue=Undefined]`.
 ***
 
 ### [EnforceRange] _(t)_
@@ -932,28 +932,21 @@ If the method/accessor creates elements or modifies DOM nodes in any way, it sho
 
 Usage: `[CustomElementCallbacks]` takes no arguments.
 
-### [Default] _(p)_
+### [HighEntropy] _(m, a, c)_
 
-Summary: `[Default]` allows one to specify the default values for optional arguments. This removes the need to have C++ overloads in the Blink implementation.
+Summary: Denotes an API that exposes data that folks on the internet find useful for fingerprinting.
 
-Standard: In Web IDL, [default values for optional arguments](https://heycam.github.io/webidl/#dfn-optional-argument-default-value) are written as `optional type identifier = value`. Blink supports this but not all implementations have been updated to handle overloaded functions - see [bug 258153](https://crbug.com/258153). `[Default=Undefined]` was added to all optional parameters to preserve compatibility until the C++ implementations are updated.
+Attributes and methods marked as `[HighEntropy]` are known to be practically useful for [identifying particular clients](https://dev.chromium.org/Home/chromium-security/client-identification-mechanisms) on the web today.
+Both methods and attribute/constant getters annotated with this attribute are wired up to [`Dactyloscoper::Record`](https://code.google.com/p/chromium/codesearch#chromium/src/third_party/blink/renderer/core/frame/use_counter.cc&q=Dactyloscoper::Record) for additional processing.
 
-Usage: `[Default=Undefined]` can be specified on any optional parameter:
+This attribute must be accompanied by either `[Measure]` or `[MeasureAs]`.
 
 ```webidl
-interface HTMLFoo {
-    void func1(long a, long b, optional long c, optional long d);
-    void func2(long a, long b, [Default=Undefined] optional long c);
-};
+[HighEntropy, Measure] attribute Node interestingAttribute;
+[HighEntropy, MeasureAs=InterestingNamedAttribute] attribute Node interestingNamedAttribute;
+[HighEntropy, Measure] Node getInterestingNode();
+[HighEntropy, Measure] const INTERESTING_CONSTANT = 1;
 ```
-
-The parameters marked with the standard Web IDL `optional` qualifier are optional, and JavaScript can omit the parameters. Obviously, if parameter X is marked with `optional` then all subsequent parameters of X should be marked with `optional`.
-
-The difference between `optional` and `[Default=Undefined]` optional is whether the Blink implementation requires overloaded methods or not: without a default value, the Blink implementation must have overloaded C++ functions, while with a default value, the Blink implementation only needs a single C++ function.
-
-In case of func1(...), if JavaScript calls func1(100, 200), then `HTMLFoo::func1(int a, int b)` is called in Blink. If JavaScript calls `func1(100, 200, 300)`, then `HTMLFoo::func1(int a, int b, int c)` is called in Blink. If JavaScript calls `func1(100, 200, 300, 400)`, then `HTMLFoo::func1(int a, int b, int c, int d)` is called in Blink. In other words, if the Blink implementation has overloaded methods, you can use `optional`.
-
-In case of func2(...) which adds `[Default=Undefined]`, if JavaScript calls `func2(100, 200)`, then it behaves as if JavaScript called `func2(100, 200, undefined)`. Consequently, `HTMLFoo::func2(int a, int b, int c)` is called in Blink. 100 is passed to `a`, 200 is passed to `b`, and 0 is passed to `c`. (A JavaScript `undefined` is converted to 0, following the value conversion rule in the Web IDL spec; if it were a DOMString parameter, it would end up as the string `"undefined"`.) In this way, Blink needs to just implement `func2(int a, int b, int c)` and needs not to implement both `func2(int a, int b)` and `func2(int a, int b, int c)`.
 
 ### [DeprecateAs] _(m, a, c)_
 
@@ -1130,17 +1123,17 @@ If the name of the corresponding content attribute is different from the attribu
 
 Whether `[Reflect]` should be specified or not depends on the spec of each attribute.
 
-### [ReflectEmpty="value"] _(a)_
+### [ReflectEmpty] _(a)_
 
 Specification: [Enumerated attributes](http://www.whatwg.org/specs/web-apps/current-work/#enumerated-attribute) - _defined in spec prose, not as an IDL extended attribute._
 
-Summary: `[ReflectEmpty="value"]` gives the attribute keyword value to reflect when an attribute is present, but without a value; it supplements `[ReflectOnly]` and `[Reflect]`.
+Summary: `[ReflectEmpty]` gives the attribute keyword value to reflect when an attribute is present, but without a value; it supplements `[ReflectOnly]` and `[Reflect]`.
 
 Usage: The possible usage is `[ReflectEmpty="value"]` in combination with `[ReflectOnly]`:
 
 ```webidl
 interface HTMLMyElement {
-    [Reflect, ReflectOnly="for"|"against", ReflectEmpty="for"] attribute DOMString vote;
+    [Reflect, ReflectOnly=("for", "against"), ReflectEmpty="for"] attribute DOMString vote;
 };
 ```
 
@@ -1148,17 +1141,17 @@ The `[ReflectEmpty]` extended attribute specifies the value that an IDL getter f
 
 `[ReflectEmpty]` should be used if the specification for the content attribute has an empty attribute value mapped to some attribute state. For HTML, this applies to [enumerated attributes](http://www.whatwg.org/specs/web-apps/current-work/#enumerated-attribute) only.
 
-### [ReflectInvalid="value"] _(a)_
+### [ReflectInvalid] _(a)_
 
 Specification: [Limited value attributes](http://www.whatwg.org/specs/web-apps/current-work/#limited-to-only-known-values) - _defined in spec prose, not as an IDL extended attribute._
 
-Summary: `[ReflectInvalid="value"]` gives the attribute keyword value to reflect when an attribute has an invalid/unknown value. It supplements `[ReflectOnly]` and `[Reflect]`.
+Summary: `[ReflectInvalid]` gives the attribute keyword value to reflect when an attribute has an invalid/unknown value. It supplements `[ReflectOnly]` and `[Reflect]`.
 
 Usage: The possible usage is `[ReflectInvalid="value"]` in combination with `[ReflectOnly]`:
 
 ```webidl
 interface HTMLMyElement {
-    [Reflect, ReflectOnly="left"|"right", ReflectInvalid="left"] attribute DOMString direction;
+    [Reflect, ReflectOnly=("left", "right"), ReflectInvalid="left"] attribute DOMString direction;
 };
 ```
 
@@ -1166,17 +1159,17 @@ The `[ReflectInvalid]` extended attribute specifies the value that an IDL getter
 
 `[ReflectInvalid]` should be used if the specification for the content attribute has an _invalid value state_ defined. For HTML, this applies to [enumerated attributes](http://www.whatwg.org/specs/web-apps/current-work/#enumerated-attribute) only.
 
-### [ReflectMissing="value"] _(a)_
+### [ReflectMissing] _(a)_
 
 Specification: [Limited value attributes](http://www.whatwg.org/specs/web-apps/current-work/#limited-to-only-known-values) - _defined in spec prose, not as an IDL extended attribute._
 
-Summary: `[ReflectMissing="value"]` gives the attribute keyword value to reflect when an attribute isn't present. It supplements `[ReflectOnly]` and `[Reflect]`.
+Summary: `[ReflectMissing]` gives the attribute keyword value to reflect when an attribute isn't present. It supplements `[ReflectOnly]` and `[Reflect]`.
 
 Usage: The possible usage is `[ReflectMissing="value"]` in combination with `[ReflectOnly]`:
 
 ```webidl
 interface HTMLMyElement {
-    [Reflect, ReflectOnly="ltr"|"rtl"|"auto", ReflectMissing="auto"] attribute DOMString preload;
+    [Reflect, ReflectOnly=("ltr", "rtl", "auto"), ReflectMissing="auto"] attribute DOMString preload;
 };
 ```
 
@@ -1184,26 +1177,26 @@ The `[ReflectMissing]` extended attribute specifies the value that an IDL getter
 
 `[ReflectMissing]` should be used if the specification for the content attribute has a _missing value state_ defined. For HTML, this applies to [enumerated attributes](http://www.whatwg.org/specs/web-apps/current-work/#enumerated-attribute) only.
 
-### [ReflectOnly=&lt;list&gt;] _(a)_
+### [ReflectOnly] _(a)_
 
 Specification: [Limited value attributes](http://www.whatwg.org/specs/web-apps/current-work/#limited-to-only-known-values) - _defined in spec prose, not as an IDL extended attribute._
 
-Summary: `[ReflectOnly=<list>]` indicates that a reflected string attribute should be limited to a set of allowable values; it supplements `[Reflect]`.
+Summary: `[ReflectOnly]` indicates that a reflected string attribute should be limited to a set of allowable values; it supplements `[Reflect]`.
 
-Usage: The possible usage is `[ReflectOnly="A1"|...|"An"]` where A1 (up to n) are the attribute values allowed. `[ReflectOnly=<list>]` is used in combination with `[Reflect]`:
+Usage: The possible usages are `[ReflectOnly="value"]` and `[ReflectOnly=("A1",...,"An")]` where A1 (up to n) are the attribute values allowed. `[ReflectOnly]` is used in combination with `[Reflect]`:
 
 ```webidl
 interface HTMLMyElement {
     [Reflect, ReflectOnly="on"] attribute DOMString toggle;
-    [Reflect=q, ReflectOnly="first"|"second"|"third"|"fourth"] attribute DOMString quarter;
+    [Reflect=q, ReflectOnly=("first", "second", "third", "fourth")] attribute DOMString quarter;
 };
 ```
 
-The ReflectOnly attribute limits the range of values that the attribute getter can return from its reflected attribute. If the content attribute has a value that is a case-insensitive match for one of the values given in the `ReflectOnly`'s list (using "`|`" as separator), then it will be returned. To allow attribute values that use characters that go beyond what IDL identifiers may contain, string literals are used. This is a Blink syntactic extension to extended attributes.
+The ReflectOnly attribute limits the range of values that the attribute getter can return from its reflected attribute. If the content attribute has a value that is a case-insensitive match for one of `ReflectOnly`'s values, then it will be returned. To allow attribute values that use characters that go beyond what IDL identifiers may contain, string literals are used. This is a Blink syntactic extension to extended attributes.
 
 If there is no match, the empty string will be returned. As required by the specification, no such checking is performed when the reflected IDL attribute is set.
 
-`[ReflectOnly=<list>]` should be used if the specification for a reflected IDL attribute says it is _"limited to only known values"_.
+`[ReflectOnly]` should be used if the specification for a reflected IDL attribute says it is _"limited to only known values"_.
 
 ### [RuntimeEnabled] _(i, m, a, c)_
 
@@ -1558,6 +1551,30 @@ interface HTMLFoo {
     void removeItems();
 };
 ```
+
+
+### [DefaultValue] _(p)_
+
+Summary: `[DefaultValue]` allows one to specify the default values for optional arguments. This removes the need to have C++ overloads in the Blink implementation.
+
+Standard: In Web IDL, [default values for optional arguments](https://heycam.github.io/webidl/#dfn-optional-argument-default-value) are written as `optional type identifier = value`. Blink supports this but not all implementations have been updated to handle overloaded functions - see [bug 258153](https://crbug.com/258153). `[DefaultValue=Undefined]` was added to all optional parameters to preserve compatibility until the C++ implementations are updated.
+
+Usage: `[DefaultValue=Undefined]` can be specified on any optional parameter:
+
+```webidl
+interface HTMLFoo {
+    void func1(long a, long b, optional long c, optional long d);
+    void func2(long a, long b, [DefaultValue=Undefined] optional long c);
+};
+```
+
+The parameters marked with the standard Web IDL `optional` qualifier are optional, and JavaScript can omit the parameters. Obviously, if parameter X is marked with `optional` then all subsequent parameters of X should be marked with `optional`.
+
+The difference between `optional` and `[DefaultValue=Undefined]` optional is whether the Blink implementation requires overloaded methods or not: without a default value, the Blink implementation must have overloaded C++ functions, while with a default value, the Blink implementation only needs a single C++ function.
+
+In case of `func1(...)`, if JavaScript calls `func1(100, 200)`, then `HTMLFoo::func1(int a, int b)` is called in Blink. If JavaScript calls `func1(100, 200, 300)`, then `HTMLFoo::func1(int a, int b, int c)` is called in Blink. If JavaScript calls `func1(100, 200, 300, 400)`, then `HTMLFoo::func1(int a, int b, int c, int d)` is called in Blink. In other words, if the Blink implementation has overloaded methods, you can use `optional` without `[DefaultValue=Undefined]`.
+
+In case of `func2(...)` which adds `[DefaultValue=Undefined]`, if JavaScript calls `func2(100, 200)`, then it behaves as if JavaScript called `func2(100, 200, undefined)`. Consequently, `HTMLFoo::func2(int a, int b, int c)` is called in Blink. 100 is passed to `a`, 200 is passed to `b`, and 0 is passed to `c`. (A JavaScript `undefined` is converted to 0, following the value conversion rule in the Web IDL spec; if it were a DOMString parameter, it would end up as the string `"undefined"`.) In this way, Blink needs to just implement `func2(int a, int b, int c)` and needs not to implement both `func2(int a, int b)` and `func2(int a, int b, int c)`.
 
 
 ## Discouraged Blink-specific IDL Extended Attributes

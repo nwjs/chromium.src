@@ -65,13 +65,17 @@
   self.viewController.emptyTextLeadingImage = GetOmniboxSuggestionIcon(SEARCH);
 
   self.viewController.dispatcher =
-      static_cast<id<LoadQueryCommands, OmniboxFocuser>>(self.dispatcher);
+      static_cast<id<BrowserCommands, LoadQueryCommands, OmniboxFocuser>>(
+          self.dispatcher);
   self.mediator = [[OmniboxMediator alloc] init];
   self.mediator.consumer = self.viewController;
 
   DCHECK(self.editController);
+
+  id<OmniboxFocuser> focuser = static_cast<id<OmniboxFocuser>>(self.dispatcher);
   _editView = std::make_unique<OmniboxViewIOS>(
-      self.textField, self.editController, self.mediator, self.browserState);
+      self.textField, self.editController, self.mediator, self.browserState,
+      focuser);
 
   // Configure the textfield.
   self.textField.suggestionCommandsEndpoint =
@@ -113,7 +117,8 @@
 }
 
 - (void)endEditing {
-  _editView->HideKeyboardAndEndEditing();
+  [self.textField resignFirstResponder];
+  _editView->EndEditing();
 }
 
 - (void)insertTextToOmnibox:(NSString*)text {

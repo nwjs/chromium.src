@@ -14,23 +14,23 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/sync_startup_tracker.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
+#include "components/keyed_service/core/keyed_service_shutdown_notifier.h"
 #include "components/signin/core/browser/account_info.h"
 #include "components/signin/core/browser/signin_metrics.h"
 
 class Browser;
-class ProfileOAuth2TokenService;
-class SigninManager;
 
-namespace browser_sync {
-class ProfileSyncService;
+namespace identity {
+class IdentityManager;
 }
 
 namespace syncer {
+class SyncService;
 class SyncSetupInProgressHandle;
 }
 
-// Handles details of signing the user in with SigninManager and turning on
-// sync for an account that is already present in the token service.
+// Handles details of setting the primary account with IdentityManager and
+// turning on sync for an account for which there is already a refresh token.
 class DiceTurnSyncOnHelper : public SyncStartupTracker::Observer {
  public:
   // Behavior when the signin is aborted (by an error or cancelled by the user).
@@ -86,9 +86,8 @@ class DiceTurnSyncOnHelper : public SyncStartupTracker::Observer {
     // Opens the Sync settings page.
     virtual void ShowSyncSettings() = 0;
 
-    // Opens the signin page in a new profile.
-    virtual void ShowSigninPageInNewProfile(Profile* new_profile,
-                                            const std::string& username) = 0;
+    // Informs the delegate that the flow is switching to a new profile.
+    virtual void SwitchToProfile(Profile* new_profile) = 0;
   };
 
   // Create a helper that turns sync on for an account that is already present
@@ -161,15 +160,17 @@ class DiceTurnSyncOnHelper : public SyncStartupTracker::Observer {
   // in-progress auth credentials currently stored in this object.
   void CreateNewSignedInProfile();
 
-  // Callback invoked once a profile is created, so we can complete the
-  // credentials transfer, load policy, and open the first window.
-  void CompleteInitForNewProfile(Profile* new_profile,
-                                 Profile::CreateStatus status);
+  // Callback invoked once a profile is created, so we can transfer the
+  // credentials.
+  void OnNewProfileCreated(Profile* new_profile, Profile::CreateStatus status);
 
-  // Returns the ProfileSyncService, or nullptr if sync is not allowed.
-  browser_sync::ProfileSyncService* GetProfileSyncService();
+  // Callback invoked once the token service is ready for the new profile.
+  void OnNewProfileTokensLoaded(Profile* new_profile);
 
-  // Completes the signin in SigninManager and displays the Sync confirmation
+  // Returns the SyncService, or nullptr if sync is not allowed.
+  syncer::SyncService* GetSyncService();
+
+  // Completes the signin in IdentityManager and displays the Sync confirmation
   // UI.
   void SigninAndShowSyncConfirmationUI();
 
@@ -183,19 +184,21 @@ class DiceTurnSyncOnHelper : public SyncStartupTracker::Observer {
   void FinishSyncSetupAndDelete(
       LoginUIService::SyncConfirmationUIClosedResult result);
 
+  // Switch to a new profile after exporting the token.
+  void SwitchToProfile(Profile* new_profile);
+
   // Aborts the flow and deletes this object.
   void AbortAndDelete();
 
   std::unique_ptr<Delegate> delegate_;
   Profile* profile_;
-  SigninManager* signin_manager_;
-  ProfileOAuth2TokenService* token_service_;
+  identity::IdentityManager* identity_manager_;
   const signin_metrics::AccessPoint signin_access_point_;
   const signin_metrics::PromoAction signin_promo_action_;
   const signin_metrics::Reason signin_reason_;
 
   // Whether the refresh token should be deleted if the Sync flow is aborted.
-  const SigninAbortedMode signin_aborted_mode_;
+  SigninAbortedMode signin_aborted_mode_;
 
   // Account information.
   const AccountInfo account_info_;
@@ -209,6 +212,8 @@ class DiceTurnSyncOnHelper : public SyncStartupTracker::Observer {
   std::string client_id_;
 
   std::unique_ptr<SyncStartupTracker> sync_startup_tracker_;
+  std::unique_ptr<KeyedServiceShutdownNotifier::Subscription>
+      shutdown_subscription_;
 
   base::WeakPtrFactory<DiceTurnSyncOnHelper> weak_pointer_factory_;
   DISALLOW_COPY_AND_ASSIGN(DiceTurnSyncOnHelper);

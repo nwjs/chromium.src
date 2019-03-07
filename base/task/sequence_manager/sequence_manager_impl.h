@@ -22,6 +22,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop/message_loop.h"
+#include "base/message_loop/work_id_provider.h"
 #include "base/pending_task.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
@@ -86,7 +87,8 @@ class BASE_EXPORT SequenceManagerImpl
   // This function should be called only once per thread.
   // This function assumes that a MessageLoop is initialized for
   // the current thread.
-  static std::unique_ptr<SequenceManagerImpl> CreateOnCurrentThread();
+  static std::unique_ptr<SequenceManagerImpl> CreateOnCurrentThread(
+      SequenceManager::Settings settings = SequenceManager::Settings());
 
   // Create a SequenceManager for a future thread that will run the provided
   // MessageLoop. The SequenceManager can be initialized on the current thread
@@ -98,11 +100,10 @@ class BASE_EXPORT SequenceManagerImpl
   // This function should be called only once per MessageLoop.
   static std::unique_ptr<SequenceManagerImpl> CreateUnbound(
       MessageLoopBase* message_loop_base,
-      const TickClock* clock = DefaultTickClock::GetInstance());
+      SequenceManager::Settings settings = Settings());
 
   static std::unique_ptr<SequenceManagerImpl> CreateUnboundWithPump(
-      MessageLoop::Type type,
-      const TickClock* clock = DefaultTickClock::GetInstance());
+      SequenceManager::Settings settings);
 
   // SequenceManager implementation:
   void BindToCurrentThread() override;
@@ -119,7 +120,7 @@ class BASE_EXPORT SequenceManagerImpl
   TimeTicks NowTicks() const override;
   void SetDefaultTaskRunner(
       scoped_refptr<SingleThreadTaskRunner> task_runner) override;
-  void SweepCanceledDelayedTasks() override;
+  void ReclaimMemory() override;
   bool GetAndClearSystemIsQuiescentBit() override;
   void SetWorkBatchSize(int work_batch_size) override;
   void SetTimerSlack(TimerSlack timer_slack) override;
@@ -129,6 +130,7 @@ class BASE_EXPORT SequenceManagerImpl
   size_t GetPendingTaskCountForTesting() const override;
   scoped_refptr<TaskQueue> CreateTaskQueue(
       const TaskQueue::Spec& spec) override;
+  std::string DescribeAllPendingTasks() const override;
 
   // SequencedTaskSource implementation:
   Optional<PendingTask> TakeTask() override;
@@ -202,7 +204,7 @@ class BASE_EXPORT SequenceManagerImpl
   // Create a task queue manager where |controller| controls the thread
   // on which the tasks are eventually run.
   SequenceManagerImpl(std::unique_ptr<internal::ThreadController> controller,
-                      MessageLoop::Type type);
+                      SequenceManager::Settings settings = Settings());
 
   friend class internal::TaskQueueImpl;
   friend class ::base::sequence_manager::SequenceManagerForTest;
@@ -249,7 +251,8 @@ class BASE_EXPORT SequenceManagerImpl
 
   struct MainThreadOnly {
     explicit MainThreadOnly(
-        const scoped_refptr<AssociatedThreadId>& associated_thread);
+        const scoped_refptr<AssociatedThreadId>& associated_thread,
+        bool randomised_sampling_enabled);
     ~MainThreadOnly();
 
     int nesting_depth = 0;
@@ -327,8 +330,8 @@ class BASE_EXPORT SequenceManagerImpl
   bool GetAddQueueTimeToTasks();
 
   std::unique_ptr<trace_event::ConvertableToTraceFormat>
-  AsValueWithSelectorResult(bool should_run,
-                            internal::WorkQueue* selected_work_queue) const;
+  AsValueWithSelectorResult(internal::WorkQueue* selected_work_queue,
+                            bool force_verbose) const;
 
   // Adds |queue| to |any_thread().has_incoming_immediate_work_| and if
   // |schedule_work| is true it makes sure a DoWork is posted.
@@ -390,11 +393,16 @@ class BASE_EXPORT SequenceManagerImpl
   // Whether to add the queue time to tasks.
   base::subtle::Atomic32 add_queue_time_to_tasks_ = 0;
 
+  // Non-null provider of id state for identifying distinct work items executed
+  // by the message loop (task, event, etc.). Cached on the class to avoid TLS
+  // lookups on task execution.
+  WorkIdProvider* work_id_provider_ = nullptr;
+
   // A check to bail out early during memory corruption.
   // https://crbug.com/757940
   bool Validate();
 
-  int32_t memory_corruption_sentinel_;
+  volatile int32_t memory_corruption_sentinel_;
 
   MainThreadOnly main_thread_only_;
   MainThreadOnly& main_thread_only() {

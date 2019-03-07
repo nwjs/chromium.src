@@ -18,10 +18,6 @@ interface BackgroundFetchEvent : ExtendableEvent
     attribute @@toStringTag
     getter registration
     method constructor
-interface BackgroundFetchFetch
-    attribute @@toStringTag
-    getter request
-    method constructor
 interface BackgroundFetchManager
     attribute @@toStringTag
     method constructor
@@ -298,6 +294,7 @@ interface DOMMatrixReadOnly
     method rotateFromVector
     method scale
     method scale3d
+    method scaleNonUniform
     method skewX
     method skewY
     method toFloat32Array
@@ -368,6 +365,14 @@ interface DOMStringList
     method constructor
     method contains
     method item
+interface ErrorEvent : Event
+    attribute @@toStringTag
+    getter colno
+    getter error
+    getter filename
+    getter lineno
+    getter message
+    method constructor
 interface Event
     attribute @@toStringTag
     attribute AT_TARGET
@@ -673,6 +678,7 @@ interface IDBTransaction : EventTarget
     getter oncomplete
     getter onerror
     method abort
+    method commit
     method constructor
     method objectStore
     setter onabort
@@ -973,9 +979,11 @@ interface PaymentRequestEvent : ExtendableEvent
     method respondWith
 interface Performance : EventTarget
     attribute @@toStringTag
+    getter onelementtimingbufferfull
     getter oneventtimingbufferfull
     getter onresourcetimingbufferfull
     getter timeOrigin
+    method clearElementTimings
     method clearEventTimings
     method clearMarks
     method clearMeasures
@@ -987,9 +995,11 @@ interface Performance : EventTarget
     method mark
     method measure
     method now
+    method setElementTimingBufferMaxSize
     method setEventTimingBufferMaxSize
     method setResourceTimingBufferSize
     method toJSON
+    setter onelementtimingbufferfull
     setter oneventtimingbufferfull
     setter onresourcetimingbufferfull
 interface PerformanceEntry
@@ -1007,6 +1017,7 @@ interface PerformanceMeasure : PerformanceEntry
     attribute @@toStringTag
     method constructor
 interface PerformanceObserver
+    static getter supportedEntryTypes
     attribute @@toStringTag
     method constructor
     method disconnect
@@ -2040,6 +2051,7 @@ interface WebGL2ComputeRenderingContext
     method isVertexArray
     method lineWidth
     method linkProgram
+    method makeXRCompatible
     method memoryBarrier
     method memoryBarrierByRegion
     method pauseTransformFeedback
@@ -2054,7 +2066,6 @@ interface WebGL2ComputeRenderingContext
     method samplerParameterf
     method samplerParameteri
     method scissor
-    method setCompatibleXRDevice
     method shaderSource
     method stencilFunc
     method stencilFuncSeparate
@@ -2833,6 +2844,7 @@ interface WebGL2RenderingContext
     method isVertexArray
     method lineWidth
     method linkProgram
+    method makeXRCompatible
     method pauseTransformFeedback
     method pixelStorei
     method polygonOffset
@@ -2845,7 +2857,6 @@ interface WebGL2RenderingContext
     method samplerParameterf
     method samplerParameteri
     method scissor
-    method setCompatibleXRDevice
     method shaderSource
     method stencilFunc
     method stencilFuncSeparate
@@ -3327,13 +3338,13 @@ interface WebGLRenderingContext
     method isTexture
     method lineWidth
     method linkProgram
+    method makeXRCompatible
     method pixelStorei
     method polygonOffset
     method readPixels
     method renderbufferStorage
     method sampleCoverage
     method scissor
-    method setCompatibleXRDevice
     method shaderSource
     method stencilFunc
     method stencilFuncSeparate
@@ -3444,6 +3455,7 @@ interface WorkerGlobalScope : EventTarget
     getter location
     getter navigator
     getter onerror
+    getter onlanguagechange
     getter onrejectionhandled
     getter onunhandledrejection
     getter origin
@@ -3463,6 +3475,7 @@ interface WorkerGlobalScope : EventTarget
     method setInterval
     method setTimeout
     setter onerror
+    setter onlanguagechange
     setter onrejectionhandled
     setter onunhandledrejection
     setter origin
@@ -3488,6 +3501,9 @@ interface WorkerNavigator
     getter connection
     getter deviceMemory
     getter hardwareConcurrency
+    getter idle
+    getter language
+    getter languages
     getter locks
     getter onLine
     getter permissions

@@ -473,6 +473,22 @@ TEST_P(UrlRequestTest, UploadWithSetMethod) {
   EXPECT_EQ("PUT", callback->response_as_string_);
 }
 
+TEST_P(UrlRequestTest, UploadWithBigRead) {
+  const std::string url = cronet::TestServer::GetEchoRequestBodyURL();
+  TestUploadDataProvider upload_data_provider(TestUploadDataProvider::SYNC,
+                                              /* executor = */ nullptr);
+  // Use reads that match exact size of read buffer, which is 16384 bytes.
+  upload_data_provider.AddRead(std::string(16384, 'a'));
+  upload_data_provider.AddRead(std::string(32768 - 16384, 'a'));
+  auto callback = std::make_unique<TestUrlRequestCallback>(GetParam());
+
+  callback = StartAndWaitForComplete(url, std::move(callback),
+                                     std::string("PUT"), &upload_data_provider);
+  EXPECT_EQ(200, callback->response_info_->http_status_code);
+  // Confirm that body is uploaded correctly.
+  EXPECT_EQ(std::string(32768, 'a'), callback->response_as_string_);
+}
+
 TEST_F(UrlRequestTest, UploadWithDirectExecutor) {
   const std::string url = cronet::TestServer::GetEchoRequestBodyURL();
   auto callback = std::make_unique<TestUrlRequestCallback>(true);
@@ -977,7 +993,13 @@ TEST_P(UrlRequestTest, PerfTest) {
   cronet::TestServer::ReleaseBigDataURL();
 }
 
-TEST_P(UrlRequestTest, GetStatus) {
+// https://crbug.com/921713 Flaky crash on Fuchsia.
+#if defined(OS_FUCHSIA)
+#define MAYBE_GetStatus DISABLED_GetStatus
+#else
+#define MAYBE_GetStatus GetStatus
+#endif
+TEST_P(UrlRequestTest, MAYBE_GetStatus) {
   Cronet_EnginePtr engine = cronet::test::CreateTestEngine(0);
   Cronet_UrlRequestPtr request = Cronet_UrlRequest_Create();
   Cronet_UrlRequestParamsPtr request_params = Cronet_UrlRequestParams_Create();

@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/stl_util.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
@@ -38,7 +39,8 @@ namespace blink {
 AudioWorkletGlobalScope* AudioWorkletGlobalScope::Create(
     std::unique_ptr<GlobalScopeCreationParams> creation_params,
     WorkerThread* thread) {
-  return new AudioWorkletGlobalScope(std::move(creation_params), thread);
+  return MakeGarbageCollected<AudioWorkletGlobalScope>(
+      std::move(creation_params), thread);
 }
 
 AudioWorkletGlobalScope::AudioWorkletGlobalScope(
@@ -163,7 +165,7 @@ AudioWorkletProcessor* AudioWorkletGlobalScope::CreateProcessor(
   bool did_construct =
       V8ScriptRunner::CallAsConstructor(
           isolate, definition->ConstructorLocal(isolate),
-          ExecutionContext::From(script_state), arraysize(argv), argv)
+          ExecutionContext::From(script_state), base::size(argv), argv)
           .ToLocal(&result);
   processor_creation_params_.reset();
 
@@ -326,7 +328,7 @@ bool AudioWorkletGlobalScope::Process(
   v8::Local<v8::Value> local_result;
   if (!V8ScriptRunner::CallFunction(definition->ProcessLocal(isolate),
                                     ExecutionContext::From(script_state),
-                                    processor_handle, arraysize(argv), argv,
+                                    processor_handle, base::size(argv), argv,
                                     isolate)
            .ToLocal(&local_result) ||
       block.HasCaught()) {

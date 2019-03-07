@@ -68,11 +68,11 @@
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
 <translation id="1993072747612765854">Научете повече за най-новата актуализация на <ph name="SYSTEM_APP_NAME" /></translation>
 <translation id="1995660704900986789">Изключване</translation>
+<translation id="1999763610967697511">Хващане и преместване с мишката</translation>
 <translation id="2012624427112548395">Ctrl + клавиш „Търсене“ + H</translation>
 <translation id="2016340657076538683">Въведете съобщение</translation>
 <translation id="2050339315714019657">Вертикално</translation>
 <translation id="2067602449040652523">Яркост на клавиатурата</translation>
-<translation id="2081529251031312395">$1 пак може да влезе в профила си по-късно.</translation>
 <translation id="2127372758936585790">Зарядно устройство с малка мощност</translation>
 <translation id="2135456203358955318">Лупа в прикрепен режим</translation>
 <translation id="2144487987174258011">Рестартирайте, за да актуализирате Adobe Flash Player</translation>
@@ -95,6 +95,7 @@
 <translation id="2412593942846481727">Налице е актуализация</translation>
 <translation id="2413728805700750528">„<ph name="DISPLAY_NAME" />“ е сесия, управлявана от <ph name="DOMAIN" /></translation>
 <translation id="2416346634399901812">Установена е връзка (<ph name="NETWORK_NAME" />)</translation>
+<translation id="2427507373259914951">Кликване с левия бутон</translation>
 <translation id="2429753432712299108">Устройството с Bluetooth „<ph name="DEVICE_NAME" />“ иска разрешение за сдвояване. Преди да приемете, моля, уверете се, че на него се показва следният ключ за достъп: <ph name="PASSKEY" /></translation>
 <translation id="2482878487686419369">Известия</translation>
 <translation id="2484513351006226581">Натиснете <ph name="KEYBOARD_SHORTCUT" /> за превключване на клавиатурната подредба.</translation>
@@ -133,6 +134,7 @@
 <translation id="3000461861112256445">Монозвук</translation>
 <translation id="3009178788565917040">Изход</translation>
 <translation id="3019353588588144572">Оставащо време до пълното зареждане на батерията: <ph name="TIME_REMAINING" /></translation>
+<translation id="3051128274746680507">Профилът ви на контролиран потребител скоро ще бъде премахнат. Влезте в профила си, за да научите повече.</translation>
 <translation id="3055162170959710888">Днес използвахте това устройство <ph name="USED_TIME" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3081696990447829002">Разгъване на менюто</translation>
@@ -148,6 +150,7 @@
 <translation id="3236488194889173876">Няма мобилни мрежи</translation>
 <translation id="3255483164551725916">„What can you do?“ („Какво можеш да правиш?“)</translation>
 <translation id="3294437725009624529">Гост</translation>
+<translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> пак може да влезе в профила си по-късно.</translation>
 <translation id="332587331255250389">Моля, заменете батерията</translation>
 <translation id="3351879221545518001">Понастоящем предавате екрана.</translation>
 <translation id="3364721542077212959">Инструменти за писане</translation>
@@ -160,7 +163,6 @@
 <translation id="3465223694362104965">След последното ви влизане в профила на това устройство към него е свързана друга клавиатура. Преди да я използвате, проверете дали й имате доверие.</translation>
 <translation id="3477079411857374384">Control-Shift-Space</translation>
 <translation id="3510164367642747937">Открояване на курсора на мишката</translation>
-<translation id="3510503721818156981">Chromebook се свърза с нов телефон</translation>
 <translation id="3513798432020909783">Профилът се управлява от <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3573179567135747900">Връщане към „<ph name="FROM_LOCALE" />“ (изисква рестартиране)</translation>
 <translation id="3595596368722241419">Батерията е заредена</translation>
@@ -195,11 +197,12 @@
 <translation id="4072264167173457037">умерен сигнал</translation>
 <translation id="4146833061457621061">„Play music“ („Пусни музика“)</translation>
 <translation id="4181841719683918333">Езици</translation>
+<translation id="4195877955194704651">Бутон за менюто за автоматични кликвания</translation>
 <translation id="4217571870635786043">Диктуване</translation>
 <translation id="4261870227682513959">Показване на настройките за известия. Известията са изключени</translation>
 <translation id="4269883910223712419">Администраторът на това устройство може:</translation>
-<translation id="4274921305979314545">Свържете своя Chromebook с телефона си</translation>
 <translation id="4279490309300973883">Дублиране</translation>
+<translation id="4281007048406351813">Добавяне на 1 минута към таймера</translation>
 <translation id="4292681942966152062">Мрежата се активира (<ph name="NETWORK_NAME" />)</translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4321776623976362024">Използвахте клавишната комбинация за режима на висок контраст. Искате ли да го включите?</translation>
@@ -232,6 +235,7 @@
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Изключване</translation>
 <translation id="4849058404725798627">Открояване на обекта, върху който е фокусът от клавиатурата</translation>
+<translation id="485592688953820832">Без действие (пауза)</translation>
 <translation id="4872237917498892622">„Alt + търсене“ или „Shift“</translation>
 <translation id="4890187583552566966">Администраторът ви е деактивирал Google Асистент.</translation>
 <translation id="4895488851634969361">Батерията е пълна.</translation>
@@ -242,12 +246,14 @@
 <translation id="4924411785043111640">Рестартиране и нулиране</translation>
 <translation id="4961318399572185831">Предаване на екрана</translation>
 <translation id="5030687792513154421">Времето свърши</translation>
+<translation id="5035236842988137213">Устройството <ph name="DEVICE_NAME" /> е свързано с нов телефон</translation>
 <translation id="5083553833479578423">Отключете още функции на Асистент.</translation>
 <translation id="5136175204352732067">Свързана е различна клавиатура</translation>
 <translation id="5168181903108465623">Налице са устройства Cast</translation>
 <translation id="5207949376430453814">Открояване на точката на вмъкване в текста</translation>
 <translation id="5222676887888702881">Изход</translation>
 <translation id="523505283826916779">Настройки за достъпност</translation>
+<translation id="5283198616748585639">Добавяне на 1 мин</translation>
 <translation id="5302048478445481009">Език</translation>
 <translation id="5313326810920013265">Настройки за Bluetooth</translation>
 <translation id="5331975486040154427">Устройство с USB-C (задният ляв порт)</translation>
@@ -264,7 +270,6 @@
 <translation id="5571066253365925590">Bluetooth е активиран</translation>
 <translation id="5597451508971090205"><ph name="SHORT_WEEKDAY" />, <ph name="DATE" /></translation>
 <translation id="5600837773213129531">Натиснете Ctrl + Alt + Z, за да деактивирате обратната връзка с говор.</translation>
-<translation id="5626283214046138476">Профилът ви на контролиран потребител изтича скоро.</translation>
 <translation id="5648021990716966815">Жак за микрофон</translation>
 <translation id="5669267381087807207">Активира се</translation>
 <translation id="5673434351075758678">От <ph name="FROM_LOCALE" /> към <ph name="TO_LOCALE" /> след синхронизиране на настройките ви.</translation>
@@ -282,7 +287,6 @@
 <translation id="5901316534475909376">Shift + Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Включено</translation>
-<translation id="592343074608792716">Този Chromebook и телефонът ви ще се свържат автоматично</translation>
 <translation id="5947494881799873997">Възстановяване</translation>
 <translation id="595202126637698455">Проследяването на ефективността е активирано</translation>
 <translation id="5957083217255311415">Мобилните данни са изключени.</translation>
@@ -350,6 +354,7 @@
 <translation id="6981982820502123353">Достъпност</translation>
 <translation id="698231206551913481">След като този потребител бъде премахнат, всички свързани с него файлове и локални данни ще се изтрият за постоянно.</translation>
 <translation id="7015766095477679451">Ще бъда отново на ваше разположение в <ph name="COME_BACK_TIME" />.</translation>
+<translation id="7025533177575372252">Свързване на устройството ви <ph name="DEVICE_NAME" /> с телефона ви</translation>
 <translation id="7029814467594812963">Изход от сесията</translation>
 <translation id="7066646422045619941">Тази мрежа е деактивирана от администратора ви.</translation>
 <translation id="7067196344162293536">Автоматично завъртане</translation>
@@ -361,12 +366,14 @@
 <translation id="7143207342074048698">Свързва се</translation>
 <translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Старата разделителна способност ще се възстанови след <ph name="TIMEOUT_SECONDS" /></translation>
+<translation id="7222902781030499995">Спиране на таймера</translation>
 <translation id="7256634071279256947">Заден микрофон</translation>
 <translation id="726276584504105859">Преместете тук с плъзгане, за да използвате режим за разделен екран</translation>
 <translation id="7303365578352795231">Отговаря се на друго устройство.</translation>
 <translation id="7348093485538360975">Екранна клавиатура</translation>
 <translation id="735745346212279324">Връзката с виртуалната частна мрежа (VPN) е прекъсната</translation>
 <translation id="7377169924702866686">„Caps Lock“ е включен.</translation>
+<translation id="7384299914270925461"><ph name="SIGN" /><ph name="MINUTES_REMAINING" />:<ph name="SECONDS_REMAINING" /> сек</translation>
 <translation id="7398254312354928459">Преминахте към друга мрежа</translation>
 <translation id="742594950370306541">Камерата се използва.</translation>
 <translation id="743058460480092004">Камерата и микрофонът се използват.</translation>
@@ -393,6 +400,7 @@
 <translation id="7798302898096527229">Натиснете клавиша „търсене“ или Shift, за да анулирате.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> и <ph name="MINUTE" /></translation>
 <translation id="7829386189513694949">силен сигнал</translation>
+<translation id="7837740436429729974">Времето изтече</translation>
 <translation id="7842211907556571265">Установява се връзка (<ph name="NETWORK_NAME" />)</translation>
 <translation id="7842569679327885685">Предупреждение: Експериментална функция</translation>
 <translation id="7846634333498149051">Клавиатура</translation>
@@ -417,15 +425,19 @@
 <translation id="8113423164597455979">Включено за всички приложения</translation>
 <translation id="8132793192354020517">Установена е връзка с/ъс <ph name="NAME" /></translation>
 <translation id="813913629614996137">Подготвя се за работа...</translation>
+<translation id="8142441511840089262">Двукратно кликване</translation>
 <translation id="8142699993796781067">Частна мрежа</translation>
+<translation id="8167567890448493835">Използвате <ph name="LOCALE_NAME" /></translation>
 <translation id="8190698733819146287">Персонализиране на езиците и въвеждането...</translation>
 <translation id="8192202700944119416">Известията са скрити.</translation>
+<translation id="8203795194971602413">Кликване с десния бутон</translation>
 <translation id="8236042855478648955">Време е за почивка</translation>
 <translation id="8261506727792406068">Изтриване</translation>
 <translation id="8297006494302853456">Слаб</translation>
 <translation id="8308637677604853869">Предишно меню</translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
 <translation id="8351131234907093545">Създаване на бележка</translation>
+<translation id="8375916635258623388">Това устройство <ph name="DEVICE_NAME" /> и телефонът ви ще се свържат автоматично</translation>
 <translation id="8392451568018454956">Меню с опции за <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8394567579869570560">Родителят ви заключи това устройство</translation>
 <translation id="8406981827175133772">Лупа за увеличаване на целия екран</translation>
@@ -453,7 +465,6 @@
 <translation id="8734991477317290293">Тя може да се опитва да записва кои клавиши натискате</translation>
 <translation id="8735953464173050365">Показване на настройките на клавиатурата. Избран метод на въвеждане: <ph name="KEYBOARD_NAME" /></translation>
 <translation id="875593634123171288">Показване на настройките за VPN</translation>
-<translation id="8809737090443522491">Въведете името на приложение или документ</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
 <translation id="8825534185036233643">Дублирането с повече от два екрана не се поддържа.</translation>
 <translation id="8828714802988429505">90°</translation>
@@ -463,6 +474,7 @@
 <translation id="8874184842967597500">Няма връзка</translation>
 <translation id="8877788021141246043">„Set a reminder“ („Задай напомняне“)</translation>
 <translation id="8878886163241303700">Разгъване на екрана</translation>
+<translation id="890616557918890486">Промяна на източника</translation>
 <translation id="8921624153894383499">Google Асистент не поддържа този език.</translation>
 <translation id="8938800817013097409">Устройство с USB-C (десният порт на гърба)</translation>
 <translation id="8940956008527784070">Батерията е изтощена (<ph name="PERCENTAGE" />%)</translation>

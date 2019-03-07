@@ -10,7 +10,7 @@
 #include <utility>
 
 #include "base/command_line.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
@@ -299,8 +299,8 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
         "0F585FB1D0FDFBEBCE1FEB5E9DFFB6DA476B8C9B"
       };
       if (AppWindowClient::Get()->IsCurrentChannelOlderThanDev() &&
-          !SimpleFeature::IsIdInArray(
-              extension_id(), kWhitelist, arraysize(kWhitelist))) {
+          !SimpleFeature::IsIdInArray(extension_id(), kWhitelist,
+                                      base::size(kWhitelist))) {
         return RespondNow(
             Error(app_window_constants::kAlphaEnabledWrongChannel));
       }

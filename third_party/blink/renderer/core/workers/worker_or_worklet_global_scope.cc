@@ -13,11 +13,15 @@
 #include "third_party/blink/renderer/core/loader/modulescript/module_script_fetch_request.h"
 #include "third_party/blink/renderer/core/loader/subresource_filter.h"
 #include "third_party/blink/renderer/core/loader/worker_fetch_context.h"
+#include "third_party/blink/renderer/core/loader/worker_resource_fetcher_properties.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/script/fetch_client_settings_object_impl.h"
+#include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worker_reporting_proxy.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
 #include "third_party/blink/renderer/platform/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
+#include "third_party/blink/renderer/platform/loader/fetch/null_resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
@@ -108,7 +112,7 @@ void WorkerOrWorkletGlobalScope::InitializeWebFetchContextIfNeeded() {
     return;
 
   DCHECK(!subresource_filter_);
-  web_worker_fetch_context_->InitializeOnWorkerThread();
+  web_worker_fetch_context_->InitializeOnWorkerThread(navigator());
   std::unique_ptr<blink::WebDocumentSubresourceFilter> web_filter =
       web_worker_fetch_context_->TakeSubresourceFilter();
   if (web_filter) {
@@ -129,11 +133,23 @@ ResourceFetcher* WorkerOrWorkletGlobalScope::EnsureFetcher() {
 ResourceFetcher* WorkerOrWorkletGlobalScope::CreateFetcherInternal(
     FetchClientSettingsObject* fetch_client_settings_object) {
   DCHECK(IsContextThread());
+  DCHECK(fetch_client_settings_object);
   InitializeWebFetchContextIfNeeded();
-  WorkerFetchContext* fetch_context = WorkerFetchContext::Create(
-      *this, web_worker_fetch_context_, subresource_filter_,
-      fetch_client_settings_object);
-  ResourceFetcher* resource_fetcher = ResourceFetcher::Create(fetch_context);
+  ResourceFetcherProperties* properties = nullptr;
+  FetchContext* context = nullptr;
+  if (web_worker_fetch_context_) {
+    properties = MakeGarbageCollected<WorkerResourceFetcherProperties>(
+        *this, *fetch_client_settings_object, web_worker_fetch_context_);
+    context = MakeGarbageCollected<WorkerFetchContext>(
+        *this, web_worker_fetch_context_, subresource_filter_);
+  } else {
+    // This code path is for unittests.
+    properties = MakeGarbageCollected<NullResourceFetcherProperties>();
+    context = &FetchContext::NullInstance();
+  }
+  auto* resource_fetcher =
+      MakeGarbageCollected<ResourceFetcher>(ResourceFetcherInit(
+          *properties, context, GetTaskRunner(TaskType::kNetworking), *this));
   if (IsContextPaused())
     resource_fetcher->SetDefersLoading(true);
   resource_fetchers_.insert(resource_fetcher);
@@ -209,7 +225,8 @@ void WorkerOrWorkletGlobalScope::InitContentSecurityPolicyFromVector(
 
 void WorkerOrWorkletGlobalScope::BindContentSecurityPolicyToExecutionContext() {
   DCHECK(IsContextThread());
-  GetContentSecurityPolicy()->BindToExecutionContext(GetExecutionContext());
+  GetContentSecurityPolicy()->BindToDelegate(
+      GetContentSecurityPolicyDelegate());
 }
 
 // Implementation of the "fetch a module worker script graph" algorithm in the
@@ -237,8 +254,10 @@ void WorkerOrWorkletGlobalScope::FetchModuleScript(
 
   Modulator* modulator = Modulator::From(ScriptController()->GetScriptState());
   // Step 3. "Perform the internal module script graph fetching procedure ..."
-  modulator->FetchTree(module_url_record, fetch_client_settings_object,
-                       destination, options, custom_fetch_type, client);
+  modulator->FetchTree(
+      module_url_record,
+      CreateOutsideSettingsFetcher(fetch_client_settings_object), destination,
+      options, custom_fetch_type, client);
 }
 
 void WorkerOrWorkletGlobalScope::TasksWerePaused() {

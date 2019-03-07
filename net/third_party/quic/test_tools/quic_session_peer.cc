@@ -12,28 +12,46 @@ namespace quic {
 namespace test {
 
 // static
-QuicStreamId QuicSessionPeer::GetNextOutgoingStreamId(QuicSession* session) {
-  return session->GetNextOutgoingStreamId();
+QuicStreamId QuicSessionPeer::GetNextOutgoingBidirectionalStreamId(
+    QuicSession* session) {
+  return session->GetNextOutgoingBidirectionalStreamId();
 }
 
 // static
-void QuicSessionPeer::SetNextOutgoingStreamId(QuicSession* session,
-                                              QuicStreamId id) {
-  session->next_outgoing_stream_id_ = id;
+QuicStreamId QuicSessionPeer::GetNextOutgoingUnidirectionalStreamId(
+    QuicSession* session) {
+  return session->GetNextOutgoingUnidirectionalStreamId();
+}
+
+// static
+void QuicSessionPeer::SetNextOutgoingBidirectionalStreamId(QuicSession* session,
+                                                           QuicStreamId id) {
+  if (session->connection()->transport_version() == QUIC_VERSION_99) {
+    session->v99_streamid_manager_.bidirectional_stream_id_manager_
+        .next_outgoing_stream_id_ = id;
+    return;
+  }
+  session->stream_id_manager_.next_outgoing_stream_id_ = id;
 }
 
 // static
 void QuicSessionPeer::SetMaxOpenIncomingStreams(QuicSession* session,
                                                 uint32_t max_streams) {
-  session->max_open_incoming_streams_ = max_streams;
-  session->v99_streamid_manager_.SetMaxOpenIncomingStreams(max_streams);
+  if (session->connection()->transport_version() == QUIC_VERSION_99) {
+    session->v99_streamid_manager_.SetMaxOpenIncomingStreams(max_streams);
+    return;
+  }
+  session->stream_id_manager_.set_max_open_incoming_streams(max_streams);
 }
 
 // static
 void QuicSessionPeer::SetMaxOpenOutgoingStreams(QuicSession* session,
                                                 uint32_t max_streams) {
-  session->max_open_outgoing_streams_ = max_streams;
-  session->v99_streamid_manager_.SetMaxOpenOutgoingStreams(max_streams);
+  if (session->connection()->transport_version() == QUIC_VERSION_99) {
+    session->v99_streamid_manager_.SetMaxOpenOutgoingStreams(max_streams);
+    return;
+  }
+  session->stream_id_manager_.set_max_open_outgoing_streams(max_streams);
 }
 
 // static
@@ -111,19 +129,19 @@ bool QuicSessionPeer::IsStreamCreated(QuicSession* session, QuicStreamId id) {
 // static
 bool QuicSessionPeer::IsStreamAvailable(QuicSession* session, QuicStreamId id) {
   DCHECK_NE(0u, id);
-  return QuicContainsKey(session->available_streams_, id);
-}
-
-// static
-bool QuicSessionPeer::IsStreamUncreated(QuicSession* session, QuicStreamId id) {
-  DCHECK_NE(0u, id);
-  if (id % 2 == session->next_outgoing_stream_id_ % 2) {
-    // locally-created stream.
-    return id >= session->next_outgoing_stream_id_;
-  } else {
-    // peer-created stream.
-    return id > session->largest_peer_created_stream_id_;
+  if (session->connection()->transport_version() == QUIC_VERSION_99) {
+    if (id % kV99StreamIdIncrement < 2) {
+      return QuicContainsKey(
+          session->v99_streamid_manager_.bidirectional_stream_id_manager_
+              .available_streams_,
+          id);
+    }
+    return QuicContainsKey(
+        session->v99_streamid_manager_.unidirectional_stream_id_manager_
+            .available_streams_,
+        id);
   }
+  return QuicContainsKey(session->stream_id_manager_.available_streams_, id);
 }
 
 // static
@@ -143,9 +161,27 @@ QuicAlarm* QuicSessionPeer::GetCleanUpClosedStreamsAlarm(QuicSession* session) {
 }
 
 // static
-QuicStreamIdManager* QuicSessionPeer::v99_streamid_manager(
+LegacyQuicStreamIdManager* QuicSessionPeer::GetStreamIdManager(
+    QuicSession* session) {
+  return &session->stream_id_manager_;
+}
+
+// static
+UberQuicStreamIdManager* QuicSessionPeer::v99_streamid_manager(
     QuicSession* session) {
   return &session->v99_streamid_manager_;
+}
+
+// static
+QuicStreamIdManager* QuicSessionPeer::v99_bidirectional_stream_id_manager(
+    QuicSession* session) {
+  return &session->v99_streamid_manager_.bidirectional_stream_id_manager_;
+}
+
+// static
+QuicStreamIdManager* QuicSessionPeer::v99_unidirectional_stream_id_manager(
+    QuicSession* session) {
+  return &session->v99_streamid_manager_.unidirectional_stream_id_manager_;
 }
 
 }  // namespace test

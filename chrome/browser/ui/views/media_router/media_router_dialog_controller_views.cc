@@ -24,10 +24,18 @@ MediaRouterDialogControllerImplBase::GetOrCreateForWebContents(
   if (ShouldUseViewsDialog()) {
     return MediaRouterDialogControllerViews::GetOrCreateForWebContents(
         web_contents);
-  } else {
-    return MediaRouterDialogControllerWebUIImpl::GetOrCreateForWebContents(
-        web_contents);
   }
+  return MediaRouterDialogControllerWebUIImpl::GetOrCreateForWebContents(
+      web_contents);
+}
+
+// static
+MediaRouterDialogControllerImplBase*
+MediaRouterDialogControllerImplBase::FromWebContents(
+    content::WebContents* web_contents) {
+  if (ShouldUseViewsDialog())
+    return MediaRouterDialogControllerViews::FromWebContents(web_contents);
+  return MediaRouterDialogControllerWebUIImpl::FromWebContents(web_contents);
 }
 
 MediaRouterDialogControllerViews::~MediaRouterDialogControllerViews() {
@@ -44,8 +52,8 @@ MediaRouterDialogControllerViews::GetOrCreateForWebContents(
     content::WebContents* web_contents) {
   DCHECK(web_contents);
   // This call does nothing if the controller already exists.
-  MediaRouterDialogControllerViews::CreateForWebContents(web_contents);
-  return MediaRouterDialogControllerViews::FromWebContents(web_contents);
+  CreateForWebContents(web_contents);
+  return FromWebContents(web_contents);
 }
 
 void MediaRouterDialogControllerViews::CreateMediaRouterDialog() {
@@ -103,5 +111,7 @@ void MediaRouterDialogControllerViews::SetDialogCreationCallbackForTesting(
 MediaRouterDialogControllerViews::MediaRouterDialogControllerViews(
     content::WebContents* web_contents)
     : MediaRouterDialogControllerImplBase(web_contents) {}
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(MediaRouterDialogControllerViews)
 
 }  // namespace media_router

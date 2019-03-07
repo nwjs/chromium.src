@@ -48,6 +48,8 @@ bindings_modules_generated_union_type_files = [
   "$bindings_modules_v8_output_dir/idb_object_store_or_idb_index.h",
   "$bindings_modules_v8_output_dir/idb_object_store_or_idb_index_or_idb_cursor.cc",
   "$bindings_modules_v8_output_dir/idb_object_store_or_idb_index_or_idb_cursor.h",
+  "$bindings_modules_v8_output_dir/int32_array_or_long_sequence.cc",
+  "$bindings_modules_v8_output_dir/int32_array_or_long_sequence.h",
   "$bindings_modules_v8_output_dir/long_or_constrain_long_range.cc",
   "$bindings_modules_v8_output_dir/long_or_constrain_long_range.h",
   "$bindings_modules_v8_output_dir/media_stream_track_or_string.cc",
@@ -76,8 +78,6 @@ bindings_modules_generated_union_type_files = [
   "$bindings_modules_v8_output_dir/string_or_unsigned_long.h",
   "$bindings_modules_v8_output_dir/unsigned_long_or_unsigned_long_sequence.cc",
   "$bindings_modules_v8_output_dir/unsigned_long_or_unsigned_long_sequence.h",
-  "$bindings_modules_v8_output_dir/usv_string_or_long.cc",
-  "$bindings_modules_v8_output_dir/usv_string_or_long.h",
   "$bindings_modules_v8_output_dir/webgl_rendering_context_or_webgl2_rendering_context.cc",
   "$bindings_modules_v8_output_dir/webgl_rendering_context_or_webgl2_rendering_context.h",
 ]

@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "components/sync/driver/sync_client.h"
 #include "components/sync/driver/sync_service.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "components/sync/model/model_type_store_service.h"
 
 namespace browser_sync {
@@ -16,6 +17,7 @@ namespace browser_sync {
 HistoryDeleteDirectivesModelTypeController::
     HistoryDeleteDirectivesModelTypeController(
         const base::RepeatingClosure& dump_stack,
+        syncer::SyncService* sync_service,
         syncer::SyncClient* sync_client)
     : SyncableServiceBasedModelTypeController(
           syncer::HISTORY_DELETE_DIRECTIVES,
@@ -24,14 +26,14 @@ HistoryDeleteDirectivesModelTypeController::
                          base::Unretained(sync_client),
                          syncer::HISTORY_DELETE_DIRECTIVES),
           dump_stack),
-      sync_client_(sync_client) {}
+      sync_service_(sync_service) {}
 
 HistoryDeleteDirectivesModelTypeController::
     ~HistoryDeleteDirectivesModelTypeController() {}
 
 bool HistoryDeleteDirectivesModelTypeController::ReadyForStart() const {
   DCHECK(CalledOnValidThread());
-  return !sync_client_->GetSyncService()->IsEncryptEverythingEnabled();
+  return !sync_service_->GetUserSettings()->IsEncryptEverythingEnabled();
 }
 
 void HistoryDeleteDirectivesModelTypeController::LoadModels(
@@ -44,7 +46,7 @@ void HistoryDeleteDirectivesModelTypeController::LoadModels(
     return;
   }
 
-  sync_client_->GetSyncService()->AddObserver(this);
+  sync_service_->AddObserver(this);
   SyncableServiceBasedModelTypeController::LoadModels(configure_context,
                                                       model_load_callback);
 }
@@ -54,9 +56,7 @@ void HistoryDeleteDirectivesModelTypeController::Stop(
     StopCallback callback) {
   DCHECK(CalledOnValidThread());
 
-  if (sync_client_->GetSyncService()->HasObserver(this)) {
-    sync_client_->GetSyncService()->RemoveObserver(this);
-  }
+  sync_service_->RemoveObserver(this);
 
   SyncableServiceBasedModelTypeController::Stop(shutdown_reason,
                                                 std::move(callback));
@@ -71,7 +71,7 @@ void HistoryDeleteDirectivesModelTypeController::OnStateChanged(
 bool HistoryDeleteDirectivesModelTypeController::DisableTypeIfNecessary() {
   DCHECK(CalledOnValidThread());
 
-  if (!sync_client_->GetSyncService()->IsSyncFeatureActive()) {
+  if (!sync_service_->IsSyncFeatureActive()) {
     return false;
   }
 
@@ -79,9 +79,7 @@ bool HistoryDeleteDirectivesModelTypeController::DisableTypeIfNecessary() {
     return false;
   }
 
-  if (sync_client_->GetSyncService()->HasObserver(this)) {
-    sync_client_->GetSyncService()->RemoveObserver(this);
-  }
+  sync_service_->RemoveObserver(this);
 
   ReportModelError(
       syncer::SyncError::DATATYPE_POLICY_ERROR,

@@ -139,7 +139,7 @@ const AtomicString& InputType::NormalizeTypeName(
 
 InputType::~InputType() = default;
 
-void InputType::Trace(blink::Visitor* visitor) {
+void InputType::Trace(Visitor* visitor) {
   visitor->Trace(element_);
 }
 
@@ -485,7 +485,11 @@ FileList* InputType::Files() {
   return nullptr;
 }
 
-void InputType::SetFiles(FileList*) {}
+bool InputType::SetFiles(FileList*) {
+  return false;
+}
+
+void InputType::SetFilesAndDispatchEvents(FileList*) {}
 
 void InputType::SetFilesFromPaths(const Vector<String>& paths) {}
 
@@ -641,8 +645,6 @@ const QualifiedName& InputType::SubResourceAttributeName() const {
 void InputType::CopyNonAttributeProperties(const HTMLInputElement&) {}
 
 void InputType::OnAttachWithLayoutObject() {}
-
-void InputType::OnDetachWithLayoutObject() {}
 
 bool InputType::ShouldAppearIndeterminate() const {
   return false;

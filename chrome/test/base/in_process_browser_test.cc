@@ -94,6 +94,7 @@
 #include "chrome/test/base/default_ash_event_generator_delegate.h"
 #include "chromeos/services/device_sync/device_sync_impl.h"
 #include "chromeos/services/device_sync/fake_device_sync.h"
+#include "ui/aura/test/mus/change_completion_waiter.h"
 #include "ui/aura/test/ui_controls_factory_aura.h"
 #include "ui/aura/window.h"
 #include "ui/base/test/ui_controls.h"
@@ -130,7 +131,8 @@ class FakeDeviceSyncImplFactory
       identity::IdentityManager* identity_manager,
       gcm::GCMDriver* gcm_driver,
       service_manager::Connector* connector,
-      const cryptauth::GcmDeviceInfoProvider* gcm_device_info_provider,
+      const chromeos::device_sync::GcmDeviceInfoProvider*
+          gcm_device_info_provider,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       std::unique_ptr<base::OneShotTimer> timer) override {
     return std::make_unique<chromeos::device_sync::FakeDeviceSync>();
@@ -280,6 +282,8 @@ void InProcessBrowserTest::SetUp() {
   CHECK(base::PathService::Override(chrome::DIR_DEFAULT_DOWNLOADS,
                                     default_download_dir_.GetPath()));
 
+  AfterStartupTaskUtils::DisableScheduleTaskDelayForTesting();
+
   BrowserTestBase::SetUp();
 }
 
@@ -350,6 +354,9 @@ void InProcessBrowserTest::CloseBrowserSynchronously(Browser* browser) {
       content::Source<Browser>(browser));
   CloseBrowserAsynchronously(browser);
   observer.Wait();
+#if defined(OS_CHROMEOS)
+  aura::test::WaitForAllChangesToComplete();
+#endif
 }
 
 void InProcessBrowserTest::CloseBrowserAsynchronously(Browser* browser) {

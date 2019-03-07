@@ -4,6 +4,7 @@
 
 #include "components/viz/service/surfaces/surface_dependency_tracker.h"
 
+#include "build/build_config.h"
 #include "components/viz/common/surfaces/surface_info.h"
 #include "components/viz/service/surfaces/surface.h"
 #include "components/viz/service/surfaces/surface_manager.h"
@@ -50,18 +51,10 @@ void SurfaceDependencyTracker::RequestSurfaceResolution(Surface* surface) {
 }
 
 bool SurfaceDependencyTracker::HasSurfaceBlockedOn(
-    const SurfaceId& surface_id) const {
-  auto it = blocked_surfaces_from_dependency_.find(surface_id.frame_sink_id());
-  if (it == blocked_surfaces_from_dependency_.end())
-    return false;
-
-  for (const SurfaceId& blocked_surface_by_id : it->second) {
-    Surface* blocked_surface =
-        surface_manager_->GetSurfaceForId(blocked_surface_by_id);
-    if (blocked_surface && blocked_surface->IsBlockedOn(surface_id))
-      return true;
-  }
-  return false;
+    const FrameSinkId& frame_sink_id) const {
+  auto it = blocked_surfaces_from_dependency_.find(frame_sink_id);
+  DCHECK(it == blocked_surfaces_from_dependency_.end() || !it->second.empty());
+  return it != blocked_surfaces_from_dependency_.end();
 }
 
 void SurfaceDependencyTracker::OnSurfaceActivated(Surface* surface) {
@@ -86,7 +79,21 @@ void SurfaceDependencyTracker::OnSurfaceDependencyAdded(
 
   base::flat_set<SurfaceId>& blocked_surfaces = it->second;
   for (auto iter = blocked_surfaces.begin(); iter != blocked_surfaces.end();) {
-    if (iter->local_surface_id() <= surface_id.local_surface_id()) {
+    bool should_notify =
+        iter->local_surface_id() <= surface_id.local_surface_id();
+#if defined(OS_ANDROID)
+    // On Android we work around a throttling bug by also firing if the
+    // immediately preceding surface has a dependency added.
+    // TODO(https://crbug.com/898460): Solve this generally.
+    bool is_same_parent =
+        iter->local_surface_id().parent_sequence_number() ==
+        surface_id.local_surface_id().parent_sequence_number();
+    bool is_next_child =
+        iter->local_surface_id().child_sequence_number() ==
+        surface_id.local_surface_id().child_sequence_number() + 1;
+    should_notify |= is_same_parent && is_next_child;
+#endif
+    if (should_notify) {
       dependencies_to_notify.push_back(*iter);
       iter = blocked_surfaces.erase(iter);
     } else {

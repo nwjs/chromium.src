@@ -33,6 +33,8 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.TabLoadStatus;
+import org.chromium.chrome.browser.ThemeColorProvider;
+import org.chromium.chrome.browser.ThemeColorProvider.ThemeColorObserver;
 import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.WindowDelegate;
 import org.chromium.chrome.browser.appmenu.AppMenuButtonHelper;
@@ -78,11 +80,10 @@ import org.chromium.chrome.browser.tab.TabThemeColorHelper;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
+import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.toolbar.bottom.BottomToolbarCoordinator;
 import org.chromium.chrome.browser.toolbar.top.ActionModeController;
 import org.chromium.chrome.browser.toolbar.top.ActionModeController.ActionBarDelegate;
@@ -123,12 +124,12 @@ import java.util.concurrent.TimeUnit;
  * Contains logic for managing the toolbar visual component.  This class manages the interactions
  * with the rest of the application to ensure the toolbar is always visually up to date.
  */
-public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlFocusChangeListener {
+public class ToolbarManager
+        implements ScrimObserver, ToolbarTabController, UrlFocusChangeListener, ThemeColorObserver {
     /**
      * Handle UI updates of menu icons. Only applicable for phones.
      */
     public interface MenuDelegatePhone {
-
         /**
          * Called when current tab's loading status changes.
          *
@@ -170,6 +171,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     private final AsyncViewProvider<ToolbarLayout> mToolbarProvider;
     private final IncognitoStateProvider mIncognitoStateProvider;
     private final TabCountProvider mTabCountProvider;
+    private final ThemeColorProvider mThemeColorProvider;
     private TopToolbarCoordinator mToolbar;
     private final ToolbarControlContainer mControlContainer;
 
@@ -213,7 +215,6 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
     private boolean mNativeLibraryReady;
     private boolean mTabRestoreCompleted;
-    private boolean mProgressBarEnabled;
 
     private AppMenuButtonHelper mAppMenuButtonHelper;
 
@@ -238,7 +239,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
      */
     public ToolbarManager(ChromeActivity activity, ToolbarControlContainer controlContainer,
             final AppMenuHandler menuHandler, AppMenuPropertiesDelegate appMenuPropertiesDelegate,
-            Invalidator invalidator, Callback<Boolean> urlFocusChangedCallback) {
+            Invalidator invalidator, Callback<Boolean> urlFocusChangedCallback,
+            ThemeColorProvider themeColorProvider) {
         mActivity = activity;
         mActionBarDelegate = new ViewShiftingActionBarDelegate(activity, controlContainer);
 
@@ -298,6 +300,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
         mIncognitoStateProvider = new IncognitoStateProvider(mActivity);
         mTabCountProvider = new TabCountProvider();
+        mThemeColorProvider = themeColorProvider;
+        mThemeColorProvider.addThemeColorObserver(this);
 
         mToolbarProvider = AsyncViewProvider.of(controlContainer, R.id.toolbar_stub, R.id.toolbar);
         mToolbar = new TopToolbarCoordinator(controlContainer, mToolbarProvider);
@@ -345,8 +349,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
         mLocationBar.addUrlFocusChangeListener(this);
         mLocationBar.setDefaultTextEditActionModeCallback(
                 mActionModeController.getActionModeCallback());
-        mLocationBar.initializeControls(
-                new WindowDelegate(mActivity.getWindow()), mActivity.getWindowAndroid());
+        mLocationBar.initializeControls(new WindowDelegate(mActivity.getWindow()),
+                mActivity.getWindowAndroid(), mActivity.getActivityTabProvider());
         mLocationBar.addUrlFocusChangeListener(mLocationBarFocusObserver);
 
         setMenuHandler(menuHandler);
@@ -409,13 +413,13 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                 if (mLocationBarModel.getTab() == null) return;
 
                 assert tab == mLocationBarModel.getTab();
-                mLocationBar.updateSecurityIcon();
+                mLocationBar.updateStatusIcon();
                 mLocationBar.setUrlToPageUrl();
             }
 
             @Override
             public void didReloadLoFiImages(Tab tab) {
-                mLocationBar.updateSecurityIcon();
+                mLocationBar.updateStatusIcon();
             }
 
             @Override
@@ -460,7 +464,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                     // finishes loading. If this is a preview, update the security icon which will
                     // also update the verbose status view to make sure the "Lite" badge is
                     // displayed.
-                    mLocationBar.updateSecurityIcon();
+                    mLocationBar.updateStatusIcon();
                     PreviewsUma.recordLitePageAtLoadFinish(
                             PreviewsAndroidBridge.getInstance().getPreviewsType(
                                     tab.getWebContents()));
@@ -562,7 +566,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
             @Override
             public void onDidStartNavigation(Tab tab, String url, boolean isInMainFrame,
-                    boolean isSameDocument, boolean isErrorPage) {
+                    boolean isSameDocument, long navigationHandleProxy) {
                 if (!isInMainFrame) return;
                 // Update URL as soon as it becomes available when it's a new tab.
                 // But we want to update only when it's a new tab. So we check whether the current
@@ -604,7 +608,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                     // Some previews are not fully decided until the page commits. If this
                     // is a preview, update the security icon which will also update the verbose
                     // status view to make sure the "Lite" badge is displayed.
-                    mLocationBar.updateSecurityIcon();
+                    mLocationBar.updateStatusIcon();
                     PreviewsUma.recordLitePageAtCommit(
                             PreviewsAndroidBridge.getInstance().getPreviewsType(
                                     tab.getWebContents()),
@@ -725,6 +729,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
         mLoadProgressSimulator = new LoadProgressSimulator(this);
 
         mToolbar.setTabCountProvider(mTabCountProvider);
+        mToolbar.setIncognitoStateProvider(mIncognitoStateProvider);
+        mToolbar.setThemeColorProvider(mThemeColorProvider);
     }
 
     /**
@@ -1150,7 +1156,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
         if (mOmniboxStartupMetrics != null) {
             // Record the histogram before destroying, if we have the data.
-            mOmniboxStartupMetrics.maybeRecordHistograms();
+            if (mInitializedWithNative) mOmniboxStartupMetrics.maybeRecordHistograms();
             mOmniboxStartupMetrics.destroy();
             mOmniboxStartupMetrics = null;
         }
@@ -1175,6 +1181,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
             mLocationBar.removeUrlFocusChangeListener(mLocationBarFocusObserver);
             mLocationBarFocusObserver = null;
         }
+
+        if (mThemeColorProvider != null) mThemeColorProvider.removeThemeColorObserver(this);
     }
 
     /**
@@ -1191,9 +1199,6 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
      */
     public void onAccessibilityStatusChanged(boolean enabled) {
         mToolbar.onAccessibilityStatusChanged(enabled);
-        if (mBottomToolbarCoordinator != null) {
-            mBottomToolbarCoordinator.onAccessibilityStatusChanged(enabled);
-        }
     }
 
     private void registerTemplateUrlObserver() {
@@ -1285,7 +1290,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
             @Override
             public void onMenuHighlightChanged(boolean highlighting) {
-                mToolbar.setMenuButtonHighlight(highlighting);
+                final MenuButton menuButton = getMenuButtonWrapper();
+                if (menuButton != null) menuButton.setMenuButtonHighlight(highlighting);
 
                 if (mControlsVisibilityDelegate == null) return;
                 if (highlighting) {
@@ -1386,23 +1392,6 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
         currentTab.loadUrl(new LoadUrlParams(homePageUrl, PageTransition.HOME_PAGE));
     }
 
-    @Override
-    public void openMemexUI() {
-        TabModel model = mTabModelSelector.getModel(false);
-        for (int i = 0; i < model.getCount(); i++) {
-            String url = model.getTabAt(i).getUrl();
-            if (url.startsWith(UrlConstants.CHROME_MEMEX_URL)
-                    || url.startsWith(UrlConstants.CHROME_MEMEX_DEV_URL)) {
-                model.setIndex(i, TabSelectionType.FROM_USER);
-                return;
-            }
-        }
-
-        mTabModelSelector.openNewTab(
-                new LoadUrlParams(UrlConstants.CHROME_MEMEX_URL, PageTransition.AUTO_BOOKMARK),
-                TabLaunchType.FROM_EXTERNAL_APP, null, false);
-    }
-
     /**
      * Triggered when the URL input field has gained or lost focus.
      * @param hasFocus Whether the URL field has gained focus.
@@ -1419,8 +1408,9 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
 
         if (mControlsVisibilityDelegate == null) return;
         if (hasFocus) {
-            mFullscreenFocusToken = mControlsVisibilityDelegate
-                    .showControlsPersistentAndClearOldToken(mFullscreenFocusToken);
+            mFullscreenFocusToken =
+                    mControlsVisibilityDelegate.showControlsPersistentAndClearOldToken(
+                            mFullscreenFocusToken);
         } else {
             mControlsVisibilityDelegate.releasePersistentShowingToken(mFullscreenFocusToken);
         }
@@ -1433,7 +1423,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
      * @param color The primary color for the current tab.
      * @param shouldAnimate Whether the change of color should be animated.
      */
-    public void updatePrimaryColor(int color, boolean shouldAnimate) {
+    @Override
+    public void onThemeColorChanged(int color, boolean shouldAnimate) {
         if (!mShouldUpdateToolbarPrimaryColor) return;
 
         boolean colorChanged = mCurrentThemeColor != color;
@@ -1489,7 +1480,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
      * @return One of View.VISIBLE, View.INVISIBLE, or View.GONE.
      */
     public int getToolbarVisibility() {
-        View toolbar = mControlContainer.findViewById(R.id.toolbar);
+        View toolbar = getToolbarView();
         return (toolbar != null) ? toolbar.getVisibility() : View.GONE;
     }
 
@@ -1497,8 +1488,16 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
      * Sets the visibility of the Toolbar.
      */
     public void setToolbarVisibility(int visibility) {
-        View toolbar = mControlContainer.findViewById(R.id.toolbar);
+        View toolbar = getToolbarView();
         if (toolbar != null) toolbar.setVisibility(visibility);
+    }
+
+    /**
+     * Gets the Toolbar view.
+     */
+    @Nullable
+    public View getToolbarView() {
+        return mControlContainer.findViewById(R.id.toolbar);
     }
 
     /**
@@ -1561,8 +1560,7 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
      * @param activityCreationTimeMs The time of creation for the activity this toolbar belongs to.
      * @param activityName Simple class name for the activity this toolbar belongs to.
      */
-    public void onDeferredStartup(final long activityCreationTimeMs,
-            final String activityName) {
+    public void onDeferredStartup(final long activityCreationTimeMs, final String activityName) {
         // Record startup performance statistics
         long elapsedTime = SystemClock.elapsedRealtime() - activityCreationTimeMs;
         if (elapsedTime < RECORD_UMA_PERFORMANCE_METRICS_DELAY_MS) {
@@ -1615,8 +1613,8 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     private void updateBookmarkButtonStatus() {
         assert mToolbarInflationComplete;
         Tab currentTab = mLocationBarModel.getTab();
-        boolean isBookmarked = currentTab != null
-                && currentTab.getBookmarkId() != Tab.INVALID_BOOKMARK_ID;
+        boolean isBookmarked =
+                currentTab != null && currentTab.getBookmarkId() != Tab.INVALID_BOOKMARK_ID;
         boolean editingAllowed = currentTab == null || mBookmarkBridge == null
                 || mBookmarkBridge.isEditBookmarksEnabled();
         mToolbar.updateBookmarkButton(isBookmarked, editingAllowed);
@@ -1666,11 +1664,12 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
                 }
                 if (tab != null) tab.addObserver(mTabObserver);
             }
+
             int defaultPrimaryColor =
                     ColorUtils.getDefaultThemeColor(mActivity.getResources(), isIncognito);
             int primaryColor =
                     tab != null ? TabThemeColorHelper.getColor(tab) : defaultPrimaryColor;
-            updatePrimaryColor(primaryColor, false);
+            onThemeColorChanged(primaryColor, false);
 
             mToolbar.onTabOrModelChanged();
 
@@ -1775,18 +1774,17 @@ public class ToolbarManager implements ScrimObserver, ToolbarTabController, UrlF
     }
 
     /**
-     * @return Whether the progress bar is enabled.
-     */
-    public boolean isProgressBarEnabled() {
-        return mProgressBarEnabled;
-    }
-
-    /**
      * @param enabled Whether the progress bar is enabled.
      */
     public void setProgressBarEnabled(boolean enabled) {
-        mProgressBarEnabled = enabled;
         mToolbar.setProgressBarEnabled(enabled);
+    }
+
+    /**
+     * @param anchor The view to use as an anchor.
+     */
+    public void setProgressBarAnchorView(@Nullable View anchor) {
+        mToolbar.setProgressBarAnchorView(anchor);
     }
 
     private boolean shouldShowCursorInLocationBar() {

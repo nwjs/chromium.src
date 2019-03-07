@@ -13,7 +13,6 @@ import android.widget.ListView;
 
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
-import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.preferences.LocationSettings;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.preferences.PreferenceUtils;
@@ -172,12 +171,13 @@ public class SiteSettingsPreferences extends PreferenceFragment
                     prefServiceBridge.requiresTriStateContentSetting(contentType);
 
             boolean checked = false;
-            ContentSetting setting = ContentSetting.DEFAULT;
+            @ContentSettingValues
+            int setting = ContentSettingValues.DEFAULT;
 
             if (prefCategory == Type.DEVICE_LOCATION) {
                 checked = LocationSettings.getInstance().areAllLocationSettingsEnabled();
             } else if (requiresTriStateSetting) {
-                setting = ContentSetting.fromInt(prefServiceBridge.getContentSetting(contentType));
+                setting = prefServiceBridge.getContentSetting(contentType);
             } else {
                 checked = prefServiceBridge.isCategoryEnabled(contentType);
             }
@@ -190,11 +190,6 @@ public class SiteSettingsPreferences extends PreferenceFragment
                                .showPermissionBlockedMessage(getActivity())) {
                 // Show 'disabled' message when permission is not granted in Android.
                 p.setSummary(ContentSettingsResources.getCategorySummary(contentType, false));
-            } else if (Type.AUTOPLAY == prefCategory
-                    && DataReductionProxySettings.getInstance().isDataReductionProxyEnabled()) {
-                // Disable autoplay preference if Data Saver is ON.
-                p.setSummary(ContentSettingsResources.getAutoplayDisabledByDataSaverSummary());
-                p.setEnabled(false);
             } else if (Type.COOKIES == prefCategory && checked
                     && prefServiceBridge.isBlockThirdPartyCookiesEnabled()) {
                 p.setSummary(ContentSettingsResources.getCookieAllowedExceptThirdPartySummary());

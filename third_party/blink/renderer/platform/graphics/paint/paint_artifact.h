@@ -81,9 +81,8 @@ class PLATFORM_EXPORT PaintArtifact final : public RefCounted<PaintArtifact> {
               const PropertyTreeState& replay_state,
               const IntPoint& offset = IntPoint()) const;
 
-  // Writes the paint artifact into a cc::DisplayItemList.
-  void AppendToDisplayItemList(const FloatSize& visual_rect_offset,
-                               cc::DisplayItemList& display_list) const;
+  sk_sp<PaintRecord> GetPaintRecord(const PropertyTreeState& replay_state,
+                                    const IntPoint& offset = IntPoint()) const;
 
   // Called when the caller finishes updating a full document life cycle.
   // Will cleanup data (e.g. raster invalidations) that will no longer be used

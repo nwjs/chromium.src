@@ -15,7 +15,6 @@
 
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
-#include "base/containers/hash_tables.h"
 #include "base/environment.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -42,8 +41,8 @@
 #include "gpu/config/gpu_switches.h"
 #include "net/base/escape.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/buildflags.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/base/ui_features.h"
 
 #if defined(OS_POSIX)
 #include "base/files/file_descriptor_watcher_posix.h"
@@ -508,7 +507,8 @@ void WrapperTestLauncherDelegate::GTestCallback(
   // parsing failed.
   if (have_test_results && !parsed_results.empty()) {
     // We expect only one test result here.
-    DCHECK_EQ(1U, parsed_results.size());
+    DCHECK_EQ(1U, parsed_results.size())
+        << "Unexpectedly ran test more than once: " << test_name;
     DCHECK_EQ(test_name, parsed_results.front().full_name);
 
     result = parsed_results.front();

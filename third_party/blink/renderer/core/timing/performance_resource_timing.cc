@@ -72,6 +72,7 @@ PerformanceResourceTiming::PerformanceResourceTiming(
       allow_timing_details_(info.allow_timing_details),
       allow_redirect_details_(info.allow_redirect_details),
       allow_negative_value_(info.allow_negative_values),
+      is_secure_context_(info.is_secure_context),
       server_timing_(
           PerformanceServerTiming::FromParsedServerTiming(info.server_timing)) {
 }
@@ -255,12 +256,19 @@ DOMHighResTimeStamp PerformanceResourceTiming::connectEnd() const {
 }
 
 DOMHighResTimeStamp PerformanceResourceTiming::secureConnectionStart() const {
-  if (!AllowTimingDetails())
+  if (!AllowTimingDetails() || !is_secure_context_)
     return 0.0;
+
+  // Step 2 of
+  // https://w3c.github.io/resource-timing/#dom-performanceresourcetiming-secureconnectionstart.
+  if (DidReuseConnection())
+    return fetchStart();
+
   ResourceLoadTiming* timing = GetResourceLoadTiming();
-  // SslStart will be zero when a secure connection is not negotiated.
-  if (!timing || timing->SslStart().is_null())
+  if (!timing || timing->SslStart().is_null()) {
+    // TODO(yoav): add DCHECK or use counter to make sure this never happens.
     return 0.0;
+  }
 
   return Performance::MonotonicTimeToDOMHighResTimeStamp(
       time_origin_, timing->SslStart(), allow_negative_value_);
@@ -284,10 +292,14 @@ DOMHighResTimeStamp PerformanceResourceTiming::responseStart() const {
   if (!timing)
     return requestStart();
 
-  // FIXME: This number isn't exactly correct. See the notes in
-  // PerformanceTiming::responseStart().
+  TimeTicks response_start = timing->ReceiveHeadersStart();
+  if (response_start.is_null())
+    response_start = timing->ReceiveHeadersEnd();
+  if (response_start.is_null())
+    return requestStart();
+
   return Performance::MonotonicTimeToDOMHighResTimeStamp(
-      time_origin_, timing->ReceiveHeadersEnd(), allow_negative_value_);
+      time_origin_, response_start, allow_negative_value_);
 }
 
 DOMHighResTimeStamp PerformanceResourceTiming::responseEnd() const {

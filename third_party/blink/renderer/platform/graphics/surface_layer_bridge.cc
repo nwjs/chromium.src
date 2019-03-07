@@ -34,7 +34,7 @@ SurfaceLayerBridge::SurfaceLayerBridge(
       binding_(this),
       surface_embedder_binding_(this),
       enable_surface_synchronization_(
-          features::IsSurfaceSynchronizationEnabled()),
+          ::features::IsSurfaceSynchronizationEnabled()),
       frame_sink_id_(Platform::Current()->GenerateFrameSinkId()),
       parent_frame_sink_id_(layer_tree_view ? layer_tree_view->GetFrameSinkId()
                                             : viz::FrameSinkId()) {
@@ -126,18 +126,8 @@ const viz::FrameSinkId& SurfaceLayerBridge::GetFrameSinkId() const {
   return frame_sink_id_;
 }
 
-void SurfaceLayerBridge::ClearSurfaceId() {
-  current_surface_id_ = viz::SurfaceId();
-
-  if (!surface_layer_)
-    return;
-
-  // We reset the Ids if we lose the context_provider (case: GPU process ended)
-  // If we destroyed the surface_layer before that point, we need not update
-  // the ids.
-  surface_layer_->SetSurfaceId(viz::SurfaceId(),
-                               cc::DeadlinePolicy::UseDefaultDeadline());
-  surface_layer_->SetOldestAcceptableFallback(viz::SurfaceId());
+void SurfaceLayerBridge::ClearObserver() {
+  observer_ = nullptr;
 }
 
 void SurfaceLayerBridge::SetContentsOpaque(bool opaque) {

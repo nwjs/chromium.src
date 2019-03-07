@@ -12,6 +12,7 @@ include_rules = [
   "+chrome/services/diagnosticsd/public",
   "+chrome/services/file_util/public",
   "+chrome/services/media_gallery_util/public",
+  "+chrome/services/noop/public",
   "+chrome/services/printing/public",
   "+chrome/services/removable_storage_writer/public",
   "+chrome/services/util_win/public",
@@ -21,6 +22,13 @@ include_rules = [
   "+chrome_elf/dll_hash",
   "+chromeos",
   "+components",
+  # Use identity_manager.h instead of the below files;
+  # see https://groups.google.com/a/chromium.org/d/msg/chromium-dev/dgFLuxqZt1o/iEqkyoQQBwAJ for help and info.
+  "!components/signin/core/browser/fake_profile_oauth2_token_service.h",
+  "!components/signin/core/browser/profile_oauth2_token_service.h",
+  "!components/signin/core/browser/fake_signin_manager.h",
+  "!components/signin/core/browser/signin_manager.h",
+  "!components/signin/core/browser/signin_manager_base.h",
   "+content/public/browser",
   "+content/public/common",
   "+courgette",
@@ -84,6 +92,7 @@ include_rules = [
   "+services/shape_detection/public/mojom",
   "+services/video_capture/public",
   "+services/viz/privileged",
+  "+services/viz/public/interfaces",
   "+services/ws/common",
   "+services/ws/public",
   "+skia/ext",
@@ -187,7 +196,6 @@ include_rules = [
   "+third_party/blink/public/platform/autoplay.mojom.h",
   "+third_party/blink/public/platform/web_feature.mojom.h",
   "+third_party/blink/public/platform/modules/app_banner/app_banner.mojom.h",
-  "+third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h",
   "+third_party/blink/public/platform/modules/budget_service/budget_service.mojom.h",
   "+third_party/blink/public/platform/modules/insecure_input/insecure_input_service.mojom.h",
   "+third_party/blink/public/platform/modules/installation/installation.mojom.h",
@@ -251,5 +259,9 @@ specific_include_rules = {
   # should be the responsibility of code in chrome/browser/notifications/
   "browser_process_impl.cc": [
     "+ui/message_center/message_center.h",
+  ],
+  # To share values of UMA enums between product code and tests.
+  "translate_manager_browsertest.cc": [
+    "+services/network/initiator_lock_compatibility.h",
   ],
 }

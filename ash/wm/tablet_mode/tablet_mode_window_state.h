@@ -26,7 +26,9 @@ class TabletModeWindowState : public wm::WindowState::State {
   // state handler. Upon destruction it will restore the previous state handler
   // and call |creator::WindowStateDestroyed()| to inform that the window mode
   // was reverted to the old window manager.
-  TabletModeWindowState(aura::Window* window, TabletModeWindowManager* creator);
+  TabletModeWindowState(aura::Window* window,
+                        TabletModeWindowManager* creator,
+                        bool defer_bounds_updates);
   ~TabletModeWindowState() override;
 
   void set_ignore_wm_events(bool ignore) { ignore_wm_events_ = ignore; }
@@ -52,6 +54,8 @@ class TabletModeWindowState : public wm::WindowState::State {
   }
 
  private:
+  friend class TabletModeControllerTestApi;
+
   // Updates the window to |new_state_type| and resulting bounds:
   // Either full screen, maximized centered or minimized. If the state does not
   // change, only the bounds will be changed. If |animate| is set, the bound

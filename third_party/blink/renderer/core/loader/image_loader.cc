@@ -25,7 +25,7 @@
 #include <memory>
 #include <utility>
 
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/platform/web_client_hints_type.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
@@ -43,7 +43,6 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
 #include "third_party/blink/renderer/core/html/cross_origin_attribute.h"
-#include "third_party/blink/renderer/core/html/html_dimension.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/lazy_load_image_observer.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
@@ -52,6 +51,7 @@
 #include "third_party/blink/renderer/core/layout/layout_video.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_image.h"
 #include "third_party/blink/renderer/core/loader/importance_attribute.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/svg/graphics/svg_image.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -69,24 +69,14 @@ namespace blink {
 
 namespace {
 
-bool GetAbsoluteDimensionValue(const AtomicString& attribute_value,
-                               double* value) {
-  HTMLDimension dimension;
-  if (ParseDimensionValue(attribute_value, dimension) &&
-      dimension.IsAbsolute()) {
-    *value = dimension.Value();
-    return true;
-  }
-  return false;
-}
-
 bool IsLazyLoadableImage(const LocalFrame* frame,
-                         HTMLImageElement* html_image) {
-  // Minimum width or height attribute of the image to start lazyloading.
-  const unsigned kMinDimensionToLazyLoad = 10;
-
+                         HTMLImageElement* html_image,
+                         const KURL& url) {
   // Do not lazyload image elements created from javascript.
   if (!html_image->ElementCreatedByParser())
+    return false;
+
+  if (!url.ProtocolIsInHTTPFamily())
     return false;
 
   if (EqualIgnoringASCIICase(
@@ -96,32 +86,16 @@ bool IsLazyLoadableImage(const LocalFrame* frame,
   }
   // Avoid lazyloading if width and height attributes are small. This
   // heuristic helps avoid double fetching tracking pixels.
-  double width, height;
-  if (GetAbsoluteDimensionValue(
-          html_image->getAttribute(html_names::kWidthAttr), &width) &&
-      GetAbsoluteDimensionValue(
-          html_image->getAttribute(html_names::kHeightAttr), &height) &&
-      width <= kMinDimensionToLazyLoad && height <= kMinDimensionToLazyLoad) {
+  if (HTMLImageElement::IsDimensionSmallAndAbsoluteForLazyLoad(
+          html_image->getAttribute(html_names::kWidthAttr)) &&
+      HTMLImageElement::IsDimensionSmallAndAbsoluteForLazyLoad(
+          html_image->getAttribute(html_names::kHeightAttr))) {
     return false;
   }
   // Avoid lazyloading if width or height is specified in inline style and is
   // small enough. This heuristic helps avoid double fetching tracking pixels.
-  if (const auto* property_set = html_image->InlineStyle()) {
-    const CSSValue* width = property_set->GetPropertyCSSValue(CSSPropertyWidth);
-    const CSSValue* height =
-        property_set->GetPropertyCSSValue(CSSPropertyHeight);
-    if (width && width->IsPrimitiveValue() && height &&
-        height->IsPrimitiveValue()) {
-      const CSSPrimitiveValue* width_prim = ToCSSPrimitiveValue(width);
-      const CSSPrimitiveValue* height_prim = ToCSSPrimitiveValue(height);
-      if (height_prim->IsPx() &&
-          (height_prim->GetDoubleValue() <= kMinDimensionToLazyLoad) &&
-          width_prim->IsPx() &&
-          (width_prim->GetDoubleValue() <= kMinDimensionToLazyLoad)) {
-        return false;
-      }
-    }
-  }
+  if (HTMLImageElement::IsInlineStyleDimensionsSmall(html_image->InlineStyle()))
+    return false;
   return true;
 }
 
@@ -394,7 +368,7 @@ static void ConfigureRequest(
         element.GetDocument().GetSecurityOrigin(), cross_origin);
   }
 
-  if (RuntimeEnabledFeatures::PriorityHintsEnabled()) {
+  if (origin_trials::PriorityHintsEnabled(&element.GetDocument())) {
     mojom::FetchImportanceMode importance_mode =
         GetFetchImportanceAttributeValue(
             element.FastGetAttribute(html_names::kImportanceAttr));
@@ -537,7 +511,8 @@ void ImageLoader::DoUpdateFromElement(
       if (frame->IsClientLoFiAllowed(params.GetResourceRequest())) {
         params.SetClientLoFiPlaceholder();
       } else if (auto* html_image = ToHTMLImageElementOrNull(GetElement())) {
-        if (IsLazyLoadableImage(frame, html_image)) {
+        if (IsLazyLoadableImage(frame, html_image,
+                                params.GetResourceRequest().Url())) {
           if (frame->GetDocument()->GetSettings()->GetLazyLoadEnabled() &&
               frame->IsLazyLoadingImageAllowed()) {
             params.SetLazyImagePlaceholder();
@@ -675,10 +650,11 @@ void ImageLoader::UpdateFromElement(
     }
   }
 
-  // Don't load images for inactive documents. We don't want to slow down the
-  // raw HTML parsing case by loading images we don't intend to display.
+  // Don't load images for inactive documents or active documents without V8
+  // context. We don't want to slow down the raw HTML parsing case by loading
+  // images we don't intend to display.
   Document& document = element_->GetDocument();
-  if (document.IsActive())
+  if (!document.IsContextDestroyed() && document.IsActive())
     EnqueueImageLoadingMicroTask(url, update_behavior, referrer_policy);
 }
 

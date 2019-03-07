@@ -148,13 +148,13 @@ class ResourceSizesDiff(BaseDiff):
     return self._ResultLines()
 
   def Summary(self):
-    header_lines = [
+    footer_lines = [
+        '',
         'For an explanation of these metrics, see:',
         ('https://chromium.googlesource.com/chromium/src/+/master/docs/speed/'
-         'binary_size/metrics.md#Metrics-for-Android'),
-        '']
-    return header_lines + self._ResultLines(
-        include_sections=ResourceSizesDiff._SUMMARY_SECTIONS)
+         'binary_size/metrics.md#Metrics-for-Android')]
+    return self._ResultLines(
+        include_sections=ResourceSizesDiff._SUMMARY_SECTIONS) + footer_lines
 
   def ProduceDiff(self, before_dir, after_dir):
     before = self._LoadResults(before_dir)
@@ -445,9 +445,6 @@ class _DiffArchiveManager(object):
     self.diffs = diffs
     self.subrepo = subrepo
     self._summary_stats = []
-
-  def IterArchives(self):
-    return iter(self.build_archives)
 
   def MaybeDiff(self, before_id, after_id):
     """Perform diffs given two build archives."""
@@ -978,7 +975,7 @@ def main():
                                     subrepo, args.include_slow_options,
                                     args.unstripped)
     consecutive_failures = 0
-    for i, archive in enumerate(diff_mngr.IterArchives()):
+    for i, archive in enumerate(diff_mngr.build_archives):
       if archive.Exists():
         step = 'download' if build.IsCloud() else 'build'
         logging.info('Found matching metadata for %s, skipping %s step.',
@@ -995,7 +992,9 @@ def main():
                 'Build failed for %s, diffs using this rev will be skipped.',
                 archive.rev)
             consecutive_failures += 1
-            if consecutive_failures > _ALLOWED_CONSECUTIVE_FAILURES:
+            if len(diff_mngr.build_archives) <= 2:
+              _Die('Stopping due to build failure.')
+            elif consecutive_failures > _ALLOWED_CONSECUTIVE_FAILURES:
               _Die('%d builds failed in a row, last failure was %s.',
                    consecutive_failures, archive.rev)
           else:

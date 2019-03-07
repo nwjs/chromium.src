@@ -29,10 +29,9 @@
 #include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
-#include "chrome/browser/ui/signin_view_controller.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/webui/md_bookmarks/md_bookmarks_ui.h"
+#include "chrome/browser/ui/webui/bookmarks/bookmarks_ui.h"
 #include "chrome/browser/ui/webui/site_settings_helper.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -49,11 +48,14 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "extensions/browser/extension_registry.h"
+#else
+#include "chrome/browser/ui/signin_view_controller.h"
 #endif
 
 #if !defined(OS_ANDROID)
-#include "chrome/browser/signin/signin_manager_factory.h"
-#include "components/signin/core/browser/signin_manager.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
+#include "components/signin/core/browser/signin_pref_names.h"
+#include "services/identity/public/cpp/identity_manager.h"
 #endif
 
 using base::UserMetricsAction;
@@ -67,12 +69,6 @@ void OpenBookmarkManagerForNode(Browser* browser, int64_t node_id) {
   GURL url = GURL(kChromeUIBookmarksURL)
                  .Resolve(base::StringPrintf(
                      "/?id=%s", base::Int64ToString(node_id).c_str()));
-  NavigateParams params(GetSingletonTabNavigateParams(browser, url));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
-}
-
-void NavigateToSingletonTab(Browser* browser, const GURL& url) {
   NavigateParams params(GetSingletonTabNavigateParams(browser, url));
   params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
   ShowSingletonTabOverwritingNTP(browser, std::move(params));
@@ -392,9 +388,7 @@ void ShowSearchEngineSettings(Browser* browser) {
 void ShowBrowserSignin(Browser* browser,
                        signin_metrics::AccessPoint access_point) {
   Profile* original_profile = browser->profile()->GetOriginalProfile();
-  SigninManagerBase* manager =
-      SigninManagerFactory::GetForProfile(original_profile);
-  DCHECK(manager->IsSigninAllowed());
+  DCHECK(original_profile->GetPrefs()->GetBoolean(prefs::kSigninAllowed));
 
   // If the browser's profile is an incognito profile, make sure to use
   // a browser window from the original profile. The user cannot sign in
@@ -405,52 +399,30 @@ void ShowBrowserSignin(Browser* browser,
 
 #if defined(OS_CHROMEOS)
   // ChromeOS always loads the chrome://chrome-signin in a tab.
-  const bool show_full_tab_chrome_signin_page = true;
+  GURL url = signin::GetEmbeddedPromoURLForTab(
+      access_point, signin_metrics::Reason::REASON_SIGNIN_PRIMARY_ACCOUNT,
+      false);
+  NavigateParams params(GetSingletonTabNavigateParams(browser, url));
+  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
+  ShowSingletonTabOverwritingNTP(browser, std::move(params));
+  DCHECK_GT(browser->tab_strip_model()->count(), 0);
 #else
-  // When Desktop Identity Consistency (aka DICE) is not enabled, Chrome uses
-  // a modal sign-in dialog for signing in. This sign-in modal dialog is
-  // presented as a tab-modal dialog (which is automatically dismissed when
-  // the page navigates). Displaying the dialog on a new tab that loads any
-  // page will lead to it being dismissed as soon as the new tab is loaded.
-  // So the sign-in dialog must only be presented on top of an existing tab.
-  //
-  // If ScopedTabbedBrowserDisplayer had to create a (non-incognito) Browser*,
-  // it won't have any tabs yet. Fallback to the full-tab sign-in flow in this
-  // case.
-  const bool show_full_tab_chrome_signin_page =
-      !signin::DiceMethodGreaterOrEqual(
-          AccountConsistencyModeManager::GetMethodForProfile(
-              browser->profile()),
-          signin::AccountConsistencyMethod::kDiceMigration) &&
-      browser->tab_strip_model()->empty();
-#endif  // defined(OS_CHROMEOS)
-  if (show_full_tab_chrome_signin_page) {
-    NavigateToSingletonTab(
-        browser,
-        signin::GetPromoURLForTab(
-            access_point, signin_metrics::Reason::REASON_SIGNIN_PRIMARY_ACCOUNT,
-            false));
-    DCHECK_GT(browser->tab_strip_model()->count(), 0);
-  } else {
-#if defined(OS_CHROMEOS)
-    NOTREACHED();
-#else
-    profiles::BubbleViewMode bubble_view_mode =
-        manager->IsAuthenticated() ? profiles::BUBBLE_VIEW_MODE_GAIA_REAUTH
-                                   : profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN;
-    browser->signin_view_controller()->ShowSignin(bubble_view_mode, browser,
-                                                  access_point);
+  profiles::BubbleViewMode bubble_view_mode =
+      IdentityManagerFactory::GetForProfile(original_profile)
+              ->HasPrimaryAccount()
+          ? profiles::BUBBLE_VIEW_MODE_GAIA_REAUTH
+          : profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN;
+  browser->signin_view_controller()->ShowSignin(bubble_view_mode, browser,
+                                                access_point);
 #endif
-  }
 }
 
 void ShowBrowserSigninOrSettings(Browser* browser,
                                  signin_metrics::AccessPoint access_point) {
   Profile* original_profile = browser->profile()->GetOriginalProfile();
-  SigninManagerBase* manager =
-      SigninManagerFactory::GetForProfile(original_profile);
-  DCHECK(manager->IsSigninAllowed());
-  if (manager->IsAuthenticated())
+  DCHECK(original_profile->GetPrefs()->GetBoolean(prefs::kSigninAllowed));
+  if (IdentityManagerFactory::GetForProfile(original_profile)
+          ->HasPrimaryAccount())
     ShowSettings(browser);
   else
     ShowBrowserSignin(browser, access_point);

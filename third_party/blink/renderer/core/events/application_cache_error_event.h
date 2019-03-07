@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_EVENTS_APPLICATION_CACHE_ERROR_EVENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_EVENTS_APPLICATION_CACHE_ERROR_EVENT_H_
 
+#include "third_party/blink/public/mojom/appcache/appcache.mojom-blink.h"
 #include "third_party/blink/public/platform/web_application_cache_host_client.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/event_interface_names.h"
@@ -17,20 +18,27 @@ class ApplicationCacheErrorEvent final : public Event {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
+  ApplicationCacheErrorEvent(mojom::AppCacheErrorReason,
+                             const String& url,
+                             int status,
+                             const String& message);
+  ApplicationCacheErrorEvent(const AtomicString& event_type,
+                             const ApplicationCacheErrorEventInit* initializer);
   ~ApplicationCacheErrorEvent() override;
 
-  static ApplicationCacheErrorEvent* Create(
-      WebApplicationCacheHost::ErrorReason reason,
-      const String& url,
-      int status,
-      const String& message) {
-    return new ApplicationCacheErrorEvent(reason, url, status, message);
+  static ApplicationCacheErrorEvent* Create(mojom::AppCacheErrorReason reason,
+                                            const String& url,
+                                            int status,
+                                            const String& message) {
+    return MakeGarbageCollected<ApplicationCacheErrorEvent>(reason, url, status,
+                                                            message);
   }
 
   static ApplicationCacheErrorEvent* Create(
       const AtomicString& event_type,
       const ApplicationCacheErrorEventInit* initializer) {
-    return new ApplicationCacheErrorEvent(event_type, initializer);
+    return MakeGarbageCollected<ApplicationCacheErrorEvent>(event_type,
+                                                            initializer);
   }
 
   const String& reason() const { return reason_; }
@@ -45,13 +53,6 @@ class ApplicationCacheErrorEvent final : public Event {
   void Trace(blink::Visitor*) override;
 
  private:
-  ApplicationCacheErrorEvent(WebApplicationCacheHost::ErrorReason,
-                             const String& url,
-                             int status,
-                             const String& message);
-  ApplicationCacheErrorEvent(const AtomicString& event_type,
-                             const ApplicationCacheErrorEventInit* initializer);
-
   String reason_;
   String url_;
   int status_;

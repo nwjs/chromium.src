@@ -36,6 +36,9 @@
 #include "third_party/blink/renderer/core/script/fetch_client_settings_object_impl.h"
 #include "third_party/blink/renderer/core/testing/null_execution_context.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
+#include "third_party/blink/renderer/platform/loader/testing/test_resource_fetcher_properties.h"
+#include "third_party/blink/renderer/platform/scheduler/test/fake_task_runner.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
@@ -43,19 +46,10 @@ namespace blink {
 class MockBaseFetchContext final : public BaseFetchContext {
  public:
   explicit MockBaseFetchContext(ExecutionContext* execution_context)
-      : BaseFetchContext(
-            execution_context->GetTaskRunner(blink::TaskType::kInternalTest)),
-        execution_context_(execution_context),
-        fetch_client_settings_object_(
-            MakeGarbageCollected<FetchClientSettingsObjectImpl>(
-                *execution_context)) {}
+      : execution_context_(execution_context) {}
   ~MockBaseFetchContext() override = default;
 
   // BaseFetchContext overrides:
-  const FetchClientSettingsObject* GetFetchClientSettingsObject()
-      const override {
-    return fetch_client_settings_object_.Get();
-  }
   KURL GetSiteForCookies() const override { return KURL(); }
   bool AllowScriptFromSource(const KURL&) const override { return false; }
   SubresourceFilter* GetSubresourceFilter() const override { return nullptr; }
@@ -95,9 +89,6 @@ class MockBaseFetchContext final : public BaseFetchContext {
   }
   const KURL& Url() const override { return execution_context_->Url(); }
 
-  const SecurityOrigin* GetSecurityOrigin() const override {
-    return fetch_client_settings_object_->GetSecurityOrigin();
-  }
   const SecurityOrigin* GetParentSecurityOrigin() const override {
     return nullptr;
   }
@@ -117,7 +108,10 @@ class MockBaseFetchContext final : public BaseFetchContext {
   }
 
   bool IsDetached() const override { return is_detached_; }
-  void SetIsDetached(bool is_detached) { is_detached_ = is_detached; }
+  FetchContext* Detach() override {
+    is_detached_ = true;
+    return this;
+  }
 
  private:
   Member<ExecutionContext> execution_context_;
@@ -133,10 +127,24 @@ class BaseFetchContextTest : public testing::Test {
         ->SetUpSecurityContext();
     fetch_context_ =
         MakeGarbageCollected<MockBaseFetchContext>(execution_context_);
+    auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>(
+        *MakeGarbageCollected<FetchClientSettingsObjectImpl>(
+            *execution_context_));
+    resource_fetcher_ = MakeGarbageCollected<ResourceFetcher>(
+        ResourceFetcherInit(*properties, fetch_context_,
+                            base::MakeRefCounted<scheduler::FakeTaskRunner>()));
+  }
+
+  const FetchClientSettingsObject& GetFetchClientSettingsObject() const {
+    return resource_fetcher_->GetProperties().GetFetchClientSettingsObject();
+  }
+  const SecurityOrigin* GetSecurityOrigin() const {
+    return GetFetchClientSettingsObject().GetSecurityOrigin();
   }
 
   Persistent<ExecutionContext> execution_context_;
   Persistent<MockBaseFetchContext> fetch_context_;
+  Persistent<ResourceFetcher> resource_fetcher_;
 };
 
 TEST_F(BaseFetchContextTest, SetIsExternalRequestForPublicContext) {
@@ -305,7 +313,7 @@ TEST_F(BaseFetchContextTest, CanRequest) {
   KURL url(NullURL(), "http://baz.test");
   ResourceRequest resource_request(url);
   resource_request.SetRequestContext(mojom::RequestContextType::SCRIPT);
-  resource_request.SetRequestorOrigin(fetch_context_->GetSecurityOrigin());
+  resource_request.SetRequestorOrigin(GetSecurityOrigin());
   resource_request.SetFetchCredentialsMode(
       network::mojom::FetchCredentialsMode::kOmit);
 
@@ -345,9 +353,9 @@ TEST_F(BaseFetchContextTest, CheckCSPForRequest) {
 TEST_F(BaseFetchContextTest, CanRequestWhenDetached) {
   KURL url(NullURL(), "http://www.example.com/");
   ResourceRequest request(url);
-  request.SetRequestorOrigin(fetch_context_->GetSecurityOrigin());
+  request.SetRequestorOrigin(GetSecurityOrigin());
   ResourceRequest keepalive_request(url);
-  keepalive_request.SetRequestorOrigin(fetch_context_->GetSecurityOrigin());
+  keepalive_request.SetRequestorOrigin(GetSecurityOrigin());
   keepalive_request.SetKeepalive(true);
 
   EXPECT_EQ(base::nullopt,
@@ -376,7 +384,7 @@ TEST_F(BaseFetchContextTest, CanRequestWhenDetached) {
           SecurityViolationReportingPolicy::kSuppressReporting,
           ResourceRequest::RedirectStatus::kFollowedRedirect));
 
-  fetch_context_->SetIsDetached(true);
+  resource_fetcher_->ClearContext();
 
   EXPECT_EQ(ResourceRequestBlockedReason::kOther,
             fetch_context_->CanRequest(
@@ -411,7 +419,7 @@ TEST_F(BaseFetchContextTest, UACSSTest) {
   KURL data_url("data:image/png;base64,test");
 
   ResourceRequest resource_request(test_url);
-  resource_request.SetRequestorOrigin(fetch_context_->GetSecurityOrigin());
+  resource_request.SetRequestorOrigin(GetSecurityOrigin());
   ResourceLoaderOptions options;
   options.initiator_info.name = fetch_initiator_type_names::kUacss;
 
@@ -445,7 +453,7 @@ TEST_F(BaseFetchContextTest, UACSSTest_BypassCSP) {
   KURL data_url("data:image/png;base64,test");
 
   ResourceRequest resource_request(data_url);
-  resource_request.SetRequestorOrigin(fetch_context_->GetSecurityOrigin());
+  resource_request.SetRequestorOrigin(GetSecurityOrigin());
   ResourceLoaderOptions options;
   options.initiator_info.name = fetch_initiator_type_names::kUacss;
 

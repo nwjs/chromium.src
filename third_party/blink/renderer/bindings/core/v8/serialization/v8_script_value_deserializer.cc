@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/core/mojo/mojo_handle.h"
 #include "third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.h"
 #include "third_party/blink/renderer/core/streams/readable_stream.h"
+#include "third_party/blink/renderer/core/streams/transform_stream.h"
 #include "third_party/blink/renderer/core/streams/writable_stream.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_shared_array_buffer.h"
@@ -536,6 +537,28 @@ ScriptWrappable* V8ScriptValueDeserializer::ReadDOMObject(
           script_state_, (*transferred_stream_ports_)[index].Get(),
           exception_state);
     }
+    case kTransformStreamTransferTag: {
+      if (!RuntimeEnabledFeatures::TransferableStreamsEnabled())
+        return nullptr;
+      uint32_t index = 0;
+      if (!ReadUint32(&index) || !transferred_stream_ports_ ||
+          index + 1 >= transferred_stream_ports_->size()) {
+        return nullptr;
+      }
+      ReadableStream* readable = ReadableStream::Deserialize(
+          script_state_, (*transferred_stream_ports_)[index].Get(),
+          exception_state);
+      if (!readable)
+        return nullptr;
+
+      WritableStream* writable = WritableStream::Deserialize(
+          script_state_, (*transferred_stream_ports_)[index + 1].Get(),
+          exception_state);
+      if (!writable)
+        return nullptr;
+
+      return MakeGarbageCollected<TransformStream>(readable, writable);
+    }
     default:
       break;
   }
@@ -655,15 +678,15 @@ v8::MaybeLocal<v8::Object> V8ScriptValueDeserializer::ReadHostObject(
   return wrapper.As<v8::Object>();
 }
 
-v8::MaybeLocal<v8::WasmCompiledModule>
+v8::MaybeLocal<v8::WasmModuleObject>
 V8ScriptValueDeserializer::GetWasmModuleFromId(v8::Isolate* isolate,
                                                uint32_t id) {
   if (id < serialized_script_value_->WasmModules().size()) {
-    return v8::WasmCompiledModule::FromTransferrableModule(
+    return v8::WasmModuleObject::FromTransferrableModule(
         isolate, serialized_script_value_->WasmModules()[id]);
   }
   CHECK(serialized_script_value_->WasmModules().IsEmpty());
-  return v8::MaybeLocal<v8::WasmCompiledModule>();
+  return v8::MaybeLocal<v8::WasmModuleObject>();
 }
 
 v8::MaybeLocal<v8::SharedArrayBuffer>

@@ -11,6 +11,7 @@
 #include "base/bind_helpers.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/singleton.h"
 #include "base/metrics/histogram_functions.h"
@@ -35,7 +36,8 @@
 #include "chrome/browser/policy/cloud/remote_commands_invalidator_impl.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_content_client.h"
-#include "chromeos/chromeos_switches.h"
+#include "chrome/common/chrome_features.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/invalidation/impl/profile_invalidation_provider.h"
 #include "components/keyed_service/content/browser_context_keyed_service_shutdown_notifier_factory.h"
@@ -43,7 +45,6 @@
 #include "components/policy/core/common/cloud/cloud_policy_core.h"
 #include "components/policy/core/common/cloud/cloud_policy_refresh_scheduler.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
-#include "components/policy/core/common/cloud/dm_auth.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/policy_types.h"
@@ -95,6 +96,14 @@ enum class RegistrationResult {
 
 void RegistrationResultUMA(RegistrationResult registration_result) {
   UMA_HISTOGRAM_ENUMERATION(kUMAReregistrationResult, registration_result);
+}
+
+// Returns whether user with |account_id| is a child. Returns false if user with
+// |account_id| is not found.
+bool IsChildUser(const AccountId& account_id) {
+  const user_manager::User* const user =
+      user_manager::UserManager::Get()->FindUser(account_id);
+  return user && user->GetType() == user_manager::USER_TYPE_CHILD;
 }
 
 // This class is used to subscribe for notifications that the current profile is
@@ -278,6 +287,10 @@ void UserCloudPolicyManagerChromeOS::Connect(
 
 void UserCloudPolicyManagerChromeOS::OnAccessTokenAvailable(
     const std::string& access_token) {
+  // This method should be called only once (at the beginning of the session)
+  // for regular user.
+  // For child user this method will be called multiple times (periodically).
+
   access_token_ = access_token;
 
   if (!wildcard_username_.empty()) {
@@ -292,11 +305,20 @@ void UserCloudPolicyManagerChromeOS::OnAccessTokenAvailable(
             base::Unretained(this), wildcard_username_));
   }
 
-  if (service() && service()->IsInitializationComplete() &&
-      client() && !client()->is_registered()) {
-    OnOAuth2PolicyTokenFetched(
-        access_token, GoogleServiceAuthError(GoogleServiceAuthError::NONE));
+  if (service() && service()->IsInitializationComplete() && client()) {
+    if (!client()->is_registered()) {
+      OnOAuth2PolicyTokenFetched(
+          access_token, GoogleServiceAuthError(GoogleServiceAuthError::NONE));
+    } else if (RequiresOAuthTokenForChildUser()) {
+      client()->SetOAuthTokenAsAdditionalAuth(access_token);
+      StartRefreshSchedulerIfReady();
+    }
   }
+}
+
+bool UserCloudPolicyManagerChromeOS::RequiresOAuthTokenForChildUser() const {
+  return IsChildUser(account_id_) &&
+         base::FeatureList::IsEnabled(features::kDMServerOAuthForChildUser);
 }
 
 void UserCloudPolicyManagerChromeOS::OnWildcardCheckCompleted(
@@ -385,14 +407,13 @@ void UserCloudPolicyManagerChromeOS::
     }
   }
 
-  if (!waiting_for_policy_fetch_) {
-    // If this isn't blocking on a policy fetch then
-    // CloudPolicyManager::OnStoreLoaded() already published the cached policy.
-    // Start the refresh scheduler now, which will eventually refresh the
-    // cached policy or make the first fetch once the OAuth2 token is
-    // available.
-    StartRefreshSchedulerIfReady();
-  }
+  // If this isn't blocking on a policy fetch then
+  // CloudPolicyManager::OnStoreLoaded() already published the cached policy.
+  // Start the refresh scheduler now, which will eventually refresh the
+  // cached policy or make the first fetch once the OAuth2 token is
+  // available. If refresh scheduler is already started this call will do
+  // nothing.
+  StartRefreshSchedulerIfReady();
 }
 
 void UserCloudPolicyManagerChromeOS::OnPolicyFetched(
@@ -548,9 +569,7 @@ void UserCloudPolicyManagerChromeOS::GetChromePolicy(PolicyMap* policy_map) {
     return;
 
   // Don't apply enterprise defaults for Child user.
-  const user_manager::User* const user =
-      user_manager::UserManager::Get()->FindUser(account_id_);
-  if (user && user->GetType() == user_manager::USER_TYPE_CHILD)
+  if (IsChildUser(account_id_))
     return;
 
   SetEnterpriseUsersDefaults(policy_map);
@@ -584,7 +603,7 @@ void UserCloudPolicyManagerChromeOS::FetchPolicyOAuthToken() {
           .GetRefreshToken());
 
   if (!refresh_token.empty()) {
-    token_fetcher_.reset(PolicyOAuth2TokenFetcher::CreateInstance());
+    token_fetcher_ = PolicyOAuth2TokenFetcher::CreateInstance();
     token_fetcher_->StartWithRefreshToken(
         refresh_token, system_url_loader_factory,
         base::Bind(&UserCloudPolicyManagerChromeOS::OnOAuth2PolicyTokenFetched,
@@ -616,6 +635,9 @@ void UserCloudPolicyManagerChromeOS::OnOAuth2PolicyTokenFetched(
   }
 
   if (error.state() == GoogleServiceAuthError::NONE) {
+    if (RequiresOAuthTokenForChildUser())
+      client()->SetOAuthTokenAsAdditionalAuth(policy_token);
+
     // Start client registration. Either OnRegistrationStateChanged() or
     // OnClientError() will be called back.
     const auto lifetime =
@@ -627,9 +649,9 @@ void UserCloudPolicyManagerChromeOS::OnOAuth2PolicyTokenFetched(
       client_id = client()->client_id();
     client()->Register(em::DeviceRegisterRequest::USER,
                        em::DeviceRegisterRequest::FLAVOR_USER_REGISTRATION,
-                       lifetime, em::LicenseType::UNDEFINED,
-                       DMAuth::FromOAuthToken(policy_token), client_id,
-                       std::string(), std::string());
+                       lifetime, em::LicenseType::UNDEFINED, policy_token,
+                       client_id, std::string() /* requisition */,
+                       std::string() /* current_state_key */);
   } else {
     UMA_HISTOGRAM_ENUMERATION(kUMAInitialFetchOAuth2Error, error.state(),
                               GoogleServiceAuthError::NUM_STATES);
@@ -707,6 +729,11 @@ void UserCloudPolicyManagerChromeOS::StartRefreshSchedulerIfReady() {
     // OnComponentCloudPolicyUpdated() once it's ready.
     return;
   }
+
+  // Do not start refresh scheduler until OAuth token is available for child
+  // user, because policy refresh will fail.
+  if (RequiresOAuthTokenForChildUser() && access_token_.empty())
+    return;
 
   core()->StartRefreshScheduler();
   core()->TrackRefreshDelayPref(local_state_,

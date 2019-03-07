@@ -9,7 +9,7 @@
 
 #include "base/base64.h"
 #include "base/json/json_reader.h"
-#include "base/message_loop/message_loop.h"
+#include "base/test/scoped_task_environment.h"
 #include "base/test/test_simple_task_runner.h"
 #include "base/values.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
@@ -87,7 +87,7 @@ class PolicyHeaderServiceTest : public testing::Test {
     }
   }
 
-  base::MessageLoop loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
   std::unique_ptr<PolicyHeaderService> service_;
   TestCloudPolicyStore user_store_;
   scoped_refptr<base::TestSimpleTaskRunner> task_runner_;
@@ -110,44 +110,39 @@ TEST_F(PolicyHeaderServiceTest, TestWithAndWithoutPolicyHeader) {
   user_store_.SetPolicy(std::move(policy));
   task_runner_->RunUntilIdle();
 
-  std::unique_ptr<net::HttpRequestHeaders> extra_headers =
-      std::make_unique<net::HttpRequestHeaders>();
+  net::HttpRequestHeaders extra_headers;
   service_->AddPolicyHeaders(GURL(kDMServerURL), &extra_headers);
-  ValidateHeader(*extra_headers, expected_dmtoken, expected_policy_token);
+  ValidateHeader(extra_headers, expected_dmtoken, expected_policy_token);
 
   // Now blow away the policy data.
   user_store_.SetPolicy(std::unique_ptr<PolicyData>());
   task_runner_->RunUntilIdle();
 
-  std::unique_ptr<net::HttpRequestHeaders> extra_headers2 =
-      std::make_unique<net::HttpRequestHeaders>();
+  net::HttpRequestHeaders extra_headers2;
   service_->AddPolicyHeaders(GURL(kDMServerURL), &extra_headers2);
-  ValidateHeader(*extra_headers2, "", "");
+  ValidateHeader(extra_headers2, "", "");
 }
 
 TEST_F(PolicyHeaderServiceTest, NoHeaderOnNonMatchingURL) {
   service_->SetHeaderForTest("new_header");
-  std::unique_ptr<net::HttpRequestHeaders> extra_headers =
-      std::make_unique<net::HttpRequestHeaders>();
+  net::HttpRequestHeaders extra_headers;
   service_->AddPolicyHeaders(GURL("http://non-matching.com"), &extra_headers);
-  EXPECT_TRUE(extra_headers->IsEmpty());
+  EXPECT_TRUE(extra_headers.IsEmpty());
 }
 
 TEST_F(PolicyHeaderServiceTest, HeaderChange) {
   std::string new_header = "new_header";
   service_->SetHeaderForTest(new_header);
-  std::unique_ptr<net::HttpRequestHeaders> extra_headers =
-      std::make_unique<net::HttpRequestHeaders>();
+  net::HttpRequestHeaders extra_headers;
   service_->AddPolicyHeaders(GURL(kDMServerURL), &extra_headers);
-  ValidateHeader(*extra_headers, new_header);
+  ValidateHeader(extra_headers, new_header);
 }
 
 TEST_F(PolicyHeaderServiceTest, ChangeToNoHeader) {
   service_->SetHeaderForTest("");
-  std::unique_ptr<net::HttpRequestHeaders> extra_headers =
-      std::make_unique<net::HttpRequestHeaders>();
+  net::HttpRequestHeaders extra_headers;
   service_->AddPolicyHeaders(GURL(kDMServerURL), &extra_headers);
-  EXPECT_TRUE(extra_headers->IsEmpty());
+  EXPECT_TRUE(extra_headers.IsEmpty());
 }
 
 }  // namespace policy

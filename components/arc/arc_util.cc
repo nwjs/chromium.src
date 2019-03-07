@@ -10,7 +10,7 @@
 #include "ash/public/cpp/app_types.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "components/arc/arc_features.h"
@@ -191,6 +191,11 @@ void SetArcCpuRestriction(bool do_restrict) {
       state, base::BindOnce(SetArcCpuRestrictionCallback, state));
 }
 
+bool IsArcForceCacheAppIcon() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      chromeos::switches::kArcForceCacheAppIcons);
+}
+
 bool IsArcDataCleanupOnStartRequested() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       chromeos::switches::kArcDataCleanupOnStart);
@@ -199,6 +204,11 @@ bool IsArcDataCleanupOnStartRequested() {
 bool IsArcAppSyncFlowDisabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       chromeos::switches::kArcDisableAppSync);
+}
+
+bool IsArcLocaleSyncDisabled() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      chromeos::switches::kArcDisableLocaleSync);
 }
 
 bool IsArcPlayAutoInstallDisabled() {

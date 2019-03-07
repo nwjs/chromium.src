@@ -12,7 +12,16 @@
 
 #include "ash/accessibility/accessibility_observer.h"
 #include "ash/ash_export.h"
+#include "ash/assistant/assistant_alarm_timer_controller.h"
+#include "ash/assistant/assistant_cache_controller.h"
 #include "ash/assistant/assistant_controller_observer.h"
+#include "ash/assistant/assistant_interaction_controller.h"
+#include "ash/assistant/assistant_notification_controller.h"
+#include "ash/assistant/assistant_screen_context_controller.h"
+#include "ash/assistant/assistant_setup_controller.h"
+#include "ash/assistant/assistant_ui_controller.h"
+#include "ash/assistant/assistant_view_delegate_impl.h"
+#include "ash/assistant/ui/assistant_view_delegate.h"
 #include "ash/public/cpp/assistant/default_voice_interaction_observer.h"
 #include "ash/public/interfaces/assistant_controller.mojom.h"
 #include "ash/public/interfaces/assistant_image_downloader.mojom.h"
@@ -28,8 +37,11 @@
 #include "mojo/public/cpp/bindings/interface_ptr_set.h"
 #include "services/content/public/mojom/navigable_contents_factory.mojom.h"
 
+class PrefRegistrySimple;
+
 namespace ash {
 
+class AssistantAlarmTimerController;
 class AssistantCacheController;
 class AssistantInteractionController;
 class AssistantNotificationController;
@@ -47,6 +59,8 @@ class ASH_EXPORT AssistantController
  public:
   AssistantController();
   ~AssistantController() override;
+
+  static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
   void BindRequest(mojom::AssistantControllerRequest request);
   void BindRequest(mojom::AssistantVolumeControlRequest request);
@@ -69,6 +83,9 @@ class ASH_EXPORT AssistantController
   void SetAssistantImageDownloader(
       mojom::AssistantImageDownloaderPtr assistant_image_downloader) override;
   void OpenAssistantSettings() override;
+  void StartSpeakerIdEnrollmentFlow() override;
+  void SendAssistantFeedback(bool assistant_debug_info_allowed,
+                             const std::string& feedback_description) override;
 
   // AssistantControllerObserver:
   void OnDeepLinkReceived(
@@ -96,35 +113,33 @@ class ASH_EXPORT AssistantController
   void GetNavigableContentsFactory(
       content::mojom::NavigableContentsFactoryRequest request);
 
+  AssistantAlarmTimerController* alarm_timer_controller() {
+    return &assistant_alarm_timer_controller_;
+  }
+
   AssistantCacheController* cache_controller() {
-    DCHECK(assistant_cache_controller_);
-    return assistant_cache_controller_.get();
+    return &assistant_cache_controller_;
   }
 
   AssistantInteractionController* interaction_controller() {
-    DCHECK(assistant_interaction_controller_);
-    return assistant_interaction_controller_.get();
+    return &assistant_interaction_controller_;
   }
 
   AssistantNotificationController* notification_controller() {
-    DCHECK(assistant_notification_controller_);
-    return assistant_notification_controller_.get();
+    return &assistant_notification_controller_;
   }
 
   AssistantScreenContextController* screen_context_controller() {
-    DCHECK(assistant_screen_context_controller_);
-    return assistant_screen_context_controller_.get();
+    return &assistant_screen_context_controller_;
   }
 
   AssistantSetupController* setup_controller() {
-    DCHECK(assistant_setup_controller_);
-    return assistant_setup_controller_.get();
+    return &assistant_setup_controller_;
   }
 
-  AssistantUiController* ui_controller() {
-    DCHECK(assistant_ui_controller_);
-    return assistant_ui_controller_.get();
-  }
+  AssistantUiController* ui_controller() { return &assistant_ui_controller_; }
+
+  AssistantViewDelegate* view_delegate() { return &view_delegate_; }
 
   base::WeakPtr<AssistantController> GetWeakPtr();
 
@@ -152,20 +167,16 @@ class ASH_EXPORT AssistantController
 
   mojom::AssistantImageDownloaderPtr assistant_image_downloader_;
 
-  std::unique_ptr<AssistantCacheController> assistant_cache_controller_;
+  // Assistant sub-controllers.
+  AssistantAlarmTimerController assistant_alarm_timer_controller_;
+  AssistantCacheController assistant_cache_controller_;
+  AssistantInteractionController assistant_interaction_controller_;
+  AssistantNotificationController assistant_notification_controller_;
+  AssistantScreenContextController assistant_screen_context_controller_;
+  AssistantSetupController assistant_setup_controller_;
+  AssistantUiController assistant_ui_controller_;
 
-  std::unique_ptr<AssistantInteractionController>
-      assistant_interaction_controller_;
-
-  std::unique_ptr<AssistantNotificationController>
-      assistant_notification_controller_;
-
-  std::unique_ptr<AssistantScreenContextController>
-      assistant_screen_context_controller_;
-
-  std::unique_ptr<AssistantSetupController> assistant_setup_controller_;
-
-  std::unique_ptr<AssistantUiController> assistant_ui_controller_;
+  AssistantViewDelegateImpl view_delegate_;
 
   base::WeakPtrFactory<AssistantController> weak_factory_;
 

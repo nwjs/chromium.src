@@ -66,9 +66,11 @@ class InputHandler : public DevToolsDomainHandler, public Input::Backend {
       Maybe<int> modifiers,
       Maybe<double> timestamp,
       Maybe<std::string> button,
+      Maybe<int> buttons,
       Maybe<int> click_count,
       Maybe<double> delta_x,
       Maybe<double> delta_y,
+      Maybe<std::string> pointer_type,
       std::unique_ptr<DispatchMouseEventCallback> callback) override;
 
   void DispatchTouchEvent(

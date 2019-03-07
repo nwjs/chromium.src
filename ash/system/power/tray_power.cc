@@ -12,9 +12,9 @@
 #include "ash/session/session_controller.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
-#include "ash/system/date/date_view.h"
 #include "ash/system/power/battery_notification.h"
 #include "ash/system/power/dual_role_notification.h"
+#include "ash/system/time/time_view.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_item_view.h"
 #include "ash/system/tray/tray_utils.h"
@@ -109,9 +109,9 @@ void PowerTrayView::UpdateImage() {
   info_ = info;
   icon_session_state_color_ = session_state;
 
-  SkColor color = TrayIconColor(session_state);
   image_view()->SetImage(PowerStatus::GetBatteryImage(
-      info, TrayConstants::GetTrayIconSize(), SkColorSetA(color, 0x4C), color));
+      info, TrayConstants::GetTrayIconSize(), kTrayIconBackgroundColor,
+      TrayIconColor(session_state)));
 }
 
 }  // namespace tray

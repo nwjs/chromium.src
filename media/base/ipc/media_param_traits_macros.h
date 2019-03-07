@@ -24,6 +24,7 @@
 #include "media/base/encryption_scheme.h"
 #include "media/base/hdr_metadata.h"
 #include "media/base/media_log_event.h"
+#include "media/base/media_status.h"
 #include "media/base/output_device_info.h"
 #include "media/base/overlay_info.h"
 #include "media/base/pipeline_status.h"
@@ -33,6 +34,7 @@
 #include "media/base/video_color_space.h"
 #include "media/base/video_rotation.h"
 #include "media/base/video_types.h"
+#include "media/base/waiting.h"
 #include "media/base/watch_time_keys.h"
 // TODO(crbug.com/676224): When EnabledIf attribute is supported in mojom files,
 // move CdmProxy related code into #if BUILDFLAG(ENABLE_LIBRARY_CDMS).
@@ -56,9 +58,6 @@ IPC_ENUM_TRAITS_MAX_VALUE(media::AudioParameters::Format,
 
 IPC_ENUM_TRAITS_MAX_VALUE(media::BufferingState,
                           media::BufferingState::BUFFERING_STATE_MAX)
-
-IPC_ENUM_TRAITS_MAX_VALUE(media::CdmKeyInformation::KeyStatus,
-                          media::CdmKeyInformation::KEY_STATUS_MAX)
 
 IPC_ENUM_TRAITS_MAX_VALUE(media::CdmMessageType,
                           media::CdmMessageType::MESSAGE_TYPE_MAX)
@@ -112,6 +111,9 @@ IPC_ENUM_TRAITS_MAX_VALUE(media::HdcpVersion,
 IPC_ENUM_TRAITS_MAX_VALUE(media::MediaLogEvent::Type,
                           media::MediaLogEvent::TYPE_LAST)
 
+IPC_ENUM_TRAITS_MAX_VALUE(media::MediaStatus::State,
+                          media::MediaStatus::State::STATE_MAX)
+
 IPC_ENUM_TRAITS_MAX_VALUE(media::OutputDeviceStatus,
                           media::OUTPUT_DEVICE_STATUS_MAX)
 
@@ -121,6 +123,9 @@ IPC_ENUM_TRAITS_MAX_VALUE(media::PipelineStatus,
 IPC_ENUM_TRAITS_MAX_VALUE(media::SampleFormat, media::kSampleFormatMax)
 
 IPC_ENUM_TRAITS_MAX_VALUE(media::VideoCodec, media::kVideoCodecMax)
+
+IPC_ENUM_TRAITS_MAX_VALUE(media::WaitingReason,
+                          media::WaitingReason::kMaxValue);
 
 IPC_ENUM_TRAITS_MAX_VALUE(media::WatchTimeKey,
                           media::WatchTimeKey::kWatchTimeKeyMax);
@@ -168,12 +173,6 @@ IPC_STRUCT_TRAITS_BEGIN(media::CdmConfig)
   IPC_STRUCT_TRAITS_MEMBER(use_hw_secure_codecs)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(media::CdmKeyInformation)
-  IPC_STRUCT_TRAITS_MEMBER(key_id)
-  IPC_STRUCT_TRAITS_MEMBER(status)
-  IPC_STRUCT_TRAITS_MEMBER(system_code)
-IPC_STRUCT_TRAITS_END()
-
 IPC_STRUCT_TRAITS_BEGIN(media::MediaLogEvent)
   IPC_STRUCT_TRAITS_MEMBER(id)
   IPC_STRUCT_TRAITS_MEMBER(type)
@@ -211,6 +210,7 @@ IPC_STRUCT_TRAITS_END()
 IPC_STRUCT_TRAITS_BEGIN(media::OverlayInfo)
   IPC_STRUCT_TRAITS_MEMBER(routing_token)
   IPC_STRUCT_TRAITS_MEMBER(is_fullscreen)
+  IPC_STRUCT_TRAITS_MEMBER(is_persistent_video)
 IPC_STRUCT_TRAITS_END()
 
 #endif  // MEDIA_BASE_IPC_MEDIA_PARAM_TRAITS_MACROS_H_

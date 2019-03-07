@@ -15,7 +15,6 @@
 #include "build/build_config.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/consent_auditor/consent_auditor_factory.h"
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
@@ -25,9 +24,9 @@
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sync/bookmark_sync_service_factory.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/glue/theme_data_type_controller.h"
 #include "chrome/browser/sync/model_type_store_service_factory.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
@@ -53,11 +52,11 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/browser_sync/browser_sync_switches.h"
 #include "components/browser_sync/profile_sync_components_factory_impl.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/browser/sync/history_model_worker.h"
+#include "components/history/core/common/pref_names.h"
 #include "components/invalidation/impl/invalidation_switches.h"
 #include "components/invalidation/impl/profile_invalidation_provider.h"
 #include "components/password_manager/core/browser/password_store.h"
@@ -85,7 +84,6 @@
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/api/storage/backend_task_runner.h"
 #include "extensions/buildflags/buildflags.h"
-#include "ui/base/device_form_factor.h"
 
 #if BUILDFLAG(ENABLE_APP_LIST)
 #include "ash/public/cpp/app_list/app_list_switches.h"
@@ -193,20 +191,13 @@ void ChromeSyncClient::Initialize() {
   // Component factory may already be set in tests.
   if (!GetSyncApiComponentFactory()) {
     component_factory_ = std::make_unique<ProfileSyncComponentsFactoryImpl>(
-        this, chrome::GetChannel(), chrome::GetVersionString(),
-        ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET,
-        prefs::kSavingBrowserHistoryDisabled,
+        this, chrome::GetChannel(), prefs::kSavingBrowserHistoryDisabled,
         base::CreateSingleThreadTaskRunnerWithTraits(
             {content::BrowserThread::UI}),
         web_data_service_thread_, profile_web_data_service_,
         account_web_data_service_, password_store_,
         BookmarkSyncServiceFactory::GetForProfile(profile_));
   }
-}
-
-syncer::SyncService* ChromeSyncClient::GetSyncService() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  return ProfileSyncServiceFactory::GetSyncServiceForBrowserContext(profile_);
 }
 
 PrefService* ChromeSyncClient::GetPrefService() {
@@ -248,6 +239,10 @@ syncer::ModelTypeStoreService* ChromeSyncClient::GetModelTypeStoreService() {
   return ModelTypeStoreServiceFactory::GetForProfile(profile_);
 }
 
+syncer::DeviceInfoSyncService* ChromeSyncClient::GetDeviceInfoSyncService() {
+  return DeviceInfoSyncServiceFactory::GetForProfile(profile_);
+}
+
 bookmarks::BookmarkModel* ChromeSyncClient::GetBookmarkModel() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   return BookmarkModelFactory::GetForBrowserContext(profile_);
@@ -286,11 +281,12 @@ base::Closure ChromeSyncClient::GetPasswordStateChangedCallback() {
 }
 
 syncer::DataTypeController::TypeVector
-ChromeSyncClient::CreateDataTypeControllers() {
+ChromeSyncClient::CreateDataTypeControllers(syncer::SyncService* sync_service) {
   syncer::ModelTypeSet disabled_types = GetDisabledTypesFromCommandLine();
 
   syncer::DataTypeController::TypeVector controllers =
-      component_factory_->CreateCommonDataTypeControllers(disabled_types);
+      component_factory_->CreateCommonDataTypeControllers(disabled_types,
+                                                          sync_service);
 
   const base::RepeatingClosure dump_stack = base::BindRepeating(
       &syncer::ReportUnrecoverableError, chrome::GetChannel());
@@ -306,10 +302,12 @@ ChromeSyncClient::CreateDataTypeControllers() {
   } else {
     controllers.push_back(
         std::make_unique<SupervisedUserSyncDataTypeController>(
-            syncer::SUPERVISED_USER_SETTINGS, dump_stack, this, profile_));
+            syncer::SUPERVISED_USER_SETTINGS, dump_stack, sync_service, this,
+            profile_));
     controllers.push_back(
         std::make_unique<SupervisedUserSyncDataTypeController>(
-            syncer::SUPERVISED_USER_WHITELISTS, dump_stack, this, profile_));
+            syncer::SUPERVISED_USER_WHITELISTS, dump_stack, sync_service, this,
+            profile_));
   }
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
 
@@ -325,7 +323,7 @@ ChromeSyncClient::CreateDataTypeControllers() {
           dump_stack, profile_));
     } else {
       controllers.push_back(std::make_unique<ExtensionDataTypeController>(
-          syncer::APPS, dump_stack, this, profile_));
+          syncer::APPS, dump_stack, sync_service, this, profile_));
     }
   }
 
@@ -340,7 +338,7 @@ ChromeSyncClient::CreateDataTypeControllers() {
           dump_stack, profile_));
     } else {
       controllers.push_back(std::make_unique<ExtensionDataTypeController>(
-          syncer::EXTENSIONS, dump_stack, this, profile_));
+          syncer::EXTENSIONS, dump_stack, sync_service, this, profile_));
     }
   }
 
@@ -360,7 +358,8 @@ ChromeSyncClient::CreateDataTypeControllers() {
     } else {
       controllers.push_back(
           std::make_unique<ExtensionSettingDataTypeController>(
-              syncer::EXTENSION_SETTINGS, dump_stack, this, profile_));
+              syncer::EXTENSION_SETTINGS, dump_stack, sync_service, this,
+              profile_));
     }
   }
 
@@ -379,7 +378,7 @@ ChromeSyncClient::CreateDataTypeControllers() {
     } else {
       controllers.push_back(
           std::make_unique<ExtensionSettingDataTypeController>(
-              syncer::APP_SETTINGS, dump_stack, this, profile_));
+              syncer::APP_SETTINGS, dump_stack, sync_service, this, profile_));
     }
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
@@ -395,7 +394,7 @@ ChromeSyncClient::CreateDataTypeControllers() {
           dump_stack, profile_));
     } else {
       controllers.push_back(std::make_unique<ThemeDataTypeController>(
-          dump_stack, this, profile_));
+          dump_stack, sync_service, this, profile_));
     }
   }
 
@@ -408,7 +407,7 @@ ChromeSyncClient::CreateDataTypeControllers() {
           TemplateURLServiceFactory::GetForProfile(profile_)));
     } else {
       controllers.push_back(std::make_unique<SearchEngineDataTypeController>(
-          dump_stack, this,
+          dump_stack, sync_service, this,
           TemplateURLServiceFactory::GetForProfile(profile_)));
     }
   }
@@ -424,7 +423,7 @@ ChromeSyncClient::CreateDataTypeControllers() {
             dump_stack));
   } else {
     controllers.push_back(std::make_unique<AsyncDirectoryTypeController>(
-        syncer::APP_LIST, dump_stack, this, syncer::GROUP_UI,
+        syncer::APP_LIST, dump_stack, sync_service, this, syncer::GROUP_UI,
         base::CreateSingleThreadTaskRunnerWithTraits({BrowserThread::UI})));
   }
 #endif  // BUILDFLAG(ENABLE_APP_LIST)
@@ -441,7 +440,7 @@ ChromeSyncClient::CreateDataTypeControllers() {
               dump_stack));
     } else {
       controllers.push_back(std::make_unique<AsyncDirectoryTypeController>(
-          syncer::DICTIONARY, dump_stack, this, syncer::GROUP_UI,
+          syncer::DICTIONARY, dump_stack, sync_service, this, syncer::GROUP_UI,
           base::CreateSingleThreadTaskRunnerWithTraits({BrowserThread::UI})));
     }
   }
@@ -451,7 +450,7 @@ ChromeSyncClient::CreateDataTypeControllers() {
   if (arc::IsArcAllowedForProfile(profile_) &&
       !arc::IsArcAppSyncFlowDisabled()) {
     controllers.push_back(std::make_unique<ArcPackageSyncDataTypeController>(
-        syncer::ARC_PACKAGE, dump_stack, this, profile_));
+        syncer::ARC_PACKAGE, dump_stack, sync_service, this, profile_));
   }
 #endif  // defined(OS_CHROMEOS)
 
@@ -679,28 +678,6 @@ ChromeSyncClient::GetSyncApiComponentFactory() {
 void ChromeSyncClient::SetSyncApiComponentFactoryForTesting(
     std::unique_ptr<syncer::SyncApiComponentFactory> component_factory) {
   component_factory_ = std::move(component_factory);
-}
-
-// static
-void ChromeSyncClient::GetDeviceInfoTrackers(
-    std::vector<const syncer::DeviceInfoTracker*>* trackers) {
-  DCHECK(trackers);
-  ProfileManager* profile_manager = g_browser_process->profile_manager();
-  std::vector<Profile*> profile_list = profile_manager->GetLoadedProfiles();
-  for (Profile* profile : profile_list) {
-    const browser_sync::ProfileSyncService* profile_sync_service =
-        ProfileSyncServiceFactory::GetForProfile(profile);
-    if (profile_sync_service != nullptr) {
-      const syncer::DeviceInfoTracker* tracker =
-          profile_sync_service->GetDeviceInfoTracker();
-      if (tracker != nullptr) {
-        // Even when sync is disabled and/or user is signed out, a tracker will
-        // still be present. It will only be missing when the ProfileSyncService
-        // has not sufficiently initialized yet.
-        trackers->push_back(tracker);
-      }
-    }
-  }
 }
 
 }  // namespace browser_sync

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "media/base/sample_format.h"
 #include "third_party/blink/public/platform/web_media_stream_track.h"
 #include "third_party/blink/renderer/modules/mediastream/media_track_capabilities.h"
 
@@ -89,6 +90,13 @@ MediaTrackCapabilities* InputDeviceInfo::getCapabilities() const {
     capabilities->setEchoCancellation({true, false});
     capabilities->setAutoGainControl({true, false});
     capabilities->setNoiseSuppression({true, false});
+    // Sample size.
+    LongRange* sample_size = LongRange::Create();
+    sample_size->setMin(
+        media::SampleFormatToBitsPerChannel(media::kSampleFormatS16));
+    sample_size->setMax(
+        media::SampleFormatToBitsPerChannel(media::kSampleFormatS16));
+    capabilities->setSampleSize(sample_size);
   }
 
   if (DeviceType() == MediaDeviceType::MEDIA_VIDEO_INPUT) {

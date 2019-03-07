@@ -173,23 +173,26 @@ class RendererWindowTreeClient : public ws::mojom::WindowTreeClient,
                           bool matches_event_observer) override;
   void OnObservedInputEvent(std::unique_ptr<ui::Event> event) override;
   void OnWindowFocused(ws::Id focused_window_id) override;
-  void OnWindowCursorChanged(ws::Id window_id, ui::CursorData cursor) override;
+  void OnWindowCursorChanged(ws::Id window_id, ui::Cursor cursor) override;
   void OnDragDropStart(const base::flat_map<std::string, std::vector<uint8_t>>&
                            mime_data) override;
   void OnDragEnter(ws::Id window_id,
                    uint32_t event_flags,
-                   const gfx::Point& position,
+                   const gfx::PointF& location_in_root,
+                   const gfx::PointF& location,
                    uint32_t effect_bitmask,
                    OnDragEnterCallback callback) override;
   void OnDragOver(ws::Id window_id,
                   uint32_t event_flags,
-                  const gfx::Point& position,
+                  const gfx::PointF& location_in_root,
+                  const gfx::PointF& location,
                   uint32_t effect_bitmask,
                   OnDragOverCallback callback) override;
   void OnDragLeave(ws::Id window_id) override;
   void OnCompleteDrop(ws::Id window_id,
                       uint32_t event_flags,
-                      const gfx::Point& position,
+                      const gfx::PointF& location_in_root,
+                      const gfx::PointF& location,
                       uint32_t effect_bitmask,
                       OnCompleteDropCallback callback) override;
   void OnPerformDragDropCompleted(uint32_t change_id,
@@ -201,9 +204,9 @@ class RendererWindowTreeClient : public ws::mojom::WindowTreeClient,
   void RequestClose(ws::Id window_id) override;
   void GetScreenProviderObserver(
       ws::mojom::ScreenProviderObserverAssociatedRequest observer) override;
-  void OnOcclusionStateChanged(
-      ws::Id window_id,
-      ws::mojom::OcclusionState occlusion_state) override;
+  void OnOcclusionStatesChanged(
+      const base::flat_map<ws::Id, ws::mojom::OcclusionState>&
+          occlusion_changes) override;
 
   const int routing_id_;
   ws::Id root_window_id_ = 0u;

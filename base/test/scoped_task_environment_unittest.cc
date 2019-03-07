@@ -14,10 +14,13 @@
 #include "base/synchronization/atomic_flag.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/post_task.h"
+#include "base/test/mock_callback.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/sequence_local_storage_slot.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/time/clock.h"
+#include "base/time/default_clock.h"
 #include "base/time/tick_clock.h"
 #include "base/win/com_init_util.h"
 #include "build/build_config.h"
@@ -307,6 +310,18 @@ TEST_F(ScopedTaskEnvironmentTest, FastForwardAdvanceTickClock) {
   EXPECT_EQ(kLongTaskDelay * 2, tick_clock->NowTicks() - tick_clock_ref);
 }
 
+TEST_F(ScopedTaskEnvironmentTest, FastForwardAdvanceMockClock) {
+  constexpr base::TimeDelta kDelay = TimeDelta::FromSeconds(42);
+  ScopedTaskEnvironment scoped_task_environment(
+      ScopedTaskEnvironment::MainThreadType::MOCK_TIME);
+
+  const Clock* clock = scoped_task_environment.GetMockClock();
+  const Time start_time = clock->Now();
+  scoped_task_environment.FastForwardBy(kDelay);
+
+  EXPECT_EQ(start_time + kDelay, clock->Now());
+}
+
 #if defined(OS_WIN)
 // Regression test to ensure that ScopedTaskEnvironment enables the MTA in the
 // thread pool (so that the test environment matches that of the browser process
@@ -350,6 +365,25 @@ TEST_F(ScopedTaskEnvironmentTest, LifetimeObserver) {
   ScopedTaskEnvironment::SetLifetimeObserver(nullptr);
 }
 
+TEST_F(ScopedTaskEnvironmentTest, SetsDefaultRunTimeout) {
+  const RunLoop::ScopedRunTimeoutForTest* old_run_timeout =
+      RunLoop::ScopedRunTimeoutForTest::Current();
+
+  {
+    ScopedTaskEnvironment scoped_task_environment;
+
+    // ScopedTaskEnvironment should set a default Run() timeout that CHECKs if
+    // reached.
+    const RunLoop::ScopedRunTimeoutForTest* run_timeout =
+        RunLoop::ScopedRunTimeoutForTest::Current();
+    ASSERT_NE(run_timeout, old_run_timeout);
+    EXPECT_EQ(run_timeout->timeout(), TestTimeouts::action_max_timeout());
+    EXPECT_DEATH_IF_SUPPORTED({ run_timeout->on_timeout().Run(); }, "");
+  }
+
+  EXPECT_EQ(RunLoop::ScopedRunTimeoutForTest::Current(), old_run_timeout);
+}
+
 INSTANTIATE_TEST_CASE_P(
     MainThreadDefault,
     ScopedTaskEnvironmentTest,
@@ -359,7 +393,7 @@ INSTANTIATE_TEST_CASE_P(
     ScopedTaskEnvironmentTest,
     ::testing::Values(ScopedTaskEnvironment::MainThreadType::MOCK_TIME));
 INSTANTIATE_TEST_CASE_P(
-    MainThreadUiMockTime,
+    MainThreadUIMockTime,
     ScopedTaskEnvironmentTest,
     ::testing::Values(ScopedTaskEnvironment::MainThreadType::UI_MOCK_TIME));
 INSTANTIATE_TEST_CASE_P(
@@ -370,6 +404,10 @@ INSTANTIATE_TEST_CASE_P(
     MainThreadIO,
     ScopedTaskEnvironmentTest,
     ::testing::Values(ScopedTaskEnvironment::MainThreadType::IO));
+INSTANTIATE_TEST_CASE_P(
+    MainThreadIOMockTime,
+    ScopedTaskEnvironmentTest,
+    ::testing::Values(ScopedTaskEnvironment::MainThreadType::IO_MOCK_TIME));
 
 class ScopedTaskEnvironmentMockedTime
     : public testing::TestWithParam<ScopedTaskEnvironment::MainThreadType> {};
@@ -514,6 +552,11 @@ TEST_P(ScopedTaskEnvironmentMockedTime, RunLoopDriveable) {
   // TestMockTimeTaskRunner::FastForwardUntilNoTasksRemain() is a better API to
   // do this, this is just done here for the purpose of extensively testing the
   // RunLoop approach).
+
+  // Disable Run() timeout here, otherwise we'll fast-forward to it before we
+  // reach the quit task.
+  RunLoop::ScopedRunTimeoutForTest disable_timeout{TimeDelta()};
+
   RunLoop run_loop;
   ThreadTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE, run_loop.QuitWhenIdleClosure(), TimeDelta::FromDays(50));
@@ -573,14 +616,30 @@ TEST_P(ScopedTaskEnvironmentMockedTime, NoFastForwardToCancelledTask) {
   EXPECT_EQ(start_time, scoped_task_environment.NowTicks());
 }
 
+TEST_P(ScopedTaskEnvironmentMockedTime, NowSource) {
+  ScopedTaskEnvironment scoped_task_environment(
+      GetParam(), ScopedTaskEnvironment::NowSource::MAIN_THREAD_MOCK_TIME);
+
+  TimeTicks start_time = scoped_task_environment.NowTicks();
+  EXPECT_EQ(TimeTicks::Now(), start_time);
+
+  constexpr TimeDelta delay = TimeDelta::FromSeconds(10);
+  scoped_task_environment.FastForwardBy(delay);
+  EXPECT_EQ(TimeTicks::Now(), start_time + delay);
+}
+
 INSTANTIATE_TEST_CASE_P(
     MainThreadMockTime,
     ScopedTaskEnvironmentMockedTime,
     ::testing::Values(ScopedTaskEnvironment::MainThreadType::MOCK_TIME));
 INSTANTIATE_TEST_CASE_P(
-    MainThreadUiMockTime,
+    MainThreadUIMockTime,
     ScopedTaskEnvironmentMockedTime,
     ::testing::Values(ScopedTaskEnvironment::MainThreadType::UI_MOCK_TIME));
+INSTANTIATE_TEST_CASE_P(
+    MainThreadIOMockTime,
+    ScopedTaskEnvironmentMockedTime,
+    ::testing::Values(ScopedTaskEnvironment::MainThreadType::IO_MOCK_TIME));
 
 }  // namespace test
 }  // namespace base

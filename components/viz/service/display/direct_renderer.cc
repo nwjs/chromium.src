@@ -320,11 +320,20 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
 
   BeginDrawingFrame();
 
+  // RenderPass owns filters, backdrop_filters, etc., and will outlive this
+  // function call. So it is safe to store pointers in these maps.
   for (const auto& pass : *render_passes_in_draw_order) {
     if (!pass->filters.IsEmpty())
       render_pass_filters_[pass->id] = &pass->filters;
-    if (!pass->backdrop_filters.IsEmpty())
+    if (!pass->backdrop_filters.IsEmpty()) {
       render_pass_backdrop_filters_[pass->id] = &pass->backdrop_filters;
+      // |backdrop_filter_bounds| only apply if there is a non-empty
+      // backdrop-filter to apply.
+      if (!pass->backdrop_filter_bounds.IsEmpty()) {
+        render_pass_backdrop_filter_bounds_[pass->id] =
+            &pass->backdrop_filter_bounds;
+      }
+    }
   }
 
   // Create the overlay candidate for the output surface, and mark it as
@@ -405,6 +414,7 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
   render_passes_in_draw_order->clear();
   render_pass_filters_.clear();
   render_pass_backdrop_filters_.clear();
+  render_pass_backdrop_filter_bounds_.clear();
 
   current_frame_valid_ = false;
 }
@@ -498,6 +508,12 @@ const cc::FilterOperations* DirectRenderer::BackgroundFiltersForPass(
   return it == render_pass_backdrop_filters_.end() ? nullptr : it->second;
 }
 
+const gfx::RectF* DirectRenderer::BackgroundFilterBoundsForPass(
+    RenderPassId render_pass_id) const {
+  auto it = render_pass_backdrop_filter_bounds_.find(render_pass_id);
+  return it == render_pass_backdrop_filter_bounds_.end() ? nullptr : it->second;
+}
+
 void DirectRenderer::FlushPolygons(
     base::circular_deque<std::unique_ptr<DrawPolygon>>* poly_list,
     const gfx::Rect& render_pass_scissor,
@@ -525,17 +541,8 @@ void DirectRenderer::DrawRenderPassAndExecuteCopyRequests(
   for (int i = 0; i < settings_->slow_down_compositing_scale_factor; ++i)
     DrawRenderPass(render_pass);
 
-  bool first_request = true;
-  for (auto& copy_request : render_pass->copy_requests) {
-    // CopyDrawnRenderPass() can change the binding of the framebuffer target as
-    // a part of its usual scaling and readback operations. Therefore, make sure
-    // to restore the correct framebuffer between readbacks. (Even if it did
-    // not, a Mac-specific bug requires this workaround: http://crbug.com/99393)
-    if (!first_request)
-      UseRenderPass(render_pass);
+  for (auto& copy_request : render_pass->copy_requests)
     CopyDrawnRenderPass(std::move(copy_request));
-    first_request = false;
-  }
 }
 
 void DirectRenderer::DrawRenderPass(const RenderPass* render_pass) {

@@ -51,16 +51,16 @@ class MockAuthenticator : public Authenticator {
   MOCK_CONST_METHOD0(GetAuthKey, const std::string&());
   MOCK_CONST_METHOD0(CreateChannelAuthenticatorPtr, ChannelAuthenticator*());
   MOCK_METHOD2(ProcessMessage,
-               void(const buzz::XmlElement* message,
+               void(const jingle_xmpp::XmlElement* message,
                     const base::Closure& resume_callback));
-  MOCK_METHOD0(GetNextMessagePtr, buzz::XmlElement*());
+  MOCK_METHOD0(GetNextMessagePtr, jingle_xmpp::XmlElement*());
 
   std::unique_ptr<ChannelAuthenticator> CreateChannelAuthenticator()
       const override {
     return base::WrapUnique(CreateChannelAuthenticatorPtr());
   }
 
-  std::unique_ptr<buzz::XmlElement> GetNextMessage() override {
+  std::unique_ptr<jingle_xmpp::XmlElement> GetNextMessage() override {
     return base::WrapUnique(GetNextMessagePtr());
   }
 
@@ -133,6 +133,8 @@ class MockHostStub : public HostStub {
   MOCK_METHOD1(SetCapabilities, void(const Capabilities& capabilities));
   MOCK_METHOD1(RequestPairing, void(const PairingRequest& pairing_request));
   MOCK_METHOD1(DeliverClientMessage, void(const ExtensionMessage& message));
+  MOCK_METHOD1(SelectDesktopDisplay,
+               void(const SelectDesktopDisplayRequest& message));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockHostStub);

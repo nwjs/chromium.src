@@ -589,7 +589,7 @@ need to be translated for each locale.-->
       <message name="IDS_APP_COMMA_KEY" desc="Comma key">
         Comma
       </message>
-      <message name="IDS_APP_PERIOD_KEY" desc="Period key">
+      <message name="IDS_APP_PERIOD_KEY" desc="Period key, which is used to denote the end of a sentence (and not an interval of time).">
         Period
       </message>
       <message name="IDS_APP_MEDIA_NEXT_TRACK_KEY" desc="Media next track key">
@@ -786,7 +786,10 @@ need to be translated for each locale.-->
         Back
       </message>
       <message name="IDS_APP_LIST_FOLDER_NAME_PLACEHOLDER" desc="The placeholder text for app list folder name.">
-        Unnamed Folder
+        Unnamed
+      </message>
+      <message name="IDS_APP_LIST_SEARCH_BOX_AUTOCOMPLETE" desc="The spoken feedback text for when the search box autocompletes a result">
+        <ph name="TEXT">$1<ex>typed text + autocomplete</ex></ph>, Autocomplete
       </message>
       <message name="IDS_APP_LIST_FOLDER_BUTTON_ACCESSIBILE_NAME" desc="The spoken feedback text for navigating to a folder button in top level app list">
         Folder <ph name="folder_name">$1<ex>OEM Apps</ex></ph>
@@ -808,6 +811,15 @@ need to be translated for each locale.-->
       </message>
       <message name="IDS_APP_LIST_CLEAR_SEARCHBOX" desc="Tooltip for the button that clears all text from the search box in the app list.">
         Clear searchbox text
+      </message>
+      <message name="IDS_REMOVE_ZERO_STATE_SUGGESTION_TITLE" desc="Titlebar of removing zero state suggestion confirmation dialog">
+        Remove this suggestion?
+      </message>
+      <message name="IDS_REMOVE_ZERO_STATE_SUGGESTION_DETAILS" desc="Detailed explanation message for removing zero state suggestion">
+        Hiding this suggestion will not show it again from your account across all your devices.
+      </message>
+      <message name="IDS_REMOVE_SUGGESTION_BUTTON_LABEL" desc="Remove suggestion button label">
+        Remove
       </message>
       <message name="IDS_APP_LIST_START_ASSISTANT" desc="Tooltip for the button that starts Google Assistant from the search box in the app list.">
         Start Google Assistant
@@ -862,6 +874,11 @@ need to be translated for each locale.-->
       </message>
       <message name="IDS_CROSTINI_NOT_NOW_BUTTON" desc="Label for the button in the Crostini app restart dialog to dismiss the dialog.">
         Not now
+      </message>
+
+      <!-- Badging -->
+      <message name="IDS_SATURATED_BADGE_CONTENT" desc="The content to display when the application's badge is too large to display to indicate that the badge is more than a given maximum. This string should be as short as possible, preferably only one character beyond the content">
+        <ph name="MAXIMUM_VALUE">$1<ex>99</ex></ph>+
       </message>
     </messages>
   </release>

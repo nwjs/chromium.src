@@ -6,7 +6,7 @@
 
 #include <dlfcn.h>
 
-#include "base/android/build_info.h"
+#include "base/android/android_hardware_buffer_compat.h"
 #include "base/logging.h"
 
 namespace {
@@ -22,7 +22,7 @@ namespace {
   CALL(ArFrame_acquireCamera)            \
   CALL(ArFrame_create)                   \
   CALL(ArFrame_destroy)                  \
-  CALL(ArFrame_hitTest)                  \
+  CALL(ArFrame_hitTestRay)               \
   CALL(ArFrame_transformDisplayUvCoords) \
   CALL(ArHitResult_create)               \
   CALL(ArHitResult_destroy)              \
@@ -35,7 +35,6 @@ namespace {
   CALL(ArPose_destroy)                   \
   CALL(ArPose_getMatrix)                 \
   CALL(ArPose_getPoseRaw)                \
-  CALL(ArSession_checkSupported)         \
   CALL(ArSession_configure)              \
   CALL(ArSession_create)                 \
   CALL(ArSession_destroy)                \
@@ -79,13 +78,13 @@ bool LoadArCoreSdk(const std::string& libraryPath) {
   if (!sdk_handle) {
     char* error_string = nullptr;
     error_string = dlerror();
-    LOG(ERROR) << "Could not open libarcore_sdk_c_minimal.so: " << error_string;
+    LOG(ERROR) << "Could not open libarcore_sdk_c.so: " << error_string;
     return false;
   } else {
     VLOG(2) << "Opened shim shared library.";
   }
 
-  // TODO(vollick): check SDK version.
+  // TODO(https://crbug.com/914999): check SDK version.
   arcore_api = new ArCoreApi();
 
 #define CALL(fn) LoadFunction(sdk_handle, #fn, &arcore_api->impl_##fn);
@@ -95,9 +94,8 @@ bool LoadArCoreSdk(const std::string& libraryPath) {
   return true;
 }
 
-bool SupportsArCore() {
-  return base::android::BuildInfo::GetInstance()->sdk_int() >=
-         base::android::SDK_VERSION_OREO;
+bool IsArCoreSupported() {
+  return base::AndroidHardwareBufferCompat::IsSupportAvailable();
 }
 
 }  // namespace vr
@@ -153,13 +151,13 @@ void ArFrame_destroy(ArFrame* frame) {
   arcore_api->impl_ArFrame_destroy(frame);
 }
 
-void ArFrame_hitTest(const ArSession* session,
-                     const ArFrame* frame,
-                     float pixel_x,
-                     float pixel_y,
-                     ArHitResultList* out_hit_results) {
-  arcore_api->impl_ArFrame_hitTest(session, frame, pixel_x, pixel_y,
-                                   out_hit_results);
+void ArFrame_hitTestRay(const ArSession* session,
+                        const ArFrame* frame,
+                        const float* ray_origin_3,
+                        const float* ray_direction_3,
+                        ArHitResultList* out_hit_results) {
+  arcore_api->impl_ArFrame_hitTestRay(session, frame, ray_origin_3,
+                                      ray_direction_3, out_hit_results);
 }
 
 void ArFrame_transformDisplayUvCoords(const ArSession* session,
@@ -254,11 +252,6 @@ void ArPose_getPoseRaw(const ArSession* session,
                        const ArPose* pose,
                        float* out_pose_raw) {
   arcore_api->impl_ArPose_getPoseRaw(session, pose, out_pose_raw);
-}
-
-ArStatus ArSession_checkSupported(const ArSession* session,
-                                  const ArConfig* config) {
-  return arcore_api->impl_ArSession_checkSupported(session, config);
 }
 
 ArStatus ArSession_configure(ArSession* session, const ArConfig* config) {

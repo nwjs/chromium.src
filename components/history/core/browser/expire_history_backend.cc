@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <functional>
 #include <limits>
+#include <utility>
 
 #include "base/bind.h"
 #include "base/compiler_specific.h"
@@ -125,10 +126,10 @@ constexpr base::TimeDelta kExpirationSleepWakeupThreshold =
 // should be cleared.
 const int kClearOnDemandFaviconsIntervalHours = 24;
 
-bool IsAnyURLBookmarked(HistoryBackendClient* backend_client,
-                        const std::vector<GURL>& urls) {
+bool IsAnyURLPinned(HistoryBackendClient* backend_client,
+                    const std::vector<GURL>& urls) {
   for (const GURL& url : urls) {
-    if (backend_client->IsBookmarked(url))
+    if (backend_client->IsPinnedURL(url))
       return true;
   }
   return false;
@@ -192,11 +193,11 @@ void ExpireHistoryBackend::DeleteURLs(const std::vector<GURL>& urls) {
 
   DeleteEffects effects;
   for (auto url = urls.begin(); url != urls.end(); ++url) {
-    const bool is_bookmarked =
-        backend_client_ && backend_client_->IsBookmarked(*url);
+    const bool is_pinned =
+        backend_client_ && backend_client_->IsPinnedURL(*url);
     URLRow url_row;
-    if (!main_db_->GetRowForURL(*url, &url_row) && !is_bookmarked) {
-      // If the URL isn't in the database and not bookmarked, we should still
+    if (!main_db_->GetRowForURL(*url, &url_row) && !is_pinned) {
+      // If the URL isn't in the database and not pinned, we should still
       // check to see if any favicons need to be deleted.
       DeleteIcons(*url, &effects);
       continue;
@@ -214,7 +215,7 @@ void ExpireHistoryBackend::DeleteURLs(const std::vector<GURL>& urls) {
     // URL, and not starting with visits in a given time range). We
     // therefore need to call the deletion and favicon update
     // functions manually.
-    DeleteOneURL(url_row, is_bookmarked, &effects);
+    DeleteOneURL(url_row, is_pinned, &effects);
   }
 
   DeleteFaviconsIfPossible(&effects);
@@ -226,7 +227,8 @@ void ExpireHistoryBackend::DeleteURLs(const std::vector<GURL>& urls) {
 void ExpireHistoryBackend::ExpireHistoryBetween(
     const std::set<GURL>& restrict_urls,
     base::Time begin_time,
-    base::Time end_time) {
+    base::Time end_time,
+    bool user_initiated) {
   if (!main_db_)
     return;
 
@@ -245,7 +247,9 @@ void ExpireHistoryBackend::ExpireHistoryBetween(
     }
   }
   DeletionTimeRange time_range(begin_time, end_time);
-  ExpireVisitsInternal(visits, time_range, restrict_urls);
+  ExpireVisitsInternal(
+      visits, time_range, restrict_urls,
+      user_initiated ? DELETION_USER_INITIATED : DELETION_EXPIRED);
 }
 
 void ExpireHistoryBackend::ExpireHistoryForTimes(
@@ -268,13 +272,15 @@ void ExpireHistoryBackend::ExpireHistoryForTimes(
 }
 
 void ExpireHistoryBackend::ExpireVisits(const VisitVector& visits) {
-  ExpireVisitsInternal(visits, DeletionTimeRange::Invalid(), {});
+  ExpireVisitsInternal(visits, DeletionTimeRange::Invalid(), {},
+                       DELETION_USER_INITIATED);
 }
 
 void ExpireHistoryBackend::ExpireVisitsInternal(
     const VisitVector& visits,
     const DeletionTimeRange& time_range,
-    const std::set<GURL>& restrict_urls) {
+    const std::set<GURL>& restrict_urls,
+    DeletionType type) {
   if (visits.empty())
     return;
 
@@ -292,7 +298,7 @@ void ExpireHistoryBackend::ExpireVisitsInternal(
   ExpireURLsForVisits(visits_and_redirects, &effects);
   DeleteFaviconsIfPossible(&effects);
   BroadcastNotifications(
-      &effects, DELETION_USER_INITIATED, time_range,
+      &effects, type, time_range,
       restrict_urls.empty() ? base::Optional<std::set<GURL>>() : restrict_urls);
 
   // Pick up any bits possibly left over.
@@ -403,6 +409,7 @@ VisitVector ExpireHistoryBackend::GetVisitsAndRedirectParents(
 
       visits_and_redirects.push_back(current_visit);
     } while (current_visit.referring_visit &&
+             !(current_visit.transition & ui::PAGE_TRANSITION_CHAIN_START) &&
              main_db_->GetRowForVisit(current_visit.referring_visit,
                                       &current_visit));
   }
@@ -425,14 +432,14 @@ void ExpireHistoryBackend::DeleteVisitRelatedInfo(const VisitVector& visits,
 }
 
 void ExpireHistoryBackend::DeleteOneURL(const URLRow& url_row,
-                                        bool is_bookmarked,
+                                        bool is_pinned,
                                         DeleteEffects* effects) {
   main_db_->DeleteSegmentForURL(url_row.id());
   effects->deleted_urls.push_back(url_row);
-  // If the URL is bookmarked we should still keep its favicon around to show
-  // in bookmark-related UI.  We'll delete this icon if the URL is unbookmarked.
-  // (See comments in DeleteURLs().)
-  if (!is_bookmarked)
+  // If the URL is pinned we should still keep its favicon around to show
+  // in the UI.  We'll delete this icon if the URL is unpinned. (See comments in
+  // DeleteURLs().)
+  if (!is_pinned)
     DeleteIcons(url_row.url(), effects);
   main_db_->DeleteURLRow(url_row.id());
 }
@@ -493,12 +500,12 @@ void ExpireHistoryBackend::ExpireURLsForVisits(const VisitVector& visits,
     else
       url_row.set_last_visit(base::Time());
 
-    // Don't delete URLs with visits still in the DB, or bookmarked.
-    bool is_bookmarked =
-        (backend_client_ && backend_client_->IsBookmarked(url_row.url()));
-    if (!is_bookmarked && url_row.last_visit().is_null()) {
-      // Not bookmarked and no more visits. Nuke the url.
-      DeleteOneURL(url_row, is_bookmarked, effects);
+    // Don't delete URLs with visits still in the DB, or pinned.
+    bool is_pinned =
+        (backend_client_ && backend_client_->IsPinnedURL(url_row.url()));
+    if (!is_pinned && url_row.last_visit().is_null()) {
+      // Not pinned and no more visits. Nuke the url.
+      DeleteOneURL(url_row, is_pinned, effects);
     } else {
       // NOTE: The calls to std::max() below are a backstop, but they should
       // never actually be needed unless the database is corrupt (I think).
@@ -595,7 +602,7 @@ void ExpireHistoryBackend::ClearOldOnDemandFaviconsIfPossible(
     const IconMappingsForExpiry& mappings = id_and_mappings_pair.second;
 
     if (backend_client_ &&
-        IsAnyURLBookmarked(backend_client_, mappings.page_urls)) {
+        IsAnyURLPinned(backend_client_, mappings.page_urls)) {
       continue;
     }
 

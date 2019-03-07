@@ -82,15 +82,15 @@ cr.define('cr', function() {
     openUrlFromEvent: function(url, e) {
       // We only support keydown Enter and non right click events.
       if (e.type == 'keydown' && e.key == 'Enter' || e.button != 2) {
-        var kind;
-        var ctrl = cr.isMac && e.metaKey || !cr.isMac && e.ctrlKey;
+        let kind;
+        const ctrl = cr.isMac && e.metaKey || !cr.isMac && e.ctrlKey;
 
-        if (e.button == 1 || ctrl)  // middle, ctrl or keyboard
+        if (e.button == 1 || ctrl) {  // middle, ctrl or keyboard
           kind = e.shiftKey ? cr.LinkKind.FOREGROUND_TAB :
                               cr.LinkKind.BACKGROUND_TAB;
-        else  // left or keyboard
+        } else {  // left or keyboard
           kind = e.shiftKey ? cr.LinkKind.WINDOW : cr.LinkKind.SELF;
-
+        }
         this.openUrls([url], kind);
       }
     },
@@ -111,22 +111,24 @@ cr.define('cr', function() {
      * @param {cr.LinkKind} kind The kind of open we want to do.
      */
     openUrls: function(urls, kind) {
-      if (urls.length < 1)
+      if (urls.length < 1) {
         return;
+      }
 
       if (urls.length > this.warningLimit) {
-        if (!this.window.confirm(this.getWarningMessage(urls.length)))
+        if (!this.window.confirm(this.getWarningMessage(urls.length))) {
           return;
+        }
       }
 
       // Fix '#124' URLs since opening those in a new window does not work. We
       // prepend the base URL when we encounter those.
-      var base = this.window.location.href.split('#')[0];
+      const base = this.window.location.href.split('#')[0];
       urls = urls.map(function(url) {
         return url[0] == '#' ? base + url : url;
       });
 
-      var incognito = kind == cr.LinkKind.INCOGNITO;
+      const incognito = kind == cr.LinkKind.INCOGNITO;
       if (kind == cr.LinkKind.WINDOW || incognito) {
         chrome.windows.create({url: urls, incognito: incognito});
       } else if (

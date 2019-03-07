@@ -280,8 +280,35 @@ bool ScrollManager::LogicalScroll(ScrollDirection direction,
     ScrollOffset delta = ToScrollDelta(physical_direction, 1);
     delta.Scale(scrollable_area->ScrollStep(granularity, kHorizontalScrollbar),
                 scrollable_area->ScrollStep(granularity, kVerticalScrollbar));
-    if (snap_coordinator->SnapForDirection(*box, delta))
-      return true;
+    // Pressing the arrow key is considered as a scroll with intended direction
+    // only. Pressing the PgUp/PgDn key is considered as a scroll with intended
+    // direction and end position. Pressing the Home/End key is considered as a
+    // scroll with intended end position only.
+    switch (granularity) {
+      case kScrollByLine: {
+        if (snap_coordinator->SnapForDirection(*box, delta))
+          return true;
+        break;
+      }
+      case kScrollByPage: {
+        if (snap_coordinator->SnapForEndAndDirection(*box, delta))
+          return true;
+        break;
+      }
+      case kScrollByDocument: {
+        FloatPoint end_position = scrollable_area->ScrollPosition() + delta;
+        bool scrolled_x = physical_direction == kScrollLeft ||
+                          physical_direction == kScrollRight;
+        bool scrolled_y = physical_direction == kScrollUp ||
+                          physical_direction == kScrollDown;
+        if (snap_coordinator->SnapForEndPosition(*box, end_position, scrolled_x,
+                                                 scrolled_y))
+          return true;
+        break;
+      }
+      default:
+        NOTREACHED();
+    }
 
     ScrollResult result = scrollable_area->UserScroll(
         granularity, ToScrollDelta(physical_direction, 1));
@@ -575,6 +602,19 @@ WebInputEventResult ScrollManager::HandleGestureScrollUpdate(
   if (did_scroll_x || did_scroll_y)
     return WebInputEventResult::kHandledSystem;
 
+  if (RuntimeEnabledFeatures::OverscrollCustomizationEnabled()) {
+    // Send the overscroll event to the node that scrolling is latched to which
+    // is either previously scrolled node or the last node in the scroll chain.
+    Node* overscroll_target = previous_gesture_scrolled_node_;
+    if (!overscroll_target && !current_scroll_chain_.empty())
+      overscroll_target = DOMNodeIds::NodeForId(current_scroll_chain_.front());
+
+    if (overscroll_target) {
+      overscroll_target->GetDocument().EnqueueOverscrollEventForNode(
+          overscroll_target, delta.Width(), delta.Height());
+    }
+  }
+
   return WebInputEventResult::kNotHandled;
 }
 
@@ -604,6 +644,21 @@ WebInputEventResult ScrollManager::HandleGestureScrollEnd(
     CustomizedScroll(*scroll_state);
     SnapAtGestureScrollEnd();
     NotifyScrollPhaseEndForCustomizedScroll();
+
+    if (RuntimeEnabledFeatures::OverscrollCustomizationEnabled()) {
+      // Send the scrollend event to the node that scrolling is latched to
+      // which is either previously scrolled node or the last node in the
+      // scroll chain.
+      DCHECK(!current_scroll_chain_.empty());
+      if (previous_gesture_scrolled_node_) {
+        previous_gesture_scrolled_node_->GetDocument()
+            .EnqueueScrollEndEventForNode(previous_gesture_scrolled_node_);
+      } else if (Node* scroll_end_target =
+                     DOMNodeIds::NodeForId(current_scroll_chain_.front())) {
+        scroll_end_target->GetDocument().EnqueueScrollEndEventForNode(
+            scroll_end_target);
+      }
+    }
   }
 
   ClearGestureScrollState();
@@ -628,9 +683,9 @@ void ScrollManager::SnapAtGestureScrollEnd() {
   if (!snap_coordinator || !layout_box)
     return;
 
-  snap_coordinator->SnapForEndPosition(*layout_box,
-                                       did_scroll_x_for_scroll_gesture_,
-                                       did_scroll_y_for_scroll_gesture_);
+  snap_coordinator->SnapAtCurrentPosition(*layout_box,
+                                          did_scroll_x_for_scroll_gesture_,
+                                          did_scroll_y_for_scroll_gesture_);
 }
 
 bool ScrollManager::GetSnapFlingInfo(

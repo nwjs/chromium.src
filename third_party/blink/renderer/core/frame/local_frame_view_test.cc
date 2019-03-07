@@ -52,7 +52,7 @@ class LocalFrameViewTest : public RenderingTest {
  protected:
   LocalFrameViewTest()
       : RenderingTest(SingleChildLocalFrameClient::Create()),
-        chrome_client_(new AnimationMockChromeClient) {
+        chrome_client_(MakeGarbageCollected<AnimationMockChromeClient>()) {
     EXPECT_CALL(GetAnimationMockChromeClient(), AttachRootGraphicsLayer(_, _))
         .Times(AnyNumber());
   }
@@ -273,7 +273,8 @@ TEST_F(LocalFrameViewSimTest, CSSFragmentIdentifierEmptySelector) {
 // See https://crbug.com/851338.
 TEST_F(LocalFrameViewSimTest, FragmentNavChangesFocusWhileRenderingBlocked) {
   SimRequest main_resource("https://example.com/test.html", "text/html");
-  SimRequest css_resource("https://example.com/sheet.css", "text/css");
+  SimSubresourceRequest css_resource("https://example.com/sheet.css",
+                                     "text/css");
   LoadURL("https://example.com/test.html");
 
   main_resource.Complete(R"HTML(
@@ -281,7 +282,7 @@ TEST_F(LocalFrameViewSimTest, FragmentNavChangesFocusWhileRenderingBlocked) {
       <link rel="stylesheet" type="text/css" href="sheet.css">
       <a id="anchorlink" href="#bottom">Link to bottom of the page</a>
       <div style="height: 1000px;"></div>
-      <input id="bottom">Bottom of the page</a>
+      <input id="bottom">Bottom of the page</input>
     )HTML");
 
   ScrollableArea* viewport = GetDocument().View()->LayoutViewport();
@@ -319,6 +320,7 @@ TEST_F(LocalFrameViewSimTest, FragmentNavChangesFocusWhileRenderingBlocked) {
   // fragment should be activated at that point.
   css_resource.Complete("");
   RunPendingTasks();
+  Compositor().BeginFrame();
   ASSERT_TRUE(GetDocument().IsLoadCompleted());
   EXPECT_EQ(GetDocument().getElementById("bottom"),
             GetDocument().ActiveElement())

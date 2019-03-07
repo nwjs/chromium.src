@@ -24,6 +24,7 @@
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
@@ -198,17 +199,21 @@ AutofillManager::AutofillManager(
     : AutofillManager(driver,
                       client,
                       client->GetPersonalDataManager(),
+                      client->GetAutocompleteHistoryManager(),
                       app_locale,
                       enable_download_manager) {}
 
-AutofillManager::~AutofillManager() {}
+AutofillManager::~AutofillManager() {
+  if (autocomplete_history_manager_) {
+    autocomplete_history_manager_->CancelPendingQueries(this);
+  }
+}
 
 void AutofillManager::SetExternalDelegate(AutofillExternalDelegate* delegate) {
   // TODO(jrg): consider passing delegate into the ctor.  That won't
   // work if the delegate has a pointer to the AutofillManager, but
   // future directions may not need such a pointer.
   external_delegate_ = delegate;
-  autocomplete_history_manager_->SetExternalDelegate(delegate);
 }
 
 void AutofillManager::ShowAutofillSettings(bool show_credit_card_settings) {
@@ -361,8 +366,7 @@ bool AutofillManager::ShouldParseForms(const std::vector<FormData>& forms,
 
 void AutofillManager::OnFormSubmittedImpl(const FormData& form,
                                           bool known_success,
-                                          SubmissionSource source,
-                                          base::TimeTicks timestamp) {
+                                          SubmissionSource source) {
   // TODO(crbug.com/801698): handle PROBABLY_FORM_SUBMITTED.
   if (source == SubmissionSource::PROBABLY_FORM_SUBMITTED &&
       !base::FeatureList::IsEnabled(
@@ -373,7 +377,8 @@ void AutofillManager::OnFormSubmittedImpl(const FormData& form,
   // We will always give Autocomplete a chance to save the data.
   std::unique_ptr<FormStructure> submitted_form = ValidateSubmittedForm(form);
   if (!submitted_form) {
-    autocomplete_history_manager_->OnWillSubmitForm(form);
+    autocomplete_history_manager_->OnWillSubmitForm(
+        form, client_->IsAutocompleteEnabled());
     return;
   }
 
@@ -386,7 +391,8 @@ void AutofillManager::OnFormSubmittedImpl(const FormData& form,
       form_for_autocomplete.fields[i].should_autocomplete = false;
     }
   }
-  autocomplete_history_manager_->OnWillSubmitForm(form_for_autocomplete);
+  autocomplete_history_manager_->OnWillSubmitForm(
+      form_for_autocomplete, client_->IsAutocompleteEnabled());
 
   if (IsProfileAutofillEnabled()) {
     address_form_event_logger_->OnWillSubmitForm(sync_state_);
@@ -396,7 +402,7 @@ void AutofillManager::OnFormSubmittedImpl(const FormData& form,
   }
 
   submitted_form->set_submission_source(source);
-  MaybeStartVoteUploadProcess(std::move(submitted_form), timestamp,
+  MaybeStartVoteUploadProcess(std::move(submitted_form),
                               /*observed_submission=*/true);
 
   // TODO(crbug.com/803334): Add FormStructure::Clone() method.
@@ -435,7 +441,6 @@ void AutofillManager::OnFormSubmittedImpl(const FormData& form,
 
 bool AutofillManager::MaybeStartVoteUploadProcess(
     std::unique_ptr<FormStructure> form_structure,
-    const TimeTicks& timestamp,
     bool observed_submission) {
   // It is possible for |personal_data_| to be null, such as when used in the
   // Android webview.
@@ -445,7 +450,7 @@ bool AutofillManager::MaybeStartVoteUploadProcess(
   // Only upload server statistics and UMA metrics if at least some local data
   // is available to use as a baseline.
   std::vector<AutofillProfile*> profiles = personal_data_->GetProfiles();
-  personal_data_->UpdateProfilesValidityMapsIfNeeded(profiles);
+  personal_data_->UpdateProfilesServerValidityMapsIfNeeded(profiles);
   if (observed_submission && form_structure->IsAutofillable()) {
     AutofillMetrics::LogNumberOfProfilesAtAutofillableFormSubmission(
         personal_data_->GetProfiles().size());
@@ -485,10 +490,11 @@ bool AutofillManager::MaybeStartVoteUploadProcess(
       base::BindOnce(&AutofillManager::DeterminePossibleFieldTypesForUpload,
                      copied_profiles, copied_credit_cards, app_locale_,
                      raw_form),
-      base::BindOnce(
-          &AutofillManager::UploadFormDataAsyncCallback,
-          weak_ptr_factory_.GetWeakPtr(), base::Owned(form_structure.release()),
-          initial_interaction_timestamp_, timestamp, observed_submission));
+      base::BindOnce(&AutofillManager::UploadFormDataAsyncCallback,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     base::Owned(form_structure.release()),
+                     initial_interaction_timestamp_, base::TimeTicks::Now(),
+                     observed_submission));
   return true;
 }
 
@@ -513,7 +519,7 @@ void AutofillManager::ProcessPendingFormForUpload() {
   if (!upload_form)
     return;
 
-  MaybeStartVoteUploadProcess(std::move(upload_form), TimeTicks::Now(),
+  MaybeStartVoteUploadProcess(std::move(upload_form),
                               /*observed_submission=*/false);
 }
 
@@ -602,7 +608,7 @@ void AutofillManager::OnQueryFormFieldAutofillImpl(
 
       case SuppressReason::kCreditCardsAblation:
         enable_ablation_logging_ = true;
-        autocomplete_history_manager_->CancelPendingQuery();
+        autocomplete_history_manager_->CancelPendingQueries(this);
         external_delegate_->OnSuggestionsReturned(query_id, suggestions,
                                                   autoselect_first_suggestion);
         return;
@@ -646,12 +652,14 @@ void AutofillManager::OnQueryFormFieldAutofillImpl(
     // Suggestions come back asynchronously, so the Autocomplete manager will
     // handle sending the results back to the renderer.
     autocomplete_history_manager_->OnGetAutocompleteSuggestions(
-        query_id, field.name, field.value, field.form_control_type);
+        query_id, client_->IsAutocompleteEnabled(), autoselect_first_suggestion,
+        field.name, field.value, field.form_control_type,
+        weak_ptr_factory_.GetWeakPtr());
     return;
   }
 
   // Send Autofill suggestions (could be an empty list).
-  autocomplete_history_manager_->CancelPendingQuery();
+  autocomplete_history_manager_->CancelPendingQueries(this);
   external_delegate_->OnSuggestionsReturned(query_id, suggestions,
                                             autoselect_first_suggestion,
                                             context.is_all_server_suggestions);
@@ -903,7 +911,7 @@ void AutofillManager::OnHidePopup() {
   if (!IsAutofillEnabled())
     return;
 
-  autocomplete_history_manager_->CancelPendingQuery();
+  autocomplete_history_manager_->CancelPendingQueries(this);
   client_->HideAutofillPopup();
 }
 
@@ -989,6 +997,10 @@ bool AutofillManager::RemoveAutofillProfileOrCreditCard(int unique_id) {
 void AutofillManager::RemoveAutocompleteEntry(const base::string16& name,
                                               const base::string16& value) {
   autocomplete_history_manager_->OnRemoveAutocompleteEntry(name, value);
+}
+
+void AutofillManager::OnAutocompleteEntrySelected(const base::string16& value) {
+  autocomplete_history_manager_->OnAutocompleteEntrySelected(value);
 }
 
 bool AutofillManager::IsShowingUnmaskPrompt() {
@@ -1154,6 +1166,15 @@ bool AutofillManager::ShouldUploadForm(const FormStructure& form) {
          form.ShouldBeUploaded();
 }
 
+// AutocompleteHistoryManager::SuggestionsHandler implementation
+void AutofillManager::OnSuggestionsReturned(
+    int query_id,
+    bool autoselect_first_suggestion,
+    const std::vector<Suggestion>& suggestions) {
+  external_delegate_->OnSuggestionsReturned(query_id, suggestions,
+                                            autoselect_first_suggestion);
+}
+
 // Note that |submitted_form| is passed as a pointer rather than as a reference
 // so that we can get memory management right across threads.  Note also that we
 // explicitly pass in all the time stamps of interest, as the cached ones might
@@ -1236,6 +1257,7 @@ AutofillManager::AutofillManager(
     AutofillDriver* driver,
     AutofillClient* client,
     PersonalDataManager* personal_data,
+    AutocompleteHistoryManager* autocomplete_history_manager,
     const std::string app_locale,
     AutofillDownloadManagerState enable_download_manager)
     : AutofillHandler(driver),
@@ -1243,8 +1265,7 @@ AutofillManager::AutofillManager(
       app_locale_(app_locale),
       personal_data_(personal_data),
       field_filler_(app_locale, client->GetAddressNormalizer()),
-      autocomplete_history_manager_(
-          std::make_unique<AutocompleteHistoryManager>(driver, client)),
+      autocomplete_history_manager_(autocomplete_history_manager->GetWeakPtr()),
       form_interactions_ukm_logger_(
           std::make_unique<AutofillMetrics::FormInteractionsUkmLogger>(
               client->GetUkmRecorder(),
@@ -1272,8 +1293,14 @@ AutofillManager::AutofillManager(
         new AutofillDownloadManager(driver, this, GetAPIKeyForUrl(channel)));
   }
   CountryNames::SetLocaleString(app_locale_);
-  if (personal_data_ && client_)
+  // Since we want Downstream to still work in incognito, only overwrite the
+  // PDM's sync service if this is not an incognito AutofillManager. However, if
+  // the opened window is in incognito, the sync service would be null. Unless
+  // there is a major refactor with the Autofill Sync interation, there is
+  // nothing we can do for that specific case.
+  if (personal_data_ && client_ && !driver->IsIncognito()) {
     personal_data_->OnSyncServiceInitialized(client_->GetSyncService());
+  }
 }
 
 bool AutofillManager::RefreshDataModels() {
@@ -1361,13 +1388,9 @@ void AutofillManager::FillOrPreviewDataModelForm(
   DCHECK(form_structure);
   DCHECK(autofill_field);
 
+  form_structure->RationalizePhoneNumbersInSection(autofill_field->section);
+
   FormData result = form;
-
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillRationalizeFieldTypePredictions)) {
-    form_structure->RationalizePhoneNumbersInSection(autofill_field->section);
-  }
-
   DCHECK_EQ(form_structure->field_count(), form.fields.size());
 
   // Only record the types that are filled for an eventual refill if all the
@@ -2093,7 +2116,6 @@ void AutofillManager::GetAvailableSuggestions(
   if (got_autofillable_form) {
     if (context->focused_field->Type().group() == CREDIT_CARD) {
       context->is_filling_credit_card = true;
-      driver()->DidInteractWithCreditCardForm();
       credit_card_form_event_logger_->OnDidInteractWithAutofillableForm(
           context->form_structure->form_signature(), sync_state_);
     } else {

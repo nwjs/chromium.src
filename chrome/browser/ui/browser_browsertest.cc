@@ -15,11 +15,11 @@
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/location.h"
-#include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/system/sys_info.h"
@@ -611,7 +611,6 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, ClearPendingOnFailUnlessNTP) {
 
 // Test for crbug.com/297289.  Ensure that modal dialogs are closed when a
 // cross-process navigation is ready to commit.
-// Flaky test, see https://crbug.com/445155.
 IN_PROC_BROWSER_TEST_F(BrowserTest, CrossProcessNavCancelsDialogs) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(embedded_test_server()->GetURL("/empty.html"));
@@ -1421,7 +1420,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, OpenAppWindowLikeNtp) {
 // set_show_state(ui::SHOW_STATE_MAXIMIZED) has been invoked.
 IN_PROC_BROWSER_TEST_F(BrowserTest, StartMaximized) {
   Browser::Type types[] = { Browser::TYPE_TABBED, Browser::TYPE_POPUP };
-  for (size_t i = 0; i < arraysize(types); ++i) {
+  for (size_t i = 0; i < base::size(types); ++i) {
     Browser::CreateParams params(types[i], browser()->profile(), true);
     params.initial_show_state = ui::SHOW_STATE_MAXIMIZED;
     AddBlankTabAndShow(new Browser(params));
@@ -1432,7 +1431,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, StartMaximized) {
 // set_show_state(ui::SHOW_STATE_MINIMIZED) has been invoked.
 IN_PROC_BROWSER_TEST_F(BrowserTest, StartMinimized) {
   Browser::Type types[] = { Browser::TYPE_TABBED, Browser::TYPE_POPUP };
-  for (size_t i = 0; i < arraysize(types); ++i) {
+  for (size_t i = 0; i < base::size(types); ++i) {
     Browser::CreateParams params(types[i], browser()->profile(), true);
     params.initial_show_state = ui::SHOW_STATE_MINIMIZED;
     AddBlankTabAndShow(new Browser(params));
@@ -1766,7 +1765,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, InterstitialCloseTab) {
 
   // Close the tab and wait for interstitial detach. This destroys |contents|.
   content::RunTaskAndWaitForInterstitialDetach(
-      contents, base::Bind(&chrome::CloseTab, browser()));
+      contents, base::BindOnce(&chrome::CloseTab, browser()));
   // interstitial is deleted now.
 }
 
@@ -2316,7 +2315,6 @@ IN_PROC_BROWSER_TEST_F(ClickModifierTest, HrefControlClickTest) {
 
 // Control-shift-clicks open in a foreground tab.
 // On OSX meta [the command key] takes the place of control.
-// http://crbug.com/396347
 IN_PROC_BROWSER_TEST_F(ClickModifierTest, HrefControlShiftClickTest) {
 #if defined(OS_MACOSX)
   int modifiers = blink::WebInputEvent::kMetaKey;
@@ -2338,7 +2336,6 @@ IN_PROC_BROWSER_TEST_F(ClickModifierTest, HrefMiddleClickTest) {
 }
 
 // Shift-middle-clicks open in a foreground tab.
-// http://crbug.com/396347
 IN_PROC_BROWSER_TEST_F(ClickModifierTest, HrefShiftMiddleClickTest) {
   int modifiers = blink::WebInputEvent::kShiftKey;
   blink::WebMouseEvent::Button button = blink::WebMouseEvent::Button::kMiddle;
@@ -2539,23 +2536,23 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DefaultMediaDevices) {
   ui_test_utils::NavigateToURL(browser(), GURL("chrome://newtab"));
   WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  auto GetDeviceID = [web_contents](content::MediaStreamType type) {
+  auto GetDeviceID = [web_contents](blink::MediaStreamType type) {
     return web_contents->GetDelegate()->GetDefaultMediaDeviceID(web_contents,
                                                                 type);
   };
   EXPECT_EQ(kDefaultAudioCapture1,
-            GetDeviceID(content::MEDIA_DEVICE_AUDIO_CAPTURE));
+            GetDeviceID(blink::MEDIA_DEVICE_AUDIO_CAPTURE));
   EXPECT_EQ(kDefaultVideoCapture1,
-            GetDeviceID(content::MEDIA_DEVICE_VIDEO_CAPTURE));
+            GetDeviceID(blink::MEDIA_DEVICE_VIDEO_CAPTURE));
 
   const std::string kDefaultAudioCapture2 = "test_default_audio_capture_2";
   const std::string kDefaultVideoCapture2 = "test_default_video_capture_2";
   SetString(prefs::kDefaultAudioCaptureDevice, kDefaultAudioCapture2);
   SetString(prefs::kDefaultVideoCaptureDevice, kDefaultVideoCapture2);
   EXPECT_EQ(kDefaultAudioCapture2,
-            GetDeviceID(content::MEDIA_DEVICE_AUDIO_CAPTURE));
+            GetDeviceID(blink::MEDIA_DEVICE_AUDIO_CAPTURE));
   EXPECT_EQ(kDefaultVideoCapture2,
-            GetDeviceID(content::MEDIA_DEVICE_VIDEO_CAPTURE));
+            GetDeviceID(blink::MEDIA_DEVICE_VIDEO_CAPTURE));
 }
 
 namespace {

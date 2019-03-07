@@ -40,6 +40,7 @@
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_buildflags.h"
 #include "components/signin/core/browser/signin_header_helper.h"
+#include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_pref_names.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/network_service_instance.h"
@@ -150,8 +151,12 @@ bool ChromeSigninClient::IsFirstRun() const {
 }
 
 base::Time ChromeSigninClient::GetInstallDate() {
+  // metrics service might be nullptr in tests. TestingBrowserProcess returns
+  // nullptr for metrics_service().
   return base::Time::FromTimeT(
-      g_browser_process->metrics_service()->GetInstallDate());
+      g_browser_process->metrics_service()
+          ? g_browser_process->metrics_service()->GetInstallDate()
+          : 0);
 }
 
 bool ChromeSigninClient::AreSigninCookiesAllowed() {

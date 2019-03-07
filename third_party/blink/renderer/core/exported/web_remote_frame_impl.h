@@ -51,6 +51,7 @@ class CORE_EXPORT WebRemoteFrameImpl final
                                   WebSandboxFlags,
                                   WebLocalFrameClient*,
                                   blink::InterfaceRegistry*,
+                                  mojo::ScopedMessagePipeHandle,
                                   WebFrame* previous_sibling,
                                   const ParsedFeaturePolicy&,
                                   const WebFrameOwnerProperties&,
@@ -75,7 +76,7 @@ class CORE_EXPORT WebRemoteFrameImpl final
       const ParsedFeaturePolicy& parsed_header) override;
   void AddReplicatedContentSecurityPolicyHeader(
       const WebString& header_value,
-      WebContentSecurityPolicyType,
+      mojom::ContentSecurityPolicyType,
       WebContentSecurityPolicySource) override;
   void ResetReplicatedContentSecurityPolicy() override;
   void SetReplicatedInsecureRequestPolicy(WebInsecureRequestPolicy) override;

@@ -15,15 +15,16 @@
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
+#include "base/component_export.h"
 #include "base/containers/flat_map.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/sequence_checker.h"
+#include "base/threading/scoped_blocking_call.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/tick_clock.h"
 #include "sql/internal_api_token.h"
-#include "sql/sql_export.h"
 #include "sql/statement_id.h"
 
 struct sqlite3;
@@ -63,7 +64,7 @@ class DatabaseTestPeer;
 // TODO(pwnall): This should be renamed to Database. Class instances are
 // typically named "db_" / "db", and the class' equivalents in other systems
 // used by Chrome are named LevelDB::DB and blink::IDBDatabase.
-class SQL_EXPORT Database {
+class COMPONENT_EXPORT(SQL) Database {
  private:
   class StatementRef;  // Forward declaration, see real one below.
 
@@ -251,11 +252,8 @@ class SQL_EXPORT Database {
   // everything else.
   void Preload();
 
-  // Try to trim the cache memory used by the database.  If |aggressively| is
-  // true, this function will try to free all of the cache memory it can. If
-  // |aggressively| is false, this function will try to cut cache memory
-  // usage by half.
-  void TrimMemory(bool aggressively);
+  // Release all non-essential memory associated with this database connection.
+  void TrimMemory();
 
   // Raze the database to the ground.  This approximates creating a
   // fresh database from scratch, within the constraints of SQLite's
@@ -422,6 +420,12 @@ class SQL_EXPORT Database {
   bool DoesViewExist(const char* table_name) const;
 
   // Returns true if a column with the given name exists in the given table.
+  //
+  // Calling this method on a VIEW returns an unspecified result.
+  //
+  // This should only be used by migration code for legacy features that do not
+  // use MetaTable, and need an alternative way of figuring out the database's
+  // current version.
   bool DoesColumnExist(const char* table_name, const char* column_name) const;
 
   // Returns sqlite's internal ID for the last inserted row. Valid only
@@ -579,7 +583,8 @@ class SQL_EXPORT Database {
   //
   // The Database may revoke a StatementRef in some error cases, so callers
   // should always check validity before using.
-  class SQL_EXPORT StatementRef : public base::RefCounted<StatementRef> {
+  class COMPONENT_EXPORT(SQL) StatementRef
+      : public base::RefCounted<StatementRef> {
    public:
     REQUIRE_ADOPTION_FOR_REFCOUNTED_TYPE();
 

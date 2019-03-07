@@ -8,27 +8,28 @@
 #include <string>
 #include <utility>
 
+#include "base/callback.h"
 #include "base/logging.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
 #include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
-#include "chrome/browser/signin/signin_error_controller_factory.h"
 #include "chrome/browser/web_data_service_factory.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/signin/core/browser/device_id_helper.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
+#include "content/public/browser/network_service_instance.h"
 
 #if defined(OS_ANDROID)
-#include "chrome/browser/signin/oauth2_token_service_delegate_android.h"
+#include "components/signin/core/browser/oauth2_token_service_delegate_android.h"
 #else
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
-#include "chrome/browser/signin/mutable_profile_oauth2_token_service_delegate.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/signin/core/browser/cookie_settings_util.h"
+#include "components/signin/core/browser/mutable_profile_oauth2_token_service_delegate.h"
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -36,9 +37,13 @@
 #include "chrome/browser/chromeos/oauth2_token_service_delegate.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chromeos/account_manager/account_manager_factory.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/user_manager/user_manager.h"
 #endif  // defined(OS_CHROMEOS)
+
+#if defined(OS_WIN)
+#include "chrome/browser/signin/signin_util_win.h"
+#endif
 
 namespace {
 
@@ -65,8 +70,7 @@ CreateCrOsOAuthDelegate(Profile* profile) {
 
   return std::make_unique<chromeos::ChromeOSOAuth2TokenServiceDelegate>(
       AccountTrackerServiceFactory::GetInstance()->GetForProfile(profile),
-      account_manager,
-      SigninErrorControllerFactory::GetInstance()->GetForProfile(profile));
+      account_manager);
 }
 #endif  // defined(OS_CHROMEOS)
 
@@ -102,12 +106,18 @@ CreateMutableProfileOAuthDelegate(Profile* profile) {
 
   return std::make_unique<MutableProfileOAuth2TokenServiceDelegate>(
       ChromeSigninClientFactory::GetInstance()->GetForProfile(profile),
-      SigninErrorControllerFactory::GetInstance()->GetForProfile(profile),
       AccountTrackerServiceFactory::GetInstance()->GetForProfile(profile),
+      content::GetNetworkConnectionTracker(),
       WebDataServiceFactory::GetTokenWebDataForProfile(
           profile, ServiceAccessType::EXPLICIT_ACCESS),
       account_consistency, revoke_all_tokens_on_load,
-      CanRevokeCredentials(profile));
+      CanRevokeCredentials(profile),
+#if defined(OS_WIN)
+      base::BindRepeating(&signin_util::ReauthWithCredentialProviderIfPossible,
+                          base::Unretained(profile)));
+#else
+      MutableProfileOAuth2TokenServiceDelegate::FixRequestErrorCallback());
+#endif  // defined(OS_WIN)
 }
 #endif  // !defined(OS_ANDROID)
 
@@ -145,7 +155,6 @@ ProfileOAuth2TokenServiceFactory::ProfileOAuth2TokenServiceFactory()
 #endif
   DependsOn(WebDataServiceFactory::GetInstance());
   DependsOn(ChromeSigninClientFactory::GetInstance());
-  DependsOn(SigninErrorControllerFactory::GetInstance());
   DependsOn(AccountTrackerServiceFactory::GetInstance());
   DependsOn(WebDataServiceFactory::GetInstance());
 }

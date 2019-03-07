@@ -75,7 +75,8 @@ RawResource* RawResource::FetchMainResource(
     FetchParameters& params,
     ResourceFetcher* fetcher,
     RawResourceClient* client,
-    const SubstituteData& substitute_data) {
+    const SubstituteData& substitute_data,
+    unsigned long identifier) {
   DCHECK_NE(params.GetResourceRequest().GetFrameType(),
             network::mojom::RequestContextFrameType::kNone);
   DCHECK(params.GetResourceRequest().GetRequestContext() ==
@@ -93,7 +94,7 @@ RawResource* RawResource::FetchMainResource(
 
   return ToRawResource(fetcher->RequestResource(
       params, RawResourceFactory(ResourceType::kMainResource), client,
-      substitute_data));
+      substitute_data, identifier));
 }
 
 RawResource* RawResource::FetchMedia(FetchParameters& params,
@@ -249,7 +250,8 @@ CachedMetadataHandler* RawResource::CreateCachedMetadataHandler(
   return Resource::CreateCachedMetadataHandler(std::move(send_callback));
 }
 
-void RawResource::SetSerializedCachedMetadata(const char* data, size_t size) {
+void RawResource::SetSerializedCachedMetadata(const uint8_t* data,
+                                              size_t size) {
   Resource::SetSerializedCachedMetadata(data, size);
 
   if (GetType() == ResourceType::kMainResource) {
@@ -278,7 +280,7 @@ void RawResource::DidSendData(unsigned long long bytes_sent,
     c->DataSent(this, bytes_sent, total_bytes_to_be_sent);
 }
 
-void RawResource::DidDownloadData(int data_length) {
+void RawResource::DidDownloadData(unsigned long long data_length) {
   ResourceClientWalker<RawResourceClient> w(Clients());
   while (RawResourceClient* c = w.Next())
     c->DataDownloaded(this, data_length);

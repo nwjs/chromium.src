@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/modules/indexeddb/idb_transaction.h"
 
 #include <memory>
+#include <utility>
 
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/dom/events/event_queue.h"
@@ -42,8 +43,6 @@
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_isolate_data.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
-
-using blink::WebIDBDatabase;
 
 namespace blink {
 
@@ -338,7 +337,7 @@ void IDBTransaction::SetActive(bool active) {
   state_ = active ? kActive : kInactive;
 
   if (!active && request_list_.IsEmpty() && BackendDB())
-    BackendDB()->Commit(id_);
+    BackendDB()->Commit(id_, num_errors_handled_);
 }
 
 void IDBTransaction::abort(ExceptionState& exception_state) {
@@ -359,6 +358,30 @@ void IDBTransaction::abort(ExceptionState& exception_state) {
 
   if (BackendDB())
     BackendDB()->Abort(id_);
+}
+
+void IDBTransaction::commit(ExceptionState& exception_state) {
+  if (state_ == kFinishing || state_ == kFinished) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        IDBDatabase::kTransactionFinishedErrorMessage);
+    return;
+  }
+
+  if (state_ == kInactive) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        IDBDatabase::kTransactionInactiveErrorMessage);
+    return;
+  }
+
+  if (!GetExecutionContext())
+    return;
+
+  state_ = kFinishing;
+
+  if (BackendDB())
+    BackendDB()->Commit(id_, num_errors_handled_);
 }
 
 void IDBTransaction::RegisterRequest(IDBRequest* request) {

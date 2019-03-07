@@ -55,7 +55,7 @@ EventListener* CreateAttributeEventListener(Node* node,
                         OrdinalNumber::First());
   String source_url;
 
-  v8::Isolate* isolate = ToIsolate(&node->GetDocument());
+  v8::Isolate* isolate = node->GetDocument().GetIsolate();
 
   if (LocalFrame* frame = node->GetDocument().GetFrame()) {
     ScriptController& script_controller = frame->GetScriptController();

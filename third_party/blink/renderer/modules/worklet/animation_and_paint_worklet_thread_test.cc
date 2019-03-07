@@ -58,8 +58,8 @@ class AnimationAndPaintWorkletThreadTest : public PageTestBase {
   std::unique_ptr<AnimationAndPaintWorkletThread>
   CreateAnimationAndPaintWorkletThread() {
     WorkerClients* clients = WorkerClients::Create();
-    ProvideAnimationWorkletProxyClientTo(clients,
-                                         new TestAnimationWorkletProxyClient());
+    ProvideAnimationWorkletProxyClientTo(
+        clients, MakeGarbageCollected<TestAnimationWorkletProxyClient>());
 
     std::unique_ptr<AnimationAndPaintWorkletThread> thread =
         AnimationAndPaintWorkletThread::CreateForAnimationWorklet(
@@ -67,14 +67,16 @@ class AnimationAndPaintWorkletThreadTest : public PageTestBase {
     Document* document = &GetDocument();
     thread->Start(
         std::make_unique<GlobalScopeCreationParams>(
-            document->Url(), mojom::ScriptType::kModule, document->UserAgent(),
-            nullptr /* web_worker_fetch_context */, Vector<CSPHeaderAndType>(),
-            document->GetReferrerPolicy(), document->GetSecurityOrigin(),
-            document->IsSecureContext(), document->GetHttpsState(), clients,
-            document->AddressSpace(),
+            document->Url(), mojom::ScriptType::kModule,
+            OffMainThreadWorkerScriptFetchOption::kEnabled,
+            document->UserAgent(), nullptr /* web_worker_fetch_context */,
+            Vector<CSPHeaderAndType>(), document->GetReferrerPolicy(),
+            document->GetSecurityOrigin(), document->IsSecureContext(),
+            document->GetHttpsState(), clients, document->AddressSpace(),
             OriginTrialContext::GetTokens(document).get(),
             base::UnguessableToken::Create(), nullptr /* worker_settings */,
-            kV8CacheOptionsDefault, new WorkletModuleResponsesMap),
+            kV8CacheOptionsDefault,
+            MakeGarbageCollected<WorkletModuleResponsesMap>()),
         base::nullopt, std::make_unique<WorkerDevToolsParams>(),
         ParentExecutionContextTaskRunners::Create());
     return thread;

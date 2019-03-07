@@ -9,6 +9,7 @@
 
 #include "base/bits.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/rand_util.h"
 #include "base/stl_util.h"
 #include "cc/paint/image_transfer_cache_entry.h"
 #include "cc/paint/paint_cache.h"
@@ -26,12 +27,6 @@
 
 namespace cc {
 namespace {
-
-// If we have more than this many colors, abort deserialization.
-const size_t kMaxShaderColorsSupported = 10000;
-const size_t kMaxMergeFilterCount = 10000;
-const size_t kMaxKernelSize = 1000;
-const size_t kMaxRegionByteSize = 10 * 1024;
 
 bool IsValidPaintShaderType(PaintShader::Type type) {
   return static_cast<uint8_t>(type) <
@@ -122,6 +117,16 @@ void PaintOpReader::ReadSimple(T* val) {
   remaining_bytes_ -= size;
 }
 
+uint8_t* PaintOpReader::CopyScratchSpace(size_t bytes) {
+  DCHECK(SkIsAlign4(reinterpret_cast<uintptr_t>(memory_)));
+
+  if (options_.scratch_buffer->size() < bytes)
+    options_.scratch_buffer->resize(bytes);
+  memcpy(options_.scratch_buffer->data(), const_cast<const char*>(memory_),
+         bytes);
+  return options_.scratch_buffer->data();
+}
+
 template <typename T>
 void PaintOpReader::ReadFlattenable(sk_sp<T>* val) {
   size_t bytes = 0;
@@ -133,13 +138,9 @@ void PaintOpReader::ReadFlattenable(sk_sp<T>* val) {
   if (bytes == 0)
     return;
 
-  // This is assumed safe from TOCTOU violations as the flattenable
-  // deserializing function uses an SkReadBuffer which reads each piece of
-  // memory once much like PaintOpReader does.
-  DCHECK(SkIsAlign4(reinterpret_cast<uintptr_t>(memory_)));
+  auto* scratch = CopyScratchSpace(bytes);
   val->reset(static_cast<T*>(
-      SkFlattenable::Deserialize(T::GetFlattenableType(),
-                                 const_cast<const char*>(memory_), bytes)
+      SkFlattenable::Deserialize(T::GetFlattenableType(), scratch, bytes)
           .release()));
   if (!val)
     SetInvalid();
@@ -214,8 +215,8 @@ void PaintOpReader::Read(SkPath* path) {
     return;
 
   if (path_bytes != 0u) {
-    size_t bytes_read =
-        path->readFromMemory(const_cast<const char*>(memory_), path_bytes);
+    auto* scratch = CopyScratchSpace(path_bytes);
+    size_t bytes_read = path->readFromMemory(scratch, path_bytes);
     if (bytes_read == 0u) {
       SetInvalid();
       return;
@@ -236,7 +237,6 @@ void PaintOpReader::Read(SkPath* path) {
 }
 
 void PaintOpReader::Read(PaintFlags* flags) {
-  Read(&flags->text_size_);
   ReadSimple(&flags->color_);
   Read(&flags->width_);
   Read(&flags->miter_limit_);
@@ -386,13 +386,8 @@ void PaintOpReader::Read(sk_sp<SkColorSpace>* color_space) {
   if (!valid_ || size == 0)
     return;
 
-  // To avoid TOCTOU issues, make a copy of this prior to turning it
-  // into an SkColorSpace.  SkColorSpace::Deserialize reads header
-  // fields multiple times, so is not safe to pass memory_ to directly.
-  std::unique_ptr<char[]> data(new char[size]);
-  memcpy(data.get(), const_cast<const char*>(memory_), size);
-
-  *color_space = SkColorSpace::Deserialize(data.get(), size);
+  auto* scratch = CopyScratchSpace(size);
+  *color_space = SkColorSpace::Deserialize(scratch, size);
   // If this had non-zero bytes, it should be a valid color space.
   if (!color_space)
     SetInvalid();
@@ -431,8 +426,9 @@ void PaintOpReader::Read(sk_sp<SkTextBlob>* blob) {
   TypefaceCtx typeface_ctx(options_.strike_client);
   procs.fTypefaceProc = &DeserializeTypeface;
   procs.fTypefaceCtx = &typeface_ctx;
-  sk_sp<SkTextBlob> deserialized_blob = SkTextBlob::Deserialize(
-      const_cast<const char*>(memory_), data_bytes, procs);
+  auto* scratch = CopyScratchSpace(data_bytes);
+  sk_sp<SkTextBlob> deserialized_blob =
+      SkTextBlob::Deserialize(scratch, data_bytes, procs);
   if (!deserialized_blob || typeface_ctx.invalid_typeface) {
     SetInvalid();
     return;
@@ -513,7 +509,7 @@ void PaintOpReader::Read(sk_sp<PaintShader>* shader) {
   ReadSize(&colors_size);
 
   // If there are too many colors, abort.
-  if (colors_size > kMaxShaderColorsSupported) {
+  if (colors_size > remaining_bytes_) {
     SetInvalid();
     return;
   }
@@ -614,9 +610,8 @@ void PaintOpReader::AlignMemory(size_t alignment) {
 }
 
 inline void PaintOpReader::SetInvalid() {
-  if (valid_ && options_.crash_dump_on_failure) {
-    // TODO(enne): make this DumpWithoutCrashing after http://crbug.com/910772
-    // base::debug::DumpWithoutCrashing();
+  if (valid_ && options_.crash_dump_on_failure && base::RandInt(1, 10) == 1) {
+    base::debug::DumpWithoutCrashing();
   }
   valid_ = false;
 }
@@ -909,7 +904,7 @@ void PaintOpReader::ReadMatrixConvolutionPaintFilter(
     return;
   auto size =
       static_cast<size_t>(sk_64_mul(kernel_size.width(), kernel_size.height()));
-  if (size > kMaxKernelSize) {
+  if (size > remaining_bytes_) {
     SetInvalid();
     return;
   }
@@ -1007,8 +1002,13 @@ void PaintOpReader::ReadMergePaintFilter(
     sk_sp<PaintFilter>* filter,
     const base::Optional<PaintFilter::CropRect>& crop_rect) {
   size_t input_count = 0;
-  ReadSimple(&input_count);
-  if (input_count > kMaxMergeFilterCount)
+  ReadSize(&input_count);
+
+  // The minimum size for a serialized filter is 4 bytes (a zero uint32_t to
+  // indicate a null filter). Make sure the |input_count| doesn't exceed the
+  // maximum number of filters possible for the remaining data.
+  const size_t max_filters = remaining_bytes_ / 4u;
+  if (input_count > max_filters)
     SetInvalid();
   if (!valid_)
     return;
@@ -1271,7 +1271,7 @@ size_t PaintOpReader::Read(sk_sp<PaintRecord>* record) {
 void PaintOpReader::Read(SkRegion* region) {
   size_t region_bytes = 0;
   ReadSize(&region_bytes);
-  if (region_bytes == 0 || region_bytes > kMaxRegionByteSize)
+  if (region_bytes == 0 || region_bytes > remaining_bytes_)
     SetInvalid();
   if (!valid_)
     return;

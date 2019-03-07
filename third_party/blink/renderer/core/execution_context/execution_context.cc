@@ -31,12 +31,14 @@
 #include "third_party/blink/renderer/bindings/core/v8/source_location.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
-#include "third_party/blink/renderer/core/dom/pausable_object.h"
 #include "third_party/blink/renderer/core/events/error_event.h"
+#include "third_party/blink/renderer/core/execution_context/pausable_object.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
+#include "third_party/blink/renderer/core/frame/csp/execution_context_csp_delegate.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/script/fetch_client_settings_object_impl.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
@@ -49,8 +51,8 @@ ExecutionContext::ExecutionContext(v8::Isolate* isolate)
     : isolate_(isolate),
       circular_sequential_id_(0),
       in_dispatch_error_event_(false),
-      is_context_paused_(false),
       is_context_destroyed_(false),
+      csp_delegate_(MakeGarbageCollected<ExecutionContextCSPDelegate>(*this)),
       window_interaction_tokens_(0),
       referrer_policy_(network::mojom::ReferrerPolicy::kDefault),
       invalidator_(std::make_unique<InterfaceInvalidator>()) {}
@@ -75,15 +77,15 @@ ExecutionContext* ExecutionContext::ForRelevantRealm(
   return ToExecutionContext(info.Holder()->CreationContext());
 }
 
-void ExecutionContext::PausePausableObjects() {
-  DCHECK(!is_context_paused_);
-  NotifySuspendingPausableObjects();
-  is_context_paused_ = true;
+void ExecutionContext::PausePausableObjects(PauseState state) {
+  DCHECK(!pause_state_);
+  pause_state_ = state;
+  NotifySuspendingPausableObjects(state);
 }
 
 void ExecutionContext::UnpausePausableObjects() {
-  DCHECK(is_context_paused_);
-  is_context_paused_ = false;
+  DCHECK(pause_state_.has_value());
+  pause_state_.reset();
   NotifyResumingPausableObjects();
 }
 
@@ -93,8 +95,8 @@ void ExecutionContext::NotifyContextDestroyed() {
   ContextLifecycleNotifier::NotifyContextDestroyed();
 }
 
-void ExecutionContext::PauseScheduledTasks() {
-  PausePausableObjects();
+void ExecutionContext::PauseScheduledTasks(PauseState state) {
+  PausePausableObjects(state);
   TasksWerePaused();
 }
 
@@ -108,8 +110,8 @@ void ExecutionContext::PausePausableObjectIfNeeded(PausableObject* object) {
   DCHECK(Contains(object));
 #endif
   // Ensure all PausableObjects are paused also newly created ones.
-  if (is_context_paused_)
-    object->Pause();
+  if (pause_state_)
+    object->ContextPaused(pause_state_.value());
 }
 
 void ExecutionContext::DispatchErrorEvent(
@@ -164,6 +166,17 @@ PublicURLManager& ExecutionContext::GetPublicURLManager() {
   return *public_url_manager_;
 }
 
+ContentSecurityPolicyDelegate&
+ExecutionContext::GetContentSecurityPolicyDelegate() {
+  return *csp_delegate_;
+}
+
+ContentSecurityPolicy* ExecutionContext::GetContentSecurityPolicyForWorld() {
+  // Isolated worlds are only relevant for Documents. Hence just return the main
+  // world's content security policy by default.
+  return GetContentSecurityPolicy();
+}
+
 const SecurityOrigin* ExecutionContext::GetSecurityOrigin() {
   return GetSecurityContext().GetSecurityOrigin();
 }
@@ -202,13 +215,6 @@ String ExecutionContext::OutgoingReferrer() const {
 
   // Step 3.2: "Otherwise, let referrerSource be environment's creation URL."
   return Url().StrippedForUseAsReferrer();
-}
-
-FetchClientSettingsObjectSnapshot*
-ExecutionContext::CreateFetchClientSettingsObjectSnapshot() {
-  return MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
-      BaseURL(), GetSecurityOrigin(), GetReferrerPolicy(), OutgoingReferrer(),
-      GetHttpsState());
 }
 
 void ExecutionContext::ParseAndSetReferrerPolicy(const String& policies,
@@ -256,7 +262,9 @@ void ExecutionContext::RemoveURLFromMemoryCache(const KURL& url) {
 void ExecutionContext::Trace(blink::Visitor* visitor) {
   visitor->Trace(public_url_manager_);
   visitor->Trace(pending_exceptions_);
+  visitor->Trace(csp_delegate_);
   ContextLifecycleNotifier::Trace(visitor);
+  ConsoleLoggerImplBase::Trace(visitor);
   Supplementable<ExecutionContext>::Trace(visitor);
 }
 

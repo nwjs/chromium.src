@@ -7,10 +7,16 @@
 
 #include <string>
 
+#include "base/feature_list.h"
+
 // This file can be empty. Its purpose is to contain the relatively short lived
 // declarations required for experimental flags.
 
 namespace experimental_flags {
+
+// Feature to load external files with WebState instead of using
+// ExternalFileController.
+extern const base::Feature kExternalFilesLoadedInWebState;
 
 enum GaiaEnvironment {
   GAIA_ENVIRONMENT_PROD,
@@ -55,10 +61,16 @@ bool IsThirdPartyKeyboardWorkaroundEnabled();
 // TODO (crbug.com/884719): Remove all use of this flag.
 bool IsBookmarksUIRebootEnabled();
 
+// Whether the Infobar UI Reboot is enabled.
+bool IsInfobarUIRebootEnabled();
+
 // Whether the application group sandbox must be cleared before starting.
 // Calling this method will reset the flag to false, so the sandbox is cleared
 // only once.
 bool MustClearApplicationGroupSandbox();
+
+// Whether password generation is enabled.
+bool IsAutomaticPasswordGenerationEnabled();
 
 }  // namespace experimental_flags
 

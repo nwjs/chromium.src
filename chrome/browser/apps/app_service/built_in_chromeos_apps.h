@@ -33,9 +33,17 @@ class BuiltInChromeOsApps : public apps::mojom::Publisher {
                 apps::mojom::IconCompression icon_compression,
                 int32_t size_hint_in_dip,
                 LoadIconCallback callback) override;
-  void Launch(const std::string& app_id, int32_t event_flags) override;
+  void Launch(const std::string& app_id,
+              int32_t event_flags,
+              apps::mojom::LaunchSource launch_source,
+              int64_t display_id) override;
+  void SetPermission(const std::string& app_id,
+                     apps::mojom::PermissionPtr permission) override;
+  void Uninstall(const std::string& app_id) override;
+  void OpenNativeSettings(const std::string& app_id) override;
 
   mojo::Binding<apps::mojom::Publisher> binding_;
+
   Profile* profile_;
 
   DISALLOW_COPY_AND_ASSIGN(BuiltInChromeOsApps);

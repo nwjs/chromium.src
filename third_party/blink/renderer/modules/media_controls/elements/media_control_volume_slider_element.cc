@@ -18,8 +18,11 @@ namespace blink {
 
 MediaControlVolumeSliderElement::MediaControlVolumeSliderElement(
     MediaControlsImpl& media_controls)
-    : MediaControlSliderElement(media_controls, kMediaVolumeSlider) {
+    : MediaControlSliderElement(media_controls, kMediaIgnore) {
   setAttribute(html_names::kMaxAttr, "1");
+  setAttribute(html_names::kAriaValuemaxAttr, "100");
+  setAttribute(html_names::kAriaValueminAttr, "0");
+  setAttribute(html_names::kAriaLabelAttr, "volume");
   SetShadowPseudoId(AtomicString("-webkit-media-controls-volume-slider"));
   SetVolumeInternal(MediaElement().volume());
 
@@ -104,6 +107,9 @@ void MediaControlVolumeSliderElement::DefaultEventHandler(Event& event) {
 void MediaControlVolumeSliderElement::SetVolumeInternal(double volume) {
   SetupBarSegments();
   SetAfterSegmentPosition(MediaControlSliderElement::Position(0, volume));
+  int percent_vol = 100 * volume;
+  setAttribute(html_names::kAriaValuenowAttr,
+               WTF::AtomicString::Number(percent_vol));
 }
 
 bool MediaControlVolumeSliderElement::KeepEventInNode(

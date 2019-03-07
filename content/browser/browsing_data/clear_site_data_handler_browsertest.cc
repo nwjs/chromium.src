@@ -98,7 +98,6 @@ class TestBrowsingDataRemoverDelegate : public MockBrowsingDataRemoverDelegate {
     if (cookies) {
       int data_type_mask =
           BrowsingDataRemover::DATA_TYPE_COOKIES |
-          BrowsingDataRemover::DATA_TYPE_CHANNEL_IDS |
           BrowsingDataRemover::DATA_TYPE_AVOID_CLOSING_CONNECTIONS;
 
       BrowsingDataFilterBuilderImpl filter_builder(
@@ -208,17 +207,6 @@ class ClearSiteDataHandlerBrowserTest : public ContentBrowserTest {
         base::BindRepeating(&ClearSiteDataHandlerBrowserTest::HandleRequest,
                             base::Unretained(this)));
     ASSERT_TRUE(https_server_->Start());
-
-    // Initialize the cookie store pointer on the IO thread.
-    base::RunLoop run_loop;
-    base::PostTaskWithTraits(
-        FROM_HERE, {BrowserThread::IO},
-        base::BindOnce(
-            &ClearSiteDataHandlerBrowserTest::InitializeCookieStore,
-            base::Unretained(this),
-            base::Unretained(storage_partition()->GetURLRequestContext()),
-            run_loop.QuitClosure()));
-    run_loop.Run();
   }
 
   BrowserContext* browser_context() {
@@ -227,14 +215,6 @@ class ClearSiteDataHandlerBrowserTest : public ContentBrowserTest {
 
   StoragePartition* storage_partition() {
     return BrowserContext::GetDefaultStoragePartition(browser_context());
-  }
-
-  void InitializeCookieStore(
-      net::URLRequestContextGetter* request_context_getter,
-      base::Closure callback) {
-    cookie_store_ =
-        request_context_getter->GetURLRequestContext()->cookie_store();
-    std::move(callback).Run();
   }
 
   // Adds a cookie for the |url|. Used in the cookie integration tests.
@@ -514,8 +494,6 @@ class ClearSiteDataHandlerBrowserTest : public ContentBrowserTest {
 
   std::unique_ptr<net::EmbeddedTestServer> https_server_;
   TestBrowsingDataRemoverDelegate embedder_delegate_;
-
-  net::CookieStore* cookie_store_;
 };
 
 // Tests that the header is recognized on the beginning, in the middle, and on
@@ -944,7 +922,7 @@ IN_PROC_BROWSER_TEST_F(ClearSiteDataHandlerBrowserTest,
   // Only "origin2.com" now has a service worker.
   service_workers = GetServiceWorkers();
   ASSERT_EQ(1u, service_workers.size());
-  EXPECT_EQ(service_workers[0].origin,
+  EXPECT_EQ(service_workers[0].origin.GetURL(),
             https_server()->GetURL("origin2.com", "/"));
 
   // TODO(msramek): Test that the service worker update ping also deletes
@@ -1030,7 +1008,14 @@ IN_PROC_BROWSER_TEST_F(ClearSiteDataHandlerBrowserTest,
   // Expect the update to fail and the service worker to be removed.
   EXPECT_FALSE(RunScriptAndGetBool("updateServiceWorker()"));
   delegate()->VerifyAndClearExpectations();
-  EXPECT_FALSE(RunScriptAndGetBool("hasServiceWorker()"));
+  // The service worker should be gone but a few tests are flaky and fail
+  // because it hasn't been removed. To find out if this is just a
+  // timing issue, add some delay if the first call returns true.
+  // TODO(crbug.com/912313): Check if this worked and find out why.
+  if (RunScriptAndGetBool("hasServiceWorker()")) {
+    LOG(ERROR) << "There was a service worker, checking again in a second";
+    EXPECT_FALSE(RunScriptAndGetBool("setTimeout(hasServiceWorker, 1000)"));
+  }
 }
 
 }  // namespace content

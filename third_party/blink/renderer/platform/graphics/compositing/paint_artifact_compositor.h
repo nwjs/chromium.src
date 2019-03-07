@@ -21,6 +21,7 @@
 namespace cc {
 struct ElementId;
 class Layer;
+class LayerTreeHost;
 }
 
 namespace gfx {
@@ -53,7 +54,7 @@ class LayerListBuilder {
 // changes in the paint artifact.
 //
 // PaintArtifactCompositor is the successor to PaintLayerCompositor, reflecting
-// the new home of compositing decisions after paint in Slimming Paint v2.
+// the new home of compositing decisions after paint with CompositeAfterPaint.
 class PLATFORM_EXPORT PaintArtifactCompositor final
     : private PropertyTreeManagerClient {
   USING_FAST_MALLOC(PaintArtifactCompositor);
@@ -68,13 +69,25 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
         new PaintArtifactCompositor(std::move(scroll_callback)));
   }
 
+  struct ViewportProperties {
+    const TransformPaintPropertyNode* page_scale = nullptr;
+    const TransformPaintPropertyNode* inner_scroll_translation = nullptr;
+    // TODO(crbug.com/909750): Add other viewport properties, e.g.
+    // outer_scroll_translation.
+  };
+
+  struct Settings {
+    bool prefer_compositing_to_lcd_text = false;
+  };
+
   // Updates the layer tree to match the provided paint artifact.
   //
   // Populates |composited_element_ids| with the CompositorElementId of all
   // animations for which we saw a paint chunk and created a layer.
   void Update(scoped_refptr<const PaintArtifact>,
               CompositorElementIdSet& composited_element_ids,
-              TransformPaintPropertyNode* viewport_scale_node);
+              const ViewportProperties& viewport_properties,
+              const Settings& settings);
 
   // The root layer of the tree managed by this object.
   cc::Layer* RootLayer() const { return root_layer_.get(); }
@@ -119,6 +132,9 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
                                      const PropertyTreeState& layer_state,
                                      const PaintChunkSubset& paint_chunks);
 
+  void SetNeedsUpdate(bool needs_update) { needs_update_ = needs_update; }
+  bool NeedsUpdate() const { return needs_update_; }
+
  private:
   // A pending layer is a collection of paint chunks that will end up in
   // the same cc::Layer.
@@ -153,7 +169,9 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
   // Collects the PaintChunks into groups which will end up in the same
   // cc layer. This is the entry point of the layerization algorithm.
   void CollectPendingLayers(const PaintArtifact&,
+                            const Settings& settings,
                             Vector<PendingLayer>& pending_layers);
+
   // This is the internal recursion of collectPendingLayers. This function
   // loops over the list of paint chunks, scoped by an isolated group
   // (i.e. effect node). Inside of the loop, chunks are tested for overlap
@@ -172,6 +190,7 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
   // overlap with other chunks in the parent group, if grouping requirement
   // can be satisfied (and the effect node has no direct reason).
   static void LayerizeGroup(const PaintArtifact&,
+                            const Settings& settings,
                             Vector<PendingLayer>& pending_layers,
                             const EffectPaintPropertyNode&,
                             Vector<PaintChunk>::const_iterator& chunk_cursor);
@@ -222,11 +241,15 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
       CompositorElementId& mask_isolation_id,
       CompositorElementId& mask_effect_id) final;
 
+  static void UpdateRenderSurfaceForEffects(cc::LayerTreeHost&,
+                                            const cc::LayerList&);
+
   // Provides a callback for notifying blink of composited scrolling.
   base::RepeatingCallback<void(const gfx::ScrollOffset&, const cc::ElementId&)>
       scroll_callback_;
 
   bool tracks_raster_invalidations_;
+  bool needs_update_;
 
   scoped_refptr<cc::Layer> root_layer_;
   Vector<std::unique_ptr<ContentLayerClientImpl>> content_layer_clients_;
@@ -242,7 +265,7 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
   bool extra_data_for_testing_enabled_ = false;
   std::unique_ptr<ExtraDataForTesting> extra_data_for_testing_;
 
-  friend class StubChromeClientForSPv2;
+  friend class StubChromeClientForCAP;
   friend class PaintArtifactCompositorTest;
 
   DISALLOW_COPY_AND_ASSIGN(PaintArtifactCompositor);

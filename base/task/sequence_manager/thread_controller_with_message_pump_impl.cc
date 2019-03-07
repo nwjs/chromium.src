@@ -4,6 +4,7 @@
 
 #include "base/task/sequence_manager/thread_controller_with_message_pump_impl.h"
 
+#include "base/auto_reset.h"
 #include "base/message_loop/message_pump.h"
 #include "base/time/tick_clock.h"
 #include "base/trace_event/trace_event.h"
@@ -121,9 +122,13 @@ void ThreadControllerWithMessagePumpImpl::ScheduleWork() {
   if (RunsTasksInCurrentSequence()) {
     // Don't post a DoWork if there's an immediate DoWork in flight or if we're
     // inside a top level DoWork. We can rely on a continuation being posted as
-    // needed.
-    if (main_thread_only().immediate_do_work_posted || InTopLevelDoWork())
+    // needed. We need to avoid this inside DoDelayedWork, however, because
+    // returning true there doesn't guarantee work to get scheduled.
+    // TODO(skyostil@): Simplify this once DoWork/DoDelayedWork get merged.
+    if (main_thread_only().immediate_do_work_posted ||
+        (InTopLevelDoWork() && !main_thread_only().doing_delayed_work)) {
       return;
+    }
     main_thread_only().immediate_do_work_posted = true;
   }
   pump_->ScheduleWork();
@@ -156,16 +161,15 @@ const TickClock* ThreadControllerWithMessagePumpImpl::GetClock() {
 }
 
 bool ThreadControllerWithMessagePumpImpl::RunsTasksInCurrentSequence() {
-  return associated_thread_->thread_id == PlatformThread::CurrentId();
+  return associated_thread_->IsBoundToCurrentThread();
 }
 
 void ThreadControllerWithMessagePumpImpl::SetDefaultTaskRunner(
     scoped_refptr<SingleThreadTaskRunner> task_runner) {
-  DCHECK(associated_thread_->thread_id == kInvalidThreadId ||
-         associated_thread_->thread_id == PlatformThread::CurrentId());
   AutoLock lock(task_runner_lock_);
   task_runner_ = task_runner;
-  if (associated_thread_->thread_id != kInvalidThreadId) {
+  if (associated_thread_->IsBound()) {
+    DCHECK(associated_thread_->IsBoundToCurrentThread());
     // Thread task runner handle will be created in BindToCurrentThread().
     InitializeThreadTaskRunnerHandle();
   }
@@ -212,24 +216,72 @@ ThreadControllerWithMessagePumpImpl::GetAssociatedThread() const {
 
 bool ThreadControllerWithMessagePumpImpl::DoWork() {
   main_thread_only().immediate_do_work_posted = false;
-  return DoWorkImpl(nullptr);
+  bool ran_task = false;
+  LazyNow continuation_lazy_now(time_source_);
+  TimeDelta delay_till_next_task =
+      DoWorkImpl(&continuation_lazy_now, &ran_task);
+  // Schedule a continuation.
+  // TODO(altimin, gab): Make this more efficient by merging DoWork
+  // and DoDelayedWork and allowing returning base::TimeTicks() when we have
+  // immediate work.
+  if (delay_till_next_task.is_zero()) {
+    // Need to run new work immediately, but due to the contract of DoWork we
+    // only need to return true to ensure that happens.
+    main_thread_only().immediate_do_work_posted = true;
+    return true;
+  }
+  // DoDelayedWork always follows DoWork, (although the inverse is not true) so
+  // we don't need to schedule a delayed wakeup here.
+  main_thread_only().immediate_do_work_posted = ran_task;
+  return ran_task;
 }
 
 bool ThreadControllerWithMessagePumpImpl::DoDelayedWork(
     TimeTicks* next_run_time) {
-  return DoWorkImpl(next_run_time);
+  AutoReset<bool> delayed_scope(&main_thread_only().doing_delayed_work, true);
+  LazyNow continuation_lazy_now(time_source_);
+  bool ran_task = false;
+  TimeDelta delay_till_next_task =
+      DoWorkImpl(&continuation_lazy_now, &ran_task);
+  // Schedule a continuation.
+  // TODO(altimin, gab): Make this more efficient by merging DoWork
+  // and DoDelayedWork and allowing returning base::TimeTicks() when we have
+  // immediate work.
+  if (delay_till_next_task.is_zero()) {
+    *next_run_time = TimeTicks();
+    // Make sure a DoWork is scheduled.
+    if (!main_thread_only().immediate_do_work_posted) {
+      main_thread_only().immediate_do_work_posted = true;
+      pump_->ScheduleWork();
+    }
+  } else if (delay_till_next_task != TimeDelta::Max()) {
+    // The MessagePump will call ScheduleDelayedWork on our behalf, so we need
+    // to update |main_thread_only().next_delayed_do_work|.
+    main_thread_only().next_delayed_do_work =
+        continuation_lazy_now.Now() + delay_till_next_task;
+
+    // Cancels any previously scheduled delayed wake-ups.
+    *next_run_time = CapAtOneDay(main_thread_only().next_delayed_do_work,
+                                 &continuation_lazy_now);
+  } else {
+    *next_run_time = base::TimeTicks();
+  }
+  return ran_task;
 }
 
-bool ThreadControllerWithMessagePumpImpl::DoWorkImpl(
-    base::TimeTicks* next_run_time) {
+TimeDelta ThreadControllerWithMessagePumpImpl::DoWorkImpl(
+    LazyNow* continuation_lazy_now,
+    bool* ran_task) {
   if (!main_thread_only().task_execution_allowed)
-    return false;
-  if (main_thread_only().quit_pending)
-    return false;
+    return TimeDelta::Max();
+
+  // Keep this in-sync with
+  // third_party/catapult/tracing/tracing/extras/chrome/event_finder_utils.html
+  // TODO(alexclarke): Rename this event to whatever we end up calling this
+  // after the DoWork / DoDelayed work merge.
+  TRACE_EVENT0("sequence_manager", "ThreadControllerImpl::RunTask");
 
   DCHECK(main_thread_only().task_source);
-  bool task_ran = false;
-
   main_thread_only().do_work_running_count++;
 
   for (int i = 0; i < main_thread_only().work_batch_size; i++) {
@@ -245,14 +297,10 @@ bool ThreadControllerWithMessagePumpImpl::DoWorkImpl(
     // long tasks. See https://crbug.com/874982
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("lighthouse"), "RunTask");
     task_annotator_.RunTask("ThreadController::Task", &*task);
-    task_ran = true;
+    *ran_task = true;
 
     main_thread_only().task_execution_allowed = true;
-
     main_thread_only().task_source->DidRunTask();
-
-    // If we have executed a task, reset the next delayed do work.
-    main_thread_only().next_delayed_do_work = TimeTicks();
 
     // When Quit() is called we must stop running the batch because the caller
     // expects per-task granularity.
@@ -263,35 +311,12 @@ bool ThreadControllerWithMessagePumpImpl::DoWorkImpl(
   main_thread_only().do_work_running_count--;
 
   if (main_thread_only().quit_pending)
-    return task_ran;
+    return TimeDelta::Max();
 
-  LazyNow lazy_now(time_source_);
   TimeDelta do_work_delay =
-      main_thread_only().task_source->DelayTillNextTask(&lazy_now);
+      main_thread_only().task_source->DelayTillNextTask(continuation_lazy_now);
   DCHECK_GE(do_work_delay, TimeDelta());
-  // Schedule a continuation.
-  // TODO(altimin, gab): Make this more efficient by merging DoWork
-  // and DoDelayedWork and allowing returning base::TimeTicks() when we have
-  // immediate work.
-  if (do_work_delay.is_zero()) {
-    // Need to run new work immediately, but due to the contract of DoWork we
-    // only need to return true to ensure that happens.
-    if (next_run_time)
-      *next_run_time = main_thread_only().next_delayed_do_work;
-    main_thread_only().immediate_do_work_posted = true;
-    return true;
-  } else if (do_work_delay != TimeDelta::Max()) {
-    // Cancels any previously scheduled delayed wake-ups.
-    // TODO(altimin): Avoid calling ScheduleDelayedWork from DoDelayedWork.
-    SetNextDelayedDoWork(
-        &lazy_now, CapAtOneDay(lazy_now.Now() + do_work_delay, &lazy_now));
-    if (next_run_time)
-      *next_run_time = main_thread_only().next_delayed_do_work;
-  } else if (next_run_time) {
-    *next_run_time = base::TimeTicks();
-  }
-
-  return task_ran;
+  return do_work_delay;
 }
 
 bool ThreadControllerWithMessagePumpImpl::InTopLevelDoWork() const {
@@ -315,7 +340,8 @@ bool ThreadControllerWithMessagePumpImpl::DoIdleWork() {
 
   if (main_thread_only().task_source->OnSystemIdle()) {
     // The OnSystemIdle() callback resulted in more immediate work, so schedule
-    // a DoWork callback.
+    // a DoWork callback. For some message pumps returning true from here is
+    // sufficient to do that but not on mac.
     pump_->ScheduleWork();
     return false;
   }

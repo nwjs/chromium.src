@@ -4,6 +4,7 @@
 
 #include "components/translate/core/browser/translate_prefs.h"
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <utility>
@@ -73,38 +74,6 @@ const char TranslatePrefs::kPrefExplicitLanguageAskShown[] =
 
 namespace {
 
-// Expands language codes to make these more suitable for Accept-Language.
-// Example: ['en-US', 'ja', 'en-CA'] => ['en-US', 'en', 'ja', 'en-CA'].
-// 'en' won't appear twice as this function eliminates duplicates.
-// The StringPieces in |expanded_languages| are references to the strings in
-// |languages|.
-void ExpandLanguageCodes(const std::vector<std::string>& languages,
-                         std::vector<base::StringPiece>* expanded_languages) {
-  DCHECK(expanded_languages);
-  DCHECK(expanded_languages->empty());
-
-  // used to eliminate duplicates.
-  std::set<base::StringPiece> seen;
-
-  for (const auto& language : languages) {
-    if (seen.find(language) == seen.end()) {
-      expanded_languages->push_back(language);
-      seen.insert(language);
-    }
-
-    std::vector<base::StringPiece> tokens = base::SplitStringPiece(
-        language, "-", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-    if (tokens.size() == 0)
-      continue;
-
-    base::StringPiece main_part = tokens[0];
-    if (seen.find(main_part) == seen.end()) {
-      expanded_languages->push_back(main_part);
-      seen.insert(main_part);
-    }
-  }
-}
-
 // Extract a timestamp from a base::Value.
 // Will return base::Time() if no valid timestamp exists.
 base::Time GetTimeStamp(const base::Value& value) {
@@ -114,9 +83,6 @@ base::Time GetTimeStamp(const base::Value& value) {
 }
 
 }  // namespace
-
-const base::Feature kImprovedLanguageSettings{"ImprovedLanguageSettings",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kRegionalLocalesAsDisplayUI{
     "RegionalLocalesAsDisplayUI", base::FEATURE_ENABLED_BY_DEFAULT};
@@ -129,6 +95,9 @@ const base::Feature kTranslateUI{"TranslateUI",
 
 const base::Feature kTranslateAndroidManualTrigger{
     "TranslateAndroidManualTrigger", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kCompactTranslateInfobarIOS{
+    "CompactTranslateInfobarIOS", base::FEATURE_DISABLED_BY_DEFAULT};
 
 DenialTimeUpdate::DenialTimeUpdate(PrefService* prefs,
                                    const std::string& language,
@@ -261,7 +230,6 @@ void TranslatePrefs::AddToLanguageList(const std::string& input_language,
   // We should block the language if the list does not already contain another
   // language with the same base language.
   const bool should_block =
-      !base::FeatureList::IsEnabled(kImprovedLanguageSettings) ||
       !language::ContainsSameBaseLanguage(languages, chrome_language);
 
   if (force_blocked || should_block) {
@@ -295,14 +263,13 @@ void TranslatePrefs::RemoveFromLanguageList(const std::string& input_language) {
       SetRecentTargetLanguage("");
 
     languages.erase(it);
+    PurgeUnsupportedLanguagesInLanguageFamily(chrome_language, &languages);
     UpdateLanguageList(languages);
 
-    if (base::FeatureList::IsEnabled(kImprovedLanguageSettings)) {
-      // We should unblock the language if this was the last one from the same
-      // language family.
-      if (!language::ContainsSameBaseLanguage(languages, chrome_language)) {
-        UnblockLanguage(input_language);
-      }
+    // We should unblock the language if this was the last one from the same
+    // language family.
+    if (!language::ContainsSameBaseLanguage(languages, chrome_language)) {
+      UnblockLanguage(input_language);
     }
   }
 }
@@ -474,11 +441,11 @@ void TranslatePrefs::GetLanguageInfoList(
         base::UTF16ToUTF8(adjusted_native_display_name);
 
     std::string supports_translate_code = pair.first;
-    if (base::FeatureList::IsEnabled(translate::kImprovedLanguageSettings)) {
-      // Extract the base language: if the base language can be translated, then
-      // even the regional one should be marked as such.
-      translate::ToTranslateLanguageSynonym(&supports_translate_code);
-    }
+
+    // Extract the base language: if the base language can be translated, then
+    // even the regional one should be marked as such.
+    translate::ToTranslateLanguageSynonym(&supports_translate_code);
+
     language.supports_translate =
         translate_language_set.count(supports_translate_code) > 0;
 
@@ -787,14 +754,6 @@ void TranslatePrefs::UpdateLanguageList(
   prefs_->SetString(preferred_languages_pref_, languages_str);
 #endif
 
-  // Save the same language list as accept languages preference as well, but we
-  // need to expand the language list, to make it more acceptable. For instance,
-  // some web sites don't understand 'en-US' but 'en'. See crosbug.com/9884.
-  if (!base::FeatureList::IsEnabled(kImprovedLanguageSettings)) {
-    std::vector<base::StringPiece> accept_languages;
-    ExpandLanguageCodes(languages, &accept_languages);
-    languages_str = base::JoinString(accept_languages, ",");
-  }
   prefs_->SetString(accept_languages_pref_, languages_str);
 }
 
@@ -971,6 +930,32 @@ bool TranslatePrefs::IsListEmpty(const char* pref_id) const {
 bool TranslatePrefs::IsDictionaryEmpty(const char* pref_id) const {
   const base::DictionaryValue* dict = prefs_->GetDictionary(pref_id);
   return (dict == nullptr || dict->empty());
+}
+
+void TranslatePrefs::PurgeUnsupportedLanguagesInLanguageFamily(
+    const std::string& language,
+    std::vector<std::string>* list) {
+  std::string base_language = language::ExtractBaseLanguage(language);
+  std::set<std::string> languages_in_same_family;
+
+  std::copy_if(
+      list->begin(), list->end(),
+      std::inserter(languages_in_same_family, languages_in_same_family.end()),
+      [&base_language](const std::string& lang) {
+        return base_language == language::ExtractBaseLanguage(lang);
+      });
+
+  if (std::none_of(languages_in_same_family.begin(),
+                   languages_in_same_family.end(), [](const std::string& lang) {
+                     return TranslateAcceptLanguages::CanBeAcceptLanguage(lang);
+                   })) {
+    list->erase(
+        std::remove_if(list->begin(), list->end(),
+                       [&languages_in_same_family](const std::string& lang) {
+                         return languages_in_same_family.count(lang) > 0;
+                       }),
+        list->end());
+  }
 }
 
 }  // namespace translate

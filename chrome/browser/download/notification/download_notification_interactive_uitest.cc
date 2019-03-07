@@ -6,9 +6,9 @@
 #include <utility>
 
 #include "base/command_line.h"
-#include "base/macros.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
@@ -27,7 +27,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/download/public/common/download_item.h"
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/core/session_manager.h"
@@ -40,6 +40,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/url_request/url_request_slow_download_job.h"
 #include "services/identity/public/cpp/identity_manager.h"
+#include "services/identity/public/cpp/identity_test_utils.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
@@ -851,7 +852,7 @@ class MultiProfileDownloadNotificationTest
   // This is used for preparing all accounts in PRE_ test setup, and for testing
   // actual login behavior.
   void AddAllUsers() {
-    for (size_t i = 0; i < arraysize(kTestAccounts); ++i) {
+    for (size_t i = 0; i < base::size(kTestAccounts); ++i) {
       // The primary account was already set up in SetUpOnMainThread, so skip it
       // here.
       if (i == PRIMARY_ACCOUNT_INDEX)
@@ -877,14 +878,11 @@ class MultiProfileDownloadNotificationTest
         base::UTF8ToUTF16(info.display_name));
     Profile* profile =
         chromeos::ProfileHelper::GetProfileByUserIdHashForTest(info.hash);
-    // TODO(https://crbug.com/814307): We can't use
-    // identity::MakePrimaryAccountAvailable from identity_test_utils.h here
-    // because that DCHECKs that the SigninManager isn't authenticated yet.
-    // Here, it *can* be already authenticated if a PRE_ test previously set up
-    // the user.
-    IdentityManagerFactory::GetForProfile(profile)
-        ->SetPrimaryAccountSynchronouslyForTests(info.gaia_id, info.email,
-                                                 "refresh_token");
+
+    identity::IdentityManager* identity_manager =
+        IdentityManagerFactory::GetForProfile(profile);
+    if (!identity_manager->HasPrimaryAccount())
+      identity::MakePrimaryAccountAvailable(identity_manager, info.email);
   }
 
   std::unique_ptr<NotificationDisplayServiceTester> display_service1_;

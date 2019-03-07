@@ -75,6 +75,7 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/sync/base/invalidation_helper.h"
 #include "components/sync/driver/sync_driver_switches.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "components/sync/engine_impl/sync_scheduler_impl.h"
 #include "components/sync/protocol/sync.pb.h"
 #include "components/sync/test/fake_server/fake_server_network_resources.h"
@@ -102,7 +103,7 @@
 #include "chrome/browser/sync/test/integration/printers_helper.h"
 #include "chrome/browser/sync/test/integration/sync_arc_package_helper.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs_factory.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/arc/arc_util.h"
 #endif  // defined(OS_CHROMEOS)
 
@@ -152,7 +153,7 @@ class SyncProfileDelegate : public Profile::Delegate {
 };
 
 bool IsEncryptionComplete(const ProfileSyncService* service) {
-  return service->IsEncryptEverythingEnabled() &&
+  return service->GetUserSettings()->IsEncryptEverythingEnabled() &&
          !service->encryption_pending();
 }
 
@@ -264,11 +265,6 @@ void SyncTest::SetUp() {
 
   // Mock the Mac Keychain service.  The real Keychain can block on user input.
   OSCryptMocker::SetUp();
-
-  // Start up a sync test server if one is needed and setup mock gaia responses.
-  // Note: This must be done prior to the call to SetupClients() because we want
-  // the mock gaia responses to be available before GaiaUrls is initialized.
-  SetUpTestServerIfRequired();
 
   // Yield control back to the InProcessBrowserTest framework.
   InProcessBrowserTest::SetUp();
@@ -784,13 +780,15 @@ void SyncTest::InitializeInvalidations(int index) {
   }
 }
 
-bool SyncTest::SetupSync() {
-  base::ScopedAllowBlockingForTesting allow_blocking;
+void SyncTest::SetupSyncNoWaitingForCompletion() {
+  SetupSyncInternal(/*wait_for_completion=*/false);
+}
+
+void SyncTest::SetupSyncInternal(bool wait_for_completion) {
   // Create sync profiles and clients if they haven't already been created.
   if (profiles_.empty()) {
     if (!SetupClients()) {
       LOG(FATAL) << "SetupClients() failed.";
-      return false;
     }
   }
 
@@ -801,7 +799,6 @@ bool SyncTest::SetupSync() {
     if (!SetupAndClearClient(clientIndex++)) {
       LOG(FATAL) << "Setting up and clearing data for client "
                  << clientIndex - 1 << " failed";
-      return false;
     }
   }
 
@@ -821,29 +818,36 @@ bool SyncTest::SetupSync() {
     if (decryption_passphrase_provided && encryption_passphrase_provided) {
       LOG(FATAL) << "Both an encryption and decryption passphrase were "
                     "provided for the client. This is disallowed.";
-      return false;
     }
 
-    bool setup_succeeded;
     if (encryption_passphrase_provided) {
-      setup_succeeded = client->SetupSyncWithEncryptionPassphrase(
-          syncer::UserSelectableTypes(), encryption_passphrase_it->second);
+      CHECK(client->SetupSyncWithEncryptionPassphraseNoWaitForCompletion(
+          syncer::UserSelectableTypes(), encryption_passphrase_it->second))
+          << "SetupSync() failed.";
     } else if (decryption_passphrase_provided) {
-      setup_succeeded = client->SetupSyncWithDecryptionPassphrase(
-          syncer::UserSelectableTypes(), decryption_passphrase_it->second);
+      CHECK(client->SetupSyncWithDecryptionPassphraseNoWaitForCompletion(
+          syncer::UserSelectableTypes(), decryption_passphrase_it->second))
+          << "SetupSync() failed.";
     } else {
-      setup_succeeded = client->SetupSync(syncer::UserSelectableTypes());
+      CHECK(client->SetupSyncNoWaitForCompletion(syncer::UserSelectableTypes()))
+          << "SetupSync() failed.";
     }
-
-    if (!setup_succeeded) {
-      LOG(FATAL) << "SetupSync() failed.";
-      return false;
+    if (wait_for_completion) {
+      // It's important to wait for each client before setting up the next one,
+      // otherwise multi-client tests get flaky.
+      // TODO(tschumann): It would be nice to figure out why.
+      client->AwaitSyncSetupCompletion();
     }
   }
+}
 
-  // Because clients may modify sync data as part of startup (for example local
-  // session-releated data is rewritten), we need to ensure all startup-based
-  // changes have propagated between the clients.
+bool SyncTest::SetupSync() {
+  base::ScopedAllowBlockingForTesting allow_blocking;
+  SetupSyncInternal(/*wait_for_completion=*/true);
+
+  // Because clients may modify sync data as part of startup (for example
+  // local session-releated data is rewritten), we need to ensure all
+  // startup-based changes have propagated between the clients.
   //
   // Tests that don't use self-notifications can't await quiescense.  They'll
   // have to find their own way of waiting for an initial state if they really
@@ -875,8 +879,9 @@ bool SyncTest::SetupSync() {
     // Calling LoginUIService::SyncConfirmationUIClosed forces the observer to
     // be removed. http://crbug.com/484388
     for (int i = 0; i < num_clients_; ++i) {
-      LoginUIServiceFactory::GetForProfile(GetProfile(i))->
-          SyncConfirmationUIClosed(LoginUIService::SYNC_WITH_DEFAULT_SETTINGS);
+      LoginUIServiceFactory::GetForProfile(GetProfile(i))
+          ->SyncConfirmationUIClosed(
+              LoginUIService::SYNC_WITH_DEFAULT_SETTINGS);
     }
   }
 
@@ -937,6 +942,11 @@ void SyncTest::TearDownOnMainThread() {
 }
 
 void SyncTest::SetUpOnMainThread() {
+  // Start up a sync test server if one is needed and setup mock gaia responses.
+  // Note: This must be done prior to the call to SetupClients() because we want
+  // the mock gaia responses to be available before GaiaUrls is initialized.
+  SetUpTestServerIfRequired();
+
   if (!UsingExternalServers())
     SetupMockGaiaResponsesForProfile(ProfileManager::GetActiveUserProfile());
 
@@ -1072,7 +1082,9 @@ void SyncTest::SetUpTestServerIfRequired() {
       LOG(FATAL) << "Failed to set up local python sync and XMPP servers";
     SetupMockGaiaResponses();
   } else if (server_type_ == IN_PROCESS_FAKE_SERVER) {
-    fake_server_ = std::make_unique<fake_server::FakeServer>();
+    base::FilePath user_data_dir;
+    base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+    fake_server_ = std::make_unique<fake_server::FakeServer>(user_data_dir);
     SetupMockGaiaResponses();
   } else {
     LOG(FATAL) << "Don't know which server environment to run test in.";
@@ -1324,6 +1336,6 @@ bool SyncTest::ClearServerData(ProfileSyncServiceHarness* harness) {
 
   // Our birthday is invalidated on the server here so restart sync to get
   // the new birthday from the server.
-  harness->StopSyncService(syncer::SyncService::CLEAR_DATA);
+  harness->StopSyncServiceAndClearData();
   return harness->StartSyncService();
 }

@@ -6,12 +6,12 @@
 #include <stdint.h>
 
 #include "base/bind.h"
-#include "base/macros.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/scoped_feature_list.h"
-#include "media/base/media_log.h"
 #include "media/base/media_switches.h"
+#include "media/base/media_util.h"
 #include "media/base/mock_filters.h"
 #include "media/base/test_helpers.h"
 #include "media/blink/buffered_data_source_host_impl.h"
@@ -190,13 +190,13 @@ class MockMultibufferDataSource : public MultibufferDataSource {
 
   bool downloading() { return downloading_; }
   void set_downloading(bool downloading) { downloading_ = downloading; }
-  bool range_supported() { return url_data()->range_supported(); }
+  bool range_supported() { return url_data_->range_supported(); }
   void CallSeekTask() { SeekTask(); }
 
  private:
   // Whether the resource is downloading or deferred.
   bool downloading_;
-  MediaLog media_log_;
+  NullMediaLog media_log_;
 
   DISALLOW_COPY_AND_ASSIGN(MockMultibufferDataSource);
 };
@@ -445,8 +445,8 @@ class MultibufferDataSourceTest : public testing::Test {
     return loader()->current_buffer_size_ * 32768 /* block size */;
   }
   double data_source_playback_rate() { return data_source_->playback_rate_; }
-  bool is_local_source() { return data_source_->assume_fully_buffered(); }
-  scoped_refptr<UrlData> url_data() { return data_source_->url_data(); }
+  bool is_local_source() { return data_source_->AssumeFullyBuffered(); }
+  scoped_refptr<UrlData> url_data() { return data_source_->url_data_; }
   void set_might_be_reused_from_cache_in_future(bool value) {
     url_data()->set_cacheable(value);
   }
@@ -704,7 +704,7 @@ TEST_F(MultibufferDataSourceTest,
       response_generator_->GeneratePartial206(0, kDataSize - 1);
   WebURLResponse response2 =
       response_generator_->GeneratePartial206(kDataSize, kDataSize * 2 - 1);
-  response2.SetURL(GURL(kHttpDifferentPathUrl));
+  response2.SetCurrentRequestUrl(GURL(kHttpDifferentPathUrl));
   // The origin URL of response1 and response2 are same. So no error should
   // occur.
   ExecuteMixedResponseSuccessTest(response1, response2);
@@ -717,7 +717,7 @@ TEST_F(MultibufferDataSourceTest,
       response_generator_->GeneratePartial206(0, kDataSize - 1);
   WebURLResponse response2 =
       response_generator_->GeneratePartial206(kDataSize, kDataSize * 2 - 1);
-  response2.SetURL(GURL(kHttpDifferentOriginUrl));
+  response2.SetCurrentRequestUrl(GURL(kHttpDifferentOriginUrl));
   // The origin URL of response1 and response2 are different. So an error should
   // occur.
   ExecuteMixedResponseFailureTest(response1, response2);
@@ -887,7 +887,7 @@ TEST_F(MultibufferDataSourceTest, StopDuringRead) {
   InitializeWith206Response();
 
   uint8_t buffer[256];
-  data_source_->Read(kDataSize, arraysize(buffer), buffer,
+  data_source_->Read(kDataSize, base::size(buffer), buffer,
                      base::Bind(&MultibufferDataSourceTest::ReadCallback,
                                 base::Unretained(this)));
 
@@ -1818,45 +1818,6 @@ TEST_F(MultibufferDataSourceTest, Http_Seek_Back) {
   EXPECT_EQ(kDataSize * 3, loader()->Tell());
 
   Stop();
-}
-
-TEST_F(MultibufferDataSourceTest, LoadLimitTest) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitFromCommandLine(kLimitParallelMediaPreloading.name, "");
-
-  StrictMock<MockBufferedDataSourceHost> hosts[7];
-  std::vector<std::unique_ptr<MockMultibufferDataSource>> sources;
-  for (size_t i = 0; i < base::size(hosts); i++) {
-    sources.push_back(std::make_unique<MockMultibufferDataSource>(
-        base::ThreadTaskRunnerHandle::Get(),
-        url_index_->GetByUrl(
-            GURL(std::string(kHttpUrl) + "?" + base::IntToString(i)),
-            UrlData::CORS_UNSPECIFIED),
-        &hosts[i]));
-    sources[i]->SetPreload(preload_);
-    sources[i]->Initialize(base::Bind(&MultibufferDataSourceTest::OnInitialize,
-                                      base::Unretained(this)));
-  }
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(1UL, url_index_->load_queue_size());
-}
-
-TEST_F(MultibufferDataSourceTest, LoadLimitTestNoLimit) {
-  StrictMock<MockBufferedDataSourceHost> hosts[7];
-  std::vector<std::unique_ptr<MockMultibufferDataSource>> sources;
-  for (size_t i = 0; i < base::size(hosts); i++) {
-    sources.push_back(std::make_unique<MockMultibufferDataSource>(
-        base::ThreadTaskRunnerHandle::Get(),
-        url_index_->GetByUrl(
-            GURL(std::string(kHttpUrl) + "?" + base::IntToString(i)),
-            UrlData::CORS_UNSPECIFIED),
-        &hosts[i]));
-    sources[i]->SetPreload(preload_);
-    sources[i]->Initialize(base::Bind(&MultibufferDataSourceTest::OnInitialize,
-                                      base::Unretained(this)));
-  }
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(0UL, url_index_->load_queue_size());
 }
 
 }  // namespace media

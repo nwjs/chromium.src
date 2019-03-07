@@ -65,9 +65,10 @@ TaskSchedulerImpl::TaskSchedulerImpl(
       tracked_ref_factory_(this) {
   DCHECK(!histogram_label.empty());
 
-  static_assert(arraysize(environment_to_worker_pool_) == ENVIRONMENT_COUNT,
-                "The size of |environment_to_worker_pool_| must match "
-                "ENVIRONMENT_COUNT.");
+  static_assert(
+      std::extent<decltype(environment_to_worker_pool_)>() == ENVIRONMENT_COUNT,
+      "The size of |environment_to_worker_pool_| must match "
+      "ENVIRONMENT_COUNT.");
   static_assert(
       size(kEnvironmentParams) == ENVIRONMENT_COUNT,
       "The size of |kEnvironmentParams| must match ENVIRONMENT_COUNT.");
@@ -256,6 +257,13 @@ TaskSchedulerImpl::CreateCOMSTATaskRunnerWithTraits(
 }
 #endif  // defined(OS_WIN)
 
+scoped_refptr<UpdateableSequencedTaskRunner>
+TaskSchedulerImpl::CreateUpdateableSequencedTaskRunnerWithTraitsForTesting(
+    const TaskTraits& traits) {
+  const TaskTraits new_traits = SetUserBlockingPriorityIfNeeded(traits);
+  return MakeRefCounted<SchedulerSequencedTaskRunner>(new_traits, this);
+}
+
 std::vector<const HistogramBase*> TaskSchedulerImpl::GetHistograms() const {
   std::vector<const HistogramBase*> histograms;
   for (const auto& worker_pool : worker_pools_)
@@ -405,7 +413,7 @@ TaskTraits TaskSchedulerImpl::SetUserBlockingPriorityIfNeeded(
 
 void TaskSchedulerImpl::ReportHeartbeatMetrics() const {
   for (const auto& worker_pool : worker_pools_)
-    worker_pool->RecordNumWorkersHistogram();
+    worker_pool->ReportHeartbeatMetrics();
 }
 
 }  // namespace internal

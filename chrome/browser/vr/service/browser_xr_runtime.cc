@@ -6,6 +6,7 @@
 
 #include "chrome/browser/vr/service/xr_device_impl.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "device/vr/vr_device.h"
 
@@ -24,23 +25,20 @@ BrowserXRRuntime::BrowserXRRuntime(device::mojom::XRRuntimePtr runtime,
   // so we won't be called after runtime_ is destroyed.
   runtime_->ListenToDeviceChanges(
       listener.PassInterface(),
-      base::BindOnce(&BrowserXRRuntime::OnInitialDevicePropertiesReceived,
+      base::BindOnce(&BrowserXRRuntime::OnDisplayInfoChanged,
                      base::Unretained(this)));
-}
-
-void BrowserXRRuntime::OnInitialDevicePropertiesReceived(
-    device::mojom::VRDisplayInfoPtr display_info) {
-  if (!display_info_)
-    OnDisplayInfoChanged(std::move(display_info));
 }
 
 BrowserXRRuntime::~BrowserXRRuntime() = default;
 
 void BrowserXRRuntime::OnDisplayInfoChanged(
     device::mojom::VRDisplayInfoPtr vr_device_info) {
+  bool had_display_info = !!display_info_;
   display_info_ = std::move(vr_device_info);
-  for (XRDeviceImpl* device : renderer_device_connections_) {
-    device->RuntimesChanged();
+  if (had_display_info) {
+    for (XRDeviceImpl* device : renderer_device_connections_) {
+      device->RuntimesChanged();
+    }
   }
 
   // Notify observers of the new display info.
@@ -178,6 +176,7 @@ void BrowserXRRuntime::UpdateListeningForActivate(XRDeviceImpl* device) {
 }
 
 void BrowserXRRuntime::InitializeAndGetDisplayInfo(
+    content::RenderFrameHost* render_frame_host,
     device::mojom::XRDevice::GetImmersiveVRDisplayInfoCallback callback) {
   device::mojom::VRDisplayInfoPtr device_info = GetVRDisplayInfo();
   if (device_info) {
@@ -185,8 +184,13 @@ void BrowserXRRuntime::InitializeAndGetDisplayInfo(
     return;
   }
 
+  int render_process_id =
+      render_frame_host ? render_frame_host->GetProcess()->GetID() : -1;
+  int render_frame_id =
+      render_frame_host ? render_frame_host->GetRoutingID() : -1;
   pending_initialization_callbacks_.push_back(std::move(callback));
   runtime_->EnsureInitialized(
+      render_process_id, render_frame_id,
       base::BindOnce(&BrowserXRRuntime::OnInitialized, base::Unretained(this)));
 }
 

@@ -78,6 +78,7 @@ class ShellContentBrowserClient : public content::ContentBrowserClient {
       content::RenderFrameHost* frame_host,
       int render_process_id,
       bool is_navigation,
+      bool is_download,
       const url::Origin& request_initiator,
       network::mojom::URLLoaderFactoryRequest* factory_request,
       network::mojom::TrustedURLLoaderHeaderClientPtrInfo* header_client,
@@ -98,6 +99,7 @@ class ShellContentBrowserClient : public content::ContentBrowserClient {
       network::mojom::NetworkContext* network_context,
       network::mojom::TrustedURLLoaderHeaderClientPtrInfo* header_client,
       const url::Origin& request_initiator) override;
+  std::string GetUserAgent() const override;
 
  protected:
   // Subclasses may wish to provide their own ShellBrowserMainParts.

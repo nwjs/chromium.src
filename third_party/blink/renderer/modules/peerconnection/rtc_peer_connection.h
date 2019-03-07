@@ -32,13 +32,15 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_PEERCONNECTION_RTC_PEER_CONNECTION_H_
 
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "third_party/blink/public/platform/web_media_constraints.h"
 #include "third_party/blink/public/platform/web_rtc_peer_connection_handler.h"
 #include "third_party/blink/public/platform/web_rtc_peer_connection_handler_client.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
-#include "third_party/blink/renderer/core/dom/pausable_object.h"
+#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/crypto/normalize_algorithm.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/mediastream/media_stream.h"
@@ -47,11 +49,11 @@
 #include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection_controller.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_transceiver.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_session_description_enums.h"
-#include "third_party/blink/renderer/platform/async_method_runner.h"
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_session_description_request.h"
 #include "third_party/blink/renderer/platform/peerconnection/rtc_void_request.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
+#include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 
 namespace blink {
 
@@ -60,6 +62,7 @@ class MediaStreamTrack;
 class MediaStreamTrackOrString;
 class RTCAnswerOptions;
 class RTCConfiguration;
+class RTCDtlsTransport;
 class RTCDTMFSender;
 class RTCDataChannel;
 class RTCDataChannelInit;
@@ -103,7 +106,7 @@ class MODULES_EXPORT RTCPeerConnection final
     : public EventTargetWithInlineData,
       public WebRTCPeerConnectionHandlerClient,
       public ActiveScriptWrappable<RTCPeerConnection>,
-      public PausableObject,
+      public ContextLifecycleObserver,
       public MediaStreamObserver {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(RTCPeerConnection);
@@ -296,9 +299,7 @@ class MODULES_EXPORT RTCPeerConnection final
   const AtomicString& InterfaceName() const override;
   ExecutionContext* GetExecutionContext() const override;
 
-  // PausableObject
-  void Pause() override;
-  void Unpause() override;
+  // ContextLifecycleObserver
   void ContextDestroyed(ExecutionContext*) override;
 
   // ScriptWrappable
@@ -332,6 +333,8 @@ class MODULES_EXPORT RTCPeerConnection final
   // getUserMedia().
   bool HasDocumentMedia() const;
 
+  // Look up, and potentially create, a DTLSTransport object.
+  RTCDtlsTransport* LookupDtlsTransportByMid(String mid);
   void Trace(blink::Visitor*) override;
 
  private:
@@ -363,7 +366,7 @@ class MODULES_EXPORT RTCPeerConnection final
 
   void ScheduleDispatchEvent(Event*);
   void ScheduleDispatchEvent(Event*, BoolFunction);
-  void DispatchScheduledEvent();
+  void DispatchScheduledEvents();
   void MaybeFireNegotiationNeeded();
   MediaStreamTrack* GetTrack(const WebMediaStreamTrack&) const;
   RTCRtpSender* FindSenderForTrackAndStream(MediaStreamTrack*, MediaStream*);
@@ -479,9 +482,14 @@ class MODULES_EXPORT RTCPeerConnection final
   HeapVector<Member<RTCRtpReceiver>> rtp_receivers_;
   HeapVector<Member<RTCRtpTransceiver>> transceivers_;
 
+  // A map of all transports that have been looked up by MID.
+  // A transport may be referenced by more than one mid, so may
+  // be present multiple times in the table.
+  HeapHashMap<String, Member<RTCDtlsTransport>> dtls_transports_by_mid_;
+
   std::unique_ptr<WebRTCPeerConnectionHandler> peer_handler_;
 
-  Member<AsyncMethodRunner<RTCPeerConnection>> dispatch_scheduled_event_runner_;
+  TaskHandle dispatch_scheduled_events_task_handle_;
   HeapVector<Member<EventWrapper>> scheduled_events_;
 
   // This handle notifies scheduler about an active connection associated

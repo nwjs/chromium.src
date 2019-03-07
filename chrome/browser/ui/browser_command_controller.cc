@@ -504,6 +504,9 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_MANAGE_PASSWORDS_FOR_PAGE:
       ManagePasswordsForPage(browser_);
       break;
+    case IDC_SEND_TO_MY_DEVICES:
+      SendToMyDevices(browser_);
+      break;
 
     // Clipboard commands
     case IDC_CUT:
@@ -875,6 +878,7 @@ void BrowserCommandController::InitCommandState() {
   // Page-related commands
   command_updater_.UpdateCommandEnabled(IDC_EMAIL_PAGE_LOCATION, true);
   command_updater_.UpdateCommandEnabled(IDC_MANAGE_PASSWORDS_FOR_PAGE, true);
+  command_updater_.UpdateCommandEnabled(IDC_SEND_TO_MY_DEVICES, true);
 
   // Zoom
   command_updater_.UpdateCommandEnabled(IDC_ZOOM_MENU, true);
@@ -1241,11 +1245,7 @@ namespace {
 // Makes sure that all commands that are not whitelisted are disabled. DCHECKs
 // otherwise. Compiled only in debug mode.
 void NonWhitelistedCommandsAreDisabled(CommandUpdaterImpl* command_updater) {
-  constexpr int kWhitelistedIds[] = {
-    IDC_CUT, IDC_COPY, IDC_PASTE,
-    IDC_FIND, IDC_FIND_NEXT, IDC_FIND_PREVIOUS,
-    IDC_ZOOM_PLUS, IDC_ZOOM_NORMAL, IDC_ZOOM_MINUS,
-  };
+  constexpr int kWhitelistedIds[] = {IDC_CUT, IDC_COPY, IDC_PASTE};
 
   // Go through all the command ids, skip the whitelisted ones.
   for (int id : command_updater->GetAllIds()) {
@@ -1272,10 +1272,7 @@ void BrowserCommandController::UpdateCommandsForLockedFullscreenMode() {
     // Update the state of whitelisted commands:
     // IDC_CUT/IDC_COPY/IDC_PASTE,
     UpdateCommandsForContentRestrictionState();
-    // IDC_FIND/IDC_FIND_NEXT/IDC_FIND_PREVIOUS,
-    UpdateCommandsForFind();
-    // IDC_ZOOM_PLUS/IDC_ZOOM_NORMAL/IDC_ZOOM_MINUS.
-    UpdateCommandsForZoomState();
+    // TODO(crbug.com/904637): Re-enable Find and Zoom in locked fullscreen.
     // All other commands will be disabled (there is an early return in their
     // corresponding UpdateCommandsFor* functions).
 #if DCHECK_IS_ON()

@@ -184,11 +184,6 @@ const char kNoUserGestureRequiredPolicy[] = "no-user-gesture-required";
 // Autoplay policy to require a user gesture in order to play.
 const char kUserGestureRequiredPolicy[] = "user-gesture-required";
 
-// Autoplay policy to require a user gesture in order to play for cross origin
-// iframes.
-const char kUserGestureRequiredForCrossOriginPolicy[] =
-    "user-gesture-required-for-cross-origin";
-
 }  // namespace autoplay
 
 }  // namespace switches
@@ -243,7 +238,7 @@ const base::Feature kUseAndroidOverlayAggressively{
 
 // Let video track be unselected when video is playing in the background.
 const base::Feature kBackgroundSrcVideoTrackOptimization{
-    "BackgroundSrcVideoTrackOptimization", base::FEATURE_DISABLED_BY_DEFAULT};
+    "BackgroundSrcVideoTrackOptimization", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Let video without audio be paused when it is playing in the background.
 const base::Feature kBackgroundVideoPauseOptimization{
@@ -256,30 +251,13 @@ const base::Feature kMemoryPressureBasedSourceBufferGC{
     "MemoryPressureBasedSourceBufferGC", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable MojoVideoDecoder, replacing GpuVideoDecoder.
-const base::Feature kMojoVideoDecoder {
-  "MojoVideoDecoder",
-#if defined(OS_CHROMEOS)
-      // TODO(posciak): Re-enable once the feature is verified on CrOS.
-      // https://crbug.com/902968.
-      base::FEATURE_DISABLED_BY_DEFAULT
-#else
-      base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-};
+const base::Feature kMojoVideoDecoder{"MojoVideoDecoder",
+                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable The D3D11 Video decoder. Must also enable MojoVideoDecoder for
 // this to have any effect.
 const base::Feature kD3D11VideoDecoder{"D3D11VideoDecoder",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Allow playback of encrypted media through the D3D11 decoder.  Requires
-// D3D11VideoDecoder to be enabled also.
-const base::Feature kD3D11EncryptedMedia{"D3D11EncryptedMedia",
-                                         base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Enable VP9 decoding in the D3D11VideoDecoder.
-const base::Feature kD3D11VP9Decoder{"D3D11VP9Decoder",
-                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Falls back to other decoders after audio/video decode error happens. The
 // implementation may choose different strategies on when to fallback. See
@@ -302,11 +280,11 @@ const base::Feature kNewEncodeCpuLoadEstimator{
 
 // Use the new Remote Playback / media flinging pipeline.
 const base::Feature kNewRemotePlaybackPipeline{
-    "NewRemotePlaybackPipeline", base::FEATURE_DISABLED_BY_DEFAULT};
+    "NewRemotePlaybackPipeline", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Use the new RTC hardware decode path via RTCVideoDecoderAdapter.
 const base::Feature kRTCVideoDecoderAdapter{"RTCVideoDecoderAdapter",
-                                            base::FEATURE_DISABLED_BY_DEFAULT};
+                                            base::FEATURE_ENABLED_BY_DEFAULT};
 
 // CanPlayThrough issued according to standard.
 const base::Feature kSpecCompliantCanPlayThrough{
@@ -359,12 +337,13 @@ const base::Feature kHardwareSecureDecryption{
 
 // Enables handling of hardware media keys for controlling media.
 const base::Feature kHardwareMediaKeyHandling{
-    "HardwareMediaKeyHandling", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Limits number of media tags loading in parallel to 6. This speeds up
-// preloading of any media that requires multiple requests to preload.
-const base::Feature kLimitParallelMediaPreloading{
-    "LimitParallelMediaPreloading", base::FEATURE_DISABLED_BY_DEFAULT};
+  "HardwareMediaKeyHandling",
+#if defined(OS_CHROMEOS)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
 
 // Enables low-delay video rendering in media pipeline on "live" stream.
 const base::Feature kLowDelayVideoRenderingOnLiveStream{
@@ -425,7 +404,7 @@ const base::Feature kMediaFoundationH264Encoding{
 
 // Enables MediaFoundation based video capture
 const base::Feature kMediaFoundationVideoCapture{
-    "MediaFoundationVideoCapture", base::FEATURE_DISABLED_BY_DEFAULT};
+    "MediaFoundationVideoCapture", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables DirectShow GetPhotoState implementation
 // Created to act as a kill switch by disabling it, in the case of the
@@ -486,6 +465,33 @@ const base::Feature kMediaEngagementBypassAutoplayPolicies{
 const base::Feature kPreloadMediaEngagementData{
     "PreloadMediaEngagementData", base::FEATURE_ENABLED_BY_DEFAULT};
 #endif
+
+// Enables experimental local learning for media.  Adds reporting only; does not
+// change media behavior.
+const base::Feature kMediaLearningExperiment{"MediaLearningExperiment",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables flash to be ducked by audio focus. This is enabled on Chrome OS which
+// has audio focus enabled.
+const base::Feature kAudioFocusDuckFlash {
+  "AudioFocusDuckFlash",
+#if defined(OS_CHROMEOS)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
+
+// Enables the internal Media Session logic without enabling the Media Session
+// service.
+const base::Feature kInternalMediaSession {
+  "InternalMediaSession",
+#if defined(OS_ANDROID)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
 
 bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(

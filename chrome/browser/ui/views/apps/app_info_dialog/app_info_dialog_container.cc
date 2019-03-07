@@ -32,6 +32,7 @@
 #if BUILDFLAG(ENABLE_APP_LIST)
 #include "ash/public/cpp/app_list/app_list_constants.h"
 #include "third_party/skia/include/core/SkPaint.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/background.h"
 #endif
 
@@ -102,7 +103,7 @@ class BaseDialogContainer : public views::DialogDelegateView {
 
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override {
     DCHECK_EQ(accelerator.key_code(), ui::VKEY_ESCAPE);
-    GetWidget()->Close();
+    GetWidget()->CloseWithReason(views::Widget::ClosedReason::kEscKeyPressed);
     return true;
   }
 
@@ -135,7 +136,8 @@ class AppListDialogContainer : public BaseDialogContainer,
   explicit AppListDialogContainer(views::View* dialog_body)
       : BaseDialogContainer(dialog_body, base::RepeatingClosure()) {
     SetBackground(std::make_unique<AppListOverlayBackground>());
-    close_button_ = views::BubbleFrameView::CreateCloseButton(this);
+    close_button_ = views::BubbleFrameView::CreateCloseButton(
+        this, GetNativeTheme()->SystemDarkModeEnabled());
     AddChildView(close_button_);
   }
   ~AppListDialogContainer() override {}
@@ -163,7 +165,8 @@ class AppListDialogContainer : public BaseDialogContainer,
   // views::ButtonListener:
   void ButtonPressed(views::Button* sender, const ui::Event& event) override {
     if (sender == close_button_) {
-      GetWidget()->Close();
+      GetWidget()->CloseWithReason(
+          views::Widget::ClosedReason::kCloseButtonClicked);
     } else {
       NOTREACHED();
     }
@@ -205,9 +208,6 @@ class FullSizeBubbleFrameView : public views::BubbleFrameView {
 
   // Overridden from views::BubbleFrameView:
   bool ExtendClientIntoTitle() const override { return true; }
-
-  // Overridden from views::View:
-  gfx::Insets GetInsets() const override { return gfx::Insets(); }
 
   DISALLOW_COPY_AND_ASSIGN(FullSizeBubbleFrameView);
 };

@@ -60,7 +60,7 @@ CanvasResourceDispatcher::CanvasResourceDispatcher(
       num_unreclaimed_frames_posted_(0),
       client_(client),
       enable_surface_synchronization_(
-          features::IsSurfaceSynchronizationEnabled()),
+          ::features::IsSurfaceSynchronizationEnabled()),
       weak_ptr_factory_(this) {
   // Frameless canvas pass an invalid |frame_sink_id_|; don't create mojo
   // channel for this special case.
@@ -75,8 +75,9 @@ CanvasResourceDispatcher::CanvasResourceDispatcher(
   DCHECK(provider);
   binding_.Bind(mojo::MakeRequest(&client_ptr_));
   provider->CreateCompositorFrameSink(frame_sink_id_, std::move(client_ptr_),
-                                      mojo::MakeRequest(&sink_),
-                                      mojo::MakeRequest(&surface_embedder_));
+                                      mojo::MakeRequest(&sink_));
+  provider->ConnectToEmbedder(frame_sink_id_,
+                              mojo::MakeRequest(&surface_embedder_));
 }
 
 CanvasResourceDispatcher::~CanvasResourceDispatcher() = default;
@@ -217,6 +218,8 @@ bool CanvasResourceDispatcher::PrepareFrame(
     current_begin_frame_ack_.has_damage = true;
   }
   frame->metadata.begin_frame_ack = current_begin_frame_ack_;
+
+  frame->metadata.frame_token = ++next_frame_token_;
 
   const gfx::Rect bounds(size_.Width(), size_.Height());
   constexpr int kRenderPassId = 1;

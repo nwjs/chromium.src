@@ -38,7 +38,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_string_list.h"
-#include "third_party/blink/renderer/core/dom/events/event_listener.h"
+#include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/inspector/inspected_frames.h"
@@ -107,22 +107,21 @@ Response AssertIDBFactory(Document* document, IDBFactory*& result) {
   return Response::OK();
 }
 
-class GetDatabaseNamesCallback final : public EventListener {
-  WTF_MAKE_NONCOPYABLE(GetDatabaseNamesCallback);
-
+class GetDatabaseNamesCallback final : public NativeEventListener {
  public:
   static GetDatabaseNamesCallback* Create(
       std::unique_ptr<RequestDatabaseNamesCallback> request_callback,
       const String& security_origin) {
-    return new GetDatabaseNamesCallback(std::move(request_callback),
-                                        security_origin);
+    return MakeGarbageCollected<GetDatabaseNamesCallback>(
+        std::move(request_callback), security_origin);
   }
 
+  GetDatabaseNamesCallback(
+      std::unique_ptr<RequestDatabaseNamesCallback> request_callback,
+      const String& security_origin)
+      : request_callback_(std::move(request_callback)),
+        security_origin_(security_origin) {}
   ~GetDatabaseNamesCallback() override = default;
-
-  bool operator==(const EventListener& other) const override {
-    return this == &other;
-  }
 
   void Invoke(ExecutionContext*, Event* event) override {
     if (event->type() != event_type_names::kSuccess) {
@@ -147,31 +146,24 @@ class GetDatabaseNamesCallback final : public EventListener {
   }
 
  private:
-  GetDatabaseNamesCallback(
-      std::unique_ptr<RequestDatabaseNamesCallback> request_callback,
-      const String& security_origin)
-      : EventListener(EventListener::kCPPEventListenerType),
-        request_callback_(std::move(request_callback)),
-        security_origin_(security_origin) {}
   std::unique_ptr<RequestDatabaseNamesCallback> request_callback_;
   String security_origin_;
 };
 
-class DeleteCallback final : public EventListener {
-  WTF_MAKE_NONCOPYABLE(DeleteCallback);
-
+class DeleteCallback final : public NativeEventListener {
  public:
   static DeleteCallback* Create(
       std::unique_ptr<DeleteDatabaseCallback> request_callback,
       const String& security_origin) {
-    return new DeleteCallback(std::move(request_callback), security_origin);
+    return MakeGarbageCollected<DeleteCallback>(std::move(request_callback),
+                                                security_origin);
   }
 
+  DeleteCallback(std::unique_ptr<DeleteDatabaseCallback> request_callback,
+                 const String& security_origin)
+      : request_callback_(std::move(request_callback)),
+        security_origin_(security_origin) {}
   ~DeleteCallback() override = default;
-
-  bool operator==(const EventListener& other) const override {
-    return this == &other;
-  }
 
   void Invoke(ExecutionContext*, Event* event) override {
     if (event->type() != event_type_names::kSuccess) {
@@ -183,11 +175,6 @@ class DeleteCallback final : public EventListener {
   }
 
  private:
-  DeleteCallback(std::unique_ptr<DeleteDatabaseCallback> request_callback,
-                 const String& security_origin)
-      : EventListener(EventListener::kCPPEventListenerType),
-        request_callback_(std::move(request_callback)),
-        security_origin_(security_origin) {}
   std::unique_ptr<DeleteDatabaseCallback> request_callback_;
   String security_origin_;
 };
@@ -256,19 +243,21 @@ class ExecutableWithDatabase
 };
 
 template <typename RequestCallback>
-class OpenDatabaseCallback final : public EventListener {
+class OpenDatabaseCallback final : public NativeEventListener {
  public:
   static OpenDatabaseCallback* Create(
       ExecutableWithDatabase<RequestCallback>* executable_with_database,
       ScriptState* script_state) {
-    return new OpenDatabaseCallback(executable_with_database, script_state);
+    return MakeGarbageCollected<OpenDatabaseCallback>(executable_with_database,
+                                                      script_state);
   }
 
+  OpenDatabaseCallback(
+      ExecutableWithDatabase<RequestCallback>* executable_with_database,
+      ScriptState* script_state)
+      : executable_with_database_(executable_with_database),
+        script_state_(script_state) {}
   ~OpenDatabaseCallback() override = default;
-
-  bool operator==(const EventListener& other) const override {
-    return this == &other;
-  }
 
   void Invoke(ExecutionContext* context, Event* event) override {
     if (event->type() != event_type_names::kSuccess) {
@@ -294,34 +283,28 @@ class OpenDatabaseCallback final : public EventListener {
 
   void Trace(blink::Visitor* visitor) override {
     visitor->Trace(script_state_);
-    EventListener::Trace(visitor);
+    NativeEventListener::Trace(visitor);
   }
 
  private:
-  OpenDatabaseCallback(
-      ExecutableWithDatabase<RequestCallback>* executable_with_database,
-      ScriptState* script_state)
-      : EventListener(EventListener::kCPPEventListenerType),
-        executable_with_database_(executable_with_database),
-        script_state_(script_state) {}
   scoped_refptr<ExecutableWithDatabase<RequestCallback>>
       executable_with_database_;
   Member<ScriptState> script_state_;
 };
 
 template <typename RequestCallback>
-class UpgradeDatabaseCallback final : public EventListener {
+class UpgradeDatabaseCallback final : public NativeEventListener {
  public:
   static UpgradeDatabaseCallback* Create(
       ExecutableWithDatabase<RequestCallback>* executable_with_database) {
-    return new UpgradeDatabaseCallback(executable_with_database);
+    return MakeGarbageCollected<UpgradeDatabaseCallback>(
+        executable_with_database);
   }
 
+  UpgradeDatabaseCallback(
+      ExecutableWithDatabase<RequestCallback>* executable_with_database)
+      : executable_with_database_(executable_with_database) {}
   ~UpgradeDatabaseCallback() override = default;
-
-  bool operator==(const EventListener& other) const override {
-    return this == &other;
-  }
 
   void Invoke(ExecutionContext* context, Event* event) override {
     if (event->type() != event_type_names::kUpgradeneeded) {
@@ -342,10 +325,6 @@ class UpgradeDatabaseCallback final : public EventListener {
   }
 
  private:
-  UpgradeDatabaseCallback(
-      ExecutableWithDatabase<RequestCallback>* executable_with_database)
-      : EventListener(EventListener::kCPPEventListenerType),
-        executable_with_database_(executable_with_database) {}
   scoped_refptr<ExecutableWithDatabase<RequestCallback>>
       executable_with_database_;
 };
@@ -387,16 +366,16 @@ IDBIndex* IndexForObjectStore(IDBObjectStore* idb_object_store,
 std::unique_ptr<KeyPath> KeyPathFromIDBKeyPath(const IDBKeyPath& idb_key_path) {
   std::unique_ptr<KeyPath> key_path;
   switch (idb_key_path.GetType()) {
-    case IDBKeyPath::kNullType:
+    case mojom::IDBKeyPathType::Null:
       key_path = KeyPath::create().setType(KeyPath::TypeEnum::Null).build();
       break;
-    case IDBKeyPath::kStringType:
+    case mojom::IDBKeyPathType::String:
       key_path = KeyPath::create()
                      .setType(KeyPath::TypeEnum::String)
                      .setString(idb_key_path.GetString())
                      .build();
       break;
-    case IDBKeyPath::kArrayType: {
+    case mojom::IDBKeyPathType::Array: {
       key_path = KeyPath::create().setType(KeyPath::TypeEnum::Array).build();
       std::unique_ptr<protocol::Array<String>> array =
           protocol::Array<String>::create();
@@ -463,7 +442,8 @@ class DatabaseLoader final
     std::unique_ptr<DatabaseWithObjectStores> result =
         DatabaseWithObjectStores::create()
             .setName(idb_database->name())
-            .setVersion(static_cast<int>(idb_database->version()))
+            .setVersion(
+                static_cast<unsigned long long>(idb_database->version()))
             .setObjectStores(std::move(object_stores))
             .build();
 
@@ -542,7 +522,7 @@ static IDBKeyRange* IdbKeyRangeFromKeyRange(
 
 class DataLoader;
 
-class OpenCursorCallback final : public EventListener {
+class OpenCursorCallback final : public NativeEventListener {
  public:
   static OpenCursorCallback* Create(
       v8_inspector::V8InspectorSession* v8_session,
@@ -550,16 +530,24 @@ class OpenCursorCallback final : public EventListener {
       std::unique_ptr<RequestDataCallback> request_callback,
       int skip_count,
       unsigned page_size) {
-    return new OpenCursorCallback(v8_session, script_state,
-                                  std::move(request_callback), skip_count,
-                                  page_size);
+    return MakeGarbageCollected<OpenCursorCallback>(v8_session, script_state,
+                                                    std::move(request_callback),
+                                                    skip_count, page_size);
   }
 
+  OpenCursorCallback(v8_inspector::V8InspectorSession* v8_session,
+                     ScriptState* script_state,
+                     std::unique_ptr<RequestDataCallback> request_callback,
+                     int skip_count,
+                     unsigned page_size)
+      : v8_session_(v8_session),
+        script_state_(script_state),
+        request_callback_(std::move(request_callback)),
+        skip_count_(skip_count),
+        page_size_(page_size) {
+    result_ = Array<DataEntry>::create();
+  }
   ~OpenCursorCallback() override = default;
-
-  bool operator==(const EventListener& other) const override {
-    return this == &other;
-  }
 
   void Invoke(ExecutionContext*, Event* event) override {
     if (event->type() != event_type_names::kSuccess) {
@@ -636,24 +624,10 @@ class OpenCursorCallback final : public EventListener {
 
   void Trace(blink::Visitor* visitor) override {
     visitor->Trace(script_state_);
-    EventListener::Trace(visitor);
+    NativeEventListener::Trace(visitor);
   }
 
  private:
-  OpenCursorCallback(v8_inspector::V8InspectorSession* v8_session,
-                     ScriptState* script_state,
-                     std::unique_ptr<RequestDataCallback> request_callback,
-                     int skip_count,
-                     unsigned page_size)
-      : EventListener(EventListener::kCPPEventListenerType),
-        v8_session_(v8_session),
-        script_state_(script_state),
-        request_callback_(std::move(request_callback)),
-        skip_count_(skip_count),
-        page_size_(page_size) {
-    result_ = Array<DataEntry>::create();
-  }
-
   v8_inspector::V8InspectorSession* v8_session_;
   Member<ScriptState> script_state_;
   std::unique_ptr<RequestDataCallback> request_callback_;
@@ -855,9 +829,7 @@ void InspectorIndexedDBAgent::requestData(
       database_name);
 }
 
-class DeleteObjectStoreEntriesListener final : public EventListener {
-  WTF_MAKE_NONCOPYABLE(DeleteObjectStoreEntriesListener);
-
+class DeleteObjectStoreEntriesListener final : public NativeEventListener {
  public:
   static DeleteObjectStoreEntriesListener* Create(
       std::unique_ptr<DeleteObjectStoreEntriesCallback> request_callback) {
@@ -867,13 +839,8 @@ class DeleteObjectStoreEntriesListener final : public EventListener {
 
   DeleteObjectStoreEntriesListener(
       std::unique_ptr<DeleteObjectStoreEntriesCallback> request_callback)
-      : EventListener(EventListener::kCPPEventListenerType),
-        request_callback_(std::move(request_callback)) {}
+      : request_callback_(std::move(request_callback)) {}
   ~DeleteObjectStoreEntriesListener() override = default;
-
-  bool operator==(const EventListener& other) const override {
-    return this == &other;
-  }
 
   void Invoke(ExecutionContext*, Event* event) override {
     if (event->type() != event_type_names::kSuccess) {
@@ -962,20 +929,18 @@ void InspectorIndexedDBAgent::deleteObjectStoreEntries(
       database_name);
 }
 
-class ClearObjectStoreListener final : public EventListener {
-  WTF_MAKE_NONCOPYABLE(ClearObjectStoreListener);
-
+class ClearObjectStoreListener final : public NativeEventListener {
  public:
   static ClearObjectStoreListener* Create(
       std::unique_ptr<ClearObjectStoreCallback> request_callback) {
-    return new ClearObjectStoreListener(std::move(request_callback));
+    return MakeGarbageCollected<ClearObjectStoreListener>(
+        std::move(request_callback));
   }
 
+  ClearObjectStoreListener(
+      std::unique_ptr<ClearObjectStoreCallback> request_callback)
+      : request_callback_(std::move(request_callback)) {}
   ~ClearObjectStoreListener() override = default;
-
-  bool operator==(const EventListener& other) const override {
-    return this == &other;
-  }
 
   void Invoke(ExecutionContext*, Event* event) override {
     if (event->type() != event_type_names::kComplete) {
@@ -987,11 +952,6 @@ class ClearObjectStoreListener final : public EventListener {
   }
 
  private:
-  ClearObjectStoreListener(
-      std::unique_ptr<ClearObjectStoreCallback> request_callback)
-      : EventListener(EventListener::kCPPEventListenerType),
-        request_callback_(std::move(request_callback)) {}
-
   std::unique_ptr<ClearObjectStoreCallback> request_callback_;
 };
 

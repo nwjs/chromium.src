@@ -37,10 +37,10 @@ static constexpr base::TimeDelta kPeriodicBoxModelCheckInterval =
     base::TimeDelta::FromMilliseconds(200);
 
 // Timeout after roughly 10 seconds (50*200ms).
-static int kPeriodicBoxModelCheckRounds = 50;
+constexpr int kPeriodicBoxModelCheckRounds = 50;
 
 // Expiration time for the Autofill Assistant cookie.
-static int kCookieExpiresSeconds = 600;
+constexpr int kCookieExpiresSeconds = 600;
 
 // Name and value used for the static cookie.
 const char* const kAutofillAssistantCookieName = "autofill_assistant_cookie";
@@ -150,18 +150,75 @@ const char* const kQuerySelectorAll =
         return found[0];
       return undefined;
     })";
+
+bool ConvertPseudoType(const PseudoType pseudo_type,
+                       dom::PseudoType* pseudo_type_output) {
+  switch (pseudo_type) {
+    case PseudoType::UNDEFINED:
+      break;
+    case PseudoType::FIRST_LINE:
+      *pseudo_type_output = dom::PseudoType::FIRST_LINE;
+      return true;
+    case PseudoType::FIRST_LETTER:
+      *pseudo_type_output = dom::PseudoType::FIRST_LETTER;
+      return true;
+    case PseudoType::BEFORE:
+      *pseudo_type_output = dom::PseudoType::BEFORE;
+      return true;
+    case PseudoType::AFTER:
+      *pseudo_type_output = dom::PseudoType::AFTER;
+      return true;
+    case PseudoType::BACKDROP:
+      *pseudo_type_output = dom::PseudoType::BACKDROP;
+      return true;
+    case PseudoType::SELECTION:
+      *pseudo_type_output = dom::PseudoType::SELECTION;
+      return true;
+    case PseudoType::FIRST_LINE_INHERITED:
+      *pseudo_type_output = dom::PseudoType::FIRST_LINE_INHERITED;
+      return true;
+    case PseudoType::SCROLLBAR:
+      *pseudo_type_output = dom::PseudoType::SCROLLBAR;
+      return true;
+    case PseudoType::SCROLLBAR_THUMB:
+      *pseudo_type_output = dom::PseudoType::SCROLLBAR_THUMB;
+      return true;
+    case PseudoType::SCROLLBAR_BUTTON:
+      *pseudo_type_output = dom::PseudoType::SCROLLBAR_BUTTON;
+      return true;
+    case PseudoType::SCROLLBAR_TRACK:
+      *pseudo_type_output = dom::PseudoType::SCROLLBAR_TRACK;
+      return true;
+    case PseudoType::SCROLLBAR_TRACK_PIECE:
+      *pseudo_type_output = dom::PseudoType::SCROLLBAR_TRACK_PIECE;
+      return true;
+    case PseudoType::SCROLLBAR_CORNER:
+      *pseudo_type_output = dom::PseudoType::SCROLLBAR_CORNER;
+      return true;
+    case PseudoType::RESIZER:
+      *pseudo_type_output = dom::PseudoType::RESIZER;
+      return true;
+    case PseudoType::INPUT_LIST_BUTTON:
+      *pseudo_type_output = dom::PseudoType::INPUT_LIST_BUTTON;
+      return true;
+  }
+  return false;
+}
 }  // namespace
 
 WebController::ElementPositionGetter::ElementPositionGetter()
-    : visual_state_updated_(false), weak_ptr_factory_(this) {}
+    : weak_ptr_factory_(this) {}
 WebController::ElementPositionGetter::~ElementPositionGetter() = default;
 
 void WebController::ElementPositionGetter::Start(
     content::RenderFrameHost* frame_host,
     DevtoolsClient* devtools_client,
     std::string element_object_id,
-    base::OnceCallback<void(int, int)> callback) {
+    ElementPositionCallback callback) {
+  devtools_client_ = devtools_client;
+  object_id_ = element_object_id;
   callback_ = std::move(callback);
+  remaining_rounds_ = kPeriodicBoxModelCheckRounds;
 
   // Wait for a roundtrips through the renderer and compositor pipeline,
   // otherwise touch event may be dropped because of missing handler.
@@ -171,47 +228,32 @@ void WebController::ElementPositionGetter::Start(
   frame_host->InsertVisualStateCallback(base::BindOnce(
       &WebController::ElementPositionGetter::OnVisualStateUpdatedCallback,
       weak_ptr_factory_.GetWeakPtr()));
-
-  // Set 'point_x' and 'point_y' to -1 to force one round of stable check.
-  GetAndWaitBoxModelStable(devtools_client, element_object_id,
-                           /* point_x= */ -1,
-                           /* point_y= */ -1, kPeriodicBoxModelCheckRounds);
+  GetAndWaitBoxModelStable();
 }
 
 void WebController::ElementPositionGetter::OnVisualStateUpdatedCallback(
-    bool state) {
-  if (state) {
+    bool success) {
+  if (success) {
     visual_state_updated_ = true;
     return;
   }
 
-  OnResult(-1, -1);
+  OnError();
 }
 
-void WebController::ElementPositionGetter::GetAndWaitBoxModelStable(
-    DevtoolsClient* devtools_client,
-    std::string object_id,
-    int point_x,
-    int point_y,
-    int remaining_rounds) {
-  devtools_client->GetDOM()->GetBoxModel(
-      dom::GetBoxModelParams::Builder().SetObjectId(object_id).Build(),
+void WebController::ElementPositionGetter::GetAndWaitBoxModelStable() {
+  devtools_client_->GetDOM()->GetBoxModel(
+      dom::GetBoxModelParams::Builder().SetObjectId(object_id_).Build(),
       base::BindOnce(
           &WebController::ElementPositionGetter::OnGetBoxModelForStableCheck,
-          weak_ptr_factory_.GetWeakPtr(), devtools_client, object_id, point_x,
-          point_y, remaining_rounds));
+          weak_ptr_factory_.GetWeakPtr()));
 }
 
 void WebController::ElementPositionGetter::OnGetBoxModelForStableCheck(
-    DevtoolsClient* devtools_client,
-    std::string object_id,
-    int point_x,
-    int point_y,
-    int remaining_rounds,
     std::unique_ptr<dom::GetBoxModelResult> result) {
   if (!result || !result->GetModel() || !result->GetModel()->GetContent()) {
     DLOG(ERROR) << "Failed to get box model.";
-    OnResult(-1, -1);
+    OnError();
     return;
   }
 
@@ -227,10 +269,10 @@ void WebController::ElementPositionGetter::OnGetBoxModelForStableCheck(
   // 3*kPeriodicBoxModelCheckInterval) for visual state update callback since
   // it might take longer time to return or never return if no updates.
   DCHECK(kPeriodicBoxModelCheckRounds > 2 &&
-         kPeriodicBoxModelCheckRounds >= remaining_rounds);
-  if (new_point_x == point_x && new_point_y == point_y &&
+         kPeriodicBoxModelCheckRounds >= remaining_rounds_);
+  if (has_point_ && new_point_x == point_x_ && new_point_y == point_y_ &&
       (visual_state_updated_ ||
-       remaining_rounds + 2 < kPeriodicBoxModelCheckRounds)) {
+       remaining_rounds_ + 2 < kPeriodicBoxModelCheckRounds)) {
     // Note that there is still a chance that the element's position has been
     // changed after the last call of GetBoxModel, however, it might be safe
     // to assume the element's position will not be changed before issuing
@@ -241,65 +283,69 @@ void WebController::ElementPositionGetter::OnGetBoxModelForStableCheck(
     return;
   }
 
-  if (remaining_rounds <= 0) {
-    OnResult(-1, -1);
+  if (remaining_rounds_ <= 0) {
+    OnError();
     return;
   }
 
-  // Scroll the element into view again if it was moved out of view.
-  // Check 'point_x' amd 'point_y' are greater or equal than zero to escape the
-  // first round.
-  if (point_x >= 0 && point_y >= 0) {
+  bool is_first_round = !has_point_;
+  has_point_ = true;
+  point_x_ = new_point_x;
+  point_y_ = new_point_y;
+
+  // Scroll the element into view again if it was moved out of view, starting
+  // from the second round.
+  if (!is_first_round) {
     std::vector<std::unique_ptr<runtime::CallArgument>> argument;
     argument.emplace_back(
-        runtime::CallArgument::Builder().SetObjectId(object_id).Build());
-    devtools_client->GetRuntime()->CallFunctionOn(
+        runtime::CallArgument::Builder().SetObjectId(object_id_).Build());
+    devtools_client_->GetRuntime()->CallFunctionOn(
         runtime::CallFunctionOnParams::Builder()
-            .SetObjectId(object_id)
+            .SetObjectId(object_id_)
             .SetArguments(std::move(argument))
             .SetFunctionDeclaration(std::string(kScrollIntoViewIfNeededScript))
             .SetReturnByValue(true)
             .Build(),
         base::BindOnce(&WebController::ElementPositionGetter::OnScrollIntoView,
-                       weak_ptr_factory_.GetWeakPtr(), devtools_client,
-                       object_id, new_point_x, new_point_y, remaining_rounds));
+                       weak_ptr_factory_.GetWeakPtr()));
     return;
   }
 
+  --remaining_rounds_;
   base::PostDelayedTaskWithTraits(
       FROM_HERE, {content::BrowserThread::UI},
       base::BindOnce(
           &WebController::ElementPositionGetter::GetAndWaitBoxModelStable,
-          weak_ptr_factory_.GetWeakPtr(), devtools_client, object_id,
-          new_point_x, new_point_y, --remaining_rounds),
+          weak_ptr_factory_.GetWeakPtr()),
       kPeriodicBoxModelCheckInterval);
 }
 
 void WebController::ElementPositionGetter::OnScrollIntoView(
-    DevtoolsClient* devtools_client,
-    std::string object_id,
-    int point_x,
-    int point_y,
-    int remaining_rounds,
     std::unique_ptr<runtime::CallFunctionOnResult> result) {
   if (!result || result->HasExceptionDetails()) {
     DLOG(ERROR) << "Failed to scroll the element.";
-    OnResult(-1, -1);
+    OnError();
     return;
   }
 
+  --remaining_rounds_;
   base::PostDelayedTaskWithTraits(
       FROM_HERE, {content::BrowserThread::UI},
       base::BindOnce(
           &WebController::ElementPositionGetter::GetAndWaitBoxModelStable,
-          weak_ptr_factory_.GetWeakPtr(), devtools_client, object_id, point_x,
-          point_y, --remaining_rounds),
+          weak_ptr_factory_.GetWeakPtr()),
       kPeriodicBoxModelCheckInterval);
 }
 
 void WebController::ElementPositionGetter::OnResult(int x, int y) {
   if (callback_) {
-    std::move(callback_).Run(x, y);
+    std::move(callback_).Run(/* success= */ true, x, y);
+  }
+}
+
+void WebController::ElementPositionGetter::OnError() {
+  if (callback_) {
+    std::move(callback_).Run(/* success= */ false, /* x= */ 0, /* y= */ 0);
   }
 }
 
@@ -421,9 +467,10 @@ void WebController::TapOrClickOnCoordinates(
     std::unique_ptr<ElementPositionGetter> element_position_getter,
     base::OnceCallback<void(bool)> callback,
     bool is_a_click,
+    bool has_coordinates,
     int x,
     int y) {
-  if (x < 0 || y < 0) {
+  if (!has_coordinates) {
     DLOG(ERROR) << "Failed to get element position.";
     OnResult(false, std::move(callback));
     return;
@@ -623,10 +670,32 @@ void WebController::OnQuerySelectorAll(
     return;
   }
 
-  // Return object id of the element.
   if (selector.selectors.size() == index + 1) {
-    element_result->object_id = result->GetResult()->GetObjectId();
-    std::move(callback).Run(std::move(element_result));
+    // The pseudo type is associated to the final element matched by
+    // |selector|, which means that we currently don't handle matching an
+    // element inside a pseudo element.
+    if (selector.pseudo_type == PseudoType::UNDEFINED) {
+      // Return object id of the element.
+      element_result->object_id = result->GetResult()->GetObjectId();
+      std::move(callback).Run(std::move(element_result));
+      return;
+    }
+
+    // We are looking for a pseudo element associated with this element.
+    dom::PseudoType pseudo_type;
+    if (!ConvertPseudoType(selector.pseudo_type, &pseudo_type)) {
+      // Return empty result.
+      std::move(callback).Run(std::move(element_result));
+      return;
+    }
+
+    devtools_client_->GetDOM()->DescribeNode(
+        dom::DescribeNodeParams::Builder()
+            .SetObjectId(result->GetResult()->GetObjectId())
+            .Build(),
+        base::BindOnce(&WebController::OnDescribeNodeForPseudoElement,
+                       weak_ptr_factory_.GetWeakPtr(), pseudo_type,
+                       std::move(element_result), std::move(callback)));
     return;
   }
 
@@ -638,6 +707,49 @@ void WebController::OnQuerySelectorAll(
           &WebController::OnDescribeNode, weak_ptr_factory_.GetWeakPtr(),
           result->GetResult()->GetObjectId(), index, selector, strict_mode,
           std::move(element_result), std::move(callback)));
+}
+
+void WebController::OnDescribeNodeForPseudoElement(
+    dom::PseudoType pseudo_type,
+    std::unique_ptr<FindElementResult> element_result,
+    FindElementCallback callback,
+    std::unique_ptr<dom::DescribeNodeResult> result) {
+  if (!result || !result->GetNode()) {
+    DLOG(ERROR) << "Failed to describe the node for pseudo element.";
+    std::move(callback).Run(std::move(element_result));
+    return;
+  }
+
+  auto* node = result->GetNode();
+  if (node->HasPseudoElements()) {
+    for (const auto& pseudo_element : *(node->GetPseudoElements())) {
+      if (pseudo_element->HasPseudoType() &&
+          pseudo_element->GetPseudoType() == pseudo_type) {
+        devtools_client_->GetDOM()->ResolveNode(
+            dom::ResolveNodeParams::Builder()
+                .SetBackendNodeId(pseudo_element->GetBackendNodeId())
+                .Build(),
+            base::BindOnce(&WebController::OnResolveNodeForPseudoElement,
+                           weak_ptr_factory_.GetWeakPtr(),
+                           std::move(element_result), std::move(callback)));
+        return;
+      }
+    }
+  }
+
+  // Failed to find the pseudo element: run the callback with empty result.
+  std::move(callback).Run(std::move(element_result));
+}
+
+void WebController::OnResolveNodeForPseudoElement(
+    std::unique_ptr<FindElementResult> element_result,
+    FindElementCallback callback,
+    std::unique_ptr<dom::ResolveNodeResult> result) {
+  if (result && result->GetObject() && result->GetObject()->HasObjectId()) {
+    element_result->object_id = result->GetObject()->GetObjectId();
+  }
+
+  std::move(callback).Run(std::move(element_result));
 }
 
 void WebController::OnDescribeNode(
@@ -1324,10 +1436,10 @@ void WebController::OnGetElementPositionResult(
   float visual_h = static_cast<float>(list[7].GetDouble());
 
   RectF rect;
-  rect.left = std::max(0.0f, left_layout - visual_left_offset) / visual_w;
-  rect.top = std::max(0.0f, top_layout - visual_top_offset) / visual_h;
-  rect.right = std::max(0.0f, right_layout - visual_left_offset) / visual_w;
-  rect.bottom = std::max(0.0f, bottom_layout - visual_top_offset) / visual_h;
+  rect.left = (left_layout - visual_left_offset) / visual_w;
+  rect.top = (top_layout - visual_top_offset) / visual_h;
+  rect.right = (right_layout - visual_left_offset) / visual_w;
+  rect.bottom = (bottom_layout - visual_top_offset) / visual_h;
 
   std::move(callback).Run(true, rect);
 }

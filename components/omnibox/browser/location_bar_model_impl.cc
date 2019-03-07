@@ -10,10 +10,13 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/omnibox/browser/autocomplete_classifier.h"
+#include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/buildflags.h"
 #include "components/omnibox/browser/location_bar_model_delegate.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/prefs/pref_service.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/security_state/core/security_state.h"
 #include "components/strings/grit/components_strings.h"
 #include "net/cert/cert_status_flags.h"
@@ -45,13 +48,13 @@ base::string16 LocationBarModelImpl::GetURLForDisplay() const {
   url_formatter::FormatUrlTypes format_types =
       url_formatter::kFormatUrlOmitDefaults;
 
+  // Early exit to prevent elision of URLs when relevant extension is enabled.
+  if (delegate_->ShouldPreventElision()) {
+    return GetFormattedURL(format_types);
+  }
+
 #if defined(OS_IOS)
   format_types |= url_formatter::kFormatUrlTrimAfterHost;
-#else
-  if (base::FeatureList::IsEnabled(
-          omnibox::kHideSteadyStateUrlPathQueryAndRef)) {
-    format_types |= url_formatter::kFormatUrlTrimAfterHost;
-  }
 #endif
 
   if (OmniboxFieldTrial::IsHideSteadyStateUrlSchemeEnabled())
@@ -103,10 +106,29 @@ security_state::SecurityLevel LocationBarModelImpl::GetSecurityLevel(
   return info.security_level;
 }
 
-bool LocationBarModelImpl::IsSecurityInfoInitialized() const {
+bool LocationBarModelImpl::GetDisplaySearchTerms(base::string16* search_terms) {
+  if (!base::FeatureList::IsEnabled(omnibox::kQueryInOmnibox) ||
+      delegate_->ShouldPreventElision())
+    return false;
+
+  // Only show the search terms if the site is secure. However, make an
+  // exception before the security state is initialized to prevent a UI flicker.
   security_state::SecurityInfo info;
   delegate_->GetSecurityInfo(&info);
-  return info.connection_info_initialized;
+  if (info.connection_info_initialized &&
+      info.security_level != security_state::SecurityLevel::SECURE &&
+      info.security_level != security_state::SecurityLevel::EV_SECURE) {
+    return false;
+  }
+
+  base::string16 extracted_search_terms = ExtractSearchTermsInternal(GetURL());
+  if (extracted_search_terms.empty())
+    return false;
+
+  if (search_terms)
+    *search_terms = extracted_search_terms;
+
+  return true;
 }
 
 const gfx::VectorIcon& LocationBarModelImpl::GetVectorIcon() const {
@@ -118,7 +140,7 @@ const gfx::VectorIcon& LocationBarModelImpl::GetVectorIcon() const {
   if (IsOfflinePage())
     return omnibox::kOfflinePinIcon;
 
-  switch (GetSecurityLevel(false)) {
+  switch (GetSecurityLevel(true /* ignore_editing */)) {
     case security_state::NONE:
     case security_state::HTTP_SHOW_WARNING:
       return omnibox::kHttpIcon;
@@ -196,16 +218,28 @@ LocationBarModelImpl::SecureChipText LocationBarModelImpl::GetSecureChipText()
                                                     IDS_SECURE_VERBOSE_STATE));
       return SecureChipText(
           l10n_util::GetStringUTF16(IDS_SECURE_VERBOSE_STATE));
-    case security_state::DANGEROUS:
-      if (delegate_->FailsMalwareCheck())
-        return SecureChipText(
-            l10n_util::GetStringUTF16(IDS_DANGEROUS_VERBOSE_STATE));
+    case security_state::DANGEROUS: {
+      security_state::SecurityInfo security_info;
+      delegate_->GetSecurityInfo(&security_info);
+
       // Don't show any text in the security indicator for sites on the billing
       // interstitial list.
-      return SecureChipText(
-          delegate_->FailsBillingCheck()
-              ? base::string16()
-              : l10n_util::GetStringUTF16(IDS_NOT_SECURE_VERBOSE_STATE));
+      if (security_info.malicious_content_status ==
+          security_state::MALICIOUS_CONTENT_STATUS_BILLING) {
+#if defined(OS_IOS)
+        // On iOS, we never expect this status, because there are no billing
+        // interstitials.
+        NOTREACHED();
+#endif
+        return SecureChipText(base::string16());
+      }
+
+      bool fails_malware_check = security_info.malicious_content_status !=
+                                 security_state::MALICIOUS_CONTENT_STATUS_NONE;
+      return SecureChipText(l10n_util::GetStringUTF16(
+          fails_malware_check ? IDS_DANGEROUS_VERBOSE_STATE
+                              : IDS_NOT_SECURE_VERBOSE_STATE));
+    }
     default:
       return SecureChipText(base::string16());
   }
@@ -227,4 +261,46 @@ bool LocationBarModelImpl::ShouldDisplayURL() const {
 
 bool LocationBarModelImpl::IsOfflinePage() const {
   return delegate_->IsOfflinePage();
+}
+
+base::string16 LocationBarModelImpl::ExtractSearchTermsInternal(
+    const GURL& url) {
+  AutocompleteClassifier* autocomplete_classifier =
+      delegate_->GetAutocompleteClassifier();
+  TemplateURLService* template_url_service = delegate_->GetTemplateURLService();
+  if (!autocomplete_classifier || !template_url_service)
+    return base::string16();
+
+  if (url.is_empty())
+    return base::string16();
+
+  // Because we cache keyed by URL, if the user changes the default search
+  // provider, we will continue to extract the search terms from the cached URL
+  // (even if it's no longer from the default search provider) until the user
+  // changes tabs or navigates the tab. That is intentional, as it would be
+  // weird otherwise if the omnibox text changed without any user gesture.
+  if (url != cached_url_) {
+    cached_url_ = url;
+    cached_search_terms_.clear();
+
+    const TemplateURL* default_provider =
+        template_url_service->GetDefaultSearchProvider();
+    if (default_provider) {
+      // If |url| doesn't match the default search provider,
+      // |cached_search_terms_| will remain empty.
+      default_provider->ExtractSearchTermsFromURL(
+          url, template_url_service->search_terms_data(),
+          &cached_search_terms_);
+
+      // Clear out the search terms if it looks like a URL.
+      AutocompleteMatch match;
+      autocomplete_classifier->Classify(
+          cached_search_terms_, false, false,
+          metrics::OmniboxEventProto::INVALID_SPEC, &match, nullptr);
+      if (!AutocompleteMatch::IsSearchType(match.type))
+        cached_search_terms_.clear();
+    }
+  }
+
+  return cached_search_terms_;
 }

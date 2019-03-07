@@ -9,7 +9,7 @@
 
 goog.provide('cvox.OptionsPage');
 
-goog.require('BluetoothBrailleDisplayManager');
+goog.require('BluetoothBrailleDisplayUI');
 goog.require('ConsoleTts');
 goog.require('EventStreamLogger');
 goog.require('Msgs');
@@ -47,6 +47,7 @@ cvox.OptionsPage.consoleTts;
  * Initialize the options page by setting the current value of all prefs, and
  * adding event listeners.
  * @suppress {missingProperties} Property prefs never defined on Window
+ * @this {cvox.OptionsPage}
  */
 cvox.OptionsPage.init = function() {
   cvox.OptionsPage.prefs = chrome.extension.getBackgroundPage().prefs;
@@ -91,19 +92,21 @@ cvox.OptionsPage.init = function() {
   cvox.OptionsPage.disableEventStreamFilterCheckBoxes(
       localStorage['enableEventStreamLogging'] == 'false');
 
-  chrome.commandLinePrivate.hasSwitch('enable-audio-focus', function(result) {
-    if (!result) {
-      $('audioStrategy').hidden = true;
-      $('audioDescription').hidden = true;
-    }
-    if (localStorage['audioStrategy']) {
-      for (var i = 0, opt; opt = $('audioStrategy').options[i]; i++) {
-        if (opt.id == localStorage['audioStrategy']) {
-          opt.setAttribute('selected', '');
-        }
+  if (localStorage['audioStrategy']) {
+    for (var i = 0, opt; opt = $('audioStrategy').options[i]; i++) {
+      if (opt.id == localStorage['audioStrategy']) {
+        opt.setAttribute('selected', '');
       }
     }
-  });
+  }
+
+  chrome.commandLinePrivate.hasSwitch(
+      'enable-experimental-accessibility-chromevox-language-switching',
+      function(enabled) {
+        if (!enabled) {
+          $('languageSwitchingOption').hidden = true;
+        }
+      });
 
   var registerEventStreamFiltersListener = function() {
     $('toggleEventStreamFilters').addEventListener('click', function(evt) {
@@ -184,6 +187,13 @@ cvox.OptionsPage.init = function() {
       'virtual_braille_display_rows_input', 'virtualBrailleRows');
   handleNumericalInputPref(
       'virtual_braille_display_columns_input', 'virtualBrailleColumns');
+
+  /** @type {!BluetoothBrailleDisplayUI} */
+  cvox.OptionsPage.bluetoothBrailleDisplayUI = new BluetoothBrailleDisplayUI();
+
+  var bluetoothBraille = $('bluetoothBraille');
+  if (bluetoothBraille)
+    cvox.OptionsPage.bluetoothBrailleDisplayUI.attach(bluetoothBraille);
 };
 
 /**
@@ -457,3 +467,7 @@ cvox.OptionsPage.getBrailleTranslatorManager = function() {
 document.addEventListener('DOMContentLoaded', function() {
   cvox.OptionsPage.init();
 }, false);
+
+window.addEventListener('beforeunload', function(e) {
+  cvox.OptionsPage.bluetoothBrailleDisplayUI.detach();
+});

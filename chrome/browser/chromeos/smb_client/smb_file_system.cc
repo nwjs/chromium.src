@@ -121,15 +121,22 @@ using file_system_provider::AbortCallback;
 
 SmbFileSystem::SmbFileSystem(
     const file_system_provider::ProvidedFileSystemInfo& file_system_info,
-    UnmountCallback unmount_callback)
+    UnmountCallback unmount_callback,
+    RequestCredentialsCallback request_creds_callback)
     : file_system_info_(file_system_info),
       unmount_callback_(std::move(unmount_callback)),
+      request_creds_callback_(std::move(request_creds_callback)),
       task_queue_(kTaskQueueCapacity) {}
 
 SmbFileSystem::~SmbFileSystem() {}
 
 int32_t SmbFileSystem::GetMountId() const {
   return GetMountIdFromFileSystemId(file_system_info_.file_system_id());
+}
+
+std::string SmbFileSystem::GetMountPath() const {
+  return GetSharePathFromFileSystemId(file_system_info_.file_system_id())
+      .value();
 }
 
 SmbProviderClient* SmbFileSystem::GetSmbProviderClient() const {
@@ -536,7 +543,7 @@ void SmbFileSystem::StartReadDirectory(
 
   auto reply = base::BindOnce(&SmbFileSystem::HandleStartReadDirectoryCallback,
                               AsWeakPtr(), std::move(callback), operation_id,
-                              std::move(metrics_timer));
+                              directory_path, std::move(metrics_timer));
 
   SmbTask task = base::BindOnce(&SmbProviderClient::StartReadDirectory,
                                 GetWeakSmbProviderClient(), GetMountId(),
@@ -560,6 +567,10 @@ void SmbFileSystem::ContinueReadDirectory(
                                 read_dir_token, std::move(reply));
 
   EnqueueTask(std::move(task), operation_id);
+}
+
+void SmbFileSystem::RequestUpdatedCredentials(base::OnceClosure reply) {
+  request_creds_callback_.Run(GetMountPath(), GetMountId(), std::move(reply));
 }
 
 void SmbFileSystem::HandleRequestReadDirectoryCallback(
@@ -672,11 +683,22 @@ void SmbFileSystem::HandleContinueCopyCallback(
 void SmbFileSystem::HandleStartReadDirectoryCallback(
     storage::AsyncFileUtil::ReadDirectoryCallback callback,
     OperationId operation_id,
+    const base::FilePath& directory_path,
     base::ElapsedTimer metrics_timer,
     smbprovider::ErrorType error,
     int32_t read_dir_token,
     const smbprovider::DirectoryEntryListProto& entries) {
   task_queue_.TaskFinished();
+
+  if (error == smbprovider::ERROR_ACCESS_DENIED) {
+    // Request updated credentials for share, then retry the read directory from
+    // the start.
+    base::OnceClosure retry =
+        base::BindOnce(&SmbFileSystem::StartReadDirectory, AsWeakPtr(),
+                       directory_path, operation_id, std::move(callback));
+    RequestUpdatedCredentials(std::move(retry));
+    return;
+  }
 
   int entries_count = 0;
   ProcessReadDirectoryResults(std::move(callback), operation_id, read_dir_token,

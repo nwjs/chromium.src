@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/controls/menu/submenu_view.h"
+#include "ui/views/view_properties.h"
 
 namespace {
 // The delay before we close the app menu if this was opened for a drop so that
@@ -32,6 +33,7 @@ ExtensionToolbarMenuView::ExtensionToolbarMenuView(
       app_menu_(app_menu),
       menu_item_(menu_item),
       toolbar_actions_bar_observer_(this),
+      app_menu_observer_(this),
       weak_factory_(this) {
   // Use a transparent background so that the menu's background shows through.
   // None of the children use layers, so this should be ok.
@@ -45,6 +47,9 @@ ExtensionToolbarMenuView::ExtensionToolbarMenuView(
 
   // Listen for the drop to finish so we can close the app menu, if necessary.
   toolbar_actions_bar_observer_.Add(main->toolbar_actions_bar());
+
+  // Observe app menu so we know when RunMenu() is called.
+  app_menu_observer_.Add(app_menu_);
 
   // In *very* extreme cases, it's possible that there are so many overflowed
   // actions, we won't be able to show them all. Cap the height so that the
@@ -78,10 +83,9 @@ int ExtensionToolbarMenuView::GetHeightForWidth(int width) const {
   return views::ScrollView::GetHeightForWidth(width);
 }
 
-void ExtensionToolbarMenuView::Layout() {
-  SetPosition(gfx::Point(start_padding(), 0));
-  SizeToPreferredSize();
-  views::ScrollView::Layout();
+void ExtensionToolbarMenuView::OnBoundsChanged(
+    const gfx::Rect& previous_bounds) {
+  menu_item_->GetParentMenuItem()->ChildrenChanged();
 }
 
 void ExtensionToolbarMenuView::set_close_menu_delay_for_testing(int delay) {
@@ -95,7 +99,7 @@ void ExtensionToolbarMenuView::OnToolbarActionsBarDestroyed() {
 void ExtensionToolbarMenuView::OnToolbarActionDragDone() {
   // In the case of a drag-and-drop, the bounds of the container may have
   // changed (in the case of removing an icon that was the last in a row).
-  Redraw();
+  UpdateMargins();
 
   // We need to close the app menu if it was just opened for the drag and drop,
   // or if there are no more extensions in the overflow menu after a drag and
@@ -110,23 +114,23 @@ void ExtensionToolbarMenuView::OnToolbarActionDragDone() {
   }
 }
 
-void ExtensionToolbarMenuView::OnToolbarActionsBarDidStartResize() {
-  Redraw();
+void ExtensionToolbarMenuView::AppMenuShown() {
+  // Set the margins and flag for re-layout. This must be done here since
+  // start_padding() depends on views::MenuItemView::label_start() which is
+  // initialized upon menu running.
+  //
+  // TODO(crbug.com/918741): fix MenuItemView so MenuItemView::label_start()
+  // returns valid data before menu run time.
+  UpdateMargins();
 }
 
 void ExtensionToolbarMenuView::CloseAppMenu() {
   app_menu_->CloseMenu();
 }
 
-void ExtensionToolbarMenuView::Redraw() {
-  // In a case where the size of the container may have changed (e.g., by a row
-  // being added or removed), we need to re-layout the menu in order to resize
-  // the view. This may result in redrawing the window. Luckily, this happens
-  // only in the case of a row being aded or removed (very rare), and
-  // typically happens near menu initialization (rather than once the menu is
-  // fully open).
-  Layout();
-  menu_item_->GetParentMenuItem()->ChildrenChanged();
+void ExtensionToolbarMenuView::UpdateMargins() {
+  SetProperty(views::kMarginsKey, new gfx::Insets(0, start_padding()));
+  menu_item_->Layout();
 }
 
 int ExtensionToolbarMenuView::start_padding() const {
@@ -136,4 +140,3 @@ int ExtensionToolbarMenuView::start_padding() const {
   return views::MenuItemView::label_start() -
       container_->toolbar_actions_bar()->platform_settings().item_spacing;
 }
-

@@ -131,7 +131,7 @@ void InspectorTraceEvents::DidReceiveResourceResponse(
 void InspectorTraceEvents::DidReceiveData(unsigned long identifier,
                                           DocumentLoader* loader,
                                           const char* data,
-                                          int encoded_data_length) {
+                                          uint64_t encoded_data_length) {
   LocalFrame* frame = loader ? loader->GetFrame() : nullptr;
   TRACE_EVENT_INSTANT1("devtools.timeline", "ResourceReceivedData",
                        TRACE_EVENT_SCOPE_THREAD, "data",
@@ -192,17 +192,11 @@ void InspectorTraceEvents::Did(const probe::ParseHTML& probe) {
 }
 
 void InspectorTraceEvents::Will(const probe::CallFunction& probe) {
-  if (probe.depth)
-    return;
-  TRACE_EVENT_BEGIN1(
-      "devtools.timeline", "FunctionCall", "data",
-      inspector_function_call_event::Data(probe.context, probe.function));
 }
 
 void InspectorTraceEvents::Did(const probe::CallFunction& probe) {
   if (probe.depth)
     return;
-  TRACE_EVENT_END0("devtools.timeline", "FunctionCall");
   TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                        "UpdateCounters", TRACE_EVENT_SCOPE_THREAD, "data",
                        inspector_update_counters_event::Data());
@@ -358,10 +352,6 @@ const char* CompileOptionsString(v8::ScriptCompiler::CompileOptions options) {
       return "code";
     case v8::ScriptCompiler::kEagerCompile:
       return "full code";
-    // TODO(v8:8252): Remove the default branch once deprecated options are
-    // removed from v8::ScriptCompiler::CompileOptions.
-    default:
-      NOTREACHED();
   }
   NOTREACHED();
   return "";
@@ -830,13 +820,13 @@ std::unique_ptr<TracedValue> inspector_receive_data_event::Data(
     DocumentLoader* loader,
     unsigned long identifier,
     LocalFrame* frame,
-    int encoded_data_length) {
+    uint64_t encoded_data_length) {
   String request_id = IdentifiersFactory::RequestId(loader, identifier);
 
   std::unique_ptr<TracedValue> value = TracedValue::Create();
   value->SetString("requestId", request_id);
   value->SetString("frame", IdentifiersFactory::FrameId(frame));
-  value->SetInteger("encodedDataLength", encoded_data_length);
+  value->SetDouble("encodedDataLength", encoded_data_length);
   return value;
 }
 

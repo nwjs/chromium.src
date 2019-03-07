@@ -9,23 +9,19 @@
 #include "base/auto_reset.h"
 #include "base/mac/foundation_util.h"
 #include "components/autofill/core/common/autofill_prefs.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/google/core/common/google_util.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/profile_oauth2_token_service.h"
-#import "components/signin/ios/browser/oauth2_token_service_observer_bridge.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/model_type.h"
+#include "components/sync/driver/sync_service.h"
 #include "ios/chrome/browser/application_context.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
 #include "ios/chrome/browser/experimental_flags.h"
-#include "ios/chrome/browser/signin/account_tracker_service_factory.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #include "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/chrome_identity_service_observer_bridge.h"
-#include "ios/chrome/browser/signin/profile_oauth2_token_service_factory.h"
+#include "ios/chrome/browser/signin/identity_manager_factory.h"
 #include "ios/chrome/browser/sync/profile_sync_service_factory.h"
 #include "ios/chrome/browser/sync/sync_setup_service.h"
 #include "ios/chrome/browser/sync/sync_setup_service_factory.h"
@@ -39,11 +35,11 @@
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/commands/show_signin_command.h"
 #import "ios/chrome/browser/ui/settings/cells/legacy/legacy_settings_detail_item.h"
+#import "ios/chrome/browser/ui/settings/cells/legacy/legacy_sync_switch_item.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_text_item.h"
-#import "ios/chrome/browser/ui/settings/cells/sync_switch_item.h"
 #import "ios/chrome/browser/ui/settings/cells/text_and_error_item.h"
 #import "ios/chrome/browser/ui/settings/settings_navigation_controller.h"
-#import "ios/chrome/browser/ui/settings/sync_encryption_passphrase_collection_view_controller.h"
+#import "ios/chrome/browser/ui/settings/sync_encryption_passphrase_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/sync_encryption_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/sync_utils/sync_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
@@ -51,6 +47,7 @@
 #import "ios/public/provider/chrome/browser/chrome_browser_provider.h"
 #import "ios/public/provider/chrome/browser/signin/chrome_identity.h"
 #import "ios/public/provider/chrome/browser/signin/chrome_identity_service.h"
+#import "services/identity/public/objc/identity_manager_observer_bridge.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "url/gurl.h"
 
@@ -93,15 +90,16 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 }  // namespace
 
-@interface SyncSettingsCollectionViewController ()<
+@interface SyncSettingsCollectionViewController () <
     ChromeIdentityServiceObserver,
-    OAuth2TokenServiceObserverBridgeDelegate,
+    IdentityManagerObserverBridgeDelegate,
     SettingsControllerProtocol,
     SyncObserverModelBridge> {
   ios::ChromeBrowserState* _browserState;  // Weak.
   SyncSetupService* _syncSetupService;     // Weak.
   std::unique_ptr<SyncObserverBridge> _syncObserver;
-  std::unique_ptr<OAuth2TokenServiceObserverBridge> _tokenServiceObserver;
+  std::unique_ptr<identity::IdentityManagerObserverBridge>
+      _identityManagerObserver;
   AuthenticationFlow* _authenticationFlow;
   // Whether switching sync account is allowed on the screen.
   BOOL _allowSwitchSyncAccount;
@@ -213,20 +211,19 @@ typedef NS_ENUM(NSInteger, ItemType) {
               allowSwitchSyncAccount:(BOOL)allowSwitchSyncAccount {
   DCHECK(browserState);
   UICollectionViewLayout* layout = [[MDCCollectionViewFlowLayout alloc] init];
-  self =
-      [super initWithLayout:layout style:CollectionViewControllerStyleAppBar];
+  self = [super initWithLayout:layout
+                         style:CollectionViewControllerStyleDefault];
   if (self) {
     _allowSwitchSyncAccount = allowSwitchSyncAccount;
     _browserState = browserState;
     _syncSetupService =
         SyncSetupServiceFactory::GetForBrowserState(_browserState);
     self.title = l10n_util::GetNSString(IDS_IOS_SYNC_SETTING_TITLE);
-    browser_sync::ProfileSyncService* syncService =
+    syncer::SyncService* syncService =
         ProfileSyncServiceFactory::GetForBrowserState(_browserState);
     _syncObserver.reset(new SyncObserverBridge(self, syncService));
-    _tokenServiceObserver.reset(new OAuth2TokenServiceObserverBridge(
-        ProfileOAuth2TokenServiceFactory::GetForBrowserState(_browserState),
-        self));
+    _identityManagerObserver.reset(new identity::IdentityManagerObserverBridge(
+        IdentityManagerFactory::GetForBrowserState(_browserState), self));
     self.collectionViewAccessibilityIdentifier = kSettingsSyncId;
     _avatarCache = [[ResizedAvatarCache alloc] init];
     _identityServiceObserver.reset(
@@ -240,7 +237,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 - (void)stopBrowserStateServiceObservers {
   _syncObserver.reset();
-  _tokenServiceObserver.reset();
+  _identityManagerObserver.reset();
   _identityServiceObserver.reset();
 }
 
@@ -298,13 +295,11 @@ typedef NS_ENUM(NSInteger, ItemType) {
     syncToHeader.textColor = [[MDCPalette greyPalette] tint500];
     [model setHeader:syncToHeader
         forSectionWithIdentifier:SectionIdentifierSyncAccounts];
-    ProfileOAuth2TokenService* oauth2_service =
-        ProfileOAuth2TokenServiceFactory::GetForBrowserState(_browserState);
-    AccountTrackerService* accountTracker =
-        ios::AccountTrackerServiceFactory::GetForBrowserState(_browserState);
+    auto* identity_manager =
+        IdentityManagerFactory::GetForBrowserState(_browserState);
 
-    for (const std::string& account_id : oauth2_service->GetAccounts()) {
-      AccountInfo account = accountTracker->GetAccountInfo(account_id);
+    for (const AccountInfo& account :
+         identity_manager->GetAccountsWithRefreshTokens()) {
       ChromeIdentity* identity = ios::GetChromeBrowserProvider()
                                      ->GetChromeIdentityService()
                                      ->GetIdentityWithGaiaID(account.gaia);
@@ -350,7 +345,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 #pragma mark - Model items
 
 - (CollectionViewItem*)syncSwitchItem:(BOOL)isOn {
-  SyncSwitchItem* syncSwitchItem = [self
+  LegacySyncSwitchItem* syncSwitchItem = [self
       switchItemWithType:ItemTypeSyncSwitch
                    title:l10n_util::GetNSString(IDS_IOS_SYNC_SETTING_TITLE)
                 subTitle:l10n_util::GetNSString(
@@ -387,7 +382,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 }
 
 - (CollectionViewItem*)syncEverythingSwitchItem:(BOOL)isOn {
-  SyncSwitchItem* syncSwitchItem = [self
+  LegacySyncSwitchItem* syncSwitchItem = [self
       switchItemWithType:ItemTypeSyncEverything
                    title:l10n_util::GetNSString(IDS_IOS_SYNC_EVERYTHING_TITLE)
                 subTitle:nil];
@@ -401,7 +396,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   syncer::ModelType modelType = _syncSetupService->GetModelType(dataType);
   BOOL isOn = _syncSetupService->IsDataTypePreferred(modelType);
 
-  SyncSwitchItem* syncDataTypeItem =
+  LegacySyncSwitchItem* syncDataTypeItem =
       [self switchItemWithType:ItemTypeSyncableDataType
                          title:l10n_util::GetNSString(
                                    [self titleIdForSyncableDataType:dataType])
@@ -415,7 +410,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 - (CollectionViewItem*)switchItemForAutofillWalletImport {
   NSString* title = l10n_util::GetNSString(
       IDS_AUTOFILL_ENABLE_PAYMENTS_INTEGRATION_CHECKBOX_LABEL);
-  SyncSwitchItem* autofillWalletImportItem =
+  LegacySyncSwitchItem* autofillWalletImportItem =
       [self switchItemWithType:ItemTypeAutofillWalletImport
                          title:title
                       subTitle:nil];
@@ -447,10 +442,11 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 #pragma mark Item Constructors
 
-- (SyncSwitchItem*)switchItemWithType:(NSInteger)type
-                                title:(NSString*)title
-                             subTitle:(NSString*)detailText {
-  SyncSwitchItem* switchItem = [[SyncSwitchItem alloc] initWithType:type];
+- (LegacySyncSwitchItem*)switchItemWithType:(NSInteger)type
+                                      title:(NSString*)title
+                                   subTitle:(NSString*)detailText {
+  LegacySyncSwitchItem* switchItem =
+      [[LegacySyncSwitchItem alloc] initWithType:type];
   switchItem.text = title;
   switchItem.detailText = detailText;
   return switchItem;
@@ -474,16 +470,16 @@ typedef NS_ENUM(NSInteger, ItemType) {
       break;
     }
     case ItemTypeSyncSwitch: {
-      SyncSwitchCell* switchCell =
-          base::mac::ObjCCastStrict<SyncSwitchCell>(cell);
+      LegacySyncSwitchCell* switchCell =
+          base::mac::ObjCCastStrict<LegacySyncSwitchCell>(cell);
       [switchCell.switchView addTarget:self
                                 action:@selector(changeSyncStatusToOn:)
                       forControlEvents:UIControlEventValueChanged];
       break;
     }
     case ItemTypeSyncEverything: {
-      SyncSwitchCell* switchCell =
-          base::mac::ObjCCastStrict<SyncSwitchCell>(cell);
+      LegacySyncSwitchCell* switchCell =
+          base::mac::ObjCCastStrict<LegacySyncSwitchCell>(cell);
       [switchCell.switchView
                  addTarget:self
                     action:@selector(changeSyncEverythingStatusToOn:)
@@ -491,8 +487,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
       break;
     }
     case ItemTypeSyncableDataType: {
-      SyncSwitchCell* switchCell =
-          base::mac::ObjCCastStrict<SyncSwitchCell>(cell);
+      LegacySyncSwitchCell* switchCell =
+          base::mac::ObjCCastStrict<LegacySyncSwitchCell>(cell);
       [switchCell.switchView addTarget:self
                                 action:@selector(changeDataTypeSyncStatusToOn:)
                       forControlEvents:UIControlEventValueChanged];
@@ -500,8 +496,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
       break;
     }
     case ItemTypeAutofillWalletImport: {
-      SyncSwitchCell* switchCell =
-          base::mac::ObjCCastStrict<SyncSwitchCell>(cell);
+      LegacySyncSwitchCell* switchCell =
+          base::mac::ObjCCastStrict<LegacySyncSwitchCell>(cell);
       [switchCell.switchView addTarget:self
                                 action:@selector(autofillWalletImportChanged:)
                       forControlEvents:UIControlEventValueChanged];
@@ -613,8 +609,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
         indexPathForItemType:ItemTypeSyncSwitch
            sectionIdentifier:SectionIdentifierEnableSync];
 
-    SyncSwitchItem* item = base::mac::ObjCCastStrict<SyncSwitchItem>(
-        [self.collectionViewModel itemAtIndexPath:indexPath]);
+    LegacySyncSwitchItem* item =
+        base::mac::ObjCCastStrict<LegacySyncSwitchItem>(
+            [self.collectionViewModel itemAtIndexPath:indexPath]);
     item.on = isNowOn;
   }
   [self updateCollectionView];
@@ -715,8 +712,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
     NSIndexPath* indexPath = [self.collectionViewModel
         indexPathForItemType:ItemTypeSyncEverything
            sectionIdentifier:SectionIdentifierSyncServices];
-    SyncSwitchItem* item = base::mac::ObjCCastStrict<SyncSwitchItem>(
-        [self.collectionViewModel itemAtIndexPath:indexPath]);
+    LegacySyncSwitchItem* item =
+        base::mac::ObjCCastStrict<LegacySyncSwitchItem>(
+            [self.collectionViewModel itemAtIndexPath:indexPath]);
     item.on = isNowOn;
   }
   [self updateCollectionView];
@@ -730,8 +728,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
   BOOL isOn = sender.isOn;
 
-  SyncSwitchItem* syncSwitchItem =
-      base::mac::ObjCCastStrict<SyncSwitchItem>([self.collectionViewModel
+  LegacySyncSwitchItem* syncSwitchItem =
+      base::mac::ObjCCastStrict<LegacySyncSwitchItem>([self.collectionViewModel
           itemAtIndexPath:[self indexPathForTag:sender.tag]]);
   SyncSetupService::SyncableDatatype dataType =
       (SyncSetupService::SyncableDatatype)syncSwitchItem.dataType;
@@ -755,7 +753,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 }
 
 - (void)showEncryption {
-  browser_sync::ProfileSyncService* syncService =
+  syncer::SyncService* syncService =
       ProfileSyncServiceFactory::GetForBrowserState(_browserState);
   if (!syncService->IsEngineInitialized() ||
       !_syncSetupService->IsSyncEnabled() ||
@@ -766,7 +764,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   // If there was a sync error, prompt the user to enter the passphrase.
   // Otherwise, show the full encryption options.
   if (syncService->IsPassphraseRequired()) {
-    controllerToPush = [[SyncEncryptionPassphraseCollectionViewController alloc]
+    controllerToPush = [[SyncEncryptionPassphraseTableViewController alloc]
         initWithBrowserState:_browserState];
   } else {
     controllerToPush = [[SyncEncryptionTableViewController alloc]
@@ -791,8 +789,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
       indexPathForItemType:ItemTypeSyncSwitch
          sectionIdentifier:SectionIdentifierEnableSync];
 
-  SyncSwitchItem* syncItem = base::mac::ObjCCastStrict<SyncSwitchItem>(
-      [self.collectionViewModel itemAtIndexPath:indexPath]);
+  LegacySyncSwitchItem* syncItem =
+      base::mac::ObjCCastStrict<LegacySyncSwitchItem>(
+          [self.collectionViewModel itemAtIndexPath:indexPath]);
   syncItem.on = _syncSetupService->IsSyncEnabled();
   [self reconfigureCellsForItems:@[ syncItem ]];
 
@@ -821,8 +820,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
   indexPath = [self.collectionViewModel
       indexPathForItemType:ItemTypeSyncEverything
          sectionIdentifier:SectionIdentifierSyncServices];
-  SyncSwitchItem* syncEverythingItem =
-      base::mac::ObjCCastStrict<SyncSwitchItem>(
+  LegacySyncSwitchItem* syncEverythingItem =
+      base::mac::ObjCCastStrict<LegacySyncSwitchItem>(
           [self.collectionViewModel itemAtIndexPath:indexPath]);
   syncEverythingItem.on = _syncSetupService->IsSyncingAllDataTypes();
   syncEverythingItem.enabled = [self shouldSyncEverythingItemBeEnabled];
@@ -838,8 +837,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
         indexPathForItemType:ItemTypeSyncableDataType
            sectionIdentifier:SectionIdentifierSyncServices
                      atIndex:index];
-    SyncSwitchItem* syncSwitchItem = base::mac::ObjCCastStrict<SyncSwitchItem>(
-        [self.collectionViewModel itemAtIndexPath:indexPath]);
+    LegacySyncSwitchItem* syncSwitchItem =
+        base::mac::ObjCCastStrict<LegacySyncSwitchItem>(
+            [self.collectionViewModel itemAtIndexPath:indexPath]);
     DCHECK_EQ(index, syncSwitchItem.dataType);
     syncer::ModelType modelType = _syncSetupService->GetModelType(dataType);
     syncSwitchItem.on = _syncSetupService->IsDataTypePreferred(modelType);
@@ -893,8 +893,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
   NSIndexPath* indexPath = [self.collectionViewModel
       indexPathForItemType:ItemTypeAutofillWalletImport
          sectionIdentifier:SectionIdentifierSyncServices];
-  SyncSwitchItem* syncSwitchItem = base::mac::ObjCCastStrict<SyncSwitchItem>(
-      [self.collectionViewModel itemAtIndexPath:indexPath]);
+  LegacySyncSwitchItem* syncSwitchItem =
+      base::mac::ObjCCastStrict<LegacySyncSwitchItem>(
+          [self.collectionViewModel itemAtIndexPath:indexPath]);
   syncSwitchItem.on = [self isAutofillWalletImportOn];
   syncSwitchItem.enabled = [self isAutofillWalletImportItemEnabled];
   [self reconfigureCellsForItems:@[ syncSwitchItem ]];
@@ -922,9 +923,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
 #pragma mark Helpers
 
 - (BOOL)hasAccountsSection {
-  OAuth2TokenService* tokenService =
-      ProfileOAuth2TokenServiceFactory::GetForBrowserState(_browserState);
-  return _allowSwitchSyncAccount && tokenService->GetAccounts().size() > 1;
+  return _allowSwitchSyncAccount &&
+         IdentityManagerFactory::GetForBrowserState(_browserState)
+                 ->GetAccountsWithRefreshTokens()
+                 .size() > 1;
 }
 
 - (BOOL)shouldDisplaySyncError {
@@ -976,7 +978,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 }
 
 - (BOOL)shouldEncryptionItemBeEnabled {
-  browser_sync::ProfileSyncService* syncService =
+  syncer::SyncService* syncService =
       ProfileSyncServiceFactory::GetForBrowserState(_browserState);
   return (syncService->IsEngineInitialized() &&
           _syncSetupService->IsSyncEnabled() &&
@@ -1036,9 +1038,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [self updateCollectionView];
 }
 
-#pragma mark OAuth2TokenServiceObserverBridgeDelegate
+#pragma mark identity::IdentityManagerObserverBridgeDelegate
 
-- (void)onEndBatchChanges {
+- (void)onEndBatchOfRefreshTokenStateChanges {
   if (_authenticationOperationInProgress) {
     return;
   }

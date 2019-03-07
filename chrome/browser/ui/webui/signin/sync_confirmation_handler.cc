@@ -12,8 +12,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/consent_auditor/consent_auditor_factory.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/signin_view_controller_delegate.h"
@@ -22,9 +21,8 @@
 #include "chrome/browser/ui/webui/signin/sync_confirmation_ui.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/consent_auditor/consent_auditor.h"
-#include "components/signin/core/browser/account_tracker_service.h"
+#include "components/signin/core/browser/account_info.h"
 #include "components/signin/core/browser/avatar_icon_util.h"
-#include "components/signin/core/browser/signin_manager.h"
 #include "components/unified_consent/feature.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -40,7 +38,8 @@ SyncConfirmationHandler::SyncConfirmationHandler(
       browser_(browser),
       did_user_explicitly_interact(false),
       string_to_grd_id_map_(string_to_grd_id_map),
-      consent_feature_(consent_feature) {
+      consent_feature_(consent_feature),
+      identity_manager_(IdentityManagerFactory::GetForProfile(profile_)) {
   DCHECK(profile_);
   DCHECK(browser_);
   BrowserList::AddObserver(this);
@@ -48,7 +47,7 @@ SyncConfirmationHandler::SyncConfirmationHandler(
 
 SyncConfirmationHandler::~SyncConfirmationHandler() {
   BrowserList::RemoveObserver(this);
-  AccountTrackerServiceFactory::GetForProfile(profile_)->RemoveObserver(this);
+  identity_manager_->RemoveObserver(this);
 
   // Abort signin and prevent sync from starting if none of the actions on the
   // sync confirmation dialog are taken by the user.
@@ -103,15 +102,11 @@ void SyncConfirmationHandler::HandleUndo(const base::ListValue* args) {
 
 void SyncConfirmationHandler::HandleAccountImageRequest(
     const base::ListValue* args) {
-  std::string account_id = SigninManagerFactory::GetForProfile(profile_)
-                               ->GetAuthenticatedAccountId();
-  AccountInfo account_info =
-      AccountTrackerServiceFactory::GetForProfile(profile_)->GetAccountInfo(
-          account_id);
+  AccountInfo account_info = identity_manager_->GetPrimaryAccountInfo();
 
   // Fire the "account-image-changed" listener from |SetUserImageURL()|.
   // Note: If the account info is not available yet in the
-  // AccountTrackerService, i.e. account_info is empty, the listener will be
+  // IdentityManager, i.e. account_info is empty, the listener will be
   // fired again through |OnAccountUpdated()|.
   SetUserImageURL(account_info.picture_url);
 }
@@ -142,8 +137,7 @@ void SyncConfirmationHandler::RecordConsent(const base::ListValue* args) {
 
   consent_auditor::ConsentAuditor* consent_auditor =
       ConsentAuditorFactory::GetForProfile(profile_);
-  const std::string& account_id = SigninManagerFactory::GetForProfile(profile_)
-                                      ->GetAuthenticatedAccountId();
+  const std::string& account_id = identity_manager_->GetPrimaryAccountId();
   // TODO(markusheintz): Use a bool unified_consent_enabled instead of a
   // consent_auditor::Feature type variable.
   if (consent_feature_ == consent_auditor::Feature::CHROME_UNIFIED_CONSENT) {
@@ -193,11 +187,10 @@ void SyncConfirmationHandler::OnAccountUpdated(const AccountInfo& info) {
   if (!info.IsValid())
     return;
 
-  SigninManager* signin_manager = SigninManagerFactory::GetForProfile(profile_);
-  if (info.account_id != signin_manager->GetAuthenticatedAccountId())
+  if (info.account_id != identity_manager_->GetPrimaryAccountId())
     return;
 
-  AccountTrackerServiceFactory::GetForProfile(profile_)->RemoveObserver(this);
+  identity_manager_->RemoveObserver(this);
   SetUserImageURL(info.picture_url);
 }
 
@@ -227,20 +220,16 @@ void SyncConfirmationHandler::HandleInitializedWithSize(
   if (!browser_)
     return;
 
-  std::string account_id = SigninManagerFactory::GetForProfile(profile_)
-                               ->GetAuthenticatedAccountId();
-  if (account_id.empty()) {
+  if (!identity_manager_->HasPrimaryAccount()) {
     // No account is signed in, so there is nothing to be displayed in the sync
     // confirmation dialog.
     return;
   }
-  AccountTrackerService* account_tracker =
-      AccountTrackerServiceFactory::GetForProfile(profile_);
-  AccountInfo account_info = account_tracker->GetAccountInfo(account_id);
+  AccountInfo account_info = identity_manager_->GetPrimaryAccountInfo();
 
   if (!account_info.IsValid()) {
-    SetUserImageURL(AccountTrackerService::kNoPictureURLFound);
-    account_tracker->AddObserver(this);
+    SetUserImageURL(kNoPictureURLFound);
+    identity_manager_->AddObserver(this);
   } else {
     SetUserImageURL(account_info.picture_url);
   }

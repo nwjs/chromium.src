@@ -486,8 +486,6 @@ void StreamMixer::AddInputOnThread(MixerInput::Source* input_source) {
   DCHECK(mixer_task_runner_->BelongsToCurrentThread());
   DCHECK(input_source);
 
-  LOG(INFO) << "Add input " << input_source;
-
   // If the new input is a primary one (or there were no inputs previously), we
   // may need to change the output sample rate to match the input sample rate.
   // We only change the output rate if it is not set to a fixed value.
@@ -506,6 +504,8 @@ void StreamMixer::AddInputOnThread(MixerInput::Source* input_source) {
       mixer_pipeline_->GetInputGroup(input_source->device_id());
   DCHECK(input_group) << "Could not find a processor for "
                       << input_source->device_id();
+
+  LOG(INFO) << "Add input " << input_source << " to " << input_group->name();
 
   auto input = std::make_unique<MixerInput>(
       input_source, output_samples_per_second_, frames_per_write_,
@@ -683,14 +683,6 @@ void StreamMixer::WriteMixedPcm(int frames, int64_t expected_playback_time) {
   int linearize_channel_count = mixer_pipeline_->GetOutputChannelCount();
   if (num_output_channels_ == 1 && linearize_channel_count != 1) {
     MixToMono(linearized_data, frames, linearize_channel_count);
-  } else if (num_output_channels_ > 1 && playout_channel_ != kChannelAll) {
-    // Duplicate selected channel to all channels.
-    for (int f = 0; f < frames; ++f) {
-      float selected =
-          linearized_data[f * num_output_channels_ + playout_channel_];
-      for (int c = 0; c < num_output_channels_; ++c)
-        linearized_data[f * num_output_channels_ + c] = selected;
-    }
   }
 
   // Hard limit to [1.0, -1.0].

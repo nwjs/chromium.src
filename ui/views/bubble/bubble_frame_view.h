@@ -5,6 +5,8 @@
 #ifndef UI_VIEWS_BUBBLE_BUBBLE_FRAME_VIEW_H_
 #define UI_VIEWS_BUBBLE_BUBBLE_FRAME_VIEW_H_
 
+#include <memory>
+
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
@@ -36,15 +38,15 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView,
       const base::string16& title_text);
 
   // Creates a close button used in the corner of the dialog.
-  static Button* CreateCloseButton(ButtonListener* listener);
+  static Button* CreateCloseButton(ButtonListener* listener, bool is_dark_mode);
 
   // NonClientFrameView:
   gfx::Rect GetBoundsForClientView() const override;
   gfx::Rect GetWindowBoundsForClientBounds(
       const gfx::Rect& client_bounds) const override;
-  bool GetClientMask(const gfx::Size& size, gfx::Path* path) const override;
+  bool GetClientMask(const gfx::Size& size, SkPath* path) const override;
   int NonClientHitTest(const gfx::Point& point) override;
-  void GetWindowMask(const gfx::Size& size, gfx::Path* window_mask) override;
+  void GetWindowMask(const gfx::Size& size, SkPath* window_mask) override;
   void ResetWindowControls() override;
   void UpdateWindowIcon() override;
   void UpdateWindowTitle() override;
@@ -56,7 +58,6 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView,
 
   // View:
   const char* GetClassName() const override;
-  gfx::Insets GetInsets() const override;
   gfx::Size CalculatePreferredSize() const override;
   gfx::Size GetMinimumSize() const override;
   gfx::Size GetMaximumSize() const override;
@@ -97,8 +98,6 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView,
   gfx::Rect GetUpdatedWindowBounds(const gfx::Rect& anchor_rect,
                                    const gfx::Size& client_size,
                                    bool adjust_if_offscreen);
-
-  bool close_button_clicked() const { return close_button_clicked_; }
 
   Button* GetCloseButtonForTest() { return close_; }
 
@@ -185,9 +184,6 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView,
 
   // A view to contain the footnote view, if it exists.
   FootnoteContainerView* footnote_container_;
-
-  // Whether the close button was clicked.
-  bool close_button_clicked_;
 
   // Time when view has been shown.
   base::TimeTicks view_shown_time_stamp_;

@@ -226,20 +226,20 @@ namespace {
 class HandleContainer
     : public blink::GarbageCollectedFinalized<HandleContainer> {
  public:
-  static HandleContainer* Create() { return new HandleContainer(); }
+  static HandleContainer* Create() {
+    return MakeGarbageCollected<HandleContainer>();
+  }
+
+  HandleContainer() = default;
   virtual ~HandleContainer() = default;
 
-  void Trace(blink::Visitor* visitor) {
-    visitor->Trace(handle_.Cast<v8::Value>());
-  }
+  void Trace(blink::Visitor* visitor) { visitor->Trace(handle_); }
 
   void SetValue(v8::Isolate* isolate, v8::Local<v8::String> string) {
     handle_.Set(isolate, string);
   }
 
  private:
-  HandleContainer() = default;
-
   TraceWrapperV8Reference<v8::String> handle_;
 };
 
@@ -413,7 +413,14 @@ class Base : public blink::GarbageCollected<Base>,
  public:
   static Base* Create(DeathAwareScriptWrappable* wrapper_in_base,
                       DeathAwareScriptWrappable* wrapper_in_mixin) {
-    return new Base(wrapper_in_base, wrapper_in_mixin);
+    return MakeGarbageCollected<Base>(wrapper_in_base, wrapper_in_mixin);
+  }
+
+  Base(DeathAwareScriptWrappable* wrapper_in_base,
+       DeathAwareScriptWrappable* wrapper_in_mixin)
+      : Mixin(wrapper_in_mixin), wrapper_in_base_(wrapper_in_base) {
+    // Use field_;
+    field_ = 0;
   }
 
   void Trace(Visitor* visitor) override {
@@ -424,13 +431,6 @@ class Base : public blink::GarbageCollected<Base>,
   const char* NameInHeapSnapshot() const override { return "HandleContainer"; }
 
  protected:
-  Base(DeathAwareScriptWrappable* wrapper_in_base,
-       DeathAwareScriptWrappable* wrapper_in_mixin)
-      : Mixin(wrapper_in_mixin), wrapper_in_base_(wrapper_in_base) {
-    // Use field_;
-    field_ = 0;
-  }
-
   DeathAwareScriptWrappable::Wrapper wrapper_in_base_;
 };
 

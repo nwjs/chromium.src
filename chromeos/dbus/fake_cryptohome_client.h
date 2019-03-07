@@ -23,7 +23,8 @@
 
 namespace chromeos {
 
-class CHROMEOS_EXPORT FakeCryptohomeClient : public CryptohomeClient {
+class COMPONENT_EXPORT(CHROMEOS_DBUS) FakeCryptohomeClient
+    : public CryptohomeClient {
  public:
   FakeCryptohomeClient();
   ~FakeCryptohomeClient() override;
@@ -322,6 +323,10 @@ class CHROMEOS_EXPORT FakeCryptohomeClient : public CryptohomeClient {
     return last_migrate_to_dircrypto_request_.minimal_migration();
   }
 
+  int remove_firmware_management_parameters_from_tpm_call_count() const {
+    return remove_firmware_management_parameters_from_tpm_call_count_;
+  }
+
  private:
   void ReturnProtobufMethodCallback(
       const cryptohome::BaseReply& reply,
@@ -363,6 +368,8 @@ class CHROMEOS_EXPORT FakeCryptohomeClient : public CryptohomeClient {
 
   bool service_is_available_;
   base::ObserverList<Observer>::Unchecked observer_list_;
+
+  int remove_firmware_management_parameters_from_tpm_call_count_;
 
   int async_call_id_;
   bool unmount_result_;

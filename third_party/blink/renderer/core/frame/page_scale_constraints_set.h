@@ -52,8 +52,10 @@ class CORE_EXPORT PageScaleConstraintsSet
     : public GarbageCollected<PageScaleConstraintsSet> {
  public:
   static PageScaleConstraintsSet* Create(Page* page) {
-    return new PageScaleConstraintsSet(page);
+    return MakeGarbageCollected<PageScaleConstraintsSet>(page);
   }
+
+  PageScaleConstraintsSet(Page* page);
 
   void Trace(blink::Visitor*);
 
@@ -66,7 +68,7 @@ class CORE_EXPORT PageScaleConstraintsSet
     return page_defined_constraints_;
   }
   void UpdatePageDefinedConstraints(const ViewportDescription&,
-                                    Length legacy_fallback_width);
+                                    const Length& legacy_fallback_width);
   void AdjustForAndroidWebViewQuirks(const ViewportDescription&,
                                      int layout_fallback_width,
                                      float device_scale_factor,
@@ -113,8 +115,6 @@ class CORE_EXPORT PageScaleConstraintsSet
   IntSize InitialViewportSize() const { return icb_size_; }
 
  private:
-  PageScaleConstraintsSet(Page* page);
-
   PageScaleConstraints ComputeConstraintsStack() const;
 
   void AdjustFinalConstraintsToContentsSize();

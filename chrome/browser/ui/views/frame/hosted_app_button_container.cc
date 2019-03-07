@@ -181,15 +181,7 @@ HostedAppButtonContainer::HostedAppButtonContainer(
     : scoped_widget_observer_(this),
       browser_view_(browser_view),
       active_color_(active_color),
-      inactive_color_(inactive_color),
-      hosted_app_origin_text_(new HostedAppOriginText(browser_view->browser())),
-      content_settings_container_(new ContentSettingsContainer(this)),
-      browser_actions_container_(
-          new BrowserActionsContainer(browser_view->browser(),
-                                      nullptr,
-                                      this,
-                                      false /* interactive */)),
-      app_menu_button_(new HostedAppMenuButton(browser_view)) {
+      inactive_color_(inactive_color) {
   DCHECK(browser_view_);
   DCHECK(browser_view_->browser()
              ->hosted_app_controller()
@@ -208,16 +200,18 @@ HostedAppButtonContainer::HostedAppButtonContainer(
   layout.set_cross_axis_alignment(
       views::BoxLayout::CROSS_AXIS_ALIGNMENT_CENTER);
 
-  AddChildView(hosted_app_origin_text_);
+  hosted_app_origin_text_ = AddChildView(
+      std::make_unique<HostedAppOriginText>(browser_view->browser()));
 
+  content_settings_container_ =
+      AddChildView(std::make_unique<ContentSettingsContainer>(this));
   views::SetHitTestComponent(content_settings_container_,
                              static_cast<int>(HTCLIENT));
-  AddChildView(content_settings_container_);
-  UpdateContentSettingViewsVisibility();
 
   PageActionIconContainerView::Params params;
-  params.types_enabled.push_back(PageActionIconType::kManagePasswords);
   params.types_enabled.push_back(PageActionIconType::kFind);
+  params.types_enabled.push_back(PageActionIconType::kManagePasswords);
+  params.types_enabled.push_back(PageActionIconType::kTranslate);
   params.types_enabled.push_back(PageActionIconType::kZoom);
   params.icon_size = GetLayoutConstant(HOSTED_APP_PAGE_ACTION_ICON_SIZE);
   params.icon_color = GetIconColor();
@@ -225,17 +219,22 @@ HostedAppButtonContainer::HostedAppButtonContainer(
   params.browser = browser_view_->browser();
   params.command_updater = browser_view_->browser()->command_controller();
   params.page_action_icon_delegate = this;
-  page_action_icon_container_view_ = new PageActionIconContainerView(params);
+  page_action_icon_container_view_ =
+      AddChildView(std::make_unique<PageActionIconContainerView>(params));
   views::SetHitTestComponent(page_action_icon_container_view_,
                              static_cast<int>(HTCLIENT));
-  AddChildView(page_action_icon_container_view_);
 
+  browser_actions_container_ =
+      AddChildView(std::make_unique<BrowserActionsContainer>(
+          browser_view->browser(), nullptr, this, false /* interactive */));
   views::SetHitTestComponent(browser_actions_container_,
                              static_cast<int>(HTCLIENT));
-  AddChildView(browser_actions_container_);
-  AddChildView(app_menu_button_);
+
+  app_menu_button_ =
+      AddChildView(std::make_unique<HostedAppMenuButton>(browser_view));
 
   UpdateChildrenColor();
+  UpdateStatusIconsVisibility();
 
   DCHECK(!browser_view_->toolbar_button_provider() ||
          browser_view_->toolbar_button_provider()
@@ -255,8 +254,9 @@ HostedAppButtonContainer::~HostedAppButtonContainer() {
     immersive_controller->RemoveObserver(this);
 }
 
-void HostedAppButtonContainer::UpdateContentSettingViewsVisibility() {
+void HostedAppButtonContainer::UpdateStatusIconsVisibility() {
   content_settings_container_->UpdateContentSettingViewsVisibility();
+  page_action_icon_container_view_->UpdateAll();
 }
 
 void HostedAppButtonContainer::SetPaintAsActive(bool active) {

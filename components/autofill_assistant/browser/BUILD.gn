@@ -2,12 +2,28 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/android/rules.gni")
 import("//build/config/jumbo.gni")
 import("//third_party/protobuf/proto_library.gni")
 
 proto_library("proto") {
   sources = [
     "service.proto",
+  ]
+}
+
+proto_java_library("proto_java") {
+  proto_path = "//components/autofill_assistant/browser/"
+  sources = [
+    "$proto_path/service.proto",
+  ]
+}
+
+java_cpp_enum("autofill_assistant_enums_java") {
+  sources = [
+    "chip.h",
+    "metrics.h",
+    "overlay_state.h",
   ]
 }
 
@@ -55,13 +71,20 @@ jumbo_static_library("browser") {
     "actions/wait_for_dom_action.h",
     "batch_element_checker.cc",
     "batch_element_checker.h",
+    "chip.cc",
+    "chip.h",
     "client.h",
     "client_memory.cc",
     "client_memory.h",
     "controller.cc",
     "controller.h",
+    "details.cc",
+    "details.h",
     "element_area.cc",
     "element_area.h",
+    "metrics.cc",
+    "metrics.h",
+    "overlay_state.h",
     "payment_information.h",
     "protocol_utils.cc",
     "protocol_utils.h",
@@ -78,8 +101,11 @@ jumbo_static_library("browser") {
     "script_tracker.h",
     "selector.cc",
     "selector.h",
+    "self_delete_full_card_requester.cc",
+    "self_delete_full_card_requester.h",
     "service.cc",
     "service.h",
+    "state.h",
     "ui_controller.cc",
     "ui_controller.h",
     "ui_delegate.h",

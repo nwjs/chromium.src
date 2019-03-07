@@ -30,7 +30,6 @@
 #include "ui/accessibility/ax_range.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
-#include "ui/base/cocoa/remote_accessibility_api.h"
 #include "ui/gfx/mac/coordinate_conversion.h"
 
 #import "ui/accessibility/platform/ax_platform_node_mac.h"
@@ -714,23 +713,15 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
 - (NSNumber*)ariaColumnCount {
   if (!ui::IsTableLike(owner_->GetRole()))
     return nil;
-  int count = -1;
-  if (!owner_->GetIntAttribute(ax::mojom::IntAttribute::kAriaColumnCount,
-                               &count)) {
-    return nil;
-  }
-  return [NSNumber numberWithInt:count];
+  DCHECK(owner_->node());
+  return [NSNumber numberWithInt:owner_->node()->GetTableAriaColCount()];
 }
 
 - (NSNumber*)ariaColumnIndex {
   if (!ui::IsCellOrTableHeader(owner_->GetRole()))
     return nil;
-  int index = -1;
-  if (!owner_->GetIntAttribute(ax::mojom::IntAttribute::kAriaCellColumnIndex,
-                               &index)) {
-    return nil;
-  }
-  return [NSNumber numberWithInt:index];
+  DCHECK(owner_->node());
+  return [NSNumber numberWithInt:owner_->node()->GetTableCellAriaColIndex()];
 }
 
 - (NSString*)ariaLive {
@@ -743,8 +734,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
 - (NSNumber*)ariaPosInSet {
   if (![self instanceActive])
     return nil;
-  return [NSNumber numberWithInt:owner_->GetIntAttribute(
-                                     ax::mojom::IntAttribute::kPosInSet)];
+  return [NSNumber numberWithInt:owner_->node()->GetPosInSet()];
 }
 
 - (NSString*)ariaRelevant {
@@ -757,30 +747,21 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
 - (NSNumber*)ariaRowCount {
   if (!ui::IsTableLike(owner_->GetRole()))
     return nil;
-  int count = -1;
-  if (!owner_->GetIntAttribute(ax::mojom::IntAttribute::kAriaRowCount,
-                               &count)) {
-    return nil;
-  }
-  return [NSNumber numberWithInt:count];
+  DCHECK(owner_->node());
+  return [NSNumber numberWithInt:owner_->node()->GetTableAriaRowCount()];
 }
 
 - (NSNumber*)ariaRowIndex {
   if (!ui::IsCellOrTableHeader(owner_->GetRole()))
     return nil;
-  int index = -1;
-  if (!owner_->GetIntAttribute(ax::mojom::IntAttribute::kAriaCellRowIndex,
-                               &index)) {
-    return nil;
-  }
-  return [NSNumber numberWithInt:index];
+  DCHECK(owner_->node());
+  return [NSNumber numberWithInt:owner_->node()->GetTableCellAriaRowIndex()];
 }
 
 - (NSNumber*)ariaSetSize {
   if (![self instanceActive])
     return nil;
-  return [NSNumber
-      numberWithInt:owner_->GetIntAttribute(ax::mojom::IntAttribute::kSetSize)];
+  return [NSNumber numberWithInt:owner_->node()->GetSetSize()];
 }
 
 - (NSString*)autocompleteValue {
@@ -1217,13 +1198,11 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   if (![self instanceActive])
     return nil;
   if ([self internalRole] == ax::mojom::Role::kColumn) {
-    int columnIndex =
-        owner_->GetIntAttribute(ax::mojom::IntAttribute::kTableColumnIndex);
-    return [NSNumber numberWithInt:columnIndex];
+    DCHECK(owner_->node());
+    return @(owner_->node()->GetTableColColIndex());
   } else if ([self internalRole] == ax::mojom::Role::kRow) {
-    int rowIndex =
-        owner_->GetIntAttribute(ax::mojom::IntAttribute::kTableRowIndex);
-    return [NSNumber numberWithInt:rowIndex];
+    DCHECK(owner_->node());
+    return @(owner_->node()->GetTableRowRowIndex());
   }
 
   return nil;
@@ -2286,23 +2265,7 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   if (!manager || !manager->GetParentView())
     return nil;
 
-  id parent = manager->GetParentView();
-
-  // If |parent| is an NSView in this process, then return the corresponding
-  // NSWindow.
-  if (auto* view = base::mac::ObjCCast<NSView>(parent))
-    return [view window];
-
-  // If |parent| is a NSAccessibilityRemoteUIElement for an NSView in another
-  // process then return the NSAccessibilityRemoteUIElement for its NSWindow in
-  // that other process.
-  if (auto* element =
-          base::mac::ObjCCast<NSAccessibilityRemoteUIElement>(parent)) {
-    return [element windowUIElement];
-  }
-
-  DLOG(ERROR) << "Failed to find window accessibility element.";
-  return nil;
+  return manager->GetWindow();
 }
 
 - (NSString*)methodNameForAttribute:(NSString*)attribute {
@@ -2824,6 +2787,11 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   return actions;
 }
 
+// TODO(crbug.com/921109): Migrate from the NSObject accessibility interface to
+// the NSAccessibility one, then remove this suppression.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 // Returns a sub-array of values for the given attribute value, starting at
 // index, with up to maxCount items.  If the given index is out of bounds,
 // or there are no values for the given attribute, it will return nil.
@@ -2859,6 +2827,8 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   NSArray* fullArray = [self accessibilityAttributeValue:attribute];
   return [fullArray count];
 }
+
+#pragma clang diagnostic pop
 
 // Returns the list of accessibility attributes that this object supports.
 - (NSArray*)accessibilityAttributeNames {
@@ -3006,13 +2976,13 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
     [ret addObjectsFromArray:@[ NSAccessibilityURLAttribute ]];
   }
 
-  // Position in set and Set size
-  if (owner_->HasIntAttribute(ax::mojom::IntAttribute::kPosInSet)) {
+  // Position in set and Set size.
+  // Only add these attributes for roles that use posinset and setsize.
+  if (ui::IsItemLike(owner_->node()->data().role))
     [ret addObjectsFromArray:@[ NSAccessibilityARIAPosInSetAttribute ]];
-  }
-  if (owner_->HasIntAttribute(ax::mojom::IntAttribute::kSetSize)) {
+  if (ui::IsSetLike(owner_->node()->data().role) ||
+      ui::IsItemLike(owner_->node()->data().role))
     [ret addObjectsFromArray:@[ NSAccessibilityARIASetSizeAttribute ]];
-  }
 
   // Live regions.
   if (owner_->HasStringAttribute(ax::mojom::StringAttribute::kLiveStatus)) {

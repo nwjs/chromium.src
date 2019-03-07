@@ -13,7 +13,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -63,7 +62,7 @@ public class BaseSessionControllerTest {
     @Mock
     private CafBaseMediaRouteProvider mProvider;
     @Mock
-    private CafNotificationController mNotificationController;
+    private BaseNotificationController mNotificationController;
     @Mock
     private MediaSource mSource;
     @Mock
@@ -92,10 +91,10 @@ public class BaseSessionControllerTest {
                 new MediaRouteSelector.Builder()
                         .addControlCategory(CastMediaControlIntent.categoryForCast(APP_ID))
                         .build();
-        mController = new BaseSessionController(mProvider);
+        mController = new TestSessionController(mProvider, mNotificationController);
+        mController.addCallback(mNotificationController);
         mRequestInfo = new CreateRouteRequestInfo(mSource, mSink, PRESENTATION_ID, ORIGIN, TAB_ID,
                 false, 1, mMediaRouterHelper.getCastRoute());
-        mController.mNotificationController = mNotificationController;
 
         doReturn(mSessionManager).when(mCastContext).getSessionManager();
         doReturn(mRemoteMediaClient).when(mCastSession).getRemoteMediaClient();
@@ -115,49 +114,12 @@ public class BaseSessionControllerTest {
         assertNull(mController.getRouteCreationInfo());
     }
 
-    /**
-     * Test the case of requesting a session launch while the requested route is not selected. The
-     * controller should set the receiver app ID and then select the route so CAF will start the
-     * session once observed the route selection.
-     */
     @Test
-    public void testRequestSessionLaunch_routeNotSelected() {
+    public void testRequestSessionLaunch() {
         mController.requestSessionLaunch();
         verify(mCastContext).setReceiverApplicationId(APP_ID);
         verify(mMediaRouterHelper.getCastRoute()).select();
         assertSame(mRequestInfo, mController.getRouteCreationInfo());
-    }
-
-    /**
-     * Test the case of requesting a session launch while the requested route is already selected.
-     * The controller should first unselect the route, set the application ID and then select the
-     * route again to notify CAF to start the session.
-     */
-    @Test
-    public void testRequestSessionLaunch_routeSelected() {
-        mMediaRouterHelper.selectRoute(mMediaRouterHelper.getCastRoute());
-
-        ArgumentCaptor<MediaRouter.Callback> callbackCaptor =
-                ArgumentCaptor.forClass(MediaRouter.Callback.class);
-
-        mController.requestSessionLaunch();
-        verify(mCastContext).setReceiverApplicationId(APP_ID);
-        verify(mMediaRouterHelper.getShadowImpl())
-                .addCallback(eq(mMediaRouteSelector), callbackCaptor.capture());
-        assertSame(mRequestInfo, mController.getRouteCreationInfo());
-        verify(mMediaRouterHelper.getShadowImpl()).unselect(MediaRouter.UNSELECT_REASON_UNKNOWN);
-
-        // Simulate another route has been unselected.
-        callbackCaptor.getValue().onRouteUnselected(
-                MediaRouter.getInstance(mContext), mMediaRouterHelper.getOtherCastRoute());
-
-        assertFalse(mMediaRouterHelper.getCastRoute().isSelected());
-
-        // Simulate the cast route has been unselected.
-        callbackCaptor.getValue().onRouteUnselected(
-                MediaRouter.getInstance(mContext), mMediaRouterHelper.getCastRoute());
-
-        assertTrue(mMediaRouterHelper.getCastRoute().isSelected());
     }
 
     @Test
@@ -248,5 +210,20 @@ public class BaseSessionControllerTest {
 
         callbackCaptor.getValue().onMetadataUpdated();
         verify(mNotificationController).onMetadataUpdated();
+    }
+
+    private static class TestSessionController extends BaseSessionController {
+        public BaseNotificationController mNotificationController;
+
+        public TestSessionController(CafBaseMediaRouteProvider provider,
+                BaseNotificationController notificationController) {
+            super(provider);
+            mNotificationController = notificationController;
+        }
+
+        @Override
+        public BaseNotificationController getNotificationController() {
+            return mNotificationController;
+        }
     }
 }

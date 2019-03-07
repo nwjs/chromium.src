@@ -7,7 +7,6 @@
 
 #include <memory>
 
-#include "base/containers/ring_buffer.h"
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -18,6 +17,7 @@
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/als_reader.h"
+#include "chrome/browser/chromeos/power/auto_screen_brightness/als_samples.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/brightness_monitor.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/modeller.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/trainer.h"
@@ -41,16 +41,6 @@ class ModellerImpl : public Modeller,
                      public BrightnessMonitor::Observer,
                      public ui::UserActivityObserver {
  public:
-  // TODO(jiameng): we currently use past 10 seconds of ambient values to
-  // calculate average. May revise.
-  static constexpr int kAmbientLightHorizonSeconds = 10;
-  static constexpr base::TimeDelta kAmbientLightHorizon =
-      base::TimeDelta::FromSeconds(kAmbientLightHorizonSeconds);
-
-  // Size of |data_cache_|.
-  static constexpr int kNumberAmbientValuesToTrack =
-      kAmbientLightHorizonSeconds * AlsReader::kAlsPollFrequency;
-
   static constexpr char kModelDir[] = "autobrightness";
   static constexpr char kCurveFileName[] = "curve";
 
@@ -90,7 +80,7 @@ class ModellerImpl : public Modeller,
       const base::TickClock* tick_clock);
 
   // Current average ambient light.
-  double AverageAmbientForTesting() const;
+  base::Optional<double> AverageAmbientForTesting(base::TimeTicks now);
 
   // Current number of training data points stored, which will be used for next
   // training.
@@ -224,13 +214,24 @@ class ModellerImpl : public Modeller,
   // Global curve constructed from predefined params.
   const MonotoneCubicSpline global_curve_;
 
-  // Recent |kNumberAmbientValuesToTrack| ambient values.
-  base::RingBuffer<AmbientLightSample, kNumberAmbientValuesToTrack>
-      ambient_light_values_;
+  // Current personal curve. Initially it could be either the global curve or
+  // loaded curve. After training, it will be updated each time trainer
+  // generates a new curve.
+  base::Optional<MonotoneCubicSpline> current_curve_;
+
+  // Recent ambient values.
+  std::unique_ptr<AmbientLightSampleBuffer> ambient_light_values_;
+
+  // Whether we calculate average log ALS values. This should be the same as
+  // that used by the adapter.
+  bool average_log_als_ = false;
 
   std::vector<TrainingDataPoint> data_cache_;
 
   base::ObserverList<Modeller::Observer> observers_;
+
+  // Training start time.
+  base::Optional<base::TimeTicks> training_start_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

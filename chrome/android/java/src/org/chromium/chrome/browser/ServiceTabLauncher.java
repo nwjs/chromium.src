@@ -22,7 +22,7 @@ import org.chromium.chrome.browser.browserservices.BrowserServicesMetrics;
 import org.chromium.chrome.browser.browserservices.TrustedWebActivityClient;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.document.AsyncTabCreationParams;
 import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
 import org.chromium.chrome.browser.webapps.ChromeWebApkHost;
@@ -93,7 +93,7 @@ public class ServiceTabLauncher {
                      BrowserServicesMetrics.getServiceTabResolveInfoTimingContext()) {
             resolveInfos = WebApkValidator.resolveInfosForUrl(context, url);
         }
-        String webApkPackageName = WebApkValidator.findWebApkPackage(context, resolveInfos);
+        String webApkPackageName = WebApkValidator.findFirstWebApkPackage(context, resolveInfos);
 
         if (webApkPackageName != null) {
             final List<ResolveInfo> resolveInfosFinal = resolveInfos;

@@ -110,11 +110,13 @@ void MessageLoopImpl::Controller::DidQueueTask(bool was_empty) {
 }
 
 void MessageLoopImpl::Controller::StartScheduling() {
+  DCHECK_CALLED_ON_VALID_THREAD(message_loop_->bound_thread_checker_);
   if (operations_controller_.StartAcceptingOperations())
     message_loop_->ScheduleWork();
 }
 
 void MessageLoopImpl::Controller::DisconnectFromParent() {
+  DCHECK_CALLED_ON_VALID_THREAD(message_loop_->bound_thread_checker_);
   ScopedAllowBaseSyncPrimitivesOutsideBlockingScope allow_wait_for_fast_ops;
   operations_controller_.ShutdownAndWaitForZeroOperations();
 }
@@ -213,6 +215,7 @@ void MessageLoopImpl::BindToCurrentThread(std::unique_ptr<MessagePump> pump) {
   message_loop_controller_->StartScheduling();
   SetThreadTaskRunnerHandle();
   thread_id_ = PlatformThread::CurrentId();
+  work_id_provider_ = WorkIdProvider::GetForCurrentThread();
 
   scoped_set_sequence_local_storage_map_for_current_thread_ = std::make_unique<
       internal::ScopedSetSequenceLocalStorageMapForCurrentThread>(
@@ -340,6 +343,8 @@ bool MessageLoopImpl::ProcessNextDelayedNonNestableTask() {
 void MessageLoopImpl::RunTask(PendingTask* pending_task) {
   DCHECK(task_execution_allowed_);
 
+  work_id_provider_->IncrementWorkId();
+
   // Execute the task and assume the worst: It is probably not reentrant.
   task_execution_allowed_ = false;
 
@@ -425,6 +430,10 @@ void MessageLoopImpl::ScheduleWork() {
 
 TimeTicks MessageLoopImpl::CapAtOneDay(TimeTicks next_run_time) {
   return std::min(next_run_time, recent_time_ + TimeDelta::FromDays(1));
+}
+
+void MessageLoopImpl::BeforeDoInternalWork() {
+  work_id_provider_->IncrementWorkId();
 }
 
 bool MessageLoopImpl::DoWork() {

@@ -10,10 +10,10 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/ui_base_types.h"
 
+class SkPath;
 class Tab;
 
 namespace gfx {
-class Path;
 class Point;
 class Rect;
 }
@@ -41,11 +41,6 @@ class TabController {
 
   // Returns true if the close button for the given tab is forced to be hidden.
   virtual bool ShouldHideCloseButtonForTab(Tab* tab) const = 0;
-
-  // Returns true if the close button on an inactive tab should be shown on
-  // mouse hover. This is predicated on ShouldHideCloseButtonForInactiveTabs()
-  // returning true.
-  virtual bool ShouldShowCloseButtonOnHover() = 0;
 
   // Returns true if ShouldPaintTab() could return a non-empty clip path.
   virtual bool MaySetClip() = 0;
@@ -113,11 +108,15 @@ class TabController {
   virtual void OnMouseEventInTab(views::View* source,
                                  const ui::MouseEvent& event) = 0;
 
+  // Updates hover-card content, anchoring and visibility based on what tab is
+  // hovered and whether the card should be shown.
+  virtual void UpdateHoverCard(Tab* tab, bool should_show) = 0;
+
   // Returns whether |tab| needs to be painted. When this returns true, |clip|
   // is set to the path which should be clipped out of the current tab's region
   // (for hit testing or painting), if any.  |clip| is only non-empty when
   // stacking tabs; if it is empty, no clipping is needed.
-  virtual bool ShouldPaintTab(const Tab* tab, float scale, gfx::Path* clip) = 0;
+  virtual bool ShouldPaintTab(const Tab* tab, float scale, SkPath* clip) = 0;
 
   // Returns the thickness of the stroke around the active tab in DIP.  Returns
   // 0 if there is no stroke.
@@ -150,9 +149,10 @@ class TabController {
       BrowserNonClientFrameView::ActiveState active_state =
           BrowserNonClientFrameView::kUseCurrent) const = 0;
 
-  // Returns the tab foreground color of the the text based on both the
-  // |tab_state| and the activation state of the window.
-  virtual SkColor GetTabForegroundColor(TabState tab_state) const = 0;
+  // Returns the tab foreground color of the the text based on the |tab_state|,
+  // the activation state of the window, and the current |background_color|.
+  virtual SkColor GetTabForegroundColor(TabState tab_state,
+                                        SkColor background_color) const = 0;
 
   // Returns the resource ID for the image to use as the tab background.
   // |custom_image| is an outparam set to true if either the tab or the frame

@@ -80,7 +80,8 @@ class MockSimpleIndexFile : public SimpleIndexFile,
     ++load_index_entries_calls_;
   }
 
-  void WriteToDisk(SimpleIndex::IndexWriteToDiskReason reason,
+  void WriteToDisk(net::CacheType cache_type,
+                   SimpleIndex::IndexWriteToDiskReason reason,
                    const SimpleIndex::EntrySet& entry_set,
                    uint64_t cache_size,
                    const base::TimeTicks& start,
@@ -237,11 +238,11 @@ TEST_F(EntryMetadataTest, Serialize) {
   EntryMetadata entry_metadata = NewEntryMetadataWithValues();
 
   base::Pickle pickle;
-  entry_metadata.Serialize(&pickle);
+  entry_metadata.Serialize(net::DISK_CACHE, &pickle);
 
   base::PickleIterator it(pickle);
   EntryMetadata new_entry_metadata;
-  new_entry_metadata.Deserialize(&it, true);
+  new_entry_metadata.Deserialize(net::DISK_CACHE, &it, true, true);
   CheckEntryMetadataValues(new_entry_metadata);
 
   // Test reading of old format --- the modern serialization of above entry
@@ -250,7 +251,7 @@ TEST_F(EntryMetadataTest, Serialize) {
   // rounded again when stored by EntryMetadata.
   base::PickleIterator it2(pickle);
   EntryMetadata new_entry_metadata2;
-  new_entry_metadata2.Deserialize(&it2, false);
+  new_entry_metadata2.Deserialize(net::DISK_CACHE, &it2, false, false);
   EXPECT_EQ(RoundSize(RoundSize(kTestEntrySize) | kTestEntryMemoryData),
             new_entry_metadata2.GetEntrySize());
   EXPECT_EQ(0, new_entry_metadata2.GetInMemoryData());
@@ -437,6 +438,8 @@ TEST_F(SimpleIndexTest, BasicInit) {
 
   EntryMetadata metadata;
   EXPECT_TRUE(GetEntryForTesting(hashes_.at<1>(), &metadata));
+  EXPECT_EQ(metadata.GetLastUsedTime(),
+            index()->GetLastUsedTime(hashes_.at<1>()));
   EXPECT_LT(
       now - base::TimeDelta::FromDays(2) - base::TimeDelta::FromSeconds(1),
       metadata.GetLastUsedTime());
@@ -445,6 +448,8 @@ TEST_F(SimpleIndexTest, BasicInit) {
       metadata.GetLastUsedTime());
   EXPECT_EQ(RoundSize(10u), metadata.GetEntrySize());
   EXPECT_TRUE(GetEntryForTesting(hashes_.at<2>(), &metadata));
+  EXPECT_EQ(metadata.GetLastUsedTime(),
+            index()->GetLastUsedTime(hashes_.at<2>()));
   EXPECT_LT(
       now - base::TimeDelta::FromDays(3) - base::TimeDelta::FromSeconds(1),
       metadata.GetLastUsedTime());
@@ -452,6 +457,7 @@ TEST_F(SimpleIndexTest, BasicInit) {
       now - base::TimeDelta::FromDays(3) + base::TimeDelta::FromSeconds(1),
       metadata.GetLastUsedTime());
   EXPECT_EQ(RoundSize(1000u), metadata.GetEntrySize());
+  EXPECT_EQ(base::Time(), index()->GetLastUsedTime(hashes_.at<3>()));
 }
 
 // Remove something that's going to come in from the loaded index.

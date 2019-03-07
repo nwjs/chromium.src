@@ -39,7 +39,9 @@ UsbDeviceImpl::UsbDeviceImpl(ScopedLibusbDeviceRef platform_device,
                 descriptor.bcdDevice,
                 base::string16(),
                 base::string16(),
-                base::string16()),
+                base::string16(),
+                libusb_get_bus_number(platform_device.get()),
+                libusb_get_port_number(platform_device.get())),
       platform_device_(std::move(platform_device)) {
   CHECK(platform_device_.IsValid()) << "platform_device must be valid";
   ReadAllConfigurations();
@@ -51,7 +53,7 @@ UsbDeviceImpl::~UsbDeviceImpl() {
 }
 
 void UsbDeviceImpl::Open(OpenCallback callback) {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner =
       UsbService::CreateBlockingTaskRunner();
@@ -123,7 +125,8 @@ void UsbDeviceImpl::Opened(
     ScopedLibusbDeviceHandle platform_handle,
     OpenCallback callback,
     scoped_refptr<base::SequencedTaskRunner> blocking_task_runner) {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
   scoped_refptr<UsbDeviceHandle> device_handle = new UsbDeviceHandleImpl(
       this, std::move(platform_handle), blocking_task_runner);
   handles().push_back(device_handle.get());

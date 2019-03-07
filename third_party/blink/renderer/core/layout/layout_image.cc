@@ -41,6 +41,7 @@
 #include "third_party/blink/renderer/core/layout/intrinsic_sizing_info.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/paint/image_element_timing.h"
 #include "third_party/blink/renderer/core/paint/image_painter.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
@@ -57,21 +58,28 @@ bool CheckForOptimizedImagePolicy(const Document& document,
   // Render the image as a placeholder image if the document does not have the
   // 'legacy-image-formats' feature enabled, and the image is not one of the
   // allowed formats.
-  if (RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled() &&
-      !document.IsFeatureEnabled(
-          mojom::FeaturePolicyFeature::kLegacyImageFormats)) {
-    if (!new_image->IsAcceptableContentType()) {
+  if (!new_image->IsAcceptableContentType()) {
+    document.CountPotentialFeaturePolicyViolation(
+        mojom::FeaturePolicyFeature::kLegacyImageFormats);
+    if (RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled() &&
+        !document.IsFeatureEnabled(
+            mojom::FeaturePolicyFeature::kLegacyImageFormats,
+            ReportOptions::kReportOnFailure)) {
       return true;
     }
   }
   // Render the image as a placeholder image if the document does not have the
   // 'unoptimized-images' feature enabled and the image is not
   // sufficiently-well-compressed.
-  if (RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled() &&
-      !document.IsFeatureEnabled(
-          mojom::FeaturePolicyFeature::kUnoptimizedImages)) {
-    if (!new_image->IsAcceptableCompressionRatio())
+  if (!new_image->IsAcceptableCompressionRatio()) {
+    document.CountPotentialFeaturePolicyViolation(
+        mojom::FeaturePolicyFeature::kUnoptimizedImages);
+    if (RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled() &&
+        !document.IsFeatureEnabled(
+            mojom::FeaturePolicyFeature::kUnoptimizedImages,
+            ReportOptions::kReportOnFailure)) {
       return true;
+    }
   }
   return false;
 }
@@ -127,7 +135,7 @@ LayoutImage::~LayoutImage() = default;
 void LayoutImage::WillBeDestroyed() {
   DCHECK(image_resource_);
   image_resource_->Shutdown();
-  if (RuntimeEnabledFeatures::ElementTimingEnabled()) {
+  if (origin_trials::ElementTimingEnabled(&GetDocument())) {
     if (LocalDOMWindow* window = GetDocument().domWindow())
       ImageElementTiming::From(*window).NotifyWillBeDestroyed(this);
   }
@@ -210,6 +218,23 @@ void LayoutImage::UpdateIntrinsicSizeIfNeeded(const LayoutSize& new_size) {
   SetIntrinsicSize(new_size);
 }
 
+bool LayoutImage::NeedsLayoutOnIntrinsicSizeChange() const {
+  // If the actual area occupied by the image has changed and it is not
+  // constrained by style then a layout is required.
+  bool image_size_is_constrained =
+      StyleRef().LogicalWidth().IsSpecified() &&
+      StyleRef().LogicalHeight().IsSpecified() &&
+      !HasAutoHeightOrContainingBlockWithAutoHeight(
+          kDontRegisterPercentageDescendant);
+  if (!image_size_is_constrained)
+    return true;
+  // FIXME: We only need to recompute the containing block's preferred size if
+  // the containing block's size depends on the image's size (i.e., the
+  // container uses shrink-to-fit sizing). There's no easy way to detect that
+  // shrink-to-fit is needed, always force a layout.
+  return HasRelativeLogicalWidth();
+}
+
 void LayoutImage::InvalidatePaintAndMarkForLayoutIfNeeded(
     CanDeferInvalidation defer) {
   LayoutSize old_intrinsic_size = IntrinsicSize();
@@ -225,30 +250,14 @@ void LayoutImage::InvalidatePaintAndMarkForLayoutIfNeeded(
   if (!ContainingBlock())
     return;
 
-  bool image_source_has_changed_size = old_intrinsic_size != new_intrinsic_size;
-  if (image_source_has_changed_size)
+  if (old_intrinsic_size != new_intrinsic_size) {
     SetPreferredLogicalWidthsDirty();
 
-  // If the actual area occupied by the image has changed and it is not
-  // constrained by style then a layout is required.
-  bool image_size_is_constrained = StyleRef().LogicalWidth().IsSpecified() &&
-                                   StyleRef().LogicalHeight().IsSpecified();
-
-  // FIXME: We only need to recompute the containing block's preferred size if
-  // the containing block's size depends on the image's size (i.e., the
-  // container uses shrink-to-fit sizing). There's no easy way to detect that
-  // shrink-to-fit is needed, always force a layout.
-  bool containing_block_needs_to_recompute_preferred_size =
-      StyleRef().LogicalWidth().IsPercentOrCalc() ||
-      StyleRef().LogicalMaxWidth().IsPercentOrCalc() ||
-      StyleRef().LogicalMinWidth().IsPercentOrCalc();
-
-  if (image_source_has_changed_size &&
-      (!image_size_is_constrained ||
-       containing_block_needs_to_recompute_preferred_size)) {
-    SetNeedsLayoutAndFullPaintInvalidation(
-        layout_invalidation_reason::kSizeChanged);
-    return;
+    if (NeedsLayoutOnIntrinsicSizeChange()) {
+      SetNeedsLayoutAndFullPaintInvalidation(
+          layout_invalidation_reason::kSizeChanged);
+      return;
+    }
   }
 
   SetShouldDoFullPaintInvalidationWithoutGeometryChange(
@@ -412,6 +421,7 @@ bool LayoutImage::OverrideIntrinsicSizingInfo(
 
 void LayoutImage::ComputeIntrinsicSizingInfo(
     IntrinsicSizingInfo& intrinsic_sizing_info) const {
+  DCHECK(!ShouldApplySizeContainment());
   if (!OverrideIntrinsicSizingInfo(intrinsic_sizing_info)) {
     if (SVGImage* svg_image = EmbeddedSVGImage()) {
       svg_image->GetIntrinsicSizingInfo(intrinsic_sizing_info);
@@ -504,8 +514,8 @@ void LayoutImage::UpdateAfterLayout() {
     ValidateImagePolicies();
 
     // Report violation of unsized-media policy.
-    if (image_element->IsDefaultIntrinsicSize())
-      media_element_parser_helpers::ReportUnsizedMediaViolation(this);
+    media_element_parser_helpers::ReportUnsizedMediaViolation(
+        this, image_element->IsDefaultIntrinsicSize());
   }
 }
 

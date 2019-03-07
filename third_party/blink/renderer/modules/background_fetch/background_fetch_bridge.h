@@ -6,7 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_BACKGROUND_FETCH_BACKGROUND_FETCH_BRIDGE_H_
 
 #include <memory>
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom-blink.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom-blink.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_registration.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
@@ -44,6 +44,7 @@ class BackgroundFetchBridge final
 
   static BackgroundFetchBridge* From(ServiceWorkerRegistration* registration);
 
+  explicit BackgroundFetchBridge(ServiceWorkerRegistration& registration);
   virtual ~BackgroundFetchBridge();
 
   // Creates a new Background Fetch registration identified by |developer_id|
@@ -108,8 +109,6 @@ class BackgroundFetchBridge final
       mojom::blink::BackgroundFetchRegistrationObserverPtr observer);
 
  private:
-  explicit BackgroundFetchBridge(ServiceWorkerRegistration& registration);
-
   // Returns an initialized BackgroundFetchService*. A connection will be
   // established after the first call to this method.
   mojom::blink::BackgroundFetchService* GetService();

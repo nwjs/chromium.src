@@ -236,6 +236,7 @@ Output.ROLE_INFO_ = {
   list: {msgId: 'role_list'},
   listBox: {msgId: 'role_listbox', earconId: 'LISTBOX'},
   listBoxOption: {msgId: 'role_listitem', earconId: 'LIST_ITEM'},
+  listGrid: {msgId: 'role_list_grid', inherits: 'table'},
   listItem:
       {msgId: 'role_listitem', earconId: 'LIST_ITEM', inherits: 'abstractItem'},
   log: {msgId: 'role_log', inherits: 'abstractNameFromContents'},
@@ -259,6 +260,7 @@ Output.ROLE_INFO_ = {
   popUpButton: {msgId: 'role_button', earconId: 'POP_UP_BUTTON'},
   radioButton: {msgId: 'role_radio'},
   radioGroup: {msgId: 'role_radiogroup', inherits: 'abstractContainer'},
+  region: {msgId: 'role_region', inherits: 'abstractContainer'},
   rootWebArea: {outputContextFirst: true},
   row: {msgId: 'role_row', inherits: 'abstractContainer'},
   rowHeader: {msgId: 'role_rowheader', inherits: 'cell'},
@@ -400,8 +402,10 @@ Output.RULES = {
     },
     cell: {
       enter: {
-        speak: `$cellIndexText $node(tableCellColumnHeaders) $state`,
-        braille: `$state $cellIndexText $node(tableCellColumnHeaders)`,
+        speak: `$cellIndexText $node(tableCellColumnHeaders) $nameFromNode
+            $state`,
+        braille: `$state $cellIndexText $node(tableCellColumnHeaders)
+            $nameFromNode`,
       },
       speak: `$name $cellIndexText $node(tableCellColumnHeaders)
           $state $description`,
@@ -526,7 +530,7 @@ Output.RULES = {
           @describe_index($posInSet, $setSize)
           $roleDescription $description $state $restriction`
     },
-    rootWebArea: {enter: `$name`, speak: `$if($name, $name, $docUrl)`},
+    rootWebArea: {enter: `$name`, speak: `$if($name, $name, @web_content)`},
     region: {speak: `$state $nameOrTextContent $description $roleDescription`},
     row: {
       enter: `$node(tableRowHeader)`,
@@ -704,7 +708,7 @@ Output.forceModeForNextSpeechUtterance_;
  * Calling this will make the next speech utterance use |mode| even if it would
  * normally queue or do a category flush. This differs from the |withQueueMode|
  * instance method as it can apply to future output.
- * @param {cvox.QueueMode} mode
+ * @param {cvox.QueueMode|undefined} mode
  */
 Output.forceModeForNextSpeechUtterance = function(mode) {
   Output.forceModeForNextSpeechUtterance_ = mode;
@@ -1953,7 +1957,7 @@ Output.prototype = {
     /**
      * Use Output.RULES for node.role if exists.
      * If not, use Output.RULES for parentRole if exists.
-     * If not, use Output.RULES for 'defalt'.
+     * If not, use Output.RULES for 'default'.
      */
     if (node.role && (eventBlock[node.role] || {}).speak !== undefined)
       rule.role = node.role;

@@ -8,8 +8,8 @@
 #include <string>
 
 #include "base/command_line.h"
-#include "base/message_loop/message_loop.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/scoped_task_environment.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/prefs/pref_member.h"
 #include "components/signin/core/browser/account_consistency_method.h"
@@ -112,7 +112,7 @@ class SigninHeaderHelperTest : public testing::Test {
   }
 #endif
 
-  base::MessageLoop loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
 
   bool sync_enabled_ = false;
   bool sync_has_auth_error_ = false;
@@ -325,37 +325,6 @@ TEST_F(SigninHeaderHelperTest, TestDiceMigration) {
           "version=%s,client_id=%s,device_id=DeviceID,signin_mode=all_accounts,"
           "signout_mode=show_confirmation",
           kDiceProtocolVersion, client_id.c_str()));
-}
-
-// Tests that a Dice request is returned only when there is an authentication
-// error if the method is kDiceFixAuthErrors.
-TEST_F(SigninHeaderHelperTest, TestDiceFixAuthError) {
-  account_consistency_ = AccountConsistencyMethod::kDiceFixAuthErrors;
-  // No Dice request unless all conditions are met.
-  CheckDiceHeaderRequest(GURL("https://accounts.google.com"), "0123456789",
-                         "mode=0,enable_account_consistency=false", "");
-  sync_has_auth_error_ = false;
-  sync_enabled_ = true;
-  CheckDiceHeaderRequest(GURL("https://accounts.google.com"), "0123456789",
-                         "mode=0,enable_account_consistency=false", "");
-  sync_has_auth_error_ = true;
-  sync_enabled_ = false;
-  CheckDiceHeaderRequest(GURL("https://accounts.google.com"), "0123456789",
-                         "mode=0,enable_account_consistency=false", "");
-  sync_has_auth_error_ = true;
-  sync_enabled_ = true;
-  CheckDiceHeaderRequest(GURL("https://accounts.google.com"), "", "", "");
-
-  // Dice request when there is an account id, Sync is enabled and in error
-  // state.
-  std::string client_id = GaiaUrls::GetInstance()->oauth2_chrome_client_id();
-  CheckDiceHeaderRequest(
-      GURL("https://accounts.google.com"), "0123456789",
-      "mode=0,enable_account_consistency=false",
-      base::StringPrintf("version=%s,client_id=%s,device_id=DeviceID,"
-                         "sync_account_id=0123456789,signin_mode=sync_account,"
-                         "signout_mode=no_confirmation",
-                         kDiceProtocolVersion, client_id.c_str()));
 }
 
 // Tests that the Mirror request is returned with the GAIA Id on Drive origin,

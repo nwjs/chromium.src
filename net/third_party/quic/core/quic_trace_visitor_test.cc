@@ -6,6 +6,7 @@
 
 #include "net/third_party/quic/core/quic_constants.h"
 #include "net/third_party/quic/platform/api/quic_test.h"
+#include "net/third_party/quic/test_tools/quic_test_utils.h"
 #include "net/third_party/quic/test_tools/simulator/quic_endpoint.h"
 #include "net/third_party/quic/test_tools/simulator/simulator.h"
 #include "net/third_party/quic/test_tools/simulator/switch.h"
@@ -23,11 +24,12 @@ const QuicTime::Delta kDelay = QuicTime::Delta::FromMilliseconds(20);
 class QuicTraceVisitorTest : public QuicTest {
  public:
   QuicTraceVisitorTest() {
+    QuicConnectionId connection_id = test::TestConnectionId();
     simulator::Simulator simulator;
     simulator::QuicEndpoint client(&simulator, "Client", "Server",
-                                   Perspective::IS_CLIENT, 42);
+                                   Perspective::IS_CLIENT, connection_id);
     simulator::QuicEndpoint server(&simulator, "Server", "Client",
-                                   Perspective::IS_SERVER, 42);
+                                   Perspective::IS_SERVER, connection_id);
 
     const QuicBandwidth kBandwidth = QuicBandwidth::FromKBitsPerSecond(1000);
     const QuicByteCount kBdp = kBandwidth * (2 * kDelay);

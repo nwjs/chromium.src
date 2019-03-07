@@ -20,6 +20,7 @@
 #include "ui/views/window/non_client_view.h"
 
 #if defined(USE_AURA)
+#include "ui/aura/env.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/window.h"
 #endif
@@ -43,9 +44,10 @@ class OverlayAgentTest : public views::ViewsTestBase {
     fake_frontend_channel_ = std::make_unique<FakeFrontendChannel>();
     uber_dispatcher_ = std::make_unique<protocol::UberDispatcher>(
         fake_frontend_channel_.get());
-    dom_agent_ = std::make_unique<DOMAgentAura>();
+    aura::Env* env = aura::Env::GetInstance();
+    dom_agent_ = std::make_unique<DOMAgentAura>(env);
     dom_agent_->Init(uber_dispatcher_.get());
-    overlay_agent_ = std::make_unique<OverlayAgentAura>(dom_agent_.get());
+    overlay_agent_ = std::make_unique<OverlayAgentAura>(dom_agent_.get(), env);
     overlay_agent_->Init(uber_dispatcher_.get());
     overlay_agent_->enable();
     views::ViewsTestBase::SetUp();
@@ -103,16 +105,21 @@ class OverlayAgentTest : public views::ViewsTestBase {
     return window;
   }
 
-  std::unique_ptr<views::Widget> CreateWidget() {
+  std::unique_ptr<views::Widget> CreateWidget(const gfx::Rect& bounds) {
     auto widget = std::make_unique<views::Widget>();
     views::Widget::InitParams params;
     params.delegate = nullptr;
     params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
-    params.bounds = gfx::Rect(0, 0, 400, 400);
+    params.bounds = bounds;
     params.parent = GetContext();
     widget->Init(params);
     widget->Show();
     return widget;
+  }
+
+  std::unique_ptr<views::Widget> CreateWidget() {
+    // Create a widget with default bounds.
+    return CreateWidget(gfx::Rect(0, 0, 400, 400));
   }
 
   DOMAgent* dom_agent() { return dom_agent_.get(); }
@@ -214,9 +221,12 @@ TEST_F(OverlayAgentTest, HighlightRects) {
       {"R1_INTERSECTS_R2", gfx::Rect(100, 100, 50, 50),
        gfx::Rect(120, 120, 50, 50), R1_INTERSECTS_R2},
   };
+  // Use a non-zero origin to test screen coordinates.
+  const gfx::Rect kWidgetBounds(10, 10, 510, 510);
+
   for (const auto& test_case : kTestCases) {
     SCOPED_TRACE(testing::Message() << "Case: " << test_case.name);
-    std::unique_ptr<views::Widget> widget = CreateWidget();
+    std::unique_ptr<views::Widget> widget = CreateWidget(kWidgetBounds);
 
     std::unique_ptr<protocol::DOM::Node> root;
     dom_agent()->getDocument(&root);
@@ -249,8 +259,18 @@ TEST_F(OverlayAgentTest, HighlightRects) {
     // Highlight child 2. Now, the distance overlay is showing.
     generator.MoveMouseTo(GetOriginInScreen(child_2));
 
+    // Check calculated highlight config.
     EXPECT_EQ(test_case.expected_configuration,
               overlay_agent()->highlight_rect_config());
+    // Check results of pinned and hovered rectangles.
+    gfx::Rect expected_pinned_rect =
+        client_view->ConvertRectToParent(test_case.first_element_bounds);
+    expected_pinned_rect.Offset(kWidgetBounds.OffsetFromOrigin());
+    EXPECT_EQ(expected_pinned_rect, overlay_agent()->pinned_rect_);
+    gfx::Rect expected_hovered_rect =
+        client_view->ConvertRectToParent(test_case.second_element_bounds);
+    expected_hovered_rect.Offset(kWidgetBounds.OffsetFromOrigin());
+    EXPECT_EQ(expected_hovered_rect, overlay_agent()->hovered_rect_);
     // If we don't explicitly stop inspecting, we'll leave ourselves as
     // a pretarget handler for the root window and UAF in the next test.
     // TODO(lgrey): Fix this when refactoring to support Mac.

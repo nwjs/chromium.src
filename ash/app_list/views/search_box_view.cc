@@ -27,7 +27,8 @@
 #include "ash/public/cpp/wallpaper_types.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/base/ime/composition_text.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -60,7 +61,6 @@ constexpr int kSearchBoxBorderWidth = 4;
 constexpr SkColor kSearchBoxBorderColor =
     SkColorSetARGB(0x3D, 0xFF, 0xFF, 0xFF);
 
-constexpr int kSearchBoxBorderCornerRadiusSearchResult = 4;
 constexpr int kAssistantIconSize = 24;
 constexpr int kCloseIconSize = 24;
 constexpr int kSearchBoxFocusBorderCornerRadius = 28;
@@ -94,8 +94,6 @@ SearchBoxView::SearchBoxView(search_box::SearchBoxViewDelegate* delegate,
     : search_box::SearchBoxViewBase(delegate),
       view_delegate_(view_delegate),
       app_list_view_(app_list_view),
-      is_new_style_launcher_enabled_(
-          app_list_features::IsNewStyleLauncherEnabled()),
       is_app_list_search_autocomplete_enabled_(
           app_list_features::IsAppListSearchAutocompleteEnabled()),
       weak_ptr_factory_(this) {
@@ -172,10 +170,10 @@ void SearchBoxView::UpdateModel(bool initiated_by_user) {
 
 void SearchBoxView::UpdateSearchIcon() {
   const gfx::VectorIcon& google_icon =
-      is_search_box_active() ? kIcGoogleColorIcon : kIcGoogleBlackIcon;
+      is_search_box_active() ? kGoogleColorIcon : kGoogleBlackIcon;
   const gfx::VectorIcon& icon = search_model_->search_engine_is_google()
                                     ? google_icon
-                                    : kIcSearchEngineNotGoogleIcon;
+                                    : kSearchEngineNotGoogleIcon;
   SetSearchIconImage(gfx::CreateVectorIcon(icon, search_box::kSearchIconSize,
                                            search_box_color()));
 }
@@ -273,6 +271,14 @@ bool SearchBoxView::OnMouseWheel(const ui::MouseWheelEvent& event) {
   return false;
 }
 
+void SearchBoxView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
+  if (HasAutocompleteText()) {
+    node_data->role = ax::mojom::Role::kTextField;
+    node_data->SetValue(l10n_util::GetStringFUTF16(
+        IDS_APP_LIST_SEARCH_BOX_AUTOCOMPLETE, search_box()->text()));
+  }
+}
+
 void SearchBoxView::UpdateBackground(double progress,
                                      ash::AppListState current_state,
                                      ash::AppListState target_state) {
@@ -306,7 +312,7 @@ int SearchBoxView::GetSearchBoxBorderCornerRadiusForState(
     ash::AppListState state) const {
   if (state == ash::AppListState::kStateSearchResults &&
       !app_list_view_->is_in_drag()) {
-    return kSearchBoxBorderCornerRadiusSearchResult;
+    return search_box::kSearchBoxBorderCornerRadiusSearchResult;
   }
   return search_box::kSearchBoxBorderCornerRadius;
 }
@@ -498,6 +504,16 @@ void SearchBoxView::SetAutocompleteText(
   search_box()->set_controller(nullptr);
   search_box()->SetCompositionText(composition_text);
   search_box()->set_controller(this);
+
+  // Send an event to alert ChromeVox that an autocomplete has occurred.
+  // The |kValueChanged| type lets ChromeVox know that it should scan
+  // |node_data| for "Value".
+  NotifyAccessibilityEvent(ax::mojom::Event::kValueChanged, true);
+}
+
+void SearchBoxView::UpdateQuery(const base::string16& new_query) {
+  search_box()->SetText(new_query);
+  ContentsChanged(search_box(), new_query);
 }
 
 bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
@@ -552,14 +568,14 @@ bool SearchBoxView::HandleMouseEvent(views::Textfield* sender,
     return app_list_view_->HandleScroll(
         (&mouse_event)->AsMouseWheelEvent()->offset(), ui::ET_MOUSEWHEEL);
   }
-  if (mouse_event.type() == ui::ET_MOUSE_PRESSED)
+  if (mouse_event.type() == ui::ET_MOUSE_PRESSED && HasAutocompleteText())
     AcceptAutocompleteText();
   return search_box::SearchBoxViewBase::HandleMouseEvent(sender, mouse_event);
 }
 
 bool SearchBoxView::HandleGestureEvent(views::Textfield* sender,
                                        const ui::GestureEvent& gesture_event) {
-  if (gesture_event.type() == ui::ET_GESTURE_TAP)
+  if (gesture_event.type() == ui::ET_GESTURE_TAP && HasAutocompleteText())
     AcceptAutocompleteText();
   return search_box::SearchBoxViewBase::HandleGestureEvent(sender,
                                                            gesture_event);

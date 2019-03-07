@@ -22,6 +22,8 @@ class ResourceDispatcherHostDelegate;
 class ShellBrowserContext;
 class ShellBrowserMainParts;
 
+std::string GetShellUserAgent();
+
 class ShellContentBrowserClient : public ContentBrowserClient {
  public:
   // Gets the current instance.
@@ -38,15 +40,13 @@ class ShellContentBrowserClient : public ContentBrowserClient {
       content::RenderFrameHost* render_frame_host,
       const std::string& interface_name,
       mojo::ScopedMessagePipeHandle interface_pipe) override;
-  void RegisterInProcessServices(StaticServiceMap* services,
-                                 ServiceManagerConnection* connection) override;
   void RegisterOutOfProcessServices(OutOfProcessServiceMap* services) override;
   void HandleServiceRequest(
       const std::string& service_name,
       service_manager::mojom::ServiceRequest request) override;
   bool ShouldTerminateOnServiceQuit(
       const service_manager::Identity& id) override;
-  std::unique_ptr<base::Value> GetServiceManifestOverlay(
+  base::Optional<service_manager::Manifest> GetServiceManifestOverlay(
       base::StringPiece name) override;
   void AppendExtraCommandLineSwitches(base::CommandLine* command_line,
                                       int child_process_id) override;
@@ -87,6 +87,8 @@ class ShellContentBrowserClient : public ContentBrowserClient {
       bool first_auth_attempt,
       LoginAuthRequiredCallback auth_required_callback) override;
 
+  std::string GetUserAgent() const override;
+
 #if defined(OS_LINUX) || defined(OS_ANDROID)
   void GetAdditionalMappedFilesForChildProcess(
       const base::CommandLine& command_line,
@@ -97,6 +99,11 @@ class ShellContentBrowserClient : public ContentBrowserClient {
 #if defined(OS_WIN)
   bool PreSpawnRenderer(sandbox::TargetPolicy* policy) override;
 #endif
+
+  network::mojom::NetworkContextPtr CreateNetworkContext(
+      BrowserContext* context,
+      bool in_memory,
+      const base::FilePath& relative_partition_path) override;
 
   ShellBrowserContext* browser_context();
   ShellBrowserContext* off_the_record_browser_context();
@@ -146,6 +153,10 @@ class ShellContentBrowserClient : public ContentBrowserClient {
 
   ShellBrowserMainParts* shell_browser_main_parts_;
 };
+
+// The delay for sending reports when running with --run-web-tests
+constexpr base::TimeDelta kReportingDeliveryIntervalTimeForWebTests =
+    base::TimeDelta::FromMilliseconds(100);
 
 }  // namespace content
 

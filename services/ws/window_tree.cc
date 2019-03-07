@@ -21,8 +21,8 @@
 #include "services/ws/drag_drop_delegate.h"
 #include "services/ws/embedding.h"
 #include "services/ws/event_observer_helper.h"
+#include "services/ws/proxy_window.h"
 #include "services/ws/public/cpp/property_type_converters.h"
-#include "services/ws/server_window.h"
 #include "services/ws/topmost_window_observer.h"
 #include "services/ws/window_delegate_impl.h"
 #include "services/ws/window_manager_interface.h"
@@ -53,6 +53,10 @@
 #include "ui/wm/core/window_modality_controller.h"
 #include "ui/wm/core/window_util.h"
 #include "ui/wm/public/activation_client.h"
+
+#if defined(USE_OZONE)
+#include "ui/ozone/public/cursor_factory_ozone.h"
+#endif
 
 namespace ws {
 namespace {
@@ -128,10 +132,10 @@ WindowTree::~WindowTree() {
 
 void WindowTree::InitForEmbed(aura::Window* root,
                               mojom::WindowTreePtr window_tree_ptr) {
-  // Force ServerWindow to be created for |root|.
-  ServerWindow* server_window =
-      window_service_->GetServerWindowForWindowCreateIfNecessary(root);
-  const ClientWindowId client_window_id = server_window->frame_sink_id();
+  // Force ProxyWindow to be created for |root|.
+  ProxyWindow* proxy_window =
+      window_service_->GetProxyWindowForWindowCreateIfNecessary(root);
+  const ClientWindowId client_window_id = proxy_window->frame_sink_id();
   AddWindowToKnownWindows(root, client_window_id, nullptr);
   const bool is_top_level = false;
   ClientRoot* client_root = CreateClientRoot(root, is_top_level);
@@ -144,11 +148,11 @@ void WindowTree::InitForEmbed(aura::Window* root,
   window_tree_client_->OnEmbed(WindowToWindowData(root),
                                std::move(window_tree_ptr), display_id,
                                ClientWindowIdToTransportId(focused_window_id),
-                               drawn, server_window->local_surface_id());
+                               drawn, proxy_window->local_surface_id());
 
   // Reset the frame sink id locally (after calling OnEmbed()). This is
   // needed so that the id used by the client matches the id used locally.
-  server_window->set_frame_sink_id(ClientWindowId(client_id_, 0));
+  proxy_window->set_frame_sink_id(ClientWindowId(client_id_, 0));
 
   client_root->RegisterVizEmbeddingSupport();
 }
@@ -160,7 +164,7 @@ void WindowTree::InitFromFactory() {
 void WindowTree::SendEventToClient(aura::Window* window,
                                    const ui::Event& event) {
   // As gesture recognition runs in the client, GestureEvents should not be
-  // forwarded. ServerWindow's event processing should ensure no GestureEvents
+  // forwarded. ProxyWindow's event processing should ensure no GestureEvents
   // are sent.
   DCHECK(!event.IsGestureEvent());
 
@@ -194,24 +198,18 @@ void WindowTree::SendEventToClient(aura::Window* window,
 
   std::unique_ptr<ui::Event> event_to_send = ui::Event::Clone(event);
   if (event.IsLocatedEvent()) {
+    ui::LocatedEvent* located_event = event_to_send->AsLocatedEvent();
     // Translate the root location for located events. Event's root location
     // should be in the coordinate of the root window, however the root for the
     // target window in the client can be different from the one in the server,
     // thus the root location needs to be converted from the original coordinate
     // to the one used in the client. See also 'WindowTreeTest.EventLocation'
     // test case.
-    ClientRoot* client_root = FindClientRootContaining(window);
-    // The |client_root| may have been removed on shutdown.
-    if (client_root) {
-      gfx::PointF root_location =
-          event_to_send->AsLocatedEvent()->root_location_f();
-      aura::Window::ConvertPointToTarget(window->GetRootWindow(),
-                                         client_root->window(), &root_location);
-      event_to_send->AsLocatedEvent()->set_root_location_f(root_location);
-    }
+    located_event->set_root_location_f(
+        ConvertRootLocationForClient(window, located_event->root_location_f()));
   }
   DVLOG(4) << "SendEventToClient window="
-           << ServerWindow::GetMayBeNull(window)->GetIdForDebugging()
+           << ProxyWindow::GetMayBeNull(window)->GetIdForDebugging()
            << " event_type=" << ui::EventTypeName(event.type())
            << " event_id=" << event_id;
   window_tree_client_->OnWindowInputEvent(
@@ -250,13 +248,15 @@ aura::Window* WindowTree::GetWindowByTransportId(Id transport_window_id) {
   return GetWindowByClientId(MakeClientWindowId(transport_window_id));
 }
 
-void WindowTree::RequestClose(ServerWindow* window) {
+void WindowTree::RequestClose(ProxyWindow* window) {
   DCHECK(window->IsTopLevel());
   DCHECK_EQ(this, window->owning_window_tree());
   window_tree_client_->RequestClose(TransportIdForWindow(window->window()));
 }
 
 void WindowTree::OnEmbeddingDestroyed(Embedding* embedding) {
+  DVLOG(3) << "OnEmbeddingDestroyed client=" << client_id_
+           << " window=" << ClientWindowIdForWindow(embedding->window());
   auto iter = FindClientRootWithRoot(embedding->window());
   DCHECK(iter != client_roots_.end());
   window_tree_client_->OnWindowDeleted(
@@ -286,31 +286,31 @@ void WindowTree::CompleteScheduleEmbedForExistingClient(
   const bool is_top_level = false;
   ClientRoot* client_root = CreateClientRoot(window, is_top_level);
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  // It's expected we only get here if a ServerWindow exists for |window|.
-  DCHECK(server_window);
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  // It's expected we only get here if a ProxyWindow exists for |window|.
+  DCHECK(proxy_window);
 
   const int64_t display_id =
       display::Screen::GetScreen()->GetDisplayNearestWindow(window).id();
   window_tree_client_->OnEmbedFromToken(token, WindowToWindowData(window),
                                         display_id,
-                                        server_window->local_surface_id());
+                                        proxy_window->local_surface_id());
 
   // Reset the frame sink id locally (after calling OnEmbedFromToken()). This is
   // needed so that the id used by the client matches the id used locally.
-  server_window->set_frame_sink_id(id);
+  proxy_window->set_frame_sink_id(id);
 
   client_root->RegisterVizEmbeddingSupport();
 }
 
-bool WindowTree::HasAtLeastOneRootWithCompositorFrameSink() {
+ClientRoot* WindowTree::GetFirstRootWithCompositorFrameSink() {
   for (auto& client_root : client_roots_) {
-    if (ServerWindow::GetMayBeNull(client_root->window())
+    if (ProxyWindow::GetMayBeNull(client_root->window())
             ->attached_compositor_frame_sink()) {
-      return true;
+      return client_root.get();
     }
   }
-  return false;
+  return nullptr;
 }
 
 bool WindowTree::IsWindowKnown(aura::Window* window) const {
@@ -333,16 +333,29 @@ ClientRoot* WindowTree::GetClientRootForWindow(aura::Window* window) {
   return iter == client_roots_.end() ? nullptr : iter->get();
 }
 
+gfx::PointF WindowTree::ConvertRootLocationForClient(
+    aura::Window* window,
+    const gfx::PointF& root_location) {
+  ClientRoot* client_root = FindClientRootContaining(window);
+  // The |client_root| may have been removed on shutdown.
+  if (!client_root)
+    return root_location;
+  gfx::PointF client_root_location = root_location;
+  aura::Window::ConvertPointToTarget(
+      window->GetRootWindow(), client_root->window(), &client_root_location);
+  return client_root_location;
+}
+
 ClientRoot* WindowTree::CreateClientRoot(aura::Window* window,
                                          bool is_top_level) {
   DCHECK(window);
 
   // Only one client may be embedded in a window at a time.
-  ServerWindow* server_window =
-      window_service_->GetServerWindowForWindowCreateIfNecessary(window);
-  if (server_window->embedded_window_tree()) {
-    server_window->embedded_window_tree()->DeleteClientRootWithRoot(window);
-    DCHECK(!server_window->embedded_window_tree());
+  ProxyWindow* proxy_window =
+      window_service_->GetProxyWindowForWindowCreateIfNecessary(window);
+  if (proxy_window->embedded_window_tree()) {
+    proxy_window->embedded_window_tree()->DeleteClientRootWithRoot(window);
+    DCHECK(!proxy_window->embedded_window_tree());
   }
 
   // Because a new client is being embedded all existing children are removed.
@@ -360,12 +373,12 @@ void WindowTree::DeleteClientRoot(ClientRoot* client_root,
                                   DeleteClientRootReason reason) {
   aura::Window* window = client_root->window();
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  client_root->UnattachChildFrameSinkIdRecursive(server_window);
-  if (server_window->capture_owner() == this) {
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  client_root->UnattachChildFrameSinkIdRecursive(proxy_window);
+  if (proxy_window->capture_owner() == this) {
     // This client will no longer know about |window|, so it should not receive
     // any events sent to the client.
-    server_window->SetCaptureOwner(nullptr);
+    proxy_window->SetCaptureOwner(nullptr);
   }
 
   // Delete the ClientRoot first, so that we don't attempt to spam the
@@ -405,25 +418,24 @@ void WindowTree::DeleteClientRoot(ClientRoot* client_root,
   if (reason == DeleteClientRootReason::kUnembed ||
       reason == DeleteClientRootReason::kDestructor) {
     // Notify the owner of the window it no longer has a client embedded in it.
-    ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-    if (server_window->owning_window_tree() &&
-        server_window->owning_window_tree() != this) {
-      // ClientRoots always trigger creation of a ServerWindow, so
-      // |server_window| must exist at this point.
-      DCHECK(server_window);
-      server_window->owning_window_tree()
+    ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+    if (proxy_window->owning_window_tree() &&
+        proxy_window->owning_window_tree() != this) {
+      // ClientRoots always trigger creation of a ProxyWindow, so
+      // |proxy_window| must exist at this point.
+      DCHECK(proxy_window);
+      proxy_window->owning_window_tree()
           ->window_tree_client_->OnEmbeddedAppDisconnected(
-              server_window->owning_window_tree()->TransportIdForWindow(
-                  window));
+              proxy_window->owning_window_tree()->TransportIdForWindow(window));
     }
-    if (server_window->embedding())
-      server_window->embedding()->clear_embedded_tree();
+    if (proxy_window->embedding())
+      proxy_window->embedding()->clear_embedded_tree();
     // Only reset the embedding if it's for an existing tree. To do otherwise
     // results in trying to delete this.
-    if (server_window->embedding() && !server_window->embedding()->binding()) {
-      server_window->SetEmbedding(nullptr);
-      if (!server_window->owning_window_tree())
-        server_window->Destroy();
+    if (proxy_window->embedding() && !proxy_window->embedding()->binding()) {
+      proxy_window->SetEmbedding(nullptr);
+      if (!proxy_window->owning_window_tree())
+        proxy_window->Destroy();
     }
   }
 }
@@ -472,17 +484,17 @@ WindowTree::ClientRoots::iterator WindowTree::FindClientRootWithRoot(
 }
 
 bool WindowTree::IsWindowRootOfAnotherClient(aura::Window* window) const {
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  return server_window && server_window->embedded_window_tree() != nullptr &&
-         server_window->embedded_window_tree() != this;
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  return proxy_window && proxy_window->embedded_window_tree() != nullptr &&
+         proxy_window->embedded_window_tree() != this;
 }
 
-bool WindowTree::DoesAnyAncestorInterceptEvents(ServerWindow* window) {
+bool WindowTree::DoesAnyAncestorInterceptEvents(ProxyWindow* window) {
   if (window->embedding() && window->embedding()->embedding_tree() != this &&
       window->embedding()->embedding_tree_intercepts_events()) {
     return true;
   }
-  ServerWindow* parent = ServerWindow::GetMayBeNull(window->window()->parent());
+  ProxyWindow* parent = ProxyWindow::GetMayBeNull(window->window()->parent());
   return parent && DoesAnyAncestorInterceptEvents(parent);
 }
 
@@ -557,7 +569,7 @@ aura::Window* WindowTree::AddClientCreatedWindow(
     bool is_top_level,
     std::unique_ptr<aura::Window> window_ptr) {
   aura::Window* window = window_ptr.get();
-  ServerWindow::Create(window, this, id, is_top_level);
+  ProxyWindow::Create(window, this, id, is_top_level);
   AddWindowToKnownWindows(window, id, std::move(window_ptr));
   return window;
 }
@@ -582,12 +594,12 @@ void WindowTree::RemoveWindowFromKnownWindows(aura::Window* window,
                                               bool delete_if_owned) {
   DCHECK(IsWindowKnown(window));
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
   ClientRoot* client_root = FindClientRootContaining(window);
   if (client_root)
-    client_root->UnattachChildFrameSinkIdRecursive(server_window);
+    client_root->UnattachChildFrameSinkIdRecursive(proxy_window);
 
-  server_window->set_attached_frame_sink_id(viz::FrameSinkId());
+  proxy_window->set_attached_frame_sink_id(viz::FrameSinkId());
 
   auto iter = known_windows_map_.find(window);
   DCHECK(iter != known_windows_map_.end());
@@ -604,7 +616,7 @@ void WindowTree::RemoveWindowFromKnownWindows(aura::Window* window,
   DCHECK(iter == known_windows_map_.find(window));
 
   // Remove from these maps after destruction. This is necessary as destruction
-  // may end up expecting to find a ServerWindow.
+  // may end up expecting to find a ProxyWindow.
   DCHECK(iter != known_windows_map_.end());
   client_window_id_to_window_map_.erase(iter->second.client_window_id);
   known_windows_map_.erase(iter);
@@ -705,9 +717,8 @@ WindowTree::GetAndRemoveScheduledEmbedWindowTreeClient(
 
   visited_trees->insert(this);
   for (auto& client_root : client_roots_) {
-    ServerWindow* root_window =
-        ServerWindow::GetMayBeNull(client_root->window());
-    DCHECK(root_window);  // There should always be a ServerWindow for a root.
+    ProxyWindow* root_window = ProxyWindow::GetMayBeNull(client_root->window());
+    DCHECK(root_window);  // There should always be a ProxyWindow for a root.
     WindowTree* owning_tree = root_window->owning_window_tree();
     if (owning_tree) {
       auto result = owning_tree->GetAndRemoveScheduledEmbedWindowTreeClient(
@@ -730,12 +741,16 @@ void WindowTree::SendTopmostWindows(
   window_tree_client_->OnTopmostWindowChanged(topmost_ids);
 }
 
-void WindowTree::SendOcclusionState(aura::Window* window) {
-  DCHECK(IsWindowKnown(window));
+void WindowTree::SendOcclusionStates(const std::set<aura::Window*>& windows) {
+  base::flat_map<ws::Id, ws::mojom::OcclusionState> occlusion_changes;
+  for (auto* window : windows) {
+    DCHECK(IsWindowKnown(window));
 
-  window_tree_client_->OnOcclusionStateChanged(
-      TransportIdForWindow(window),
-      aura::WindowOcclusionStateToMojom(window->occlusion_state()));
+    // TODO(crbug.com/900568): Send occluded region.
+    occlusion_changes[TransportIdForWindow(window)] =
+        aura::WindowOcclusionStateToMojom(window->occlusion_state());
+  }
+  window_tree_client_->OnOcclusionStatesChanged(occlusion_changes);
 }
 
 bool WindowTree::NewWindowImpl(
@@ -773,8 +788,12 @@ bool WindowTree::DeleteWindowImpl(const ClientWindowId& window_id) {
   DVLOG(3) << "deleting window client=" << client_id_
            << " client window_id=" << window_id.ToString();
   if (!window) {
-    DVLOG(1) << "DeleteWindow failed (no window)";
-    return false;
+    DVLOG(1) << "DeleteWindow: no window, returning true anyway";
+    // Even though there is no window, return true. This way, if both sides
+    // try to delete the window at the same time, there is no race. Deletion
+    // at the same should generally only happen for embed roots, but shutdown
+    // paths (in Ash) may also trigger deletion.
+    return true;
   }
 
   const bool is_client_created_window = IsClientCreatedWindow(window);
@@ -808,9 +827,9 @@ bool WindowTree::SetCaptureImpl(const ClientWindowId& window_id) {
     return false;
   }
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
 
-  if (DoesAnyAncestorInterceptEvents(server_window)) {
+  if (DoesAnyAncestorInterceptEvents(proxy_window)) {
     // If an ancestor is intercepting events, than the descendants are not
     // allowed to set capture. This is primarily to prevent renderers from
     // setting capture.
@@ -822,20 +841,20 @@ bool WindowTree::SetCaptureImpl(const ClientWindowId& window_id) {
   DCHECK(capture_controller);
 
   if (capture_controller->GetCaptureWindow() == window) {
-    if (server_window->capture_owner() != this) {
+    if (proxy_window->capture_owner() != this) {
       // The capture window didn't change, but the client that owns capture
-      // changed (see |ServerWindow::capture_owner_| for details on this).
+      // changed (see |ProxyWindow::capture_owner_| for details on this).
       // Notify the current owner that it lost capture.
-      if (server_window->capture_owner())
-        server_window->capture_owner()->OnCaptureLost(window);
-      server_window->SetCaptureOwner(this);
+      if (proxy_window->capture_owner())
+        proxy_window->capture_owner()->OnCaptureLost(window);
+      proxy_window->SetCaptureOwner(this);
     }
     return true;
   }
 
   ClientChange change(property_change_tracker_.get(), window,
                       ClientChangeType::kCapture);
-  server_window->SetCaptureOwner(this);
+  proxy_window->SetCaptureOwner(this);
   capture_controller->SetCapture(window);
   return capture_controller->GetCaptureWindow() == window;
 }
@@ -864,14 +883,13 @@ bool WindowTree::ReleaseCaptureImpl(const ClientWindowId& window_id) {
     return false;
   }
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  if (server_window->capture_owner() &&
-      server_window->capture_owner() != this) {
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  if (proxy_window->capture_owner() && proxy_window->capture_owner() != this) {
     // This client is trying to release capture, but it doesn't own capture.
     DVLOG(1) << "ReleaseCapture failed (client did not request capture)";
     return false;
   }
-  server_window->SetCaptureOwner(nullptr);
+  proxy_window->SetCaptureOwner(nullptr);
 
   ClientChange change(property_change_tracker_.get(), window,
                       ClientChangeType::kCapture);
@@ -1039,7 +1057,9 @@ bool WindowTree::SetWindowVisibilityImpl(const ClientWindowId& window_id,
       window->Show();
     else
       window->Hide();
-    return true;
+    // Return true only if the change actually took. It's entirely possible an
+    // observer may effectively revert the change.
+    return window->TargetVisibility() == visible;
   }
   DVLOG(1) << "SetWindowVisibility failed (access policy denied change)";
   return false;
@@ -1118,10 +1138,10 @@ bool WindowTree::EmbedImpl(const ClientWindowId& window_id,
                                  base::Unretained(this), embedding.get()));
   if (flags & mojom::kEmbedFlagEmbedderControlsVisibility)
     embedding->embedded_tree()->can_change_root_window_visibility_ = false;
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  server_window->SetEmbedding(std::move(embedding));
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  proxy_window->SetEmbedding(std::move(embedding));
   window_tree_client_->OnFrameSinkIdAllocated(
-      ClientWindowIdToTransportId(window_id), server_window->frame_sink_id());
+      ClientWindowIdToTransportId(window_id), proxy_window->frame_sink_id());
   return true;
 }
 
@@ -1162,11 +1182,11 @@ bool WindowTree::SetWindowBoundsImpl(
     return false;
   }
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
   const gfx::Rect original_bounds =
       IsTopLevel(window) ? window->GetBoundsInScreen() : window->bounds();
   const bool local_surface_id_changed =
-      server_window->local_surface_id() != local_surface_id;
+      proxy_window->local_surface_id() != local_surface_id;
 
   if (original_bounds == bounds && !local_surface_id_changed)
     return true;
@@ -1175,7 +1195,7 @@ bool WindowTree::SetWindowBoundsImpl(
                       ClientChangeType::kBounds);
 
   if (IsLocalSurfaceIdAssignedByClient(window))
-    server_window->set_local_surface_id(local_surface_id);
+    proxy_window->set_local_surface_id(local_surface_id);
 
   if (IsTopLevel(window)) {
     display::Display dst_display =
@@ -1200,9 +1220,9 @@ bool WindowTree::SetWindowBoundsImpl(
     if (local_surface_id_changed) {
       // If the bounds didn't change, but the LocalSurfaceId did, then the
       // LocalSurfaceId needs to be propagated to any embeddings.
-      if (server_window->HasEmbedding() &&
-          server_window->embedding()->embedding_tree() == this) {
-        WindowTree* embedded_tree = server_window->embedding()->embedded_tree();
+      if (proxy_window->HasEmbedding() &&
+          proxy_window->embedding()->embedding_tree() == this) {
+        WindowTree* embedded_tree = proxy_window->embedding()->embedded_tree();
         ClientRoot* embedded_client_root =
             embedded_tree->GetClientRootForWindow(window);
         DCHECK(embedded_client_root);
@@ -1213,7 +1233,7 @@ bool WindowTree::SetWindowBoundsImpl(
   }
 
   if (window->bounds() == bounds &&
-      server_window->local_surface_id() == local_surface_id) {
+      proxy_window->local_surface_id() == local_surface_id) {
     return true;
   }
 
@@ -1264,7 +1284,7 @@ bool WindowTree::SetFocusImpl(const ClientWindowId& window_id) {
 }
 
 bool WindowTree::SetCursorImpl(const ClientWindowId& window_id,
-                               ui::CursorData cursor) {
+                               ui::Cursor cursor) {
   aura::Window* window = GetWindowByClientId(window_id);
   if (!window) {
     DVLOG(1) << "SetCursor failed (no window)";
@@ -1275,18 +1295,28 @@ bool WindowTree::SetCursorImpl(const ClientWindowId& window_id,
     return false;
   }
 
-  auto* server_window = ServerWindow::GetMayBeNull(window);
+  auto* proxy_window = ProxyWindow::GetMayBeNull(window);
 
-  ui::Cursor old_cursor_type = cursor.ToNativeCursor();
+#if defined(USE_OZONE)
+  auto* factory = ui::CursorFactoryOzone::GetInstance();
+  if (cursor.native_type() != ui::CursorType::kCustom) {
+    cursor.SetPlatformCursor(factory->GetDefaultCursor(cursor.native_type()));
+  } else {
+    cursor.SetPlatformCursor(factory->CreateImageCursor(
+        cursor.GetBitmap(), cursor.GetHotspot(), cursor.device_scale_factor()));
+    cursor.UnrefCustomCursor();
+  }
+#else
+  NOTIMPLEMENTED();
+#endif
 
   // Ask our delegate to set the cursor. This will save the cursor for toplevels
   // and also update the active cursor if appropriate (i.e. if |window| is the
   // last to have set the cursor/is currently hovered).
-  if (!window_service_->delegate()->StoreAndSetCursor(window,
-                                                      old_cursor_type)) {
-    // Store the cursor on ServerWindow. This will later be accessed by the
+  if (!window_service_->delegate()->StoreAndSetCursor(window, cursor)) {
+    // Store the cursor on ProxyWindow. This will later be accessed by the
     // WindowDelegate for non-toplevels, i.e. WindowDelegateImpl.
-    server_window->StoreCursor(old_cursor_type);
+    proxy_window->StoreCursor(cursor);
   }
 
   return true;
@@ -1335,7 +1365,7 @@ void WindowTree::GetWindowTreeRecursive(aura::Window* window,
 }
 
 void WindowTree::OnEmbeddedClientConnectionLost(Embedding* embedding) {
-  ServerWindow::GetMayBeNull(embedding->window())->SetEmbedding(nullptr);
+  ProxyWindow::GetMayBeNull(embedding->window())->SetEmbedding(nullptr);
 }
 
 void WindowTree::OnWindowHierarchyChanging(
@@ -1343,17 +1373,17 @@ void WindowTree::OnWindowHierarchyChanging(
   if (params.target != params.receiver || !IsClientCreatedWindow(params.target))
     return;
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(params.target);
-  DCHECK(server_window);  // non-null because of IsClientCreatedWindow() check.
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(params.target);
+  DCHECK(proxy_window);  // non-null because of IsClientCreatedWindow() check.
   ClientRoot* old_root = FindClientRootContaining(params.old_parent);
   ClientRoot* new_root = FindClientRootContaining(params.new_parent);
   if (old_root == new_root)
     return;
 
   if (old_root)
-    old_root->UnattachChildFrameSinkIdRecursive(server_window);
+    old_root->UnattachChildFrameSinkIdRecursive(proxy_window);
   if (new_root)
-    new_root->AttachChildFrameSinkIdRecursive(server_window);
+    new_root->AttachChildFrameSinkIdRecursive(proxy_window);
 }
 
 void WindowTree::OnWindowDestroyed(aura::Window* window) {
@@ -1402,12 +1432,12 @@ void WindowTree::OnCaptureChanged(aura::Window* lost_capture,
   // another window.
   if (lost_capture && (IsClientCreatedWindow(lost_capture) ||
                        IsClientRootWindow(lost_capture))) {
-    ServerWindow* server_window = ServerWindow::GetMayBeNull(lost_capture);
-    if (server_window->capture_owner() == this) {
+    ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(lost_capture);
+    if (proxy_window->capture_owner() == this) {
       // One of the windows known to this client had capture. Notify the client
       // of the change. If the client does not know about the window that gained
       // capture, an invalid window id is used.
-      server_window->SetCaptureOwner(nullptr);
+      proxy_window->SetCaptureOwner(nullptr);
       const Id gained_capture_id = gained_capture &&
                                            IsWindowKnown(gained_capture) &&
                                            !IsClientRootWindow(gained_capture)
@@ -1464,8 +1494,8 @@ void WindowTree::NewTopLevelWindow(
   const bool is_top_level = true;
   aura::Window* top_level = AddClientCreatedWindow(
       client_window_id, is_top_level, std::move(top_level_ptr));
-  ServerWindow* top_level_server_window = ServerWindow::GetMayBeNull(top_level);
-  top_level_server_window->set_frame_sink_id(client_window_id);
+  ProxyWindow* top_level_proxy_window = ProxyWindow::GetMayBeNull(top_level);
+  top_level_proxy_window->set_frame_sink_id(client_window_id);
   const int64_t display_id =
       display::Screen::GetScreen()->GetDisplayNearestWindow(top_level).id();
   // This passes null for the mojom::WindowTreePtr because the client has
@@ -1474,7 +1504,7 @@ void WindowTree::NewTopLevelWindow(
   CreateClientRoot(top_level, is_top_level)->RegisterVizEmbeddingSupport();
   window_tree_client_->OnTopLevelCreated(
       change_id, WindowToWindowData(top_level), display_id,
-      top_level->IsVisible(), top_level_server_window->local_surface_id());
+      top_level->IsVisible(), top_level_proxy_window->local_surface_id());
 }
 
 void WindowTree::DeleteWindow(uint32_t change_id, Id transport_window_id) {
@@ -1542,9 +1572,9 @@ void WindowTree::SetClientArea(
     return;
   }
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  DCHECK(server_window);  // Must exist because of preceding conditionals.
-  server_window->SetClientArea(
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  DCHECK(proxy_window);  // Must exist because of preceding conditionals.
+  proxy_window->SetClientArea(
       insets, additional_client_areas.value_or(std::vector<gfx::Rect>()));
 }
 
@@ -1564,10 +1594,10 @@ void WindowTree::SetHitTestInsets(Id transport_window_id,
     return;
   }
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  DCHECK(server_window);  // Must exist because of preceding conditionals.
-  server_window->SetHitTestInsets(MakeInsetsPositive(mouse),
-                                  MakeInsetsPositive(touch));
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  DCHECK(proxy_window);  // Must exist because of preceding conditionals.
+  proxy_window->SetHitTestInsets(MakeInsetsPositive(mouse),
+                                 MakeInsetsPositive(touch));
 }
 
 void WindowTree::AttachFrameSinkId(Id transport_window_id,
@@ -1582,18 +1612,18 @@ void WindowTree::AttachFrameSinkId(Id transport_window_id,
     DVLOG(3) << "AttachFrameSinkId failed (invalid window id)";
     return;
   }
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  DCHECK(server_window);  // Must exist because of preceding conditionals.
-  if (server_window->attached_frame_sink_id() == f)
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  DCHECK(proxy_window);  // Must exist because of preceding conditionals.
+  if (proxy_window->attached_frame_sink_id() == f)
     return;
-  if (f.is_valid() && server_window->attached_frame_sink_id().is_valid()) {
+  if (f.is_valid() && proxy_window->attached_frame_sink_id().is_valid()) {
     DVLOG(3) << "AttachFrameSinkId failed (window already has frame sink)";
     return;
   }
-  server_window->set_attached_frame_sink_id(f);
+  proxy_window->set_attached_frame_sink_id(f);
   ClientRoot* client_root = FindClientRootContaining(window);
   if (client_root)
-    client_root->AttachChildFrameSinkId(server_window);
+    client_root->AttachChildFrameSinkId(proxy_window);
 }
 
 void WindowTree::UnattachFrameSinkId(Id transport_window_id) {
@@ -1603,20 +1633,23 @@ void WindowTree::UnattachFrameSinkId(Id transport_window_id) {
     DVLOG(3) << "UnattachFrameSinkId failed (invalid window id)";
     return;
   }
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  DCHECK(server_window);  // Must exist because of preceding conditionals.
-  if (!server_window->attached_frame_sink_id().is_valid()) {
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  DCHECK(proxy_window);  // Must exist because of preceding conditionals.
+  if (!proxy_window->attached_frame_sink_id().is_valid()) {
     DVLOG(3) << "UnattachFrameSinkId failed (frame sink already cleared)";
     return;
   }
 
   ClientRoot* client_root = FindClientRootContaining(window);
   if (client_root)
-    client_root->UnattachChildFrameSinkId(server_window);
-  server_window->set_attached_frame_sink_id(viz::FrameSinkId());
+    client_root->UnattachChildFrameSinkId(proxy_window);
+  proxy_window->set_attached_frame_sink_id(viz::FrameSinkId());
 }
 
 void WindowTree::SetCanAcceptDrops(Id window_id, bool accepts_drops) {
+  DVLOG(3) << "SetCanAcceptDrops id="
+           << MakeClientWindowId(window_id).ToString()
+           << " value=" << accepts_drops;
   aura::Window* window = GetWindowByTransportId(window_id);
   if (!window) {
     DVLOG(1) << "SetCanAcceptDrops failed (no window)";
@@ -1627,16 +1660,16 @@ void WindowTree::SetCanAcceptDrops(Id window_id, bool accepts_drops) {
     return;
   }
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
-  DCHECK(server_window);  // Must exist because of preceding conditionals.
-  if (accepts_drops && !server_window->HasDragDropDelegate()) {
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
+  DCHECK(proxy_window);  // Must exist because of preceding conditionals.
+  if (accepts_drops && !proxy_window->HasDragDropDelegate()) {
     auto drag_drop_delegate = std::make_unique<DragDropDelegate>(
-        window_tree_client_, window, window_id);
+        this, window_tree_client_, window, window_id);
     aura::client::SetDragDropDelegate(window, drag_drop_delegate.get());
-    server_window->SetDragDropDelegate(std::move(drag_drop_delegate));
-  } else if (!accepts_drops && server_window->HasDragDropDelegate()) {
+    proxy_window->SetDragDropDelegate(std::move(drag_drop_delegate));
+  } else if (!accepts_drops && proxy_window->HasDragDropDelegate()) {
     aura::client::SetDragDropDelegate(window, nullptr);
-    server_window->SetDragDropDelegate(nullptr);
+    proxy_window->SetDragDropDelegate(nullptr);
   }
 }
 
@@ -1677,19 +1710,19 @@ void WindowTree::AttachCompositorFrameSink(
     DVLOG(1) << "AttachCompositorFrameSink failed (invalid window id)";
     return;
   }
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
   // If this isn't called on the root, then only allow it if there is not
   // another client embedded in the window.
   const bool allow = IsClientRootWindow(window) ||
                      (IsClientCreatedWindow(window) &&
-                      server_window->embedded_window_tree() == nullptr);
+                      proxy_window->embedded_window_tree() == nullptr);
   if (!allow) {
     DVLOG(1) << "AttachCompositorFrameSink failed (policy disallowed)";
     return;
   }
 
-  server_window->AttachCompositorFrameSink(std::move(compositor_frame_sink),
-                                           std::move(client));
+  proxy_window->AttachCompositorFrameSink(std::move(compositor_frame_sink),
+                                          std::move(client));
 }
 
 void WindowTree::AddWindow(uint32_t change_id, Id parent_id, Id child_id) {
@@ -1816,7 +1849,7 @@ void WindowTree::EmbedUsingToken(Id transport_window_id,
     return;
   }
 
-  ServerWindow* server_window = ServerWindow::GetMayBeNull(window);
+  ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
   const bool owner_intercept_events =
       (connection_type_ != ConnectionType::kEmbedding &&
        (embed_flags & mojom::kEmbedFlagEmbedderInterceptsEvents) != 0);
@@ -1825,12 +1858,12 @@ void WindowTree::EmbedUsingToken(Id transport_window_id,
   std::unique_ptr<Embedding> embedding =
       std::make_unique<Embedding>(this, window, owner_intercept_events);
   embedding->InitForEmbedInExistingTree(tree_and_id.tree);
-  server_window->SetEmbedding(std::move(embedding));
+  proxy_window->SetEmbedding(std::move(embedding));
   // Convert |transport_window_id| to ensure the client is supplied a consistent
   // client-id.
   window_tree_client_->OnFrameSinkIdAllocated(
       ClientWindowIdToTransportId(MakeClientWindowId(transport_window_id)),
-      server_window->frame_sink_id());
+      proxy_window->frame_sink_id());
   std::move(callback).Run(true);
 }
 
@@ -1846,7 +1879,7 @@ void WindowTree::SetCanFocus(Id transport_window_id, bool can_focus) {
 
 void WindowTree::SetCursor(uint32_t change_id,
                            Id transport_window_id,
-                           ui::CursorData cursor) {
+                           ui::Cursor cursor) {
   window_tree_client_->OnChangeCompleted(
       change_id,
       SetCursorImpl(MakeClientWindowId(transport_window_id), cursor));

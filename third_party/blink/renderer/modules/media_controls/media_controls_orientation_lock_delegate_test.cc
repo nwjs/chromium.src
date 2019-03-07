@@ -140,7 +140,8 @@ class StubLocalFrameClientForOrientationLockDelegate final
     : public EmptyLocalFrameClient {
  public:
   static StubLocalFrameClientForOrientationLockDelegate* Create() {
-    return new StubLocalFrameClientForOrientationLockDelegate;
+    return MakeGarbageCollected<
+        StubLocalFrameClientForOrientationLockDelegate>();
   }
 
   std::unique_ptr<WebMediaPlayer> CreateWebMediaPlayer(
@@ -176,7 +177,8 @@ class MediaControlsOrientationLockDelegateTest
   }
 
   void SetUp() override {
-    chrome_client_ = new MockChromeClientForOrientationLockDelegate();
+    chrome_client_ =
+        MakeGarbageCollected<MockChromeClientForOrientationLockDelegate>();
 
     Page::PageClients clients;
     FillWithEmptyClients(clients);
@@ -298,7 +300,7 @@ class MediaControlsOrientationLockAndRotateToFullscreenDelegateTest
   void SetUp() override {
     // Unset this to fix ScreenOrientationControllerImpl::ComputeOrientation.
     // TODO(mlamouri): Refactor to avoid this (crbug.com/726817).
-    was_running_layout_test_ = WebTestSupport::IsRunningWebTest();
+    was_running_web_test_ = WebTestSupport::IsRunningWebTest();
     WebTestSupport::SetIsRunningWebTest(false);
 
     MediaControlsOrientationLockDelegateTest::SetUp();
@@ -315,7 +317,7 @@ class MediaControlsOrientationLockAndRotateToFullscreenDelegateTest
 
   void TearDown() override {
     MediaControlsOrientationLockDelegateTest::TearDown();
-    WebTestSupport::SetIsRunningWebTest(was_running_layout_test_);
+    WebTestSupport::SetIsRunningWebTest(was_running_web_test_);
   }
 
   void SetIsAutoRotateEnabledByUser(bool enabled) {
@@ -424,7 +426,7 @@ class MediaControlsOrientationLockAndRotateToFullscreenDelegateTest
         ->orientation_lock_delegate_->ComputeDeviceOrientation(data);
   }
 
-  bool was_running_layout_test_ = false;
+  bool was_running_web_test_ = false;
   bool natural_orientation_is_portrait_ = true;
 };
 

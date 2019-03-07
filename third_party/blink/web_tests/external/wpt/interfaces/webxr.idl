@@ -17,17 +17,6 @@ partial interface Navigator {
   [SameObject] readonly attribute XR xr;
 };
 
-enum XRSessionMode {
-  "inline",
-  "immersive-vr",
-  "immersive-ar"
-};
-
-dictionary XRSessionCreationOptions {
-  XRSessionMode mode = "inline";
-  XRPresentationContext outputContext;
-};
-
 enum XREnvironmentBlendMode {
   "opaque",
   "additive",
@@ -37,15 +26,15 @@ enum XREnvironmentBlendMode {
 [SecureContext, Exposed=Window] interface XRSession : EventTarget {
   // Attributes
   readonly attribute XRSessionMode mode;
-  readonly attribute XRPresentationContext outputContext;
+  readonly attribute XRPresentationContext? outputContext;
   readonly attribute XREnvironmentBlendMode environmentBlendMode;
 
   attribute double depthNear;
   attribute double depthFar;
-  attribute XRLayer baseLayer;
+  attribute XRLayer? baseLayer;
 
   // Methods
-  Promise<XRFrameOfReference> requestFrameOfReference(XRFrameOfReferenceType type, optional XRFrameOfReferenceOptions options);
+  Promise<XRReferenceSpace> requestReferenceSpace(XRReferenceSpaceOptions options);
 
   FrozenArray<XRInputSource> getInputSources();
 
@@ -57,7 +46,6 @@ enum XREnvironmentBlendMode {
   // Events
   attribute EventHandler onblur;
   attribute EventHandler onfocus;
-  attribute EventHandler onresetpose;
   attribute EventHandler onend;
   attribute EventHandler onselect;
   attribute EventHandler oninputsourceschange;
@@ -65,39 +53,68 @@ enum XREnvironmentBlendMode {
   attribute EventHandler onselectend;
 };
 
+enum XRSessionMode {
+  "inline",
+  "immersive-vr",
+  "immersive-ar"
+};
+
+dictionary XRSessionCreationOptions {
+  XRSessionMode mode = "inline";
+  XRPresentationContext? outputContext = null;
+};
+
 callback XRFrameRequestCallback = void (DOMHighResTimeStamp time, XRFrame frame);
 
 [SecureContext, Exposed=Window] interface XRFrame {
   readonly attribute XRSession session;
 
-  XRViewerPose? getViewerPose(XRFrameOfReference frameOfRef);
-  XRInputPose? getInputPose(XRInputSource inputSource, XRFrameOfReference frameOfRef);
+  XRViewerPose? getViewerPose(optional XRReferenceSpace referenceSpace);
+  XRInputPose? getInputPose(XRInputSource inputSource, optional XRReferenceSpace referenceSpace);
 };
 
-[SecureContext, Exposed=Window] interface XRCoordinateSystem : EventTarget {
-  Float32Array? getTransformTo(XRCoordinateSystem other);
+[SecureContext, Exposed=Window] interface XRSpace : EventTarget {
+  XRRigidTransform? getTransformTo(XRSpace other);
 };
 
-enum XRFrameOfReferenceType {
-  "head-model",
+enum XRReferenceSpaceType {
+  "stationary",
+  "bounded",
+  "unbounded"
+};
+
+dictionary XRReferenceSpaceOptions {
+  required XRReferenceSpaceType type;
+};
+
+[SecureContext, Exposed=Window] interface XRReferenceSpace : XRSpace {
+  attribute XRRigidTransform originOffset;
+  attribute EventHandler onreset;
+};
+
+enum XRStationaryReferenceSpaceSubtype {
   "eye-level",
-  "stage",
+  "floor-level",
+  "position-disabled"
 };
 
-dictionary XRFrameOfReferenceOptions {
-  boolean disableStageEmulation = false;
-  double stageEmulationHeight = 0.0;
+dictionary XRStationaryReferenceSpaceOptions : XRReferenceSpaceOptions {
+  required XRStationaryReferenceSpaceSubtype subtype;
 };
 
-[SecureContext, Exposed=Window] interface XRFrameOfReference : XRCoordinateSystem {
-  readonly attribute XRStageBounds? bounds;
-  readonly attribute double emulatedHeight;
-
-  attribute EventHandler onboundschange;
+[SecureContext, Exposed=Window]
+interface XRStationaryReferenceSpace : XRReferenceSpace {
+  readonly attribute XRStationaryReferenceSpaceSubtype subtype;
 };
 
-[SecureContext, Exposed=Window] interface XRStageBounds {
-  readonly attribute FrozenArray<DOMPointReadOnly> geometry;
+[SecureContext, Exposed=Window]
+interface XRBoundedReferenceSpace : XRReferenceSpace {
+  readonly attribute FrozenArray<DOMPointReadOnly> boundsGeometry;
+};
+
+[SecureContext, Exposed=Window]
+
+interface XRUnboundedReferenceSpace : XRReferenceSpace {
 };
 
 enum XREye {
@@ -109,6 +126,7 @@ enum XREye {
   readonly attribute XREye eye;
   readonly attribute Float32Array projectionMatrix;
   readonly attribute Float32Array viewMatrix;
+  readonly attribute XRRigidTransform transform;
 };
 
 [SecureContext, Exposed=Window] interface XRViewport {
@@ -118,8 +136,25 @@ enum XREye {
   readonly attribute long height;
 };
 
+[SecureContext, Exposed=Window,
+ Constructor(optional DOMPointInit position, optional DOMPointInit orientation)]
+interface XRRigidTransform {
+  readonly attribute DOMPointReadOnly position;
+  readonly attribute DOMPointReadOnly orientation;
+  readonly attribute Float32Array matrix;
+};
+
+[SecureContext, Exposed=Window,
+ Constructor(optional DOMPointInit origin, optional DOMPointInit direction),
+ Constructor(XRRigidTransform transform)]
+interface XRRay {
+  readonly attribute DOMPointReadOnly origin;
+  readonly attribute DOMPointReadOnly direction;
+  readonly attribute Float32Array matrix;
+};
+
 [SecureContext, Exposed=Window] interface XRViewerPose {
-  readonly attribute Float32Array poseMatrix;
+  readonly attribute XRRigidTransform transform;
   readonly attribute FrozenArray<XRView> views;
 };
 
@@ -142,17 +177,10 @@ interface XRInputSource {
 };
 
 [SecureContext, Exposed=Window]
-interface XRRay {
-  readonly attribute DOMPointReadOnly origin;
-  readonly attribute DOMPointReadOnly direction;
-  readonly attribute Float32Array transformMatrix;
-};
-
-[SecureContext, Exposed=Window]
 interface XRInputPose {
   readonly attribute boolean emulatedPosition;
   readonly attribute XRRay targetRay;
-  readonly attribute Float32Array? gripMatrix;
+  readonly attribute XRRigidTransform? gripTransform;
 };
 
 [SecureContext, Exposed=Window] interface XRLayer {};
@@ -224,11 +252,13 @@ dictionary XRInputSourceEventInit : EventInit {
   required XRInputSource inputSource;
 };
 
-[SecureContext, Exposed=Window, Constructor(DOMString type, XRCoordinateSystemEventInit eventInitDict)]
-interface XRCoordinateSystemEvent : Event {
-  readonly attribute XRCoordinateSystem coordinateSystem;
+[SecureContext, Exposed=Window, Constructor(DOMString type, XRReferenceSpaceEventInit eventInitDict)]
+interface XRReferenceSpaceEvent : Event {
+  readonly attribute XRReferenceSpace referenceSpace;
+  readonly attribute XRRigidTransform? transform;
 };
 
-dictionary XRCoordinateSystemEventInit : EventInit {
-  required XRCoordinateSystem coordinateSystem;
+dictionary XRReferenceSpaceEventInit : EventInit {
+  required XRReferenceSpace referenceSpace;
+  XRRigidTransform transform;
 };

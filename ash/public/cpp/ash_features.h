@@ -16,20 +16,10 @@ namespace features {
 // https://crbug.com/709824.
 ASH_PUBLIC_EXPORT extern const base::Feature kDockedMagnifier;
 
-// Enables dragging an app window when it is in tablet mode.
-// TODO(minch): Remove this after the feature is launched.
-// https://crbug.com/847587.
-ASH_PUBLIC_EXPORT extern const base::Feature kDragAppsInTabletMode;
-
 // Enables dragging one or more tabs out of a browser window in tablet mode.
 // TODO(xdai): Remove this after the feature is launched.
 // https://crbug.com/823769.
 ASH_PUBLIC_EXPORT extern const base::Feature kDragTabsInTabletMode;
-
-// Enables the keyboard shortcut viewer mojo app.
-// TODO(msw): Remove this after the feature is fully launched.
-// https://crbug.com/841020.
-ASH_PUBLIC_EXPORT extern const base::Feature kKeyboardShortcutViewerApp;
 
 // Enables notifications on the lock screen.
 ASH_PUBLIC_EXPORT extern const base::Feature kLockScreenNotifications;
@@ -42,12 +32,6 @@ ASH_PUBLIC_EXPORT extern const base::Feature kLockScreenInlineReply;
 // screen. This option is effective when |kLockScreenNotification| is enabled.
 ASH_PUBLIC_EXPORT extern const base::Feature
     kLockScreenHideSensitiveNotificationsSupport;
-
-// Enables media session service integration. If this is enabled, accelerators
-// that are associated with media playback will be handled by the media
-// session service.
-// TODO(beccahughes): Remove after launch. (https://crbug.com/894255)
-ASH_PUBLIC_EXPORT extern const base::Feature kMediaSessionAccelerators;
 
 // Enables the media session notification. If this is enabled, we will show
 // a notification that shows the currently playing media with controls.

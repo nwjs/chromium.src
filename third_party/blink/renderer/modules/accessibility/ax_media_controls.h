@@ -40,6 +40,8 @@ class AXObjectCacheImpl;
 class AccessibilityMediaControl : public AXLayoutObject {
  public:
   static AXObject* Create(LayoutObject*, AXObjectCacheImpl&);
+
+  AccessibilityMediaControl(LayoutObject*, AXObjectCacheImpl&);
   ~AccessibilityMediaControl() override = default;
 
   ax::mojom::Role RoleValue() const override;
@@ -58,7 +60,6 @@ class AccessibilityMediaControl : public AXLayoutObject {
   bool InternalClearAccessibilityFocusAction() override;
 
  protected:
-  AccessibilityMediaControl(LayoutObject*, AXObjectCacheImpl&);
   MediaControlElementType ControlType() const;
   bool ComputeAccessibilityIsIgnored(IgnoredReasons* = nullptr) const override;
 
@@ -68,6 +69,8 @@ class AccessibilityMediaControl : public AXLayoutObject {
 class AccessibilityMediaTimeline final : public AXSlider {
  public:
   static AXObject* Create(LayoutObject*, AXObjectCacheImpl&);
+
+  AccessibilityMediaTimeline(LayoutObject*, AXObjectCacheImpl&);
   ~AccessibilityMediaTimeline() override = default;
 
   String Description(ax::mojom::NameFrom,
@@ -75,27 +78,7 @@ class AccessibilityMediaTimeline final : public AXSlider {
                      AXObjectVector* description_objects) const override;
 
  private:
-  AccessibilityMediaTimeline(LayoutObject*, AXObjectCacheImpl&);
-
   DISALLOW_COPY_AND_ASSIGN(AccessibilityMediaTimeline);
-};
-
-class AccessibilityMediaVolumeSlider final : public AXSlider {
- public:
-  static AXObject* Create(LayoutObject*, AXObjectCacheImpl&);
-  ~AccessibilityMediaVolumeSlider() override = default;
-
-  String Description(ax::mojom::NameFrom,
-                     ax::mojom::DescriptionFrom&,
-                     AXObjectVector* description_objects) const override;
-
-  bool InternalSetAccessibilityFocusAction() override;
-  bool InternalClearAccessibilityFocusAction() override;
-
- private:
-  AccessibilityMediaVolumeSlider(LayoutObject*, AXObjectCacheImpl&);
-
-  DISALLOW_COPY_AND_ASSIGN(AccessibilityMediaVolumeSlider);
 };
 
 class AXMediaControlsContainer final : public AccessibilityMediaControl {
@@ -128,6 +111,8 @@ class AXMediaControlsContainer final : public AccessibilityMediaControl {
 class AccessibilityMediaTimeDisplay final : public AccessibilityMediaControl {
  public:
   static AXObject* Create(LayoutObject*, AXObjectCacheImpl&);
+
+  AccessibilityMediaTimeDisplay(LayoutObject*, AXObjectCacheImpl&);
   ~AccessibilityMediaTimeDisplay() override = default;
 
   ax::mojom::Role RoleValue() const override {
@@ -143,7 +128,6 @@ class AccessibilityMediaTimeDisplay final : public AccessibilityMediaControl {
                          NameSources*) const override;
 
  private:
-  AccessibilityMediaTimeDisplay(LayoutObject*, AXObjectCacheImpl&);
   bool ComputeAccessibilityIsIgnored(IgnoredReasons* = nullptr) const override;
 
   DISALLOW_COPY_AND_ASSIGN(AccessibilityMediaTimeDisplay);

@@ -13,13 +13,10 @@
 #include "ipc/ipc_listener.h"
 
 namespace gpu {
+class SharedContextState;
 struct Mailbox;
 class GpuChannel;
 class SharedImageFactory;
-
-namespace raster {
-struct RasterDecoderContextState;
-}
 
 class SharedImageStub : public IPC::Listener,
                         public MemoryTracker,
@@ -47,9 +44,12 @@ class SharedImageStub : public IPC::Listener,
  private:
   void OnCreateSharedImage(
       const GpuChannelMsg_CreateSharedImage_Params& params);
+  void OnCreateSharedImageWithData(
+      const GpuChannelMsg_CreateSharedImageWithData_Params& params);
   void OnCreateGMBSharedImage(GpuChannelMsg_CreateGMBSharedImage_Params params);
   void OnUpdateSharedImage(const Mailbox& mailbox, uint32_t release_id);
   void OnDestroySharedImage(const Mailbox& mailbox);
+  void OnRegisterSharedImageUploadBuffer(base::ReadOnlySharedMemoryRegion shm);
   bool MakeContextCurrent();
   bool MakeContextCurrentAndCreateFactory();
   void OnError();
@@ -57,9 +57,12 @@ class SharedImageStub : public IPC::Listener,
   GpuChannel* channel_;
   SequenceId sequence_;
   scoped_refptr<gpu::SyncPointClientState> sync_point_client_state_;
-  scoped_refptr<raster::RasterDecoderContextState> context_state_;
+  scoped_refptr<SharedContextState> context_state_;
   std::unique_ptr<SharedImageFactory> factory_;
   uint64_t size_ = 0;
+  // Holds shared memory used in initial data uploads.
+  base::ReadOnlySharedMemoryRegion upload_memory_;
+  base::ReadOnlySharedMemoryMapping upload_memory_mapping_;
 };
 
 }  // namespace gpu

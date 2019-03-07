@@ -13,7 +13,8 @@
 #include "mojo/public/cpp/bindings/associated_binding.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/platform/modules/cache_storage/cache_storage.mojom-blink.h"
+#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
+#include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
@@ -54,7 +55,11 @@ class ScopedFetcherForTests final
   USING_GARBAGE_COLLECTED_MIXIN(ScopedFetcherForTests);
 
  public:
-  static ScopedFetcherForTests* Create() { return new ScopedFetcherForTests(); }
+  static ScopedFetcherForTests* Create() {
+    return MakeGarbageCollected<ScopedFetcherForTests>();
+  }
+
+  ScopedFetcherForTests() : fetch_count_(0), expected_url_(nullptr) {}
 
   ScriptPromise Fetch(ScriptState* script_state,
                       const RequestInfo& request_info,
@@ -98,8 +103,6 @@ class ScopedFetcherForTests final
   }
 
  private:
-  ScopedFetcherForTests() : fetch_count_(0), expected_url_(nullptr) {}
-
   int fetch_count_;
   const String* expected_url_;
   Member<Response> response_;
@@ -179,6 +182,13 @@ class ErrorCacheForTests : public mojom::blink::CacheStorageCache {
     last_error_web_cache_method_called_ = "dispatchBatch";
     CheckBatchOperationsIfProvided(batch_operations);
     std::move(callback).Run(CacheStorageVerboseError::New(error_, String()));
+  }
+  void SetSideData(const KURL& url,
+                   base::Time response_time,
+                   const Vector<uint8_t>& side_data,
+                   SetSideDataCallback callback) override {
+    std::move(callback).Run(
+        blink::mojom::CacheStorageError::kErrorNotImplemented);
   }
 
  protected:
@@ -267,7 +277,9 @@ class CacheStorageTest : public PageTestBase {
     binding_ = std::make_unique<
         mojo::AssociatedBinding<mojom::blink::CacheStorageCache>>(
         cache_.get(), std::move(request));
-    return Cache::Create(fetcher, cache_ptr.PassInterface());
+    return Cache::Create(
+        fetcher, nullptr /* cache_storage */, cache_ptr.PassInterface(),
+        blink::scheduler::GetSingleThreadTaskRunnerForTesting());
   }
 
   ErrorCacheForTests* test_cache() { return cache_.get(); }
@@ -328,18 +340,18 @@ class CacheStorageTest : public PageTestBase {
   class UnreachableFunction : public ScriptFunction {
    public:
     static v8::Local<v8::Function> Create(ScriptState* script_state) {
-      UnreachableFunction* self = new UnreachableFunction(script_state);
+      UnreachableFunction* self =
+          MakeGarbageCollected<UnreachableFunction>(script_state);
       return self->BindToV8Function();
     }
+
+    UnreachableFunction(ScriptState* script_state)
+        : ScriptFunction(script_state) {}
 
     ScriptValue Call(ScriptValue value) override {
       ADD_FAILURE() << "Unexpected call to a null ScriptFunction.";
       return value;
     }
-
-   private:
-    UnreachableFunction(ScriptState* script_state)
-        : ScriptFunction(script_state) {}
   };
 
   // A ScriptFunction that saves its parameter; used by tests to assert on
@@ -348,9 +360,13 @@ class CacheStorageTest : public PageTestBase {
    public:
     static v8::Local<v8::Function> Create(ScriptState* script_state,
                                           ScriptValue* out_value) {
-      TestFunction* self = new TestFunction(script_state, out_value);
+      TestFunction* self =
+          MakeGarbageCollected<TestFunction>(script_state, out_value);
       return self->BindToV8Function();
     }
+
+    TestFunction(ScriptState* script_state, ScriptValue* out_value)
+        : ScriptFunction(script_state), value_(out_value) {}
 
     ScriptValue Call(ScriptValue value) override {
       DCHECK(!value.IsEmpty());
@@ -359,9 +375,6 @@ class CacheStorageTest : public PageTestBase {
     }
 
    private:
-    TestFunction(ScriptState* script_state, ScriptValue* out_value)
-        : ScriptFunction(script_state), value_(out_value) {}
-
     ScriptValue* value_;
   };
 
@@ -767,9 +780,9 @@ TEST_F(CacheStorageTest, Add) {
   Request* request = NewRequestFromUrl(url);
   Response* response = Response::Create(
       GetScriptState(),
-      new BodyStreamBuffer(GetScriptState(),
-                           MakeGarbageCollected<FormDataBytesConsumer>(content),
-                           nullptr),
+      MakeGarbageCollected<BodyStreamBuffer>(
+          GetScriptState(),
+          MakeGarbageCollected<FormDataBytesConsumer>(content), nullptr),
       content_type, ResponseInit::Create(), exception_state);
   fetcher->SetResponse(response);
 

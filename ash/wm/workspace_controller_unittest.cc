@@ -129,10 +129,6 @@ class WorkspaceControllerTest : public AshTestBase {
     return GetPrimaryShelf()->shelf_layout_manager();
   }
 
-  bool GetWindowOverlapsShelf() {
-    return shelf_layout_manager()->window_overlaps_shelf();
-  }
-
  private:
   DISALLOW_COPY_AND_ASSIGN(WorkspaceControllerTest);
 };
@@ -357,18 +353,7 @@ TEST_F(WorkspaceControllerTest, ShelfStateUpdated) {
       0, shelf_layout_manager()->GetIdealBounds().y() - 10, 101, 102);
   // Move |w1| to overlap the shelf.
   w1->SetBounds(touches_shelf_bounds);
-  EXPECT_FALSE(GetWindowOverlapsShelf());
-
-  // A visible ignored window should not trigger the overlap.
-  std::unique_ptr<Window> w_ignored(CreateTestWindow());
-  w_ignored->SetBounds(touches_shelf_bounds);
-  wm::GetWindowState(&(*w_ignored))->set_ignored_by_shelf(true);
-  w_ignored->Show();
-  EXPECT_FALSE(GetWindowOverlapsShelf());
-
-  // Make it visible, since visible shelf overlaps should be true.
   w1->Show();
-  EXPECT_TRUE(GetWindowOverlapsShelf());
 
   wm::ActivateWindow(w1.get());
   w1->SetBounds(w1_bounds);
@@ -395,15 +380,7 @@ TEST_F(WorkspaceControllerTest, ShelfStateUpdated) {
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
   EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
-  EXPECT_FALSE(GetWindowOverlapsShelf());
-
-  // Move window so it obscures shelf.
-  w1->SetBounds(touches_shelf_bounds);
-  EXPECT_TRUE(GetWindowOverlapsShelf());
-
-  // Move it back.
   w1->SetBounds(w1_bounds);
-  EXPECT_FALSE(GetWindowOverlapsShelf());
 
   // Maximize again.
   w1->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_MAXIMIZED);
@@ -458,25 +435,6 @@ TEST_F(WorkspaceControllerTest, ShelfStateUpdated) {
   EXPECT_EQ("0,1 101x102", w1->bounds().ToString());
   EXPECT_EQ(screen_util::GetMaximizedWindowBoundsInParent(w2.get()).ToString(),
             w2->bounds().ToString());
-
-  // Turn off auto-hide, switch back to w2 (maximized) and verify overlap.
-  shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
-  wm::ActivateWindow(w2.get());
-  EXPECT_FALSE(GetWindowOverlapsShelf());
-
-  // Move w1 to overlap shelf, it shouldn't change window overlaps shelf since
-  // the window isn't in the visible workspace.
-  w1->SetBounds(touches_shelf_bounds);
-  EXPECT_FALSE(GetWindowOverlapsShelf());
-
-  // Activate w1. Although w1 is visible, the overlap state is still false since
-  // w2 is maximized.
-  wm::ActivateWindow(w1.get());
-  EXPECT_FALSE(GetWindowOverlapsShelf());
-
-  // Restore w2.
-  w2->SetProperty(aura::client::kShowStateKey, ui::SHOW_STATE_NORMAL);
-  EXPECT_TRUE(GetWindowOverlapsShelf());
 }
 
 // Verifies going from maximized to minimized sets the right state for painting
@@ -677,24 +635,27 @@ TEST_F(WorkspaceControllerTest, DontCrashOnChangeAndActivate) {
 
 // Verifies a window with a transient parent not managed by workspace works.
 TEST_F(WorkspaceControllerTest, TransientParent) {
+  std::unique_ptr<Window> w1(CreateTestWindow());
+  w1->SetBounds(gfx::Rect(0, 0, 100, 100));
+  w1->Show();
+
   // Normal window with no transient parent.
-  std::unique_ptr<Window> w2(CreateTestWindow());
+  std::unique_ptr<Window> w3(CreateTestWindow());
+  w3->SetBounds(gfx::Rect(10, 11, 250, 251));
+  w3->Show();
+  wm::ActivateWindow(w3.get());
+
+  // Window with a transient parent.
+  std::unique_ptr<Window> w2(CreateTestWindowUnparented());
+  ::wm::AddTransientChild(w1.get(), w2.get());
   w2->SetBounds(gfx::Rect(10, 11, 250, 251));
+  ParentWindowInPrimaryRootWindow(w2.get());
   w2->Show();
   wm::ActivateWindow(w2.get());
 
-  // Window with a transient parent. We set the transient parent to the root,
-  // which would never happen but is enough to exercise the bug.
-  std::unique_ptr<Window> w1(CreateTestWindowUnparented());
-  ::wm::AddTransientChild(Shell::Get()->GetPrimaryRootWindow(), w1.get());
-  w1->SetBounds(gfx::Rect(10, 11, 250, 251));
-  ParentWindowInPrimaryRootWindow(w1.get());
-  w1->Show();
-  wm::ActivateWindow(w1.get());
-
   // The window with the transient parent should get added to the same parent as
   // the normal window.
-  EXPECT_EQ(w2->parent(), w1->parent());
+  EXPECT_EQ(w3->parent(), w2->parent());
 }
 
 // Test the placement of newly created windows.
@@ -1341,36 +1302,6 @@ TEST_F(WorkspaceControllerTest, SwitchFromModal) {
   maximized_window->Show();
   wm::ActivateWindow(maximized_window.get());
   EXPECT_TRUE(maximized_window->IsVisible());
-}
-
-// Verifies that when dragging a window over the shelf overlap is detected
-// during and after the drag.
-TEST_F(WorkspaceControllerTest, DragWindowOverlapShelf) {
-  aura::test::TestWindowDelegate delegate;
-  delegate.set_window_component(HTCAPTION);
-  std::unique_ptr<Window> w1(aura::test::CreateTestWindowWithDelegate(
-      &delegate, aura::client::WINDOW_TYPE_NORMAL, gfx::Rect(5, 5, 100, 50),
-      NULL));
-  ParentWindowInPrimaryRootWindow(w1.get());
-
-  GetPrimaryShelf()->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
-
-  // Drag near the shelf.
-  ui::test::EventGenerator generator(Shell::GetPrimaryRootWindow(),
-                                     gfx::Point());
-  generator.MoveMouseTo(10, 10);
-  generator.PressLeftButton();
-  generator.MoveMouseTo(100, shelf_layout_manager()->GetIdealBounds().y() - 70);
-
-  // Shelf should not be in overlapped state.
-  EXPECT_FALSE(GetWindowOverlapsShelf());
-
-  generator.MoveMouseTo(100, shelf_layout_manager()->GetIdealBounds().y() - 20);
-
-  // Shelf should detect overlap. Overlap state stays after mouse is released.
-  EXPECT_TRUE(GetWindowOverlapsShelf());
-  generator.ReleaseLeftButton();
-  EXPECT_TRUE(GetWindowOverlapsShelf());
 }
 
 // Verifies that when dragging a window autohidden shelf stays hidden during

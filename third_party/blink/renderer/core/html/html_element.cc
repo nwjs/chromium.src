@@ -41,6 +41,7 @@
 #include "third_party/blink/renderer/core/dom/events/event_listener.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
+#include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/text.h"
@@ -57,6 +58,7 @@
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/labels_node_list.h"
 #include "third_party/blink/renderer/core/html/html_br_element.h"
 #include "third_party/blink/renderer/core/html/html_dimension.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
@@ -337,6 +339,7 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
   const AtomicString& kNoEvent = g_null_atom;
   static AttributeTriggers attribute_triggers[] = {
       {kDirAttr, kNoWebFeature, kNoEvent, &HTMLElement::OnDirAttrChanged},
+      {kFormAttr, kNoWebFeature, kNoEvent, &HTMLElement::OnFormAttrChanged},
       {kInertAttr, WebFeature::kInertAttribute, kNoEvent,
        &HTMLElement::OnInertAttrChanged},
       {kLangAttr, kNoWebFeature, kNoEvent, &HTMLElement::OnLangAttrChanged},
@@ -417,6 +420,8 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
       {kOnmouseupAttr, kNoWebFeature, event_type_names::kMouseup, nullptr},
       {kOnmousewheelAttr, kNoWebFeature, event_type_names::kMousewheel,
        nullptr},
+      {kOnoverscrollAttr, kNoWebFeature, event_type_names::kOverscroll,
+       nullptr},
       {kOnpasteAttr, kNoWebFeature, event_type_names::kPaste, nullptr},
       {kOnpauseAttr, kNoWebFeature, event_type_names::kPause, nullptr},
       {kOnplayAttr, kNoWebFeature, event_type_names::kPlay, nullptr},
@@ -444,6 +449,7 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
       {kOnresetAttr, kNoWebFeature, event_type_names::kReset, nullptr},
       {kOnresizeAttr, kNoWebFeature, event_type_names::kResize, nullptr},
       {kOnscrollAttr, kNoWebFeature, event_type_names::kScroll, nullptr},
+      {kOnscrollendAttr, kNoWebFeature, event_type_names::kScrollend, nullptr},
       {kOnseekedAttr, kNoWebFeature, event_type_names::kSeeked, nullptr},
       {kOnseekingAttr, kNoWebFeature, event_type_names::kSeeking, nullptr},
       {kOnselectAttr, kNoWebFeature, event_type_names::kSelect, nullptr},
@@ -589,6 +595,17 @@ const AtomicString& HTMLElement::EventNameForAttributeName(
 
 void HTMLElement::AttributeChanged(const AttributeModificationParams& params) {
   Element::AttributeChanged(params);
+  if (params.name == html_names::kDisabledAttr &&
+      params.old_value.IsNull() != params.new_value.IsNull()) {
+    if (IsFormAssociatedCustomElement()) {
+      EnsureElementInternals().DisabledAttributeChanged();
+      if (params.reason == AttributeModificationReason::kDirectly &&
+          IsDisabledFormControl() &&
+          AdjustedFocusedElementInTreeScope() == this)
+        blur();
+    }
+    return;
+  }
   if (params.reason != AttributeModificationReason::kDirectly)
     return;
   // adjustedFocusedElementInTreeScope() is not trivial. We should check
@@ -1275,6 +1292,12 @@ void HTMLElement::AddHTMLColorToStyle(MutableCSSPropertyValueSet* style,
   style->SetProperty(property_id, *CSSColorValue::Create(parsed_color.Rgb()));
 }
 
+LabelsNodeList* HTMLElement::labels() {
+  if (!IsLabelable())
+    return nullptr;
+  return EnsureCachedCollection<LabelsNodeList>(kLabelsNodeListType);
+}
+
 bool HTMLElement::IsInteractiveContent() const {
   return false;
 }
@@ -1399,6 +1422,11 @@ void HTMLElement::OnDirAttrChanged(const AttributeModificationParams& params) {
     CalculateAndAdjustDirectionality();
 }
 
+void HTMLElement::OnFormAttrChanged(const AttributeModificationParams& params) {
+  if (IsFormAssociatedCustomElement())
+    EnsureElementInternals().FormAttributeChanged();
+}
+
 void HTMLElement::OnInertAttrChanged(
     const AttributeModificationParams& params) {
   UpdateDistributionForUnknownReasons();
@@ -1464,6 +1492,43 @@ ElementInternals* HTMLElement::attachInternals(
 bool HTMLElement::IsFormAssociatedCustomElement() const {
   return GetCustomElementState() == CustomElementState::kCustom &&
          GetCustomElementDefinition()->IsFormAssociated();
+}
+
+bool HTMLElement::SupportsFocus() const {
+  return Element::SupportsFocus() && !IsDisabledFormControl();
+};
+
+bool HTMLElement::IsDisabledFormControl() const {
+  if (!IsFormAssociatedCustomElement())
+    return false;
+  return const_cast<HTMLElement*>(this)
+      ->EnsureElementInternals()
+      .IsActuallyDisabled();
+}
+
+bool HTMLElement::MatchesEnabledPseudoClass() const {
+  return IsFormAssociatedCustomElement() && !const_cast<HTMLElement*>(this)
+                                                 ->EnsureElementInternals()
+                                                 .IsActuallyDisabled();
+}
+
+bool HTMLElement::MatchesValidityPseudoClasses() const {
+  return IsFormAssociatedCustomElement();
+}
+
+bool HTMLElement::willValidate() const {
+  return IsFormAssociatedCustomElement() && const_cast<HTMLElement*>(this)
+                                                ->EnsureElementInternals()
+                                                .WillValidate();
+}
+
+bool HTMLElement::IsValidElement() {
+  return IsFormAssociatedCustomElement() &&
+         EnsureElementInternals().IsValidElement();
+}
+
+bool HTMLElement::IsLabelable() const {
+  return IsFormAssociatedCustomElement();
 }
 
 }  // namespace blink

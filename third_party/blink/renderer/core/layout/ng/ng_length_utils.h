@@ -24,6 +24,7 @@ struct MinMaxSizeInput;
 class NGConstraintSpace;
 class NGBlockNode;
 class NGLayoutInputNode;
+class NGLayoutResult;
 
 // LengthResolvePhase indicates what type of layout pass we are currently in.
 // This changes how lengths are resolved. kIntrinsic must be used during the
@@ -130,10 +131,11 @@ MinMaxSize ComputeMinAndMaxContentContribution(
     NGLayoutInputNode child,
     const MinMaxSizeInput& input);
 
-// Resolves the computed value in style.logicalWidth (Length) to a layout unit,
-// then constrains the result by the resolved min logical width and max logical
-// width from the ComputedStyle object. Calls Node::ComputeMinMaxSize if needed.
-// override_minmax is provided *solely* for use by unit tests.
+// Returns inline size of the node's border box by resolving the computed value
+// in style.logicalWidth (Length) to a layout unit, adding border and padding,
+// then constraining the result by the resolved min logical width and max
+// logical width from the ComputedStyle object. Calls Node::ComputeMinMaxSize if
+// needed. override_minmax is provided *solely* for use by unit tests.
 // border_padding can be passed in as an optimization; otherwise this function
 // will compute it itself.
 CORE_EXPORT LayoutUnit ComputeInlineSizeForFragment(
@@ -160,7 +162,8 @@ ComputeReplacedSize(const NGLayoutInputNode&,
 // computed style and child content remain unchanged.
 bool SizeMayChange(const ComputedStyle&,
                    const NGConstraintSpace& new_space,
-                   const NGConstraintSpace& old_space);
+                   const NGConstraintSpace& old_space,
+                   const NGLayoutResult& layout_result);
 
 // Based on available inline size, CSS computed column-width, CSS computed
 // column-count and CSS used column-gap, return CSS used column-count.
@@ -305,8 +308,7 @@ CORE_EXPORT void ResolveInlineMargins(
 // text-align, direction and amount of unused space.
 CORE_EXPORT LayoutUnit LineOffsetForTextAlign(ETextAlign,
                                               TextDirection,
-                                              LayoutUnit space_left,
-                                              LayoutUnit trailing_spaces_width);
+                                              LayoutUnit space_left);
 
 // Same as |LineOffsetForTextAlign| but returns the logical inline offset
 // instead of line-left offset.

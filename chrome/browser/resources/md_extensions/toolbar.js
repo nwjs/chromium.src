@@ -77,8 +77,9 @@ cr.define('extensions', function() {
     /** @override */
     detached: function() {
       const openToastElement = this.$$('cr-toast[open]');
-      if (openToastElement)
+      if (openToastElement) {
         openToastElement.hide();
+      }
     },
 
     /**
@@ -90,11 +91,11 @@ cr.define('extensions', function() {
     },
 
     /**
-     * @param {!CustomEvent} e
+     * @param {!CustomEvent<boolean>} e
      * @private
      */
     onDevModeToggleChange_: function(e) {
-      this.delegate.setProfileInDevMode(/** @type {boolean} */ (e.detail));
+      this.delegate.setProfileInDevMode(e.detail);
       chrome.metricsPrivate.recordUserAction(
           'Options_ToggleDeveloperMode_' + (e.detail ? 'Enabled' : 'Disabled'));
     },
@@ -120,8 +121,9 @@ cr.define('extensions', function() {
         }
 
         listenOnce(drawer, 'transitionend', e => {
-          if (!this.inDevMode)
+          if (!this.inDevMode) {
             drawer.hidden = true;
+          }
         });
       }
       this.expanded_ = !this.expanded_;
@@ -157,8 +159,9 @@ cr.define('extensions', function() {
     /** @private */
     onUpdateNowTap_: function() {
       // If already updating, do not initiate another update.
-      if (this.isUpdating_)
+      if (this.isUpdating_) {
         return;
+      }
 
       this.isUpdating_ = true;
       const toastElement = this.$$('cr-toast');

@@ -15,7 +15,6 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "base/time/clock.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/offline_pages/core/model/clear_storage_task.h"
 #include "components/offline_pages/core/offline_page_archiver.h"
@@ -71,8 +70,7 @@ class OfflinePageModelTaskified : public OfflinePageModel,
       std::unique_ptr<OfflinePageMetadataStore> store,
       std::unique_ptr<ArchiveManager> archive_manager,
       std::unique_ptr<SystemDownloadManager> download_manager,
-      const scoped_refptr<base::SequencedTaskRunner>& task_runner,
-      base::Clock* clock);
+      const scoped_refptr<base::SequencedTaskRunner>& task_runner);
   ~OfflinePageModelTaskified() override;
 
   // TaskQueue::Delegate implementation.
@@ -141,7 +139,6 @@ class OfflinePageModelTaskified : public OfflinePageModel,
 
   // Methods for testing only:
   OfflinePageMetadataStore* GetStoreForTesting() { return store_.get(); }
-  void SetClockForTesting(base::Clock* clock) { clock_ = clock; }
   void SetSkipClearingOriginalUrlForTesting() {
     skip_clearing_original_url_for_testing_ = true;
   }
@@ -226,7 +223,6 @@ class OfflinePageModelTaskified : public OfflinePageModel,
   // Other utility methods.
   void RemovePagesMatchingUrlAndNamespace(const OfflinePageItem& page);
   void CreateArchivesDirectoryIfNeeded();
-  base::Time GetCurrentTime();
 
   // Persistent store for offline page metadata.
   std::unique_ptr<OfflinePageMetadataStore> store_;
@@ -242,9 +238,6 @@ class OfflinePageModelTaskified : public OfflinePageModel,
 
   // The observers.
   base::ObserverList<Observer>::Unchecked observers_;
-
-  // Clock for testing only.
-  base::Clock* clock_ = nullptr;
 
   // Logger to facilitate recording of events.
   OfflinePageModelEventLogger offline_event_logger_;

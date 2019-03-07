@@ -8,7 +8,7 @@
 #include "base/macros.h"
 #include "net/third_party/quic/core/quic_packets.h"
 #include "net/third_party/quic/core/quic_write_blocked_list.h"
-#include "net/third_party/spdy/core/spdy_framer.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_framer.h"
 
 namespace quic {
 
@@ -47,13 +47,16 @@ class QuicSpdySessionPeer {
   // Helper functions for stream ids, to allow test logic to abstract
   // over the HTTP stream numbering scheme (i.e. whether one or
   // two QUIC streams are used per HTTP transaction).
-  static QuicStreamId NextStreamId(const QuicSpdySession& session);
+  static QuicStreamId StreamIdDelta(const QuicSpdySession& session);
   // n should start at 0.
-  static QuicStreamId GetNthClientInitiatedStreamId(
+  static QuicStreamId GetNthClientInitiatedBidirectionalStreamId(
       const QuicSpdySession& session,
       int n);
   // n should start at 0.
-  static QuicStreamId GetNthServerInitiatedStreamId(
+  static QuicStreamId GetNthServerInitiatedBidirectionalStreamId(
+      const QuicSpdySession& session,
+      int n);
+  static QuicStreamId GetNthServerInitiatedUnidirectionalStreamId(
       const QuicSpdySession& session,
       int n);
 };

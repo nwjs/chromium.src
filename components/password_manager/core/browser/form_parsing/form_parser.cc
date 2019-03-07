@@ -27,6 +27,7 @@
 #include "components/password_manager/core/common/password_manager_features.h"
 
 using autofill::FieldPropertiesFlags;
+using autofill::FormData;
 using autofill::FormFieldData;
 using autofill::PasswordForm;
 using base::string16;
@@ -130,6 +131,13 @@ bool IsFieldCVC(const ProcessedField& field) {
          StringMatchesCVC(field.field->id_attribute);
 }
 
+// Returns true if the |field| is suspected to be a credit card related field
+// (credit card owner name, CVC code, expiration date etc).
+bool IsCreditCardField(const ProcessedField& field) {
+  return IsFieldCVC(field) ||
+         field.autocomplete_flag == AutocompleteFlag::kCreditCard;
+}
+
 // Returns true iff |field_type| is one of password types.
 bool IsPasswordPrediction(const CredentialFieldType field_type) {
   switch (field_type) {
@@ -179,6 +187,11 @@ bool IsProbablyNotUsername(const base::string16& s) {
   return s.empty() || (s.size() < 3 && DoesStringContainOnlyDigits(s));
 }
 
+// Returns |typed_value| if it is not empty, |value| otherwise.
+base::string16 GetFieldValue(const FormFieldData& field) {
+  return field.typed_value.empty() ? field.value : field.typed_value;
+}
+
 // A helper struct that is used to capture significant fields to be used for
 // the construction of a PasswordForm.
 struct SignificantFields {
@@ -191,6 +204,10 @@ struct SignificantFields {
   // fallback UI.
   bool is_fallback = false;
 
+  // True iff the new password field was found with server hints or autocomplete
+  // attributes.
+  bool is_new_password_reliable = false;
+
   // Returns true if some password field is present. This is the minimal
   // requirement for a successful creation of a PasswordForm is present.
   bool HasPasswords() const {
@@ -199,6 +216,15 @@ struct SignificantFields {
     return password || new_password;
   }
 };
+
+// Returns true if |field| is in |significant_fields|.
+bool IsFieldInSignificantFields(const SignificantFields& significant_fields,
+                                const FormFieldData* field) {
+  return significant_fields.username == field ||
+         significant_fields.password == field ||
+         significant_fields.new_password == field ||
+         significant_fields.confirmation_password == field;
+}
 
 // Returns the first element of |fields| which has the specified
 // |unique_renderer_id|, or null if there is no such element.
@@ -355,6 +381,10 @@ void ParseUsingAutocomplete(const std::vector<ProcessedField>& processed_fields,
   const FormFieldData* field_marked_as_username = nullptr;
   int username_fields_found = 0;
   for (const ProcessedField& processed_field : processed_fields) {
+    if (IsFieldInSignificantFields(*result, processed_field.field)) {
+      // Skip this field because it was already chosen in previous steps.
+      continue;
+    }
     switch (processed_field.autocomplete_flag) {
       case AutocompleteFlag::kUsername:
         if (processed_field.is_password || result->username)
@@ -379,8 +409,6 @@ void ParseUsingAutocomplete(const std::vector<ProcessedField>& processed_fields,
           result->confirmation_password = processed_field.field;
         break;
       case AutocompleteFlag::kCreditCard:
-        NOTREACHED();
-        break;
       case AutocompleteFlag::kNone:
         break;
     }
@@ -405,7 +433,7 @@ bool IsLikelyPassword(const ProcessedField& field, size_t* ignored_readonly) {
     ++*ignored_readonly;
     return false;
   }
-  return !IsFieldCVC(field);
+  return !IsCreditCardField(field);
 }
 
 // Filters the available passwords from |processed_fields| using these rules:
@@ -562,7 +590,8 @@ const FormFieldData* FindUsernameFieldBaseHeuristics(
     const std::vector<ProcessedField>& processed_fields,
     const std::vector<ProcessedField>::const_iterator& first_relevant_password,
     FormDataParser::Mode mode,
-    Interactability best_interactability) {
+    Interactability best_interactability,
+    bool is_fallback) {
   DCHECK(first_relevant_password != processed_fields.end());
 
   // For saving filter out empty fields and fields with values which are not
@@ -583,7 +612,7 @@ const FormFieldData* FindUsernameFieldBaseHeuristics(
       continue;
     if (is_saving && IsProbablyNotUsername(it->field->value))
       continue;
-    if (IsFieldCVC(*it))
+    if (!is_fallback && IsCreditCardField(*it))
       continue;
     if (!username)
       username = it->field;
@@ -631,7 +660,7 @@ void ParseUsingBaseHeuristics(
     // What is the best interactability among passwords?
     Interactability password_max = Interactability::kUnlikely;
     for (const ProcessedField& processed_field : processed_fields) {
-      if (processed_field.is_password)
+      if (processed_field.is_password && !IsCreditCardField(processed_field))
         password_max = std::max(password_max, processed_field.interactability);
     }
 
@@ -677,12 +706,13 @@ void ParseUsingBaseHeuristics(
   *username_max = Interactability::kUnlikely;
   for (auto it = processed_fields.begin(); it != first_relevant_password;
        ++it) {
-    if (!it->is_password)
+    if (!it->is_password && !IsCreditCardField(*it))
       *username_max = std::max(*username_max, it->interactability);
   }
 
   found_fields->username = FindUsernameFieldBaseHeuristics(
-      processed_fields, first_relevant_password, mode, *username_max);
+      processed_fields, first_relevant_password, mode, *username_max,
+      found_fields->is_fallback);
   return;
 }
 
@@ -702,11 +732,13 @@ string16 GetPlatformSpecificIdentifier(const FormFieldData& field) {
 // |significant_fields| .
 void SetFields(const SignificantFields& significant_fields,
                PasswordForm* password_form) {
+#if !defined(OS_IOS)
   password_form->has_renderer_ids = true;
+#endif
   if (significant_fields.username) {
     password_form->username_element =
         GetPlatformSpecificIdentifier(*significant_fields.username);
-    password_form->username_value = significant_fields.username->value;
+    password_form->username_value = GetFieldValue(*significant_fields.username);
     password_form->username_element_renderer_id =
         significant_fields.username->unique_renderer_id;
   }
@@ -714,7 +746,7 @@ void SetFields(const SignificantFields& significant_fields,
   if (significant_fields.password) {
     password_form->password_element =
         GetPlatformSpecificIdentifier(*significant_fields.password);
-    password_form->password_value = significant_fields.password->value;
+    password_form->password_value = GetFieldValue(*significant_fields.password);
     password_form->password_element_renderer_id =
         significant_fields.password->unique_renderer_id;
   }
@@ -722,13 +754,18 @@ void SetFields(const SignificantFields& significant_fields,
   if (significant_fields.new_password) {
     password_form->new_password_element =
         GetPlatformSpecificIdentifier(*significant_fields.new_password);
-    password_form->new_password_value = significant_fields.new_password->value;
+    password_form->new_password_value =
+        GetFieldValue(*significant_fields.new_password);
+    password_form->new_password_element_renderer_id =
+        significant_fields.new_password->unique_renderer_id;
   }
 
   if (significant_fields.confirmation_password) {
     password_form->confirmation_password_element =
         GetPlatformSpecificIdentifier(
             *significant_fields.confirmation_password);
+    password_form->confirmation_password_element_renderer_id =
+        significant_fields.confirmation_password->unique_renderer_id;
   }
 }
 
@@ -781,8 +818,6 @@ std::vector<ProcessedField> ProcessFields(
 
     const AutocompleteFlag flag =
         ExtractAutocompleteFlag(field.autocomplete_attribute);
-    if (flag == AutocompleteFlag::kCreditCard)
-      continue;
 
     ProcessedField processed_field = {
         .field = &field, .autocomplete_flag = flag, .is_password = is_password};
@@ -849,7 +884,7 @@ bool GetMayUsePrefilledPlaceholder(
 // occurred in the form and their associated elements. |form_predictions| is
 // used to find fields that may have preffilled placeholders.
 std::unique_ptr<PasswordForm> AssemblePasswordForm(
-    const autofill::FormData& form_data,
+    const FormData& form_data,
     const SignificantFields& significant_fields,
     autofill::ValueElementVector all_possible_passwords,
     autofill::ValueElementVector all_possible_usernames,
@@ -873,7 +908,9 @@ std::unique_ptr<PasswordForm> AssemblePasswordForm(
   result->type = PasswordForm::TYPE_MANUAL;
   result->username_may_use_prefilled_placeholder =
       GetMayUsePrefilledPlaceholder(form_predictions, significant_fields);
-  result->only_for_fallback_saving = significant_fields.is_fallback;
+  result->is_new_password_reliable =
+      significant_fields.is_new_password_reliable;
+  result->only_for_fallback = significant_fields.is_fallback;
   result->submission_event = form_data.submission_event;
 
   // Set data related to specific fields.
@@ -887,9 +924,8 @@ FormDataParser::FormDataParser() = default;
 
 FormDataParser::~FormDataParser() = default;
 
-std::unique_ptr<PasswordForm> FormDataParser::Parse(
-    const autofill::FormData& form_data,
-    Mode mode) {
+std::unique_ptr<PasswordForm> FormDataParser::Parse(const FormData& form_data,
+                                                    Mode mode) {
   readonly_status_ = ReadonlyPasswordFields::kNoHeuristics;
   autofill::ValueElementVector all_possible_passwords;
   autofill::ValueElementVector all_possible_usernames;
@@ -919,6 +955,14 @@ std::unique_ptr<PasswordForm> FormDataParser::Parse(
           UsernameDetectionMethod::kNoUsernameDetected &&
       significant_fields.username) {
     username_detection_method = UsernameDetectionMethod::kAutocompleteAttribute;
+  }
+
+  // Pass the "reliability" information to mark the new-password fields as
+  // eligible for automatic password generation. This only makes sense when
+  // forms are analysed for filling, because no passwords are generated when the
+  // user saves the already entered one.
+  if (mode == Mode::kFilling && significant_fields.new_password) {
+    significant_fields.is_new_password_reliable = true;
   }
 
   // (3) Now try to fill the gaps.

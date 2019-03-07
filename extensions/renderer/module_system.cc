@@ -8,8 +8,8 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/timer/elapsed_timer.h"
@@ -109,9 +109,9 @@ void SetExportsProperty(
   v8::Local<v8::Object> obj = args.This();
   CHECK_EQ(2, args.Length());
   CHECK(args[0]->IsString());
-  v8::Maybe<bool> result = obj->DefineOwnProperty(
-      args.GetIsolate()->GetCurrentContext(),
-      args[0]->ToString(args.GetIsolate()), args[1], v8::ReadOnly);
+  v8::Maybe<bool> result =
+      obj->DefineOwnProperty(args.GetIsolate()->GetCurrentContext(),
+                             args[0].As<v8::String>(), args[1], v8::ReadOnly);
   if (!result.FromMaybe(false))
     LOG(ERROR) << "Failed to set private property on the export.";
 }
@@ -189,14 +189,17 @@ ModuleSystem::~ModuleSystem() {
 }
 
 void ModuleSystem::AddRoutes() {
-  RouteHandlerFunction("require", base::Bind(&ModuleSystem::RequireForJs,
-                                             base::Unretained(this)));
-  RouteHandlerFunction("requireNative", base::Bind(&ModuleSystem::RequireNative,
-                                                   base::Unretained(this)));
-  RouteHandlerFunction("loadScript", base::Bind(&ModuleSystem::LoadScript,
-                                                base::Unretained(this)));
   RouteHandlerFunction(
-      "privates", base::Bind(&ModuleSystem::Private, base::Unretained(this)));
+      "require",
+      base::BindRepeating(&ModuleSystem::RequireForJs, base::Unretained(this)));
+  RouteHandlerFunction("requireNative",
+                       base::BindRepeating(&ModuleSystem::RequireNative,
+                                           base::Unretained(this)));
+  RouteHandlerFunction(
+      "loadScript",
+      base::BindRepeating(&ModuleSystem::LoadScript, base::Unretained(this)));
+  RouteHandlerFunction("privates", base::BindRepeating(&ModuleSystem::Private,
+                                                       base::Unretained(this)));
 }
 
 void ModuleSystem::Invalidate() {
@@ -798,7 +801,7 @@ v8::Local<v8::Value> ModuleSystem::LoadModuleWithNativeAPIBridge(
   {
     v8::TryCatch try_catch(GetIsolate());
     try_catch.SetCaptureMessage(true);
-    context_->SafeCallFunction(func, arraysize(args), args);
+    context_->SafeCallFunction(func, base::size(args), args);
     if (try_catch.HasCaught()) {
       HandleException(try_catch);
       return v8::Undefined(GetIsolate());

@@ -154,10 +154,6 @@ double WebPerformance::FirstPaint() const {
   return MillisecondsToSeconds(private_->timing()->FirstPaint());
 }
 
-double WebPerformance::FirstTextPaint() const {
-  return MillisecondsToSeconds(private_->timing()->FirstTextPaint());
-}
-
 double WebPerformance::FirstImagePaint() const {
   return MillisecondsToSeconds(private_->timing()->FirstImagePaint());
 }
@@ -179,16 +175,32 @@ double WebPerformance::LargestImagePaint() const {
   return MillisecondsToSeconds(private_->timing()->LargestImagePaint());
 }
 
+uint64_t WebPerformance::LargestImagePaintSize() const {
+  return private_->timing()->LargestImagePaintSize();
+}
+
 double WebPerformance::LastImagePaint() const {
   return MillisecondsToSeconds(private_->timing()->LastImagePaint());
+}
+
+uint64_t WebPerformance::LastImagePaintSize() const {
+  return private_->timing()->LastImagePaintSize();
 }
 
 double WebPerformance::LargestTextPaint() const {
   return MillisecondsToSeconds(private_->timing()->LargestTextPaint());
 }
 
+uint64_t WebPerformance::LargestTextPaintSize() const {
+  return private_->timing()->LargestTextPaintSize();
+}
+
 double WebPerformance::LastTextPaint() const {
   return MillisecondsToSeconds(private_->timing()->LastTextPaint());
+}
+
+uint64_t WebPerformance::LastTextPaintSize() const {
+  return private_->timing()->LastTextPaintSize();
 }
 
 double WebPerformance::PageInteractive() const {

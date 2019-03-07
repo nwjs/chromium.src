@@ -14,7 +14,7 @@
 #include "chrome/browser/signin/gaia_cookie_manager_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/account_id/account_id.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/user_manager/user_manager.h"
@@ -80,20 +80,13 @@ void OAuth2LoginManager::ContinueSessionRestore() {
 }
 
 void OAuth2LoginManager::RestoreSessionFromSavedTokens() {
-  // Just return if there is a pending TokenService::LoadCredentials call.
-  // Session restore continues in OnRefreshTokenAvailable when the call
-  // finishes.
-  if (pending_token_service_load_)
-    return;
-
   ProfileOAuth2TokenService* token_service = GetTokenService();
   const std::string primary_account_id = GetPrimaryAccountId();
   if (token_service->RefreshTokenIsAvailable(primary_account_id)) {
     VLOG(1) << "OAuth2 refresh token is already loaded.";
-    FireRefreshTokensLoaded();
     VerifySessionCookies();
   } else {
-    VLOG(1) << "Loading OAuth2 refresh token from database.";
+    VLOG(1) << "Waiting for OAuth2 refresh token being loaded from database.";
 
     // Flag user with unknown token status in case there are no saved tokens
     // and OnRefreshTokenAvailable is not called. Flagging it here would
@@ -102,9 +95,6 @@ void OAuth2LoginManager::RestoreSessionFromSavedTokens() {
     user_manager::UserManager::Get()->SaveUserOAuthStatus(
         AccountId::FromUserEmail(primary_account_id),
         user_manager::User::OAUTH_TOKEN_STATUS_UNKNOWN);
-
-    pending_token_service_load_ = true;
-    token_service->LoadCredentials(primary_account_id);
   }
 }
 
@@ -148,7 +138,6 @@ void OAuth2LoginManager::OnRefreshTokenAvailable(
         AccountId::FromUserEmail(user_email),
         user_manager::User::OAUTH2_TOKEN_STATUS_VALID);
 
-    pending_token_service_load_ = false;
     VerifySessionCookies();
   }
 }
@@ -174,15 +163,9 @@ void OAuth2LoginManager::UpdateCredentials(const std::string& account_id) {
   DCHECK(!refresh_token_.empty());
   // |account_id| is assumed to be already canonicalized if it's an email.
   GetTokenService()->UpdateCredentials(account_id, refresh_token_);
-  FireRefreshTokensLoaded();
 
   for (auto& observer : observer_list_)
     observer.OnNewRefreshTokenAvaiable(user_profile_);
-}
-
-void OAuth2LoginManager::FireRefreshTokensLoaded() {
-  // TODO(570218): Figure out the right way to plumb this.
-  GetTokenService()->LoadCredentials(std::string());
 }
 
 void OAuth2LoginManager::VerifySessionCookies() {

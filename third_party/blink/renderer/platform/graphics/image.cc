@@ -303,7 +303,8 @@ namespace {
 
 sk_sp<PaintShader> CreatePatternShader(const PaintImage& image,
                                        const SkMatrix& shader_matrix,
-                                       const PaintFlags& paint,
+                                       SkFilterQuality quality_to_use,
+                                       bool should_antialias,
                                        const FloatSize& spacing,
                                        SkShader::TileMode tmx,
                                        SkShader::TileMode tmy) {
@@ -318,7 +319,10 @@ sk_sp<PaintShader> CreatePatternShader(const PaintImage& image,
 
   PaintRecorder recorder;
   cc::PaintCanvas* canvas = recorder.beginRecording(tile_rect);
-  canvas->drawImage(image, 0, 0, &paint);
+  PaintFlags flags;
+  flags.setAntiAlias(should_antialias);
+  flags.setFilterQuality(quality_to_use);
+  canvas->drawImage(image, 0, 0, &flags);
 
   return PaintShader::MakePaintRecord(recorder.finishRecordingAsPicture(),
                                       tile_rect, tmx, tmy, &shader_matrix);
@@ -389,22 +393,22 @@ void Image::DrawPattern(GraphicsContext& context,
   const auto tmy = ComputeTileMode(dest_rect.Y(), dest_rect.MaxY(), adjusted_y,
                                    adjusted_y + tile_size.Height());
 
-  PaintFlags flags = context.FillFlags();
-  flags.setColor(SK_ColorBLACK);
-  flags.setBlendMode(composite_op);
-  flags.setFilterQuality(
-      context.ComputeFilterQuality(this, dest_rect, FloatRect(subset_rect)));
-  flags.setAntiAlias(context.ShouldAntialias());
-  flags.setShader(CreatePatternShader(
-      image, local_matrix, flags,
+  SkFilterQuality quality_to_use =
+      context.ComputeFilterQuality(this, dest_rect, FloatRect(subset_rect));
+  sk_sp<PaintShader> tile_shader = CreatePatternShader(
+      image, local_matrix, quality_to_use, context.ShouldAntialias(),
       FloatSize(repeat_spacing.Width() / scale_src_to_dest.Width(),
                 repeat_spacing.Height() / scale_src_to_dest.Height()),
-      tmx, tmy));
+      tmx, tmy);
+
+  PaintFlags flags = context.FillFlags();
   // If the shader could not be instantiated (e.g. non-invertible matrix),
   // draw transparent.
   // Note: we can't simply bail, because of arbitrary blend mode.
-  if (!flags.HasShader())
-    flags.setColor(SK_ColorTRANSPARENT);
+  flags.setColor(tile_shader ? SK_ColorBLACK : SK_ColorTRANSPARENT);
+  flags.setBlendMode(composite_op);
+  flags.setFilterQuality(quality_to_use);
+  flags.setShader(std::move(tile_shader));
 
   context.DrawRect(dest_rect, flags);
 
@@ -466,7 +470,7 @@ FloatRect Image::ComputeSubsetForBackground(const FloatRect& phase_and_size,
                                             const FloatRect& subset,
                                             const FloatSize& intrinsic_size) {
   // TODO(schenney): Re-enable this after determining why it fails for
-  // SPv2, and maybe other cases.
+  // CAP, and maybe other cases.
   // DCHECK(phase_and_size.Contains(subset));
 
   const FloatSize scale(phase_and_size.Width() / intrinsic_size.Width(),

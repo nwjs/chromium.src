@@ -52,7 +52,7 @@
 #include "chrome/browser/chromeos/system/timezone_util.h"
 #include "chrome/browser/extensions/api/settings_private/chromeos_resolve_time_zone_by_geolocation_method_short.h"
 #include "chrome/browser/extensions/api/settings_private/chromeos_resolve_time_zone_by_geolocation_on_off.h"
-#include "chromeos/chromeos_features.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "components/arc/arc_prefs.h"
 #include "ui/chromeos/events/pref_names.h"
@@ -275,14 +275,16 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[browsing_data::prefs::kDeleteHostedAppsData] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
-  (*s_whitelist)[browsing_data::prefs::kDeleteMediaLicenses] =
-      settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[browsing_data::prefs::kDeleteTimePeriod] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_whitelist)[browsing_data::prefs::kDeleteTimePeriodBasic] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_whitelist)[browsing_data::prefs::kLastClearBrowsingDataTab] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
+
+  // Accessibility.
+  (*s_whitelist)[::prefs::kAccessibilityImageLabelsEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
 
 #if defined(OS_CHROMEOS)
   // Accounts / Users / People.
@@ -368,6 +370,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[crostini::prefs::kCrostiniSharedPaths] =
       settings_api::PrefType::PREF_TYPE_LIST;
+  (*s_whitelist)[crostini::prefs::kCrostiniSharedUsbDevices] =
+      settings_api::PrefType::PREF_TYPE_LIST;
 
   // Android Apps.
   (*s_whitelist)[arc::prefs::kArcEnabled] =
@@ -381,6 +385,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
   (*s_whitelist)[arc::prefs::kVoiceInteractionEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[arc::prefs::kVoiceInteractionContextEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[arc::prefs::kVoiceInteractionHotwordAlwaysOn] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_whitelist)[arc::prefs::kVoiceInteractionHotwordEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
@@ -552,6 +558,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetWhitelistedKeys() {
 #if defined(OS_WIN)
   // SwReporter settings.
   (*s_whitelist)[::prefs::kSwReporterEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_whitelist)[::prefs::kSwReporterReportingEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
 #endif
 

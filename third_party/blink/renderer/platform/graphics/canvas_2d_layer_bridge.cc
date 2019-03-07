@@ -33,6 +33,7 @@
 #include "cc/layers/texture_layer.h"
 #include "components/viz/common/resources/transferable_resource.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_heuristic_parameters.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
@@ -141,6 +142,9 @@ void Canvas2DLayerBridge::ResetResourceProvider() {
 }
 
 bool Canvas2DLayerBridge::ShouldAccelerate(AccelerationHint hint) const {
+  if (base::FeatureList::IsEnabled(features::kAlwaysAccelerateCanvas)) {
+    return true;
+  }
   bool accelerate;
   if (software_rendering_while_hidden_) {
     accelerate = false;
@@ -601,13 +605,12 @@ bool Canvas2DLayerBridge::PrepareTransferableResource(
     return false;
 
   scoped_refptr<CanvasResource> frame = ResourceProvider()->ProduceFrame();
-  if (frame && frame->IsValid()) {
-    // Note frame is kept alive via a reference kept in out_release_callback.
-    bool success = frame->PrepareTransferableResource(
-        out_resource, out_release_callback, kUnverifiedSyncToken);
-    return success;
-  }
-  return false;
+  if (!frame || !frame->IsValid())
+    return false;
+
+  // Note frame is kept alive via a reference kept in out_release_callback.
+  return frame->PrepareTransferableResource(out_resource, out_release_callback,
+                                            kUnverifiedSyncToken);
 }
 
 cc::Layer* Canvas2DLayerBridge::Layer() {

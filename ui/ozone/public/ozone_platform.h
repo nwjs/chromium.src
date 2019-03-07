@@ -11,10 +11,8 @@
 #include "base/callback.h"
 #include "base/macros.h"
 #include "base/message_loop/message_loop.h"
-#include "services/service_manager/public/cpp/bind_source_info.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "ui/gfx/buffer_types.h"
-#include "ui/gfx/native_widget_types.h"
 #include "ui/ozone/ozone_export.h"
 
 namespace display {
@@ -40,6 +38,7 @@ class PlatformWindow;
 class PlatformWindowDelegate;
 class SurfaceFactoryOzone;
 class SystemInputInjector;
+class PlatformClipboard;
 
 struct PlatformWindowInitProperties;
 
@@ -148,6 +147,7 @@ class OZONE_EXPORT OzonePlatform {
   virtual std::unique_ptr<display::NativeDisplayDelegate>
   CreateNativeDisplayDelegate() = 0;
   virtual std::unique_ptr<PlatformScreen> CreateScreen();
+  virtual PlatformClipboard* GetPlatformClipboard();
 
   // Returns true if the specified buffer format is supported.
   virtual bool IsNativePixmapConfigSupported(gfx::BufferFormat format,

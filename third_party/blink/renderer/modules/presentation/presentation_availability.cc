@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/modules/presentation/presentation_availability.h"
 
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/core/dom/document.h"
@@ -77,11 +76,11 @@ bool PresentationAvailability::HasPendingActivity() const {
   return state_ != State::kInactive;
 }
 
-void PresentationAvailability::Unpause() {
+void PresentationAvailability::ContextUnpaused() {
   SetState(State::kActive);
 }
 
-void PresentationAvailability::Pause() {
+void PresentationAvailability::ContextPaused(PauseState) {
   SetState(State::kSuspended);
 }
 
@@ -107,8 +106,7 @@ void PresentationAvailability::UpdateListening() {
     return;
 
   if (state_ == State::kActive &&
-      (To<Document>(GetExecutionContext())->GetPageVisibilityState() ==
-       mojom::PageVisibilityState::kVisible))
+      (To<Document>(GetExecutionContext())->IsPageVisible()))
     controller->GetAvailabilityState()->AddObserver(this);
   else
     controller->GetAvailabilityState()->RemoveObserver(this);

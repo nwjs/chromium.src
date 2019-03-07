@@ -9,10 +9,7 @@ import android.text.TextUtils;
 
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
-import org.chromium.chrome.browser.modelutil.ListModelBase;
-import org.chromium.chrome.browser.modelutil.ListObservable;
-import org.chromium.chrome.browser.modelutil.PropertyListModel;
-import org.chromium.chrome.browser.modelutil.SimpleRecyclerViewMcpBase;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.ntp.NewTabPageUma;
 import org.chromium.chrome.browser.ntp.cards.NewTabPageViewHolder.PartialBindCallback;
 import org.chromium.chrome.browser.ntp.snippets.CategoryInt;
@@ -30,6 +27,10 @@ import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.suggestions.SuggestionsOfflineModelObserver;
 import org.chromium.chrome.browser.suggestions.SuggestionsRanker;
 import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegate;
+import org.chromium.ui.modelutil.ListModelBase;
+import org.chromium.ui.modelutil.ListObservable;
+import org.chromium.ui.modelutil.PropertyListModel;
+import org.chromium.ui.modelutil.SimpleRecyclerViewMcpBase;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +57,7 @@ public class SuggestionsSection extends InnerNode<NewTabPageViewHolder, PartialB
 
     // Children
     private final SectionHeader mHeader;
+    private final @Nullable SignInPromo mSigninPromo;
     private final SuggestionsList mSuggestionsList;
     private final StatusItem mStatus;
     private final ActionItem mMoreButton;
@@ -104,13 +106,23 @@ public class SuggestionsSection extends InnerNode<NewTabPageViewHolder, PartialB
         mHeader = isExpandable ? new SectionHeader(info.getTitle(), isExpanded,
                                          this::updateSuggestionsVisibilityForExpandableHeader)
                                : new SectionHeader(info.getTitle());
+
+        if (isExpandable && SignInPromo.shouldCreatePromo()) {
+            mSigninPromo = new SignInPromo();
+            mSigninPromo.setCanShowPersonalizedSuggestions(shouldShowSuggestions());
+        } else {
+            mSigninPromo = null;
+        }
+
         mSuggestionsList =
                 new SuggestionsList(mSuggestionsSource, mSuggestions, this::bindSuggestion);
         mMoreButton = new ActionItem(this, ranker);
 
         mStatus = StatusItem.createNoSuggestionsItem(info);
         mStatus.setVisible(shouldShowStatusItem());
-        addChildren(mHeader, mSuggestionsList, mStatus, mMoreButton);
+        addChildren(mHeader);
+        if (mSigninPromo != null) addChildren(mSigninPromo);
+        addChildren(mSuggestionsList, mStatus, mMoreButton);
 
         mOfflineModelObserver = new OfflineModelObserver(offlinePageBridge);
         uiDelegate.addDestructionObserver(mOfflineModelObserver);
@@ -183,6 +195,7 @@ public class SuggestionsSection extends InnerNode<NewTabPageViewHolder, PartialB
     public void destroy() {
         assert !mIsDestroyed;
         mOfflineModelObserver.onDestroy();
+        if (mSigninPromo != null) mSigninPromo.destroy();
         mSuggestionsList.destroy();
         mIsDestroyed = true;
     }
@@ -485,6 +498,10 @@ public class SuggestionsSection extends InnerNode<NewTabPageViewHolder, PartialB
         mMoreButton.updateState(!shouldShowSuggestions()
                         ? ActionItem.State.HIDDEN
                         : (isLoading ? ActionItem.State.LOADING : ActionItem.State.BUTTON));
+
+        if (mSigninPromo != null) {
+            mSigninPromo.setCanShowPersonalizedSuggestions(shouldShowSuggestions());
+        }
     }
 
     /** Clears the suggestions and related data, resetting the state of the section. */
@@ -615,5 +632,10 @@ public class SuggestionsSection extends InnerNode<NewTabPageViewHolder, PartialB
 
         mSuggestionsRanker.rankSuggestion(suggestion);
         ((SnippetArticleViewHolder) holder).onBindViewHolder(suggestion, mCategoryInfo);
+    }
+
+    @VisibleForTesting
+    SignInPromo getSignInPromoForTesting() {
+        return mSigninPromo;
     }
 }

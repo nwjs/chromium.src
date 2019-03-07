@@ -151,10 +151,10 @@ void DefaultState::HandleWorkspaceEvents(WindowState* window_state,
       if (bounds.IsEmpty())
         return;
 
-      // Only windows of type WINDOW_TYPE_NORMAL or WINDOW_TYPE_PANEL need to be
-      // adjusted to have minimum visibility, because they are positioned by the
-      // user and user should always be able to interact with them. Other
-      // windows are positioned programmatically.
+      // Only windows of type WINDOW_TYPE_NORMAL need to be adjusted to have
+      // minimum visibility, because they are positioned by the user and the
+      // user should always be able to interact with them. Other windows are
+      // positioned programmatically.
       if (!window_state->IsUserPositionable())
         return;
 
@@ -378,7 +378,7 @@ bool DefaultState::SetMaximizedOrFullscreenBounds(WindowState* window_state) {
         screen_util::GetMaximizedWindowBoundsInParent(window_state->window()));
     return true;
   }
-  if (window_state->IsFullscreen()) {
+  if (window_state->IsFullscreen() || window_state->IsPinned()) {
     window_state->SetBoundsDirect(
         screen_util::GetDisplayBoundsInParent(window_state->window()));
     return true;

@@ -94,6 +94,25 @@ class TestDisplayScheduler : public DisplayScheduler {
   bool swapped;
 };
 
+class StubDisplayClient : public DisplayClient {
+ public:
+  void DisplayOutputSurfaceLost() override {}
+  void DisplayWillDrawAndSwap(bool will_draw_and_swap,
+                              RenderPassList* render_passes) override {}
+  void DisplayDidDrawAndSwap() override {}
+  void DisplayDidReceiveCALayerParams(
+      const gfx::CALayerParams& ca_layer_params) override{};
+  void DisplayDidCompleteSwapWithSize(const gfx::Size& pixel_size) override {}
+  void DidSwapAfterSnapshotRequestReceived(
+      const std::vector<ui::LatencyInfo>& latency_info) override {}
+};
+
+void CopyCallback(bool* called, std::unique_ptr<CopyOutputResult> result) {
+  *called = true;
+}
+
+}  // namespace
+
 class DisplayTest : public testing::Test {
  public:
   DisplayTest()
@@ -169,6 +188,17 @@ class DisplayTest : public testing::Test {
       manager_.UnregisterBeginFrameSource(begin_frame_source_.get());
   }
 
+  bool ShouldSendBeginFrame(CompositorFrameSinkSupport* support,
+                            base::TimeTicks frame_time) {
+    return support->ShouldSendBeginFrame(frame_time);
+  }
+
+  void UpdateBeginFrameTime(CompositorFrameSinkSupport* support,
+                            base::TimeTicks frame_time) {
+    support->last_frame_time_ = frame_time;
+    support->presentation_feedbacks_.clear();
+  }
+
  protected:
   void SubmitCompositorFrame(RenderPassList* pass_list,
                              const LocalSurfaceId& local_surface_id) {
@@ -198,23 +228,6 @@ class DisplayTest : public testing::Test {
   FakeOutputSurface* output_surface_ = nullptr;
   TestDisplayScheduler* scheduler_ = nullptr;
 };
-
-class StubDisplayClient : public DisplayClient {
- public:
-  void DisplayOutputSurfaceLost() override {}
-  void DisplayWillDrawAndSwap(bool will_draw_and_swap,
-                              RenderPassList* render_passes) override {}
-  void DisplayDidDrawAndSwap() override {}
-  void DisplayDidReceiveCALayerParams(
-      const gfx::CALayerParams& ca_layer_params) override{};
-  void DisplayDidCompleteSwapWithSize(const gfx::Size& pixel_size) override {}
-  void DidSwapAfterSnapshotRequestReceived(
-      const std::vector<ui::LatencyInfo>& latency_info) override {}
-};
-
-void CopyCallback(bool* called, std::unique_ptr<CopyOutputResult> result) {
-  *called = true;
-}
 
 // Check that frame is damaged and swapped only under correct conditions.
 TEST_F(DisplayTest, DisplayDamaged) {
@@ -3277,14 +3290,14 @@ TEST_F(DisplayTest, CompositorFrameWithPresentationToken) {
   display_->Resize(display_size);
   const gfx::Size sub_surface_size(32, 32);
 
+  uint32_t frame_token_1 = 0, frame_token_2 = 0;
   {
     CompositorFrame frame =
         CompositorFrameBuilder()
             .AddRenderPass(gfx::Rect(sub_surface_size), gfx::Rect())
-            .SetFrameToken(1)
-            .SetRequestPresentationFeedback(true)
             .Build();
     EXPECT_CALL(sub_client, DidReceiveCompositorFrameAck(_)).Times(1);
+    frame_token_1 = frame.metadata.frame_token;
     sub_support->SubmitCompositorFrame(sub_local_surface_id, std::move(frame));
   }
 
@@ -3332,9 +3345,8 @@ TEST_F(DisplayTest, CompositorFrameWithPresentationToken) {
     CompositorFrame frame = CompositorFrameBuilder()
                                 .AddRenderPass(gfx::Rect(sub_surface_size),
                                                gfx::Rect(sub_surface_size))
-                                .SetFrameToken(2)
-                                .SetRequestPresentationFeedback(true)
                                 .Build();
+    frame_token_2 = frame.metadata.frame_token;
 
     EXPECT_CALL(sub_client, DidReceiveCompositorFrameAck(_)).Times(1);
     sub_support->SubmitCompositorFrame(sub_local_surface_id, std::move(frame));
@@ -3344,16 +3356,14 @@ TEST_F(DisplayTest, CompositorFrameWithPresentationToken) {
 
     // Both frames with frame-tokens 1 and 2 requested presentation-feedback.
     ASSERT_EQ(2u, sub_support->presentation_feedbacks().size());
-    EXPECT_TRUE(sub_support->presentation_feedbacks().count(1));
-    EXPECT_TRUE(sub_support->presentation_feedbacks().count(2));
+    EXPECT_TRUE(sub_support->presentation_feedbacks().count(frame_token_1));
+    EXPECT_TRUE(sub_support->presentation_feedbacks().count(frame_token_2));
   }
 
   {
     CompositorFrame frame =
         CompositorFrameBuilder()
             .AddRenderPass(gfx::Rect(sub_surface_size), gfx::Rect())
-            .SetFrameToken(3)
-            .SetRequestPresentationFeedback(true)
             .Build();
 
     EXPECT_CALL(sub_client, DidReceiveCompositorFrameAck(_)).Times(1);
@@ -3362,6 +3372,89 @@ TEST_F(DisplayTest, CompositorFrameWithPresentationToken) {
     display_->DrawAndSwap();
     RunAllPendingInMessageLoop();
   }
+
+  TearDownDisplay();
+}
+
+TEST_F(DisplayTest, BeginFrameThrottling) {
+  id_allocator_.GenerateId();
+  SetUpGpuDisplay(RendererSettings());
+
+  StubDisplayClient client;
+  display_->Initialize(&client, manager_.surface_manager());
+  display_->SetLocalSurfaceId(
+      id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id(),
+      1.f);
+  support_->SetNeedsBeginFrame(true);
+
+  // BeginFrame should not be throttled when the client has not submitted any
+  // compositor frames.
+  base::TimeTicks frame_time = base::TimeTicks::Now();
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+  UpdateBeginFrameTime(support_.get(), frame_time);
+
+  // Submit the first frame for the client. Begin-frame should still not be
+  // throttled since it has not been embedded yet.
+  RenderPassList pass_list;
+  auto pass = RenderPass::Create();
+  pass->output_rect = gfx::Rect(0, 0, 100, 100);
+  pass->damage_rect = gfx::Rect(10, 10, 1, 1);
+  pass->id = 1u;
+  pass_list.push_back(std::move(pass));
+
+  SubmitCompositorFrame(
+      &pass_list,
+      id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id());
+  frame_time = base::TimeTicks::Now();
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+  UpdateBeginFrameTime(support_.get(), frame_time);
+
+  display_->DrawAndSwap();
+  frame_time = base::TimeTicks::Now();
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+  UpdateBeginFrameTime(support_.get(), frame_time);
+
+  // Submit a second frame. This time, begin-frame should be throttled after the
+  // first begin-frame is sent because of presentation-feedbacks, until the next
+  // draw happens.
+  pass = RenderPass::Create();
+  pass->output_rect = gfx::Rect(0, 0, 100, 100);
+  pass->damage_rect = gfx::Rect(10, 10, 1, 1);
+  pass->id = 1u;
+  pass_list.push_back(std::move(pass));
+  SubmitCompositorFrame(
+      &pass_list,
+      id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id());
+  frame_time = base::TimeTicks::Now();
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+  UpdateBeginFrameTime(support_.get(), frame_time);
+  EXPECT_FALSE(ShouldSendBeginFrame(support_.get(), frame_time));
+
+  // Drawing should unthrottle begin-frames.
+  display_->DrawAndSwap();
+  frame_time = base::TimeTicks::Now();
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+  UpdateBeginFrameTime(support_.get(), frame_time);
+
+  // Submit a third frame. Again, begin-frame should be throttled after the
+  // begin-frame for presenatation-feedback.
+  pass = RenderPass::Create();
+  pass->output_rect = gfx::Rect(0, 0, 100, 100);
+  pass->damage_rect = gfx::Rect(10, 10, 1, 1);
+  pass->id = 1u;
+  pass_list.push_back(std::move(pass));
+  SubmitCompositorFrame(
+      &pass_list,
+      id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id());
+  frame_time = base::TimeTicks::Now();
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+  UpdateBeginFrameTime(support_.get(), frame_time);
+  EXPECT_FALSE(ShouldSendBeginFrame(support_.get(), frame_time));
+
+  // Instead of doing a draw, forward time by ~1 seconds. That should unthrottle
+  // the begin-frame.
+  frame_time += base::TimeDelta::FromSecondsD(1.1);
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
 
   TearDownDisplay();
 }
@@ -3385,7 +3478,6 @@ TEST_F(DisplayTest, InvalidPresentationTimestamps) {
     CompositorFrame frame =
         CompositorFrameBuilder()
             .AddRenderPass(gfx::Rect(25, 25), gfx::Rect(25, 25))
-            .SetFrameToken(1)
             .Build();
     support_->SubmitCompositorFrame(local_surface_id, std::move(frame));
     display_->DrawAndSwap();
@@ -3404,7 +3496,6 @@ TEST_F(DisplayTest, InvalidPresentationTimestamps) {
     CompositorFrame frame =
         CompositorFrameBuilder()
             .AddRenderPass(gfx::Rect(25, 25), gfx::Rect(25, 25))
-            .SetFrameToken(2)
             .Build();
     support_->SubmitCompositorFrame(local_surface_id, std::move(frame));
     display_->DrawAndSwap();
@@ -3427,7 +3518,6 @@ TEST_F(DisplayTest, InvalidPresentationTimestamps) {
     CompositorFrame frame =
         CompositorFrameBuilder()
             .AddRenderPass(gfx::Rect(25, 25), gfx::Rect(25, 25))
-            .SetFrameToken(2)
             .Build();
     support_->SubmitCompositorFrame(local_surface_id, std::move(frame));
     display_->DrawAndSwap();
@@ -3448,5 +3538,4 @@ TEST_F(DisplayTest, InvalidPresentationTimestamps) {
   TearDownDisplay();
 }
 
-}  // namespace
 }  // namespace viz

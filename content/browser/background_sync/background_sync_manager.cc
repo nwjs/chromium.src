@@ -10,6 +10,7 @@
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -23,7 +24,6 @@
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/service_worker/service_worker_storage.h"
 #include "content/browser/storage_partition_impl.h"
-#include "content/common/service_worker/service_worker.mojom.h"
 #include "content/common/service_worker/service_worker_utils.h"
 #include "content/public/browser/background_sync_controller.h"
 #include "content/public/browser/browser_context.h"
@@ -32,6 +32,7 @@
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/permission_type.h"
 #include "third_party/blink/public/common/service_worker/service_worker_type_converters.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_event_status.mojom.h"
 
 #if defined(OS_ANDROID)
@@ -1008,19 +1009,27 @@ void BackgroundSyncManager::FireReadyEventsImpl(base::OnceClosure callback) {
         service_worker_id, active_registrations_[service_worker_id].origin,
         base::BindOnce(
             &BackgroundSyncManager::FireReadyEventsDidFindRegistration,
-            weak_ptr_factory_.GetWeakPtr(), sw_id_and_tag.second,
-            events_fired_barrier_closure, events_completed_barrier_closure));
+            weak_ptr_factory_.GetWeakPtr(), service_worker_id,
+            sw_id_and_tag.second, events_fired_barrier_closure,
+            events_completed_barrier_closure));
   }
 }
 
 void BackgroundSyncManager::FireReadyEventsDidFindRegistration(
+    int64_t service_worker_id,
     const std::string& tag,
     base::OnceClosure event_fired_callback,
     base::OnceClosure event_completed_callback,
     blink::ServiceWorkerStatusCode service_worker_status,
     scoped_refptr<ServiceWorkerRegistration> service_worker_registration) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
+
+  BackgroundSyncRegistration* registration =
+      LookupActiveRegistration(service_worker_id, tag);
+
   if (service_worker_status != blink::ServiceWorkerStatusCode::kOk) {
+    if (registration)
+      registration->set_sync_state(blink::mojom::BackgroundSyncState::PENDING);
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, std::move(event_fired_callback));
     base::ThreadTaskRunnerHandle::Get()->PostTask(
@@ -1028,9 +1037,24 @@ void BackgroundSyncManager::FireReadyEventsDidFindRegistration(
     return;
   }
 
-  BackgroundSyncRegistration* registration =
-      LookupActiveRegistration(service_worker_registration->id(), tag);
+  DCHECK_EQ(service_worker_id, service_worker_registration->id());
   DCHECK(registration);
+
+  const bool option_conditions_met =
+      AreOptionConditionsMet(*registration->options());
+  UMA_HISTOGRAM_BOOLEAN("BackgroundSync.OptionConditionsChanged",
+                        !option_conditions_met);
+
+  // The connectivity was lost before dispatching the sync event, so there is
+  // no point in going through with it.
+  if (!option_conditions_met) {
+    registration->set_sync_state(blink::mojom::BackgroundSyncState::PENDING);
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, std::move(event_fired_callback));
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, std::move(event_completed_callback));
+    return;
+  }
 
   num_firing_registrations_ += 1;
 

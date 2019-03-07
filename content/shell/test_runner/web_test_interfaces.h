@@ -13,8 +13,6 @@
 
 namespace blink {
 class WebLocalFrameClient;
-class WebMIDIAccessor;
-class WebMIDIAccessorClient;
 class WebRTCPeerConnectionHandler;
 class WebRTCPeerConnectionHandlerClient;
 class WebThemeEngine;
@@ -29,10 +27,7 @@ class WebFrameTestClient;
 class WebFrameTestProxyBase;
 class WebTestDelegate;
 class WebViewTestProxyBase;
-class WebWidgetTestProxyBase;
 class WebTestRunner;
-class WebViewTestClient;
-class WebWidgetTestClient;
 
 class TEST_RUNNER_EXPORT WebTestInterfaces {
  public:
@@ -57,9 +52,6 @@ class TEST_RUNNER_EXPORT WebTestInterfaces {
   CreateWebRTCPeerConnectionHandler(
       blink::WebRTCPeerConnectionHandlerClient* client);
 
-  std::unique_ptr<blink::WebMIDIAccessor> CreateMIDIAccessor(
-      blink::WebMIDIAccessorClient* client);
-
   TestInterfaces* GetTestInterfaces();
 
   // Creates a WebLocalFrameClient implementation providing test behavior (i.e.
@@ -69,21 +61,6 @@ class TEST_RUNNER_EXPORT WebTestInterfaces {
   std::unique_ptr<WebFrameTestClient> CreateWebFrameTestClient(
       WebViewTestProxyBase* web_view_test_proxy_base,
       WebFrameTestProxyBase* web_frame_test_proxy_base);
-
-  // Creates a WebViewClient implementation providing test behavior (i.e.
-  // providing a mocked speech recognizer).  The caller should guarantee that
-  // the returned pointer won't be used beyond the lifetime of WebTestInterfaces
-  // and/or the lifetime of |web_view_test_proxy_base|.
-  std::unique_ptr<WebViewTestClient> CreateWebViewTestClient(
-      WebViewTestProxyBase* web_view_test_proxy_base,
-      std::unique_ptr<WebWidgetTestClient> web_widget_test_client);
-
-  // Creates a WebWidgetClient implementation providing test behavior (i.e.
-  // providing a mocked screen orientation).  The caller should guarantee that
-  // the returned pointer won't be used beyond the lifetime of WebTestInterfaces
-  // and/or the lifetime of |web_widget_test_proxy_base|.
-  std::unique_ptr<WebWidgetTestClient> CreateWebWidgetTestClient(
-      WebWidgetTestProxyBase* web_widget_test_proxy_base);
 
   // Gets a list of currently opened windows created by the current test.
   std::vector<blink::WebView*> GetWindowList();

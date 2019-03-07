@@ -34,7 +34,6 @@
 #include "third_party/blink/renderer/core/page/page_animator.h"
 #include "third_party/blink/renderer/core/page/page_visibility_notifier.h"
 #include "third_party/blink/renderer/core/page/page_visibility_observer.h"
-#include "third_party/blink/renderer/core/page/page_visibility_state.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
@@ -44,13 +43,13 @@
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
-#include "third_party/skia/include/core/SkColor.h"
 
 namespace blink {
 
 class AutoscrollController;
 class BrowserControls;
 class ChromeClient;
+class ConsoleMessageStorage;
 class ContextMenuController;
 class Document;
 class DragCaret;
@@ -61,7 +60,6 @@ class LinkHighlights;
 class LocalFrame;
 class LocalFrameView;
 class OverscrollController;
-class PageOverlay;
 struct PageScaleConstraints;
 class PageScaleConstraintsSet;
 class PluginData;
@@ -72,7 +70,7 @@ class ScrollingCoordinator;
 class ScrollbarTheme;
 class SecurityOrigin;
 class Settings;
-class ConsoleMessageStorage;
+class SpatialNavigationController;
 class TopDocumentRootScrollerController;
 class ValidationMessageClient;
 class VisualViewport;
@@ -172,6 +170,7 @@ class CORE_EXPORT Page final : public GarbageCollectedFinalized<Page>,
   DragCaret& GetDragCaret() const { return *drag_caret_; }
   DragController& GetDragController() const { return *drag_controller_; }
   FocusController& GetFocusController() const { return *focus_controller_; }
+  SpatialNavigationController& GetSpatialNavigationController();
   ContextMenuController& GetContextMenuController() const {
     return *context_menu_controller_;
   }
@@ -255,8 +254,7 @@ class CORE_EXPORT Page final : public GarbageCollectedFinalized<Page>,
   static void AllVisitedStateChanged(bool invalidate_visited_link_hashes);
   static void VisitedStateChanged(LinkHash visited_hash);
 
-  void SetVisibilityState(mojom::PageVisibilityState, bool);
-  mojom::PageVisibilityState VisibilityState() const;
+  void SetIsHidden(bool hidden, bool is_initial_state);
   bool IsPageVisible() const;
 
   PageLifecycleState LifecycleState() const;
@@ -312,12 +310,6 @@ class CORE_EXPORT Page final : public GarbageCollectedFinalized<Page>,
 
   int32_t AutoplayFlags() const;
 
-  void SetPageOverlayColor(SkColor);
-
-  void UpdatePageColorOverlay();
-
-  void PaintPageColorOverlay();
-
  private:
   friend class ScopedPagePauser;
 
@@ -362,12 +354,11 @@ class CORE_EXPORT Page final : public GarbageCollectedFinalized<Page>,
   const Member<VisualViewport> visual_viewport_;
   const Member<OverscrollController> overscroll_controller_;
   const Member<LinkHighlights> link_highlights_;
+  Member<SpatialNavigationController> spatial_navigation_controller_;
 
   Member<PluginData> plugin_data_;
 
   Member<ValidationMessageClient> validation_message_client_;
-
-  std::unique_ptr<PageOverlay> page_color_overlay_;
 
   Deprecation deprecation_;
   HostsUsingFeatures hosts_using_features_;
@@ -386,7 +377,7 @@ class CORE_EXPORT Page final : public GarbageCollectedFinalized<Page>,
 
   float device_scale_factor_;
 
-  mojom::PageVisibilityState visibility_state_;
+  bool is_hidden_;
 
   PageLifecycleState page_lifecycle_state_;
 

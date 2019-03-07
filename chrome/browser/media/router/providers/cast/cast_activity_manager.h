@@ -11,11 +11,15 @@
 #include "base/containers/flat_set.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "base/optional.h"
 #include "base/sequence_checker.h"
 #include "chrome/browser/media/router/providers/cast/cast_internal_message_util.h"
+#include "chrome/browser/media/router/providers/cast/cast_session_tracker.h"
 #include "chrome/common/media_router/discovery/media_sink_internal.h"
+#include "chrome/common/media_router/discovery/media_sink_service_base.h"
 #include "chrome/common/media_router/media_route.h"
 #include "chrome/common/media_router/mojo/media_router.mojom.h"
+#include "chrome/common/media_router/providers/cast/cast_media_source.h"
 #include "components/cast_channel/cast_message_handler.h"
 #include "components/cast_channel/cast_message_util.h"
 #include "mojo/public/cpp/bindings/binding.h"
@@ -27,7 +31,6 @@ class CastActivityManager;
 class CastActivityRecord;
 class CastMediaSource;
 class DataDecoder;
-class MediaSinkServiceBase;
 
 // Represents a Cast SDK client connection to a Cast session. This class
 // contains PresentationConnection Mojo pipes to send and receive messages
@@ -43,6 +46,7 @@ class CastSessionClient : public blink::mojom::PresentationConnection {
   ~CastSessionClient() override;
 
   const std::string& client_id() const { return client_id_; }
+  const base::Optional<std::string>& session_id() const { return session_id_; }
   const url::Origin& origin() const { return origin_; }
   int tab_id() { return tab_id_; }
 
@@ -55,6 +59,12 @@ class CastSessionClient : public blink::mojom::PresentationConnection {
   // Sends |message| to the Cast SDK client in Blink.
   void SendMessageToClient(
       blink::mojom::PresentationConnectionMessagePtr message);
+
+  // Sends a media status message to the client.  If |request_id| is given, it
+  // is used to look up the sequence number of a previous request, which is
+  // included in the outgoing message.
+  void SendMediaStatusToClient(const base::Value& media_status,
+                               base::Optional<int> request_id);
 
   // Changes the PresentationConnection state to CLOSED/TERMINATED and resets
   // PresentationConnection message pipes.
@@ -73,17 +83,37 @@ class CastSessionClient : public blink::mojom::PresentationConnection {
 
  private:
   void HandleParsedClientMessage(std::unique_ptr<base::Value> message);
+  void HandleV2ProtocolMessage(const CastInternalMessage& cast_message);
+
+  // Sends a response to the client indicating that a particular request
+  // succeeded or failed.
+  void SendResultResponse(int sequence_number, cast_channel::Result result);
 
   std::string client_id_;
+  base::Optional<std::string> session_id_;
 
-  // The origin of the Cast SDK client. Used for auto-join.
+  // The origin and tab ID parameters originally passed to the CreateRoute
+  // method of the MediaRouteProvider Mojo interface.
   url::Origin origin_;
-
-  // The tab ID of the Cast SDK client. Used for auto-join.
   int tab_id_;
 
   DataDecoder* const data_decoder_;
   CastActivityRecord* const activity_;
+
+  // The maximum number of pending media requests, used to prevent memory leaks.
+  // Normally the number of pending requests should be fairly small, but each
+  // entry only consumes 2*sizeof(int) bytes, so the upper limit is set fairly
+  // high.
+  static constexpr std::size_t kMaxPendingMediaRequests = 1024;
+
+  // Maps internal, locally-generated request IDs to sequence numbers from cast
+  // messages received from the client.  Used to set an appropriate
+  // sequenceNumber field in outgoing messages so a client can associate a media
+  // status message with a previous request.
+  //
+  // TODO(jrw): Investigate whether this mapping is really necessary, or if
+  // sequence numbers can be used directly without generating request IDs.
+  base::flat_map<int, int> pending_media_requests_;
 
   // Binding for the PresentationConnection in Blink to receive incoming
   // messages and respond to state changes.
@@ -101,24 +131,42 @@ class CastSessionClient : public blink::mojom::PresentationConnection {
 // It keeps track of the set of Cast SDK clients connected to the application.
 // Note that we do not keep track of 1-UA mode presentations here. Instead, they
 // are handled by LocalPresentationManager.
+//
+// Instances of this class are associated with a specific session and app.
 class CastActivityRecord {
  public:
   CastActivityRecord(const MediaRoute& route,
+                     const std::string& app_id,
                      MediaSinkServiceBase* media_sink_service,
                      cast_channel::CastMessageHandler* message_handler,
+                     CastSessionTracker* session_tracker,
                      DataDecoder* data_decoder);
   ~CastActivityRecord();
 
   const MediaRoute& route() const { return route_; }
+  const std::string& app_id() const { return app_id_; }
   const base::flat_map<std::string, std::unique_ptr<CastSessionClient>>&
-  connected_clients() {
+  connected_clients() const {
     return connected_clients_;
   }
-  const CastSession* session() { return session_.get(); }
+  const base::Optional<std::string>& session_id() const { return session_id_; }
 
-  // Sends |cast_message|, which must be of type kAppMessage, to the receiver
-  // hosting this session. Returns true if the message is sent successfully.
-  bool SendAppMessageToReceiver(const CastInternalMessage& cast_message);
+  // Sends app message |cast_message|, which came from the SDK client, to the
+  // receiver hosting this session. Returns true if the message is sent
+  // successfully.
+  cast_channel::Result SendAppMessageToReceiver(
+      const CastInternalMessage& cast_message);
+
+  // Sends media command |cast_message|, which came from the SDK client, to the
+  // receiver hosting this session. Returns the locally-assigned request ID of
+  // the message sent to the receiver.
+  base::Optional<int> SendMediaRequestToReceiver(
+      const CastInternalMessage& cast_message);
+
+  // Sends a SET_VOLUME request to the receiver and calls |callback| when a
+  // response indicating whether the request succeeded is received.
+  void SendSetVolumeRequestToReceiver(const CastInternalMessage& cast_message,
+                                      cast_channel::ResultCallback callback);
 
   // Adds a new client |client_id| to this session and returns the handles of
   // the two pipes to be held by Blink It is invalid to call this method if the
@@ -127,8 +175,16 @@ class CastActivityRecord {
                                                   const url::Origin& origin,
                                                   int tab_id);
 
-  // Also updates the description on |route_|.
-  void SetSession(std::unique_ptr<CastSession> session);
+  // On the first call, saves the ID of |session|.  On subsequent calls,
+  // notifies all connected clients that the session has been updated.  In both
+  // cases, the stored route description is updated to match the session
+  // description.
+  //
+  // The |hash_token| parameter is used for hashing receiver IDs in messages
+  // sent to the Cast SDK, and |sink| is the sink associated with |session|.
+  void SetOrUpdateSession(const CastSession& session,
+                          const MediaSinkInternal& sink,
+                          const std::string& hash_token);
 
   // Sends |message| to the client given by |client_id|.
   void SendMessageToClient(
@@ -143,20 +199,23 @@ class CastActivityRecord {
  private:
   friend class CastSessionClient;
 
+  CastSession* GetSession();
+  int GetCastChannelId();
+
   MediaRoute route_;
+  const std::string app_id_;
   base::flat_map<std::string, std::unique_ptr<CastSessionClient>>
       connected_clients_;
 
   // Set by CastActivityManager after the session is launched successfully.
-  // TODO(imcheng): Change this to a session ID when sessions are tracked
-  // by the CastSessionTracker singleton.
-  std::unique_ptr<CastSession> session_;
+  base::Optional<std::string> session_id_;
 
   MediaSinkServiceBase* const media_sink_service_;
   // TODO(https://crbug.com/809249): Consider wrapping CastMessageHandler with
   // known parameters (sink, client ID, session transport ID) and passing them
   // to objects that need to send messges to the receiver.
   cast_channel::CastMessageHandler* const message_handler_;
+  CastSessionTracker* const session_tracker_;
   DataDecoder* const data_decoder_;
 
   DISALLOW_COPY_AND_ASSIGN(CastActivityRecord);
@@ -164,10 +223,8 @@ class CastActivityRecord {
 
 // Handles launching and terminating Cast application on a Cast receiver, and
 // acts as the source of truth for Cast activities and MediaRoutes.
-// TODO(imcheng): CastActivityManager should listen for RECEIVER_STATUS and
-// MEDIA_STATUS messages to generate non-local routes and update existing
-// routes.
-class CastActivityManager : public cast_channel::CastMessageHandler::Observer {
+class CastActivityManager : public cast_channel::CastMessageHandler::Observer,
+                            public CastSessionTracker::Observer {
  public:
   // |media_sink_service|: Provides Cast MediaSinks.
   // |message_handler|: Used for sending and receiving messages to Cast
@@ -178,6 +235,7 @@ class CastActivityManager : public cast_channel::CastMessageHandler::Observer {
   // |hash_token|: Used for hashing receiver IDs in messages sent to the Cast
   // SDK.
   CastActivityManager(MediaSinkServiceBase* media_sink_service,
+                      CastSessionTracker* session_tracker,
                       cast_channel::CastMessageHandler* message_handler,
                       mojom::MediaRouter* media_router,
                       std::unique_ptr<DataDecoder> data_decoder,
@@ -213,15 +271,64 @@ class CastActivityManager : public cast_channel::CastMessageHandler::Observer {
   void OnAppMessage(int channel_id,
                     const cast_channel::CastMessage& message) override;
 
+  // CastSessionTracker::Observer implementation.
+  void OnSessionAddedOrUpdated(const MediaSinkInternal& sink,
+                               const CastSession& session) override;
+  void OnSessionRemoved(const MediaSinkInternal& sink) override;
+  void OnMediaStatusUpdated(const MediaSinkInternal& sink,
+                            const base::Value& media_status,
+                            base::Optional<int> request_id) override;
+
  private:
-  friend class CastActivityRecord;
   using ActivityMap =
       base::flat_map<MediaRoute::Id, std::unique_ptr<CastActivityRecord>>;
 
-  void RemoveActivity(
-      ActivityMap::iterator activity_it,
-      blink::mojom::PresentationConnectionState state =
-          blink::mojom::PresentationConnectionState::TERMINATED);
+  // Bundle of parameters for DoLaunchSession().
+  struct DoLaunchSessionParams {
+    // Note: The compiler-generated constructors and destructor would be
+    // sufficient here, but the style guide requires them to be defined
+    // explicitly.
+    DoLaunchSessionParams(
+        const MediaRoute& route,
+        const CastMediaSource& cast_source,
+        const MediaSinkInternal& sink,
+        const url::Origin& origin,
+        int tab_id,
+        mojom::MediaRouteProvider::CreateRouteCallback callback);
+    DoLaunchSessionParams(DoLaunchSessionParams&& other) noexcept;
+    ~DoLaunchSessionParams();
+    DoLaunchSessionParams& operator=(DoLaunchSessionParams&&) = delete;
+
+    // The route for which a session is being launched.
+    MediaRoute route;
+
+    // The media source for which a session is being launched.
+    CastMediaSource cast_source;
+
+    // The sink for which a session is being launched.
+    MediaSinkInternal sink;
+
+    // The origin of the Cast SDK client. Used for auto-join.
+    url::Origin origin;
+
+    // The tab ID of the Cast SDK client. Used for auto-join.
+    int tab_id;
+
+    // Callback to execute after the launch request has been sent.
+    mojom::MediaRouteProvider::CreateRouteCallback callback;
+  };
+
+  void DoLaunchSession(DoLaunchSessionParams params);
+  void LaunchSessionAfterTerminatingExisting(
+      const MediaRoute::Id& existing_route_id,
+      DoLaunchSessionParams params,
+      const base::Optional<std::string>& error_string,
+      RouteRequestResult::ResultCode result);
+
+  void RemoveActivity(ActivityMap::iterator activity_it,
+                      blink::mojom::PresentationConnectionState state =
+                          blink::mojom::PresentationConnectionState::TERMINATED,
+                      bool notify = true);
   void NotifyAllOnRoutesUpdated();
   void NotifyOnRoutesUpdated(const MediaSource::Id& source_id,
                              const std::vector<MediaRoute>& routes);
@@ -234,18 +341,25 @@ class CastActivityManager : public cast_channel::CastMessageHandler::Observer {
   void HandleStopSessionResponse(
       const MediaRoute::Id& route_id,
       mojom::MediaRouteProvider::TerminateRouteCallback callback,
-      bool success);
+      cast_channel::Result result);
+
+  // Creates and stores a CastActivityRecord representing a non-local activity.
+  void AddNonLocalActivityRecord(const MediaSinkInternal& sink,
+                                 const CastSession& session);
 
   void SendFailedToCastIssue(const MediaSink::Id& sink_id,
                              const MediaRoute::Id& route_id);
 
-  ActivityMap::iterator GetActivityByChannelId(int channel_id);
+  // These methods return |activities_.end()| when nothing is found.
+  ActivityMap::iterator FindActivityByChannelId(int channel_id);
+  ActivityMap::iterator FindActivityBySink(const MediaSinkInternal& sink);
 
   base::flat_set<MediaSource::Id> route_queries_;
   ActivityMap activities_;
 
   // The following raw pointer fields are assumed to outlive |this|.
   MediaSinkServiceBase* const media_sink_service_;
+  CastSessionTracker* const session_tracker_;
   cast_channel::CastMessageHandler* const message_handler_;
   mojom::MediaRouter* const media_router_;
 
@@ -254,6 +368,7 @@ class CastActivityManager : public cast_channel::CastMessageHandler::Observer {
 
   SEQUENCE_CHECKER(sequence_checker_);
   base::WeakPtrFactory<CastActivityManager> weak_ptr_factory_;
+  FRIEND_TEST_ALL_PREFIXES(CastActivityManagerTest, SendMediaRequestToReceiver);
   DISALLOW_COPY_AND_ASSIGN(CastActivityManager);
 };
 

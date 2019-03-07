@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/animation/keyframe_effect.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect_model.h"
 #include "third_party/blink/renderer/core/animation/scroll_timeline.h"
+#include "third_party/blink/renderer/core/animation/worklet_animation_controller.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
@@ -44,6 +45,7 @@ KeyframeEffect* CreateKeyframeEffect(Element* element) {
 WorkletAnimation* CreateWorkletAnimation(
     ScriptState* script_state,
     Element* element,
+    const String& animator_name,
     ScrollTimeline* scroll_timeline = nullptr) {
   AnimationEffectOrAnimationEffectSequence effects;
   AnimationEffect* effect = CreateKeyframeEffect(element);
@@ -55,7 +57,7 @@ WorkletAnimation* CreateWorkletAnimation(
 
   ScriptState::Scope scope(script_state);
   DummyExceptionStateForTesting exception_state;
-  return WorkletAnimation::Create(script_state, "WorkletAnimation", effects,
+  return WorkletAnimation::Create(script_state, animator_name, effects,
                                   timeline, std::move(options),
                                   exception_state);
 }
@@ -70,7 +72,14 @@ class WorkletAnimationTest : public RenderingTest {
   void SetUp() override {
     RenderingTest::SetUp();
     element_ = GetDocument().CreateElementForBinding("test");
-    worklet_animation_ = CreateWorkletAnimation(GetScriptState(), element_);
+    // Animator has to be registored before constructing WorkletAnimation. For
+    // unit test this is faked by adding the animator name to
+    // WorkletAnimationController.
+    animator_name_ = "WorkletAnimationTest";
+    GetDocument().GetWorkletAnimationController().SynchronizeAnimatorName(
+        animator_name_);
+    worklet_animation_ =
+        CreateWorkletAnimation(GetScriptState(), element_, animator_name_);
   }
 
   ScriptState* GetScriptState() {
@@ -79,6 +88,7 @@ class WorkletAnimationTest : public RenderingTest {
 
   Persistent<Element> element_;
   Persistent<WorkletAnimation> worklet_animation_;
+  String animator_name_;
 };
 
 TEST_F(WorkletAnimationTest, WorkletAnimationInElementAnimations) {
@@ -103,15 +113,18 @@ TEST_F(WorkletAnimationTest, StyleHasCurrentAnimation) {
 
 TEST_F(WorkletAnimationTest,
        CurrentTimeFromDocumentTimelineIsOffsetByStartTime) {
-  GetDocument().GetAnimationClock().ResetTimeForTesting();
-  double error = base::TimeDelta::FromMicrosecondsD(1).InMillisecondsF();
+  // Only expect precision up to 1 microsecond with an additional smaller
+  // component to account for double rounding/conversion error.
+  double error =
+      base::TimeDelta::FromMicrosecondsD(1).InMillisecondsF() + 1e-13;
+
   WorkletAnimationId id = worklet_animation_->GetWorkletAnimationId();
   base::TimeTicks first_ticks =
       base::TimeTicks() + base::TimeDelta::FromMillisecondsD(111);
   base::TimeTicks second_ticks =
       base::TimeTicks() + base::TimeDelta::FromMillisecondsD(111 + 123.4);
 
-  GetDocument().GetAnimationClock().UpdateTime(first_ticks);
+  GetDocument().GetAnimationClock().ResetTimeForTesting(first_ticks);
   DummyExceptionStateForTesting exception_state;
   worklet_animation_->play(exception_state);
   worklet_animation_->UpdateCompositingState();
@@ -121,12 +134,12 @@ TEST_F(WorkletAnimationTest,
   worklet_animation_->UpdateInputState(state.get());
   // First state request sets the start time and thus current time should be 0.
   std::unique_ptr<AnimationWorkletInput> input =
-      state->TakeWorkletState(id.scope_id);
+      state->TakeWorkletState(id.worklet_id);
   EXPECT_NEAR(0, input->added_and_updated_animations[0].current_time, error);
   state.reset(new AnimationWorkletDispatcherInput);
-  GetDocument().GetAnimationClock().UpdateTime(second_ticks);
+  GetDocument().GetAnimationClock().ResetTimeForTesting(second_ticks);
   worklet_animation_->UpdateInputState(state.get());
-  input = state->TakeWorkletState(id.scope_id);
+  input = state->TakeWorkletState(id.worklet_id);
   EXPECT_NEAR(123.4, input->updated_animations[0].current_time, error);
 }
 
@@ -156,29 +169,91 @@ TEST_F(WorkletAnimationTest,
   options->setScrollSource(GetElementById("scroller"));
   ScrollTimeline* scroll_timeline =
       ScrollTimeline::Create(GetDocument(), options, ASSERT_NO_EXCEPTION);
-  WorkletAnimation* worklet_animation =
-      CreateWorkletAnimation(GetScriptState(), element_, scroll_timeline);
+  WorkletAnimation* worklet_animation = CreateWorkletAnimation(
+      GetScriptState(), element_, animator_name_, scroll_timeline);
   WorkletAnimationId id = worklet_animation->GetWorkletAnimationId();
 
   DummyExceptionStateForTesting exception_state;
   worklet_animation->play(exception_state);
   worklet_animation->UpdateCompositingState();
 
-  double error = base::TimeDelta::FromMicrosecondsD(1).InMillisecondsF();
+  // Only expect precision up to 1 microsecond with an additional smaller
+  // component to account for double rounding/conversion error.
+  double error =
+      base::TimeDelta::FromMicrosecondsD(1).InMillisecondsF() + 1e-13;
   scrollable_area->SetScrollOffset(ScrollOffset(0, 40), kProgrammaticScroll);
   std::unique_ptr<AnimationWorkletDispatcherInput> state =
       std::make_unique<AnimationWorkletDispatcherInput>();
   worklet_animation->UpdateInputState(state.get());
   std::unique_ptr<AnimationWorkletInput> input =
-      state->TakeWorkletState(id.scope_id);
+      state->TakeWorkletState(id.worklet_id);
 
   EXPECT_NEAR(40, input->added_and_updated_animations[0].current_time, error);
   state.reset(new AnimationWorkletDispatcherInput);
 
   scrollable_area->SetScrollOffset(ScrollOffset(0, 70), kProgrammaticScroll);
   worklet_animation->UpdateInputState(state.get());
-  input = state->TakeWorkletState(id.scope_id);
+  input = state->TakeWorkletState(id.worklet_id);
   EXPECT_NEAR(70, input->updated_animations[0].current_time, error);
+}
+
+TEST_F(WorkletAnimationTest, MainThreadSendsPeekRequestTest) {
+  WorkletAnimationId id = worklet_animation_->GetWorkletAnimationId();
+  base::TimeTicks first_ticks =
+      base::TimeTicks() + base::TimeDelta::FromMillisecondsD(111);
+  base::TimeTicks second_ticks =
+      base::TimeTicks() + base::TimeDelta::FromMillisecondsD(111 + 123.4);
+
+  GetDocument().GetAnimationClock().ResetTimeForTesting(first_ticks);
+  DummyExceptionStateForTesting exception_state;
+  worklet_animation_->play(exception_state);
+  worklet_animation_->UpdateCompositingState();
+
+  // Only peek if animation is running on compositor.
+  worklet_animation_->SetRunningOnMainThreadForTesting(false);
+
+  std::unique_ptr<AnimationWorkletDispatcherInput> state =
+      std::make_unique<AnimationWorkletDispatcherInput>();
+  worklet_animation_->UpdateInputState(state.get());
+  std::unique_ptr<AnimationWorkletInput> input =
+      state->TakeWorkletState(id.worklet_id);
+  EXPECT_EQ(input->peeked_animations.size(), 1u);
+  EXPECT_EQ(input->added_and_updated_animations.size(), 0u);
+  EXPECT_EQ(input->updated_animations.size(), 0u);
+  EXPECT_EQ(input->removed_animations.size(), 0u);
+  state.reset(new AnimationWorkletDispatcherInput);
+
+  // Local times not set yet. Need to peek again.
+  AnimationWorkletOutput::AnimationState output(id);
+  worklet_animation_->SetOutputState(output);
+  worklet_animation_->UpdateInputState(state.get());
+  input = state->TakeWorkletState(id.worklet_id);
+  EXPECT_EQ(input->peeked_animations.size(), 1u);
+  EXPECT_EQ(input->added_and_updated_animations.size(), 0u);
+  EXPECT_EQ(input->updated_animations.size(), 0u);
+  EXPECT_EQ(input->removed_animations.size(), 0u);
+  state.reset(new AnimationWorkletDispatcherInput);
+
+  // Last peek request fulfilled. No need to peek.
+  std::vector<base::Optional<TimeDelta>> local_times;
+  local_times.push_back(TimeDelta());
+  AnimationWorkletOutput::AnimationState output_with_value(id);
+  output_with_value.local_times = local_times;
+  worklet_animation_->SetOutputState(output_with_value);
+  worklet_animation_->UpdateInputState(state.get());
+  input = state->TakeWorkletState(id.worklet_id);
+  EXPECT_FALSE(input);
+  state.reset(new AnimationWorkletDispatcherInput);
+
+  // Input time changes. Need to peek again.
+  GetDocument().GetAnimationClock().ResetTimeForTesting(second_ticks);
+  worklet_animation_->UpdateInputState(state.get());
+  input = state->TakeWorkletState(id.worklet_id);
+  EXPECT_EQ(input->peeked_animations.size(), 1u);
+  EXPECT_EQ(input->added_and_updated_animations.size(), 0u);
+  EXPECT_EQ(input->updated_animations.size(), 0u);
+  EXPECT_EQ(input->removed_animations.size(), 0u);
+  state.reset(new AnimationWorkletDispatcherInput);
 }
 
 }  //  namespace blink

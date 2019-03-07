@@ -23,7 +23,7 @@ int NextId() {
 namespace blink {
 
 AnimationWorklet::AnimationWorklet(Document* document)
-    : Worklet(document), scope_id_(NextId()), last_animation_id_(0) {}
+    : Worklet(document), worklet_id_(NextId()), last_animation_id_(0) {}
 
 AnimationWorklet::~AnimationWorklet() = default;
 
@@ -38,13 +38,14 @@ WorkletGlobalScopeProxy* AnimationWorklet::CreateGlobalScope() {
 
   Document* document = To<Document>(GetExecutionContext());
   AnimationWorkletProxyClient* proxy_client =
-      AnimationWorkletProxyClient::FromDocument(document, scope_id_);
+      AnimationWorkletProxyClient::FromDocument(document, worklet_id_);
 
   WorkerClients* worker_clients = WorkerClients::Create();
   ProvideAnimationWorkletProxyClientTo(worker_clients, proxy_client);
 
   AnimationWorkletMessagingProxy* proxy =
-      new AnimationWorkletMessagingProxy(GetExecutionContext());
+      MakeGarbageCollected<AnimationWorkletMessagingProxy>(
+          GetExecutionContext());
   proxy->Initialize(worker_clients, ModuleResponsesMap());
   return proxy;
 }
@@ -52,7 +53,7 @@ WorkletGlobalScopeProxy* AnimationWorklet::CreateGlobalScope() {
 WorkletAnimationId AnimationWorklet::NextWorkletAnimationId() {
   // Id starts from 1. This way it safe to use it as key in hashmap with default
   // key traits.
-  return {.scope_id = scope_id_, .animation_id = ++last_animation_id_};
+  return {.worklet_id = worklet_id_, .animation_id = ++last_animation_id_};
 }
 
 void AnimationWorklet::Trace(blink::Visitor* visitor) {

@@ -11,9 +11,10 @@
 #include "chrome/browser/chromeos/login/login_manager_test.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
 #include "chrome/browser/chromeos/login/test/oobe_screen_waiter.h"
+#include "chrome/browser/chromeos/login/ui/login_display_host.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_cryptohome_client.h"
 
@@ -56,15 +57,13 @@ class UserSelectionScreenTest : public LoginManagerTest {
     return fake_cryptohome_client_;
   }
 
-  OobeUI* GetOobeUI() {
-    return static_cast<OobeUI*>(web_contents()->GetWebUI()->GetController());
-  }
+  OobeUI* GetOobeUI() { return LoginDisplayHost::default_host()->GetOobeUI(); }
 
   void FocusUserPod(int pod_id) {
     base::RunLoop pod_focus_wait_loop;
     GetOobeUI()->signin_screen_handler()->SetFocusPODCallbackForTesting(
         pod_focus_wait_loop.QuitClosure());
-    js_checker().Evaluate(base::StringPrintf(
+    test::OobeJS().Evaluate(base::StringPrintf(
         "$('pod-row').focusPod($('pod-row').pods[%d])", pod_id));
     pod_focus_wait_loop.Run();
   }
@@ -93,7 +92,8 @@ IN_PROC_BROWSER_TEST_F(UserSelectionScreenTest, ShowDircryptoMigrationBanner) {
       switches::kArcAvailability, "officially-supported");
 
   // No banner for the first user since default is no migration.
-  JSExpect("!$('signin-banner').classList.contains('message-set')");
+  test::OobeJS().ExpectTrue(
+      "!$('signin-banner').classList.contains('message-set')");
 
   // Change the needs dircrypto migration response.
   fake_cryptohome_client()->set_needs_dircrypto_migration(true);
@@ -105,7 +105,8 @@ IN_PROC_BROWSER_TEST_F(UserSelectionScreenTest, ShowDircryptoMigrationBanner) {
   base::RunLoop().RunUntilIdle();
 
   // Banner should be shown for the 2nd user (consumer).
-  JSExpect("$('signin-banner').classList.contains('message-set')");
+  test::OobeJS().ExpectTrue(
+      "$('signin-banner').classList.contains('message-set')");
 
   // Focus to the 3rd user pod (enterprise).
   FocusUserPod(2);
@@ -114,7 +115,8 @@ IN_PROC_BROWSER_TEST_F(UserSelectionScreenTest, ShowDircryptoMigrationBanner) {
   base::RunLoop().RunUntilIdle();
 
   // Banner should not be shown for the enterprise user.
-  JSExpect("!$('signin-banner').classList.contains('message-set')");
+  test::OobeJS().ExpectTrue(
+      "!$('signin-banner').classList.contains('message-set')");
 }
 
 }  // namespace chromeos

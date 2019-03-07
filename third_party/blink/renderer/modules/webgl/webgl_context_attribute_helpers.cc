@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 #include "third_party/blink/renderer/modules/webgl/webgl_context_attribute_helpers.h"
-#include "third_party/blink/renderer/modules/xr/xr_device.h"
 
 #include "third_party/blink/renderer/core/frame/settings.h"
 
@@ -20,8 +19,7 @@ WebGLContextAttributes* ToWebGLContextAttributes(
   result->setPreserveDrawingBuffer(attrs.preserve_drawing_buffer);
   result->setFailIfMajorPerformanceCaveat(
       attrs.fail_if_major_performance_caveat);
-  result->setCompatibleXRDevice(
-      static_cast<XRDevice*>(attrs.compatible_xr_device.Get()));
+  result->setXrCompatible(attrs.xr_compatible);
   result->setLowLatency(attrs.low_latency);
   return result;
 }

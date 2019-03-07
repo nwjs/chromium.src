@@ -79,8 +79,7 @@ void QuicStreamSequencer::OnStreamFrame(const QuicStreamFrame& frame) {
       // Readable bytes has changed, let stream decide if to inform application
       // or not.
       if (stop_reading_when_level_triggered_ && ignore_read_data_) {
-        QUIC_FLAG_COUNT(
-            quic_reloadable_flag_quic_stop_reading_when_level_triggered);
+        QUIC_RELOADABLE_FLAG_COUNT(quic_stop_reading_when_level_triggered);
         FlushBufferedFrames();
       } else {
         stream_->OnDataAvailable();
@@ -144,6 +143,11 @@ int QuicStreamSequencer::GetReadableRegions(iovec* iov, size_t iov_len) const {
 bool QuicStreamSequencer::GetReadableRegion(iovec* iov) const {
   DCHECK(!blocked_);
   return buffered_frames_.GetReadableRegion(iov);
+}
+
+bool QuicStreamSequencer::PrefetchNextRegion(iovec* iov) {
+  DCHECK(!blocked_);
+  return buffered_frames_.PrefetchNextRegion(iov);
 }
 
 void QuicStreamSequencer::Read(QuicString* buffer) {

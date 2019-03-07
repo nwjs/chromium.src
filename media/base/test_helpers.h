@@ -33,6 +33,7 @@ namespace media {
 class AudioBuffer;
 class AudioBus;
 class DecoderBuffer;
+class MockDemuxerStream;
 
 // Return a callback that expects to be run once.
 base::Closure NewExpectedClosure();
@@ -96,7 +97,9 @@ class TestVideoConfig {
   static VideoDecoderConfig NormalCodecProfile(
       VideoCodec codec = kCodecVP8,
       VideoCodecProfile profile = VIDEO_CODEC_PROFILE_UNKNOWN);
-  static VideoDecoderConfig NormalEncrypted(VideoCodec codec = kCodecVP8);
+  static VideoDecoderConfig NormalEncrypted(
+      VideoCodec codec = kCodecVP8,
+      VideoCodecProfile = VIDEO_CODEC_PROFILE_UNKNOWN);
   static VideoDecoderConfig NormalRotated(VideoRotation rotation);
 
   // Returns a configuration that is larger in dimensions than Normal().
@@ -194,6 +197,10 @@ scoped_refptr<DecoderBuffer> CreateFakeVideoBufferForTest(
 bool VerifyFakeVideoBufferForTest(const DecoderBuffer& buffer,
                                   const VideoDecoderConfig& config);
 
+// Create a MockDemuxerStream for testing purposes.
+std::unique_ptr<::testing::StrictMock<MockDemuxerStream>>
+CreateMockDemuxerStream(DemuxerStream::Type type, bool encrypted);
+
 // Compares two {Audio|Video}DecoderConfigs
 MATCHER_P(DecoderConfigEq, config, "") {
   return arg.Matches(config);
@@ -206,6 +213,14 @@ MATCHER_P(HasTimestamp, timestamp_in_ms, "") {
 
 MATCHER(IsEndOfStream, "") {
   return arg.get() && arg->end_of_stream();
+}
+
+MATCHER(EosBeforeHaveMetadata, "") {
+  return CONTAINS_STRING(
+      arg,
+      "MediaSource endOfStream before demuxer initialization completes (before "
+      "HAVE_METADATA) is treated as an error. This may also occur as "
+      "consequence of other MediaSource errors before HAVE_METADATA.");
 }
 
 MATCHER_P(SegmentMissingFrames, track_id, "") {

@@ -16,12 +16,9 @@
   padding-top: 48px;
 }
 
-#voice-match-img {
-  padding: 48px 0 0 48px;
-}
-
-#done-button-text {
-  padding: 0 8px 0 8px;
+#voice-match-video {
+  padding-top: 100px;
+  text-align: center;
 }
 
 #intro-container,
@@ -44,9 +41,7 @@
 
 .intro #skip-button,
 .intro #agree-button,
-.recording #later-button,
-.completed #done-button,
-.already-setup #next-button {
+.recording #later-button {
   display: block;
 }
 

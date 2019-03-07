@@ -173,7 +173,6 @@ class IconCacherTestPopularSites : public IconCacherTestBase {
               GURL("http://url.google/"),
               GURL("http://url.google/icon.png"),
               GURL("http://url.google/favicon.ico"),
-              GURL(),                     // thumbnail, unused
               TileTitleSource::UNKNOWN),  // title_source, unused
         image_fetcher_(new ::testing::StrictMock<MockImageFetcher>),
         image_decoder_(new ::testing::StrictMock<MockImageDecoder>) {}
@@ -188,7 +187,7 @@ class IconCacherTestPopularSites : public IconCacherTestBase {
         .WillByDefault(ReturnArg<0>());
     ui::ResourceBundle::InitSharedInstanceWithLocale(
         "en-US", &mock_resource_delegate_,
-        ui::ResourceBundle::LOAD_COMMON_RESOURCES);
+        ui::ResourceBundle::DO_NOT_LOAD_COMMON_RESOURCES);
   }
 
   void TearDown() override {

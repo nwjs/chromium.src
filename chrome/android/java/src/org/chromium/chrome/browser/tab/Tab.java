@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.tab;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -45,13 +44,10 @@ import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActionModeCallback;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeFeatureList;
-import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.IntentHandler.TabOpenType;
 import org.chromium.chrome.browser.SwipeRefreshHandler;
-import org.chromium.chrome.browser.TabState;
-import org.chromium.chrome.browser.TabState.WebContentsState;
 import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.WebContentsFactory;
@@ -72,7 +68,6 @@ import org.chromium.chrome.browser.native_page.FrozenNativePage;
 import org.chromium.chrome.browser.native_page.NativePage;
 import org.chromium.chrome.browser.native_page.NativePageAssassin;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
-import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.prerender.ExternalPrerenderHandler;
@@ -80,18 +75,17 @@ import org.chromium.chrome.browser.previews.PreviewsAndroidBridge;
 import org.chromium.chrome.browser.printing.TabPrinter;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.rlz.RevenueStats;
-import org.chromium.chrome.browser.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ssl.SecurityStateModel;
+import org.chromium.chrome.browser.tab.TabState.WebContentsState;
 import org.chromium.chrome.browser.tab.TabUma.TabCreationState;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParamsManager;
+import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabReparentingParams;
+import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.chrome.browser.widget.PulseDrawable;
-import org.chromium.chrome.browser.widget.ViewHighlighter;
 import org.chromium.chrome.browser.widget.textbubble.TextBubble;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.embedder_support.view.ContentView;
@@ -119,28 +113,14 @@ import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.ui.widget.AnchoredPopupWindow;
-import org.chromium.ui.widget.ViewRectProvider;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 /**
  * The basic Java representation of a tab.  Contains and manages a {@link ContentView}.
- * <p>
- * This class is intended to be extended either on Java or both Java and C++, with ownership managed
- * by this base class.
- * <p>
- * Extending just Java:
- *  - Just extend the class normally.  Do not override initializeNative().
- * Extending Java and C++:
- *  - Because of the inner-workings of JNI, the subclass is responsible for constructing the native
- *    subclass, which in turn constructs TabAndroid (the native counterpart to Tab), which in
- *    turn sets the native pointer for Tab.  For destruction, subclasses in Java must clear
- *    their own native pointer reference, but Tab#destroy() will handle deleting the native
- *    object.
+ * This class is not intended to be extended.
  */
 public class Tab
         implements ViewGroup.OnHierarchyChangeListener, View.OnSystemUiVisibilityChangeListener {
@@ -369,15 +349,6 @@ public class Tab
     private boolean mIsDetached;
 
     /**
-     * Stores total data saved at the start of a page load. Used to calculate delta at the end of
-     * page load, which is just an estimate of the data saved for the current page load since there
-     * may be multiple pages loading at the same time. This estimate is used to get an idea of how
-     * widely used the data saver feature is for a particular user at a time (i.e. not since the
-     * user started using Chrome).
-     */
-    private long mDataSavedOnStartPageLoad;
-
-    /**
      * The Text bubble used to display In Product help widget for download feature on videos.
      */
     private TextBubble mDownloadIPHBubble;
@@ -418,7 +389,7 @@ public class Tab
 
             String url = tab.getUrl();
             // Simulate the PAGE_LOAD_STARTED notification that we did not get.
-            didStartPageLoad(url, false);
+            didStartPageLoad(url);
 
             if (didFinishLoad) {
                 // Simulate the PAGE_LOAD_FINISHED notification that we did not get.
@@ -653,7 +624,8 @@ public class Tab
             // We load the URL from the tab rather than directly from the ContentView so the tab has
             // a chance of using a prerenderer page is any.
             int loadType = nativeLoadUrl(mNativeTabAndroid, params.getUrl(),
-                    params.getVerbatimHeaders(), params.getPostData(), params.getTransitionType(),
+                    params.getInitiatorOrigin(), params.getVerbatimHeaders(), params.getPostData(),
+                    params.getTransitionType(),
                     params.getReferrer() != null ? params.getReferrer().getUrl() : null,
                     // Policy will be ignored for null referrer url, 0 is just a placeholder.
                     // TODO(ppi): Should we pass Referrer jobject and add JNI methods to read it
@@ -814,7 +786,7 @@ public class Tab
         ByteBuffer buffer = getWebContentsStateAsByteBuffer();
         if (buffer == null) return null;
 
-        TabState.WebContentsState state = new TabState.WebContentsStateNative(buffer);
+        TabState.WebContentsState state = new TabState.WebContentsState(buffer);
         state.setVersion(TabState.CONTENTS_STATE_CURRENT_VERSION);
         return state;
     }
@@ -974,6 +946,7 @@ public class Tab
      */
     public boolean isPreview() {
         return getWebContents() != null && !isNativePage() && !isShowingInterstitialPage()
+                && getSecurityLevel() != ConnectionSecurityLevel.DANGEROUS
                 && PreviewsAndroidBridge.getInstance().shouldShowPreviewUI(getWebContents());
     }
 
@@ -1077,6 +1050,7 @@ public class Tab
                 maybeShowNativePage(nativePage.getUrl(), true);
             }
             NativePageAssassin.getInstance().tabShown(this);
+            TabImportanceManager.tabShown(this);
 
             // If the page is still loading, update the progress bar (otherwise it would not show
             // until the renderer notifies of new progress being made).
@@ -1120,7 +1094,7 @@ public class Tab
         }
     }
 
-    public final void setImportance(@ChildProcessImportance int importance) {
+    /* package */ final void setImportance(@ChildProcessImportance int importance) {
         if (mImportance == importance) return;
         mImportance = importance;
         WebContents webContents = getWebContents();
@@ -1188,7 +1162,7 @@ public class Tab
      * @param unfreeze          Whether there should be an attempt to restore state at the end of
      *                          the initialization.
      */
-    public final void initialize(WebContents webContents, TabContentManager tabContentManager,
+    public void initialize(WebContents webContents, TabContentManager tabContentManager,
             TabDelegateFactory delegateFactory, boolean initiallyHidden, boolean unfreeze) {
         try {
             TraceEvent.begin("Tab.initialize");
@@ -1226,7 +1200,7 @@ public class Tab
             initWebContents(webContents);
 
             if (!creatingWebContents && webContents.isLoadingToDifferentDocument()) {
-                didStartPageLoad(webContents.getVisibleUrl(), false);
+                didStartPageLoad(webContents.getVisibleUrl());
             }
 
         } finally {
@@ -1466,13 +1440,9 @@ public class Tab
     /**
      * Called when a page has started loading.
      * @param validatedUrl URL being loaded.
-     * @param showingErrorPage Whether an error page is being shown.
      */
-    protected void didStartPageLoad(String validatedUrl, boolean showingErrorPage) {
+    protected void didStartPageLoad(String validatedUrl) {
         updateTitle();
-        mDataSavedOnStartPageLoad =
-                DataReductionProxySettings.getInstance().getContentLengthSavedInHistorySummary();
-
         if (mIsRendererUnresponsive) handleRendererResponsiveStateChanged(true);
 
         for (TabObserver observer : mObservers) observer.onPageLoadStarted(this, validatedUrl);
@@ -1489,87 +1459,6 @@ public class Tab
 
         for (TabObserver observer : mObservers) observer.onPageLoadFinished(this, url);
         mIsBeingRestored = false;
-
-        // TODO(crbug.com/889682): Consider moving the rest of this function to a Tab User data.
-        long dataSaved =
-                DataReductionProxySettings.getInstance().getContentLengthSavedInHistorySummary()
-                - mDataSavedOnStartPageLoad;
-
-        Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
-        if (dataSaved > 0L) {
-            tracker.notifyEvent(EventConstants.DATA_SAVED_ON_PAGE_LOAD);
-        }
-
-        if (isPreview()) {
-            tracker.notifyEvent(EventConstants.PREVIEWS_PAGE_LOADED);
-        }
-
-        maybeShowDataSaverInProductHelp(tracker);
-        maybeShowPreviewVerboseStatusInProductHelp(tracker);
-    }
-
-    private void maybeShowDataSaverInProductHelp(final Tracker tracker) {
-        if (!tracker.shouldTriggerHelpUI(FeatureConstants.DATA_SAVER_DETAIL_FEATURE)) return;
-
-        if (!(getActivity() instanceof ChromeTabbedActivity)) return;
-
-        View anchorView = getActivity().getToolbarManager().getMenuButton();
-        if (anchorView == null) return;
-
-        ViewRectProvider rectProvider = new ViewRectProvider(anchorView);
-        TextBubble textBubble =
-                new TextBubble(getActivity(), anchorView, R.string.iph_data_saver_detail_text,
-                        R.string.iph_data_saver_detail_accessibility_text, rectProvider);
-        textBubble.setDismissOnTouchInteraction(true);
-        getActivity().getAppMenuHandler().setMenuHighlight(R.id.app_menu_footer);
-        textBubble.addOnDismissListener(new OnDismissListener() {
-            @Override
-            public void onDismiss() {
-                ThreadUtils.postOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        tracker.dismissed(FeatureConstants.DATA_SAVER_DETAIL_FEATURE);
-                        getActivity().getAppMenuHandler().setMenuHighlight(null);
-                    }
-                });
-            }
-        });
-        int yInsetPx = mThemedApplicationContext.getResources().getDimensionPixelOffset(
-                R.dimen.text_bubble_menu_anchor_y_inset);
-        rectProvider.setInsetPx(0, 0, 0, yInsetPx);
-        textBubble.show();
-    }
-
-    private void maybeShowPreviewVerboseStatusInProductHelp(final Tracker tracker) {
-        if (!isPreview()) return;
-        if (!(getActivity() instanceof ChromeTabbedActivity)) return;
-        final View anchorView = getActivity().getToolbarManager().getSecurityIconView();
-        if (anchorView == null) return;
-
-        if (!tracker.shouldTriggerHelpUI(FeatureConstants.PREVIEWS_OMNIBOX_UI_FEATURE)) return;
-
-        final ViewRectProvider rectProvider = new ViewRectProvider(anchorView);
-        final TextBubble textBubble =
-                new TextBubble(getActivity(), anchorView, R.string.iph_previews_omnibox_ui_text,
-                        R.string.iph_previews_omnibox_ui_accessibility_text, rectProvider);
-        textBubble.setDismissOnTouchInteraction(true);
-        textBubble.addOnDismissListener(new OnDismissListener() {
-            @Override
-            public void onDismiss() {
-                ThreadUtils.postOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        ViewHighlighter.turnOffHighlight(anchorView);
-                        tracker.dismissed(FeatureConstants.PREVIEWS_OMNIBOX_UI_FEATURE);
-                    }
-                });
-            }
-        });
-        final int yInsetPx = mThemedApplicationContext.getResources().getDimensionPixelOffset(
-                R.dimen.text_bubble_menu_anchor_y_inset);
-        rectProvider.setInsetPx(0, 0, 0, yInsetPx);
-        textBubble.show();
-        ViewHighlighter.turnOnHighlight(anchorView, true);
     }
 
     /**
@@ -1790,6 +1679,8 @@ public class Tab
         mNativePage = null;
         destroyNativePageInternal(currentNativePage);
         destroyWebContents(true);
+
+        TabImportanceManager.tabDestroyed(this);
 
         // Destroys the native tab after destroying the ContentView but before destroying the
         // InfoBarContainer. The native tab should be destroyed before the infobar container as
@@ -2234,15 +2125,6 @@ public class Tab
     }
 
     /**
-     * Returns the SnackbarManager for the activity that owns this Tab, if any. May
-     * return null.
-     */
-    public SnackbarManager getSnackbarManager() {
-        if (getActivity() == null) return null;
-        return getActivity().getSnackbarManager();
-    }
-
-    /**
      * @return The native pointer representing the native side of this {@link Tab} object.
      */
     @CalledByNative
@@ -2251,7 +2133,7 @@ public class Tab
     }
 
     private static Rect getEstimatedContentSize(Context context) {
-        return ExternalPrerenderHandler.estimateContentSize((Application) context, false);
+        return ExternalPrerenderHandler.estimateContentSize(context, false);
     }
 
     /** This is currently called when committing a pre-rendered page. */
@@ -2321,21 +2203,6 @@ public class Tab
      */
     public void setIsTabStateDirty(boolean isDirty) {
         mIsTabStateDirty = isDirty;
-    }
-
-    /**
-     * @return Whether the Tab should be preserved in Android's Recents list when users hit "back".
-     */
-    public boolean shouldPreserve() {
-        return mShouldPreserve;
-    }
-
-    /**
-     * Sets whether the Tab should be preserved in Android's Recents list when users hit "back".
-     * @param preserve Whether the tab should be preserved.
-     */
-    public void setShouldPreserve(boolean preserve) {
-        mShouldPreserve = preserve;
     }
 
     /**
@@ -2579,17 +2446,12 @@ public class Tab
     }
 
     public void setTopControlsHeight(int height, boolean controlsResizeView) {
-        float scale = getWindowAndroid().getDisplay().getDipScale();
-        mTopControlsHeight = (int) Math.ceil(height / scale);
+        mTopControlsHeight = height;
         mControlsResizeView = controlsResizeView;
     }
 
     public void setBottomControlsHeight(int height) {
-        // TODO(mdjones): We should use a single unit of measurement for tracking browser control
-        //                height. Conversion to/from px and dp in various places causes complexity
-        //                in logic and rounding errors.
-        float scale = getWindowAndroid().getDisplay().getDipScale();
-        mBottomControlsHeight = (int) Math.ceil(height / scale);
+        mBottomControlsHeight = height;
     }
 
     int getTopControlsHeight() {
@@ -2678,8 +2540,9 @@ public class Tab
     }
 
     @CalledByNative
-    protected void openNewTab(String url, String extraHeaders, ResourceRequestBody postData,
-            int disposition, boolean hasParent, boolean isRendererInitiated) {
+    protected void openNewTab(String url, String initiatorOrigin, String extraHeaders,
+            ResourceRequestBody postData, int disposition, boolean hasParent,
+            boolean isRendererInitiated) {
         if (isClosing()) return;
 
         boolean incognito = isIncognito();
@@ -2709,6 +2572,7 @@ public class Tab
         if (shouldIgnoreNewTab(url, incognito) || getTabModelSelector() == null) return;
 
         LoadUrlParams loadUrlParams = new LoadUrlParams(url);
+        loadUrlParams.setInitiatorOrigin(initiatorOrigin);
         loadUrlParams.setVerbatimHeaders(extraHeaders);
         loadUrlParams.setPostData(postData);
         loadUrlParams.setIsRendererInitiated(isRendererInitiated);
@@ -2882,9 +2746,7 @@ public class Tab
     public static Intent createBringTabToFrontIntent(int tabId) {
         // Iterate through all {@link CustomTab}s and check whether the given tabId belongs to a
         // {@link CustomTab}. If so, return null as the client app's task cannot be foregrounded.
-        List<WeakReference<Activity>> list = ApplicationStatus.getRunningActivities();
-        for (WeakReference<Activity> ref : list) {
-            Activity activity = ref.get();
+        for (Activity activity : ApplicationStatus.getRunningActivities()) {
             if (activity instanceof CustomTabActivity
                     && ((CustomTabActivity) activity).getActivityTab() != null
                     && tabId == ((CustomTabActivity) activity).getActivityTab().getId()) {
@@ -3088,10 +2950,10 @@ public class Tab
     private native void nativeOnPhysicalBackingSizeChanged(
             long nativeTabAndroid, WebContents webContents, int width, int height);
     private native Profile nativeGetProfileAndroid(long nativeTabAndroid);
-    private native int nativeLoadUrl(long nativeTabAndroid, String url, String extraHeaders,
-            ResourceRequestBody postData, int transition, String referrerUrl, int referrerPolicy,
-            boolean isRendererInitiated, boolean shoulReplaceCurrentEntry, boolean hasUserGesture,
-            boolean shouldClearHistoryList, long inputStartTimestamp);
+    private native int nativeLoadUrl(long nativeTabAndroid, String url, String initiatorOrigin,
+            String extraHeaders, ResourceRequestBody postData, int transition, String referrerUrl,
+            int referrerPolicy, boolean isRendererInitiated, boolean shoulReplaceCurrentEntry,
+            boolean hasUserGesture, boolean shouldClearHistoryList, long inputStartTimestamp);
     private native void nativeSetActiveNavigationEntryTitleForUrl(long nativeTabAndroid, String url,
             String title);
     private native boolean nativePrint(

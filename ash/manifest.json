@@ -17,7 +17,9 @@
           "ash.mojom.AccessibilityFocusRingController",
           "ash.mojom.AppListController",
           "ash.mojom.AshMessageCenterController",
+          "ash.mojom.AssistantAlarmTimerController",
           "ash.mojom.AssistantController",
+          "ash.mojom.AssistantNotificationController",
           "ash.mojom.AssistantScreenContextController",
           "ash.mojom.AssistantSetupController",
           "ash.mojom.AssistantVolumeControl",
@@ -30,7 +32,7 @@
           "ash.mojom.HighlighterController",
           "ash.mojom.ImeController",
           "ash.mojom.KeyboardController",
-          "ash.mojom.LocaleNotificationController",
+          "ash.mojom.LocaleUpdateController",
           "ash.mojom.LoginScreen",
           "ash.mojom.MediaController",
           "ash.mojom.NewWindowController",
@@ -47,8 +49,7 @@
           "ash.mojom.TrayAction",
           "ash.mojom.VoiceInteractionController",
           "ash.mojom.VpnList",
-          "ash.mojom.WallpaperController",
-          "keyboard.mojom.KeyboardController"
+          "ash.mojom.WallpaperController"
         ],
         // Test-only interfaces.
         "test": [
@@ -84,7 +85,8 @@
           "ozone",
           "window_manager"
         ],
-        "data_decoder": [ "image_decoder" ]
+        "data_decoder": [ "image_decoder" ],
+        "viz": [ "viz_host" ]
       }
     }
   }

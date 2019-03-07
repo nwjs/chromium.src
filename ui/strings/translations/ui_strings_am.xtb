@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{1 ቀን በፊት}one{# ቀኖች በፊት}other{# ቀኖች በፊት}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{ከ1 ደቂቃ በፊት}one{ከ# ደቂቃዎች በፊት}other{ከ# ደቂቃዎች በፊት}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1ደ}one{#ደ}other{#ደ}}</translation>
+<translation id="1181037720776840403">አስወግድ</translation>
 <translation id="1243314992276662751">ስቀል</translation>
 <translation id="1269641567813814718">ማሸነፍ</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">ዝቅዝቅ ቀስት</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 ቀን}one{# ቀኖች}other{# ቀኖች}}</translation>
 <translation id="335581015389089642">ንግግር</translation>
+<translation id="3462241349431650993">ይህን የጥቆማ ሐሳብ መደበቅ ከእርስዎ መለያ ላይ ወደ ሁሉም የእርስዎ መሣሪያዎች ዳግመኛ እንዳይታይ ያደርገዋል።</translation>
 <translation id="3479552764303398839">አሁን አይደለም</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{1 ቀን ቀርቷል}one{# ቀኖች ቀርቷል}other{# ቀኖች ቀርተዋል}}</translation>
+<translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">«<ph name="LOOKUP_STRING" />»ን ፈልግ</translation>
 <translation id="364720409959344976">የሚሰቀል ዓቃፊ ይምረጡ</translation>
 <translation id="3660179305079774227">የላይ ቀስት</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{ከ1 ሰከንድ በፊት}one{ከ# ሰከንዶች በፊት}other{ከ# ሰከንዶች በፊት}}</translation>
 <translation id="654149438358937226">ሁሉንም ማሳወቂያዎች አግድ</translation>
 <translation id="6567071839949112727">ዘር ማንዘርን ጠቅ አድርግ</translation>
+<translation id="6578407462441924264">ያልተሰየመ</translation>
 <translation id="6612467943526193239">ከመቃኘት ለመውጣት Escን ይጫኑ።</translation>
 <translation id="6620110761915583480">ፋይል አስቀምጥ</translation>
 <translation id="6699343763173986273">የሚዲያ ቀጣይ ትራክ</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 ሰዓት በፊት}one{# ሰዓቶች በፊት}other{# ሰዓቶች በፊት}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 ሰከንድ ቀርቷል}one{# ሰከንዶች ቀርቷል}other{# ሰከንዶች ቀርተዋል}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />፣ ራስሰር ሙላ</translation>
 <translation id="815598010540052116">ወደ ታች ሸብልል</translation>
 <translation id="8179976553408161302">አስገባ</translation>
 <translation id="8210608804940886430">ወደታች አንቀሳቅስ</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">አመልክት</translation>
 <translation id="8393700583063109961">መልዕክት ይላኩ</translation>
 <translation id="8394908167088220973">ሚዲያ አጫውት/ለአፍታ አቁም</translation>
+<translation id="8420205633584771378">ይህ የአስተያየት ጥቆማ ይወገድ?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1ዓ}one{#ዓ}other{#ዓ}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> ፋይል(.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> ኪባ/ሰ</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">የተመለስ አዝራር</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> ኪባ</translation>
 <translation id="9002566407876343676">ክፈት</translation>
-<translation id="9038489124413477075">ያልተሰየመ አቃፊ</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 ሰከን}one{# ሰከን}other{# ሰከን}}</translation>
 <translation id="9059834730836941392">ማሳወቂያን ሰብስብ</translation>
 <translation id="9150735707954472829">ትር</translation>

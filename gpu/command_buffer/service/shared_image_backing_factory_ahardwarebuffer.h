@@ -17,6 +17,7 @@ class ColorSpace;
 }  // namespace gfx
 
 namespace gpu {
+class SharedContextState;
 class SharedImageBacking;
 class GpuDriverBugWorkarounds;
 struct GpuFeatureInfo;
@@ -28,7 +29,8 @@ class GPU_GLES2_EXPORT SharedImageBackingFactoryAHB
     : public SharedImageBackingFactory {
  public:
   SharedImageBackingFactoryAHB(const GpuDriverBugWorkarounds& workarounds,
-                               const GpuFeatureInfo& gpu_feature_info);
+                               const GpuFeatureInfo& gpu_feature_info,
+                               SharedContextState* context_state);
   ~SharedImageBackingFactoryAHB() override;
 
   // SharedImageBackingFactory implementation.
@@ -38,6 +40,13 @@ class GPU_GLES2_EXPORT SharedImageBackingFactoryAHB
       const gfx::Size& size,
       const gfx::ColorSpace& color_space,
       uint32_t usage) override;
+  std::unique_ptr<SharedImageBacking> CreateSharedImage(
+      const Mailbox& mailbox,
+      viz::ResourceFormat format,
+      const gfx::Size& size,
+      const gfx::ColorSpace& color_space,
+      uint32_t usage,
+      base::span<const uint8_t> pixel_data) override;
   std::unique_ptr<SharedImageBacking> CreateSharedImage(
       const Mailbox& mailbox,
       int client_id,
@@ -70,6 +79,7 @@ class GPU_GLES2_EXPORT SharedImageBackingFactoryAHB
 
   // Used to limit the max size of AHardwareBuffer.
   int32_t max_gl_texture_size_ = 0;
+  SharedContextState* context_state_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(SharedImageBackingFactoryAHB);
 };

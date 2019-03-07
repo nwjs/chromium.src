@@ -11,12 +11,13 @@
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "base/threading/thread_checker.h"
 #include "content/common/content_export.h"
 #include "content/public/renderer/media_stream_video_sink.h"
-#include "content/renderer/media/stream/media_stream_track.h"
 #include "content/renderer/media/stream/media_stream_video_source.h"
 #include "content/renderer/media/stream/secure_display_link_tracker.h"
+#include "third_party/blink/public/platform/modules/mediastream/web_platform_media_stream_track.h"
 #include "third_party/blink/public/platform/web_media_stream_track.h"
 
 namespace content {
@@ -27,7 +28,8 @@ class VideoTrackAdapterSettings;
 // blink::WebMediaStreamTrack in content. It is owned by the blink object
 // and can be retrieved from a blink object using
 // WebMediaStreamTrack::getExtraData() or MediaStreamVideoTrack::GetVideoTrack.
-class CONTENT_EXPORT MediaStreamVideoTrack : public MediaStreamTrack {
+class CONTENT_EXPORT MediaStreamVideoTrack
+    : public blink::WebPlatformMediaStreamTrack {
  public:
   // Help method to create a blink::WebMediaStreamTrack and a
   // MediaStreamVideoTrack instance. The MediaStreamVideoTrack object is owned
@@ -106,7 +108,26 @@ class CONTENT_EXPORT MediaStreamVideoTrack : public MediaStreamTrack {
     frame_rate_ = frame_rate;
   }
 
+  // Setting information about the track size.
+  // Passed as callback on MediaStreamVideoTrack::AddTrack, and run from
+  // VideoFrameResolutionAdapter on frame delivery to update track settings.
+  void SetSizeAndComputedFrameRate(gfx::Size frame_size, double frame_rate) {
+    width_ = frame_size.width();
+    height_ = frame_size.height();
+    computed_frame_rate_ = frame_rate;
+  }
+
+  // Setting information about the source format. The format is computed based
+  // on incoming frames and it's used for applying constraints for remote video
+  // tracks. Passed as callback on MediaStreamVideoTrack::AddTrack, and run from
+  // VideoFrameResolutionAdapter on frame delivery.
+  void set_computed_source_format(const media::VideoCaptureFormat& format) {
+    computed_source_format_ = format;
+  }
+
   void SetTrackAdapterSettings(const VideoTrackAdapterSettings& settings);
+
+  media::VideoCaptureFormat GetComputedSourceFormat();
 
   MediaStreamVideoSource* source() const { return source_.get(); }
 
@@ -130,6 +151,10 @@ class CONTENT_EXPORT MediaStreamVideoTrack : public MediaStreamTrack {
                const VideoCaptureDeliverFrameCB& callback,
                bool is_sink_secure);
   void RemoveSink(MediaStreamVideoSink* sink);
+
+  // In debug builds, check that all methods that could cause object graph
+  // or data flow changes are being called on the main thread.
+  THREAD_CHECKER(main_render_thread_checker_);
 
   std::vector<MediaStreamVideoSink*> sinks_;
 
@@ -155,6 +180,10 @@ class CONTENT_EXPORT MediaStreamVideoTrack : public MediaStreamTrack {
   int width_ = 0;
   int height_ = 0;
   double frame_rate_ = 0.0;
+  base::Optional<double> computed_frame_rate_;
+  media::VideoCaptureFormat computed_source_format_;
+
+  base::WeakPtrFactory<MediaStreamVideoTrack> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaStreamVideoTrack);
 };

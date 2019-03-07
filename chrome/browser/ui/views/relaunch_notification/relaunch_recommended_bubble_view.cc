@@ -20,8 +20,8 @@
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
+#include "ui/base/buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/ui_features.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/paint_vector_icon.h"
@@ -41,7 +41,7 @@
 // static
 views::Widget* RelaunchRecommendedBubbleView::ShowBubble(
     Browser* browser,
-    base::TimeTicks detection_time,
+    base::Time detection_time,
     base::RepeatingClosure on_accept) {
   DCHECK(browser);
 
@@ -169,7 +169,7 @@ void RelaunchRecommendedBubbleView::VisibilityChanged(
 RelaunchRecommendedBubbleView::RelaunchRecommendedBubbleView(
     views::Button* anchor_button,
     const gfx::Point& anchor_point,
-    base::TimeTicks detection_time,
+    base::Time detection_time,
     base::RepeatingClosure on_accept)
     : LocationBarBubbleDelegateView(anchor_button, anchor_point, nullptr),
       on_accept_(std::move(on_accept)),

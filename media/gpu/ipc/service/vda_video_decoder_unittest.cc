@@ -6,10 +6,10 @@
 
 #include <stdint.h>
 
-#include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/threading/thread.h"
@@ -43,7 +43,7 @@ namespace media {
 namespace {
 
 constexpr uint8_t kData[] = "foo";
-constexpr size_t kDataSize = arraysize(kData);
+constexpr size_t kDataSize = base::size(kData);
 
 scoped_refptr<DecoderBuffer> CreateDecoderBuffer(base::TimeDelta timestamp) {
   scoped_refptr<DecoderBuffer> buffer =
@@ -120,8 +120,8 @@ class VdaVideoDecoderTest : public testing::TestWithParam<bool> {
                        base::Unretained(this)),
         base::BindOnce(&VdaVideoDecoderTest::CreateCommandBufferHelper,
                        base::Unretained(this)),
-        base::BindOnce(&VdaVideoDecoderTest::CreateAndInitializeVda,
-                       base::Unretained(this)),
+        base::BindRepeating(&VdaVideoDecoderTest::CreateAndInitializeVda,
+                            base::Unretained(this)),
         GetCapabilities()));
     client_ = vdavd_.get();
   }
@@ -311,9 +311,7 @@ class VdaVideoDecoderTest : public testing::TestWithParam<bool> {
   testing::NiceMock<MockMediaLog> media_log_;
   testing::StrictMock<base::MockCallback<VideoDecoder::InitCB>> init_cb_;
   testing::StrictMock<base::MockCallback<VideoDecoder::OutputCB>> output_cb_;
-  testing::StrictMock<
-      base::MockCallback<VideoDecoder::WaitingForDecryptionKeyCB>>
-      waiting_cb_;
+  testing::StrictMock<base::MockCallback<WaitingCB>> waiting_cb_;
   testing::StrictMock<base::MockCallback<VideoDecoder::DecodeCB>> decode_cb_;
   testing::StrictMock<base::MockCallback<base::RepeatingClosure>> reset_cb_;
 

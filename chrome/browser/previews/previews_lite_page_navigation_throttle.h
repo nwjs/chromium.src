@@ -44,13 +44,13 @@ class PreviewsLitePageNavigationThrottle : public content::NavigationThrottle {
     kPathSuffixBlacklisted = 0,
     kNavigationToPreviewsDomain = 1,
     kNavigationToPrivateDomain = 2,
-    kHostBlacklisted = 3,
-    kMaxValue = kHostBlacklisted,
+    kHostBypassBlacklisted = 3,
+    kMaxValue = kHostBypassBlacklisted,
   };
 
   // Reasons that a navigation is not eligible for this preview. This enum must
   // remain synchronized with the enum |PreviewsServerLitePageIneligibleReason|
-  // in metrics/histograms/enums.xml.
+  // in tools/metrics/histograms/enums.xml.
   enum class IneligibleReason {
     kNonHttpsScheme = 0,
     kHttpPost = 1,
@@ -60,7 +60,10 @@ class PreviewsLitePageNavigationThrottle : public content::NavigationThrottle {
     kNetworkNotSlow = 5,
     kLoadOriginalReload = 6,
     kCookiesBlocked = 7,
-    kMaxValue = kCookiesBlocked,
+    kECTUnknown = 8,
+    kExceededMaxNavigationRestarts = 9,
+    kPreviewsState = 10,
+    kMaxValue = kPreviewsState,
   };
 
   // The response type from the previews server. This enum must

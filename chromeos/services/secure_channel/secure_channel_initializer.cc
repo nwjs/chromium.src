@@ -6,7 +6,7 @@
 
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
-#include "chromeos/components/proximity_auth/logging/logging.h"
+#include "chromeos/components/multidevice/logging/logging.h"
 #include "chromeos/services/secure_channel/secure_channel_impl.h"
 #include "device/bluetooth/bluetooth_adapter_factory.h"
 
@@ -42,8 +42,8 @@ SecureChannelInitializer::Factory::BuildInstance(
 }
 
 SecureChannelInitializer::ConnectionRequestArgs::ConnectionRequestArgs(
-    const cryptauth::RemoteDevice& device_to_connect,
-    const cryptauth::RemoteDevice& local_device,
+    const multidevice::RemoteDevice& device_to_connect,
+    const multidevice::RemoteDevice& local_device,
     const std::string& feature,
     ConnectionPriority connection_priority,
     mojom::ConnectionDelegatePtr delegate,
@@ -79,8 +79,8 @@ SecureChannelInitializer::SecureChannelInitializer(
 SecureChannelInitializer::~SecureChannelInitializer() = default;
 
 void SecureChannelInitializer::ListenForConnectionFromDevice(
-    const cryptauth::RemoteDevice& device_to_connect,
-    const cryptauth::RemoteDevice& local_device,
+    const multidevice::RemoteDevice& device_to_connect,
+    const multidevice::RemoteDevice& local_device,
     const std::string& feature,
     ConnectionPriority connection_priority,
     mojom::ConnectionDelegatePtr delegate) {
@@ -97,8 +97,8 @@ void SecureChannelInitializer::ListenForConnectionFromDevice(
 }
 
 void SecureChannelInitializer::InitiateConnectionToDevice(
-    const cryptauth::RemoteDevice& device_to_connect,
-    const cryptauth::RemoteDevice& local_device,
+    const multidevice::RemoteDevice& device_to_connect,
+    const multidevice::RemoteDevice& local_device,
     const std::string& feature,
     ConnectionPriority connection_priority,
     mojom::ConnectionDelegatePtr delegate) {

@@ -12,6 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/values.h"
+#include "net/base/proxy_delegate.h"
 #include "net/http/http_proxy_client_socket.h"
 #include "net/http/http_response_info.h"
 #include "net/log/net_log_event_type.h"
@@ -22,6 +23,8 @@
 #include "net/socket/client_socket_factory.h"
 #include "net/socket/client_socket_handle.h"
 #include "net/socket/socket_tag.h"
+#include "net/socket/transport_client_socket_pool.h"
+#include "net/socket/transport_connect_job.h"
 #include "net/spdy/spdy_proxy_client_socket.h"
 #include "net/spdy/spdy_session.h"
 #include "net/spdy/spdy_session_pool.h"
@@ -52,6 +55,7 @@ HttpProxyClientSocketWrapper::HttpProxyClientSocketWrapper(
     QuicStreamFactory* quic_stream_factory,
     bool is_trusted_proxy,
     bool tunnel,
+    ProxyDelegate* proxy_delegate,
     const NetworkTrafficAnnotationTag& traffic_annotation,
     const NetLogWithSource& net_log)
     : next_state_(STATE_NONE),
@@ -71,6 +75,7 @@ HttpProxyClientSocketWrapper::HttpProxyClientSocketWrapper(
       spdy_session_pool_(spdy_session_pool),
       has_restarted_(false),
       tunnel_(tunnel),
+      proxy_delegate_(proxy_delegate),
       using_spdy_(false),
       is_trusted_proxy_(is_trusted_proxy),
       quic_stream_factory_(quic_stream_factory),
@@ -392,6 +397,16 @@ int HttpProxyClientSocketWrapper::GetLocalAddress(IPEndPoint* address) const {
   return ERR_SOCKET_NOT_CONNECTED;
 }
 
+ProxyServer::Scheme HttpProxyClientSocketWrapper::GetProxyServerScheme() const {
+  if (quic_version_ != quic::QUIC_VERSION_UNSUPPORTED)
+    return ProxyServer::SCHEME_QUIC;
+
+  if (transport_params_)
+    return ProxyServer::SCHEME_HTTP;
+
+  return ProxyServer::SCHEME_HTTPS;
+}
+
 void HttpProxyClientSocketWrapper::OnIOComplete(int result) {
   int rv = DoLoop(result);
   if (rv != ERR_IO_PENDING) {
@@ -471,12 +486,18 @@ int HttpProxyClientSocketWrapper::DoLoop(int result) {
 int HttpProxyClientSocketWrapper::DoBeginConnect() {
   connect_start_time_ = base::TimeTicks::Now();
   SetConnectTimer(connect_timeout_duration_);
-  if (quic_version_ != quic::QUIC_VERSION_UNSUPPORTED) {
-    next_state_ = STATE_QUIC_PROXY_CREATE_SESSION;
-  } else if (transport_params_) {
-    next_state_ = STATE_TCP_CONNECT;
-  } else {
-    next_state_ = STATE_SSL_CONNECT;
+  switch (GetProxyServerScheme()) {
+    case ProxyServer::SCHEME_QUIC:
+      next_state_ = STATE_QUIC_PROXY_CREATE_SESSION;
+      break;
+    case ProxyServer::SCHEME_HTTP:
+      next_state_ = STATE_TCP_CONNECT;
+      break;
+    case ProxyServer::SCHEME_HTTPS:
+      next_state_ = STATE_SSL_CONNECT;
+      break;
+    default:
+      NOTREACHED();
   }
   return OK;
 }
@@ -485,8 +506,10 @@ int HttpProxyClientSocketWrapper::DoTransportConnect() {
   next_state_ = STATE_TCP_CONNECT_COMPLETE;
   transport_socket_handle_.reset(new ClientSocketHandle());
   return transport_socket_handle_->Init(
-      group_name_, transport_params_, priority_, initial_socket_tag_,
-      respect_limits_,
+      group_name_,
+      TransportClientSocketPool::SocketParams::CreateFromTransportSocketParams(
+          transport_params_),
+      priority_, initial_socket_tag_, respect_limits_,
       base::Bind(&HttpProxyClientSocketWrapper::OnIOComplete,
                  base::Unretained(this)),
       transport_pool_, net_log_);
@@ -496,6 +519,12 @@ int HttpProxyClientSocketWrapper::DoTransportConnectComplete(int result) {
   if (result != OK) {
     UMA_HISTOGRAM_MEDIUM_TIMES("Net.HttpProxy.ConnectLatency.Insecure.Error",
                                base::TimeTicks::Now() - connect_start_time_);
+    // This is a special error code meaning to reuse an existing SPDY session
+    // rather than use a fresh socket. Overriding it with a proxy error message
+    // would cause the request to fail, instead of switching to using the SPDY
+    // session.
+    if (result == ERR_SPDY_SESSION_ALREADY_EXISTS)
+      return result;
     return ERR_PROXY_CONNECTION_FAILED;
   }
 
@@ -515,6 +544,7 @@ int HttpProxyClientSocketWrapper::DoSSLConnect() {
                            ->destination()
                            .host_port_pair(),
                        ProxyServer::Direct(), PRIVACY_MODE_DISABLED,
+                       SpdySessionKey::IsProxySession::kTrue,
                        initial_socket_tag_);
     if (spdy_session_pool_->FindAvailableSession(
             key, /* enable_ip_based_pooling = */ true,
@@ -548,14 +578,10 @@ int HttpProxyClientSocketWrapper::DoSSLConnectComplete(int result) {
   if (IsCertificateError(result)) {
     UMA_HISTOGRAM_MEDIUM_TIMES("Net.HttpProxy.ConnectLatency.Secure.Error",
                                base::TimeTicks::Now() - connect_start_time_);
-    if (ssl_params_->ignore_certificate_errors()) {
-      result = OK;
-    } else {
-      // TODO(rch): allow the user to deal with proxy cert errors in the
-      // same way as server cert errors.
-      transport_socket_handle_->socket()->Disconnect();
-      return ERR_PROXY_CERTIFICATE_INVALID;
-    }
+    // TODO(rch): allow the user to deal with proxy cert errors in the
+    // same way as server cert errors.
+    transport_socket_handle_->socket()->Disconnect();
+    return ERR_PROXY_CERTIFICATE_INVALID;
   }
   // A SPDY session to the proxy completed prior to resolving the proxy
   // hostname. Surface this error, and allow the delegate to retry.
@@ -610,8 +636,10 @@ int HttpProxyClientSocketWrapper::DoHttpProxyConnect() {
   transport_socket_ =
       transport_pool_->client_socket_factory()->CreateProxyClientSocket(
           std::move(transport_socket_handle_), user_agent_, endpoint_,
+          ProxyServer(GetProxyServerScheme(),
+                      GetDestination().host_port_pair()),
           http_auth_controller_.get(), tunnel_, using_spdy_,
-          negotiated_protocol_, ssl_params_.get() != nullptr,
+          negotiated_protocol_, proxy_delegate_, ssl_params_.get() != nullptr,
           traffic_annotation_);
   return transport_socket_->Connect(base::Bind(
       &HttpProxyClientSocketWrapper::OnIOComplete, base::Unretained(this)));
@@ -630,7 +658,8 @@ int HttpProxyClientSocketWrapper::DoSpdyProxyCreateStream() {
   DCHECK(ssl_params_);
   SpdySessionKey key(
       ssl_params_->GetDirectConnectionParams()->destination().host_port_pair(),
-      ProxyServer::Direct(), PRIVACY_MODE_DISABLED, initial_socket_tag_);
+      ProxyServer::Direct(), PRIVACY_MODE_DISABLED,
+      SpdySessionKey::IsProxySession::kTrue, initial_socket_tag_);
   base::WeakPtr<SpdySession> spdy_session =
       spdy_session_pool_->FindAvailableSession(
           key, /* enable_ip_based_pooling = */ true,

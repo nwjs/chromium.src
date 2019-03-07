@@ -19,15 +19,15 @@ class Window;
 namespace ash {
 
 class AssistantContainerViewAnimator;
-class AssistantController;
 class AssistantMainView;
 class AssistantMiniView;
+class AssistantViewDelegate;
 class AssistantWebView;
 
 class AssistantContainerView : public views::BubbleDialogDelegateView,
                                public AssistantUiModelObserver {
  public:
-  explicit AssistantContainerView(AssistantController* assistant_controller);
+  explicit AssistantContainerView(AssistantViewDelegate* delegate);
   ~AssistantContainerView() override;
 
   // Instructs the event targeter for the Assistant window to only allow mouse
@@ -39,6 +39,7 @@ class AssistantContainerView : public views::BubbleDialogDelegateView,
   const char* GetClassName() const override;
   void AddedToWidget() override;
   ax::mojom::Role GetAccessibleWindowRole() const override;
+  base::string16 GetAccessibleWindowTitle() const override;
   int GetDialogButtons() const override;
   views::FocusTraversable* GetFocusTraversable() override;
   void ChildPreferredSizeChanged(views::View* child) override;
@@ -71,7 +72,7 @@ class AssistantContainerView : public views::BubbleDialogDelegateView,
   // Update anchor rect with respect to the current usable work area.
   void UpdateAnchor();
 
-  AssistantController* const assistant_controller_;  // Owned by Shell.
+  AssistantViewDelegate* const delegate_;
 
   AssistantMainView* assistant_main_view_;  // Owned by view hierarchy.
   AssistantMiniView* assistant_mini_view_;  // Owned by view hierarchy.

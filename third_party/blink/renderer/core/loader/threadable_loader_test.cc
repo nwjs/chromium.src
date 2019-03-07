@@ -77,7 +77,7 @@ class MockThreadableLoaderClient final
   MOCK_METHOD1(DidFail, void(const ResourceError&));
   MOCK_METHOD0(DidFailRedirectCheck, void());
   MOCK_METHOD1(DidReceiveResourceTiming, void(const ResourceTimingInfo&));
-  MOCK_METHOD1(DidDownloadData, void(int));
+  MOCK_METHOD1(DidDownloadData, void(unsigned long long));
 };
 
 bool IsCancellation(const ResourceError& error) {
@@ -127,7 +127,7 @@ void SetUpRedirectURL() {
   timing.Initialize();
 
   WebURLResponse response;
-  response.SetURL(url);
+  response.SetCurrentRequestUrl(url);
   response.SetHTTPStatusCode(301);
   response.SetLoadTiming(timing);
   response.AddHTTPHeaderField("Location", SuccessURL().GetString());
@@ -144,7 +144,7 @@ void SetUpRedirectLoopURL() {
   timing.Initialize();
 
   WebURLResponse response;
-  response.SetURL(url);
+  response.SetCurrentRequestUrl(url);
   response.SetHTTPStatusCode(301);
   response.SetLoadTiming(timing);
   response.AddHTTPHeaderField("Location", RedirectLoopURL().GetString());
@@ -424,7 +424,6 @@ TEST_F(ThreadableLoaderTest, DidFail) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
   EXPECT_CALL(*Client(), DidFail(Truly(IsNotCancellation)));
 
   StartLoader(ErrorURL());
@@ -439,7 +438,6 @@ TEST_F(ThreadableLoaderTest, CancelInDidFail) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
   EXPECT_CALL(*Client(), DidFail(_))
       .WillOnce(InvokeWithoutArgs(this, &ThreadableLoaderTest::CancelLoader));
 
@@ -455,7 +453,6 @@ TEST_F(ThreadableLoaderTest, ClearInDidFail) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
   EXPECT_CALL(*Client(), DidFail(_))
       .WillOnce(InvokeWithoutArgs(this, &ThreadableLoaderTest::ClearLoader));
 

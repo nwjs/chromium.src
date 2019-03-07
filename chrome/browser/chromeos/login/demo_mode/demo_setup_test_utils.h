@@ -12,7 +12,7 @@
 #include "chrome/browser/chromeos/login/enrollment/enterprise_enrollment_helper_mock.h"
 #include "chrome/browser/chromeos/policy/enrollment_config.h"
 #include "chrome/browser/chromeos/policy/enrollment_status_chromeos.h"
-#include "chromeos/settings/install_attributes.h"
+#include "chromeos/tpm/install_attributes.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -44,7 +44,7 @@ EnterpriseEnrollmentHelper* MockDemoModeOnlineEnrollmentHelperCreator(
       .WillRepeatedly(testing::Invoke([mock]() {
         switch (result) {
           case DemoModeSetupResult::SUCCESS:
-            mock->status_consumer()->OnDeviceEnrolled("");
+            mock->status_consumer()->OnDeviceEnrolled();
             break;
           case DemoModeSetupResult::ERROR_POWERWASH_REQUIRED:
             mock->status_consumer()->OnEnrollmentError(
@@ -80,7 +80,7 @@ EnterpriseEnrollmentHelper* MockDemoModeOfflineEnrollmentHelperCreator(
       .WillRepeatedly(testing::Invoke([mock]() {
         switch (result) {
           case DemoModeSetupResult::SUCCESS:
-            mock->status_consumer()->OnDeviceEnrolled("");
+            mock->status_consumer()->OnDeviceEnrolled();
             break;
           case DemoModeSetupResult::ERROR_POWERWASH_REQUIRED:
             mock->status_consumer()->OnEnrollmentError(

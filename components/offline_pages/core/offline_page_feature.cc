@@ -16,8 +16,6 @@ namespace {
 // integration tests.
 const char kOfflinePagesUseTestingSnapshotDelay[] =
     "short-offline-page-snapshot-delay-for-test";
-
-bool limitless_prefetching_enabled = false;
 }  // namespace
 
 namespace offline_pages {
@@ -58,9 +56,6 @@ const base::Feature kPrefetchingOfflinePagesFeature{
 const base::Feature kOfflinePagesCTV2Feature{"OfflinePagesCTV2",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
-const base::Feature kOfflinePagesLimitlessPrefetchingFeature{
-    "OfflinePagesLimitlessPrefetching", base::FEATURE_DISABLED_BY_DEFAULT};
-
 const base::Feature kOfflinePagesDescriptiveFailStatusFeature{
     "OfflinePagesDescriptiveFailStatus", base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -81,6 +76,9 @@ const base::Feature kOfflineIndicatorFeature{"OfflineIndicator",
 
 const base::Feature kOfflineIndicatorAlwaysHttpProbeFeature{
     "OfflineIndicatorAlwaysHttpProbe", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kOnTheFlyMhtmlHashComputationFeature{
+    "OnTheFlyMhtmlHashComputation", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const char kPrefetchingOfflinePagesExperimentsOption[] = "exp";
 
@@ -115,15 +113,6 @@ bool IsBackgroundLoaderForDownloadsEnabled() {
 
 bool IsPrefetchingOfflinePagesEnabled() {
   return base::FeatureList::IsEnabled(kPrefetchingOfflinePagesFeature);
-}
-
-bool IsLimitlessPrefetchingEnabled() {
-  // TODO(https://crbug.com/803584): fix limitless mode or fully remove it.
-  return limitless_prefetching_enabled;
-}
-
-void SetLimitlessPrefetchingEnabledForTesting(bool enabled) {
-  limitless_prefetching_enabled = enabled;
 }
 
 bool IsOfflinePagesLoadSignalCollectingEnabled() {
@@ -185,6 +174,10 @@ bool IsOfflineIndicatorFeatureEnabled() {
 
 bool IsOfflineIndicatorAlwaysHttpProbeEnabled() {
   return base::FeatureList::IsEnabled(kOfflineIndicatorAlwaysHttpProbeFeature);
+}
+
+bool IsOnTheFlyMhtmlHashComputationEnabled() {
+  return base::FeatureList::IsEnabled(kOnTheFlyMhtmlHashComputationFeature);
 }
 
 }  // namespace offline_pages

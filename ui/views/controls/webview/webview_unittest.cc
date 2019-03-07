@@ -126,8 +126,7 @@ class WebViewTestWebContentsDelegate : public content::WebContentsDelegate {
 class WebViewUnitTest : public views::test::WidgetTest {
  public:
   WebViewUnitTest() = default;
-
-  ~WebViewUnitTest() override {}
+  ~WebViewUnitTest() override = default;
 
   std::unique_ptr<content::WebContents> CreateWebContentsForWebView(
       content::BrowserContext* browser_context) {
@@ -136,6 +135,10 @@ class WebViewUnitTest : public views::test::WidgetTest {
   }
 
   void SetUp() override {
+    set_scoped_task_environment(
+        std::make_unique<content::TestBrowserThreadBundle>());
+    rvh_enabler_ = std::make_unique<content::RenderViewHostTestEnabler>();
+
     views::WebView::WebContentsCreator creator = base::BindRepeating(
         &WebViewUnitTest::CreateWebContentsForWebView, base::Unretained(this));
     scoped_web_contents_creator_ =
@@ -187,8 +190,7 @@ class WebViewUnitTest : public views::test::WidgetTest {
   }
 
  private:
-  content::TestBrowserThreadBundle test_browser_thread_bundle_;
-  content::RenderViewHostTestEnabler rvh_enabler_;
+  std::unique_ptr<content::RenderViewHostTestEnabler> rvh_enabler_;
   std::unique_ptr<content::TestBrowserContext> browser_context_;
   content::TestContentBrowserClient test_browser_client_;
   std::unique_ptr<views::WebView::ScopedWebContentsCreatorForTesting>

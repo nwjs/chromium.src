@@ -14,6 +14,7 @@
 #include "base/big_endian.h"
 #include "base/bind.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/stl_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "media/filters/jpeg_parser.h"
 #include "media/gpu/macros.h"
@@ -292,7 +293,7 @@ void V4L2JpegDecodeAccelerator::DecodeTask(
     PostNotifyError(job_record->bitstream_buffer_id, UNREADABLE_INPUT);
     return;
   }
-  input_jobs_.push(make_linked_ptr(job_record.release()));
+  input_jobs_.push(std::move(job_record));
 
   ServiceDeviceTask(false);
 }
@@ -310,7 +311,7 @@ bool V4L2JpegDecodeAccelerator::ShouldRecreateInputBuffers() {
   if (input_jobs_.empty())
     return false;
 
-  linked_ptr<JobRecord> job_record = input_jobs_.front();
+  JobRecord* job_record = input_jobs_.front().get();
   // Check input buffer size is enough
   return (input_buffer_map_.empty() ||
           (job_record->shm.size() + sizeof(kDefaultDhtSeg)) >
@@ -354,7 +355,7 @@ bool V4L2JpegDecodeAccelerator::CreateInputBuffers() {
   DCHECK(decoder_task_runner_->BelongsToCurrentThread());
   DCHECK(!input_streamon_);
   DCHECK(!input_jobs_.empty());
-  linked_ptr<JobRecord> job_record = input_jobs_.front();
+  JobRecord* job_record = input_jobs_.front().get();
   // The input image may miss huffman table. We didn't parse the image before,
   // so we create more to avoid the situation of not enough memory.
   // Reserve twice size to avoid recreating input buffer frequently.
@@ -389,7 +390,7 @@ bool V4L2JpegDecodeAccelerator::CreateInputBuffers() {
     buffer.index = i;
     buffer.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     buffer.m.planes = planes;
-    buffer.length = arraysize(planes);
+    buffer.length = base::size(planes);
     buffer.memory = V4L2_MEMORY_MMAP;
     IOCTL_OR_ERROR_RETURN_FALSE(VIDIOC_QUERYBUF, &buffer);
     if (buffer.length != kMaxInputPlanes) {
@@ -417,7 +418,7 @@ bool V4L2JpegDecodeAccelerator::CreateOutputBuffers() {
   DCHECK(decoder_task_runner_->BelongsToCurrentThread());
   DCHECK(!output_streamon_);
   DCHECK(!running_jobs_.empty());
-  linked_ptr<JobRecord> job_record = running_jobs_.front();
+  JobRecord* job_record = running_jobs_.front().get();
 
   size_t frame_size = VideoFrame::AllocationSize(
       PIXEL_FORMAT_I420, job_record->out_frame->coded_size());
@@ -466,7 +467,7 @@ bool V4L2JpegDecodeAccelerator::CreateOutputBuffers() {
     buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     buffer.memory = V4L2_MEMORY_MMAP;
     buffer.m.planes = planes;
-    buffer.length = arraysize(planes);
+    buffer.length = base::size(planes);
     IOCTL_OR_ERROR_RETURN_FALSE(VIDIOC_QUERYBUF, &buffer);
 
     if (output_buffer_num_planes_ != buffer.length) {
@@ -759,7 +760,7 @@ void V4L2JpegDecodeAccelerator::Dequeue() {
     memset(planes, 0, sizeof(planes));
     dqbuf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     dqbuf.memory = V4L2_MEMORY_MMAP;
-    dqbuf.length = arraysize(planes);
+    dqbuf.length = base::size(planes);
     dqbuf.m.planes = planes;
     if (device_->Ioctl(VIDIOC_DQBUF, &dqbuf) != 0) {
       if (errno == EAGAIN) {
@@ -796,7 +797,7 @@ void V4L2JpegDecodeAccelerator::Dequeue() {
     // USERPTR. Also, client doesn't need to consider the buffer alignment and
     // JpegDecodeAccelerator API will be simpler.
     dqbuf.memory = V4L2_MEMORY_MMAP;
-    dqbuf.length = arraysize(planes);
+    dqbuf.length = base::size(planes);
     dqbuf.m.planes = planes;
     if (device_->Ioctl(VIDIOC_DQBUF, &dqbuf) != 0) {
       if (errno == EAGAIN) {
@@ -813,7 +814,7 @@ void V4L2JpegDecodeAccelerator::Dequeue() {
     free_output_buffers_.push_back(dqbuf.index);
 
     // Jobs are always processed in FIFO order.
-    linked_ptr<JobRecord> job_record = running_jobs_.front();
+    std::unique_ptr<JobRecord> job_record = std::move(running_jobs_.front());
     running_jobs_.pop();
 
     if (dqbuf.flags & V4L2_BUF_FLAG_ERROR) {
@@ -923,7 +924,7 @@ bool V4L2JpegDecodeAccelerator::EnqueueInputRecord() {
   DCHECK(!free_input_buffers_.empty());
 
   // Enqueue an input (VIDEO_OUTPUT) buffer for an input video frame.
-  linked_ptr<JobRecord> job_record = input_jobs_.front();
+  std::unique_ptr<JobRecord> job_record = std::move(input_jobs_.front());
   input_jobs_.pop();
   const int index = free_input_buffers_.back();
   BufferRecord& input_record = input_buffer_map_[index];
@@ -943,13 +944,13 @@ bool V4L2JpegDecodeAccelerator::EnqueueInputRecord() {
   qbuf.index = index;
   qbuf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
   qbuf.memory = V4L2_MEMORY_MMAP;
-  qbuf.length = arraysize(planes);
+  qbuf.length = base::size(planes);
   // There is only one plane for V4L2_PIX_FMT_JPEG.
   planes[0].bytesused = input_record.length[0];
   qbuf.m.planes = planes;
   IOCTL_OR_ERROR_RETURN_FALSE(VIDIOC_QBUF, &qbuf);
   input_record.at_device = true;
-  running_jobs_.push(job_record);
+  running_jobs_.push(std::move(job_record));
   free_input_buffers_.pop_back();
 
   DVLOGF(3) << "enqueued frame id=" << job_record->bitstream_buffer_id
@@ -972,7 +973,7 @@ bool V4L2JpegDecodeAccelerator::EnqueueOutputRecord() {
   qbuf.index = index;
   qbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
   qbuf.memory = V4L2_MEMORY_MMAP;
-  qbuf.length = arraysize(planes);
+  qbuf.length = base::size(planes);
   qbuf.m.planes = planes;
   IOCTL_OR_ERROR_RETURN_FALSE(VIDIOC_QBUF, &qbuf);
   output_record.at_device = true;

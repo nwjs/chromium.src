@@ -2858,25 +2858,18 @@ TEST_F(RenderWidgetHostViewAuraTest, ConflictingAllocationsResolve) {
 
   // Cause a conflicting viz::LocalSurfaceId allocation
   aura_test_helper_->test_screen()->SetDeviceScaleFactor(2.0f);
-  viz::LocalSurfaceIdAllocation local_surface_id_allocation3(
-      view_->GetLocalSurfaceIdAllocation());
-  EXPECT_NE(local_surface_id_allocation1, local_surface_id_allocation3);
-
-  viz::LocalSurfaceIdAllocation local_surface_id_allocation4(
-      view_->GetLocalSurfaceIdAllocation());
-  EXPECT_NE(local_surface_id_allocation1, local_surface_id_allocation4);
-  EXPECT_NE(local_surface_id_allocation2, local_surface_id_allocation4);
   viz::LocalSurfaceIdAllocation merged_local_surface_id_allocation(
-      viz::LocalSurfaceId(
-          local_surface_id_allocation2.local_surface_id()
-                  .parent_sequence_number() +
-              1,
-          local_surface_id_allocation2.local_surface_id()
-              .child_sequence_number(),
-          local_surface_id_allocation2.local_surface_id().embed_token()),
-      base::TimeTicks::Now());
-  EXPECT_EQ(local_surface_id_allocation4.local_surface_id(),
-            merged_local_surface_id_allocation.local_surface_id());
+      view_->GetLocalSurfaceIdAllocation());
+  EXPECT_NE(local_surface_id_allocation1, merged_local_surface_id_allocation);
+  EXPECT_NE(local_surface_id_allocation2, merged_local_surface_id_allocation);
+  EXPECT_GT(
+      merged_local_surface_id_allocation.local_surface_id()
+          .parent_sequence_number(),
+      local_surface_id_allocation2.local_surface_id().parent_sequence_number());
+  EXPECT_EQ(
+      merged_local_surface_id_allocation.local_surface_id()
+          .child_sequence_number(),
+      local_surface_id_allocation2.local_surface_id().child_sequence_number());
 }
 
 // Checks that WidgetInputHandler::CursorVisibilityChange IPC messages are
@@ -3108,7 +3101,7 @@ TEST_F(RenderWidgetHostViewAuraTest, TwoOutputSurfaces) {
   view_->renderer_compositor_frame_sink_->Reset();
   viz::Surface* surface = manager->GetSurfaceForId(view_->surface_id());
   EXPECT_TRUE(surface);
-  surface->RunDrawCallback();
+  surface->SendAckToClient();
   view_->renderer_compositor_frame_sink_->Flush();
   EXPECT_TRUE(view_->renderer_compositor_frame_sink_->did_receive_ack());
 
@@ -6431,45 +6424,85 @@ TEST_F(InputMethodStateAuraTest, GetSelectedText) {
 
 // This test is for text range.
 TEST_F(InputMethodStateAuraTest, GetTextRange) {
-  base::string16 text = base::ASCIIToUTF16("some text of length 22");
-  size_t offset = 0U;
-  gfx::Range selection_range;
+  const base::string16 text = base::ASCIIToUTF16("some text of length 22");
 
   for (auto index : active_view_sequence_) {
-    render_widget_host_delegate()->set_focused_widget(
-        RenderWidgetHostImpl::From(views_[index]->GetRenderWidgetHost()));
-    gfx::Range expected_range(offset, offset + text.length());
-    views_[index]->SelectionChanged(text, offset, selection_range);
+    ActivateViewForTextInputManager(views_[index], ui::TEXT_INPUT_TYPE_TEXT);
+    TextInputState state;
+    state.type = ui::TEXT_INPUT_TYPE_TEXT;
+    state.value = text;
+    gfx::Range expected_range(0, 22);
+    views_[index]->TextInputStateChanged(state);
     gfx::Range range_from_client;
 
     // For aura this always returns true.
     EXPECT_TRUE(text_input_client()->GetTextRange(&range_from_client));
     EXPECT_EQ(expected_range, range_from_client);
+  }
+}
 
-    // Changing offset to make sure that the next view has a different text
-    // selection.
-    offset++;
+TEST_F(InputMethodStateAuraTest, GetCompositionTextRange) {
+  // Initially, there should be no range.
+  gfx::Range range_from_client;
+  EXPECT_FALSE(
+      text_input_client()->GetCompositionTextRange(&range_from_client));
+
+  for (auto index : active_view_sequence_) {
+    ActivateViewForTextInputManager(views_[index], ui::TEXT_INPUT_TYPE_TEXT);
+    gfx::Range expected_range(1, 2 + index);
+    TextInputState state;
+    state.type = ui::TEXT_INPUT_TYPE_TEXT;
+    state.composition_start = expected_range.start();
+    state.composition_end = expected_range.end();
+    views_[index]->TextInputStateChanged(state);
+    gfx::Range range_from_client;
+
+    EXPECT_TRUE(
+        text_input_client()->GetCompositionTextRange(&range_from_client));
+    EXPECT_EQ(expected_range, range_from_client);
   }
 }
 
 // This test is for selection range.
-TEST_F(InputMethodStateAuraTest, GetSelectionRange) {
-  base::string16 text;
+TEST_F(InputMethodStateAuraTest, GetEditableSelectionRange) {
   gfx::Range expected_range(0U, 1U);
 
   for (auto index : active_view_sequence_) {
-    render_widget_host_delegate()->set_focused_widget(
-        RenderWidgetHostImpl::From(views_[index]->GetRenderWidgetHost()));
-    views_[index]->SelectionChanged(text, 0U, expected_range);
+    ActivateViewForTextInputManager(views_[index], ui::TEXT_INPUT_TYPE_TEXT);
+    TextInputState state_with_selection;
+    state_with_selection.type = ui::TEXT_INPUT_TYPE_TEXT;
+    state_with_selection.selection_start = expected_range.start();
+    state_with_selection.selection_end = expected_range.end();
+    views_[index]->TextInputStateChanged(state_with_selection);
     gfx::Range range_from_client;
 
     // This method always returns true.
-    EXPECT_TRUE(text_input_client()->GetSelectionRange(&range_from_client));
+    EXPECT_TRUE(
+        text_input_client()->GetEditableSelectionRange(&range_from_client));
     EXPECT_EQ(expected_range, range_from_client);
 
     // Changing range to make sure that the next view has a different text
     // selection.
     expected_range.set_end(expected_range.end() + 1U);
+  }
+}
+
+TEST_F(InputMethodStateAuraTest, GetTextFromRange) {
+  const base::string16 text = base::ASCIIToUTF16("some text of length 22");
+
+  for (auto index : active_view_sequence_) {
+    ActivateViewForTextInputManager(views_[index], ui::TEXT_INPUT_TYPE_TEXT);
+    TextInputState state;
+    state.type = ui::TEXT_INPUT_TYPE_TEXT;
+    state.value = text;
+    views_[index]->TextInputStateChanged(state);
+
+    gfx::Range request_range(std::min(index, text.length() - 1),
+                             std::min(index + 3, text.length() - 1));
+    base::string16 result;
+    EXPECT_TRUE(text_input_client()->GetTextFromRange(request_range, &result));
+    EXPECT_EQ(text.substr(request_range.start(), request_range.length()),
+              result);
   }
 }
 

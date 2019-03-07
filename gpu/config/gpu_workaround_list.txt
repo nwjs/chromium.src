@@ -4,6 +4,7 @@ avoid_egl_image_target_texture_reuse
 avoid_one_component_egl_images
 avoid_stencil_buffers
 broken_egl_image_ref_counting
+clamp_texture_base_level_and_max_level
 clear_pixel_unpack_buffer_before_copyteximage
 clear_to_zero_or_one_broken
 clear_uniforms_before_first_program_use
@@ -21,6 +22,7 @@ disable_d3d11
 disable_delayed_copy_nv12
 disable_depth_texture
 disable_direct_composition
+disable_direct_composition_layers
 disable_discard_framebuffer
 disable_dxgi_zero_copy_video
 disable_es3_gl_context

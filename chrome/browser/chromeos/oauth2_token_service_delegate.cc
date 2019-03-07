@@ -10,9 +10,9 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "chrome/browser/chromeos/account_mapper_util.h"
 #include "chromeos/account_manager/account_manager.h"
-#include "components/signin/core/browser/signin_error_controller.h"
 #include "content/public/browser/network_service_instance.h"
 #include "google_apis/gaia/oauth2_access_token_fetcher_immediate_error.h"
 #include "net/base/backoff_entry.h"
@@ -39,55 +39,34 @@ const net::BackoffEntry::Policy kBackoffPolicy = {
     false /* bool always_use_initial_delay */,
 };
 
+// Maps crOS Account Manager |account_keys| to the account id representation
+// used by the OAuth token service chain. |account_keys| can safely contain Gaia
+// and non-Gaia accounts. Non-Gaia accounts will be filtered out.
+// |account_keys| is the set of accounts that need to be translated.
+// |account_mapper_util| is an unowned pointer to |AccountMapperUtil|.
+std::vector<std::string> GetOAuthAccountIdsFromAccountKeys(
+    const std::set<AccountManager::AccountKey>& account_keys,
+    const AccountMapperUtil* const account_mapper_util) {
+  std::vector<std::string> accounts;
+  for (auto& account_key : account_keys) {
+    std::string account_id =
+        account_mapper_util->AccountKeyToOAuthAccountId(account_key);
+    if (!account_id.empty()) {
+      accounts.emplace_back(account_id);
+    }
+  }
+
+  return accounts;
+}
+
 }  // namespace
-
-class ChromeOSOAuth2TokenServiceDelegate::AccountErrorStatus
-    : public SigninErrorController::AuthStatusProvider {
- public:
-  AccountErrorStatus(SigninErrorController* signin_error_controller,
-                     const std::string& account_id)
-      : signin_error_controller_(signin_error_controller),
-        account_id_(account_id) {
-    signin_error_controller_->AddProvider(this);
-  }
-
-  ~AccountErrorStatus() override {
-    signin_error_controller_->RemoveProvider(this);
-  }
-
-  // SigninErrorController::AuthStatusProvider overrides.
-  std::string GetAccountId() const override { return account_id_; }
-
-  GoogleServiceAuthError GetAuthStatus() const override {
-    return last_auth_error_;
-  }
-
-  void SetLastAuthError(const GoogleServiceAuthError& error) {
-    last_auth_error_ = error;
-    signin_error_controller_->AuthStatusChanged();
-  }
-
- private:
-  // A non-owning pointer to |SigninErrorController|.
-  SigninErrorController* const signin_error_controller_;
-
-  // The account id being tracked by |this| instance of |AccountErrorStatus|.
-  const std::string account_id_;
-
-  // The last auth error seen for |account_id_|.
-  GoogleServiceAuthError last_auth_error_;
-
-  DISALLOW_COPY_AND_ASSIGN(AccountErrorStatus);
-};
 
 ChromeOSOAuth2TokenServiceDelegate::ChromeOSOAuth2TokenServiceDelegate(
     AccountTrackerService* account_tracker_service,
-    chromeos::AccountManager* account_manager,
-    SigninErrorController* signin_error_controller)
+    chromeos::AccountManager* account_manager)
     : account_mapper_util_(
           std::make_unique<AccountMapperUtil>(account_tracker_service)),
       account_manager_(account_manager),
-      signin_error_controller_(signin_error_controller),
       backoff_entry_(&kBackoffPolicy),
       backoff_error_(GoogleServiceAuthError::NONE),
       weak_factory_(this) {
@@ -113,12 +92,12 @@ ChromeOSOAuth2TokenServiceDelegate::CreateAccessTokenFetcher(
   // We will reject the request if we are facing a persistent error for this
   // account.
   auto it = errors_.find(account_id);
-  if (it != errors_.end() && it->second->GetAuthStatus().IsPersistentError()) {
+  if (it != errors_.end() && it->second.last_auth_error.IsPersistentError()) {
     VLOG(1) << "Request for token has been rejected due to persistent error #"
-            << it->second->GetAuthStatus().state();
+            << it->second.last_auth_error.state();
     // |OAuth2TokenService| will manage the lifetime of this pointer.
     return new OAuth2AccessTokenFetcherImmediateError(
-        consumer, it->second->GetAuthStatus());
+        consumer, it->second.last_auth_error);
   }
   // Or when we need to backoff.
   if (backoff_entry_.ShouldRejectRequest()) {
@@ -137,14 +116,21 @@ ChromeOSOAuth2TokenServiceDelegate::CreateAccessTokenFetcher(
       .release();
 }
 
+// Note: This method should use the same logic for filtering accounts as
+// |GetAccounts|. See crbug.com/919793 for details. At the time of writing,
+// both |GetAccounts| and |RefreshTokenIsAvailable| use
+// |GetOAuthAccountIdsFromAccountKeys|.
 bool ChromeOSOAuth2TokenServiceDelegate::RefreshTokenIsAvailable(
     const std::string& account_id) const {
   if (load_credentials_state() != LOAD_CREDENTIALS_FINISHED_WITH_SUCCESS) {
     return false;
   }
 
-  return account_manager_->IsTokenAvailable(
-      account_mapper_util_->OAuthAccountIdToAccountKey(account_id));
+  // We intentionally do NOT check if the refresh token associated with
+  // |account_id| is valid or not. See crbug.com/919793 for details.
+  return base::ContainsValue(GetOAuthAccountIdsFromAccountKeys(
+                                 account_keys_, account_mapper_util_.get()),
+                             account_id);
 }
 
 void ChromeOSOAuth2TokenServiceDelegate::UpdateAuthError(
@@ -160,22 +146,16 @@ void ChromeOSOAuth2TokenServiceDelegate::UpdateAuthError(
   }
 
   auto it = errors_.find(account_id);
-  if (error.state() == GoogleServiceAuthError::NONE) {
-    // If the error status is NONE, and we were not tracking any error anyways,
-    // just ignore the update.
-    // Otherwise, delete the error tracking for this account.
-    if (it != errors_.end()) {
+  if ((it != errors_.end())) {
+    // Update the existing error.
+    if (error.state() == GoogleServiceAuthError::NONE)
       errors_.erase(it);
-      FireAuthErrorChanged(account_id, error);
-    }
-  } else if ((it == errors_.end()) || (it->second->GetAuthStatus() != error)) {
-    // Error status is not NONE. We need to start tracking the account / update
-    // the last seen error, if it is different.
-    if (it == errors_.end()) {
-      errors_.emplace(account_id, std::make_unique<AccountErrorStatus>(
-                                      signin_error_controller_, account_id));
-    }
-    errors_[account_id]->SetLastAuthError(error);
+    else
+      it->second.last_auth_error = error;
+    FireAuthErrorChanged(account_id, error);
+  } else if (error.state() != GoogleServiceAuthError::NONE) {
+    // Add a new error.
+    errors_.emplace(account_id, AccountErrorStatus{error});
     FireAuthErrorChanged(account_id, error);
   }
 }
@@ -184,26 +164,25 @@ GoogleServiceAuthError ChromeOSOAuth2TokenServiceDelegate::GetAuthError(
     const std::string& account_id) const {
   auto it = errors_.find(account_id);
   if (it != errors_.end()) {
-    return it->second->GetAuthStatus();
+    return it->second.last_auth_error;
   }
 
   return GoogleServiceAuthError::AuthErrorNone();
 }
 
+// Note: This method should use the same logic for filtering accounts as
+// |RefreshTokenIsAvailable|. See crbug.com/919793 for details. At the time of
+// writing, both |GetAccounts| and |RefreshTokenIsAvailable| use
+// |GetOAuthAccountIdsFromAccountKeys|.
 std::vector<std::string> ChromeOSOAuth2TokenServiceDelegate::GetAccounts() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK_EQ(LOAD_CREDENTIALS_FINISHED_WITH_SUCCESS, load_credentials_state());
 
-  std::vector<std::string> accounts;
-  for (auto& account_key : account_keys_) {
-    std::string account_id =
-        account_mapper_util_->AccountKeyToOAuthAccountId(account_key);
-    if (!account_id.empty()) {
-      accounts.emplace_back(account_id);
-    }
-  }
+  // |GetAccounts| intentionally does not care about the state of
+  // |load_credentials_state|. See crbug.com/919793 and crbug.com/900590 for
+  // details.
 
-  return accounts;
+  return GetOAuthAccountIdsFromAccountKeys(account_keys_,
+                                           account_mapper_util_.get());
 }
 
 void ChromeOSOAuth2TokenServiceDelegate::LoadCredentials(
@@ -282,14 +261,16 @@ void ChromeOSOAuth2TokenServiceDelegate::OnTokenUpserted(
     return;
   }
 
-  ScopedBatchChange batch(this);
-  FireRefreshTokenAvailable(account_id);
-
+  // Clear any previously cached errors for |account_id|.
   // We cannot directly use |UpdateAuthError| because it does not invoke
   // |FireAuthErrorChanged| if |account_id|'s error state was already
   // |GoogleServiceAuthError::State::NONE|, but |FireAuthErrorChanged| must be
-  // invoked here, regardless. See the comment below.
+  // invoked here, regardless. See the comment above |FireAuthErrorChanged| few
+  // lines down.
   errors_.erase(account_id);
+
+  ScopedBatchChange batch(this);
+  FireRefreshTokenAvailable(account_id);
   // See |OAuth2TokenService::Observer::OnAuthErrorChanged|.
   // |OnAuthErrorChanged| must be always called after
   // |OnRefreshTokenAvailable|, when refresh token is updated.

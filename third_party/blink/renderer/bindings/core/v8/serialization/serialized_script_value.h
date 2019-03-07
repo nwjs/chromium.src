@@ -53,6 +53,8 @@ namespace blink {
 class BlobDataHandle;
 class DOMSharedArrayBuffer;
 class ExceptionState;
+class ExecutionContext;
+class MessagePort;
 class ScriptValue;
 class SharedBuffer;
 class StaticBitmapImage;
@@ -72,7 +74,7 @@ class CORE_EXPORT SerializedScriptValue
   using SharedArrayBufferContentsArray = Vector<WTF::ArrayBufferContents, 1>;
   using ImageBitmapContentsArray = Vector<scoped_refptr<StaticBitmapImage>, 1>;
   using TransferredWasmModulesArray =
-      WTF::Vector<v8::WasmCompiledModule::TransferrableModule>;
+      WTF::Vector<v8::WasmModuleObject::TransferrableModule>;
   using MessagePortChannelArray = Vector<MessagePortChannel>;
 
   // Increment this for each incompatible change to the wire format.
@@ -295,9 +297,22 @@ class CORE_EXPORT SerializedScriptValue
   void TransferReadableStreams(ScriptState*,
                                const ReadableStreamArray&,
                                ExceptionState&);
+  void TransferReadableStream(ScriptState* script_state,
+                              ExecutionContext* execution_context,
+                              ReadableStream* readable_streams,
+                              ExceptionState& exception_state);
   void TransferWritableStreams(ScriptState*,
                                const WritableStreamArray&,
                                ExceptionState&);
+  void TransferWritableStream(ScriptState* script_state,
+                              ExecutionContext* execution_context,
+                              WritableStream* writable_streams,
+                              ExceptionState& exception_state);
+  void TransferTransformStreams(ScriptState*,
+                                const TransformStreamArray&,
+                                ExceptionState&);
+  MessagePort* AddStreamChannel(ExecutionContext*);
+
   void CloneSharedArrayBuffers(SharedArrayBufferArray&);
   DataBufferPtr data_buffer_;
   size_t data_buffer_size_ = 0;

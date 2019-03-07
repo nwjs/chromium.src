@@ -102,11 +102,55 @@ namespace autotestPrivate {
   };
   callback HistogramCallback = void (Histogram histogram);
 
+  dictionary AssistantQueryResponse {
+    DOMString? text;
+    DOMString? htmlResponse;
+    DOMString? htmlFallback;
+  };
+  callback AssistantQueryResponseCallback =
+      void(AssistantQueryResponse response);
+
   callback IsAppShownCallback = void (boolean appShown);
 
   callback IsArcProvisionedCallback = void (boolean arcProvisioned);
 
+  dictionary ArcAppDict {
+    DOMString name;
+    DOMString packageName;
+    DOMString activity;
+    DOMString intentUri;
+    DOMString iconResourceId;
+    double lastLaunchTime;
+    double installTime;
+    boolean sticky;
+    boolean notificationsEnabled;
+    boolean ready;
+    boolean suspended;
+    boolean showInLauncher;
+    boolean shortcut;
+    boolean launchable;
+  };
+  callback GetArcAppCallback = void (ArcAppDict package);
+
+  dictionary ArcPackageDict {
+    DOMString packageName;
+    long packageVersion;
+    DOMString lastBackupAndroidId;
+    double lastBackupTime;
+    boolean shouldSync;
+    boolean system;
+    boolean vpnProvider;
+  };
+  callback GetArcPackageCallback = void (ArcPackageDict package);
+
+  callback LaunchArcAppCallback = void (boolean appLaunched);
+
   callback TakeScreenshotCallback = void (DOMString base64Png);
+
+  callback EnsureWindowServiceClientHasDrawnWindowCallback =
+      void(boolean success);
+
+  callback GetPrimaryDisplayScaleFactorCallback = void (double scaleFactor);
 
   callback VoidCallback = void ();
 
@@ -180,8 +224,23 @@ namespace autotestPrivate {
     // Returns true if ARC is provisioned.
     static void isArcProvisioned(IsArcProvisionedCallback callback);
 
+    // Gets information about the requested ARC app.
+    static void getArcApp(DOMString appId, GetArcAppCallback callback);
+
+    // Gets information about requested ARC package.
+    static void getArcPackage(DOMString packageName,
+                              GetArcPackageCallback callback);
+
+    // Launches ARC app with optional intent. Returns true if ARC is active,
+    // app exists and launch request is passed to Android.
+    static void launchArcApp(DOMString appId, DOMString intent,
+                             LaunchArcAppCallback callback);
+
     // Launches an application from the launcher with the given appId.
     static void launchApp(DOMString appId, VoidCallback callback);
+
+    // Closes an application the given appId in case it was running.
+    static void closeApp(DOMString appId, VoidCallback callback);
 
     // Update printer. Printer with empty ID is considered new.
     static void updatePrinter(Printer printer);
@@ -225,6 +284,34 @@ namespace autotestPrivate {
 
     // Enable/disable the Google Assistant
     // |callback|: Called when the operation has completed.
-    static void setAssistantEnabled(boolean enabled, long timeout_ms, VoidCallback callback);
+    static void setAssistantEnabled(boolean enabled, long timeout_ms,
+                                    VoidCallback callback);
+
+    // Send a text query via Google Assistant.
+    // |callback|: Called when response has been received.
+    static void sendAssistantTextQuery(DOMString query, long timeout_ms,
+                                       AssistantQueryResponseCallback callback);
+
+    // Enable/disable a Crostini app's "scaled" property.
+    // |appId|: The Crostini application ID.
+    // |scaled|: The app is "scaled" when shown, which means it uses low display
+    //           density.
+    // |callback|: Called when the operation has completed.
+    static void setCrostiniAppScaled(DOMString appId, boolean scaled,
+                                     VoidCallback callback);
+
+    // Ensure that the Window Service client identified by |clientName| has
+    // drawn any window. |callback| is invoked with true if the client has drawn
+    // anything or when it does so before the time out. Otherwise, an error
+    // is raised when timeout happens.
+    static void ensureWindowServiceClientHasDrawnWindow(
+        DOMString clientName,
+        long timeout_ms,
+        EnsureWindowServiceClientHasDrawnWindowCallback callback);
+
+    // Get the primary display scale factor.
+    // |callback| is invoked with the scale factor.
+    static void getPrimaryDisplayScaleFactor(
+        GetPrimaryDisplayScaleFactorCallback callback);
   };
 };

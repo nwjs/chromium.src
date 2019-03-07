@@ -39,13 +39,13 @@ void BlockPainter::Paint(const PaintInfo& paint_info) {
     local_paint_info.phase = PaintPhase::kDescendantOutlinesOnly;
   } else if (ShouldPaintSelfBlockBackground(original_phase)) {
     local_paint_info.phase = PaintPhase::kSelfBlockBackgroundOnly;
-    // With SlimmingPaintV2 we need to call PaintObject twice: once for the
+    // With CompositeAfterPaint we need to call PaintObject twice: once for the
     // background painting that does not scroll, and a second time for the
     // background painting that scrolls.
-    // Without SlimmingPaintV2, this happens as the main graphics layer
+    // Without CompositeAfterPaint, this happens as the main graphics layer
     // paints the background, and then the scrolling contents graphics layer
     // paints the background.
-    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
       auto paint_location = layout_block_.GetBackgroundPaintLocation();
       if (!(paint_location & kBackgroundPaintInGraphicsLayer))
         local_paint_info.SetSkipsBackground(true);
@@ -197,7 +197,7 @@ void BlockPainter::PaintInlineBox(const InlineBox& inline_box,
 }
 
 void BlockPainter::PaintScrollHitTestDisplayItem(const PaintInfo& paint_info) {
-  DCHECK(RuntimeEnabledFeatures::SlimmingPaintV2Enabled());
+  DCHECK(RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
 
   // Scroll hit test display items are only needed for compositing. This flag is
   // used for for printing and drag images which do not need hit testing.
@@ -348,6 +348,38 @@ void BlockPainter::PaintCarets(const PaintInfo& paint_info,
   }
 }
 
+LayoutRect BlockPainter::OverflowRectForCullRectTesting(
+    bool is_printing) const {
+  LayoutRect overflow_rect;
+  if (is_printing && layout_block_.IsAnonymousBlock() &&
+      layout_block_.ChildrenInline()) {
+    // For case <a href="..."><div>...</div></a>, when layout_block_ is the
+    // anonymous container of <a>, the anonymous container's visual overflow is
+    // empty, but we need to continue painting to output <a>'s PDF URL rect
+    // which covers the continuations, as if we included <a>'s PDF URL rect into
+    // layout_block_'s visual overflow.
+    auto rects = layout_block_.PhysicalOutlineRects(
+        LayoutPoint(), NGOutlineType::kIncludeBlockVisualOverflow);
+    overflow_rect = UnionRect(rects);
+  }
+  overflow_rect.Unite(layout_block_.VisualOverflowRect());
+
+  bool include_layout_overflow =
+      layout_block_.ScrollsOverflow() &&
+      (layout_block_.UsesCompositedScrolling() ||
+       RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
+
+  if (include_layout_overflow) {
+    LayoutRect layout_overflow_rect = layout_block_.LayoutOverflowRect();
+    overflow_rect.Unite(layout_overflow_rect);
+    layout_block_.FlipForWritingMode(overflow_rect);
+    overflow_rect.Move(-layout_block_.ScrolledContentOffset());
+  } else {
+    layout_block_.FlipForWritingMode(overflow_rect);
+  }
+  return overflow_rect;
+}
+
 DISABLE_CFI_PERF
 bool BlockPainter::ShouldPaint(const ScopedPaintState& paint_state) const {
   // If there is no fragment to paint for this block, we still need to continue
@@ -358,36 +390,8 @@ bool BlockPainter::ShouldPaint(const ScopedPaintState& paint_state) const {
   if (!paint_state.FragmentToPaint())
     return true;
 
-  LayoutRect overflow_rect;
-  if (paint_state.GetPaintInfo().IsPrinting() &&
-      layout_block_.IsAnonymousBlock() && layout_block_.ChildrenInline()) {
-    // For case <a href="..."><div>...</div></a>, when layout_block_ is the
-    // anonymous container of <a>, the anonymous container's visual overflow is
-    // empty, but we need to continue painting to output <a>'s PDF URL rect
-    // which covers the continuations, as if we included <a>'s PDF URL rect into
-    // layout_block_'s visual overflow.
-    Vector<LayoutRect> rects;
-    layout_block_.AddElementVisualOverflowRects(rects, LayoutPoint());
-    overflow_rect = UnionRect(rects);
-  }
-  overflow_rect.Unite(layout_block_.VisualOverflowRect());
-
-  bool uses_composited_scrolling = layout_block_.HasOverflowModel() &&
-                                   layout_block_.UsesCompositedScrolling();
-
-  if (uses_composited_scrolling) {
-    LayoutRect layout_overflow_rect = layout_block_.LayoutOverflowRect();
-    overflow_rect.Unite(layout_overflow_rect);
-  }
-  layout_block_.FlipForWritingMode(overflow_rect);
-
-  // Scrolling is applied in physical space, which is why it is after the flip
-  // above.
-  if (uses_composited_scrolling) {
-    overflow_rect.Move(-layout_block_.ScrolledContentOffset());
-  }
-
-  return paint_state.LocalRectIntersectsCullRect(overflow_rect);
+  return paint_state.LocalRectIntersectsCullRect(
+      OverflowRectForCullRectTesting(paint_state.GetPaintInfo().IsPrinting()));
 }
 
 void BlockPainter::PaintContents(const PaintInfo& paint_info,

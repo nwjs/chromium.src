@@ -70,7 +70,6 @@
 #include "chrome/browser/chromeos/policy/device_local_account_policy_service.h"
 #include "chrome/browser/chromeos/policy/user_cloud_policy_manager_chromeos.h"
 #include "chrome/browser/chromeos/policy/user_policy_manager_factory_chromeos.h"
-#include "chromeos/settings/install_attributes.h"
 #include "components/user_manager/user_manager.h"
 #else
 #include "chrome/browser/policy/cloud/user_cloud_policy_manager_factory.h"
@@ -845,7 +844,8 @@ void PolicyUIHandler::SendPolicyNames() const {
 void PolicyUIHandler::SendPolicyValues() const {
   base::Value all_policies = policy::GetAllPolicyValuesAsDictionary(
       web_ui()->GetWebContents()->GetBrowserContext(),
-      true /* with_user_policies */, true /* convert_values */);
+      true /* with_user_policies */, true /* convert_values */,
+      true /* is_pretty_print */);
   web_ui()->CallJavascriptFunctionUnsafe("policy.Page.setPolicyValues",
                                          all_policies);
 }
@@ -922,7 +922,8 @@ void PolicyUIHandler::WritePoliciesToJSONFile(
     const base::FilePath& path) const {
   std::string json_policies = policy::GetAllPolicyValuesAsJSON(
       web_ui()->GetWebContents()->GetBrowserContext(),
-      true /* with_user_policies */, false /* with device identity */);
+      true /* with_user_policies */, false /* with device identity */,
+      true /* is_pretty_print */);
 
   base::PostTaskWithTraits(
       FROM_HERE,

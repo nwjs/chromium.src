@@ -38,6 +38,8 @@ jumbo_component("cpp") {
     "network_quality_tracker.h",
     "network_switches.cc",
     "network_switches.h",
+    "resolve_host_client_base.cc",
+    "resolve_host_client_base.h",
     "shared_url_loader_factory.cc",
     "shared_url_loader_factory.h",
     "simple_url_loader.cc",
@@ -97,6 +99,8 @@ jumbo_component("cpp_base") {
     "data_element.h",
     "http_raw_request_response_info.cc",
     "http_raw_request_response_info.h",
+    "http_request_headers_mojom_traits.cc",
+    "http_request_headers_mojom_traits.h",
     "mutable_network_traffic_annotation_tag_mojom_traits.h",
     "mutable_partial_network_traffic_annotation_tag_mojom_traits.h",
     "net_ipc_param_traits.cc",
@@ -130,6 +134,7 @@ jumbo_component("cpp_base") {
     # users, together, so exclude those files from jumbo compilation.
     "network_ipc_param_traits.cc",
     "p2p_param_traits.cc",
+    "url_request_mojom_traits.cc",
   ]
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
@@ -137,8 +142,10 @@ jumbo_component("cpp_base") {
   public_deps = [
     "//services/network/public/mojom:data_pipe_interfaces",
     "//services/network/public/mojom:mutable_network_traffic_annotation_interface",
+    "//third_party/webrtc/rtc_base",
     "//url/ipc:url_ipc",
     "//url/mojom:url_mojom_gurl",
+    "//url/mojom:url_mojom_origin",
   ]
   deps = [
     "//base",
@@ -146,7 +153,6 @@ jumbo_component("cpp_base") {
     "//mojo/public/mojom/base",
     "//net",
     "//services/network/public/mojom:mojom_shared",
-    "//third_party/webrtc/rtc_base",
     "//third_party/webrtc_overrides",
     "//third_party/webrtc_overrides:init_webrtc",
   ]
@@ -182,6 +188,7 @@ source_set("tests") {
     "network_quality_tracker_unittest.cc",
     "proxy_config_mojom_traits_unittest.cc",
     "simple_url_loader_unittest.cc",
+    "url_request_mojom_traits_unittest.cc",
   ]
 
   if (is_ct_supported) {

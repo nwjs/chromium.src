@@ -15,8 +15,9 @@ async function openQuickView(appId, name) {
 
   function checkQuickViewElementsDisplayBlock(elements) {
     const haveElements = Array.isArray(elements) && elements.length !== 0;
-    if (!haveElements || elements[0].styles.display !== 'block')
+    if (!haveElements || elements[0].styles.display !== 'block') {
       return pending(caller, 'Waiting for Quick View to open.');
+    }
     return;
   }
 
@@ -51,8 +52,9 @@ async function closeQuickView(appId) {
 
   function checkQuickViewElementsDisplayNone(elements) {
     chrome.test.assertTrue(Array.isArray(elements));
-    if (elements.length > 0 && elements[0].styles.display !== 'none')
+    if (elements.length > 0 && elements[0].styles.display !== 'none') {
       return pending(caller, 'Waiting for Quick View to close.');
+    }
     return;
   }
 
@@ -77,8 +79,8 @@ async function closeQuickView(appId) {
  */
 testcase.openQuickView = async function() {
   // Open Files app on Downloads containing ENTRIES.hello.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.hello], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.hello], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.hello.nameText);
@@ -89,8 +91,8 @@ testcase.openQuickView = async function() {
  */
 testcase.closeQuickView = async function() {
   // Open Files app on Downloads containing ENTRIES.hello.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.hello], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.hello], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.hello.nameText);
@@ -104,8 +106,8 @@ testcase.closeQuickView = async function() {
  */
 testcase.openQuickViewDrive = async function() {
   // Open Files app on Drive containing ENTRIES.hello.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DRIVE, null, [], [ENTRIES.hello]);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DRIVE, [], [ENTRIES.hello]);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.hello.nameText);
@@ -114,9 +116,7 @@ testcase.openQuickViewDrive = async function() {
   const mimeTypeSelector = [
     '#quick-view',
     '#metadata-box',
-    // TODO(crbug.com/677338): Replace the attribute selector with key="Type"
-    // once the key is populated with polymer2 enabled.
-    'files-metadata-entry[i18n-values="key:METADATA_BOX_MEDIA_MIME_TYPE"]',
+    'files-metadata-entry[key="Type"]',
     '#value div',
   ];
   chrome.test.assertEq(
@@ -131,8 +131,8 @@ testcase.openQuickViewUsb = async function() {
   const USB_VOLUME_QUERY = '#directory-tree [volume-type-icon="removable"]';
 
   // Open Files app on Downloads containing ENTRIES.photos.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.photos], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.photos], []);
 
   // Mount a USB volume.
   await sendTestMessage({name: 'mountFakeUsb'});
@@ -161,8 +161,8 @@ testcase.openQuickViewMtp = async function() {
   const MTP_VOLUME_QUERY = '#directory-tree [volume-type-icon="mtp"]';
 
   // Open Files app on Downloads containing ENTRIES.photos.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.photos], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.photos], []);
 
   // Mount a non-empty MTP volume.
   await sendTestMessage({name: 'mountFakeMtp'});
@@ -192,8 +192,8 @@ testcase.openQuickViewCrostini = async function() {
   const realLinuxFiles = '#directory-tree [volume-type-icon="crostini"]';
 
   // Open Files app on Downloads containing ENTRIES.photos.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.photos], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.photos], []);
 
   // Check: the fake Linux files icon should be shown.
   await remoteCall.waitForElement(appId, fakeLinuxFiles);
@@ -223,7 +223,7 @@ testcase.openQuickViewCrostini = async function() {
  */
 testcase.openQuickViewAndroid = async function() {
   // Open Files app on Android files.
-  const appId = await openNewWindow(null, RootPath.ANDROID_FILES);
+  const appId = await openNewWindow(RootPath.ANDROID_FILES);
 
   // Add files to the Android files volume.
   const entrySet = BASIC_ANDROID_ENTRY_SET.concat([ENTRIES.documentsText]);
@@ -277,8 +277,8 @@ testcase.openQuickViewScrollText = async function() {
   }
 
   // Open Files app on Downloads containing ENTRIES.tallText.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.tallText], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.tallText], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.tallText.nameText);
@@ -286,10 +286,12 @@ testcase.openQuickViewScrollText = async function() {
   // Wait for the Quick View <webview> to load and display its content.
   function checkWebViewTextLoaded(elements) {
     let haveElements = Array.isArray(elements) && elements.length === 1;
-    if (haveElements)
+    if (haveElements) {
       haveElements = elements[0].styles.display.includes('block');
-    if (!haveElements || !elements[0].attributes.src)
+    }
+    if (!haveElements || !elements[0].attributes.src) {
       return pending(caller, 'Waiting for <webview> to load.');
+    }
     return;
   }
   await repeatUntil(async () => {
@@ -327,8 +329,8 @@ testcase.openQuickViewBackgroundColorText = async function() {
   const webView = ['#quick-view', '#dialog[open] webview.text-content'];
 
   // Open Files app on Downloads containing ENTRIES.tallText.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.tallText], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.tallText], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.tallText.nameText);
@@ -336,10 +338,12 @@ testcase.openQuickViewBackgroundColorText = async function() {
   // Wait for the Quick View <webview> to load and display its content.
   function checkWebViewTextLoaded(elements) {
     let haveElements = Array.isArray(elements) && elements.length === 1;
-    if (haveElements)
+    if (haveElements) {
       haveElements = elements[0].styles.display.includes('block');
-    if (!haveElements || !elements[0].attributes.src)
+    }
+    if (!haveElements || !elements[0].attributes.src) {
       return pending(caller, 'Waiting for <webview> to load.');
+    }
     return;
   }
   await repeatUntil(async () => {
@@ -370,8 +374,8 @@ testcase.openQuickViewPdf = async function() {
   const webView = ['#quick-view', '#dialog[open] webview.content'];
 
   // Open Files app on Downloads containing ENTRIES.tallPdf.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.tallPdf], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.tallPdf], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.tallPdf.nameText);
@@ -379,10 +383,12 @@ testcase.openQuickViewPdf = async function() {
   // Wait for the Quick View <webview> to load and display its content.
   function checkWebViewPdfLoaded(elements) {
     let haveElements = Array.isArray(elements) && elements.length === 1;
-    if (haveElements)
+    if (haveElements) {
       haveElements = elements[0].styles.display.includes('block');
-    if (!haveElements || !elements[0].attributes.src)
+    }
+    if (!haveElements || !elements[0].attributes.src) {
       return pending(caller, 'Waiting for <webview> to load.');
+    }
     return;
   }
   await repeatUntil(async () => {
@@ -393,8 +399,9 @@ testcase.openQuickViewPdf = async function() {
   // Get the <webview> embed type attribute.
   function checkPdfEmbedType(type) {
     let haveElements = Array.isArray(type) && type.length === 1;
-    if (!haveElements || !type[0].toString().includes('pdf'))
+    if (!haveElements || !type[0].toString().includes('pdf')) {
       return pending(caller, 'Waiting for plugin <embed> type.');
+    }
     return type[0];
   }
   const type = await repeatUntil(async () => {
@@ -435,8 +442,8 @@ testcase.openQuickViewScrollHtml = async function() {
   }
 
   // Open Files app on Downloads containing ENTRIES.tallHtml.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.tallHtml], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.tallHtml], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.tallHtml.nameText);
@@ -444,10 +451,12 @@ testcase.openQuickViewScrollHtml = async function() {
   // Wait for the Quick View <webview> to load and display its content.
   function checkWebViewHtmlLoaded(elements) {
     let haveElements = Array.isArray(elements) && elements.length === 1;
-    if (haveElements)
+    if (haveElements) {
       haveElements = elements[0].styles.display.includes('block');
-    if (!haveElements || elements[0].attributes.loaded !== '')
+    }
+    if (!haveElements || elements[0].attributes.loaded !== '') {
       return pending(caller, 'Waiting for <webview> to load.');
+    }
     return;
   }
   await repeatUntil(async () => {
@@ -487,8 +496,8 @@ testcase.openQuickViewBackgroundColorHtml = async function() {
   const fileSafeMedia = ['#quick-view', 'files-safe-media[type="html"]'];
 
   // Open Files app on Downloads containing ENTRIES.tallHtml.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.tallHtml], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.tallHtml], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.tallHtml.nameText);
@@ -496,10 +505,12 @@ testcase.openQuickViewBackgroundColorHtml = async function() {
   // Get the <files-safe-media type='html'> backgroundColor style.
   function getFileSafeMediaBackgroundColor(elements) {
     let haveElements = Array.isArray(elements) && elements.length === 1;
-    if (haveElements)
+    if (haveElements) {
       haveElements = elements[0].styles.display.includes('block');
-    if (!haveElements || !elements[0].styles.backgroundColor)
+    }
+    if (!haveElements || !elements[0].styles.backgroundColor) {
       return pending(caller, 'Waiting for <file-safe-media> element.');
+    }
     return elements[0].styles.backgroundColor;
   }
   const backgroundColor = await repeatUntil(async () => {
@@ -525,8 +536,8 @@ testcase.openQuickViewAudio = async function() {
   const webView = ['#quick-view', 'files-safe-media[type="audio"]', 'webview'];
 
   // Open Files app on Downloads containing ENTRIES.beautiful song.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.beautiful], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.beautiful], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.beautiful.nameText);
@@ -534,10 +545,12 @@ testcase.openQuickViewAudio = async function() {
   // Wait for the Quick View <webview> to load and display its content.
   function checkWebViewAudioLoaded(elements) {
     let haveElements = Array.isArray(elements) && elements.length === 1;
-    if (haveElements)
+    if (haveElements) {
       haveElements = elements[0].styles.display.includes('block');
-    if (!haveElements || elements[0].attributes.loaded !== '')
+    }
+    if (!haveElements || elements[0].attributes.loaded !== '') {
       return pending(caller, 'Waiting for <webview> to load.');
+    }
     return;
   }
   await repeatUntil(async () => {
@@ -568,8 +581,8 @@ testcase.openQuickViewImage = async function() {
   const webView = ['#quick-view', 'files-safe-media[type="image"]', 'webview'];
 
   // Open Files app on Downloads containing ENTRIES.smallJpeg.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.smallJpeg], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.smallJpeg], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.smallJpeg.nameText);
@@ -577,10 +590,12 @@ testcase.openQuickViewImage = async function() {
   // Wait for the Quick View <webview> to load and display its content.
   function checkWebViewImageLoaded(elements) {
     let haveElements = Array.isArray(elements) && elements.length === 1;
-    if (haveElements)
+    if (haveElements) {
       haveElements = elements[0].styles.display.includes('block');
-    if (!haveElements || elements[0].attributes.loaded !== '')
+    }
+    if (!haveElements || elements[0].attributes.loaded !== '') {
       return pending(caller, 'Waiting for <webview> to load.');
+    }
     return;
   }
   await repeatUntil(async () => {
@@ -611,8 +626,8 @@ testcase.openQuickViewVideo = async function() {
   const webView = ['#quick-view', 'files-safe-media[type="video"]', 'webview'];
 
   // Open Files app on Downloads containing ENTRIES.world video.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.world], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.world], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.world.nameText);
@@ -620,10 +635,12 @@ testcase.openQuickViewVideo = async function() {
   // Wait for the Quick View <webview> to load and display its content.
   function checkWebViewVideoLoaded(elements) {
     let haveElements = Array.isArray(elements) && elements.length === 1;
-    if (haveElements)
+    if (haveElements) {
       haveElements = elements[0].styles.display.includes('block');
-    if (!haveElements || elements[0].attributes.loaded !== '')
+    }
+    if (!haveElements || elements[0].attributes.loaded !== '') {
       return pending(caller, 'Waiting for <webview> to load.');
+    }
     return;
   }
   await repeatUntil(async () => {
@@ -653,8 +670,8 @@ testcase.pressEnterOnInfoBoxToOpenClose = async function() {
 
 
   // Open Files app on Downloads containing ENTRIES.hello.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.hello], []);
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.hello], []);
 
   // Open the file in Quick View.
   await openQuickView(appId, ENTRIES.hello.nameText);
@@ -680,8 +697,8 @@ testcase.pressEnterOnInfoBoxToOpenClose = async function() {
  */
 testcase.cantOpenQuickViewWithMultipleFiles = async function() {
   // Open Files app on Downloads containing ENTRIES.hello and ENTRIES.world.
-  const {appId} = await setupAndWaitUntilReady(
-      null, RootPath.DOWNLOADS, null, [ENTRIES.hello, ENTRIES.world], []);
+  const appId = await setupAndWaitUntilReady(
+      RootPath.DOWNLOADS, [ENTRIES.hello, ENTRIES.world], []);
 
   // Select all 2 files.
   const ctrlA = ['#file-list', 'a', true, false, false];

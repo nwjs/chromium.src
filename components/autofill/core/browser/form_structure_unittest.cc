@@ -33,7 +33,6 @@ using base::ASCIIToUTF16;
 using autofill::features::kAutofillEnforceMinRequiredFieldsForHeuristics;
 using autofill::features::kAutofillEnforceMinRequiredFieldsForQuery;
 using autofill::features::kAutofillEnforceMinRequiredFieldsForUpload;
-using autofill::features::kAutofillRationalizeRepeatedServerPredictions;
 
 namespace autofill {
 
@@ -2445,6 +2444,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithMatchingValidities) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -2538,6 +2538,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithMatchingValidities) {
   upload.set_action_signature(15724779818122431245U);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 3763331450U, "firstname", "text",
                         nullptr, 3U, 0);
@@ -2766,6 +2767,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithMultipleValidities) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -2860,6 +2862,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithMultipleValidities) {
   upload.set_action_signature(15724779818122431245U);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 3763331450U, "firstname", "text",
                         nullptr, 3U, {0, 2});
@@ -2893,6 +2896,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -2984,6 +2988,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest) {
   upload.set_password_has_numeric(true);
   upload.set_password_length(10u);
   upload.set_action_signature(15724779818122431245U);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 3763331450U, "firstname", "text",
                         nullptr, 3U);
@@ -3104,6 +3109,7 @@ TEST_F(FormStructureTest,
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -3183,6 +3189,7 @@ TEST_F(FormStructureTest,
   upload.set_passwords_revealed(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   AutofillUploadContents::Field* upload_firstname_field = upload.add_field();
   test::FillUploadField(upload_firstname_field, 4224610201U, "firstname", "",
@@ -3228,6 +3235,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithAutocomplete) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -3282,6 +3290,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithAutocomplete) {
   upload.set_passwords_revealed(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 3763331450U, "firstname", "text",
                         "given-name", 3U);
@@ -3310,6 +3319,7 @@ TEST_F(FormStructureTest, EncodeUploadRequestWithPropertiesMask) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -3377,6 +3387,7 @@ TEST_F(FormStructureTest, EncodeUploadRequestWithPropertiesMask) {
   upload.set_passwords_revealed(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 3763331450U, nullptr, nullptr,
                         nullptr, 3U);
@@ -3408,6 +3419,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_ObservedSubmissionFalse) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -3462,6 +3474,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_ObservedSubmissionFalse) {
   upload.set_passwords_revealed(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 3763331450U, "firstname", "text",
                         nullptr, 3U);
@@ -3489,6 +3502,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithLabels) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -3536,6 +3550,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithLabels) {
   upload.set_passwords_revealed(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 1318412689U, nullptr, "text",
                         nullptr, 3U);
@@ -3561,6 +3576,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithCssClassesAndIds) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   FormFieldData field;
   field.form_control_type = "text";
@@ -3606,6 +3622,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithCssClassesAndIds) {
   upload.set_passwords_revealed(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   AutofillUploadContents::Field* firstname_field = upload.add_field();
   test::FillUploadField(firstname_field, 1318412689U, nullptr, "text", nullptr,
@@ -3641,6 +3658,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithFormName) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   // Setting the form name which we expect to see in the upload.
   form.name = ASCIIToUTF16("myform");
@@ -3690,6 +3708,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_WithFormName) {
   upload.set_passwords_revealed(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_FRAME_DETACHED);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 1318412689U, nullptr, "text",
                         nullptr, 3U);
@@ -3716,6 +3735,7 @@ TEST_F(FormStructureTest, EncodeUploadRequestPartialMetadata) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -3770,6 +3790,7 @@ TEST_F(FormStructureTest, EncodeUploadRequestPartialMetadata) {
   upload.set_action_signature(15724779818122431245U);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 1318412689U, nullptr, "text",
                         nullptr, 3U);
@@ -3799,6 +3820,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_DisabledMetadataTrial) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   form_structure = std::make_unique<FormStructure>(form);
   form_structure->DetermineHeuristicTypes();
@@ -3861,6 +3883,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_DisabledMetadataTrial) {
   upload.set_passwords_revealed(false);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_NONE);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 3763331450U, nullptr, nullptr,
                         nullptr, 3U);
@@ -3886,6 +3909,7 @@ TEST_F(FormStructureTest, EncodeUploadRequest_DisabledMetadataTrial) {
 TEST_F(FormStructureTest, CheckDataPresence) {
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = true;
 
   FormFieldData field;
   field.form_control_type = "text";
@@ -3935,6 +3959,7 @@ TEST_F(FormStructureTest, CheckDataPresence) {
   upload.set_action_signature(15724779818122431245U);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_HTML_FORM_SUBMISSION);
+  upload.set_has_form_tag(true);
 
   test::FillUploadField(upload.add_field(), 1089846351U, "first", "text",
                         nullptr, 1U);
@@ -4164,6 +4189,7 @@ TEST_F(FormStructureTest, CheckMultipleTypes) {
   std::vector<ServerFieldTypeValidityStatesMap> possible_field_types_validities;
   FormData form;
   form.origin = GURL("http://www.foo.com/");
+  form.is_form_tag = false;
 
   FormFieldData field;
   field.form_control_type = "text";
@@ -4213,6 +4239,7 @@ TEST_F(FormStructureTest, CheckMultipleTypes) {
   upload.set_autofill_used(false);
   upload.set_data_present("1440000360000008");
   upload.set_passwords_revealed(false);
+  upload.set_has_form_tag(false);
   upload.set_action_signature(15724779818122431245U);
   upload.set_submission_event(
       AutofillUploadContents_SubmissionIndicatorEvent_XHR_SUCCEEDED);
@@ -4328,6 +4355,29 @@ TEST_F(FormStructureTest, EncodeUploadRequest_PasswordsRevealed) {
       std::string() /* login_form_signature */, true /* observed_submission */,
       &upload));
   EXPECT_EQ(true, upload.passwords_revealed());
+}
+
+TEST_F(FormStructureTest, EncodeUploadRequest_IsFormTag) {
+  for (bool is_form_tag : {false, true}) {
+    SCOPED_TRACE(testing::Message() << "is_form_tag=" << is_form_tag);
+
+    FormData form;
+    form.origin = GURL("http://www.foo.com/");
+    FormFieldData field;
+    field.name = ASCIIToUTF16("email");
+    form.fields.push_back(field);
+
+    form.is_form_tag = is_form_tag;
+
+    FormStructure form_structure(form);
+    form_structure.set_passwords_were_revealed(true);
+    AutofillUploadContents upload;
+    EXPECT_TRUE(form_structure.EncodeUploadRequest(
+        {{}} /* available_field_types */, false /* form_was_autofilled */,
+        std::string() /* login_form_signature */,
+        true /* observed_submission */, &upload));
+    EXPECT_EQ(is_form_tag, upload.has_form_tag());
+  }
 }
 
 TEST_F(FormStructureTest, EncodeUploadRequest_RichMetadata) {
@@ -5178,36 +5228,14 @@ TEST_F(FormStructureTest, ParseQueryResponse_RationalizeLoneField) {
   std::string response_string;
   ASSERT_TRUE(response.SerializeToString(&response_string));
 
-  // Test that the expiry month field is rationalized away when enabled.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeature(
-        autofill::features::kAutofillRationalizeFieldTypePredictions);
-
-    FormStructure::ParseQueryResponse(response_string, forms, nullptr);
-    ASSERT_EQ(1U, forms.size());
-    ASSERT_EQ(4U, forms[0]->field_count());
-    EXPECT_EQ(NAME_FULL, forms[0]->field(0)->Type().GetStorableType());
-    EXPECT_EQ(ADDRESS_HOME_LINE1, forms[0]->field(1)->Type().GetStorableType());
-    EXPECT_EQ(UNKNOWN_TYPE, forms[0]->field(2)->Type().GetStorableType());
-    EXPECT_EQ(EMAIL_ADDRESS, forms[0]->field(3)->Type().GetStorableType());
-  }
-
-  // Sanity check that the enable/disabled works.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndDisableFeature(
-        autofill::features::kAutofillRationalizeFieldTypePredictions);
-
-    FormStructure::ParseQueryResponse(response_string, forms, nullptr);
-    ASSERT_EQ(1U, forms.size());
-    ASSERT_EQ(4U, forms[0]->field_count());
-    EXPECT_EQ(NAME_FULL, forms[0]->field(0)->Type().GetStorableType());
-    EXPECT_EQ(ADDRESS_HOME_LINE1, forms[0]->field(1)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_MONTH,
-              forms[0]->field(2)->Type().GetStorableType());
-    EXPECT_EQ(EMAIL_ADDRESS, forms[0]->field(3)->Type().GetStorableType());
-  }
+  // Test that the expiry month field is rationalized away.
+  FormStructure::ParseQueryResponse(response_string, forms, nullptr);
+  ASSERT_EQ(1U, forms.size());
+  ASSERT_EQ(4U, forms[0]->field_count());
+  EXPECT_EQ(NAME_FULL, forms[0]->field(0)->Type().GetStorableType());
+  EXPECT_EQ(ADDRESS_HOME_LINE1, forms[0]->field(1)->Type().GetStorableType());
+  EXPECT_EQ(UNKNOWN_TYPE, forms[0]->field(2)->Type().GetStorableType());
+  EXPECT_EQ(EMAIL_ADDRESS, forms[0]->field(3)->Type().GetStorableType());
 }
 
 TEST_F(FormStructureTest, ParseQueryResponse_RationalizeCCName) {
@@ -5240,35 +5268,13 @@ TEST_F(FormStructureTest, ParseQueryResponse_RationalizeCCName) {
   std::string response_string;
   ASSERT_TRUE(response.SerializeToString(&response_string));
 
-  // Test that the name fields are rationalized when enabled.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeature(
-        autofill::features::kAutofillRationalizeFieldTypePredictions);
-
-    FormStructure::ParseQueryResponse(response_string, forms, nullptr);
-    ASSERT_EQ(1U, forms.size());
-    ASSERT_EQ(3U, forms[0]->field_count());
-    EXPECT_EQ(NAME_FIRST, forms[0]->field(0)->Type().GetStorableType());
-    EXPECT_EQ(NAME_LAST, forms[0]->field(1)->Type().GetStorableType());
-    EXPECT_EQ(EMAIL_ADDRESS, forms[0]->field(2)->Type().GetStorableType());
-  }
-
-  // Sanity check that the enable/disabled works.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndDisableFeature(
-        autofill::features::kAutofillRationalizeFieldTypePredictions);
-
-    FormStructure::ParseQueryResponse(response_string, forms, nullptr);
-    ASSERT_EQ(1U, forms.size());
-    ASSERT_EQ(3U, forms[0]->field_count());
-    EXPECT_EQ(CREDIT_CARD_NAME_FIRST,
-              forms[0]->field(0)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_NAME_LAST,
-              forms[0]->field(1)->Type().GetStorableType());
-    EXPECT_EQ(EMAIL_ADDRESS, forms[0]->field(2)->Type().GetStorableType());
-  }
+  // Test that the name fields are rationalized.
+  FormStructure::ParseQueryResponse(response_string, forms, nullptr);
+  ASSERT_EQ(1U, forms.size());
+  ASSERT_EQ(3U, forms[0]->field_count());
+  EXPECT_EQ(NAME_FIRST, forms[0]->field(0)->Type().GetStorableType());
+  EXPECT_EQ(NAME_LAST, forms[0]->field(1)->Type().GetStorableType());
+  EXPECT_EQ(EMAIL_ADDRESS, forms[0]->field(2)->Type().GetStorableType());
 }
 
 TEST_F(FormStructureTest, ParseQueryResponse_RationalizeMultiMonth_1) {
@@ -5313,44 +5319,18 @@ TEST_F(FormStructureTest, ParseQueryResponse_RationalizeMultiMonth_1) {
   std::string response_string;
   ASSERT_TRUE(response.SerializeToString(&response_string));
 
-  // Test that the extra month field is rationalized away when enabled.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeature(
-        autofill::features::kAutofillRationalizeFieldTypePredictions);
-
-    FormStructure::ParseQueryResponse(response_string, forms, nullptr);
-    ASSERT_EQ(1U, forms.size());
-    ASSERT_EQ(5U, forms[0]->field_count());
-    EXPECT_EQ(CREDIT_CARD_NAME_FULL,
-              forms[0]->field(0)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_NUMBER, forms[0]->field(1)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_MONTH,
-              forms[0]->field(2)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_2_DIGIT_YEAR,
-              forms[0]->field(3)->Type().GetStorableType());
-    EXPECT_EQ(UNKNOWN_TYPE, forms[0]->field(4)->Type().GetStorableType());
-  }
-
-  // Sanity check that the enable/disabled works.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndDisableFeature(
-        autofill::features::kAutofillRationalizeFieldTypePredictions);
-
-    FormStructure::ParseQueryResponse(response_string, forms, nullptr);
-    ASSERT_EQ(1U, forms.size());
-    ASSERT_EQ(5U, forms[0]->field_count());
-    EXPECT_EQ(CREDIT_CARD_NAME_FULL,
-              forms[0]->field(0)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_NUMBER, forms[0]->field(1)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_MONTH,
-              forms[0]->field(2)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_2_DIGIT_YEAR,
-              forms[0]->field(3)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_MONTH,
-              forms[0]->field(4)->Type().GetStorableType());
-  }
+  // Test that the extra month field is rationalized away.
+  FormStructure::ParseQueryResponse(response_string, forms, nullptr);
+  ASSERT_EQ(1U, forms.size());
+  ASSERT_EQ(5U, forms[0]->field_count());
+  EXPECT_EQ(CREDIT_CARD_NAME_FULL,
+            forms[0]->field(0)->Type().GetStorableType());
+  EXPECT_EQ(CREDIT_CARD_NUMBER, forms[0]->field(1)->Type().GetStorableType());
+  EXPECT_EQ(CREDIT_CARD_EXP_MONTH,
+            forms[0]->field(2)->Type().GetStorableType());
+  EXPECT_EQ(CREDIT_CARD_EXP_2_DIGIT_YEAR,
+            forms[0]->field(3)->Type().GetStorableType());
+  EXPECT_EQ(UNKNOWN_TYPE, forms[0]->field(4)->Type().GetStorableType());
 }
 
 TEST_F(FormStructureTest, ParseQueryResponse_RationalizeMultiMonth_2) {
@@ -5390,38 +5370,16 @@ TEST_F(FormStructureTest, ParseQueryResponse_RationalizeMultiMonth_2) {
   std::string response_string;
   ASSERT_TRUE(response.SerializeToString(&response_string));
 
-  // Test that the extra month field is rationalized away when enabled.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeature(
-        autofill::features::kAutofillRationalizeFieldTypePredictions);
-    FormStructure::ParseQueryResponse(response_string, forms, nullptr);
-    ASSERT_EQ(1U, forms.size());
-    ASSERT_EQ(4U, forms[0]->field_count());
-    EXPECT_EQ(CREDIT_CARD_NAME_FULL,
-              forms[0]->field(0)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_NUMBER, forms[0]->field(1)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR,
-              forms[0]->field(2)->Type().GetStorableType());
-    EXPECT_EQ(UNKNOWN_TYPE, forms[0]->field(3)->Type().GetStorableType());
-  }
-
-  // Sanity check that the enable/disabled works.
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndDisableFeature(
-        autofill::features::kAutofillRationalizeFieldTypePredictions);
-    FormStructure::ParseQueryResponse(response_string, forms, nullptr);
-    ASSERT_EQ(1U, forms.size());
-    ASSERT_EQ(4U, forms[0]->field_count());
-    EXPECT_EQ(CREDIT_CARD_NAME_FULL,
-              forms[0]->field(0)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_NUMBER, forms[0]->field(1)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR,
-              forms[0]->field(2)->Type().GetStorableType());
-    EXPECT_EQ(CREDIT_CARD_EXP_MONTH,
-              forms[0]->field(3)->Type().GetStorableType());
-  }
+  // Test that the extra month field is rationalized away.
+  FormStructure::ParseQueryResponse(response_string, forms, nullptr);
+  ASSERT_EQ(1U, forms.size());
+  ASSERT_EQ(4U, forms[0]->field_count());
+  EXPECT_EQ(CREDIT_CARD_NAME_FULL,
+            forms[0]->field(0)->Type().GetStorableType());
+  EXPECT_EQ(CREDIT_CARD_NUMBER, forms[0]->field(1)->Type().GetStorableType());
+  EXPECT_EQ(CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR,
+            forms[0]->field(2)->Type().GetStorableType());
+  EXPECT_EQ(UNKNOWN_TYPE, forms[0]->field(3)->Type().GetStorableType());
 }
 
 TEST_F(FormStructureTest, FindLongestCommonPrefix) {
@@ -5520,10 +5478,6 @@ TEST_F(FormStructureTest, RationalizePhoneNumber_RunsOncePerSection) {
 // Tests that a form that has only one address predicted as
 // ADDRESS_HOME_STREET_ADDRESS is not modified by the address rationalization.
 TEST_F(FormStructureTest, RationalizeRepeatedFields_OneAddress) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -5570,10 +5524,6 @@ TEST_F(FormStructureTest, RationalizeRepeatedFields_OneAddress) {
 // ADDRESS_HOME_STREET_ADDRESS is modified by the address rationalization to be
 // ADDRESS_HOME_LINE1 and ADDRESS_HOME_LINE2 instead.
 TEST_F(FormStructureTest, RationalizeRepreatedFields_TwoAddresses) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -5626,10 +5576,6 @@ TEST_F(FormStructureTest, RationalizeRepreatedFields_TwoAddresses) {
 // ADDRESS_HOME_STREET_ADDRESS is modified by the address rationalization to be
 // ADDRESS_HOME_LINE1, ADDRESS_HOME_LINE2 and ADDRESS_HOME_LINE3 instead.
 TEST_F(FormStructureTest, RationalizeRepreatedFields_ThreeAddresses) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -5690,9 +5636,6 @@ TEST_F(FormStructureTest, RationalizeRepreatedFields_ThreeAddresses) {
 // This doesn't happen in real world, bc four address lines mean multiple
 // sections according to the heuristics.
 TEST_F(FormStructureTest, RationalizeRepreatedFields_FourAddresses) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -5762,10 +5705,6 @@ TEST_F(FormStructureTest, RationalizeRepreatedFields_FourAddresses) {
 // Tests that a form that has only one address in each section predicted as
 // ADDRESS_HOME_STREET_ADDRESS is not modified by the address rationalization.
 TEST_F(FormStructureTest, RationalizeRepreatedFields_OneAddressEachSection) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -5839,15 +5778,11 @@ TEST_F(FormStructureTest, RationalizeRepreatedFields_OneAddressEachSection) {
 
 // Tests a form that has multiple sections with multiple number of address
 // fields predicted as ADDRESS_HOME_STREET_ADDRESS. The last section
-// doesn't happen in real world, bc it is in fact two sections according to
+// doesn't happen in real world, because it is in fact two sections according to
 // heuristics, and is only made for testing.
 TEST_F(
     FormStructureTest,
     RationalizeRepreatedFields_SectionTwoAddress_SectionThreeAddress_SectionFourAddresses) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -6001,10 +5936,6 @@ TEST_F(
 // while the sections are previously determined by the heuristics.
 TEST_F(FormStructureTest,
        RationalizeRepreatedFields_MultipleSectionsByHeuristics_OneAddressEach) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -6078,10 +6009,6 @@ TEST_F(FormStructureTest,
 TEST_F(
     FormStructureTest,
     RationalizeRepreatedFields_MultipleSectionsByHeuristics_TwoAddress_ThreeAddress) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -6171,10 +6098,6 @@ TEST_F(
 
 TEST_F(FormStructureTest,
        RationalizeRepreatedFields_StateCountry_NoRationalization) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -6270,10 +6193,6 @@ TEST_F(FormStructureTest,
 }
 
 TEST_F(FormStructureTest, RationalizeRepreatedFields_CountryStateNoHeuristics) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -6405,10 +6324,6 @@ TEST_F(FormStructureTest, RationalizeRepreatedFields_CountryStateNoHeuristics) {
 
 TEST_F(FormStructureTest,
        RationalizeRepreatedFields_StateCountryWithHeuristics) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -6540,10 +6455,6 @@ TEST_F(FormStructureTest,
 }
 
 TEST_F(FormStructureTest, RationalizeRepreatedFields_FirstFieldRationalized) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -6605,10 +6516,6 @@ TEST_F(FormStructureTest, RationalizeRepreatedFields_FirstFieldRationalized) {
 }
 
 TEST_F(FormStructureTest, RationalizeRepreatedFields_LastFieldRationalized) {
-  base::test::ScopedFeatureList feature_list;
-  InitFeature(&feature_list, kAutofillRationalizeRepeatedServerPredictions,
-              true);
-
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
@@ -6681,8 +6588,8 @@ TEST_F(FormStructureTest, AllowBigForms) {
   FormData form;
   form.origin = GURL("http://foo.com");
   FormFieldData field;
-  // Check that the form with 100 fields are processed correctly.
-  for (size_t i = 0; i < 100; ++i) {
+  // Check that the form with 250 fields are processed correctly.
+  for (size_t i = 0; i < 250; ++i) {
     field.form_control_type = "text";
     field.name = ASCIIToUTF16("text") + base::NumberToString16(i);
     form.fields.push_back(field);

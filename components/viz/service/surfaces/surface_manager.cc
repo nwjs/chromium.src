@@ -205,6 +205,17 @@ void SurfaceManager::GarbageCollectSurfaces() {
   // ~Surface() draw callback could modify |surfaces_to_destroy_|.
   for (const SurfaceId& surface_id : surfaces_to_delete)
     DestroySurfaceInternal(surface_id);
+
+  // Run another pass over surfaces_to_delete, all of which have just been
+  // deleted, making sure they are not present in |surfaces_to_destroy_|. This
+  // is necessary as ~Surface may re-add already-in-destruction surfaces to the
+  // set and we need to avoid double-deletion.
+  // TODO(ericrk): Removing surfaces both here and above allows for
+  // GarbageCollectSurfaces re-entrancy, which is exercised in tests and is
+  // hard to prove can't happen in the wild. Evaluate whether we should allow
+  // re-entrancy, and if not just remove here.
+  for (const SurfaceId& surface_id : surfaces_to_delete)
+    surfaces_to_destroy_.erase(surface_id);
 }
 
 const base::flat_set<SurfaceId>& SurfaceManager::GetSurfacesReferencedByParent(
@@ -552,7 +563,7 @@ void SurfaceManager::SurfaceActivated(
   if (!SurfaceModified(surface->surface_id(), frame.metadata.begin_frame_ack)) {
     TRACE_EVENT_INSTANT0("viz", "Damage not visible.",
                          TRACE_EVENT_SCOPE_THREAD);
-    surface->RunDrawCallback();
+    surface->SendAckToClient();
   }
 
   for (auto& observer : observer_list_)

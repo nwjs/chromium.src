@@ -619,14 +619,11 @@ void KURL::SetPath(const String& path) {
   ReplaceComponents(replacements);
 }
 
-String DecodeURLEscapeSequences(const String& string,
-                                DecodeURLResult* optional_result) {
+String DecodeURLEscapeSequences(const String& string, DecodeURLMode mode) {
   StringUTF8Adaptor string_utf8(string);
   url::RawCanonOutputT<base::char16> unescaped;
-  DecodeURLResult result = url::DecodeURLEscapeSequences(
-      string_utf8.Data(), string_utf8.length(), &unescaped);
-  if (optional_result)
-    *optional_result = result;
+  url::DecodeURLEscapeSequences(string_utf8.Data(), string_utf8.length(), mode,
+                                &unescaped);
   return StringImpl::Create8BitIfPossible(
       reinterpret_cast<UChar*>(unescaped.data()), unescaped.length());
 }
@@ -876,6 +873,29 @@ bool KURL::IsSafeToSendToAnotherThread() const {
 KURL::operator GURL() const {
   StringUTF8Adaptor utf8(string_);
   return GURL(utf8.Data(), utf8.length(), parsed_, is_valid_);
+}
+bool operator==(const KURL& a, const KURL& b) {
+  return a.GetString() == b.GetString();
+}
+
+bool operator==(const KURL& a, const String& b) {
+  return a.GetString() == b;
+}
+
+bool operator==(const String& a, const KURL& b) {
+  return a == b.GetString();
+}
+
+bool operator!=(const KURL& a, const KURL& b) {
+  return a.GetString() != b.GetString();
+}
+
+bool operator!=(const KURL& a, const String& b) {
+  return a.GetString() != b;
+}
+
+bool operator!=(const String& a, const KURL& b) {
+  return a != b.GetString();
 }
 
 }  // namespace blink

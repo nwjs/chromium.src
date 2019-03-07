@@ -59,8 +59,6 @@ class VIEWS_MUS_EXPORT DesktopWindowTreeHostMus
   // Helper function to get the scale factor.
   float GetScaleFactor() const;
 
-  void SetBoundsInDIP(const gfx::Rect& bounds_in_dip);
-
   // Returns true if the client area should be set on this.
   bool ShouldSendClientAreaToServer() const;
 
@@ -138,7 +136,7 @@ class VIEWS_MUS_EXPORT DesktopWindowTreeHostMus
   void SetFullscreen(bool fullscreen) override;
   bool IsFullscreen() const override;
   void SetOpacity(float opacity) override;
-  void SetAspectRatio(const gfx::SizeF& aspect_ratio) override {}
+  void SetAspectRatio(const gfx::SizeF& aspect_ratio) override;
   void SetWindowIcons(const gfx::ImageSkia& window_icon,
                       const gfx::ImageSkia& app_icon) override;
   void InitModalType(ui::ModalType modal_type) override;
@@ -149,6 +147,7 @@ class VIEWS_MUS_EXPORT DesktopWindowTreeHostMus
   bool ShouldUpdateWindowTransparency() const override;
   bool ShouldUseDesktopNativeCursorManager() const override;
   bool ShouldCreateVisibilityController() const override;
+  void SetBoundsInDIP(const gfx::Rect& bounds_in_dip) override;
 
   // MusClientObserver:
   void OnWindowManagerFrameValuesChanged() override;

@@ -288,19 +288,19 @@ void StyleEngine::ModifiedStyleSheetCandidateNode(Node& node) {
     SetNeedsActiveStyleUpdate(node.GetTreeScope());
 }
 
-void StyleEngine::AdoptedStyleSheetsWillChange(TreeScope& tree_scope,
-                                               StyleSheetList* old_sheets,
-                                               StyleSheetList* new_sheets) {
+void StyleEngine::AdoptedStyleSheetsWillChange(
+    TreeScope& tree_scope,
+    const HeapVector<Member<CSSStyleSheet>>& old_sheets,
+    const HeapVector<Member<CSSStyleSheet>>& new_sheets) {
   if (GetDocument().IsDetached())
     return;
 
-  unsigned old_sheets_count = old_sheets ? old_sheets->length() : 0;
-  unsigned new_sheets_count = new_sheets ? new_sheets->length() : 0;
+  unsigned old_sheets_count = old_sheets.size();
+  unsigned new_sheets_count = new_sheets.size();
 
   unsigned min_count = std::min(old_sheets_count, new_sheets_count);
   unsigned index = 0;
-  while (index < min_count &&
-         old_sheets->item(index) == new_sheets->item(index)) {
+  while (index < min_count && old_sheets[index] == new_sheets[index]) {
     index++;
   }
 
@@ -308,17 +308,18 @@ void StyleEngine::AdoptedStyleSheetsWillChange(TreeScope& tree_scope,
     return;
 
   for (unsigned i = index; i < old_sheets_count; ++i) {
-    ToCSSStyleSheet(old_sheets->item(i))
-        ->RemovedAdoptedFromTreeScope(tree_scope);
+    old_sheets[i]->RemovedAdoptedFromTreeScope(tree_scope);
   }
   for (unsigned i = index; i < new_sheets_count; ++i) {
-    ToCSSStyleSheet(new_sheets->item(i))->AddedAdoptedToTreeScope(tree_scope);
+    new_sheets[i]->AddedAdoptedToTreeScope(tree_scope);
   }
 
   if (new_sheets_count) {
     EnsureStyleSheetCollectionFor(tree_scope);
     if (tree_scope != document_)
       active_tree_scopes_.insert(&tree_scope);
+  } else if (!StyleSheetCollectionFor(tree_scope)) {
+    return;
   }
   SetNeedsActiveStyleUpdate(tree_scope);
 }
@@ -510,6 +511,15 @@ const ActiveStyleSheetVector StyleEngine::ActiveStyleSheetsForInspector() {
   return active_style_sheets;
 }
 
+void StyleEngine::ShadowRootInsertedToDocument(ShadowRoot& shadow_root) {
+  DCHECK(shadow_root.isConnected());
+  if (GetDocument().IsDetached() || !shadow_root.HasAdoptedStyleSheets())
+    return;
+  EnsureStyleSheetCollectionFor(shadow_root);
+  SetNeedsActiveStyleUpdate(shadow_root);
+  active_tree_scopes_.insert(&shadow_root);
+}
+
 void StyleEngine::ShadowRootRemovedFromDocument(ShadowRoot* shadow_root) {
   style_sheet_collection_map_.erase(shadow_root);
   active_tree_scopes_.erase(shadow_root);
@@ -529,7 +539,8 @@ void StyleEngine::ResetAuthorStyle(TreeScope& tree_scope) {
   if (!scoped_resolver)
     return;
 
-  global_rule_set_->MarkDirty();
+  if (global_rule_set_)
+    global_rule_set_->MarkDirty();
   if (tree_scope.RootNode().IsDocumentNode()) {
     scoped_resolver->ResetAuthorStyle();
     return;

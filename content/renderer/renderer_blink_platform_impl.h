@@ -25,8 +25,8 @@
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/screen_orientation/web_screen_orientation_type.h"
+#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom.h"
 #include "third_party/blink/public/mojom/loader/code_cache.mojom.h"
-#include "third_party/blink/public/platform/modules/cache_storage/cache_storage.mojom.h"
 #include "third_party/blink/public/platform/modules/webdatabase/web_database.mojom.h"
 
 #if defined(OS_LINUX)
@@ -85,7 +85,7 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   void CacheMetadata(blink::mojom::CodeCacheType cache_type,
                      const blink::WebURL&,
                      base::Time,
-                     const char*,
+                     const uint8_t*,
                      size_t) override;
   void FetchCachedCode(
       blink::mojom::CodeCacheType cache_type,
@@ -97,7 +97,7 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   void CacheMetadataInCacheStorage(
       const blink::WebURL&,
       base::Time,
-      const char*,
+      const uint8_t*,
       size_t,
       const blink::WebSecurityOrigin& cacheStorageOrigin,
       const blink::WebString& cacheStorageCacheName) override;
@@ -145,9 +145,6 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
                            const char* audio_file_data,
                            size_t data_size) override;
 
-  std::unique_ptr<blink::WebMIDIAccessor> CreateMIDIAccessor(
-      blink::WebMIDIAccessorClient* client) override;
-
   blink::WebBlobRegistry* GetBlobRegistry() override;
   std::unique_ptr<blink::WebRTCPeerConnectionHandler>
   CreateRTCPeerConnectionHandler(
@@ -163,6 +160,8 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   rtc::Thread* GetWebRtcWorkerThreadRtcThread() override;
   std::unique_ptr<cricket::PortAllocator> CreateWebRtcPortAllocator(
       blink::WebLocalFrame* frame) override;
+  std::unique_ptr<webrtc::AsyncResolverFactory>
+  CreateWebRtcAsyncResolverFactory() override;
   std::unique_ptr<blink::WebCanvasCaptureHandler> CreateCanvasCaptureHandler(
       const blink::WebSize& size,
       double frame_rate,
@@ -300,7 +299,6 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   scoped_refptr<blink::mojom::ThreadSafeCodeCacheHostPtr> code_cache_host_;
 
 #if defined(OS_LINUX)
-  class SandboxSupport;
   sk_sp<font_service::FontLoader> font_loader_;
 #endif
 

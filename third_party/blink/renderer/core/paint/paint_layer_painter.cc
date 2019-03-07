@@ -58,9 +58,9 @@ static ShouldRespectOverflowClipType ShouldRespectOverflowClip(
              : kRespectOverflowClip;
 }
 
-bool PaintLayerPainter::PaintedOutputInvisible(
-    const ComputedStyle& style,
-    GlobalPaintFlags global_paint_flags) const {
+bool PaintLayerPainter::PaintedOutputInvisible(const ComputedStyle& style) {
+  DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
+
   if (style.HasBackdropFilter())
     return false;
 
@@ -70,29 +70,14 @@ bool PaintLayerPainter::PaintedOutputInvisible(
   if (style.HasWillChangeOpacityHint())
     return false;
 
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
-    if (style.Opacity())
-      return false;
-
-    const auto* effect = paint_layer_.GetLayoutObject()
-                             .FirstFragment()
-                             .PaintProperties()
-                             ->Effect();
-    if (effect && effect->RequiresCompositingForAnimation()) {
-      return false;
-    }
-  }
-
   // 0.0004f < 1/2048. With 10-bit color channels (only available on the
   // newest Macs; otherwise it's 8-bit), we see that an alpha of 1/2048 or
   // less leads to a color output of less than 0.5 in all channels, hence
   // not visible.
   static const float kMinimumVisibleOpacity = 0.0004f;
-  if (paint_layer_.PaintsWithTransparency(global_paint_flags)) {
-    if (style.Opacity() < kMinimumVisibleOpacity) {
-      return true;
-    }
-  }
+  if (style.Opacity() < kMinimumVisibleOpacity)
+    return true;
+
   return false;
 }
 
@@ -132,14 +117,17 @@ PaintResult PaintLayerPainter::Paint(
   if (ShouldSuppressPaintingLayer(paint_layer_))
     return kFullyPainted;
 
-  // If this layer is totally invisible then there is nothing to paint. In SPv2
+  // If this layer is totally invisible then there is nothing to paint. In CAP
   // we simplify this optimization by painting even when effectively invisible
   // but skipping the painted content during layerization in
   // PaintArtifactCompositor.
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled() &&
-      PaintedOutputInvisible(paint_layer_.GetLayoutObject().StyleRef(),
-                             painting_info.GetGlobalPaintFlags())) {
-    return kFullyPainted;
+  if (paint_layer_.PaintsWithTransparency(
+          painting_info.GetGlobalPaintFlags())) {
+    if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
+        PaintedOutputInvisible(paint_layer_.GetLayoutObject().StyleRef()))
+      return kFullyPainted;
+
+    paint_flags |= kPaintLayerHaveTransparency;
   }
 
   // If the transform can't be inverted, then don't paint anything.
@@ -148,9 +136,6 @@ PaintResult PaintLayerPainter::Paint(
            .IsInvertible()) {
     return kFullyPainted;
   }
-
-  if (paint_layer_.PaintsWithTransparency(painting_info.GetGlobalPaintFlags()))
-    paint_flags |= kPaintLayerHaveTransparency;
 
   paint_flags |= kPaintLayerPaintingCompositingAllPhases;
   return PaintLayerContents(context, painting_info, paint_flags);
@@ -295,7 +280,7 @@ void PaintLayerPainter::AdjustForPaintProperties(
         painting_info.root_layer->GetLayoutObject().FirstFragment();
     const auto* source_transform =
         first_root_fragment.LocalBorderBoxProperties().Transform();
-    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() &&
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
         IsMainFrameNotClippingContents(*painting_info.root_layer)) {
       // Use PostScrollTranslation as the source transform to avoid clipping of
       // the scrolling contents in CullRect::ApplyTransforms().
@@ -306,7 +291,7 @@ void PaintLayerPainter::AdjustForPaintProperties(
     if (source_transform == destination_transform)
       return;
 
-    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
       auto& cull_rect = painting_info.cull_rect;
       // CullRect::ApplyTransforms() requires the cull rect in the source
       // transform space. Convert cull_rect from the root layer's local space.
@@ -612,7 +597,7 @@ PaintResult PaintLayerPainter::PaintLayerContents(
   if (should_paint_mask) {
     PaintMaskForFragments(layer_fragments, context, local_painting_info,
                           paint_flags);
-  } else if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled() &&
+  } else if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
              is_painting_mask &&
              !(painting_info.GetGlobalPaintFlags() &
                kGlobalPaintFlattenCompositingLayers) &&
@@ -708,6 +693,7 @@ PaintResult PaintLayerPainter::PaintChildren(
     return result;
   if (!paint_layer_.StackingNode())
     return result;
+
 #if DCHECK_IS_ON()
   LayerListMutationDetector mutation_checker(paint_layer_.StackingNode());
 #endif
@@ -717,7 +703,6 @@ PaintResult PaintLayerPainter::PaintChildren(
   PaintLayer* child = iterator.Next();
   if (!child)
     return result;
-
   for (; child; child = iterator.Next()) {
     // If this Layer should paint into its own backing or a grouped backing,
     // that will be done via CompositedLayerMapping::PaintContents() and
@@ -818,7 +803,6 @@ void PaintLayerPainter::PaintFragmentWithPhase(
                            ? fragment.fragment_data->LogicalTopInFlowThread()
                            : LayoutUnit(),
                        suppress_painting_descendants);
-
   paint_layer_.GetLayoutObject().Paint(paint_info);
 }
 

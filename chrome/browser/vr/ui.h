@@ -102,6 +102,8 @@ class VR_UI_EXPORT Ui : public UiInterface,
   void ShowExitVrPrompt(UiUnsupportedMode reason) override;
   void SetSpeechRecognitionEnabled(bool enabled) override;
   void SetRecognitionResult(const base::string16& result) override;
+  void SetHasOrCanRequestRecordAudioPermission(
+      bool has_or_can_request_record_audio) override;
   void OnSpeechRecognitionStateChanged(int new_state) override;
   void SetOmniboxSuggestions(
       std::unique_ptr<OmniboxSuggestions> suggestions) override;
@@ -144,8 +146,9 @@ class VR_UI_EXPORT Ui : public UiInterface,
   void CancelPlatformToast() override;
 
   void OnPause() override;
-  void OnControllerUpdated(const ControllerModel& controller_model,
-                           const ReticleModel& reticle_model) override;
+  void OnControllersUpdated(
+      const std::vector<ControllerModel>& controller_models,
+      const ReticleModel& reticle_model) override;
   void OnProjMatrixChanged(const gfx::Transform& proj_matrix) override;
   void OnSwapContents(int new_content_id) override;
   void OnContentBoundsChanged(int width, int height) override;

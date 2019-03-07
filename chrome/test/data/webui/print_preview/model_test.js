@@ -9,6 +9,7 @@ cr.define('model_test', function() {
     SetPolicySettings: 'set policy settings',
     GetPrintTicket: 'get print ticket',
     GetCloudPrintTicket: 'get cloud print ticket',
+    UpdateRecentDestinations: 'update recent destinations',
   };
 
   const suiteName = 'ModelTest';
@@ -189,9 +190,18 @@ cr.define('model_test', function() {
     }
 
     function initializeModel() {
-      model.documentInfo = new print_preview.DocumentInfo();
-      model.documentInfo.init(true, 'title', true);
-      model.documentInfo.updatePageCount(3);
+      model.documentSettings = {
+        hasCssMediaStyles: false,
+        hasSelection: true,
+        isModifiable: true,
+        isScalingDisabled: false,
+        fitToPageScaling: 100,
+        pageCount: 3,
+        title: 'title',
+      };
+
+      model.pageSize = new print_preview.Size(612, 792);
+
       // Update pages accordingly.
       model.set('settings.pages.value', [1, 2, 3]);
 
@@ -234,6 +244,7 @@ cr.define('model_test', function() {
         shouldPrintSelectionOnly: false,
         previewModifiable: true,
         printToPDF: false,
+        printToGoogleDrive: false,
         printWithCloudPrint: false,
         printWithPrivet: false,
         printWithExtension: false,
@@ -268,6 +279,7 @@ cr.define('model_test', function() {
         shouldPrintSelectionOnly: false,  // Only for Print Preview.
         previewModifiable: true,
         printToPDF: false,
+        printToGoogleDrive: false,
         printWithCloudPrint: false,
         printWithPrivet: false,
         printWithExtension: false,
@@ -364,6 +376,55 @@ cr.define('model_test', function() {
         },
       });
       expectEquals(expectedNewTicket, newTicket);
+    });
+
+    /**
+     * @param {!Array<string>} expectedDestinationIds An array of the expected
+     *     recent destination ids.
+     */
+    function assertRecentDestinations(expectedDestinationIds) {
+      assertEquals(
+          expectedDestinationIds.length, model.recentDestinations.length);
+      expectedDestinationIds.forEach((expectedId, index) => {
+        assertEquals(expectedId, model.recentDestinations[index].id);
+      });
+    }
+
+    /**
+     * Tests that the destination being set correctly updates the recent
+     * destinations array.
+     */
+    test(assert(TestNames.UpdateRecentDestinations), function() {
+      initializeModel();
+      model.applyStickySettings();
+
+      let localDestinations = [];
+      let destinations =
+          print_preview_test_utils.getDestinations(null, localDestinations);
+
+      // Recent destinations start out empty.
+      assertRecentDestinations([]);
+
+      // Simulate setting a destination.
+      model.destination = destinations[0];
+      assertRecentDestinations(['ID1']);
+
+      // Set a new destination
+      model.destination = destinations[1];
+      assertRecentDestinations(['ID2', 'ID1']);
+
+      // Reselect a recent destination. Still 2 destinations, but in a
+      // different order.
+      model.destination = destinations[0];
+      assertRecentDestinations(['ID1', 'ID2']);
+
+      // Select a third destination
+      model.destination = destinations[2];
+      assertRecentDestinations(['ID3', 'ID1', 'ID2']);
+
+      // Select a fourth destination. List does not grow.
+      model.destination = destinations[3];
+      assertRecentDestinations(['ID4', 'ID3', 'ID1']);
     });
   });
 

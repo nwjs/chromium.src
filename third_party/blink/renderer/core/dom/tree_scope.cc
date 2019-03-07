@@ -339,44 +339,36 @@ SVGTreeScopeResources& TreeScope::EnsureSVGTreeScopedResources() {
 }
 
 bool TreeScope::HasAdoptedStyleSheets() const {
-  return adopted_style_sheets_ && adopted_style_sheets_->length() > 0;
+  return adopted_style_sheets_.size() > 0;
 }
 
-StyleSheetList& TreeScope::AdoptedStyleSheets() {
-  if (!adopted_style_sheets_)
-    SetAdoptedStyleSheets(StyleSheetList::Create());
-  return *adopted_style_sheets_;
+const HeapVector<Member<CSSStyleSheet>>& TreeScope::AdoptedStyleSheets() {
+  return adopted_style_sheets_;
 }
 
-void TreeScope::SetAdoptedStyleSheets(StyleSheetList* adopted_style_sheets,
-                                      ExceptionState& exception_state) {
-  unsigned style_sheets_count =
-      adopted_style_sheets ? adopted_style_sheets->length() : 0;
-  for (unsigned i = 0; i < style_sheets_count; ++i) {
-    CSSStyleSheet* style_sheet = ToCSSStyleSheet(adopted_style_sheets->item(i));
-    Document* associated_document = style_sheet->AssociatedDocument();
-    Node* owner_node = style_sheet->ownerNode();
+void TreeScope::SetAdoptedStyleSheets(
+    HeapVector<Member<CSSStyleSheet>>& adopted_style_sheets,
+    ExceptionState& exception_state) {
+  for (CSSStyleSheet* sheet : adopted_style_sheets) {
+    if (!sheet->IsConstructed()) {
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kNotAllowedError,
+          "Can't adopt non-constructed stylesheets.");
+      return;
+    }
+    Document* associated_document = sheet->AssociatedDocument();
     if (associated_document && *associated_document != GetDocument()) {
       exception_state.ThrowDOMException(DOMExceptionCode::kNotAllowedError,
-                                        "Sharing constructable stylesheets in "
+                                        "Sharing constructed stylesheets in "
                                         "multiple documents is not allowed");
       return;
     }
-    if (owner_node && owner_node->GetDocument() != GetDocument()) {
-      exception_state.ThrowDOMException(
-          DOMExceptionCode::kNotAllowedError,
-          "When the style sheet's owner node and the AdoptedStyleSheets' tree "
-          "scope is not in the same Document tree, adding non-constructed "
-          "stylesheets to AdoptedStyleSheets is not allowed");
-      return;
-    }
-    // TODO(momon): Don't allow using non-constructed stylesheets, pending
-    // resolution of https://github.com/WICG/construct-stylesheets/issues/34
   }
   SetAdoptedStyleSheets(adopted_style_sheets);
 }
 
-void TreeScope::SetAdoptedStyleSheets(StyleSheetList* adopted_style_sheets) {
+void TreeScope::SetAdoptedStyleSheets(
+    HeapVector<Member<CSSStyleSheet>>& adopted_style_sheets) {
   GetDocument().GetStyleEngine().AdoptedStyleSheetsWillChange(
       *this, adopted_style_sheets_, adopted_style_sheets);
   adopted_style_sheets_ = adopted_style_sheets;
@@ -627,7 +619,7 @@ void TreeScope::SetNeedsStyleRecalcForViewportUnits() {
   }
 }
 
-void TreeScope::Trace(blink::Visitor* visitor) {
+void TreeScope::Trace(Visitor* visitor) {
   visitor->Trace(root_node_);
   visitor->Trace(document_);
   visitor->Trace(parent_tree_scope_);

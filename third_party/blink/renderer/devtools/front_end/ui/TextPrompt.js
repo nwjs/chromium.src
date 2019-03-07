@@ -110,12 +110,11 @@ UI.TextPrompt = class extends Common.Object {
     this._boundOnMouseWheel = this.onMouseWheel.bind(this);
     this._boundClearAutocomplete = this.clearAutocomplete.bind(this);
     this._proxyElement = element.ownerDocument.createElement('span');
-    const shadowRoot = UI.createShadowRootWithCoreStyles(this._proxyElement, 'ui/textPrompt.css');
-    this._contentElement = shadowRoot.createChild('div', 'text-prompt-root');
-    this._contentElement.createChild('content');
+    UI.appendStyle(this._proxyElement, 'ui/textPrompt.css');
+    this._contentElement = this._proxyElement.createChild('div', 'text-prompt-root');
     this._proxyElement.style.display = this._proxyElementDisplay;
     element.parentElement.insertBefore(this._proxyElement, element);
-    this._proxyElement.appendChild(element);
+    this._contentElement.appendChild(element);
     this._element.classList.add('text-prompt');
     UI.ARIAUtils.markAsTextBox(this._element);
     this._element.setAttribute('contenteditable', 'plaintext-only');
@@ -416,7 +415,7 @@ UI.TextPrompt = class extends Common.Object {
 
     const expressionRange = wordQueryRange.cloneRange();
     expressionRange.collapse(true);
-    expressionRange.setStartBefore(this._proxyElement);
+    expressionRange.setStartBefore(this._element);
     const completionRequestId = ++this._completionRequestId;
     const completions = await this._loadCompletions(expressionRange.toString(), wordQueryRange.toString(), !!force);
     this._completionsReady(completionRequestId, selection, wordQueryRange, !!force, completions);

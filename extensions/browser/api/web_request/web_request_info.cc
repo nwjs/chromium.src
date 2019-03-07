@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/files/file_path.h"
+#include "base/stl_util.h"
 #include "base/values.h"
 #include "content/public/browser/resource_request_info.h"
 #include "content/public/browser/websocket_handshake_request_info.h"
@@ -165,16 +166,16 @@ bool CreateUploadDataSourcesFromResourceRequest(
 
   for (auto& element : *request.request_body->elements()) {
     switch (element.type()) {
-      case network::DataElement::TYPE_DATA_PIPE:
+      case network::mojom::DataElementType::kDataPipe:
         // TODO(https://crbug.com/721414): Support data pipe elements.
         break;
 
-      case network::DataElement::TYPE_BYTES:
+      case network::mojom::DataElementType::kBytes:
         data_sources->push_back(std::make_unique<BytesUploadDataSource>(
             base::StringPiece(element.bytes(), element.length())));
         break;
 
-      case network::DataElement::TYPE_FILE:
+      case network::mojom::DataElementType::kFile:
         // TODO(https://crbug.com/715679): This may not work when network
         // process is sandboxed.
         data_sources->push_back(
@@ -211,7 +212,7 @@ std::unique_ptr<base::DictionaryValue> CreateRequestBodyData(
                                       keys::kRequestBodyRawKey};
   bool some_succeeded = false;
   if (!data_sources.empty()) {
-    for (size_t i = 0; i < arraysize(presenters); ++i) {
+    for (size_t i = 0; i < base::size(presenters); ++i) {
       for (auto& source : data_sources)
         source->FeedToPresenter(presenters[i]);
       if (presenters[i]->Succeeded()) {
@@ -305,6 +306,7 @@ WebRequestInfo::WebRequestInfo(
     int32_t routing_id,
     content::ResourceContext* resource_context,
     const network::ResourceRequest& request,
+    bool is_download,
     bool is_async)
     : id(request_id),
       url(request.url),
@@ -322,6 +324,8 @@ WebRequestInfo::WebRequestInfo(
       resource_context(resource_context) {
   if (url.SchemeIsWSOrWSS())
     web_request_type = WebRequestResourceType::WEB_SOCKET;
+  else if (is_download)
+    web_request_type = WebRequestResourceType::OTHER;
   else
     web_request_type = ToWebRequestResourceType(type.value());
 

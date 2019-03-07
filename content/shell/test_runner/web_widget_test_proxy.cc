@@ -4,14 +4,16 @@
 
 #include "content/shell/test_runner/web_widget_test_proxy.h"
 
+#include "content/renderer/compositor/layer_tree_view.h"
 #include "content/shell/test_runner/event_sender.h"
 #include "content/shell/test_runner/web_test_interfaces.h"
 #include "content/shell/test_runner/web_view_test_proxy.h"
 
 namespace test_runner {
 
-WebWidgetTestProxyBase::WebWidgetTestProxyBase()
-    : event_sender_(std::make_unique<EventSender>(this)) {}
+WebWidgetTestProxyBase::WebWidgetTestProxyBase(bool main_frame_widget)
+    : main_frame_widget_(main_frame_widget),
+      event_sender_(std::make_unique<EventSender>(this)) {}
 
 WebWidgetTestProxyBase::~WebWidgetTestProxyBase() = default;
 
@@ -34,12 +36,20 @@ void WebWidgetTestProxy::Initialize(
   // On WebWidgetTestProxyBase.
   set_web_widget(web_widget);
   set_web_view_test_proxy_base(view_proxy_for_local_root);
-  set_widget_test_client(interfaces->CreateWebWidgetTestClient(this));
+  set_widget_test_client(std::make_unique<WebWidgetTestClient>(this));
 }
 
 void WebWidgetTestProxy::ScheduleAnimation() {
-  RenderWidget::ScheduleAnimation();
-  widget_test_client()->ScheduleAnimation();
+  // When using threaded compositing, have the RenderWidget schedule a request
+  // for a frame, as we use the compositor's scheduler. Otherwise the testing
+  // WebWidgetClient schedules it.
+  // Note that for WebWidgetTestProxy the RenderWidget is subclassed to override
+  // the WebWidgetClient, so we must call up to the base class RenderWidget
+  // explicitly here to jump out of the test harness as intended.
+  if (!RenderWidget::layer_tree_view()->CompositeIsSynchronousForTesting())
+    RenderWidget::ScheduleAnimation();
+  else
+    widget_test_client()->ScheduleAnimation();
 }
 
 bool WebWidgetTestProxy::RequestPointerLock() {

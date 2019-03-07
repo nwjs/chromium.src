@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "base/logging.h"
+#include "base/stl_util.h"  // for base::size()
 #include "mojo/public/cpp/bindings/lib/validate_params.h"
 #include "mojo/public/cpp/bindings/lib/validation_context.h"
 #include "mojo/public/cpp/bindings/lib/validation_errors.h"
@@ -23,6 +24,14 @@
 
 {%- for namespace in namespaces_as_array %}
 namespace {{namespace}} {
+{%- endfor %}
+
+{#--- Enums #}
+{%- from "enum_macros.tmpl" import enum_stream %}
+{%- for enum in all_enums %}
+{%-   if not enum|is_native_only_kind %}
+{{enum_stream(enum)}}
+{%-   endif %}
 {%- endfor %}
 
 namespace internal {
@@ -60,4 +69,3 @@ namespace internal {
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
-

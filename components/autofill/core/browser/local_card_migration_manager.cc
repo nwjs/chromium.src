@@ -94,9 +94,10 @@ void LocalCardMigrationManager::AttemptToOfferLocalCardMigration(
       base::BindOnce(&LocalCardMigrationManager::OnDidGetUploadDetails,
                      weak_ptr_factory_.GetWeakPtr(), is_from_settings_page),
       payments::kMigrateCardsBillableServiceNumber,
-      is_from_settings_page
-          ? payments::PaymentsClient::MigrationSource::SETTINGS_PAGE
-          : payments::PaymentsClient::MigrationSource::CHECKOUT_FLOW);
+      is_from_settings_page ? payments::PaymentsClient::UploadCardSource::
+                                  LOCAL_CARD_MIGRATION_SETTINGS_PAGE
+                            : payments::PaymentsClient::UploadCardSource::
+                                  LOCAL_CARD_MIGRATION_CHECKOUT_FLOW);
 }
 
 // Callback function when user agrees to migration on the intermediate dialog.
@@ -161,10 +162,10 @@ void LocalCardMigrationManager::OnDidGetUploadDetails(
     bool is_from_settings_page,
     AutofillClient::PaymentsRpcResult result,
     const base::string16& context_token,
-    std::unique_ptr<base::DictionaryValue> legal_message) {
+    std::unique_ptr<base::Value> legal_message) {
   if (result == AutofillClient::SUCCESS) {
     migration_request_.context_token = context_token;
-    legal_message_ = std::move(legal_message);
+    legal_message_ = base::DictionaryValue::From(std::move(legal_message));
     migration_request_.risk_data.clear();
     // If we successfully received the legal docs, trigger the offer-to-migrate
     // dialog. If triggered from settings page, we pop-up the main prompt
@@ -272,7 +273,9 @@ void LocalCardMigrationManager::ShowMainMigrationDialog() {
       local_card_migration_origin_, AutofillMetrics::MAIN_DIALOG_SHOWN);
   // Pops up a larger, modal dialog showing the local cards to be uploaded.
   client_->ConfirmMigrateLocalCardToCloud(
-      std::move(legal_message_), migratable_credit_cards_,
+      std::move(legal_message_),
+      client_->GetIdentityManager()->GetPrimaryAccountInfo().email,
+      migratable_credit_cards_,
       base::BindOnce(
           &LocalCardMigrationManager::OnUserAcceptedMainMigrationDialog,
           weak_ptr_factory_.GetWeakPtr()));

@@ -95,6 +95,10 @@ class TestUDPClientSocket : public DatagramClientSocket {
   void SetWriteMultiCoreEnabled(bool enabled) override {}
   void SetSendmmsgEnabled(bool enabled) override {}
   void SetWriteBatchingActive(bool active) override {}
+  int SetMulticastInterface(uint32_t interface_index) override {
+    NOTIMPLEMENTED();
+    return ERR_NOT_IMPLEMENTED;
+  }
 
   int ConnectUsingNetwork(NetworkChangeNotifier::NetworkHandle network,
                           const IPEndPoint& address) override {
@@ -166,10 +170,12 @@ class TestSocketFactory : public ClientSocketFactory {
       std::unique_ptr<ClientSocketHandle> transport_socket,
       const std::string& user_agent,
       const HostPortPair& endpoint,
+      const ProxyServer& proxy_server,
       HttpAuthController* http_auth_controller,
       bool tunnel,
       bool using_spdy,
       NextProto negotiated_protocol,
+      ProxyDelegate* proxy_delegate,
       bool is_https_proxy,
       const NetworkTrafficAnnotationTag& traffic_annotation) override {
     NOTIMPLEMENTED();

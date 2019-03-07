@@ -33,6 +33,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/network_time/network_time_tracker.h"
 #include "components/prefs/pref_service.h"
+#include "components/security_interstitials/content/security_interstitial_page.h"
 #include "components/security_interstitials/core/ssl_error_ui.h"
 #include "components/ssl_errors/error_classification.h"
 #include "components/ssl_errors/error_info.h"
@@ -55,7 +56,7 @@
 #endif
 
 #if defined(OS_WIN)
-#include "base/win/win_util.h"
+#include "base/enterprise_util.h"
 #elif defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #endif  // #if defined(OS_WIN)
@@ -109,6 +110,7 @@ class CommonNameMismatchRedirectObserver
   }
 
  private:
+  friend class content::WebContentsUserData<CommonNameMismatchRedirectObserver>;
   CommonNameMismatchRedirectObserver(content::WebContents* web_contents,
                                      const std::string& request_url_hostname,
                                      const std::string& suggested_url_hostname)
@@ -145,8 +147,12 @@ class CommonNameMismatchRedirectObserver
   const std::string request_url_hostname_;
   const std::string suggested_url_hostname_;
 
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
+
   DISALLOW_COPY_AND_ASSIGN(CommonNameMismatchRedirectObserver);
 };
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(CommonNameMismatchRedirectObserver)
 
 void RecordUMA(SSLErrorHandler::UMAEvent event) {
   UMA_HISTOGRAM_ENUMERATION(kHistogram, event,
@@ -340,7 +346,7 @@ bool ConfigSingleton::IsEnterpriseManaged() const {
   }
 
 #if defined(OS_WIN)
-  if (base::win::IsEnterpriseManaged()) {
+  if (base::IsMachineExternallyManaged()) {
     return true;
   }
 #elif defined(OS_CHROMEOS)
@@ -554,9 +560,9 @@ void SSLErrorHandlerDelegateImpl::OnBlockingPageReady(
   if (blocking_page_ready_callback_.is_null()) {
     interstitial_page->Show();
   } else {
-    std::move(blocking_page_ready_callback_)
-        .Run(std::unique_ptr<security_interstitials::SecurityInterstitialPage>(
-            interstitial_page));
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(blocking_page_ready_callback_),
+                                  base::WrapUnique(interstitial_page)));
   }
 }
 
@@ -1073,3 +1079,5 @@ int SSLErrorHandler::CalculateOptionsMask(int cert_error,
   }
   return options_mask;
 }
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(SSLErrorHandler)

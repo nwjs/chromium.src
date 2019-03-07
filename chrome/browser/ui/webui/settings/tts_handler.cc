@@ -98,7 +98,7 @@ void TtsHandler::OnVoicesChanged() {
     response.SetString("languageCode", language_code);
     response.SetString("fullLanguageCode", voice.lang);
     response.SetInteger("languageScore", language_score);
-    response.SetString("extensionId", voice.extension_id);
+    response.SetString("extensionId", voice.engine_id);
     responses.GetList().push_back(std::move(response));
   }
   AllowJavascript();
@@ -106,6 +106,18 @@ void TtsHandler::OnVoicesChanged() {
 
   // Also refresh the TTS extensions in case they have changed.
   HandleGetTtsExtensions(nullptr);
+}
+
+void TtsHandler::OnTtsEvent(content::TtsUtterance* utterance,
+                            content::TtsEventType event_type,
+                            int char_index,
+                            const std::string& error_message) {
+  if (event_type == content::TTS_EVENT_END ||
+      event_type == content::TTS_EVENT_INTERRUPTED ||
+      event_type == content::TTS_EVENT_ERROR) {
+    base::Value result(false /* preview stopped */);
+    FireWebUIListener("tts-preview-state-changed", result);
+  }
 }
 
 void TtsHandler::HandlePreviewTtsVoice(const base::ListValue* args) {
@@ -125,14 +137,17 @@ void TtsHandler::HandlePreviewTtsVoice(const base::ListValue* args) {
   json->GetString("name", &name);
   json->GetString("extension", &extension_id);
 
-  content::Utterance* utterance =
-      new content::Utterance(Profile::FromWebUI(web_ui()));
-  utterance->set_text(text);
-  utterance->set_voice_name(name);
-  utterance->set_extension_id(extension_id);
-  utterance->set_src_url(GURL("chrome://settings/manageAccessibility/tts"));
-  utterance->set_event_delegate(nullptr);
+  content::TtsUtterance* utterance =
+      content::TtsUtterance::Create((Profile::FromWebUI(web_ui())));
+  utterance->SetText(text);
+  utterance->SetVoiceName(name);
+  utterance->SetEngineId(extension_id);
+  utterance->SetSrcUrl(GURL("chrome://settings/manageAccessibility/tts"));
+  utterance->SetEventDelegate(this);
   content::TtsController::GetInstance()->Stop();
+
+  base::Value result(true /* preview started */);
+  FireWebUIListener("tts-preview-state-changed", result);
   content::TtsController::GetInstance()->SpeakOrEnqueue(utterance);
 }
 
@@ -159,6 +174,7 @@ void TtsHandler::OnJavascriptAllowed() {
 
 void TtsHandler::OnJavascriptDisallowed() {
   content::TtsController::GetInstance()->RemoveVoicesChangedDelegate(this);
+  content::TtsController::GetInstance()->RemoveUtteranceEventDelegate(this);
 }
 
 int TtsHandler::GetVoiceLangMatchScore(const content::VoiceData* voice,
@@ -175,7 +191,7 @@ int TtsHandler::GetVoiceLangMatchScore(const content::VoiceData* voice,
 
 void TtsHandler::WakeTtsEngine(const base::ListValue* args) {
   Profile* profile = Profile::FromWebUI(web_ui());
-  TtsExtensionEngine::GetInstance()->LoadBuiltInTtsExtension(profile);
+  TtsExtensionEngine::GetInstance()->LoadBuiltInTtsEngine(profile);
   extensions::ProcessManager::Get(profile)->WakeEventPage(
       extension_misc::kGoogleSpeechSynthesisExtensionId,
       base::BindOnce(&TtsHandler::OnTtsEngineAwake,

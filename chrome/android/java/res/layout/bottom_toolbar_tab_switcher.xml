@@ -36,7 +36,7 @@
           android:id="@+id/close_all_tabs_button"
           style="@style/BottomToolbarButton"
           android:src="@drawable/ic_close_all_tabs"
-          android:contentDescription="@string/menu_close_all_tabs"
+          android:contentDescription="@string/accessibility_toolbar_btn_close_all_tabs"
           app:tint="@color/dark_mode_tint" />
 
       <include layout="@layout/toolbar_space" />

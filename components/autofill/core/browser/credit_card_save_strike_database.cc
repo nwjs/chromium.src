@@ -9,8 +9,10 @@
 namespace autofill {
 
 CreditCardSaveStrikeDatabase::CreditCardSaveStrikeDatabase(
-    const base::FilePath& database_dir)
-    : StrikeDatabase(database_dir) {}
+    StrikeDatabase* strike_database)
+    : StrikeDatabaseIntegratorBase(strike_database) {
+  RemoveExpiredStrikes();
+}
 
 CreditCardSaveStrikeDatabase::~CreditCardSaveStrikeDatabase() {}
 
@@ -20,6 +22,15 @@ std::string CreditCardSaveStrikeDatabase::GetProjectPrefix() {
 
 int CreditCardSaveStrikeDatabase::GetMaxStrikesLimit() {
   return 3;
+}
+
+long long CreditCardSaveStrikeDatabase::GetExpiryTimeMicros() {
+  // Expiry time is 6 months.
+  return (long long)1000000 * 60 * 60 * 24 * 180;
+}
+
+bool CreditCardSaveStrikeDatabase::UniqueIdsRequired() {
+  return true;
 }
 
 }  // namespace autofill

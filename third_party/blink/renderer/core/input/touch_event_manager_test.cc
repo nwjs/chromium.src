@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "third_party/blink/renderer/core/input/touch_event_manager.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
-#include "third_party/blink/renderer/core/dom/events/event_listener.h"
+#include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
-#include "third_party/blink/renderer/core/input/touch_event_manager.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_compositor.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
@@ -32,13 +32,10 @@ class TouchEventManagerTest : public SimTest {
   }
 };
 
-class CheckEventListenerCallback final : public EventListener {
+class CheckEventListenerCallback final : public NativeEventListener {
  public:
   static CheckEventListenerCallback* Create() {
-    return new CheckEventListenerCallback();
-  }
-  bool operator==(const EventListener& other) const override {
-    return this == &other;
+    return MakeGarbageCollected<CheckEventListenerCallback>();
   }
 
   void Invoke(ExecutionContext*, Event* event) override {
@@ -48,15 +45,11 @@ class CheckEventListenerCallback final : public EventListener {
   bool HasReceivedEvent() const { return event_received_; }
 
  private:
-  CheckEventListenerCallback()
-      : EventListener(EventListener::kCPPEventListenerType) {
-    event_received_ = false;
-  }
-  bool event_received_;
+  bool event_received_ = false;
 };
 
 TEST_F(TouchEventManagerTest, LostTouchDueToInnerIframeRemove) {
-  WebView().Resize(WebSize(400, 400));
+  WebView().MainFrameWidget()->Resize(WebSize(400, 400));
   SimRequest request("https://example.com/test.html", "text/html");
   LoadURL("https://example.com/test.html");
   request.Complete(R"HTML(

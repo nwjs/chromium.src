@@ -31,13 +31,16 @@
 #ifndef THIRD_PARTY_BLINK_PUBLIC_PLATFORM_WEB_RTC_PEER_CONNECTION_HANDLER_H_
 #define THIRD_PARTY_BLINK_PUBLIC_PLATFORM_WEB_RTC_PEER_CONNECTION_HANDLER_H_
 
+#include <memory>
+#include <vector>
+
 #include "third_party/blink/public/platform/web_rtc_ice_candidate.h"
 #include "third_party/blink/public/platform/web_rtc_rtp_transceiver.h"
 #include "third_party/blink/public/platform/web_rtc_stats.h"
 #include "third_party/blink/public/platform/web_vector.h"
-#include "third_party/webrtc/api/peerconnectioninterface.h"
-#include "third_party/webrtc/api/rtcerror.h"
-#include "third_party/webrtc/api/rtptransceiverinterface.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
+#include "third_party/webrtc/api/rtc_error.h"
+#include "third_party/webrtc/api/rtp_transceiver_interface.h"
 
 namespace webrtc {
 enum class RTCErrorType;
@@ -67,10 +70,17 @@ class WebRTCPeerConnectionHandler {
       const webrtc::PeerConnectionInterface::RTCConfiguration&,
       const WebMediaConstraints&) = 0;
 
-  virtual void CreateOffer(const WebRTCSessionDescriptionRequest&,
-                           const WebMediaConstraints&) = 0;
-  virtual void CreateOffer(const WebRTCSessionDescriptionRequest&,
-                           const WebRTCOfferOptions&) = 0;
+  // Unified Plan: The list of transceivers after the createOffer() call.
+  // Because of offerToReceive[Audio/Video] it is possible for createOffer() to
+  // create new transceivers or update the direction of existing transceivers.
+  // https://w3c.github.io/webrtc-pc/#legacy-configuration-extensions
+  // Plan B: Returns an empty list.
+  virtual std::vector<std::unique_ptr<WebRTCRtpTransceiver>> CreateOffer(
+      const WebRTCSessionDescriptionRequest&,
+      const WebMediaConstraints&) = 0;
+  virtual std::vector<std::unique_ptr<WebRTCRtpTransceiver>> CreateOffer(
+      const WebRTCSessionDescriptionRequest&,
+      const WebRTCOfferOptions&) = 0;
   virtual void CreateAnswer(const WebRTCSessionDescriptionRequest&,
                             const WebMediaConstraints&) = 0;
   virtual void CreateAnswer(const WebRTCSessionDescriptionRequest&,
@@ -131,6 +141,9 @@ class WebRTCPeerConnectionHandler {
 
   // Origin Trial - RtcPeerConnectionId
   virtual WebString Id() const = 0;
+
+  // Returns a pointer to the underlying native PeerConnection object.
+  virtual webrtc::PeerConnectionInterface* NativePeerConnection() = 0;
 };
 
 }  // namespace blink

@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Next MinVersion: 5
+// Next MinVersion: 7
 
 module arc.mojom;
 
@@ -52,13 +52,16 @@ struct TextInputState {
   // Android IMEs need this flag to know the latest state after their operation
   // becomes effective.
   bool first_update_after_operation;
+  // The range of the composition text in 16-bit code units index
+  // in the overall text of the text field.
+  [MinVersion=6] Range? composition_text_range;
 };
 
 // This interface provides methods to control a text field.
 // It is generated for each focused text field and passed to Android.
 // This interface will be closed when the focus moves to another text field.
 //
-// Next method ID: 5
+// Next method ID: 6
 [MinVersion=2]
 interface InputConnection {
   // Commits text to the focused text field and set the new cursor position.
@@ -81,6 +84,9 @@ interface InputConnection {
   SetComposingText@4(mojo_base.mojom.String16 text,
                      int32 new_cursor_pos,
                      [MinVersion=3] Range? new_selection_range);
+
+  // Selects the given UTF-16 based character range.
+  [MinVersion=5] SetSelection@5(Range new_selection_range);
 };
 
 // This interface is called by container when Android's InputMethodManager state

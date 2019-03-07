@@ -14,8 +14,9 @@ MediaSinkWithCastModes::MediaSinkWithCastModes(
 
 MediaSinkWithCastModes::~MediaSinkWithCastModes() {}
 
-bool MediaSinkWithCastModes::Equals(const MediaSinkWithCastModes& other) const {
-  return sink.Equals(other.sink) && cast_modes == other.cast_modes;
+bool MediaSinkWithCastModes::operator==(
+    const MediaSinkWithCastModes& other) const {
+  return sink.id() == other.sink.id() && cast_modes == other.cast_modes;
 }
 
 }  // namespace media_router

@@ -12,7 +12,8 @@
 #include "mojo/public/cpp/bindings/scoped_interface_endpoint_handle.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-shared.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_size.h"
@@ -45,7 +46,6 @@ class WebPerformance;
 class WebRange;
 class WebSecurityOrigin;
 class WebScriptExecutionCallback;
-class WebSharedWorkerRepositoryClient;
 class WebSpellCheckPanelHostClient;
 class WebString;
 class WebTextCheckClient;
@@ -55,6 +55,7 @@ enum class WebTreeScopeType;
 struct WebAssociatedURLLoaderOptions;
 struct WebConsoleMessage;
 struct WebContentSecurityPolicyViolation;
+struct WebIsolatedWorldInfo;
 struct WebMediaPlayerAction;
 struct WebPoint;
 struct WebPrintParams;
@@ -77,6 +78,7 @@ class WebLocalFrame : public WebFrame {
       WebView*,
       WebLocalFrameClient*,
       blink::InterfaceRegistry*,
+      mojo::ScopedMessagePipeHandle,
       WebFrame* opener = nullptr,
       const WebString& name = WebString(),
       WebSandboxFlags = WebSandboxFlags::kNone);
@@ -101,6 +103,7 @@ class WebLocalFrame : public WebFrame {
   BLINK_EXPORT static WebLocalFrame* CreateProvisional(
       WebLocalFrameClient*,
       blink::InterfaceRegistry*,
+      mojo::ScopedMessagePipeHandle,
       WebRemoteFrame*,
       WebSandboxFlags,
       ParsedFeaturePolicy);
@@ -110,7 +113,8 @@ class WebLocalFrame : public WebFrame {
   // it's no longer needed.
   virtual WebLocalFrame* CreateLocalChild(WebTreeScopeType,
                                           WebLocalFrameClient*,
-                                          blink::InterfaceRegistry*) = 0;
+                                          blink::InterfaceRegistry*,
+                                          mojo::ScopedMessagePipeHandle) = 0;
 
   // Returns the WebFrame associated with the current V8 context. This
   // function can return 0 if the context is associated with a Document that
@@ -132,8 +136,6 @@ class WebLocalFrame : public WebFrame {
 
   virtual void SetAutofillClient(WebAutofillClient*) = 0;
   virtual WebAutofillClient* AutofillClient() = 0;
-  virtual void SetSharedWorkerRepositoryClient(
-      WebSharedWorkerRepositoryClient*) = 0;
 
   // Closing -------------------------------------------------------------
 
@@ -301,36 +303,22 @@ class WebLocalFrame : public WebFrame {
   // gets its own wrappers for all DOM nodes and DOM constructors.
   //
   // worldID must be > 0 (as 0 represents the main world).
-  // worldID must be < EmbedderWorldIdLimit, high number used internally.
+  // worldID must be < kEmbedderWorldIdLimit, high number used internally.
   virtual void ExecuteScriptInIsolatedWorld(int world_id,
                                             const WebScriptSource&) = 0;
 
   // worldID must be > 0 (as 0 represents the main world).
-  // worldID must be < EmbedderWorldIdLimit, high number used internally.
+  // worldID must be < kEmbedderWorldIdLimit, high number used internally.
   // DEPRECATED: Use WebLocalFrame::requestExecuteScriptInIsolatedWorld.
   WARN_UNUSED_RESULT virtual v8::Local<v8::Value>
   ExecuteScriptInIsolatedWorldAndReturnValue(int world_id,
                                              const WebScriptSource&) = 0;
 
-  // Associates an isolated world (see above for description) with a security
-  // origin. XMLHttpRequest instances used in that world will be considered
-  // to come from that origin, not the frame's.
-  //
-  // Currently the origin shouldn't be aliased, because IsolatedCopy() is
-  // taken before associating it to an isolated world and aliased relationship,
-  // if any, is broken. crbug.com/779730
-  virtual void SetIsolatedWorldSecurityOrigin(int world_id,
-                                              const WebSecurityOrigin&) = 0;
-
-  // Associates a content security policy with an isolated world. This policy
-  // should be used when evaluating script in the isolated world, and should
-  // also replace a protected resource's CSP when evaluating resources
-  // injected into the DOM.
-  //
-  // FIXME: Setting this simply bypasses the protected resource's CSP. It
-  //     doesn't yet restrict the isolated world to the provided policy.
-  virtual void SetIsolatedWorldContentSecurityPolicy(int world_id,
-                                                     const WebString&) = 0;
+  // Sets up an isolated world by associating a |world_id| with |info|.
+  // worldID must be > 0 (as 0 represents the main world).
+  // worldID must be < kEmbedderWorldIdLimit, high number used internally.
+  virtual void SetIsolatedWorldInfo(int world_id,
+                                    const WebIsolatedWorldInfo& info) = 0;
 
   // Executes script in the context of the current page and returns the value
   // that the script evaluated to.
@@ -397,7 +385,7 @@ class WebLocalFrame : public WebFrame {
   };
 
   // worldID must be > 0 (as 0 represents the main world).
-  // worldID must be < EmbedderWorldIdLimit, high number used internally.
+  // worldID must be < kEmbedderWorldIdLimit, high number used internally.
   virtual void RequestExecuteScriptInIsolatedWorld(
       int world_id,
       const WebScriptSource* source_in,
@@ -405,11 +393,6 @@ class WebLocalFrame : public WebFrame {
       bool user_gesture,
       ScriptExecutionType,
       WebScriptExecutionCallback*) = 0;
-
-  // Associates an isolated world with human-readable name which is useful for
-  // extension debugging.
-  virtual void SetIsolatedWorldHumanReadableName(int world_id,
-                                                 const WebString&) = 0;
 
   // Logs to the console associated with this frame.
   virtual void AddMessageToConsole(const WebConsoleMessage&) = 0;
@@ -620,6 +603,9 @@ class WebLocalFrame : public WebFrame {
   // This will be removed following the deprecation.
   virtual void UsageCountChromeLoadTimes(const WebString& metric) = 0;
 
+  // Dispatches an event when a Portal gets activated.
+  virtual void OnPortalActivated() = 0;
+
   // Scheduling ---------------------------------------------------------------
 
   virtual FrameScheduler* Scheduler() const = 0;
@@ -721,17 +707,17 @@ class WebLocalFrame : public WebFrame {
 
   // This setter is available in case the embedder has more information about
   // whether or not the frame is an ad.
-  virtual void SetIsAdSubframe() = 0;
+  virtual void SetIsAdSubframe(blink::mojom::AdFrameType ad_frame_type) = 0;
 
   // Testing ------------------------------------------------------------------
 
   // Dumps the layer tree, used by the accelerated compositor, in
-  // text form. This is used only by layout tests.
+  // text form. This is used only by web tests.
   virtual WebString GetLayerTreeAsTextForTesting(
       bool show_debug_info = false) const = 0;
 
   // Prints the frame into the canvas, with page boundaries drawn as one pixel
-  // wide blue lines. This method exists to support layout tests.
+  // wide blue lines. This method exists to support web tests.
   virtual void PrintPagesForTesting(cc::PaintCanvas*, const WebSize&) = 0;
 
   // Returns the bounds rect for current selection. If selection is performed

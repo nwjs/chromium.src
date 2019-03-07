@@ -308,10 +308,11 @@ class FullChloGenerator {
           result) {
     result_ = result;
     crypto_config_->ProcessClientHello(
-        result_, /*reject_only=*/false, /*connection_id=*/1, server_addr_,
+        result_, /*reject_only=*/false, TestConnectionId(1), server_addr_,
         client_addr_, AllSupportedVersions().front(), AllSupportedVersions(),
-        /*use_stateless_rejects=*/true, /*server_designated_connection_id=*/0,
-        clock_, QuicRandom::GetInstance(), compressed_certs_cache_, params_,
+        /*use_stateless_rejects=*/true,
+        /*server_designated_connection_id=*/TestConnectionId(2), clock_,
+        QuicRandom::GetInstance(), compressed_certs_cache_, params_,
         signed_config_, /*total_framing_overhead=*/50, kDefaultMaxPacketSize,
         GetProcessClientHelloCallback());
   }
@@ -783,8 +784,6 @@ void CompareClientAndServerKeys(QuicCryptoClientStream* client,
   EXPECT_TRUE(server->ExportKeyingMaterial(kSampleLabel, kSampleContext,
                                            kSampleOutputLength,
                                            &server_key_extraction));
-  EXPECT_TRUE(client->ExportTokenBindingKeyingMaterial(&client_tb_ekm));
-  EXPECT_TRUE(server->ExportTokenBindingKeyingMaterial(&server_tb_ekm));
 
   CompareCharArraysWithHexError("client write key", client_encrypter_key.data(),
                                 client_encrypter_key.length(),
@@ -950,6 +949,13 @@ void MovePackets(PacketSavingConnection* source_conn,
           *source_conn->encrypted_packets_[index]))
           << "No TLS packets should be encrypted with the NullEncrypter";
     }
+
+    // Since we're using QuicFramers separate from the connections to move
+    // packets, the QuicConnection never gets notified about what level the last
+    // packet was decrypted at. This is needed by TLS to know what encryption
+    // level was used for the data it's receiving, so we plumb this information
+    // from the SimpleQuicFramer back into the connection.
+    dest_conn->OnDecryptedPacket(framer.last_decrypted_level());
 
     QuicConnectionPeer::SetCurrentPacket(
         dest_conn, source_conn->encrypted_packets_[index]->AsStringPiece());

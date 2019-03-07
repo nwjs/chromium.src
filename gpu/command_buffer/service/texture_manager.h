@@ -13,9 +13,9 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
-#include "base/containers/hash_tables.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -253,6 +253,7 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
   // Set the ImageState for the image bound to the given level.
   void SetLevelImageState(GLenum target, GLint level, ImageState state);
 
+  bool CompatibleWithSamplerUniformType(GLenum type) const;
 
   // Get the image associated with a particular level. Returns NULL if level
   // does not exist.
@@ -312,6 +313,11 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
   // rectangle if level does not exist.
   gfx::Rect GetLevelClearedRect(GLenum target, GLint level) const;
 
+  // Marks a |rect| of a particular level as cleared.
+  void SetLevelClearedRect(GLenum target,
+                           GLint level,
+                           const gfx::Rect& cleared_rect);
+
   // Whether a particular level/face is cleared.
   bool IsLevelCleared(GLenum target, GLint level) const;
   // Whether a particular level/face is partially cleared.
@@ -329,7 +335,7 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
                        uint64_t client_tracing_id,
                        const std::string& dump_name) const;
 
-  void ApplyFormatWorkarounds(FeatureInfo* feature_info);
+  void ApplyFormatWorkarounds(const FeatureInfo* feature_info);
 
   bool EmulatingRGB();
 
@@ -348,7 +354,12 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
   // Marks a particular level as cleared or uncleared.
   void SetLevelCleared(GLenum target, GLint level, bool cleared);
 
+  void ApplyClampedBaseLevelAndMaxLevelToDriver();
+
   MemoryTypeTracker* GetMemTracker();
+
+  // Returns GL_NONE on error.
+  GLenum GetInternalFormatOfBaseLevel() const;
 
  private:
   friend class MailboxManagerSync;
@@ -424,6 +435,8 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
 
   // Returns the LevelInfo for |target| and |level| if it's set, else NULL.
   const LevelInfo* GetLevelInfo(GLint target, GLint level) const;
+  // Returns NULL if the base level is not defined.
+  const LevelInfo* GetBaseLevelInfo() const;
 
   // Set the info for a particular level.
   void SetLevelInfo(GLenum target,
@@ -456,11 +469,6 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
   bool npot() const {
     return npot_;
   }
-
-  // Marks a |rect| of a particular level as cleared.
-  void SetLevelClearedRect(GLenum target,
-                           GLint level,
-                           const gfx::Rect& cleared_rect);
 
   // Updates the cleared flag for this texture by inspecting all the mips.
   void UpdateCleared();
@@ -575,7 +583,7 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
   // referencing this texture.
   void IncAllFramebufferStateChangeCount();
 
-  void UpdateBaseLevel(GLint base_level);
+  void UpdateBaseLevel(GLint base_level, const FeatureInfo* feature_info);
   void UpdateMaxLevel(GLint max_level);
   void UpdateNumMipLevels();
 
@@ -932,6 +940,11 @@ class GPU_GLES2_EXPORT TextureManager
                          GLenum target,
                          GLint level);
 
+  bool ClearTextureLevel(DecoderContext* decoder,
+                         Texture* texture,
+                         GLenum target,
+                         GLint level);
+
   // Creates a new texture info.
   TextureRef* CreateTexture(GLuint client_id, GLuint service_id);
 
@@ -1069,20 +1082,20 @@ class GPU_GLES2_EXPORT TextureManager
     TexImageCommandType command_type;
   };
 
-  bool ValidateTexImage(
-    ContextState* state,
-    const char* function_name,
-    const DoTexImageArguments& args,
-    // Pointer to TextureRef filled in if validation successful.
-    // Presumes the pointer is valid.
-    TextureRef** texture_ref);
+  bool ValidateTexImage(ContextState* state,
+                        ErrorState* error_state,
+                        const char* function_name,
+                        const DoTexImageArguments& args,
+                        // Pointer to TextureRef filled in if validation
+                        // successful. Presumes the pointer is valid.
+                        TextureRef** texture_ref);
 
-  void ValidateAndDoTexImage(
-    DecoderTextureState* texture_state,
-    ContextState* state,
-    DecoderFramebufferState* framebuffer_state,
-    const char* function_name,
-    const DoTexImageArguments& args);
+  void ValidateAndDoTexImage(DecoderTextureState* texture_state,
+                             ContextState* state,
+                             ErrorState* error_state,
+                             DecoderFramebufferState* framebuffer_state,
+                             const char* function_name,
+                             const DoTexImageArguments& args);
 
   struct DoTexSubImageArguments {
     enum TexSubImageCommandType {
@@ -1106,17 +1119,18 @@ class GPU_GLES2_EXPORT TextureManager
     TexSubImageCommandType command_type;
   };
 
-  bool ValidateTexSubImage(
-      ContextState* state,
-      const char* function_name,
-      const DoTexSubImageArguments& args,
-      // Pointer to TextureRef filled in if validation successful.
-      // Presumes the pointer is valid.
-      TextureRef** texture_ref);
+  bool ValidateTexSubImage(ContextState* state,
+                           ErrorState* error_state,
+                           const char* function_name,
+                           const DoTexSubImageArguments& args,
+                           // Pointer to TextureRef filled in if validation
+                           // successful. Presumes the pointer is valid.
+                           TextureRef** texture_ref);
 
   void ValidateAndDoTexSubImage(DecoderContext* decoder,
                                 DecoderTextureState* texture_state,
                                 ContextState* state,
+                                ErrorState* error_state,
                                 DecoderFramebufferState* framebuffer_state,
                                 const char* function_name,
                                 const DoTexSubImageArguments& args);
@@ -1162,14 +1176,14 @@ class GPU_GLES2_EXPORT TextureManager
   static GLenum AdjustTexStorageFormat(const gles2::FeatureInfo* feature_info,
                                        GLenum format);
 
-  void WorkaroundCopyTexImageCubeMap(
-      DecoderTextureState* texture_state,
-      ContextState* state,
-      DecoderFramebufferState* framebuffer_state,
-      TextureRef* texture_ref,
-      const char* function_name,
-      const DoTexImageArguments& args) {
-    DoCubeMapWorkaround(texture_state, state, framebuffer_state,
+  void WorkaroundCopyTexImageCubeMap(DecoderTextureState* texture_state,
+                                     ContextState* state,
+                                     ErrorState* error_state,
+                                     DecoderFramebufferState* framebuffer_state,
+                                     TextureRef* texture_ref,
+                                     const char* function_name,
+                                     const DoTexImageArguments& args) {
+    DoCubeMapWorkaround(texture_state, state, error_state, framebuffer_state,
                         texture_ref, function_name, args);
   }
 
@@ -1182,19 +1196,20 @@ class GPU_GLES2_EXPORT TextureManager
       GLenum target,
       GLuint* black_texture);
 
-  void DoTexImage(
-      DecoderTextureState* texture_state,
-      ContextState* state,
-      DecoderFramebufferState* framebuffer_state,
-      const char* function_name,
-      TextureRef* texture_ref,
-      const DoTexImageArguments& args);
+  void DoTexImage(DecoderTextureState* texture_state,
+                  ContextState* state,
+                  ErrorState* error_state,
+                  DecoderFramebufferState* framebuffer_state,
+                  const char* function_name,
+                  TextureRef* texture_ref,
+                  const DoTexImageArguments& args);
 
   // Reserve memory for the texture and set its attributes so it can be filled
   // with TexSubImage. The image contents are undefined after this function,
   // so make sure it's subsequently filled in its entirety.
   void ReserveTexImageToBeFilled(DecoderTextureState* texture_state,
                                  ContextState* state,
+                                 ErrorState* error_state,
                                  DecoderFramebufferState* framebuffer_state,
                                  const char* function_name,
                                  TextureRef* texture_ref,
@@ -1216,13 +1231,13 @@ class GPU_GLES2_EXPORT TextureManager
       const DoTexSubImageArguments& args,
       const PixelStoreParams& unpack_params);
 
-  void DoCubeMapWorkaround(
-      DecoderTextureState* texture_state,
-      ContextState* state,
-      DecoderFramebufferState* framebuffer_state,
-      TextureRef* texture_ref,
-      const char* function_name,
-      const DoTexImageArguments& args);
+  void DoCubeMapWorkaround(DecoderTextureState* texture_state,
+                           ContextState* state,
+                           ErrorState* error_state,
+                           DecoderFramebufferState* framebuffer_state,
+                           TextureRef* texture_ref,
+                           const char* function_name,
+                           const DoTexImageArguments& args);
 
   void StartTracking(TextureRef* texture);
   void StopTracking(TextureRef* texture);
@@ -1247,7 +1262,7 @@ class GPU_GLES2_EXPORT TextureManager
   std::vector<FramebufferManager*> framebuffer_managers_;
 
   // Info for each texture in the system.
-  typedef base::hash_map<GLuint, scoped_refptr<TextureRef> > TextureMap;
+  typedef std::unordered_map<GLuint, scoped_refptr<TextureRef>> TextureMap;
   TextureMap textures_;
 
   GLsizei max_texture_size_;

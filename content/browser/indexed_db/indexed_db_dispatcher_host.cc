@@ -28,12 +28,6 @@ namespace content {
 
 namespace {
 
-const char kInvalidOrigin[] = "Origin is invalid";
-
-bool IsValidOrigin(const url::Origin& origin) {
-  return !origin.opaque();
-}
-
 blink::mojom::IDBStatus GetIndexedDBStatus(leveldb::Status status) {
   if (status.ok())
     return blink::mojom::IDBStatus::OK;
@@ -142,8 +136,9 @@ IndexedDBDispatcherHost::~IndexedDBDispatcherHost() {
 }
 
 void IndexedDBDispatcherHost::AddBinding(
-    blink::mojom::IDBFactoryRequest request) {
-  bindings_.AddBinding(this, std::move(request));
+    blink::mojom::IDBFactoryRequest request,
+    const url::Origin& origin) {
+  bindings_.AddBinding(this, std::move(request), {origin});
 }
 
 void IndexedDBDispatcherHost::AddDatabaseBinding(
@@ -169,57 +164,45 @@ void IndexedDBDispatcherHost::RenderProcessExited(
 }
 
 void IndexedDBDispatcherHost::GetDatabaseInfo(
-    blink::mojom::IDBCallbacksAssociatedPtrInfo callbacks_info,
-    const url::Origin& origin) {
+    blink::mojom::IDBCallbacksAssociatedPtrInfo callbacks_info) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  if (!IsValidOrigin(origin)) {
-    mojo::ReportBadMessage(kInvalidOrigin);
-    return;
-  }
-
-  scoped_refptr<IndexedDBCallbacks> callbacks(new IndexedDBCallbacks(
-      this->AsWeakPtr(), origin, std::move(callbacks_info), IDBTaskRunner()));
+  const auto& context = bindings_.dispatch_context();
+  scoped_refptr<IndexedDBCallbacks> callbacks(
+      new IndexedDBCallbacks(this->AsWeakPtr(), context.origin,
+                             std::move(callbacks_info), IDBTaskRunner()));
   IDBTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&IDBSequenceHelper::GetDatabaseInfoOnIDBThread,
                                 base::Unretained(idb_helper_),
-                                std::move(callbacks), origin));
+                                std::move(callbacks), context.origin));
 }
 
 void IndexedDBDispatcherHost::GetDatabaseNames(
-    blink::mojom::IDBCallbacksAssociatedPtrInfo callbacks_info,
-    const url::Origin& origin) {
+    blink::mojom::IDBCallbacksAssociatedPtrInfo callbacks_info) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  if (!IsValidOrigin(origin)) {
-    mojo::ReportBadMessage(kInvalidOrigin);
-    return;
-  }
-
-  scoped_refptr<IndexedDBCallbacks> callbacks(new IndexedDBCallbacks(
-      this->AsWeakPtr(), origin, std::move(callbacks_info), IDBTaskRunner()));
+  const auto& context = bindings_.dispatch_context();
+  scoped_refptr<IndexedDBCallbacks> callbacks(
+      new IndexedDBCallbacks(this->AsWeakPtr(), context.origin,
+                             std::move(callbacks_info), IDBTaskRunner()));
   IDBTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&IDBSequenceHelper::GetDatabaseNamesOnIDBThread,
                                 base::Unretained(idb_helper_),
-                                std::move(callbacks), origin));
+                                std::move(callbacks), context.origin));
 }
 
 void IndexedDBDispatcherHost::Open(
     blink::mojom::IDBCallbacksAssociatedPtrInfo callbacks_info,
     blink::mojom::IDBDatabaseCallbacksAssociatedPtrInfo database_callbacks_info,
-    const url::Origin& origin,
     const base::string16& name,
     int64_t version,
     int64_t transaction_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  if (!IsValidOrigin(origin)) {
-    mojo::ReportBadMessage(kInvalidOrigin);
-    return;
-  }
-
-  scoped_refptr<IndexedDBCallbacks> callbacks(new IndexedDBCallbacks(
-      this->AsWeakPtr(), origin, std::move(callbacks_info), IDBTaskRunner()));
+  const auto& context = bindings_.dispatch_context();
+  scoped_refptr<IndexedDBCallbacks> callbacks(
+      new IndexedDBCallbacks(this->AsWeakPtr(), context.origin,
+                             std::move(callbacks_info), IDBTaskRunner()));
   scoped_refptr<IndexedDBDatabaseCallbacks> database_callbacks(
       new IndexedDBDatabaseCallbacks(indexed_db_context_,
                                      std::move(database_callbacks_info)));
@@ -227,41 +210,32 @@ void IndexedDBDispatcherHost::Open(
       FROM_HERE,
       base::BindOnce(&IDBSequenceHelper::OpenOnIDBThread,
                      base::Unretained(idb_helper_), std::move(callbacks),
-                     std::move(database_callbacks), origin, name, version,
-                     transaction_id));
+                     std::move(database_callbacks), context.origin, name,
+                     version, transaction_id));
 }
 
 void IndexedDBDispatcherHost::DeleteDatabase(
     blink::mojom::IDBCallbacksAssociatedPtrInfo callbacks_info,
-    const url::Origin& origin,
     const base::string16& name,
     bool force_close) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  if (!IsValidOrigin(origin)) {
-    mojo::ReportBadMessage(kInvalidOrigin);
-    return;
-  }
-
-  scoped_refptr<IndexedDBCallbacks> callbacks(new IndexedDBCallbacks(
-      this->AsWeakPtr(), origin, std::move(callbacks_info), IDBTaskRunner()));
+  const auto& context = bindings_.dispatch_context();
+  scoped_refptr<IndexedDBCallbacks> callbacks(
+      new IndexedDBCallbacks(this->AsWeakPtr(), context.origin,
+                             std::move(callbacks_info), IDBTaskRunner()));
   IDBTaskRunner()->PostTask(
       FROM_HERE,
       base::BindOnce(&IDBSequenceHelper::DeleteDatabaseOnIDBThread,
                      base::Unretained(idb_helper_), std::move(callbacks),
-                     origin, name, force_close));
+                     context.origin, name, force_close));
 }
 
 void IndexedDBDispatcherHost::AbortTransactionsAndCompactDatabase(
-    const url::Origin& origin,
     AbortTransactionsAndCompactDatabaseCallback mojo_callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  if (!IsValidOrigin(origin)) {
-    mojo::ReportBadMessage(kInvalidOrigin);
-    return;
-  }
-
+  const auto& context = bindings_.dispatch_context();
   base::OnceCallback<void(leveldb::Status)> callback_on_io = base::BindOnce(
       &CallCompactionStatusCallbackOnIOThread,
       base::ThreadTaskRunnerHandle::Get(), std::move(mojo_callback));
@@ -269,19 +243,15 @@ void IndexedDBDispatcherHost::AbortTransactionsAndCompactDatabase(
       FROM_HERE,
       base::BindOnce(
           &IDBSequenceHelper::AbortTransactionsAndCompactDatabaseOnIDBThread,
-          base::Unretained(idb_helper_), std::move(callback_on_io), origin));
+          base::Unretained(idb_helper_), std::move(callback_on_io),
+          context.origin));
 }
 
 void IndexedDBDispatcherHost::AbortTransactionsForDatabase(
-    const url::Origin& origin,
     AbortTransactionsForDatabaseCallback mojo_callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  if (!IsValidOrigin(origin)) {
-    mojo::ReportBadMessage(kInvalidOrigin);
-    return;
-  }
-
+  const auto& context = bindings_.dispatch_context();
   base::OnceCallback<void(leveldb::Status)> callback_on_io = base::BindOnce(
       &CallAbortStatusCallbackOnIOThread, base::ThreadTaskRunnerHandle::Get(),
       std::move(mojo_callback));
@@ -289,7 +259,8 @@ void IndexedDBDispatcherHost::AbortTransactionsForDatabase(
       FROM_HERE,
       base::BindOnce(
           &IDBSequenceHelper::AbortTransactionsForDatabaseOnIDBThread,
-          base::Unretained(idb_helper_), std::move(callback_on_io), origin));
+          base::Unretained(idb_helper_), std::move(callback_on_io),
+          context.origin));
 }
 
 void IndexedDBDispatcherHost::InvalidateWeakPtrsAndClearBindings() {

@@ -12,7 +12,7 @@
 #include "net/third_party/quic/core/quic_packets.h"
 #include "net/third_party/quic/platform/api/quic_string.h"
 #include "net/third_party/quic/platform/api/quic_string_piece.h"
-#include "net/third_party/spdy/core/spdy_framer.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_framer.h"
 
 namespace quic {
 
@@ -24,6 +24,9 @@ class QuicSpdyClientStream : public QuicSpdyStream {
  public:
   QuicSpdyClientStream(QuicStreamId id,
                        QuicSpdyClientSession* session,
+                       StreamType type);
+  QuicSpdyClientStream(PendingStream pending,
+                       QuicSpdyClientSession* spdy_session,
                        StreamType type);
   QuicSpdyClientStream(const QuicSpdyClientStream&) = delete;
   QuicSpdyClientStream& operator=(const QuicSpdyClientStream&) = delete;

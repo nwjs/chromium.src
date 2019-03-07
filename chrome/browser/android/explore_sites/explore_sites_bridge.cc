@@ -53,7 +53,8 @@ void CatalogReady(ScopedJavaGlobalRef<jobject>(j_result_obj),
     ScopedJavaLocalRef<jobject> j_category =
         Java_ExploreSitesCategory_createAndAppendToList(
             env, category.category_id, category.category_type,
-            ConvertUTF8ToJavaString(env, category.label), j_result_obj);
+            ConvertUTF8ToJavaString(env, category.label),
+            category.ntp_shown_count, category.interaction_count, j_result_obj);
     for (auto& site : category.sites) {
       Java_ExploreSitesSite_createSiteInCategory(
           env, site.site_id, ConvertUTF8ToJavaString(env, site.title),
@@ -87,7 +88,6 @@ void UpdateCatalogDone(ScopedJavaGlobalRef<jobject>(j_callback_obj),
 // static
 void JNI_ExploreSitesBridge_GetEspCatalog(
     JNIEnv* env,
-    const JavaParamRef<jclass>& j_caller,
     const JavaParamRef<jobject>& j_profile,
     const JavaParamRef<jobject>& j_result_obj,
     const JavaParamRef<jobject>& j_callback_obj) {
@@ -108,8 +108,7 @@ void JNI_ExploreSitesBridge_GetEspCatalog(
 }
 
 // static
-jint JNI_ExploreSitesBridge_GetVariation(JNIEnv* env,
-                                         const JavaParamRef<jclass>& j_caller) {
+jint JNI_ExploreSitesBridge_GetVariation(JNIEnv* env) {
   return static_cast<jint>(
       chrome::android::explore_sites::GetExploreSitesVariation());
 }
@@ -117,7 +116,6 @@ jint JNI_ExploreSitesBridge_GetVariation(JNIEnv* env,
 // static
 void JNI_ExploreSitesBridge_GetIcon(
     JNIEnv* env,
-    const JavaParamRef<jclass>& j_caller,
     const JavaParamRef<jobject>& j_profile,
     const jint j_site_id,
     const JavaParamRef<jobject>& j_callback_obj) {
@@ -140,7 +138,6 @@ void JNI_ExploreSitesBridge_GetIcon(
 
 void JNI_ExploreSitesBridge_UpdateCatalogFromNetwork(
     JNIEnv* env,
-    const JavaParamRef<jclass>& j_caller,
     const JavaParamRef<jobject>& j_profile,
     jboolean is_immediate_fetch,
     const JavaParamRef<jobject>& j_callback_obj) {
@@ -171,7 +168,6 @@ void JNI_ExploreSitesBridge_UpdateCatalogFromNetwork(
 
 void JNI_ExploreSitesBridge_BlacklistSite(
     JNIEnv* env,
-    const JavaParamRef<jclass>& j_caller,
     const JavaParamRef<jobject>& j_profile,
     const JavaParamRef<jstring>& j_url) {
   Profile* profile = ProfileAndroid::FromProfileAndroid(j_profile);
@@ -184,6 +180,39 @@ void JNI_ExploreSitesBridge_BlacklistSite(
   }
 
   service->BlacklistSite(url);
+}
+
+void JNI_ExploreSitesBridge_RecordClick(JNIEnv* env,
+                                        const JavaParamRef<jobject>& j_profile,
+                                        const JavaParamRef<jstring>& j_url,
+                                        const jint j_category_type) {
+  Profile* profile = ProfileAndroid::FromProfileAndroid(j_profile);
+  ExploreSitesService* service =
+      ExploreSitesServiceFactory::GetForBrowserContext(profile);
+  if (!service) {
+    DLOG(ERROR) << "Unable to create the ExploreSitesService!";
+    return;
+  }
+
+  std::string url = ConvertJavaStringToUTF8(env, j_url);
+  int category_type = static_cast<int>(j_category_type);
+  service->RecordClick(url, category_type);
+}
+
+void JNI_ExploreSitesBridge_IncrementNtpShownCount(
+    JNIEnv* env,
+    const JavaParamRef<jobject>& j_profile,
+    const jint j_category_id) {
+  Profile* profile = ProfileAndroid::FromProfileAndroid(j_profile);
+  ExploreSitesService* service =
+      ExploreSitesServiceFactory::GetForBrowserContext(profile);
+  if (!service) {
+    DLOG(ERROR) << "Unable to create the ExploreSitesService!";
+    return;
+  }
+
+  int category_id = static_cast<int>(j_category_id);
+  service->IncrementNtpShownCount(category_id);
 }
 
 // static
@@ -201,7 +230,6 @@ float ExploreSitesBridge::GetScaleFactorFromDevice() {
 // static
 void JNI_ExploreSitesBridge_GetCategoryImage(
     JNIEnv* env,
-    const JavaParamRef<jclass>& j_caller,
     const JavaParamRef<jobject>& j_profile,
     const jint j_category_id,
     const jint j_pixel_size,

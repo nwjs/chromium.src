@@ -937,7 +937,7 @@ bool DragController::PopulateDragDataTransfer(LocalFrame* src,
   HitTestResult hit_test_result =
       src->GetEventHandler().HitTestResultAtLocation(location);
   // FIXME: Can this even happen? I guess it's possible, but should verify
-  // with a layout test.
+  // with a web test.
   if (!state.drag_src_->IsShadowIncludingInclusiveAncestorOf(
           hit_test_result.InnerNode())) {
     // The original node being dragged isn't under the drag origin anymore...
@@ -1149,8 +1149,9 @@ std::unique_ptr<DragImage> DragController::DragImageForSelection(
       kGlobalPaintSelectionOnly | kGlobalPaintFlattenCompositingLayers;
 
   PaintRecordBuilder builder;
-  frame.View()->PaintContents(builder.Context(), paint_flags,
-                              EnclosingIntRect(painting_rect));
+  frame.View()->PaintContentsOutsideOfLifecycle(
+      builder.Context(), paint_flags,
+      CullRect(EnclosingIntRect(painting_rect)));
 
   PropertyTreeState property_tree_state =
       frame.View()->GetLayoutView()->FirstFragment().LocalBorderBoxProperties();

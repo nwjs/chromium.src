@@ -41,6 +41,7 @@ PASS window.cached_navigator.productSub is window.navigator.productSub
 PASS window.cached_navigator.userAgent is ''
 PASS window.cached_navigator.vendor is window.navigator.vendor
 PASS window.cached_navigator.vendorSub is ''
+PASS window.cached_navigator_bluetooth.onadvertisementreceived is null
 PASS window.cached_navigator_connection.onchange is null
 PASS window.cached_navigator_connection.ontypechange is null
 PASS window.cached_navigator_connection.saveData is false
@@ -59,6 +60,7 @@ PASS window.cached_navigator_usb.ondisconnect is null
 PASS window.cached_navigator_userActivation.hasBeenActive is false
 PASS window.cached_navigator_userActivation.isActive is false
 PASS window.cached_navigator_xr.ondevicechange is null
+PASS window.cached_performance.onelementtimingbufferfull is null
 PASS window.cached_performance.oneventtimingbufferfull is null
 PASS window.cached_performance.onresourcetimingbufferfull is null
 PASS window.cached_performance.shouldYield is false

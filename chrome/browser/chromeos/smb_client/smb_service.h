@@ -5,8 +5,10 @@
 #ifndef CHROME_BROWSER_CHROMEOS_SMB_CLIENT_SMB_SERVICE_H_
 #define CHROME_BROWSER_CHROMEOS_SMB_CLIENT_SMB_SERVICE_H_
 
+#include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "base/files/file.h"
 #include "base/macros.h"
@@ -62,6 +64,7 @@ class SmbService : public KeyedService,
              const std::string& username,
              const std::string& password,
              bool use_chromad_kerberos,
+             bool should_open_file_manager_after_mount,
              MountResponse callback);
 
   // Completes the mounting of an SMB file system, passing |options| on to
@@ -71,6 +74,7 @@ class SmbService : public KeyedService,
                        const file_system_provider::MountOptions& options,
                        const base::FilePath& share_path,
                        bool is_kerberos_chromad,
+                       bool should_open_file_manager_after_mount,
                        smbprovider::ErrorType error,
                        int32_t mount_id);
 
@@ -81,6 +85,13 @@ class SmbService : public KeyedService,
   void GatherSharesInNetwork(HostDiscoveryResponse discovery_callback,
                              GatherSharesResponse shares_callback);
 
+  // Updates the credentials for |mount_id|. If there is a stored callback in
+  // |update_credentials_replies_| for |mount_id|, it will be run upon once the
+  // credentials are successfully updated.
+  void UpdateCredentials(int32_t mount_id,
+                         const std::string& username,
+                         const std::string& password);
+
  private:
   // Calls SmbProviderClient::Mount(). |temp_file_manager_| must be initialized
   // before this is called.
@@ -89,6 +100,7 @@ class SmbService : public KeyedService,
                  const std::string& username,
                  const std::string& password,
                  bool use_chromad_kerberos,
+                 bool should_open_file_manager_after_mount,
                  MountResponse callback);
 
   // Calls file_system_provider::Service::UnmountFileSystem().
@@ -105,7 +117,8 @@ class SmbService : public KeyedService,
   void RestoreMounts();
 
   void OnHostsDiscovered(
-      const std::vector<ProvidedFileSystemInfo>& file_systems);
+      const std::vector<ProvidedFileSystemInfo>& file_systems,
+      const std::vector<SmbUrl>& preconfigured_shares);
 
   // Attempts to remount a share with the information in |file_system_info|.
   void Remount(const ProvidedFileSystemInfo& file_system_info);
@@ -115,6 +128,16 @@ class SmbService : public KeyedService,
   // manager.
   void OnRemountResponse(const std::string& file_system_id,
                          smbprovider::ErrorType error);
+
+  // Calls SmbProviderClient::Premount(). |temp_file_manager_| must be
+  // initialized before this is called.
+  void Premount(const base::FilePath& share_path);
+
+  // Handles the response from attempting to premount a share configured via
+  // policy. If premounting fails it will log and exit the operation.
+  void OnPremountResponse(const base::FilePath& share_path,
+                          smbprovider::ErrorType error,
+                          int32_t mount_id);
 
   // Sets up SmbService, including setting up Keberos if the user is ChromAD.
   void StartSetup();
@@ -154,9 +177,39 @@ class SmbService : public KeyedService,
   // Whether NTLM should be used. Controlled via policy.
   bool IsNTLMAuthenticationEnabled() const;
 
+  // Gets the list of all shares preconfigured via policy with mode
+  // |policy_mode|. If |policy_mode| is "unknown", returns a list of all shares
+  // preconfigured with a mode that does not match any currently known mode.
+  // This can occur if a new policy is added not yet supported by CrOS.
+  std::vector<SmbUrl> GetPreconfiguredSharePaths(
+      const std::string& policy_mode) const;
+
   // Gets the shares preconfigured via policy that should be displayed in the
-  // discovery drop down.
-  std::vector<SmbUrl> GetPreconfiguredSharePathsForDropDown() const;
+  // discovery dropdown. This includes shares that are explicitly set to be
+  // shown in the dropdown as well as shares configured with an unrecognized
+  // mode.
+  std::vector<SmbUrl> GetPreconfiguredSharePathsForDropdown() const;
+
+  // Gets the shares preconfigured via policy that should be premounted.
+  std::vector<SmbUrl> GetPreconfiguredSharePathsForPremount() const;
+
+  // Requests new credentials for the |share_path|. |reply| is stored. Once the
+  // credentials have been successfully updated, |reply| is run.
+  void RequestCredentials(const std::string& share_path,
+                          int32_t mount_id,
+                          base::OnceClosure reply);
+
+  // Opens a request credential dialog for the share path |share_path|.
+  // When a user clicks "Update" in the dialog, UpdateCredentials is run.
+  void OpenRequestCredentialsDialog(const std::string& share_path,
+                                    int32_t mount_id);
+
+  // Handles the response from attempting to the update the credentials of an
+  // existing share. If |error| indicates success, the callback is run and
+  // removed from |update_credential_replies_|. Otherwise, the callback
+  // is removed from |update_credential_replies_| and the error is logged.
+  void OnUpdateCredentialsResponse(int32_t mount_id,
+                                   smbprovider::ErrorType error);
 
   // Records metrics on the number of SMB mounts a user has.
   void RecordMountCount() const;
@@ -166,6 +219,8 @@ class SmbService : public KeyedService,
   Profile* profile_;
   std::unique_ptr<TempFileManager> temp_file_manager_;
   std::unique_ptr<SmbShareFinder> share_finder_;
+  // |mount_id| -> |reply|. Stored callbacks to run after updating credential.
+  std::map<int32_t, base::OnceClosure> update_credential_replies_;
 
   DISALLOW_COPY_AND_ASSIGN(SmbService);
 };

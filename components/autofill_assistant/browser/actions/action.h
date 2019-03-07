@@ -43,13 +43,9 @@ class Action {
   static std::vector<std::string> ExtractVector(
       const google::protobuf::RepeatedPtrField<std::string>& repeated_strings);
 
-  // Returns a Selector from an ElementReferenceProto.
-  static Selector ExtractSelector(const ElementReferenceProto& element);
-
   void UpdateProcessedAction(ProcessedActionStatusProto status);
 
   const ActionProto proto_;
-  bool show_overlay_;
 
   // Accumulate any result of this action during ProcessAction. Is only valid
   // during a run of ProcessAction.

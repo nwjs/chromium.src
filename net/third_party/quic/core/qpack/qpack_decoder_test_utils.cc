@@ -4,10 +4,16 @@
 
 #include "net/third_party/quic/core/qpack/qpack_decoder_test_utils.h"
 
+#include <cstddef>
+
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace quic {
 namespace test {
+
+void NoopEncoderStreamErrorDelegate::OnError(QuicStringPiece error_message) {}
+
+void NoopDecoderStreamSenderDelegate::Write(QuicStringPiece data) {}
 
 TestHeadersHandler::TestHeadersHandler()
     : decoding_completed_(false), decoding_error_detected_(false) {}
@@ -36,6 +42,9 @@ void TestHeadersHandler::OnDecodingErrorDetected(
 }
 
 spdy::SpdyHeaderBlock TestHeadersHandler::ReleaseHeaderList() {
+  DCHECK(decoding_completed_);
+  DCHECK(!decoding_error_detected_);
+
   return std::move(header_list_);
 }
 
@@ -47,11 +56,16 @@ bool TestHeadersHandler::decoding_error_detected() const {
   return decoding_error_detected_;
 }
 
-void QpackDecode(QpackDecoder::HeadersHandlerInterface* handler,
-                 const FragmentSizeGenerator& fragment_size_generator,
-                 QuicStringPiece data) {
-  QpackDecoder decoder;
-  auto progressive_decoder = decoder.DecodeHeaderBlock(handler);
+void QpackDecode(
+    QpackDecoder::EncoderStreamErrorDelegate* encoder_stream_error_delegate,
+    QpackDecoderStreamSender::Delegate* decoder_stream_sender_delegate,
+    QpackProgressiveDecoder::HeadersHandlerInterface* handler,
+    const FragmentSizeGenerator& fragment_size_generator,
+    QuicStringPiece data) {
+  QpackDecoder decoder(encoder_stream_error_delegate,
+                       decoder_stream_sender_delegate);
+  auto progressive_decoder =
+      decoder.DecodeHeaderBlock(/* stream_id = */ 1, handler);
   while (!data.empty()) {
     size_t fragment_size = std::min(fragment_size_generator(), data.size());
     progressive_decoder->Decode(data.substr(0, fragment_size));

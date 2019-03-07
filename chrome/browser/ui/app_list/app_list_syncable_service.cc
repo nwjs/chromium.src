@@ -17,6 +17,7 @@
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/file_manager/app_id.h"
+#include "chrome/browser/chromeos/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/app_list_client_impl.h"
@@ -34,6 +35,7 @@
 #include "chrome/browser/ui/app_list/internal_app/internal_app_model_builder.h"
 #include "chrome/browser/ui/app_list/page_break_app_item.h"
 #include "chrome/browser/ui/app_list/page_break_constants.h"
+#include "chrome/browser/ui/app_list/plugin_vm/plugin_vm_app_model_builder.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/extension_constants.h"
@@ -373,6 +375,10 @@ void AppListSyncableService::BuildModel() {
       crostini_apps_builder_ =
           std::make_unique<CrostiniAppModelBuilder>(controller);
     }
+    if (plugin_vm::IsPluginVmAllowedForProfile(profile_)) {
+      plugin_vm_apps_builder_ =
+          std::make_unique<PluginVmAppModelBuilder>(controller);
+    }
     internal_apps_builder_ =
         std::make_unique<InternalAppModelBuilder>(controller);
   }
@@ -388,6 +394,8 @@ void AppListSyncableService::BuildModel() {
       arc_apps_builder_->Initialize(this, profile_, model_updater_.get());
     if (crostini_apps_builder_.get())
       crostini_apps_builder_->Initialize(this, profile_, model_updater_.get());
+    if (plugin_vm_apps_builder_.get())
+      plugin_vm_apps_builder_->Initialize(this, profile_, model_updater_.get());
     internal_apps_builder_->Initialize(this, profile_, model_updater_.get());
   }
 
@@ -419,6 +427,56 @@ const AppListSyncableService::SyncItem* AppListSyncableService::GetSyncItem(
   if (iter != sync_items_.end())
     return iter->second.get();
   return NULL;
+}
+
+bool AppListSyncableService::TransferItemAttributes(
+    const std::string& from_app_id,
+    const std::string& to_app_id) {
+  const SyncItem* from_item = FindSyncItem(from_app_id);
+  if (!from_item ||
+      from_item->item_type != sync_pb::AppListSpecifics::TYPE_APP) {
+    return false;
+  }
+
+  auto attributes = std::make_unique<SyncItem>(
+      from_app_id, sync_pb::AppListSpecifics::TYPE_APP);
+  attributes->parent_id = from_item->parent_id;
+  attributes->item_ordinal = from_item->item_ordinal;
+  attributes->item_pin_ordinal = from_item->item_pin_ordinal;
+
+  SyncItem* to_item = FindSyncItem(to_app_id);
+  if (to_item) {
+    // |to_app_id| already exists. Can apply attributes right now.
+    ApplyAppAttributes(to_app_id, std::move(attributes));
+  } else {
+    // |to_app_id| does not exist at this moment. Store attributes to apply it
+    // later once app appears on this device.
+    pending_transfer_map_[to_app_id] = std::move(attributes);
+  }
+
+  return true;
+}
+
+void AppListSyncableService::ApplyAppAttributes(
+    const std::string& app_id,
+    std::unique_ptr<SyncItem> attributes) {
+  SyncItem* item = FindSyncItem(app_id);
+  if (!item || item->item_type != sync_pb::AppListSpecifics::TYPE_APP) {
+    LOG(ERROR) << "Failed to apply app attributes, app " << app_id
+               << " does not exist.";
+    return;
+  }
+
+  HandleUpdateStarted();
+
+  item->parent_id = attributes->parent_id;
+  item->item_ordinal = attributes->item_ordinal;
+  item->item_pin_ordinal = attributes->item_pin_ordinal;
+  UpdateSyncItemInLocalStorage(profile_, item);
+  SendSyncChange(item, SyncChange::ACTION_UPDATE);
+  ProcessExistingSyncItem(item);
+
+  HandleUpdateFinished();
 }
 
 void AppListSyncableService::SetOemFolderName(const std::string& name) {
@@ -908,6 +966,7 @@ void AppListSyncableService::Shutdown() {
   crostini_apps_builder_.reset();
   arc_apps_builder_.reset();
   ext_apps_builder_.reset();
+  plugin_vm_apps_builder_.reset();
 }
 
 // AppListSyncableService private
@@ -1062,6 +1121,16 @@ AppListSyncableService::SyncItem* AppListSyncableService::CreateSyncItem(
     sync_pb::AppListSpecifics::AppListItemType item_type) {
   DCHECK(!base::ContainsKey(sync_items_, item_id));
   sync_items_[item_id] = std::make_unique<SyncItem>(item_id, item_type);
+
+  // In case we have pending attributes to apply, process it asynchronously.
+  if (base::ContainsKey(pending_transfer_map_, item_id)) {
+    base::SequencedTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(&AppListSyncableService::ApplyAppAttributes,
+                                  weak_ptr_factory_.GetWeakPtr(), item_id,
+                                  std::move(pending_transfer_map_[item_id])));
+    pending_transfer_map_.erase(item_id);
+  }
+
   return sync_items_[item_id].get();
 }
 

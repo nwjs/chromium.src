@@ -12,7 +12,6 @@
 #include "chrome/browser/chromeos/login/demo_mode/demo_app_launcher.h"
 #include "chrome/browser/chromeos/login/existing_user_controller.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
-#include "chrome/browser/chromeos/mobile_config.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/system/device_disabling_manager.h"
@@ -101,9 +100,6 @@ void LoginDisplayHostCommon::StartSignInScreen(
     StartupUtils::MarkDeviceRegistered(base::OnceClosure());
   }
 
-  // Initiate mobile config load.
-  MobileConfig::GetInstance();
-
   // Initiate device policy fetching.
   policy::BrowserPolicyConnectorChromeOS* connector =
       g_browser_process->platform_part()->browser_policy_connector_chromeos();
@@ -185,8 +181,12 @@ void LoginDisplayHostCommon::CompleteLogin(const UserContext& user_context) {
 }
 
 void LoginDisplayHostCommon::OnGaiaScreenReady() {
-  if (GetExistingUserController())
+  if (GetExistingUserController()) {
     GetExistingUserController()->OnGaiaScreenReady();
+  } else {
+    // Used to debug crbug.com/902315. Feel free to remove after that is fixed.
+    LOG(ERROR) << "OnGaiaScreenReady: there is no existing user controller";
+  }
 }
 
 void LoginDisplayHostCommon::SetDisplayEmail(const std::string& email) {

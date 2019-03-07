@@ -279,7 +279,7 @@ class AudioParamTimeline {
     const double control_rate;
 
     // Parameters needed for processing the current event.
-    const size_t fill_to_frame;
+    const unsigned fill_to_frame;
     const size_t fill_to_end_frame;
 
     // Value and time for the current event
@@ -367,7 +367,7 @@ class AudioParamTimeline {
 
   // Handle processing of CancelValue event. If cancellation happens, value2,
   // time2, and nextEventType will be updated with the new value due to
-  // cancellation.  The
+  // cancellation.  Note that |next_event| or its member can be null.
   std::tuple<float, double, ParamEvent::Type> HandleCancelValues(
       const ParamEvent* current_event,
       ParamEvent* next_event,

@@ -16,6 +16,8 @@
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_multi_column_spanner_placeholder.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
+#include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/compositing/composited_layer_mapping.h"
 #include "third_party/blink/renderer/core/paint/compositing/compositing_layer_property_updater.h"
@@ -58,16 +60,23 @@ void PrePaintTreeWalk::WalkTree(LocalFrameView& root_frame_view) {
   context_storage_.pop_back();
 
 #if DCHECK_IS_ON()
-  if (!needs_tree_builder_context_update)
-    return;
-  if (VLOG_IS_ON(2) && root_frame_view.GetLayoutView()) {
-    LOG(ERROR) << "PrePaintTreeWalk::Walk(root_frame_view=" << &root_frame_view
-               << ")\nPaintLayer tree:";
-    showLayerTree(root_frame_view.GetLayoutView()->Layer());
+  if (needs_tree_builder_context_update) {
+    if (VLOG_IS_ON(2) && root_frame_view.GetLayoutView()) {
+      LOG(ERROR) << "PrePaintTreeWalk::Walk(root_frame_view="
+                 << &root_frame_view << ")\nPaintLayer tree:";
+      showLayerTree(root_frame_view.GetLayoutView()->Layer());
+    }
+    if (VLOG_IS_ON(1))
+      showAllPropertyTrees(root_frame_view);
   }
-  if (VLOG_IS_ON(1))
-    showAllPropertyTrees(root_frame_view);
 #endif
+
+  // If the frame is invalidated, we need to inform the frame's chrome client
+  // so that the client will initiate repaint of the contents.
+  if (needs_invalidate_chrome_client_) {
+    if (auto* client = root_frame_view.GetChromeClient())
+      client->InvalidateRect(IntRect(IntPoint(), root_frame_view.Size()));
+  }
 }
 
 void PrePaintTreeWalk::Walk(LocalFrameView& frame_view) {
@@ -107,11 +116,6 @@ void PrePaintTreeWalk::Walk(LocalFrameView& frame_view) {
   if (context().tree_builder_context) {
     PaintPropertyTreeBuilder::SetupContextForFrame(
         frame_view, *context().tree_builder_context);
-  }
-  paint_invalidator_.InvalidatePaint(
-      frame_view, base::OptionalOrNullptr(context().tree_builder_context),
-      context().paint_invalidator_context);
-  if (context().tree_builder_context) {
     context().tree_builder_context->supports_composited_raster_invalidation =
         frame_view.GetFrame().GetSettings()->GetAcceleratedCompositingEnabled();
   }
@@ -131,7 +135,7 @@ void PrePaintTreeWalk::Walk(LocalFrameView& frame_view) {
 #endif
   }
 
-  if (RuntimeEnabledFeatures::JankTrackingEnabled())
+  if (origin_trials::JankTrackingEnabled(frame_view.GetFrame().GetDocument()))
     frame_view.GetJankTracker().NotifyPrePaintFinished();
   if (RuntimeEnabledFeatures::FirstContentfulPaintPlusPlusEnabled()) {
     frame_view.GetPaintTimingDetector().NotifyPrePaintFinished();
@@ -227,7 +231,7 @@ void PrePaintTreeWalk::InvalidatePaintForHitTesting(
 void PrePaintTreeWalk::UpdateAuxiliaryObjectProperties(
     const LayoutObject& object,
     PrePaintTreeWalk::PrePaintTreeWalkContext& context) {
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   if (!object.HasLayer())
@@ -268,7 +272,7 @@ bool PrePaintTreeWalk::NeedsTreeBuilderContextUpdate(
     const LocalFrameView& frame_view,
     const PrePaintTreeWalkContext& context) {
   if ((RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled() ||
-       RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) &&
+       RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) &&
       frame_view.GetFrame().IsLocalRoot() &&
       frame_view.GetPage()->GetVisualViewport().NeedsPaintPropertyUpdate())
     return true;
@@ -339,9 +343,10 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
   // depends on the effective whitelisted touch action.
   UpdateEffectiveWhitelistedTouchAction(object, context);
 
-  paint_invalidator_.InvalidatePaint(
-      object, base::OptionalOrNullptr(context.tree_builder_context),
-      paint_invalidator_context);
+  if (paint_invalidator_.InvalidatePaint(
+          object, base::OptionalOrNullptr(context.tree_builder_context),
+          paint_invalidator_context))
+    needs_invalidate_chrome_client_ = true;
 
   InvalidatePaintForHitTesting(object, context);
 
@@ -350,7 +355,9 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
     InvalidatePaintLayerOptimizationsIfNeeded(object, context);
 
     if (property_changed) {
-      if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+      object.GetFrameView()->SetPaintArtifactCompositorNeedsUpdate();
+
+      if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
         const auto* paint_invalidation_layer =
             paint_invalidator_context.paint_invalidation_container->Layer();
         if (!paint_invalidation_layer->NeedsRepaint()) {
@@ -370,7 +377,7 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
 
   CompositingLayerPropertyUpdater::Update(object);
 
-  if (RuntimeEnabledFeatures::JankTrackingEnabled()) {
+  if (origin_trials::JankTrackingEnabled(&object.GetDocument())) {
     object.GetFrameView()->GetJankTracker().NotifyObjectPrePaint(
         object, paint_invalidator_context.old_visual_rect,
         *paint_invalidator_context.painting_layer);

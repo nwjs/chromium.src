@@ -27,8 +27,6 @@
 #include "content/browser/worker_host/worker_script_fetch_initiator.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/navigation_subresource_loader_params.h"
-#include "content/common/service_worker/service_worker_provider.mojom.h"
-#include "content/common/shared_worker/shared_worker_client.mojom.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
@@ -41,6 +39,8 @@
 #include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_client.mojom.h"
 #include "url/origin.h"
 
 namespace content {
@@ -107,8 +107,8 @@ void SharedWorkerServiceImpl::SetWorkerTerminationCallbackForTesting(
 void SharedWorkerServiceImpl::ConnectToWorker(
     int process_id,
     int frame_id,
-    mojom::SharedWorkerInfoPtr info,
-    mojom::SharedWorkerClientPtr client,
+    blink::mojom::SharedWorkerInfoPtr info,
+    blink::mojom::SharedWorkerClientPtr client,
     blink::mojom::SharedWorkerCreationContextType creation_context_type,
     const blink::MessagePortChannel& message_port,
     scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory) {
@@ -177,7 +177,7 @@ void SharedWorkerServiceImpl::DestroyHost(SharedWorkerHost* host) {
 
 void SharedWorkerServiceImpl::CreateWorker(
     std::unique_ptr<SharedWorkerInstance> instance,
-    mojom::SharedWorkerClientPtr client,
+    blink::mojom::SharedWorkerClientPtr client,
     int process_id,
     int frame_id,
     const blink::MessagePortChannel& message_port,
@@ -201,8 +201,8 @@ void SharedWorkerServiceImpl::CreateWorker(
     // enabled.
     AppCacheNavigationHandleCore* appcache_handle_core = nullptr;
     if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-      auto appcache_handle =
-          std::make_unique<AppCacheNavigationHandle>(appcache_service_.get());
+      auto appcache_handle = std::make_unique<AppCacheNavigationHandle>(
+          appcache_service_.get(), process_id);
       appcache_handle_core = appcache_handle->core();
       weak_host->SetAppCacheHandle(std::move(appcache_handle));
     }
@@ -233,15 +233,16 @@ void SharedWorkerServiceImpl::CreateWorker(
 void SharedWorkerServiceImpl::DidCreateScriptLoader(
     std::unique_ptr<SharedWorkerInstance> instance,
     base::WeakPtr<SharedWorkerHost> host,
-    mojom::SharedWorkerClientPtr client,
+    blink::mojom::SharedWorkerClientPtr client,
     int process_id,
     int frame_id,
     const blink::MessagePortChannel& message_port,
-    mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+    blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
         service_worker_provider_info,
     network::mojom::URLLoaderFactoryAssociatedPtrInfo
         main_script_loader_factory,
-    std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loader_factories,
+    std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+        subresource_loader_factories,
     blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
     base::Optional<SubresourceLoaderParams> subresource_loader_params,
     bool success) {
@@ -268,15 +269,16 @@ void SharedWorkerServiceImpl::DidCreateScriptLoader(
 void SharedWorkerServiceImpl::StartWorker(
     std::unique_ptr<SharedWorkerInstance> instance,
     base::WeakPtr<SharedWorkerHost> host,
-    mojom::SharedWorkerClientPtr client,
+    blink::mojom::SharedWorkerClientPtr client,
     int process_id,
     int frame_id,
     const blink::MessagePortChannel& message_port,
-    mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+    blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
         service_worker_provider_info,
     network::mojom::URLLoaderFactoryAssociatedPtrInfo
         main_script_loader_factory,
-    std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loader_factories,
+    std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+        subresource_loader_factories,
     blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
     base::Optional<SubresourceLoaderParams> subresource_loader_params) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);

@@ -18,13 +18,12 @@
 #include "base/location.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/rand_util.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/post_task.h"
 #include "base/task/task_traits.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
-#include "chromeos/dbus/dbus_method_call_status.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/login_manager/arc.pb.h"
 #include "components/arc/arc_bridge_host_impl.h"
 #include "components/arc/arc_features.h"
@@ -43,17 +42,6 @@ namespace {
 
 constexpr char kArcBridgeSocketPath[] = "/run/chrome/arc_bridge.sock";
 constexpr char kArcBridgeSocketGroup[] = "arc-bridge";
-
-chromeos::SessionManagerClient* GetSessionManagerClient() {
-  // If the DBusThreadManager or the SessionManagerClient aren't available,
-  // there isn't much we can do. This should only happen when running tests.
-  if (!chromeos::DBusThreadManager::IsInitialized() ||
-      !chromeos::DBusThreadManager::Get() ||
-      !chromeos::DBusThreadManager::Get()->GetSessionManagerClient()) {
-    return nullptr;
-  }
-  return chromeos::DBusThreadManager::Get()->GetSessionManagerClient();
-}
 
 std::string GenerateRandomToken() {
   char random_bytes[16];
@@ -86,7 +74,7 @@ bool WaitForSocketReadable(int raw_socket_fd, int raw_cancel_fd) {
       {raw_socket_fd, POLLIN, 0}, {raw_cancel_fd, POLLIN, 0},
   };
 
-  if (HANDLE_EINTR(poll(fds, arraysize(fds), -1)) <= 0) {
+  if (HANDLE_EINTR(poll(fds, base::size(fds), -1)) <= 0) {
     PLOG(ERROR) << "poll()";
     return false;
   }
@@ -235,32 +223,36 @@ base::ScopedFD ArcSessionDelegateImpl::CreateSocketInternal() {
     return socket_fd;
   }
 
-  // Change permissions on the socket.
-  struct group arc_bridge_group;
-  struct group* arc_bridge_group_res = nullptr;
-  int ret = 0;
-  char buf[10000];
-  do {
-    ret = getgrnam_r(kArcBridgeSocketGroup, &arc_bridge_group, buf, sizeof(buf),
-                     &arc_bridge_group_res);
-  } while (ret == EINTR);
-  if (ret != 0) {
-    LOG(ERROR) << "getgrnam_r: " << strerror_r(ret, buf, sizeof(buf));
-    return base::ScopedFD();
-  }
+  // Change permissions on the socket. Note that since arcvm doesn't directly
+  // share the socket with ARC, it can use 0600 and the default group. arcvm
+  // build doesn't have |kArcBridgeSocketGroup| in the first place.
+  if (!IsArcVmEnabled()) {
+    struct group arc_bridge_group;
+    struct group* arc_bridge_group_res = nullptr;
+    int ret = 0;
+    char buf[10000];
+    do {
+      ret = getgrnam_r(kArcBridgeSocketGroup, &arc_bridge_group, buf,
+                       sizeof(buf), &arc_bridge_group_res);
+    } while (ret == EINTR);
+    if (ret != 0) {
+      LOG(ERROR) << "getgrnam_r: " << strerror_r(ret, buf, sizeof(buf));
+      return base::ScopedFD();
+    }
 
-  if (!arc_bridge_group_res) {
-    LOG(ERROR) << "Group '" << kArcBridgeSocketGroup << "' not found";
-    return base::ScopedFD();
-  }
+    if (!arc_bridge_group_res) {
+      LOG(ERROR) << "Group '" << kArcBridgeSocketGroup << "' not found";
+      return base::ScopedFD();
+    }
 
-  if (chown(kArcBridgeSocketPath, -1, arc_bridge_group.gr_gid) < 0) {
-    PLOG(ERROR) << "chown failed";
-    return base::ScopedFD();
+    if (chown(kArcBridgeSocketPath, -1, arc_bridge_group.gr_gid) < 0) {
+      PLOG(ERROR) << "chown failed";
+      return base::ScopedFD();
+    }
   }
 
   if (!base::SetPosixFilePermissions(base::FilePath(kArcBridgeSocketPath),
-                                     0660)) {
+                                     IsArcVmEnabled() ? 0600 : 0660)) {
     PLOG(ERROR) << "Could not set permissions: " << kArcBridgeSocketPath;
     return base::ScopedFD();
   }
@@ -343,20 +335,17 @@ std::unique_ptr<ArcSessionImpl::Delegate> ArcSessionImpl::CreateDelegate(
 }
 
 ArcSessionImpl::ArcSessionImpl(std::unique_ptr<Delegate> delegate)
-    : delegate_(std::move(delegate)), weak_factory_(this) {
-  chromeos::SessionManagerClient* client = GetSessionManagerClient();
-  if (client == nullptr)
-    return;
-  client->AddObserver(this);
+    : delegate_(std::move(delegate)),
+      client_(ArcClientAdapter::Create()),
+      weak_factory_(this) {
+  DCHECK(client_);
+  client_->AddObserver(this);
 }
 
 ArcSessionImpl::~ArcSessionImpl() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(state_ == State::NOT_STARTED || state_ == State::STOPPED);
-  chromeos::SessionManagerClient* client = GetSessionManagerClient();
-  if (client == nullptr)
-    return;
-  client->RemoveObserver(this);
+  client_->RemoveObserver(this);
 }
 
 void ArcSessionImpl::StartMiniInstance() {
@@ -375,7 +364,7 @@ void ArcSessionImpl::OnLcdDensity(int32_t lcd_density) {
   DCHECK_GT(lcd_density, 0);
   DCHECK_EQ(state_, State::WAITING_FOR_LCD_DENSITY);
   state_ = State::STARTING_MINI_INSTANCE;
-  login_manager::StartArcMiniContainerRequest request;
+  StartArcMiniContainerRequest request;
   request.set_native_bridge_experiment(
       base::FeatureList::IsEnabled(arc::kNativeBridgeExperimentFeature));
   request.set_arc_file_picker_experiment(
@@ -385,10 +374,9 @@ void ArcSessionImpl::OnLcdDensity(int32_t lcd_density) {
   VLOG(1) << "Starting ARC mini instance with lcd_density="
           << request.lcd_density();
 
-  chromeos::SessionManagerClient* client = GetSessionManagerClient();
-  client->StartArcMiniContainer(
-      request, base::BindOnce(&ArcSessionImpl::OnMiniInstanceStarted,
-                              weak_factory_.GetWeakPtr()));
+  client_->StartMiniArc(request,
+                        base::BindOnce(&ArcSessionImpl::OnMiniInstanceStarted,
+                                       weak_factory_.GetWeakPtr()));
 }
 
 void ArcSessionImpl::RequestUpgrade(UpgradeParams params) {
@@ -476,7 +464,7 @@ void ArcSessionImpl::OnSocketCreated(base::ScopedFD socket_fd) {
   }
 
   VLOG(2) << "Socket is created. Starting ARC container";
-  login_manager::UpgradeArcContainerRequest request;
+  UpgradeArcContainerRequest request;
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   DCHECK(user_manager->GetPrimaryUser());
 
@@ -485,12 +473,6 @@ void ArcSessionImpl::OnSocketCreated(base::ScopedFD socket_fd) {
           .id());
   request.set_skip_boot_completed_broadcast(
       !base::FeatureList::IsEnabled(arc::kBootCompletedBroadcastFeature));
-
-  // We only enable /vendor/priv-app when voice interaction is enabled
-  // because voice interaction service apk would be bundled in this
-  // location.
-  request.set_scan_vendor_priv_app(
-      chromeos::switches::IsVoiceInteractionEnabled());
 
   // Set packages cache mode coming from autotests.
   const std::string packages_cache_mode_string =
@@ -522,10 +504,7 @@ void ArcSessionImpl::OnSocketCreated(base::ScopedFD socket_fd) {
         upgrade_params_.demo_session_apps_path.value());
   }
 
-  request.set_create_socket_in_chrome(true);
-
-  chromeos::SessionManagerClient* client = GetSessionManagerClient();
-  client->UpgradeArcContainer(
+  client_->UpgradeArc(
       request,
       base::BindOnce(&ArcSessionImpl::OnUpgraded, weak_factory_.GetWeakPtr(),
                      std::move(socket_fd)),
@@ -645,14 +624,11 @@ void ArcSessionImpl::StopArcInstance() {
 
   // When the instance is full instance, change the |state_| in
   // ArcInstanceStopped().
-  chromeos::SessionManagerClient* client = GetSessionManagerClient();
-  // Since we have the ArcInstanceStopped() callback, we don't need to do
-  // anything when StopArcInstance completes.
-  client->StopArcInstance(chromeos::EmptyVoidDBusMethodCallback());
+  client_->StopArcInstance();
 }
 
 void ArcSessionImpl::ArcInstanceStopped(
-    login_manager::ArcContainerStopReason stop_reason,
+    ArcContainerStopReason stop_reason,
     const std::string& container_instance_id) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   VLOG(1) << "Notified that ARC instance is stopped "
@@ -678,12 +654,11 @@ void ArcSessionImpl::ArcInstanceStopped(
     // If the ARC instance is stopped after its explicit request,
     // return SHUTDOWN.
     reason = ArcStopReason::SHUTDOWN;
-  } else if (stop_reason ==
-             login_manager::ArcContainerStopReason::LOW_DISK_SPACE) {
+  } else if (stop_reason == ArcContainerStopReason::LOW_DISK_SPACE) {
     // ARC mini container is stopped because of upgarde failure due to low
     // disk space.
     reason = ArcStopReason::LOW_DISK_SPACE;
-  } else if (stop_reason != login_manager::ArcContainerStopReason::CRASH) {
+  } else if (stop_reason != ArcContainerStopReason::CRASH) {
     // If the ARC instance is stopped, but it is not explicitly requested,
     // then this is triggered by some failure during the starting procedure.
     // Return GENERIC_BOOT_FAILURE for the case.

@@ -2,12 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <limits>
+#include <random>
 #include <thread>
 #include <vector>
 
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_task_environment.h"
+#include "base/trace_event/memory_allocator_dump.h"
+#include "base/trace_event/memory_dump_provider.h"
+#include "base/trace_event/process_memory_dump.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/renderer/platform/bindings/parkable_string.h"
@@ -25,7 +31,7 @@ constexpr size_t kCompressedSize = 55;
 
 String MakeLargeString() {
   std::vector<char> data(kSizeKb * 1000, 'a');
-  return String(String(data.data(), data.size()).ReleaseImpl());
+  return String(data.data(), data.size()).ReleaseImpl();
 }
 
 }  // namespace
@@ -99,6 +105,37 @@ TEST_F(ParkableStringTest, CheckCompressedSize) {
   RunPostedTasks();
   EXPECT_TRUE(parkable.Impl()->is_parked());
   EXPECT_EQ(kCompressedSize, parkable.Impl()->compressed_size());
+}
+
+TEST_F(ParkableStringTest, DontCompressRandomString) {
+  // Make a large random string. Large to make sure it's parkable, and random to
+  // ensure its compressed size is larger than the initial size (at least from
+  // gzip's header). Mersenne-Twister implementation is specified, making the
+  // test deterministic.
+  std::vector<unsigned char> data(kSizeKb * 1000);
+  std::mt19937 engine(42);
+  // uniform_int_distribution<T> is undefined behavior for T = unsigned char.
+  std::uniform_int_distribution<int> dist(
+      0, std::numeric_limits<unsigned char>::max());
+
+  for (size_t i = 0; i < data.size(); ++i) {
+    data[i] = static_cast<unsigned char>(dist(engine));
+  }
+  ParkableString parkable(String(data.data(), data.size()).ReleaseImpl());
+
+  EXPECT_TRUE(parkable.Impl()->Park(ParkableStringImpl::ParkingMode::kAlways));
+  RunPostedTasks();
+  // Not parked because the temporary buffer wasn't large enough.
+  EXPECT_FALSE(parkable.Impl()->is_parked());
+}
+
+TEST_F(ParkableStringTest, ParkUnparkIdenticalContent) {
+  ParkableString parkable(MakeLargeString().ReleaseImpl());
+  EXPECT_TRUE(parkable.Impl()->Park(ParkableStringImpl::ParkingMode::kAlways));
+  RunPostedTasks();
+  EXPECT_TRUE(parkable.Impl()->is_parked());
+
+  EXPECT_EQ(MakeLargeString(), parkable.ToString());
 }
 
 TEST_F(ParkableStringTest, Simple) {
@@ -543,14 +580,14 @@ TEST_F(ParkableStringTest, SynchronousCompression) {
   parkable.ToString();
   EXPECT_TRUE(parkable.Impl()->has_compressed_data());
   // No waiting, synchronous compression.
-  manager.ParkAllIfRendererBackgrounded(
-      ParkableStringImpl::ParkingMode::kIfCompressedDataExists);
+  manager.ParkAll(ParkableStringImpl::ParkingMode::kIfCompressedDataExists);
   EXPECT_TRUE(parkable.Impl()->is_parked());
   scoped_task_environment_.FastForwardUntilNoTasksRemain();
 }
 
-TEST_F(ParkableStringTest, OnPurgeMemory) {
+TEST_F(ParkableStringTest, OnPurgeMemoryInBackground) {
   ParkableString parkable = CreateAndParkAll();
+  EXPECT_TRUE(ParkableStringManager::Instance().IsRendererBackgrounded());
 
   parkable.ToString();
   EXPECT_FALSE(parkable.Impl()->is_parked());
@@ -558,6 +595,80 @@ TEST_F(ParkableStringTest, OnPurgeMemory) {
 
   MemoryCoordinator::Instance().OnPurgeMemory();
   EXPECT_TRUE(parkable.Impl()->is_parked());
+
+  parkable.ToString();
+  EXPECT_TRUE(parkable.Impl()->has_compressed_data());
+}
+
+TEST_F(ParkableStringTest, OnPurgeMemoryInForeground) {
+  ParkableString parkable1 = CreateAndParkAll();
+  ParkableString parkable2(MakeLargeString().ReleaseImpl());
+
+  // Park everything.
+  ParkableStringManager::Instance().SetRendererBackgrounded(true);
+  WaitForDelayedParking();
+  EXPECT_TRUE(parkable1.Impl()->is_parked());
+  EXPECT_TRUE(parkable2.Impl()->is_parked());
+
+  ParkableStringManager::Instance().SetRendererBackgrounded(false);
+
+  // Different usage patterns:
+  // 1. Parkable, will be parked synchronouly.
+  // 2. Cannot be parked, compressed representation is purged.
+  parkable1.ToString();
+  String retained = parkable2.ToString();
+  EXPECT_TRUE(parkable2.Impl()->has_compressed_data());
+
+  MemoryCoordinator::Instance().OnPurgeMemory();
+  EXPECT_TRUE(parkable1.Impl()->is_parked());  // Parked synchronously.
+  EXPECT_FALSE(parkable2.Impl()->is_parked());
+  EXPECT_FALSE(parkable2.Impl()->has_compressed_data());  // Purged.
+
+  parkable1.ToString();
+  EXPECT_TRUE(parkable1.Impl()->has_compressed_data());
+}
+
+TEST_F(ParkableStringTest, ReportMemoryDump) {
+  using base::trace_event::MemoryAllocatorDump;
+  using testing::ByRef;
+  using testing::Contains;
+  using testing::Eq;
+
+  auto& manager = ParkableStringManager::Instance();
+  ParkableString parkable1(MakeLargeString().ReleaseImpl());
+  ParkableString parkable2(MakeLargeString().ReleaseImpl());
+  // Not reported in stats below.
+  ParkableString parkable3(String("short string, not parkable").ReleaseImpl());
+
+  manager.SetRendererBackgrounded(true);
+  WaitForDelayedParking();
+  parkable1.ToString();
+
+  base::trace_event::MemoryDumpArgs args = {
+      base::trace_event::MemoryDumpLevelOfDetail::DETAILED};
+  base::trace_event::ProcessMemoryDump pmd(args);
+  manager.OnMemoryDump(&pmd);
+  base::trace_event::MemoryAllocatorDump* dump =
+      pmd.GetAllocatorDump("parkable_strings");
+  ASSERT_NE(nullptr, dump);
+
+  // |parkable1| is unparked.
+  MemoryAllocatorDump::Entry uncompressed("uncompressed_size", "bytes",
+                                          kSizeKb * 1000);
+  EXPECT_THAT(dump->entries(), Contains(Eq(ByRef(uncompressed))));
+
+  MemoryAllocatorDump::Entry compressed("compressed_size", "bytes",
+                                        kCompressedSize);
+  EXPECT_THAT(dump->entries(), Contains(Eq(ByRef(compressed))));
+
+  // |parkable1| compressed data is overhead.
+  MemoryAllocatorDump::Entry overhead("overhead_size", "bytes",
+                                      kCompressedSize);
+  EXPECT_THAT(dump->entries(), Contains(Eq(ByRef(overhead))));
+
+  MemoryAllocatorDump::Entry metadata("metadata_size", "bytes",
+                                      2 * sizeof(ParkableStringImpl));
+  EXPECT_THAT(dump->entries(), Contains(Eq(ByRef(metadata))));
 }
 
 }  // namespace blink

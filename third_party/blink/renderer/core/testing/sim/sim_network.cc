@@ -41,7 +41,7 @@ void SimNetwork::ServePendingRequests() {
 
 void SimNetwork::DidReceiveResponse(WebURLLoaderClient* client,
                                     const WebURLResponse& response) {
-  auto it = requests_.find(response.Url().GetString());
+  auto it = requests_.find(response.CurrentRequestUrl().GetString());
   if (it == requests_.end()) {
     client->DidReceiveResponse(response);
     return;
@@ -86,12 +86,18 @@ void SimNetwork::DidFinishLoading(WebURLLoaderClient* client,
   current_request_ = nullptr;
 }
 
-void SimNetwork::AddRequest(SimRequest& request) {
-  requests_.insert(request.Url(), &request);
+void SimNetwork::AddRequest(SimRequestBase& request) {
+  requests_.insert(request.url_.GetString(), &request);
+  WebURLResponse response(request.url_);
+  response.SetMIMEType(request.mime_type_);
+  response.SetHTTPStatusCode(200);
+  Platform::Current()->GetURLLoaderMockFactory()->RegisterURL(request.url_,
+                                                              response, "");
 }
 
-void SimNetwork::RemoveRequest(SimRequest& request) {
-  requests_.erase(request.Url());
+void SimNetwork::RemoveRequest(SimRequestBase& request) {
+  requests_.erase(request.url_);
+  Platform::Current()->GetURLLoaderMockFactory()->UnregisterURL(request.url_);
 }
 
 }  // namespace blink

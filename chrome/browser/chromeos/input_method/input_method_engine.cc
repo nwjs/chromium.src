@@ -14,7 +14,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/ash/chrome_keyboard_controller_client.h"
+#include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/base/ime/candidate_window.h"
@@ -66,7 +66,10 @@ InputMethodEngine::CandidateWindowProperty::CandidateWindowProperty()
 InputMethodEngine::CandidateWindowProperty::~CandidateWindowProperty() {}
 
 InputMethodEngine::InputMethodEngine()
-    : candidate_window_(new ui::CandidateWindow()), window_visible_(false) {}
+    : candidate_window_(new ui::CandidateWindow()),
+      window_visible_(false),
+      is_mirroring_(false),
+      is_casting_(false) {}
 
 InputMethodEngine::~InputMethodEngine() {}
 
@@ -219,6 +222,20 @@ void InputMethodEngine::HideInputView() {
   auto* keyboard_client = ChromeKeyboardControllerClient::Get();
   if (keyboard_client->is_keyboard_enabled())
     keyboard_client->HideKeyboard(ash::mojom::HideReason::kUser);
+}
+
+void InputMethodEngine::SetMirroringEnabled(bool mirroring_enabled) {
+  if (mirroring_enabled != is_mirroring_) {
+    is_mirroring_ = mirroring_enabled;
+    observer_->OnScreenProjectionChanged(is_mirroring_ || is_casting_);
+  }
+}
+
+void InputMethodEngine::SetCastingEnabled(bool casting_enabled) {
+  if (casting_enabled != is_casting_) {
+    is_casting_ = casting_enabled;
+    observer_->OnScreenProjectionChanged(is_mirroring_ || is_casting_);
+  }
 }
 
 void InputMethodEngine::EnableInputView() {

@@ -99,8 +99,9 @@ cr.define('print_preview_test_utils', function() {
       numSettings, printerId, opt_printerName) {
     const template =
         print_preview_test_utils.getCddTemplate(printerId, opt_printerName);
-    if (numSettings < 1)
+    if (numSettings < 1) {
       return template;
+    }
 
     template.capabilities.printer.vendor_capability = [{
       display_name: 'Print Area',
@@ -115,8 +116,9 @@ cr.define('print_preview_test_utils', function() {
       },
     }];
 
-    if (numSettings < 2)
+    if (numSettings < 2) {
       return template;
+    }
 
     // Add new capability.
     template.capabilities.printer.vendor_capability.push({
@@ -132,8 +134,9 @@ cr.define('print_preview_test_utils', function() {
       }
     });
 
-    if (numSettings < 3)
+    if (numSettings < 3) {
       return template;
+    }
 
     template.capabilities.printer.vendor_capability.push({
       display_name: 'Watermark',
@@ -228,8 +231,8 @@ cr.define('print_preview_test_utils', function() {
 
   /**
    * Creates 5 local destinations, adds them to |localDestinations| and
-   * sets the capabilities in |nativeLayer|.
-   * @param {!print_preview.NativeLayerStub} nativeLayer
+   * sets the capabilities in |nativeLayer|, if it is non-null.
+   * @param {?print_preview.NativeLayerStub} nativeLayer
    * @param {!Array<!print_preview.LocalDestinationInfo>} localDestinations
    * @return {!Array<!print_preview.Destination>}
    */
@@ -245,8 +248,10 @@ cr.define('print_preview_test_utils', function() {
           const destination = new print_preview.Destination(
               info.id, print_preview.DestinationType.LOCAL, origin, info.name,
               false, print_preview.DestinationConnectionStatus.ONLINE);
-          nativeLayer.setLocalDestinationCapabilities(
-              print_preview_test_utils.getCddTemplate(info.id, info.name));
+          if (nativeLayer) {
+            nativeLayer.setLocalDestinationCapabilities(
+                print_preview_test_utils.getCddTemplate(info.id, info.name));
+          }
           localDestinations.push({printerName: info.name, deviceName: info.id});
           destinations.push(destination);
         });
@@ -291,18 +296,65 @@ cr.define('print_preview_test_utils', function() {
         new CustomEvent('input', {composed: true, bubbles: true}));
   }
 
+  function setupTestListenerElement() {
+    const domModule = document.createElement('dom-module');
+    domModule.setAttribute('id', 'test-listener-element');
+    domModule.appendChild(document.createElement('template'));
+    document.body.appendChild(domModule);
+    Polymer({
+      is: 'test-listener-element',
+      behaviors: [WebUIListenerBehavior],
+    });
+  }
+
+  /** @return {!print_preview.DestinationStore} */
+  function createDestinationStore() {
+    const testListenerElement = document.createElement('test-listener-element');
+    document.body.appendChild(testListenerElement);
+    return new print_preview.DestinationStore(
+        testListenerElement.addWebUIListener.bind(testListenerElement));
+  }
+
+  /**
+   * @param {string} account The user account the destination should be
+   *     associated with.
+   * @return {!print_preview.Destination} The Google Drive destination.
+   */
+  function getGoogleDriveDestination(account) {
+    return new print_preview.Destination(
+        print_preview.Destination.GooglePromotedId.DOCS,
+        print_preview.DestinationType.GOOGLE,
+        print_preview.DestinationOrigin.COOKIES,
+        print_preview.Destination.GooglePromotedId.DOCS, true /* isRecent */,
+        print_preview.DestinationConnectionStatus.ONLINE, {account: account});
+  }
+
+  /** @return {!print_preview.Destination} The Save as PDF destination. */
+  function getSaveAsPdfDestination() {
+    return new print_preview.Destination(
+        print_preview.Destination.GooglePromotedId.SAVE_AS_PDF,
+        print_preview.DestinationType.LOCAL,
+        print_preview.DestinationOrigin.LOCAL,
+        loadTimeData.getString('printToPDF'), false /*isRecent*/,
+        print_preview.DestinationConnectionStatus.ONLINE);
+  }
+
   return {
-    getDefaultInitialSettings: getDefaultInitialSettings,
-    getCddTemplate: getCddTemplate,
-    getCddTemplateWithAdvancedSettings: getCddTemplateWithAdvancedSettings,
-    getDefaultMediaSize: getDefaultMediaSize,
-    getDefaultOrientation: getDefaultOrientation,
+    createDestinationStore: createDestinationStore,
     createDestinationWithCertificateStatus:
         createDestinationWithCertificateStatus,
+    getCddTemplate: getCddTemplate,
+    getCddTemplateWithAdvancedSettings: getCddTemplateWithAdvancedSettings,
+    getDefaultInitialSettings: getDefaultInitialSettings,
+    getDefaultMediaSize: getDefaultMediaSize,
+    getDefaultOrientation: getDefaultOrientation,
     getDestinations: getDestinations,
+    getGoogleDriveDestination: getGoogleDriveDestination,
     getMediaSizeCapabilityWithCustomNames:
         getMediaSizeCapabilityWithCustomNames,
     getPdfPrinter: getPdfPrinter,
+    getSaveAsPdfDestination: getSaveAsPdfDestination,
+    setupTestListenerElement: setupTestListenerElement,
     triggerInputEvent: triggerInputEvent,
   };
 });

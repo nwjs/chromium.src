@@ -16,6 +16,7 @@
 #include "base/memory/weak_ptr.h"
 #include "components/autofill_assistant/browser/actions/action.h"
 #include "components/autofill_assistant/browser/actions/action_delegate.h"
+#include "components/autofill_assistant/browser/details.h"
 #include "components/autofill_assistant/browser/script.h"
 #include "components/autofill_assistant/browser/script_executor_delegate.h"
 #include "components/autofill_assistant/browser/service.pb.h"
@@ -69,33 +70,44 @@ class ScriptExecutor : public ActionDelegate {
     CLOSE_CUSTOM_TAB,
 
     // Reset all state and restart.
-    RESTART
+    RESTART,
+
+    // Autofill Assistant is shutting down.
+    //
+    // Returned after ScriptExecutor::Terminate has been called while running a
+    // script.
+    TERMINATE,
   };
 
   // Contains the result of the Run operation.
   struct Result {
     bool success = false;
     AtEnd at_end = AtEnd::CONTINUE;
-    std::vector<Selector> touchable_elements;
+    std::unique_ptr<ElementAreaProto> touchable_element_area;
 
     Result();
-    Result(const Result& other);
     ~Result();
   };
 
   using RunScriptCallback = base::OnceCallback<void(const Result&)>;
   void Run(RunScriptCallback callback);
 
+  // Terminates the running scripts. The script finishes running the current
+  // action, then returns a result with at_end set to TERMINATE.
+  void Terminate();
+
   // Override ActionDelegate:
   std::unique_ptr<BatchElementChecker> CreateBatchElementChecker() override;
   void ShortWaitForElementExist(
       const Selector& selector,
       base::OnceCallback<void(bool)> callback) override;
-  void WaitForElementVisible(base::TimeDelta max_wait_time,
-                             bool allow_interrupt,
-                             const Selector& selector,
-                             base::OnceCallback<void(bool)> callback) override;
-  void ShowStatusMessage(const std::string& message) override;
+  void WaitForElementVisible(
+      base::TimeDelta max_wait_time,
+      bool allow_interrupt,
+      const Selector& selector,
+      base::OnceCallback<void(ProcessedActionStatusProto)> callback) override;
+  void SetStatusMessage(const std::string& message) override;
+  std::string GetStatusMessage() override;
   void ClickOrTapElement(const Selector& selector,
                          base::OnceCallback<void(bool)> callback) override;
   void GetPaymentInformation(
@@ -103,16 +115,12 @@ class ScriptExecutor : public ActionDelegate {
       base::OnceCallback<void(std::unique_ptr<PaymentInformation>)> callback,
       const std::string& title,
       const std::vector<std::string>& supported_basic_card_networks) override;
-  void Choose(const std::vector<UiController::Choice>& choice,
-              base::OnceCallback<void(const std::string&)> callback) override;
-  void ForceChoose(const std::string&) override;
-  void ChooseAddress(
-      base::OnceCallback<void(const std::string&)> callback) override;
+  void GetFullCard(GetFullCardCallback callback) override;
+  void Prompt(std::unique_ptr<std::vector<Chip>> chips) override;
+  void CancelPrompt() override;
   void FillAddressForm(const autofill::AutofillProfile* profile,
                        const Selector& selector,
                        base::OnceCallback<void(bool)> callback) override;
-  void ChooseCard(
-      base::OnceCallback<void(const std::string&)> callback) override;
   void FillCardForm(std::unique_ptr<autofill::CreditCard> card,
                     const base::string16& cvc,
                     const Selector& selector,
@@ -124,8 +132,8 @@ class ScriptExecutor : public ActionDelegate {
                         base::OnceCallback<void(bool)> callback) override;
   void FocusElement(const Selector& selector,
                     base::OnceCallback<void(bool)> callback) override;
-  void SetTouchableElements(
-      const std::vector<Selector>& element_selectors) override;
+  void SetTouchableElementArea(
+      const ElementAreaProto& touchable_element_area) override;
   void SetFieldValue(const Selector& selector,
                      const std::string& value,
                      bool simulate_key_presses,
@@ -148,14 +156,10 @@ class ScriptExecutor : public ActionDelegate {
   autofill::PersonalDataManager* GetPersonalDataManager() override;
   content::WebContents* GetWebContents() override;
   void StopCurrentScriptAndShutdown(const std::string& message) override;
-  void HideDetails() override;
-  void ShowDetails(const DetailsProto& details,
-                   base::OnceCallback<void(bool)> callback) override;
-  void ShowProgressBar(int progress, const std::string& message) override;
+  void ClearDetails() override;
+  void SetDetails(const Details& details) override;
+  void ShowProgressBar(int progress) override;
   void HideProgressBar() override;
-  void ShowOverlay() override;
-  void HideOverlay() override;
-  void AllowShowingSoftKeyboard(bool enabled) override;
 
  private:
   // Helper for WaitForElementVisible that keeps track of the state required to
@@ -167,8 +171,12 @@ class ScriptExecutor : public ActionDelegate {
     //
     // If the given result is non-null, it should be forwarded as the result of
     // the main script.
-    using Callback =
-        base::OnceCallback<void(bool, const ScriptExecutor::Result*)>;
+    //
+    // The third argument contains the set of interrupts that were run while
+    // waiting.
+    using Callback = base::OnceCallback<void(bool,
+                                             const ScriptExecutor::Result*,
+                                             const std::set<std::string>&)>;
 
     // |main_script_| must not be null and outlive this instance.
     WaitWithInterrupts(ScriptExecutor* main_script,
@@ -179,7 +187,7 @@ class ScriptExecutor : public ActionDelegate {
     ~WaitWithInterrupts() override;
 
     void Run();
-    void Shutdown();
+    void Terminate();
 
    private:
     // Implements ScriptExecutor::Listener
@@ -201,7 +209,7 @@ class ScriptExecutor : public ActionDelegate {
     void SavePreInterruptState();
 
     // Restores the UI states as found by SavePreInterruptState.
-    void RestorePreInterruptUiState();
+    void RestoreStatusMessage();
 
     // if save_pre_interrupt_state_ is set, attempt to scroll the page back to
     // the original area.
@@ -215,7 +223,7 @@ class ScriptExecutor : public ActionDelegate {
 
     std::unique_ptr<BatchElementChecker> batch_element_checker_;
     std::set<const Script*> runnable_interrupts_;
-    bool element_found_;
+    bool element_found_ = false;
 
     // An empty vector of interrupts that can be passed to interrupt_executor_
     // and outlives it. Interrupts must not run interrupts.
@@ -226,10 +234,13 @@ class ScriptExecutor : public ActionDelegate {
 
     // If true, pre-interrupt state was saved already. This happens just before
     // the first interrupt.
-    bool saved_pre_interrupt_state_;
+    bool saved_pre_interrupt_state_ = false;
 
     // The status message that was displayed when the interrupt started.
     std::string pre_interrupt_status_;
+
+    // Paths of the interrupts that were run during the current action.
+    std::set<std::string> ran_interrupts_;
 
     base::WeakPtrFactory<WaitWithInterrupts> weak_ptr_factory_;
 
@@ -238,6 +249,7 @@ class ScriptExecutor : public ActionDelegate {
   friend class WaitWithInterrupts;
 
   void OnGetActions(bool result, const std::string& response);
+  bool ProcessNextActionResponse(const std::string& response);
   void ReportPayloadsToListener();
   void ReportScriptsUpdateToListener(
       std::vector<std::unique_ptr<Script>> scripts);
@@ -252,12 +264,22 @@ class ScriptExecutor : public ActionDelegate {
                       const Selector& selectors,
                       base::OnceCallback<void(bool)> callback);
   void OnWaitForElement(base::OnceCallback<void(bool)> callback);
-  void OnWaitForElementVisible(
-      base::OnceCallback<void(bool)> element_found_callback,
+  void OnWaitForElementVisibleWithInterrupts(
+      base::OnceCallback<void(ProcessedActionStatusProto)> callback,
       bool element_found,
-      const Result* interrupt_result);
-  void OnChosen(base::OnceCallback<void(const std::string&)> callback,
-                const std::string& chosen);
+      const Result* interrupt_result,
+      const std::set<std::string>& ran_interrupts);
+  void OnWaitForElementVisibleNoInterrupts(
+      base::OnceCallback<void(ProcessedActionStatusProto)> callback,
+      bool element_found);
+  void OnGetPaymentInformation(
+      base::OnceCallback<void(std::unique_ptr<PaymentInformation>)> callback,
+      std::unique_ptr<PaymentInformation> result);
+  void OnGetFullCard(GetFullCardCallback callback,
+                     std::unique_ptr<autofill::CreditCard> card,
+                     const base::string16& cvc);
+  void CleanUpAfterPrompt();
+  void OnChosen(base::OnceClosure callback);
 
   std::string script_path_;
   std::string last_global_payload_;
@@ -274,9 +296,12 @@ class ScriptExecutor : public ActionDelegate {
   bool should_clean_contextual_ui_on_finish_;
   ActionProto::ActionInfoCase previous_action_type_;
   Selector last_focused_element_selector_;
-  std::vector<Selector> touchable_elements_;
+  std::unique_ptr<ElementAreaProto> touchable_element_area_;
   std::map<std::string, ScriptStatusProto>* scripts_state_;
   std::unique_ptr<BatchElementChecker> batch_element_checker_;
+
+  // Paths of the interrupts that were run during the current script.
+  std::set<std::string> ran_interrupts_;
 
   // Set of interrupts that might run during wait for dom actions with
   // allow_interrupt. Sorted by priority; an interrupt that appears on the

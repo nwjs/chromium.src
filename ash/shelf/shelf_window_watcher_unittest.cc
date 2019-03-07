@@ -92,7 +92,7 @@ TEST_F(ShelfWindowWatcherTest, OpenAndClose) {
 
 // Ensure shelf items are added and removed for some unknown windows in mash.
 TEST_F(ShelfWindowWatcherTest, OpenAndCloseMash) {
-  if (!::features::IsSingleProcessMash() && !::features::IsMultiProcessMash())
+  if (!::features::IsMultiProcessMash())
     return;
 
   // Windows with no valid ShelfItemType and ShelfID properties get shelf items.
@@ -110,10 +110,11 @@ TEST_F(ShelfWindowWatcherTest, OpenAndCloseMash) {
   EXPECT_EQ(2, model_->item_count());
 
   // Windows with type WINDOW_TYPE_NORMAL get shelf items, others do not.
+  // WINDOW_TYPE_CONTROL is not toplevel and should not be added to the
+  // container.
   aura::client::WindowType no_item_types[] = {
       aura::client::WINDOW_TYPE_UNKNOWN, aura::client::WINDOW_TYPE_NORMAL,
-      aura::client::WINDOW_TYPE_POPUP,   aura::client::WINDOW_TYPE_CONTROL,
-      aura::client::WINDOW_TYPE_PANEL,   aura::client::WINDOW_TYPE_MENU,
+      aura::client::WINDOW_TYPE_POPUP, aura::client::WINDOW_TYPE_MENU,
       aura::client::WINDOW_TYPE_TOOLTIP};
   for (aura::client::WindowType type : no_item_types) {
     std::unique_ptr<aura::Window> window =
@@ -126,15 +127,6 @@ TEST_F(ShelfWindowWatcherTest, OpenAndCloseMash) {
     EXPECT_EQ(type == aura::client::WINDOW_TYPE_NORMAL ? 3 : 2,
               model_->item_count());
   }
-
-  // Windows with WindowState::ignored_by_shelf set do not get shelf items.
-  widget1 =
-      CreateTestWidget(nullptr, kShellWindowId_DefaultContainer, gfx::Rect());
-  wm::GetWindowState(widget1->GetNativeWindow())->set_ignored_by_shelf(true);
-  // TODO(msw): Make the flag a window property and remove this workaround.
-  widget1->GetNativeWindow()->SetProperty(aura::client::kDrawAttentionKey,
-                                          true);
-  EXPECT_EQ(2, model_->item_count());
 }
 
 TEST_F(ShelfWindowWatcherTest, CreateAndRemoveShelfItemProperties) {
@@ -143,8 +135,7 @@ TEST_F(ShelfWindowWatcherTest, CreateAndRemoveShelfItemProperties) {
       CreateTestWidget(nullptr, kShellWindowId_DefaultContainer, gfx::Rect());
   std::unique_ptr<views::Widget> widget2 =
       CreateTestWidget(nullptr, kShellWindowId_DefaultContainer, gfx::Rect());
-  const bool is_mash =
-      ::features::IsSingleProcessMash() || ::features::IsMultiProcessMash();
+  const bool is_mash = ::features::IsMultiProcessMash();
   EXPECT_EQ(is_mash ? 4 : 2, model_->item_count());
 
   // Create a ShelfItem for the first window.

@@ -157,7 +157,7 @@ ChromeClientImpl::~ChromeClientImpl() {
 }
 
 ChromeClientImpl* ChromeClientImpl::Create(WebViewImpl* web_view) {
-  return new ChromeClientImpl(web_view);
+  return MakeGarbageCollected<ChromeClientImpl>(web_view);
 }
 
 void ChromeClientImpl::Trace(Visitor* visitor) {
@@ -188,8 +188,8 @@ IntRect ChromeClientImpl::RootWindowRect() {
     // These numbers will be fairly wrong. The window's x/y coordinates will
     // be the top left corner of the screen and the size will be the content
     // size instead of the window size.
-    rect.width = web_view_->Size().width;
-    rect.height = web_view_->Size().height;
+    rect.width = web_view_->MainFrameWidget()->Size().width;
+    rect.height = web_view_->MainFrameWidget()->Size().height;
   }
   return IntRect(rect);
 }
@@ -326,7 +326,7 @@ void ChromeClientImpl::AddMessageToConsole(LocalFrame* local_frame,
   WebLocalFrameImpl* frame = WebLocalFrameImpl::FromFrame(local_frame);
   if (frame && frame->Client()) {
     frame->Client()->DidAddMessageToConsole(
-        WebConsoleMessage(static_cast<WebConsoleMessage::Level>(level),
+        WebConsoleMessage(static_cast<mojom::ConsoleMessageLevel>(level),
                           message),
         source_id, line_number, stack_trace);
   }
@@ -416,7 +416,10 @@ void ChromeClientImpl::ScheduleAnimation(const LocalFrameView* frame_view) {
   // WebFrameWidget needs to be initialized before initializing the core frame?
   if (!web_frame->LocalRootFrameWidget())
     return;
-  web_frame->LocalRootFrameWidget()->ScheduleAnimation();
+  // LocalRootFrameWidget() is a WebWidget, its client is the embedder.
+  WebWidgetClient* web_widget_client =
+      web_frame->LocalRootFrameWidget()->Client();
+  web_widget_client->ScheduleAnimation();
 }
 
 IntRect ChromeClientImpl::ViewportToScreen(
@@ -457,6 +460,10 @@ WebScreenInfo ChromeClientImpl::GetScreenInfo() const {
 base::Optional<IntRect> ChromeClientImpl::VisibleContentRectForPainting()
     const {
   return web_view_->GetDevToolsEmulator()->VisibleContentRectForPainting();
+}
+
+float ChromeClientImpl::InputEventsScaleForEmulation() const {
+  return web_view_->GetDevToolsEmulator()->InputEventsScaleForEmulation();
 }
 
 void ChromeClientImpl::ContentsSizeChanged(LocalFrame* frame,
@@ -699,7 +706,7 @@ String ChromeClientImpl::AcceptLanguages() {
 
 void ChromeClientImpl::AttachRootGraphicsLayer(GraphicsLayer* root_layer,
                                                LocalFrame* local_frame) {
-  DCHECK(!RuntimeEnabledFeatures::SlimmingPaintV2Enabled());
+  DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
   // TODO(dcheng): This seems wrong. Non-local roots shouldn't be calling this
   // function.
   WebLocalFrameImpl* web_frame =
@@ -734,9 +741,10 @@ void ChromeClientImpl::AttachCompositorAnimationTimeline(
     CompositorAnimationTimeline* compositor_timeline,
     LocalFrame* local_frame) {
   WebLocalFrameImpl* web_frame = WebLocalFrameImpl::FromFrame(local_frame);
-  if (CompositorAnimationHost* animation_host =
-          web_frame->LocalRootFrameWidget()->AnimationHost())
-    animation_host->AddTimeline(*compositor_timeline);
+  if (auto* widget = web_frame->LocalRootFrameWidget()) {
+    if (auto* animation_host = widget->AnimationHost())
+      animation_host->AddTimeline(*compositor_timeline);
+  }
 }
 
 void ChromeClientImpl::DetachCompositorAnimationTimeline(
@@ -823,7 +831,7 @@ DOMWindow* ChromeClientImpl::PagePopupWindowForTesting() const {
 void ChromeClientImpl::SetBrowserControlsState(float top_height,
                                                float bottom_height,
                                                bool shrinks_layout) {
-  WebSize size = web_view_->Size();
+  WebSize size = web_view_->MainFrameWidget()->Size();
   if (shrinks_layout)
     size.height -= top_height + bottom_height;
 
@@ -852,8 +860,8 @@ bool ChromeClientImpl::ShouldOpenUIElementDuringPageDismissal(
   builder.Append(DismissalTypeToString(dismissal_type));
   builder.Append(".");
 
-  WebLocalFrameImpl::FromFrame(frame)->AddMessageToConsole(
-      WebConsoleMessage(WebConsoleMessage::kLevelError, builder.ToString()));
+  WebLocalFrameImpl::FromFrame(frame)->AddMessageToConsole(WebConsoleMessage(
+      mojom::ConsoleMessageLevel::kError, builder.ToString()));
 
   return false;
 }
@@ -932,10 +940,10 @@ void ChromeClientImpl::SetEventListenerProperties(
 
 void ChromeClientImpl::BeginLifecycleUpdates() {
   web_view_->StopDeferringCommits();
-
-  if (WebLayerTreeView* tree_view = web_view_->LayerTreeView()) {
-    tree_view->SetNeedsBeginFrame();
-  }
+  // The WidgetClient is null for some WebViews, in which case they can not
+  // composite.
+  if (web_view_->WidgetClient())
+    web_view_->WidgetClient()->ScheduleAnimation();
 }
 
 cc::EventListenerProperties ChromeClientImpl::EventListenerProperties(
@@ -963,9 +971,6 @@ void ChromeClientImpl::SetHasScrollEventHandlers(LocalFrame* frame,
 
   WebFrameWidgetBase* widget =
       WebLocalFrameImpl::FromFrame(frame)->LocalRootFrameWidget();
-  // While a frame is shutting down, we may get called after the layerTreeView
-  // is gone: in this case we always expect |hasEventHandlers| to be false.
-  DCHECK(!widget || widget->GetLayerTreeView() || !has_event_handlers);
   if (widget && widget->GetLayerTreeView())
     widget->GetLayerTreeView()->SetHaveScrollEventHandlers(has_event_handlers);
 }
@@ -980,6 +985,18 @@ void ChromeClientImpl::SetNeedsLowLatencyInput(LocalFrame* frame,
 
   if (WebWidgetClient* client = widget->Client())
     client->SetNeedsLowLatencyInput(needs_low_latency);
+}
+
+void ChromeClientImpl::SetNeedsUnbufferedInputForDebugger(LocalFrame* frame,
+                                                          bool unbuffered) {
+  DCHECK(frame);
+  WebLocalFrameImpl* web_frame = WebLocalFrameImpl::FromFrame(frame);
+  WebFrameWidgetBase* widget = web_frame->LocalRootFrameWidget();
+  if (!widget)
+    return;
+
+  if (WebWidgetClient* client = widget->Client())
+    client->SetNeedsUnbufferedInputForDebugger(unbuffered);
 }
 
 void ChromeClientImpl::RequestUnbufferedInputEvents(LocalFrame* frame) {
@@ -1111,6 +1128,10 @@ void ChromeClientImpl::AjaxSucceeded(LocalFrame* frame) {
 void ChromeClientImpl::RegisterViewportLayers() const {
   if (web_view_->RootGraphicsLayer() && web_view_->LayerTreeView())
     web_view_->RegisterViewportLayersWithCompositor();
+}
+
+TransformationMatrix ChromeClientImpl::GetDeviceEmulationTransform() const {
+  return web_view_->GetDeviceEmulationTransform();
 }
 
 void ChromeClientImpl::DidUpdateBrowserControls() const {

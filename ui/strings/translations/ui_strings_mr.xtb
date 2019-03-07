@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{1 दिवसापूर्वी}one{# दिवसापूर्वी}other{# दिवसांपूर्वी}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{1 मिनिटापूर्वी}one{# मिनिटापूर्वी}other{# मिनिटांपूर्वी}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1मि}one{#मि}other{#मि}}</translation>
+<translation id="1181037720776840403">काढून टाका</translation>
 <translation id="1243314992276662751">अपलोड करा</translation>
 <translation id="1269641567813814718">Win</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">Down Arrow</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 दिवस}one{# दिवस}other{# दिवस}}</translation>
 <translation id="335581015389089642">भाषण</translation>
+<translation id="3462241349431650993">ही सूचना लपवल्याने ती तुमच्या सर्व डिव्हाइसवर तुमच्या खात्यामधून पुन्हा दाखवली जाणार नाही.</translation>
 <translation id="3479552764303398839">सध्या नाही</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{1 दिवस शिल्लक}one{# दिवस शिल्लक}other{# दिवस शिल्लक}}</translation>
+<translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” पहा</translation>
 <translation id="364720409959344976">अपलोड करण्यासाठी फोल्डर निवडा</translation>
 <translation id="3660179305079774227">Up Arrow</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{1 सेकंदापूर्वी}one{# सेकंदापूर्वी}other{# सेकंदांपूर्वी}}</translation>
 <translation id="654149438358937226">सर्व सूचना ब्लॉक करा</translation>
 <translation id="6567071839949112727">पूर्वजवर क्लिक करा</translation>
+<translation id="6578407462441924264">नाव नसलेले</translation>
 <translation id="6612467943526193239">कॅलिब्रेशनमधून बाहेर पडण्‍यासाठी Esc दाबा.</translation>
 <translation id="6620110761915583480">फाइल सेव्ह करा</translation>
 <translation id="6699343763173986273">मीडिया पुढील ट्रॅक</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 तासापूर्वी}one{# तासापूर्वी}other{# तासांपूर्वी}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 सेकंद शिल्लक}one{# सेकंद शिल्लक}other{# सेकंद शिल्लक}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />, ऑटोकंप्लीट</translation>
 <translation id="815598010540052116">खाली स्क्रोल करा</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">पृष्ठ खाली</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">तपासा</translation>
 <translation id="8393700583063109961">संदेश पाठवा</translation>
 <translation id="8394908167088220973">मीडिया प्ले करा/विराम द्या</translation>
+<translation id="8420205633584771378">ही सूचना काढून टाकायची आहे का?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1वर्ष}one{#वर्ष}other{#वर्षे}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> फाइल (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> KB/s</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">मागे जा बटण</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> KB</translation>
 <translation id="9002566407876343676">उघडा</translation>
-<translation id="9038489124413477075">अनामित फोल्डर</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 से}one{# से}other{# से}}</translation>
 <translation id="9059834730836941392">सूचना संकुचित करा</translation>
 <translation id="9150735707954472829">टॅब</translation>

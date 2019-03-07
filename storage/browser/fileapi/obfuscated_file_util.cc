@@ -409,16 +409,8 @@ base::File::Error ObfuscatedFileUtil::GetFileInfo(
   if (!db->GetFileWithPath(url.path(), &file_id))
     return base::File::FILE_ERROR_NOT_FOUND;
   FileInfo local_info;
-  return GetFileInfoInternal(db, context, url,
-                             file_id, &local_info,
-                             file_info, platform_file_path);
-}
-
-std::unique_ptr<FileSystemFileUtil::AbstractFileEnumerator>
-ObfuscatedFileUtil::CreateFileEnumerator(FileSystemOperationContext* context,
-                                         const FileSystemURL& root_url) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return CreateFileEnumerator(context, root_url, false /* recursive */);
+  return GetFileInfoInternal(db, context, url, file_id, &local_info, file_info,
+                             platform_file_path);
 }
 
 base::File::Error ObfuscatedFileUtil::GetLocalFilePath(
@@ -1301,6 +1293,12 @@ void ObfuscatedFileUtil::DropDatabases() {
   timer_.Stop();
 }
 
+void ObfuscatedFileUtil::RewriteDatabases() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (origin_database_)
+    origin_database_->RewriteDatabase();
+}
+
 bool ObfuscatedFileUtil::InitOriginDatabase(const GURL& origin_hint,
                                             bool create) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -1326,17 +1324,6 @@ bool ObfuscatedFileUtil::InitOriginDatabase(const GURL& origin_hint,
 
   const std::string isolated_origin_string =
       storage::GetIdentifierFromOrigin(origin_hint);
-
-  // TODO(kinuko): Deprecate this after a few release cycles, e.g. around M33.
-  base::FilePath isolated_origin_dir = file_system_directory_.Append(
-      SandboxIsolatedOriginDatabase::kObsoleteOriginDirectory);
-  if (base::DirectoryExists(isolated_origin_dir) &&
-      prioritized_origin_database->GetSandboxOriginDatabase()) {
-    SandboxIsolatedOriginDatabase::MigrateBackFromObsoleteOriginDatabase(
-        isolated_origin_string,
-        file_system_directory_,
-        prioritized_origin_database->GetSandboxOriginDatabase());
-  }
 
   prioritized_origin_database->InitializePrimaryOrigin(
       isolated_origin_string);

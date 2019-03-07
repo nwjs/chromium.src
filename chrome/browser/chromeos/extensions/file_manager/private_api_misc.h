@@ -324,6 +324,27 @@ class FileManagerPrivateInternalSharePathsWithCrostiniFunction
       FileManagerPrivateInternalSharePathsWithCrostiniFunction);
 };
 
+// Implements the chrome.fileManagerPrivate.unsharePathWithCrostini
+// method.  Unshares specified path.
+class FileManagerPrivateInternalUnsharePathWithCrostiniFunction
+    : public UIThreadExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION(
+      "fileManagerPrivateInternal.unsharePathWithCrostini",
+      FILEMANAGERPRIVATEINTERNAL_UNSHAREPATHWITHCROSTINI)
+  FileManagerPrivateInternalUnsharePathWithCrostiniFunction() = default;
+
+ protected:
+  ~FileManagerPrivateInternalUnsharePathWithCrostiniFunction() override =
+      default;
+
+ private:
+  ResponseAction Run() override;
+  void UnsharePathCallback(bool success, std::string failure_reason);
+  DISALLOW_COPY_AND_ASSIGN(
+      FileManagerPrivateInternalUnsharePathWithCrostiniFunction);
+};
+
 // Implements the chrome.fileManagerPrivate.getCrostiniSharedPaths
 // method.  Returns list of file entries.
 class FileManagerPrivateInternalGetCrostiniSharedPathsFunction
@@ -378,8 +399,7 @@ class FileManagerPrivateInternalInstallLinuxPackageFunction
 
  private:
   ResponseAction Run() override;
-  void OnInstallLinuxPackage(crostini::CrostiniResult result,
-                             const std::string& failure_reason);
+  void OnInstallLinuxPackage(crostini::CrostiniResult result);
   DISALLOW_COPY_AND_ASSIGN(
       FileManagerPrivateInternalInstallLinuxPackageFunction);
 };

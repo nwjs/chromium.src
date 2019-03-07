@@ -12,10 +12,11 @@
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/renderer/media/stream/media_stream_audio_deliverer.h"
-#include "content/renderer/media/stream/media_stream_source.h"
 #include "media/base/limits.h"
+#include "third_party/blink/public/platform/modules/mediastream/platform_media_stream_source.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
 #include "third_party/blink/public/platform/web_media_stream_track.h"
 
@@ -33,6 +34,21 @@ static constexpr int kMaxAudioLatencyMs = 5000;
 static_assert(std::numeric_limits<int>::max() / media::limits::kMaxSampleRate >
                   kMaxAudioLatencyMs,
               "The maxium audio latency can cause overflow.");
+
+// TODO(https://crbug.com/638081):
+// Like in ProcessedLocalAudioSource::GetBufferSize(), we should re-evaluate
+// whether Android needs special treatment here. Or, perhaps we should just
+// DCHECK_GT(device...frames_per_buffer, 0)?
+#if defined(OS_ANDROID)
+static constexpr int kFallbackAudioLatencyMs = 20;
+#else
+static constexpr int kFallbackAudioLatencyMs = 10;
+#endif
+
+static_assert(kFallbackAudioLatencyMs >= 0,
+              "Audio latency has to be non-negative.");
+static_assert(kFallbackAudioLatencyMs <= kMaxAudioLatencyMs,
+              "Audio latency can cause overflow.");
 
 class MediaStreamAudioTrack;
 
@@ -53,7 +69,7 @@ class MediaStreamAudioTrack;
 //
 // Usage example:
 //
-//   class MyAudioSource : public MediaStreamSource { ... };
+//   class MyAudioSource : public MediaStreamAudioSource { ... };
 //
 //   blink::WebMediaStreamSource blink_source = ...;
 //   blink::WebMediaStreamTrack blink_track = ...;
@@ -67,7 +83,8 @@ class MediaStreamAudioTrack;
 //   // Regardless of whether ConnectToTrack() succeeds, there will always be a
 //   // MediaStreamAudioTrack instance created.
 //   CHECK(MediaStreamAudioTrack::From(blink_track));
-class CONTENT_EXPORT MediaStreamAudioSource : public MediaStreamSource {
+class CONTENT_EXPORT MediaStreamAudioSource
+    : public blink::WebPlatformMediaStreamSource {
  public:
   explicit MediaStreamAudioSource(bool is_local_source);
   MediaStreamAudioSource(bool is_local_source,
@@ -137,7 +154,7 @@ class CONTENT_EXPORT MediaStreamAudioSource : public MediaStreamSource {
   // Stops the source and start the |new_device|.
   // A default no-op implementation is provided in this base class. Subclasses
   // should override this method.
-  virtual void ChangeSourceImpl(const MediaStreamDevice& new_device);
+  virtual void ChangeSourceImpl(const blink::MediaStreamDevice& new_device);
 
   // Called by subclasses to update the format of the audio passing through this
   // source to the sinks. This may be called at any time, before or after
@@ -164,7 +181,7 @@ class CONTENT_EXPORT MediaStreamAudioSource : public MediaStreamSource {
  private:
   // MediaStreamSource override.
   void DoStopSource() final;
-  void DoChangeSource(const MediaStreamDevice& new_device) final;
+  void DoChangeSource(const blink::MediaStreamDevice& new_device) final;
 
   // Removes |track| from the list of instances that get a copy of the source
   // audio data. The "stop callback" that was provided to the track calls

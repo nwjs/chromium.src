@@ -51,6 +51,10 @@ void MediaSessionServiceImpl::DidFinishNavigation() {
   ClearActions();
 }
 
+void MediaSessionServiceImpl::FlushForTesting() {
+  client_.FlushForTesting();
+}
+
 void MediaSessionServiceImpl::SetClient(
     blink::mojom::MediaSessionClientPtr client) {
   client_ = std::move(client);
@@ -65,7 +69,7 @@ void MediaSessionServiceImpl::SetPlaybackState(
 }
 
 void MediaSessionServiceImpl::SetMetadata(
-    const base::Optional<content::MediaMetadata>& metadata) {
+    const base::Optional<media_session::MediaMetadata>& metadata) {
   // When receiving a MediaMetadata, the browser process can't trust that it is
   // coming from a known and secure source. It must be processed accordingly.
   if (metadata.has_value() &&

@@ -12,8 +12,8 @@
 #include "base/logging.h"
 #include "base/mac/bundle_locations.h"
 #include "base/mac/mac_logging.h"
-#include "base/macros.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/stl_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "build/build_config.h"
 
@@ -149,7 +149,7 @@ FilePath GetUserLibraryPath() {
 //   returns - path to the application bundle, or empty on error
 FilePath GetAppBundlePath(const FilePath& exec_name) {
   const char kExt[] = ".app";
-  const size_t kExtLength = arraysize(kExt) - 1;
+  const size_t kExtLength = base::size(kExt) - 1;
 
   // Split the path into components.
   std::vector<std::string> components;
@@ -215,6 +215,7 @@ TYPE_NAME_FOR_CF_TYPE_DEFN(CTFont);
 TYPE_NAME_FOR_CF_TYPE_DEFN(CTRun);
 
 #if !defined(OS_IOS)
+TYPE_NAME_FOR_CF_TYPE_DEFN(SecCertificate);
 TYPE_NAME_FOR_CF_TYPE_DEFN(SecKey);
 TYPE_NAME_FOR_CF_TYPE_DEFN(SecPolicy);
 #endif
@@ -414,6 +415,7 @@ CFCastStrict<CTFontRef>(const CFTypeRef& cf_val) {
 
 #if !defined(OS_IOS)
 CF_CAST_DEFN(SecACL);
+CF_CAST_DEFN(SecCertificate);
 CF_CAST_DEFN(SecKey);
 CF_CAST_DEFN(SecPolicy);
 CF_CAST_DEFN(SecTrustedApplication);
@@ -432,6 +434,12 @@ std::string GetValueFromDictionaryErrorMessage(
       " but it was " +
       base::SysCFStringRefToUTF8(actual_type_ref) +
       " instead";
+}
+
+NSURL* FilePathToNSURL(const FilePath& path) {
+  if (NSString* path_string = FilePathToNSString(path))
+    return [NSURL fileURLWithPath:path_string];
+  return nil;
 }
 
 NSString* FilePathToNSString(const FilePath& path) {

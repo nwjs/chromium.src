@@ -36,7 +36,6 @@
 #include "content/renderer/pepper/message_channel.h"
 #include "content/renderer/pepper/pepper_audio_controller.h"
 #include "content/renderer/pepper/pepper_browser_connection.h"
-#include "content/renderer/pepper/pepper_compositor_host.h"
 #include "content/renderer/pepper/pepper_file_ref_renderer_host.h"
 #include "content/renderer/pepper/pepper_graphics_2d_host.h"
 #include "content/renderer/pepper/pepper_in_process_router.h"
@@ -516,7 +515,6 @@ PepperPluginInstanceImpl::PepperPluginInstanceImpl(
       viewport_to_dip_scale_(1.0f),
       sent_initial_did_change_view_(false),
       bound_graphics_2d_platform_(nullptr),
-      bound_compositor_(nullptr),
       has_webkit_focus_(false),
       has_content_area_focus_(false),
       find_identifier_(-1),
@@ -558,10 +556,11 @@ PepperPluginInstanceImpl::PepperPluginInstanceImpl(
 
   if (render_frame_) {  // NULL in tests or if the frame has been destroyed.
     render_frame_->PepperInstanceCreated(this);
-    view_data_.is_page_visible = !render_frame_->GetRenderWidget()->is_hidden();
+    view_data_.is_page_visible =
+        !render_frame_->GetLocalRootRenderWidget()->is_hidden();
 
     // Set the initial focus.
-    SetContentAreaFocus(render_frame_->GetRenderWidget()->has_focus());
+    SetContentAreaFocus(render_frame_->GetLocalRootRenderWidget()->has_focus());
 
     if (!module_->IsProxied()) {
       PepperBrowserConnection* browser_connection =
@@ -746,13 +745,11 @@ void PepperPluginInstanceImpl::InvalidateRect(const gfx::Rect& rect) {
       container_->InvalidateRect(rect);
   }
 
-  cc::Layer* layer =
-      texture_layer_ ? texture_layer_.get() : compositor_layer_.get();
-  if (layer) {
+  if (texture_layer_) {
     if (rect.IsEmpty()) {
-      layer->SetNeedsDisplay();
+      texture_layer_->SetNeedsDisplay();
     } else {
-      layer->SetNeedsDisplayRect(rect);
+      texture_layer_->SetNeedsDisplayRect(rect);
     }
   }
 }
@@ -760,9 +757,7 @@ void PepperPluginInstanceImpl::InvalidateRect(const gfx::Rect& rect) {
 void PepperPluginInstanceImpl::ScrollRect(int dx,
                                           int dy,
                                           const gfx::Rect& rect) {
-  cc::Layer* layer =
-      texture_layer_ ? texture_layer_.get() : compositor_layer_.get();
-  if (layer) {
+  if (texture_layer_) {
     InvalidateRect(rect);
   } else if (fullscreen_container_) {
     fullscreen_container_->ScrollRect(dx, dy, rect);
@@ -1145,7 +1140,8 @@ bool PepperPluginInstanceImpl::HandleInputEvent(
       (event.GetModifiers() & blink::WebInputEvent::kLeftButtonDown)) {
     has_been_clicked_ = true;
     blink::WebRect bounds = container()->GetElement().BoundsInViewport();
-    render_frame()->GetRenderWidget()->ConvertViewportToWindow(&bounds);
+    render_frame()->GetLocalRootRenderWidget()->ConvertViewportToWindow(
+        &bounds);
     RecordFlashClickSizeMetric(bounds.width, bounds.height);
   }
 
@@ -1300,7 +1296,7 @@ void PepperPluginInstanceImpl::ViewChanged(
   view_data_.css_scale =
       container_->PageZoomFactor() * container_->PageScaleFactor();
   blink::WebFloatRect windowToViewportScale(0, 0, 1.0f, 0);
-  render_frame()->GetRenderWidget()->ConvertWindowToViewport(
+  render_frame()->GetLocalRootRenderWidget()->ConvertWindowToViewport(
       &windowToViewportScale);
   viewport_to_dip_scale_ = 1.0f / windowToViewportScale.width;
   ConvertRectToDIP(&view_data_.rect);
@@ -1323,7 +1319,7 @@ void PepperPluginInstanceImpl::ViewChanged(
   if (desired_fullscreen_state_ || view_data_.is_fullscreen) {
     bool is_fullscreen_element = container_->IsFullscreenElement();
     if (!view_data_.is_fullscreen && desired_fullscreen_state_ &&
-        render_frame()->GetRenderWidget()->is_fullscreen_granted() &&
+        render_frame()->GetLocalRootRenderWidget()->is_fullscreen_granted() &&
         is_fullscreen_element) {
       // Entered fullscreen. Only possible via SetFullscreen().
       view_data_.is_fullscreen = true;
@@ -1396,8 +1392,6 @@ void PepperPluginInstanceImpl::ViewInitiatedPaint() {
     bound_graphics_2d_platform_->ViewInitiatedPaint();
   else if (bound_graphics_3d_.get())
     bound_graphics_3d_->ViewInitiatedPaint();
-  else if (bound_compositor_)
-    bound_compositor_->ViewInitiatedPaint();
 }
 
 void PepperPluginInstanceImpl::SetSelectedText(
@@ -1852,9 +1846,6 @@ void PepperPluginInstanceImpl::SendDidChangeView() {
   if (module()->is_crashed())
     return;
 
-  if (bound_compositor_)
-    bound_compositor_->set_viewport_to_dip_scale(viewport_to_dip_scale_);
-
   if (bound_graphics_2d_platform_)
     bound_graphics_2d_platform_->set_viewport_to_dip_scale(
         viewport_to_dip_scale_);
@@ -2202,36 +2193,29 @@ void PepperPluginInstanceImpl::UpdateLayer(bool force_creation) {
   bool want_3d_layer = !!bound_graphics_3d_.get();
   bool want_2d_layer = !!bound_graphics_2d_platform_;
   bool want_texture_layer = want_3d_layer || want_2d_layer;
-  bool want_compositor_layer = !!bound_compositor_;
 
   if (throttler_ && throttler_->IsHiddenForPlaceholder()) {
     want_3d_layer = false;
     want_2d_layer = false;
     want_texture_layer = false;
-    want_compositor_layer = false;
   }
 
   if (!force_creation && (want_texture_layer == !!texture_layer_) &&
       (want_3d_layer == layer_is_hardware_) &&
-      (want_compositor_layer == !!compositor_layer_.get()) &&
       layer_bound_to_fullscreen_ == !!fullscreen_container_) {
     UpdateLayerTransform();
     return;
   }
 
-  if (texture_layer_ || compositor_layer_) {
+  if (texture_layer_) {
     if (!layer_bound_to_fullscreen_)
       container_->SetCcLayer(nullptr, false);
     else if (fullscreen_container_)
       fullscreen_container_->SetLayer(nullptr);
-    if (texture_layer_) {
-      texture_layer_->ClearClient();
-      texture_layer_ = nullptr;
-    }
-    compositor_layer_ = nullptr;
+    texture_layer_->ClearClient();
+    texture_layer_ = nullptr;
   }
 
-  cc::Layer* either_layer = nullptr;
   if (want_texture_layer) {
     bool opaque = false;
     if (want_3d_layer) {
@@ -2253,19 +2237,15 @@ void PepperPluginInstanceImpl::UpdateLayer(bool force_creation) {
     // wmode=transparent was specified.
     opaque = opaque || fullscreen_container_;
     texture_layer_->SetContentsOpaque(opaque);
-    either_layer = texture_layer_.get();
-  } else if (want_compositor_layer) {
-    compositor_layer_ = bound_compositor_->layer();
-    either_layer = compositor_layer_.get();
   }
 
-  if (either_layer) {
+  if (texture_layer_) {
     if (fullscreen_container_)
-      fullscreen_container_->SetLayer(either_layer);
+      fullscreen_container_->SetLayer(texture_layer_.get());
     else
-      container_->SetCcLayer(either_layer, true);
+      container_->SetCcLayer(texture_layer_.get(), true);
     if (is_flash_plugin_)
-      either_layer->SetMayContainVideo(true);
+      texture_layer_->SetMayContainVideo(true);
   }
 
   layer_bound_to_fullscreen_ = !!fullscreen_container_;
@@ -2446,10 +2426,6 @@ PP_Bool PepperPluginInstanceImpl::BindGraphics(PP_Instance instance,
     bound_graphics_2d_platform_->BindToInstance(nullptr);
     bound_graphics_2d_platform_ = nullptr;
   }
-  if (bound_compositor_) {
-    bound_compositor_->BindToInstance(nullptr);
-    bound_compositor_ = nullptr;
-  }
 
   // Special-case clearing the current device.
   if (!device) {
@@ -2468,12 +2444,9 @@ PP_Bool PepperPluginInstanceImpl::BindGraphics(PP_Instance instance,
       RendererPpapiHost::GetForPPInstance(instance)->GetPpapiHost();
   ppapi::host::ResourceHost* host = ppapi_host->GetResourceHost(device);
   PepperGraphics2DHost* graphics_2d = nullptr;
-  PepperCompositorHost* compositor = nullptr;
   if (host) {
     if (host->IsGraphics2DHost()) {
       graphics_2d = static_cast<PepperGraphics2DHost*>(host);
-    } else if (host->IsCompositorHost()) {
-      compositor = static_cast<PepperCompositorHost*>(host);
     } else {
       DLOG(ERROR) <<
           "Resource is not PepperCompositorHost or PepperGraphics2DHost.";
@@ -2486,14 +2459,7 @@ PP_Bool PepperPluginInstanceImpl::BindGraphics(PP_Instance instance,
           ? static_cast<PPB_Graphics3D_Impl*>(enter_3d.object())
           : nullptr;
 
-  if (compositor) {
-    if (compositor->BindToInstance(this)) {
-      bound_compositor_ = compositor;
-      bound_compositor_->set_viewport_to_dip_scale(viewport_to_dip_scale_);
-      UpdateLayer(true);
-      return PP_TRUE;
-    }
-  } else if (graphics_2d) {
+  if (graphics_2d) {
     if (graphics_2d->BindToInstance(this)) {
       bound_graphics_2d_platform_ = graphics_2d;
       bound_graphics_2d_platform_->set_viewport_to_dip_scale(
@@ -2708,7 +2674,7 @@ PP_Bool PepperPluginInstanceImpl::GetScreenSize(PP_Instance instance,
     *size = view_data_.rect.size;
   } else {
     // All other cases: Report the screen size.
-    if (!render_frame_ || !render_frame_->GetRenderWidget())
+    if (!render_frame_ || !render_frame_->GetLocalRootRenderWidget())
       return PP_FALSE;
     blink::WebScreenInfo info = render_frame_->render_view()->GetScreenInfo();
     *size = PP_MakeSize(info.rect.width, info.rect.height);
@@ -2978,8 +2944,7 @@ PP_Var PepperPluginInstanceImpl::GetPluginReferrerURL(
   WebLocalFrame* frame = document.GetFrame();
   if (!frame)
     return PP_MakeUndefined();
-  const WebURLRequest& request = frame->GetDocumentLoader()->OriginalRequest();
-  WebString referer = request.HttpHeaderField("Referer");
+  WebString referer = frame->GetDocumentLoader()->OriginalReferrer();
   if (referer.IsEmpty())
     return PP_MakeUndefined();
   return ppapi::PPB_URLUtil_Shared::GenerateURLReturn(
@@ -3064,7 +3029,9 @@ blink::WebPluginContainer* PepperPluginInstanceImpl::GetContainer() {
   return container_;
 }
 
-v8::Isolate* PepperPluginInstanceImpl::GetIsolate() const { return isolate_; }
+v8::Isolate* PepperPluginInstanceImpl::GetIsolate() {
+  return isolate_;
+}
 
 ppapi::VarTracker* PepperPluginInstanceImpl::GetVarTracker() {
   return HostGlobals::Get()->GetVarTracker();
@@ -3118,13 +3085,10 @@ PP_ExternalPluginResult PepperPluginInstanceImpl::SwitchToOutOfProcessProxy(
       module_->CreateModuleForExternalPluginInstance());
 
   RendererPpapiHostImpl* renderer_ppapi_host =
-      external_plugin_module->CreateOutOfProcessModule(render_frame_,
-                                                       file_path,
-                                                       permissions,
-                                                       channel_handle,
-                                                       plugin_pid,
-                                                       plugin_child_id,
-                                                       true);
+      external_plugin_module->CreateOutOfProcessModule(
+          render_frame_, file_path, permissions, channel_handle, plugin_pid,
+          plugin_child_id, true,
+          render_frame_->GetTaskRunner(blink::TaskType::kInternalDefault));
   if (!renderer_ppapi_host) {
     DLOG(ERROR) << "CreateExternalPluginModule() failed";
     return PP_EXTERNAL_PLUGIN_ERROR_MODULE;
@@ -3373,7 +3337,7 @@ MouseLockDispatcher* PepperPluginInstanceImpl::GetMouseLockDispatcher() {
     return container->mouse_lock_dispatcher();
   }
   if (render_frame_)
-    return render_frame_->render_view()->GetWidget()->mouse_lock_dispatcher();
+    return render_frame_->GetLocalRootRenderWidget()->mouse_lock_dispatcher();
   return nullptr;
 }
 

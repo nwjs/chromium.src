@@ -10,10 +10,10 @@
 
 #include <map>
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "base/containers/hash_tables.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/synchronization/lock.h"
@@ -362,8 +362,8 @@ class MIDI_EXPORT MidiManagerAlsa final : public MidiManager {
     };
   };
 
-  using SourceMap = base::hash_map<int, uint32_t>;
-  using OutPortMap = base::hash_map<uint32_t, int>;
+  using SourceMap = std::unordered_map<int, uint32_t>;
+  using OutPortMap = std::unordered_map<uint32_t, int>;
   using ScopedSndSeqPtr = std::unique_ptr<snd_seq_t, SndSeqDeleter>;
   using ScopedSndMidiEventPtr =
       std::unique_ptr<snd_midi_event_t, SndMidiEventDeleter>;

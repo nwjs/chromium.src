@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{Преди 1 ден}other{Преди # дни}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{Преди 1 минута}other{Преди # минути}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1 мин}other{# мин}}</translation>
+<translation id="1181037720776840403">Премахване</translation>
 <translation id="1243314992276662751">Качване</translation>
 <translation id="1269641567813814718">Win</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">Стрелка надолу</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 ден}other{# дни}}</translation>
 <translation id="335581015389089642">Speech</translation>
+<translation id="3462241349431650993">При скриване на това предложение то няма да се показва повече в профила ви на никое от устройствата ви.</translation>
 <translation id="3479552764303398839">Не сега</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{Остава 1 ден}other{Остават # дни}}</translation>
+<translation id="3608915363409716668">Над <ph name="MAXIMUM_VALUE" /></translation>
 <translation id="3618849550573277856">Търсене на „<ph name="LOOKUP_STRING" />“</translation>
 <translation id="364720409959344976">Избиране на папка за качване</translation>
 <translation id="3660179305079774227">Стрелка нагоре</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{Преди 1 секунда}other{Преди # секунди}}</translation>
 <translation id="654149438358937226">Блокиране на всички известия</translation>
 <translation id="6567071839949112727">кликване върху елемента предшественик</translation>
+<translation id="6578407462441924264">Без име</translation>
 <translation id="6612467943526193239">За изход от калибрирането натиснете Esc.</translation>
 <translation id="6620110761915583480">Запазване на файл</translation>
 <translation id="6699343763173986273">Мултимедия, следващият запис</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" /> + <ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{Преди 1 час}other{Преди # часа}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{Остава 1 сек}other{Остават # сек}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />, автоматично довършване</translation>
 <translation id="815598010540052116">Превъртане надолу</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Страница надолу</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">отмятане</translation>
 <translation id="8393700583063109961">Изпратете съобщение</translation>
 <translation id="8394908167088220973">Мултимедия, пускане/пауза</translation>
+<translation id="8420205633584771378">Да се премахне ли това предложение?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 г.}other{# г.}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> файл (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> КБ/сек</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">Бутон за връщане назад</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> KБ</translation>
 <translation id="9002566407876343676">отварям</translation>
-<translation id="9038489124413477075">Папка без име</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 сек}other{# сек}}</translation>
 <translation id="9059834730836941392">Свиване на известието</translation>
 <translation id="9150735707954472829">Раздел</translation>

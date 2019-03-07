@@ -19,8 +19,10 @@
 #include <array>
 #include <iomanip>
 #include <iostream>
+#include <type_traits>
 
 #include "base/logging.h"
+#include "base/stl_util.h"
 
 namespace base {
 namespace debug {
@@ -28,7 +30,7 @@ namespace debug {
 namespace {
 
 const char kProcessNamePrefix[] = "app:";
-const size_t kProcessNamePrefixLen = arraysize(kProcessNamePrefix) - 1;
+const size_t kProcessNamePrefixLen = base::size(kProcessNamePrefix) - 1;
 
 struct BacktraceData {
   void** trace_array;
@@ -105,7 +107,7 @@ void SymbolMap::Populate() {
   // TODO(wez): Object names can only have up to ZX_MAX_NAME_LEN characters, so
   // if we keep hitting problems with truncation, find a way to plumb argv[0]
   // through to here instead, e.g. using CommandLine::GetProgramName().
-  char app_name[arraysize(SymbolMap::Entry::name)];
+  char app_name[std::extent<decltype(SymbolMap::Entry::name)>()];
   strcpy(app_name, kProcessNamePrefix);
   zx_status_t status = zx_object_get_property(
       process, ZX_PROP_NAME, app_name + kProcessNamePrefixLen,
@@ -167,10 +169,11 @@ bool EnableInProcessStackDumping() {
   return true;
 }
 
-StackTrace::StackTrace(size_t count) : count_(0) {
-  BacktraceData data = {&trace_[0], &count_,
-                        std::min(count, static_cast<size_t>(kMaxTraces))};
+size_t CollectStackTrace(void** trace, size_t count) {
+  size_t frame_count = 0;
+  BacktraceData data = {trace, &frame_count, count};
   _Unwind_Backtrace(&UnwindStore, &data);
+  return frame_count;
 }
 
 void StackTrace::PrintWithPrefix(const char* prefix_string) const {

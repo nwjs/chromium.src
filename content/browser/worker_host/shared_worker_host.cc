@@ -19,7 +19,6 @@
 #include "content/browser/worker_host/shared_worker_instance.h"
 #include "content/browser/worker_host/shared_worker_service_impl.h"
 #include "content/common/navigation_subresource_loader_params.h"
-#include "content/common/url_loader_factory_bundle.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -29,10 +28,12 @@
 #include "content/public/common/renderer_preference_watcher.mojom.h"
 #include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/loader/url_loader_factory_bundle.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
+#include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
+#include "third_party/blink/public/mojom/worker/worker_content_settings_proxy.mojom.h"
 #include "third_party/blink/public/platform/web_feature.mojom.h"
-#include "third_party/blink/public/web/worker_content_settings_proxy.mojom.h"
 
 namespace content {
 namespace {
@@ -141,12 +142,13 @@ SharedWorkerHost::~SharedWorkerHost() {
 
 void SharedWorkerHost::Start(
     mojom::SharedWorkerFactoryPtr factory,
-    mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+    blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
         service_worker_provider_info,
     network::mojom::URLLoaderFactoryAssociatedPtrInfo
         main_script_loader_factory,
     blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
-    std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loader_factories,
+    std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+        subresource_loader_factories,
     base::Optional<SubresourceLoaderParams> subresource_loader_params) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   AdvanceTo(Phase::kStarted);
@@ -180,7 +182,7 @@ void SharedWorkerHost::Start(
   }
 #endif  // DCHECK_IS_ON()
 
-  mojom::SharedWorkerInfoPtr info(mojom::SharedWorkerInfo::New(instance_->nodejs(), instance_->root_path(),
+  blink::mojom::SharedWorkerInfoPtr info(blink::mojom::SharedWorkerInfo::New(instance_->nodejs(), instance_->root_path(),
       instance_->url(), instance_->name(), instance_->content_security_policy(),
       instance_->content_security_policy_type(),
       instance_->creation_address_space()));
@@ -210,7 +212,7 @@ void SharedWorkerHost::Start(
       instance_->url(), this, mojo::MakeRequest(&content_settings));
 
   // Set up host interface.
-  mojom::SharedWorkerHostPtr host;
+  blink::mojom::SharedWorkerHostPtr host;
   binding_.Bind(mojo::MakeRequest(&host));
 
   // Set up interface provider interface.
@@ -242,7 +244,7 @@ void SharedWorkerHost::Start(
   // only provided if NetworkService is enabled. In the non-NetworkService case,
   // the controller is sent in SetController IPCs during the request for the
   // shared worker script.
-  mojom::ControllerServiceWorkerInfoPtr controller;
+  blink::mojom::ControllerServiceWorkerInfoPtr controller;
   blink::mojom::ServiceWorkerObjectAssociatedPtrInfo remote_object;
   blink::mojom::ServiceWorkerState sent_state;
   if (subresource_loader_params &&
@@ -265,7 +267,7 @@ void SharedWorkerHost::Start(
       renderer_preferences, std::move(preference_watcher_request),
       std::move(content_settings), std::move(service_worker_provider_info),
       appcache_handle_ ? appcache_handle_->appcache_host_id()
-                       : kAppCacheNoHostId,
+                       : blink::mojom::kAppCacheNoHostId,
       std::move(main_script_loader_factory), std::move(main_script_load_params),
       std::move(subresource_loader_factories), std::move(controller),
       std::move(host), std::move(worker_request_),
@@ -382,10 +384,11 @@ void SharedWorkerHost::AdvanceTo(Phase phase) {
   phase_ = phase;
 }
 
-SharedWorkerHost::ClientInfo::ClientInfo(mojom::SharedWorkerClientPtr client,
-                                         int connection_request_id,
-                                         int process_id,
-                                         int frame_id)
+SharedWorkerHost::ClientInfo::ClientInfo(
+    blink::mojom::SharedWorkerClientPtr client,
+    int connection_request_id,
+    int process_id,
+    int frame_id)
     : client(std::move(client)),
       connection_request_id(connection_request_id),
       process_id(process_id),
@@ -483,7 +486,7 @@ base::WeakPtr<SharedWorkerHost> SharedWorkerHost::AsWeakPtr() {
   return weak_factory_.GetWeakPtr();
 }
 
-void SharedWorkerHost::AddClient(mojom::SharedWorkerClientPtr client,
+void SharedWorkerHost::AddClient(blink::mojom::SharedWorkerClientPtr client,
                                  int process_id,
                                  int frame_id,
                                  const blink::MessagePortChannel& port) {

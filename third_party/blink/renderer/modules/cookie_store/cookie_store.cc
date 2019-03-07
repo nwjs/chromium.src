@@ -592,8 +592,12 @@ void CookieStore::StartObserving() {
   if (change_listener_binding_ || !backend_)
     return;
 
+  // See https://bit.ly/2S0zRAS for task types.
+  auto task_runner =
+      GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI);
   network::mojom::blink::CookieChangeListenerPtr change_listener;
-  change_listener_binding_.Bind(mojo::MakeRequest(&change_listener));
+  change_listener_binding_.Bind(
+      mojo::MakeRequest(&change_listener, task_runner), task_runner);
   backend_->AddChangeListener(default_cookie_url_, default_site_for_cookies_,
                               std::move(change_listener), {});
 }

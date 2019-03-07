@@ -3,6 +3,9 @@
 # found in the LICENSE file.
 
 import("//build/config/jumbo.gni")
+import("//third_party/closure_compiler/closure_args.gni")
+import("//third_party/closure_compiler/compile_js.gni")
+import("//ui/webui/webui_features.gni")
 
 # TODO(rockot): Maybe we can factor these dependencies out of //mojo. They're
 # used to conditionally enable message ID scrambling in a way which is
@@ -31,6 +34,11 @@ declare_args() {
   # non-Chrome OS desktop platforms. Set to |false| to disable message ID
   # scrambling on all platforms.
   enable_mojom_message_id_scrambling = true
+
+  # Enables Closure compilation of generated JS lite bindings. In environments
+  # where compilation is supported, any mojom target "foo" will also have a
+  # corresponding "foo_js_library_for_compile" target generated.
+  enable_mojom_closure_compile = closure_compile && optimize_webui
 }
 
 # NOTE: We would like to avoid scrambling message IDs where it doesn't add
@@ -250,6 +258,15 @@ if (enable_mojom_typemapping) {
 #       list of enabled_features, the definition will be disabled, with no code
 #       emitted for it.
 #
+#   generate_closure_exports (optional)
+#       Generates JS lite bindings will use goog.provide and goog.require
+#       annotations to export its symbols and import core Mojo bindings support
+#       and other mojom dependency modules. Use this if you plan to compile your
+#       bindings into a larger JS binary. Defaults to |false|, instead
+#       generating JS lite bindings which assume they will be manually loaded in
+#       correct dependency order. Note that this only has an effect if
+#       the |enable_mojom_closure_compile| global arg is set to |true| as well.
+#
 # The following parameters are used to support the component build. They are
 # needed so that bindings which are linked with a component can use the same
 # export settings for classes. The first three are for the chromium variant, and
@@ -355,6 +372,29 @@ template("mojom") {
     sources_list = invoker.sources
   }
   write_file(target_sources_list, sources_list)
+
+  # Sanity check that either all input files have a .mojom extension, or
+  # all input files have a .test-mojom extension AND |testonly| is |true|.
+  sources_list_filenames =
+      process_file_template(sources_list, "{{source_file_part}}")
+  sources_list_filenames_with_mojom_extension =
+      process_file_template(sources_list, "{{source_name_part}}.mojom")
+  if (sources_list_filenames != sources_list_filenames_with_mojom_extension) {
+    sources_list_filenames_with_test_mojom_extension =
+        process_file_template(sources_list, "{{source_name_part}}.test-mojom")
+    if (sources_list_filenames ==
+        sources_list_filenames_with_test_mojom_extension) {
+      assert(
+          defined(invoker.testonly) && invoker.testonly,
+          "mojom targets for .test-mojom files must set |testonly| to |true|")
+    } else {
+      assert(
+          false,
+          "One or more mojom files has an invalid extension. The only " +
+              "allowed extensions are .mojom and .test-mojom, and any given " +
+              "mojom target must use one or the other exclusively.")
+    }
+  }
 
   # a target implicitly depends on its own sources
   deps_sources = [ rebase_path(target_sources_list, root_build_dir) ]
@@ -577,9 +617,9 @@ template("mojom") {
     }
 
     generator_shared_cpp_outputs = [
-      "{{source_gen_dir}}/{{source_name_part}}.mojom-shared-internal.h",
-      "{{source_gen_dir}}/{{source_name_part}}.mojom-shared.cc",
-      "{{source_gen_dir}}/{{source_name_part}}.mojom-shared.h",
+      "{{source_gen_dir}}/{{source_file_part}}-shared-internal.h",
+      "{{source_gen_dir}}/{{source_file_part}}-shared.cc",
+      "{{source_gen_dir}}/{{source_file_part}}-shared.h",
     ]
     generator_shared_target_name = "${target_name}_shared__generator"
     action(generator_shared_target_name) {
@@ -712,8 +752,10 @@ template("mojom") {
         variant_dash_suffix = "-${variant}"
       }
       generator_cpp_outputs += [
-        "{{source_gen_dir}}/{{source_name_part}}.mojom${variant_dash_suffix}.cc",
-        "{{source_gen_dir}}/{{source_name_part}}.mojom${variant_dash_suffix}.h",
+        "{{source_gen_dir}}/{{source_file_part}}${variant_dash_suffix}.cc",
+        "{{source_gen_dir}}/{{source_file_part}}${variant_dash_suffix}.h",
+        "{{source_gen_dir}}/{{source_file_part}}${variant_dash_suffix}-test-utils.cc",
+        "{{source_gen_dir}}/{{source_file_part}}${variant_dash_suffix}-test-utils.h",
       ]
       enabled_sources = []
       if (defined(bindings_configuration.blacklist)) {
@@ -788,6 +830,8 @@ template("mojom") {
           outputs += [
             "$target_gen_dir/${source}${variant_dash_suffix}.cc",
             "$target_gen_dir/${source}${variant_dash_suffix}.h",
+            "$target_gen_dir/${source}${variant_dash_suffix}-test-utils.cc",
+            "$target_gen_dir/${source}${variant_dash_suffix}-test-utils.h",
           ]
         }
 
@@ -1056,7 +1100,7 @@ template("mojom") {
       java_generator_target_name = target_name + "_java__generator"
       if (enabled_sources != []) {
         generator_java_outputs =
-            [ "{{source_gen_dir}}/{{source_name_part}}.mojom.srcjar" ]
+            [ "{{source_gen_dir}}/{{source_file_part}}.srcjar" ]
         action(java_generator_target_name) {
           script = mojom_generator_script
           inputs = mojom_generator_sources + jinja2_sources
@@ -1146,12 +1190,10 @@ template("mojom") {
   if (enable_ipc_fuzzer || !defined(invoker.cpp_only) || !invoker.cpp_only) {
     if (defined(invoker.sources)) {
       generator_js_target_name = "${target_name}_js__generator"
-      generator_js_outputs = [
-        "{{source_gen_dir}}/{{source_name_part}}.mojom.js",
-        "{{source_gen_dir}}/{{source_name_part}}.mojom.externs.js",
-        "{{source_gen_dir}}/{{source_name_part}}.mojom-lite.js",
-        "{{source_gen_dir}}/{{source_name_part}}.mojom-lite.externs.js",
-      ]
+      generator_js_lite_outputs =
+          [ "{{source_gen_dir}}/{{source_file_part}}-lite.js" ]
+      generator_js_outputs = [ "{{source_gen_dir}}/{{source_file_part}}.js" ] +
+                             generator_js_lite_outputs
       action(generator_js_target_name) {
         script = mojom_generator_script
         inputs = mojom_generator_sources + jinja2_sources
@@ -1172,6 +1214,7 @@ template("mojom") {
             "$target_gen_dir/$source.js",
             "$target_gen_dir/$source.externs.js",
             "$target_gen_dir/$source-lite.js",
+            "$target_gen_dir/$source-lite-for-compile.js",
             "$target_gen_dir/$source-lite.externs.js",
           ]
         }
@@ -1221,6 +1264,73 @@ template("mojom") {
       foreach(d, all_deps) {
         full_name = get_label_info(d, "label_no_toolchain")
         data_deps += [ "${full_name}_js_data_deps" ]
+      }
+    }
+
+    js_library_target_name = "${target_name}_js_library"
+    if (defined(invoker.sources)) {
+      js_library(js_library_target_name) {
+        extra_public_deps = [ ":$generator_js_target_name" ]
+        sources =
+            process_file_template(invoker.sources, generator_js_lite_outputs)
+        externs_list = [
+          "${externs_path}/mojo_core.js",
+          "${externs_path}/pending.js",
+        ]
+
+        deps = []
+        foreach(d, all_deps) {
+          full_name = get_label_info(d, "label_no_toolchain")
+          deps += [ "${full_name}_js_library" ]
+        }
+      }
+    } else {
+      group(js_library_target_name) {
+      }
+    }
+
+    if (enable_mojom_closure_compile) {
+      js_library_for_compile_target_name =
+          "${target_name}_js_library_for_compile"
+      if (defined(invoker.sources)) {
+        generator_js_lite_for_compile_outputs =
+            [ "{{source_gen_dir}}/{{source_file_part}}-lite-for-compile.js" ]
+        js_library(js_library_for_compile_target_name) {
+          extra_public_deps = [ ":$generator_js_target_name" ]
+          sources = process_file_template(invoker.sources,
+                                          generator_js_lite_for_compile_outputs)
+
+          deps = []
+          foreach(d, all_deps) {
+            full_name = get_label_info(d, "label_no_toolchain")
+            deps += [ "${full_name}_js_library_for_compile" ]
+          }
+        }
+      } else {
+        group(js_library_for_compile_target_name) {
+        }
+      }
+    }
+
+    js_externs_target_suffix = "_js_externs"
+    js_externs_target_name = "${target_name}${js_externs_target_suffix}"
+    if (defined(invoker.sources)) {
+      js_library(js_externs_target_name) {
+        sources = []
+        extra_public_deps = [ ":$generator_js_target_name" ]
+        externs_list = [ "${externs_path}/mojo.js" ]
+        externs_list += process_file_template(
+                invoker.sources,
+                [ "{{source_gen_dir}}/{{source_file_part}}-lite.externs.js" ])
+
+        deps = []
+        foreach(d, all_deps) {
+          full_name = get_label_info(d, "label_no_toolchain")
+          deps += [ "${full_name}${js_externs_target_suffix}" ]
+        }
+      }
+    } else {
+      group(js_externs_target_name) {
       }
     }
   }

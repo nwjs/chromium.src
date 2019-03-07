@@ -4,6 +4,11 @@
 
 ; --- The contents of common.sb implicitly included here. ---
 
+; Allow cf prefs to work.
+(allow user-preference-read)
+
+(allow-cvms-blobs)
+
 ; Allow communication between the GPU process and the UI server.
 (allow mach-lookup
   (global-name "com.apple.CoreServices.coreservicesd")
@@ -11,9 +16,10 @@
   (global-name "com.apple.cvmsServ")
   (global-name "com.apple.system.notification_center")
   (global-name "com.apple.tsm.uiserver")
-  (global-name "com.apple.windowserver.active"))
+  (global-name "com.apple.windowserver.active")
+)
 
-; Needed for WebGL - crbug.com/75343
+; Needed for WebGL - https://crbug.com/75343
 (allow iokit-open
   (iokit-connection "IOAccelerator")
   (iokit-user-client-class "AGPMClient")
@@ -23,8 +29,9 @@
   (iokit-user-client-class "IOFramebufferSharedUserClient")
   (iokit-user-client-class "IOHIDParamUserClient")
   (iokit-user-client-class "IOSurfaceRootUserClient")
-  (iokit-user-client-class "IOSurfaceSendRight"))
+  (iokit-user-client-class "IOSurfaceSendRight")
   (iokit-user-client-class "RootDomainUserClient")
+)
 
 (allow ipc-posix-shm-read-data
   (ipc-posix-name "apple.shm.notification_center"))
@@ -35,7 +42,14 @@
 
 ; Needed for VideoToolbox usage - https://crbug.com/767037
 (if (>= os-version 1013)
-  (allow mach-lookup (global-name "com.apple.coremedia.videodecoder")))
+  (allow mach-lookup (global-name "com.apple.coremedia.videodecoder"))
+  (allow mach-lookup (global-name "com.apple.coremedia.videoencoder"))
+)
 
-(if (> os-version 1009)
-  (allow sysctl-read (sysctl-name "hw.model")))
+(allow sysctl-read
+  (sysctl-name "hw.logicalcpu_max")
+  (sysctl-name "hw.model")
+)
+
+(allow file-read-data
+  (regex (user-homedir-path #"/Library/Preferences/ByHost/com.apple.AppleGVA.*")))

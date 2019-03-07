@@ -11,7 +11,6 @@
 
 #include "base/format_macros.h"
 #include "base/guid.h"
-#include "base/macros.h"
 #include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/stringprintf.h"
@@ -20,6 +19,7 @@
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -289,7 +289,7 @@ TEST(AutofillProfileTest, CreateInferredLabelsI18n_CH) {
   };
 
   std::vector<base::string16> labels;
-  for (size_t i = 0; i < arraysize(kExpectedLabels); ++i) {
+  for (size_t i = 0; i < base::size(kExpectedLabels); ++i) {
     AutofillProfile::CreateInferredLabels(ToRawPointerVector(profiles), nullptr,
                                           UNKNOWN_TYPE, i, "en-US", &labels);
     ASSERT_FALSE(labels.empty());
@@ -328,7 +328,7 @@ TEST(AutofillProfileTest, CreateInferredLabelsI18n_FR) {
   };
 
   std::vector<base::string16> labels;
-  for (size_t i = 0; i < arraysize(kExpectedLabels); ++i) {
+  for (size_t i = 0; i < base::size(kExpectedLabels); ++i) {
     AutofillProfile::CreateInferredLabels(ToRawPointerVector(profiles), nullptr,
                                           UNKNOWN_TYPE, i, "en-US", &labels);
     ASSERT_FALSE(labels.empty());
@@ -372,7 +372,7 @@ TEST(AutofillProfileTest, CreateInferredLabelsI18n_KR) {
   };
 
   std::vector<base::string16> labels;
-  for (size_t i = 0; i < arraysize(kExpectedLabels); ++i) {
+  for (size_t i = 0; i < base::size(kExpectedLabels); ++i) {
     AutofillProfile::CreateInferredLabels(ToRawPointerVector(profiles), nullptr,
                                           UNKNOWN_TYPE, i, "en-US", &labels);
     ASSERT_FALSE(labels.empty());
@@ -409,7 +409,7 @@ TEST(AutofillProfileTest, CreateInferredLabelsI18n_JP_Latn) {
   };
 
   std::vector<base::string16> labels;
-  for (size_t i = 0; i < arraysize(kExpectedLabels); ++i) {
+  for (size_t i = 0; i < base::size(kExpectedLabels); ++i) {
     AutofillProfile::CreateInferredLabels(ToRawPointerVector(profiles), nullptr,
                                           UNKNOWN_TYPE, i, "en-US", &labels);
     ASSERT_FALSE(labels.empty());
@@ -442,7 +442,7 @@ TEST(AutofillProfileTest, CreateInferredLabelsI18n_JP_ja) {
   };
 
   std::vector<base::string16> labels;
-  for (size_t i = 0; i < arraysize(kExpectedLabels); ++i) {
+  for (size_t i = 0; i < base::size(kExpectedLabels); ++i) {
     AutofillProfile::CreateInferredLabels(ToRawPointerVector(profiles), nullptr,
                                           UNKNOWN_TYPE, i, "en-US", &labels);
     ASSERT_FALSE(labels.empty());
@@ -1790,6 +1790,49 @@ TEST(AutofillProfileTest, SetMetadata_NotMatchingId) {
   EXPECT_NE(server_metadata.has_converted, server_profile.has_converted());
   EXPECT_NE(server_metadata.use_count, server_profile.use_count());
   EXPECT_NE(server_metadata.use_date, server_profile.use_date());
+}
+
+// Tests that the profile is only deletable if it is not verified.
+TEST(AutofillProfileTest, IsDeletable) {
+  // Set up an arbitrary time, as setup the current time to just above the
+  // threshold later than that time.
+  const base::Time kArbitraryTime = base::Time::FromDoubleT(25000000000);
+  TestAutofillClock test_clock;
+  test_clock.SetNow(kArbitraryTime + kDisusedDataModelDeletionTimeDelta +
+                    base::TimeDelta::FromDays(1));
+
+  // Created a profile that has not been used since over the deletion threshold.
+  AutofillProfile profile = test::GetFullProfile();
+  profile.set_use_date(kArbitraryTime);
+
+  // Make sure it's deletable.
+  EXPECT_TRUE(profile.IsDeletable());
+
+  // Set the profile as being verified.
+  profile.set_origin("Not empty");
+  ASSERT_TRUE(profile.IsVerified());
+
+  // Make sure it's not deletable.
+  EXPECT_FALSE(profile.IsDeletable());
+}
+
+// Tests that the two profiles can be compared for validation purposes.
+TEST(AutofillProfileTest, EqualsForClientValidationPurpose) {
+  AutofillProfile profile = test::GetFullProfile();
+
+  AutofillProfile profile2(profile);
+  profile2.SetRawInfo(EMAIL_ADDRESS, base::ASCIIToUTF16("different@email.com"));
+
+  AutofillProfile profile3(profile);
+  profile3.SetRawInfo(NAME_FULL, base::ASCIIToUTF16("Alice Munro"));
+
+  // For client validation purposes,
+  // profile2 != profile, because they differ in the email, which is validated
+  // by the client.
+  // profile3 == profile, because they only differ in name, and name is not
+  // validated by the client.
+  EXPECT_FALSE(profile.EqualsForClientValidationPurpose(profile2));
+  EXPECT_TRUE(profile.EqualsForClientValidationPurpose(profile3));
 }
 
 }  // namespace autofill

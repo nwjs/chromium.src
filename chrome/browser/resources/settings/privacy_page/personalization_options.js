@@ -9,17 +9,6 @@
  */
 (function() {
 
-/**
- * Must be kept in sync with the C++ enum of the same name.
- * @enum {number}
- */
-const NetworkPredictionOptions = {
-  ALWAYS: 0,
-  WIFI_ONLY: 1,
-  NEVER: 2,
-  DEFAULT: 1,
-};
-
 Polymer({
   is: 'settings-personalization-options',
 
@@ -39,18 +28,10 @@ Polymer({
      */
     pageVisibility: Object,
 
-    /**
-     * Used for HTML bindings. This is defined as a property rather than within
-     * the ready callback, because the value needs to be available before
-     * local DOM initialization - otherwise, the toggle has unexpected behavior.
-     * @private
-     */
-    networkPredictionEnum_: {
-      type: Object,
-      value: NetworkPredictionOptions,
-    },
-
     unifiedConsentEnabled: Boolean,
+
+    /** @type {settings.SyncStatus} */
+    syncStatus: Object,
 
     // <if expr="_google_chrome and not chromeos">
     // TODO(dbeam): make a virtual.* pref namespace and set/get this normally
@@ -109,10 +90,11 @@ Polymer({
 
     // TODO(dbeam): remember whether metrics reporting was enabled when Chrome
     // started.
-    if (metricsReporting.managed)
+    if (metricsReporting.managed) {
       this.showRestart_ = false;
-    else if (hadPreviousPref)
+    } else if (hadPreviousPref) {
       this.showRestart_ = true;
+    }
   },
 
   /**
@@ -134,6 +116,17 @@ Polymer({
         (!!this.prefs.spellcheck &&
          /** @type {!Array<string>} */
          (this.prefs.spellcheck.dictionaries.value).length > 0);
+  },
+
+  /**
+   * @return {boolean}
+   * @private
+   */
+  shouldShowDriveSuggest_: function() {
+    return loadTimeData.getBoolean('driveSuggestAvailable') &&
+        !!this.unifiedConsentEnabled && !!this.syncStatus &&
+        !!this.syncStatus.signedIn &&
+        this.syncStatus.statusAction !== settings.StatusAction.REAUTHENTICATE;
   },
 });
 })();

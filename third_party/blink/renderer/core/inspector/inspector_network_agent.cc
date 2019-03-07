@@ -410,6 +410,22 @@ String GetReferrerPolicy(network::mojom::ReferrerPolicy policy) {
   return protocol::Network::Request::ReferrerPolicyEnum::
       NoReferrerWhenDowngrade;
 }
+
+std::unique_ptr<protocol::Network::WebSocketFrame> WebSocketMessageToProtocol(
+    int op_code,
+    bool masked,
+    const char* payload,
+    size_t payload_length) {
+  return protocol::Network::WebSocketFrame::create()
+      .setOpcode(op_code)
+      .setMask(masked)
+      // Only interpret the payload as UTF-8 when it's a text message
+      .setPayloadData(op_code == 1 ? String::FromUTF8WithLatin1Fallback(
+                                         payload, payload_length)
+                                   : Base64Encode(payload, payload_length))
+      .build();
+}
+
 }  // namespace
 
 void InspectorNetworkAgent::Restore() {
@@ -539,7 +555,7 @@ BuildObjectForResourceResponse(const ResourceResponse& response,
 
   std::unique_ptr<protocol::Network::Response> response_object =
       protocol::Network::Response::create()
-          .setUrl(UrlWithoutFragment(response.Url()).GetString())
+          .setUrl(UrlWithoutFragment(response.CurrentRequestUrl()).GetString())
           .setStatus(status)
           .setStatusText(status_text)
           .setHeaders(BuildObjectForHeaders(headers_map))
@@ -593,7 +609,7 @@ BuildObjectForResourceResponse(const ResourceResponse& response,
                ResourceResponse::HTTPVersion::kHTTPVersion_1_1)
         protocol = "http/1.1";
     } else {
-      protocol = response.Url().Protocol();
+      protocol = response.CurrentRequestUrl().Protocol();
     }
   }
   response_object->setProtocol(protocol);
@@ -955,7 +971,7 @@ static bool IsErrorStatusCode(int status_code) {
 void InspectorNetworkAgent::DidReceiveData(unsigned long identifier,
                                            DocumentLoader* loader,
                                            const char* data,
-                                           size_t data_length) {
+                                           uint64_t data_length) {
   String request_id = IdentifiersFactory::RequestId(loader, identifier);
 
   if (data) {
@@ -970,8 +986,9 @@ void InspectorNetworkAgent::DidReceiveData(unsigned long identifier,
   }
 
   GetFrontend()->dataReceived(
-      request_id, CurrentTimeTicksInSeconds(), data_length,
-      resources_data_->GetAndClearPendingEncodedDataLength(request_id));
+      request_id, CurrentTimeTicksInSeconds(), static_cast<int>(data_length),
+      static_cast<int>(
+          resources_data_->GetAndClearPendingEncodedDataLength(request_id)));
 }
 
 void InspectorNetworkAgent::DidReceiveBlob(unsigned long identifier,
@@ -999,8 +1016,8 @@ void InspectorNetworkAgent::DidFinishLoading(unsigned long identifier,
   NetworkResourcesData::ResourceData const* resource_data =
       resources_data_->Data(request_id);
 
-  int pending_encoded_data_length =
-      resources_data_->GetAndClearPendingEncodedDataLength(request_id);
+  int pending_encoded_data_length = static_cast<int>(
+      resources_data_->GetAndClearPendingEncodedDataLength(request_id));
   if (pending_encoded_data_length > 0) {
     GetFrontend()->dataReceived(request_id, CurrentTimeTicksInSeconds(), 0,
                                 pending_encoded_data_length);
@@ -1077,12 +1094,14 @@ void InspectorNetworkAgent::WillLoadXHR(XMLHttpRequest* xhr,
                                         const AtomicString& method,
                                         const KURL& url,
                                         bool async,
+                                        EncodedFormData* form_data,
                                         const HTTPHeaderMap& headers,
                                         bool include_credentials) {
   DCHECK(xhr);
   DCHECK(!pending_request_);
   pending_xhr_replay_data_ = XHRReplayData::Create(
-      method, UrlWithoutFragment(url), async, include_credentials);
+      method, UrlWithoutFragment(url), async,
+      form_data ? form_data->DeepCopy() : nullptr, include_credentials);
   for (const auto& header : headers)
     pending_xhr_replay_data_->AddHeader(header.key, header.value);
 }
@@ -1257,41 +1276,29 @@ void InspectorNetworkAgent::DidCloseWebSocket(ExecutionContext*,
       CurrentTimeTicksInSeconds());
 }
 
-void InspectorNetworkAgent::DidReceiveWebSocketFrame(unsigned long identifier,
-                                                     int op_code,
-                                                     bool masked,
-                                                     const char* payload,
-                                                     size_t payload_length) {
-  std::unique_ptr<protocol::Network::WebSocketFrame> frame_object =
-      protocol::Network::WebSocketFrame::create()
-          .setOpcode(op_code)
-          .setMask(masked)
-          .setPayloadData(
-              String::FromUTF8WithLatin1Fallback(payload, payload_length))
-          .build();
+void InspectorNetworkAgent::DidReceiveWebSocketMessage(unsigned long identifier,
+                                                       int op_code,
+                                                       bool masked,
+                                                       const char* payload,
+                                                       size_t payload_length) {
   GetFrontend()->webSocketFrameReceived(
       IdentifiersFactory::SubresourceRequestId(identifier),
-      CurrentTimeTicksInSeconds(), std::move(frame_object));
+      CurrentTimeTicksInSeconds(),
+      WebSocketMessageToProtocol(op_code, masked, payload, payload_length));
 }
 
-void InspectorNetworkAgent::DidSendWebSocketFrame(unsigned long identifier,
-                                                  int op_code,
-                                                  bool masked,
-                                                  const char* payload,
-                                                  size_t payload_length) {
-  std::unique_ptr<protocol::Network::WebSocketFrame> frame_object =
-      protocol::Network::WebSocketFrame::create()
-          .setOpcode(op_code)
-          .setMask(masked)
-          .setPayloadData(
-              String::FromUTF8WithLatin1Fallback(payload, payload_length))
-          .build();
+void InspectorNetworkAgent::DidSendWebSocketMessage(unsigned long identifier,
+                                                    int op_code,
+                                                    bool masked,
+                                                    const char* payload,
+                                                    size_t payload_length) {
   GetFrontend()->webSocketFrameSent(
       IdentifiersFactory::RequestId(nullptr, identifier),
-      CurrentTimeTicksInSeconds(), std::move(frame_object));
+      CurrentTimeTicksInSeconds(),
+      WebSocketMessageToProtocol(op_code, masked, payload, payload_length));
 }
 
-void InspectorNetworkAgent::DidReceiveWebSocketFrameError(
+void InspectorNetworkAgent::DidReceiveWebSocketMessageError(
     unsigned long identifier,
     const String& error_message) {
   GetFrontend()->webSocketFrameError(
@@ -1420,8 +1427,12 @@ Response InspectorNetworkAgent::replayXHR(const String& request_id) {
     xhr->setRequestHeader(header.key, header.value,
                           IGNORE_EXCEPTION_FOR_TESTING);
   }
-  xhr->SendForInspectorXHRReplay(data ? data->PostData() : nullptr,
-                                 IGNORE_EXCEPTION_FOR_TESTING);
+  scoped_refptr<EncodedFormData> post_data;
+  if (data)
+    post_data = data->PostData();
+  if (!post_data)
+    post_data = xhr_replay_data->FormData();
+  xhr->SendForInspectorXHRReplay(post_data, IGNORE_EXCEPTION_FOR_TESTING);
 
   replay_xhrs_.insert(xhr);
   return Response::OK();
@@ -1517,7 +1528,9 @@ void InspectorNetworkAgent::DidCommitLoad(LocalFrame* frame,
 }
 
 void InspectorNetworkAgent::FrameScheduledNavigation(LocalFrame* frame,
-                                                     ScheduledNavigation*) {
+                                                     const KURL&,
+                                                     double,
+                                                     ClientNavigationReason) {
   frame_navigation_initiator_map_.Set(
       IdentifiersFactory::FrameId(frame),
       BuildInitiatorObject(frame->GetDocument(), FetchInitiatorInfo()));

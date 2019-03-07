@@ -4,12 +4,35 @@
 
 import("//build/config/locales.gni")
 
+config("mdc_components_ios_public_headers_config") {
+  include_dirs = [ "$root_gen_dir/frameworks/material_components_ios" ]
+}
+
+copy("mdc_components_ios_public_headers") {
+  sources = [
+    "src/components/Buttons/src/ColorThemer/MaterialButtons+ColorThemer.h",
+    "src/components/Buttons/src/MaterialButtons.h",
+    "src/components/Buttons/src/ShapeThemer/MaterialButtons+ShapeThemer.h",
+    "src/components/Buttons/src/TypographyThemer/MaterialButtons+TypographyThemer.h",
+    "src/components/Dialogs/src/MaterialDialogs.h",
+    "src/components/ShadowElevations/src/MaterialShadowElevations.h",
+    "src/components/schemes/Color/src/MaterialColorScheme.h",
+    "src/components/schemes/Shape/src/MaterialShapeScheme.h",
+    "src/components/schemes/Typography/src/MaterialTypographyScheme.h",
+  ]
+  outputs = [
+    "$root_gen_dir/frameworks/material_components_ios/MaterialComponents/{{source_file_part}}",
+  ]
+  public_configs = [ ":mdc_components_ios_public_headers_config" ]
+}
+
 config("config") {
   visibility = [ ":material_components_ios" ]
   include_dirs = [
     "src/components/ActivityIndicator/src",
     "src/components/Buttons/src/ButtonThemer",
     "src/components/Buttons/src/ShapeThemer",
+    "src/components/Buttons/src/Theming",
     "src/components/AppBar/src",
     "src/components/private/ShapeLibrary/src",
     "src/components/ButtonBar/src",
@@ -36,6 +59,7 @@ config("config") {
     "src/components/private/Shapes/src/",
     "src/components/private/UIMetrics/src",
     "src/components/schemes/Color/src",
+    "src/components/schemes/Container/src/",
     "src/components/schemes/Shape/src",
     "src/components/schemes/Typography/src",
   ]
@@ -120,12 +144,17 @@ source_set("material_components_ios") {
     "src/components/Buttons/src/ButtonThemer/MDCOutlinedButtonThemer.m",
     "src/components/Buttons/src/ButtonThemer/MDCTextButtonThemer.h",
     "src/components/Buttons/src/ButtonThemer/MDCTextButtonThemer.m",
+    "src/components/Buttons/src/ColorThemer/MDCButtonColorThemer.h",
+    "src/components/Buttons/src/ColorThemer/MDCButtonColorThemer.m",
     "src/components/Buttons/src/ColorThemer/MDCContainedButtonColorThemer.h",
     "src/components/Buttons/src/ColorThemer/MDCContainedButtonColorThemer.m",
+    "src/components/Buttons/src/ColorThemer/MDCFloatingButtonColorThemer.h",
+    "src/components/Buttons/src/ColorThemer/MDCFloatingButtonColorThemer.m",
     "src/components/Buttons/src/ColorThemer/MDCOutlinedButtonColorThemer.h",
     "src/components/Buttons/src/ColorThemer/MDCOutlinedButtonColorThemer.m",
     "src/components/Buttons/src/ColorThemer/MDCTextButtonColorThemer.h",
     "src/components/Buttons/src/ColorThemer/MDCTextButtonColorThemer.m",
+    "src/components/Buttons/src/ColorThemer/MaterialButtons+ColorThemer.h",
     "src/components/Buttons/src/MDCButton.h",
     "src/components/Buttons/src/MDCButton.m",
     "src/components/Buttons/src/MDCFlatButton.h",
@@ -140,6 +169,11 @@ source_set("material_components_ios") {
     "src/components/Buttons/src/ShapeThemer/MDCFloatingButtonShapeThemer.h",
     "src/components/Buttons/src/ShapeThemer/MDCFloatingButtonShapeThemer.m",
     "src/components/Buttons/src/ShapeThemer/MaterialButtons+ShapeThemer.h",
+    "src/components/Buttons/src/Theming/MDCButton+MaterialTheming.h",
+    "src/components/Buttons/src/Theming/MDCButton+MaterialTheming.m",
+    "src/components/Buttons/src/Theming/MDCFloatingButton+MaterialTheming.h",
+    "src/components/Buttons/src/Theming/MDCFloatingButton+MaterialTheming.m",
+    "src/components/Buttons/src/Theming/MaterialButtons+Theming.h",
     "src/components/Buttons/src/TypographyThemer/MDCButtonTypographyThemer.h",
     "src/components/Buttons/src/TypographyThemer/MDCButtonTypographyThemer.m",
     "src/components/Buttons/src/private/MDCButton+Subclassing.h",
@@ -212,6 +246,8 @@ source_set("material_components_ios") {
     "src/components/FlexibleHeader/src/MDCFlexibleHeaderViewController.h",
     "src/components/FlexibleHeader/src/MDCFlexibleHeaderViewController.m",
     "src/components/FlexibleHeader/src/MaterialFlexibleHeader.h",
+    "src/components/FlexibleHeader/src/private/MDCFlexibleHeaderMinMaxHeight.h",
+    "src/components/FlexibleHeader/src/private/MDCFlexibleHeaderMinMaxHeight.m",
     "src/components/FlexibleHeader/src/private/MDCFlexibleHeaderTopSafeArea.h",
     "src/components/FlexibleHeader/src/private/MDCFlexibleHeaderTopSafeArea.m",
     "src/components/FlexibleHeader/src/private/MDCStatusBarShifter.h",
@@ -361,6 +397,9 @@ source_set("material_components_ios") {
     "src/components/schemes/Color/src/MDCSemanticColorScheme.h",
     "src/components/schemes/Color/src/MDCSemanticColorScheme.m",
     "src/components/schemes/Color/src/MaterialColorScheme.h",
+    "src/components/schemes/Container/src/MDCContainerScheme.h",
+    "src/components/schemes/Container/src/MDCContainerScheme.m",
+    "src/components/schemes/Container/src/MaterialContainerScheme.h",
     "src/components/schemes/Shape/src/MDCShapeCategory.h",
     "src/components/schemes/Shape/src/MDCShapeCategory.m",
     "src/components/schemes/Shape/src/MDCShapeScheme.h",
@@ -421,6 +460,7 @@ source_set("material_components_ios") {
   ]
 
   public_deps = [
+    ":mdc_components_ios_public_headers",
     "//ios/third_party/motion_animator_objc",
     "//ios/third_party/motion_transitioning_objc",
   ]

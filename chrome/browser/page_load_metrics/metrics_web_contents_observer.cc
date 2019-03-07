@@ -330,6 +330,12 @@ void MetricsWebContentsObserver::ResourceLoadComplete(
   }
 }
 
+void MetricsWebContentsObserver::FrameReceivedFirstUserActivation(
+    content::RenderFrameHost* render_frame_host) {
+  if (committed_load_)
+    committed_load_->FrameReceivedFirstUserActivation(render_frame_host);
+}
+
 void MetricsWebContentsObserver::OnRequestComplete(
     const GURL& url,
     const net::HostPortPair& host_port_pair,
@@ -756,5 +762,7 @@ void MetricsWebContentsObserver::BroadcastEventToObservers(
   if (committed_load_)
     committed_load_->BroadcastEventToObservers(event_key);
 }
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(MetricsWebContentsObserver)
 
 }  // namespace page_load_metrics

@@ -8,7 +8,7 @@
 #include <memory>
 #include "base/macros.h"
 
-#include "third_party/blink/public/platform/modules/cache_storage/cache_storage.mojom-blink.h"
+#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/fetch/global_fetch.h"
 #include "third_party/blink/renderer/modules/cache_storage/cache_query_options.h"
@@ -20,6 +20,7 @@
 
 namespace blink {
 
+class CacheStorage;
 class ExceptionState;
 class Response;
 class Request;
@@ -32,7 +33,14 @@ class MODULES_EXPORT Cache final : public ScriptWrappable {
 
  public:
   static Cache* Create(GlobalFetch::ScopedFetcher*,
-                       mojom::blink::CacheStorageCacheAssociatedPtrInfo);
+                       CacheStorage*,
+                       mojom::blink::CacheStorageCacheAssociatedPtrInfo,
+                       scoped_refptr<base::SingleThreadTaskRunner>);
+
+  Cache(GlobalFetch::ScopedFetcher*,
+        CacheStorage*,
+        mojom::blink::CacheStorageCacheAssociatedPtrInfo,
+        scoped_refptr<base::SingleThreadTaskRunner>);
 
   // From Cache.idl:
   ScriptPromise match(ScriptState*,
@@ -72,8 +80,6 @@ class MODULES_EXPORT Cache final : public ScriptWrappable {
   class CodeCacheHandleCallbackForPut;
   class FetchResolvedForAdd;
   friend class FetchResolvedForAdd;
-  Cache(GlobalFetch::ScopedFetcher*,
-        mojom::blink::CacheStorageCacheAssociatedPtrInfo);
 
   ScriptPromise MatchImpl(ScriptState*,
                           const Request*,
@@ -98,6 +104,10 @@ class MODULES_EXPORT Cache final : public ScriptWrappable {
                          const CacheQueryOptions*);
 
   Member<GlobalFetch::ScopedFetcher> scoped_fetcher_;
+  // Hold a reference to CacheStorage to keep |cache_ptr_| alive.
+  // This is required because |cache_ptr_| is associated with CacheStorage's
+  // mojo message pipe.
+  Member<CacheStorage> cache_storage_;
 
   mojom::blink::CacheStorageCacheAssociatedPtr cache_ptr_;
 

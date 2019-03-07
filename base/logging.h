@@ -48,7 +48,6 @@
 // If DebugMessage.exe is not found, the logging code will use a normal
 // MessageBox, potentially causing the problems discussed above.
 
-
 // Instructions
 // ------------
 //
@@ -143,6 +142,21 @@
 //
 // There is the special severity of DFATAL, which logs FATAL in debug mode,
 // ERROR in normal mode.
+//
+// Output is of the format, for example:
+// [3816:3877:0812/234555.406952:VERBOSE1:drm_device_handle.cc(90)] Succeeded
+// authenticating /dev/dri/card0 in 0 ms with 1 attempt(s)
+//
+// The colon separated fields inside the brackets are as follows:
+// 0. An optional Logfile prefix (not included in this example)
+// 1. Process ID
+// 2. Thread ID
+// 3. The date/time of the log message, in MMDD/HHMMSS.Milliseconds format
+// 4. The log level
+// 5. The filename and line number where the log was instantiated
+//
+// Note that the visibility can be changed by setting preferences in
+// SetLogItems()
 
 namespace logging {
 
@@ -402,8 +416,8 @@ const LogSeverity LOG_0 = LOG_ERROR;
 #define LOG_IS_ON(severity) \
   (::logging::ShouldCreateLogMessage(::logging::LOG_##severity))
 
-// We can't do any caching tricks with VLOG_IS_ON() like the
-// google-glog version since it requires GCC extensions.  This means
+// We don't do any caching tricks with VLOG_IS_ON() like the
+// google-glog version since it increases binary size.  This means
 // that using the v-logging functions in conjunction with --vmodule
 // may be slow.
 #define VLOG_IS_ON(verboselevel) \
@@ -603,11 +617,17 @@ class CheckOpResult {
   } while (false)
 #endif
 
+#if defined(__clang__) || defined(COMPILER_GCC)
 #define IMMEDIATE_CRASH()    \
   ({                         \
     WRAPPED_TRAP_SEQUENCE(); \
     __builtin_unreachable(); \
   })
+#else
+// This is supporting non-chromium user of logging.h to build with MSVC, like
+// pdfium. On MSVC there is no __builtin_unreachable().
+#define IMMEDIATE_CRASH() WRAPPED_TRAP_SEQUENCE()
+#endif
 
 // CHECK dies with a fatal error if condition is not true.  It is *not*
 // controlled by NDEBUG, so the check will be executed regardless of
@@ -834,9 +854,9 @@ DEFINE_CHECK_OP_IMPL(GT, > )
 #define DPLOG(severity)                                         \
   LAZY_STREAM(PLOG_STREAM(severity), DLOG_IS_ON(severity))
 
-#define DVLOG(verboselevel) DVLOG_IF(verboselevel, VLOG_IS_ON(verboselevel))
+#define DVLOG(verboselevel) DVLOG_IF(verboselevel, true)
 
-#define DVPLOG(verboselevel) DVPLOG_IF(verboselevel, VLOG_IS_ON(verboselevel))
+#define DVPLOG(verboselevel) DVPLOG_IF(verboselevel, true)
 
 // Definitions for DCHECK et al.
 

@@ -94,20 +94,27 @@ struct AdditionalCertificates {
   array<X509Certificate> trust_anchors;
 };
 
-// Interface to allow modifying the full request and response headers. This
-// interface exposes sensitive headers such as set-cookie, so should only be
-// sent to trusted processes.
-interface TrustedURLLoaderHeaderClient {
+// Sent by TrustedURLLoaderHeaderClient to perform modifications for a request.
+interface TrustedHeaderClient {
   // Allows modifying request headers before the request is sent.
-  OnBeforeSendHeaders(int32 request_id, HttpRequestHeaders headers) =>
+  OnBeforeSendHeaders(HttpRequestHeaders headers) =>
       (int32 result, HttpRequestHeaders? headers);
 
   // Allows modifying response headers, including sensitive headers such as
   // set-cookie. This should only be used from a trusted process.
-  OnHeadersReceived(int32 request_id, string headers) =>
+  OnHeadersReceived(string headers) =>
       (int32 result,
        string? headers,
        url.mojom.Url allowed_unsafe_redirect_url);
+};
+
+// Interface to allow modifying the full request and response headers. This
+// interface exposes sensitive headers such as set-cookie, so should only be
+// sent to trusted processes.
+interface TrustedURLLoaderHeaderClient {
+  // When a new URLLoader is created, this will be called to pass a
+  // corresponding |header_client|.
+  OnLoaderCreated(int32 request_id, TrustedHeaderClient& header_client);
 };
 
 // Parameters for constructing a network context.
@@ -290,6 +297,15 @@ struct NetworkContextParams {
   // Whether to discard Domain Reliability uploads.
   bool discard_domain_reliablity_uploads = false;
 
+  // When reporting is enabled, this sets the delay between sending reports.
+  // When omitted a default value is used.
+  mojo_base.mojom.TimeDelta? reporting_delivery_interval;
+
+  // Whether to bypass the ordinary permission checks for sending reports,
+  // rather than calling NetworkContextClient.OnCanSendReportingReports() to
+  // decide. This should only be used by tests.
+  bool skip_reporting_send_permission_check = false;
+
   // Sets whether the NetworkContext should be used for globally scoped tasks
   // that need to make network requests. Currently this includes DNS over HTTPS
   // requests and certain cert validation requests (OCSP, AIA, etc) on some
@@ -372,6 +388,13 @@ struct URLLoaderFactoryParams {
   // Process requesting the URLLoaderFactory.
   // Set to kBrowserProcessId to indicate the browser process.
   uint32 process_id = kInvalidProcessId;
+
+  // If specified, then |request_initiator_site_lock| locks
+  // |ResourceRequest::request_initiator| to the specified origin.
+  // TODO(lukasza): https://crbug.com/891872: Make this non-optional.
+  // TODO(lukasza, nasko): https://crbug.com/888079: Make this an *origin* lock
+  // (rather than just a site lock).
+  url.mojom.Origin? request_initiator_site_lock;
 
   // Cross-origin read blocking (CORB) configuration.
   bool is_corb_enabled = true;
@@ -474,6 +497,15 @@ interface NetworkContext {
   ComputeHttpCacheSize(mojo_base.mojom.Time start_time,
                        mojo_base.mojom.Time end_time)
       => (bool is_upper_bound, int64 size_or_error);
+
+  // Notifies the HttpCache of a renderer-level cache hit with |url|
+  // and |http_method|, with the top-level frame of the containing page
+  // being on origin |top_frame_origin|.
+  //
+  // This is being proxied by the browser because the renderer is unable to
+  // directly interact with NetworkContext.
+  NotifyExternalCacheHit(url.mojom.Url url, string http_method,
+                         url.mojom.Origin? top_frame_origin);
 
   // Caches |data| associated with |url| and |expected_response_time| in the
   // HttpCache related to this NetworkContext.
@@ -787,6 +819,21 @@ interface NetworkContext {
   // security state. Returns true iff an entry was deleted.
   // See net::TransportSecurityState::DeleteDynamicDataForHost for more detail.
   DeleteDynamicDataForHost(string host) => (bool result);
+
+  // Copies the contents of this NetworkContext's HttpAuthCache and returns a
+  // key that can be used by LoadHttpAuthCache to restore the contents.
+  // The data referenced by the returned key is not associated with this
+  // NetworkContext, and can be loaded by any NetworkContext.
+  // If there is no corresponding LoadHttpAuthCache call, the saved
+  // HttpAuthCache data will leak.
+  //
+  // TODO(crbug.com/914082): Return a scoped handle that can automatically free
+  // the cache when it goes out of scope.
+  SaveHttpAuthCache() => (mojo_base.mojom.UnguessableToken cache_key);
+
+  // Loads an HttpAuthCache previously saved by SaveHttpAuthCache, and
+  // copies its contents into this NetworkContext's HttpAuthCache.
+  LoadHttpAuthCache(mojo_base.mojom.UnguessableToken cache_key) => ();
 
   // Looks up credentials in the HttpAuthCache using the origin and path from
   // |url|. Only supports basic auth scheme.

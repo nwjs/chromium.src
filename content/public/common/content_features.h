@@ -28,8 +28,7 @@ CONTENT_EXPORT extern const base::Feature kAudioServiceLaunchOnStartup;
 CONTENT_EXPORT extern const base::Feature kAudioServiceOutOfProcess;
 CONTENT_EXPORT extern const base::Feature kAwaitOptimization;
 CONTENT_EXPORT extern const base::Feature kBackgroundFetch;
-CONTENT_EXPORT extern const base::Feature kBackgroundFetchAccessActiveFetches;
-CONTENT_EXPORT extern const base::Feature kBackgroundFetchUploads;
+CONTENT_EXPORT extern const base::Feature kBackForwardCache;
 CONTENT_EXPORT extern const base::Feature kBlinkHeapIncrementalMarking;
 CONTENT_EXPORT extern const base::Feature kBlinkHeapUnifiedGarbageCollection;
 CONTENT_EXPORT extern const base::Feature kBloatedRendererDetection;
@@ -42,6 +41,7 @@ CONTENT_EXPORT extern const base::Feature kCompositeOpaqueScrollers;
 CONTENT_EXPORT extern const base::Feature kCrashReporting;
 CONTENT_EXPORT extern const base::Feature kCSSFragmentIdentifiers;
 CONTENT_EXPORT extern const base::Feature kDataSaverHoldback;
+CONTENT_EXPORT extern const base::Feature kDesktopCaptureChangeSource;
 CONTENT_EXPORT extern const base::Feature kExperimentalProductivityFeatures;
 CONTENT_EXPORT extern const base::Feature kExpensiveBackgroundTimerThrottling;
 CONTENT_EXPORT extern const base::Feature kExtendedMouseButtons;
@@ -49,10 +49,10 @@ CONTENT_EXPORT extern const base::Feature kFontCacheScaling;
 CONTENT_EXPORT extern const base::Feature kFontSrcLocalMatching;
 CONTENT_EXPORT extern const base::Feature
     kFramebustingNeedsSameOriginOrUserGesture;
-CONTENT_EXPORT extern const base::Feature kGamepadExtensions;
 CONTENT_EXPORT extern const base::Feature kGamepadVibration;
 CONTENT_EXPORT extern const base::Feature kGuestViewCrossProcessFrames;
 CONTENT_EXPORT extern const base::Feature kHeapCompaction;
+CONTENT_EXPORT extern const base::Feature kHistoryManipulationIntervention;
 CONTENT_EXPORT extern const base::Feature kImageCaptureAPI;
 CONTENT_EXPORT extern const base::Feature kInputPredictorTypeChoice;
 CONTENT_EXPORT extern const base::Feature kIsolateOrigins;
@@ -94,6 +94,7 @@ CONTENT_EXPORT extern const base::Feature kScrollAnchorSerialization;
 CONTENT_EXPORT extern const base::Feature
     kSendBeaconThrowForBlobWithNonSimpleType;
 CONTENT_EXPORT extern const base::Feature kSecMetadata;
+CONTENT_EXPORT extern const base::Feature kServiceWorkerForegroundPriority;
 CONTENT_EXPORT extern const base::Feature kServiceWorkerLongRunningMessage;
 CONTENT_EXPORT extern const base::Feature kServiceWorkerPaymentApps;
 CONTENT_EXPORT extern const base::Feature kSharedArrayBuffer;
@@ -102,13 +103,13 @@ CONTENT_EXPORT extern const base::Feature kSignedHTTPExchangeAcceptHeader;
 CONTENT_EXPORT extern const char
     kSignedHTTPExchangeAcceptHeaderFieldTrialParamName[];
 CONTENT_EXPORT extern const base::Feature kSignedHTTPExchangeOriginTrial;
+CONTENT_EXPORT extern const base::Feature kSkipPassthroughTouchEventQueueFilter;
 CONTENT_EXPORT extern const base::Feature kSpareRendererForSitePerProcess;
 CONTENT_EXPORT extern const base::Feature kTimerThrottlingForHiddenFrames;
 CONTENT_EXPORT extern const base::Feature kTouchpadAsyncPinchEvents;
 CONTENT_EXPORT extern const base::Feature kTouchpadOverscrollHistoryNavigation;
 CONTENT_EXPORT extern const base::Feature kUserActivationSameOriginVisibility;
 CONTENT_EXPORT extern const base::Feature kUserActivationV2;
-CONTENT_EXPORT extern const base::Feature kV8ContextSnapshot;
 CONTENT_EXPORT extern const base::Feature kV8LowMemoryModeForSubframes;
 CONTENT_EXPORT extern const base::Feature kV8Orinoco;
 CONTENT_EXPORT extern const base::Feature kV8VmFuture;
@@ -119,7 +120,6 @@ CONTENT_EXPORT extern const base::Feature kWebAssemblyTrapHandler;
 CONTENT_EXPORT extern const base::Feature kWebAuth;
 CONTENT_EXPORT extern const base::Feature kWebAuthBle;
 CONTENT_EXPORT extern const base::Feature kWebAuthCable;
-CONTENT_EXPORT extern const base::Feature kWebAuthCableWin;
 CONTENT_EXPORT extern const base::Feature kWebAuthGetTransports;
 CONTENT_EXPORT extern const base::Feature kWebContentsOcclusion;
 CONTENT_EXPORT extern const base::Feature kWebGLImageChromium;
@@ -139,7 +139,6 @@ CONTENT_EXPORT extern const base::Feature kWebXrGamepadSupport;
 CONTENT_EXPORT extern const base::Feature kWebXrHitTest;
 CONTENT_EXPORT extern const base::Feature kWebXrOrientationSensorDevice;
 CONTENT_EXPORT extern const base::Feature kWipeCorruptV2IDBDatabases;
-CONTENT_EXPORT extern const base::Feature kWorkStealingInScriptRunner;
 CONTENT_EXPORT extern const base::Feature kScheduledScriptStreaming;
 CONTENT_EXPORT extern const base::Feature kScriptStreamingOnPreload;
 
@@ -164,9 +163,13 @@ CONTENT_EXPORT extern const base::Feature kWebUIPolymer2;
 #if defined(OS_MACOSX)
 CONTENT_EXPORT extern const base::Feature kDeviceMonitorMac;
 CONTENT_EXPORT extern const base::Feature kIOSurfaceCapturer;
-CONTENT_EXPORT extern const base::Feature kMacV2Sandbox;
+CONTENT_EXPORT extern const base::Feature kMacV2GPUSandbox;
 CONTENT_EXPORT extern const base::Feature kTextSuggestionsTouchBar;
 #endif  // defined(OS_MACOSX)
+
+#if defined(WEBRTC_USE_PIPEWIRE)
+CONTENT_EXPORT extern const base::Feature kWebRtcPipeWireCapturer;
+#endif  // defined(WEBRTC_USE_PIPEWIRE)
 
 // DON'T ADD RANDOM STUFF HERE. Put it in the main section above in
 // alphabetical order, or in one of the ifdefs (also in order in each section).

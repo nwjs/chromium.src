@@ -15,13 +15,14 @@ import android.provider.Settings;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.contextual_suggestions.ContextualSuggestionsEnabledStateUtils;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
 import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
-import org.chromium.chrome.browser.preferences.datareduction.DataReductionPreferences;
+import org.chromium.chrome.browser.preferences.autofill_assistant.AutofillAssistantPreferences;
+import org.chromium.chrome.browser.preferences.datareduction.DataReductionPreferenceFragment;
+import org.chromium.chrome.browser.preferences.developer.DeveloperPreferences;
 import org.chromium.chrome.browser.search_engines.TemplateUrl;
 import org.chromium.chrome.browser.search_engines.TemplateUrlService;
 import org.chromium.chrome.browser.signin.SigninManager;
@@ -110,11 +111,10 @@ public class MainPreferences extends PreferenceFragment
             getPreferenceScreen().removePreference(findPreference(PREF_SYNC_AND_SERVICES));
         }
 
-        setManagedPreferenceDelegateForPreference(PREF_SEARCH_ENGINE);
-        setManagedPreferenceDelegateForPreference(PREF_SAVED_PASSWORDS);
-        setManagedPreferenceDelegateForPreference(PREF_DATA_REDUCTION);
-
         updatePasswordsPreference();
+
+        setManagedPreferenceDelegateForPreference(PREF_SEARCH_ENGINE);
+        setManagedPreferenceDelegateForPreference(PREF_DATA_REDUCTION);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // If we are on Android O+ the Notifications preference should lead to the Android
@@ -159,13 +159,11 @@ public class MainPreferences extends PreferenceFragment
             getPreferenceScreen().removePreference(findPreference(PREF_DOWNLOADS));
         }
 
-        // Developer preferences are only shown when the feature is enabled.
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.DEVELOPER_PREFERENCES)) {
-            getPreferenceScreen().removePreference(findPreference(PREF_DEVELOPER));
-        }
-
-        // This checks whether Autofill Assistant is enabled.
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_ASSISTANT)) {
+        // This checks whether Autofill Assistant is enabled and was shown at least once (only then
+        // will the AA switch be assigned a value).
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_ASSISTANT)
+                || !ContextUtils.getAppSharedPreferences().contains(
+                        AutofillAssistantPreferences.PREF_AUTOFILL_ASSISTANT_SWITCH)) {
             getPreferenceScreen().removePreference(findPreference(PREF_AUTOFILL_ASSISTANT));
         }
     }
@@ -217,9 +215,15 @@ public class MainPreferences extends PreferenceFragment
             removePreferenceIfPresent(PREF_CONTEXTUAL_SUGGESTIONS);
         }
 
+        if (DeveloperPreferences.shouldShowDeveloperPreferences()) {
+            addPreferenceIfAbsent(PREF_DEVELOPER);
+        } else {
+            removePreferenceIfPresent(PREF_DEVELOPER);
+        }
+
         ChromeBasePreference dataReduction =
                 (ChromeBasePreference) findPreference(PREF_DATA_REDUCTION);
-        dataReduction.setSummary(DataReductionPreferences.generateSummary(getResources()));
+        dataReduction.setSummary(DataReductionPreferenceFragment.generateSummary(getResources()));
     }
 
     private Preference addPreferenceIfAbsent(String key) {
@@ -254,7 +258,7 @@ public class MainPreferences extends PreferenceFragment
     private void updatePasswordsPreference() {
         Preference passwordsPreference = findPreference(PREF_SAVED_PASSWORDS);
         passwordsPreference.setOnPreferenceClickListener(preference -> {
-            AppHooks.get().createManagePasswordsUIProvider().showManagePasswordsUI(
+            PreferencesLauncher.showPasswordSettings(
                     getActivity(), ManagePasswordsReferrer.CHROME_SETTINGS);
             return true;
         });
@@ -302,9 +306,6 @@ public class MainPreferences extends PreferenceFragment
         return new ManagedPreferenceDelegate() {
             @Override
             public boolean isPreferenceControlledByPolicy(Preference preference) {
-                if (PREF_SAVED_PASSWORDS.equals(preference.getKey())) {
-                    return PrefServiceBridge.getInstance().isRememberPasswordsManaged();
-                }
                 if (PREF_DATA_REDUCTION.equals(preference.getKey())) {
                     return DataReductionProxySettings.getInstance().isDataReductionProxyManaged();
                 }
@@ -316,11 +317,6 @@ public class MainPreferences extends PreferenceFragment
 
             @Override
             public boolean isPreferenceClickDisabledByPolicy(Preference preference) {
-                if (PREF_SAVED_PASSWORDS.equals(preference.getKey())) {
-                    PrefServiceBridge prefs = PrefServiceBridge.getInstance();
-                    return prefs.isRememberPasswordsManaged()
-                            && !prefs.isRememberPasswordsEnabled();
-                }
                 if (PREF_DATA_REDUCTION.equals(preference.getKey())) {
                     DataReductionProxySettings settings = DataReductionProxySettings.getInstance();
                     return settings.isDataReductionProxyManaged()

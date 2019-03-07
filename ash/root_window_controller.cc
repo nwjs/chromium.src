@@ -58,10 +58,10 @@
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
 #include "base/command_line.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/stl_util.h"
 #include "base/time/time.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/drag_drop_client.h"
 #include "ui/aura/client/screen_position_client.h"
@@ -163,9 +163,10 @@ void ReparentWindow(aura::Window* window, aura::Window* new_parent) {
   // Update the restore bounds to make it relative to the display.
   wm::WindowState* state = wm::GetWindowState(window);
   gfx::Rect restore_bounds;
-  const bool has_restore_bounds = state->HasRestoreBounds();
+  const bool has_restore_bounds = state && state->HasRestoreBounds();
 
-  const bool update_bounds = state->IsNormalOrSnapped() || state->IsMinimized();
+  const bool update_bounds =
+      state && (state->IsNormalOrSnapped() || state->IsMinimized());
   gfx::Rect work_area_in_new_parent =
       screen_util::GetDisplayWorkAreaBoundsInParent(new_parent);
 
@@ -209,7 +210,7 @@ void ReparentAllWindows(aura::Window* src, aura::Window* dst) {
   };
   std::vector<int> container_ids(
       kContainerIdsToMove,
-      kContainerIdsToMove + arraysize(kContainerIdsToMove));
+      kContainerIdsToMove + base::size(kContainerIdsToMove));
   // Check the display mode as this is also necessary when trasitioning between
   // mirror and unified mode.
   if (Shell::Get()->display_manager()->current_default_multi_display_mode() ==
@@ -539,13 +540,9 @@ void RootWindowController::CloseChildWindows() {
     return;
   did_close_child_windows_ = true;
 
-  // Deactivate keyboard container before closing child windows and shutting
+  // Notify the keyboard controller before closing child windows and shutting
   // down associated layout managers.
-  auto* ash_keyboard_controller = Shell::Get()->ash_keyboard_controller();
-  if (ash_keyboard_controller->keyboard_controller()->GetRootWindow() ==
-      GetRootWindow()) {
-    ash_keyboard_controller->DeactivateKeyboard();
-  }
+  Shell::Get()->ash_keyboard_controller()->OnRootWindowClosing(GetRootWindow());
 
   shelf_->ShutdownShelfWidget();
 
@@ -640,7 +637,7 @@ void RootWindowController::ShowContextMenu(const gfx::Point& location_in_screen,
                  base::TimeTicks::Now()));
   menu_runner_->RunMenuAt(wallpaper_widget_controller()->GetWidget(), nullptr,
                           gfx::Rect(location_in_screen, gfx::Size()),
-                          views::MENU_ANCHOR_BUBBLE_TOUCHABLE_ABOVE,
+                          views::MENU_ANCHOR_BUBBLE_TOUCHABLE_RIGHT,
                           source_type);
 }
 

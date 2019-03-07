@@ -195,15 +195,6 @@ void LatencyTracker::ComputeEndToEndLatencyHistograms(
             ".TimeToScrollUpdateSwapBegin4",
         original_timestamp, gpu_swap_begin_timestamp);
 
-    // This is the same metric as above. But due to a change in rebucketing,
-    // UMA pipeline cannot process this for the chirp alerts. Hence adding a
-    // newer version the this metric above. TODO(nzolghadr): Remove it in a
-    // future milesone like M70.
-    UMA_HISTOGRAM_INPUT_LATENCY_HIGH_RESOLUTION_MICROSECONDS(
-        "Event.Latency." + scroll_name + "." + input_modality +
-            ".TimeToScrollUpdateSwapBegin2",
-        original_timestamp, gpu_swap_begin_timestamp);
-
     if (input_modality == "Wheel") {
       RecordUmaEventLatencyScrollWheelTimeToScrollUpdateSwapBegin2Histogram(
           original_timestamp, gpu_swap_begin_timestamp);
@@ -230,15 +221,6 @@ void LatencyTracker::ComputeEndToEndLatencyHistograms(
     UMA_HISTOGRAM_INPUT_LATENCY_5_SECONDS_MAX_MICROSECONDS(
         "Event.Latency." + scroll_name + "." + input_modality +
             ".TimeToScrollUpdateSwapBegin4",
-        original_timestamp, gpu_swap_begin_timestamp);
-
-    // This is the same metric as above. But due to a change in rebucketing,
-    // UMA pipeline cannot process this for the chirp alerts. Hence adding a
-    // newer version the this metric above. TODO(nzolghadr): Remove it in a
-    // future milesone like M70.
-    UMA_HISTOGRAM_INPUT_LATENCY_HIGH_RESOLUTION_MICROSECONDS(
-        "Event.Latency." + scroll_name + "." + input_modality +
-            ".TimeToScrollUpdateSwapBegin2",
         original_timestamp, gpu_swap_begin_timestamp);
 
     if (input_modality == "Wheel") {
@@ -455,19 +437,19 @@ void LatencyTracker::CalculateAverageLag(
 
       current_lag_report_->lag += pending_finger_move_lag + event_dispatch_lag;
 
-      // When current gpu_swap_time is larger than the |next_report_time_|,
-      // it means the we reach the 1 second gap, and we can filled in the
-      // timestamp and move it to |pending_finished_lag_report_|. We use
-      // the current|gpu_swap_begin_timestamp| as the report_time, so it can
-      // be align with gpu swaps.
-      if (gpu_swap_begin_timestamp >= next_report_time_) {
+      // When the |pending_finished_lag_report_| is finished, and the current
+      // gpu_swap_time is larger than the |next_report_time_|, it means the we
+      // reach the 1 second gap, and we can filled in the timestamp and move it
+      // to |pending_finished_lag_report_|. We use the
+      // current|gpu_swap_begin_timestamp| as the report_time, so it can be
+      // align with gpu swaps.
+      if (!pending_finished_lag_report_ &&
+          gpu_swap_begin_timestamp >= next_report_time_) {
         current_lag_report_->report_time = gpu_swap_begin_timestamp;
         // The next report time is 1 second away from this report time.
         next_report_time_ =
             gpu_swap_begin_timestamp + base::TimeDelta::FromSeconds(1);
-        DCHECK(!pending_finished_lag_report_);
         pending_finished_lag_report_ = std::move(current_lag_report_);
-        DCHECK(!current_lag_report_);
       }
     }
   }

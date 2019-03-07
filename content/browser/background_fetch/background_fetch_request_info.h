@@ -39,7 +39,8 @@ class CONTENT_EXPORT BackgroundFetchRequestInfo
     : public base::RefCountedDeleteOnSequence<BackgroundFetchRequestInfo> {
  public:
   BackgroundFetchRequestInfo(int request_index,
-                             blink::mojom::FetchAPIRequestPtr fetch_request);
+                             blink::mojom::FetchAPIRequestPtr fetch_request,
+                             uint64_t request_body_size);
 
   // Sets the download GUID to a newly generated value. Can only be used if no
   // GUID is already set.
@@ -48,6 +49,9 @@ class CONTENT_EXPORT BackgroundFetchRequestInfo
   // Sets the download GUID to a given value (to be used when requests are
   // retrieved from storage). Can only be used if no GUID is already set.
   void SetDownloadGuid(const std::string& download_guid);
+
+  // Extracts the headers and the status code.
+  void PopulateWithResponse(std::unique_ptr<BackgroundFetchResponse> response);
 
   void SetResult(std::unique_ptr<BackgroundFetchResult> result);
 
@@ -64,8 +68,8 @@ class CONTENT_EXPORT BackgroundFetchRequestInfo
   const std::string& download_guid() const { return download_guid_; }
 
   // Returns the Fetch API Request object that details the developer's request.
-  const blink::mojom::FetchAPIRequest& fetch_request() const {
-    return *fetch_request_;
+  const blink::mojom::FetchAPIRequestPtr& fetch_request() const {
+    return fetch_request_;
   }
 
   // Returns the Fetch API Request Ptr object that details the developer's
@@ -73,6 +77,15 @@ class CONTENT_EXPORT BackgroundFetchRequestInfo
   const blink::mojom::FetchAPIRequestPtr& fetch_request_ptr() const {
     return fetch_request_;
   }
+
+  // Returns the size of the blob to upload.
+  uint64_t request_body_size() const { return request_body_size_; }
+
+  void set_can_populate_body(bool can_populate_body) {
+    can_populate_body_ = can_populate_body;
+  }
+
+  bool can_populate_body() const { return can_populate_body_; }
 
   // Returns the response code for the download. Available for both successful
   // and failed requests.
@@ -110,14 +123,12 @@ class CONTENT_EXPORT BackgroundFetchRequestInfo
   friend class base::DeleteHelper<BackgroundFetchRequestInfo>;
   friend class BackgroundFetchCrossOriginFilterTest;
 
-  // Extracts the headers and the status code.
-  void PopulateWithResponse(std::unique_ptr<BackgroundFetchResponse> response);
-
   ~BackgroundFetchRequestInfo();
 
   // ---- Data associated with the request -------------------------------------
   int request_index_ = kInvalidBackgroundFetchRequestIndex;
   blink::mojom::FetchAPIRequestPtr fetch_request_;
+  uint64_t request_body_size_;
 
   // ---- Data associated with the in-progress download ------------------------
   std::string download_guid_;
@@ -128,6 +139,7 @@ class CONTENT_EXPORT BackgroundFetchRequestInfo
   std::string response_text_;
   std::map<std::string, std::string> response_headers_;
   std::vector<GURL> url_chain_;
+  bool can_populate_body_ = false;
 
   // ---- Data associated with the response ------------------------------------
   std::unique_ptr<BackgroundFetchResult> result_;

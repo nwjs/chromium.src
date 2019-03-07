@@ -13,11 +13,9 @@
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/stl_util.h"
-#include "base/test/scoped_task_environment.h"
 #include "chromeos/account_manager/account_manager.h"
 #include "components/signin/core/browser/account_info.h"
 #include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/signin_error_controller.h"
 #include "components/signin/core/browser/signin_pref_names.h"
 #include "components/signin/core/browser/test_signin_client.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -61,6 +59,15 @@ class AccessTokenConsumer : public OAuth2AccessTokenConsumer {
 
 class TokenServiceObserver : public OAuth2TokenService::Observer {
  public:
+  // |delegate| is a non-owning pointer to an |OAuth2TokenServiceDelegate| that
+  // MUST outlive |this| instance.
+  explicit TokenServiceObserver(OAuth2TokenServiceDelegate* delegate)
+      : delegate_(delegate) {
+    delegate_->AddObserver(this);
+  }
+
+  ~TokenServiceObserver() override { delegate_->RemoveObserver(this); }
+
   void OnStartBatchChanges() override {
     EXPECT_FALSE(is_inside_batch_);
     is_inside_batch_ = true;
@@ -76,6 +83,10 @@ class TokenServiceObserver : public OAuth2TokenService::Observer {
 
   void OnRefreshTokenAvailable(const std::string& account_id) override {
     EXPECT_TRUE(is_inside_batch_);
+    // We should not be seeing any cached errors for a freshly updated account.
+    EXPECT_EQ(GoogleServiceAuthError::AuthErrorNone(),
+              delegate_->GetAuthError(account_id));
+
     account_ids_.insert(account_id);
 
     // Record the |account_id| in the last batch.
@@ -105,71 +116,38 @@ class TokenServiceObserver : public OAuth2TokenService::Observer {
   // represents a batch change. Each batch change is a vector of account ids for
   // which |OnRefreshTokenAvailable| is called.
   std::vector<std::vector<std::string>> batch_change_records_;
-};
 
-class SigninErrorObserver : public SigninErrorController::Observer {
- public:
-  explicit SigninErrorObserver(SigninErrorController* signin_error_controller)
-      : signin_error_controller_(signin_error_controller) {
-    signin_error_controller_->AddObserver(this);
-  }
-
-  ~SigninErrorObserver() override {
-    signin_error_controller_->RemoveObserver(this);
-  }
-
-  // |SigninErrorController::Observer| overrides.
-  void OnErrorChanged() override {
-    last_err_account_id_ = signin_error_controller_->error_account_id();
-    last_err_ = signin_error_controller_->auth_error();
-  }
-
-  std::string last_err_account_id_;
-  GoogleServiceAuthError last_err_ = GoogleServiceAuthError::AuthErrorNone();
-
- private:
-  // Non-owning pointer to |SigninErrorController|.
-  SigninErrorController* const signin_error_controller_;
-
-  DISALLOW_COPY_AND_ASSIGN(SigninErrorObserver);
+  // Non-owning pointer.
+  OAuth2TokenServiceDelegate* const delegate_;
 };
 
 }  // namespace
 
 class CrOSOAuthDelegateTest : public testing::Test {
  public:
-  CrOSOAuthDelegateTest()
-      : scoped_task_environment_(
-            base::test::ScopedTaskEnvironment::MainThreadType::UI),
-        signin_error_controller_(
-            SigninErrorController::AccountMode::ANY_ACCOUNT),
-        signin_error_observer_(&signin_error_controller_) {}
+  CrOSOAuthDelegateTest() {}
   ~CrOSOAuthDelegateTest() override = default;
 
  protected:
   void SetUp() override {
     ASSERT_TRUE(tmp_dir_.CreateUniqueTempDir());
+    AccountTrackerService::RegisterPrefs(pref_service_.registry());
 
-    pref_service_.registry()->RegisterListPref(
-        AccountTrackerService::kAccountInfoPref);
-    pref_service_.registry()->RegisterIntegerPref(
-        prefs::kAccountIdMigrationState,
-        AccountTrackerService::MIGRATION_NOT_STARTED);
     client_ = std::make_unique<TestSigninClient>(&pref_service_);
     account_manager_.Initialize(tmp_dir_.GetPath(),
                                 client_->GetURLLoaderFactory(),
                                 immediate_callback_runner_);
-    scoped_task_environment_.RunUntilIdle();
+    thread_bundle_.RunUntilIdle();
 
     account_tracker_service_.Initialize(&pref_service_, base::FilePath());
 
     account_info_ = CreateAccountInfoTestFixture(kGaiaId, kUserEmail);
     account_tracker_service_.SeedAccountInfo(account_info_);
     gaia_account_key_ = {account_info_.gaia, ACCOUNT_TYPE_GAIA};
+    ad_account_key_ = {"object-guid", ACCOUNT_TYPE_ACTIVE_DIRECTORY};
 
     delegate_ = std::make_unique<ChromeOSOAuth2TokenServiceDelegate>(
-        &account_tracker_service_, &account_manager_,
-        &signin_error_controller_);
+        &account_tracker_service_, &account_manager_);
     delegate_->LoadCredentials(
         account_info_.account_id /* primary_account_id */);
   }
@@ -202,9 +180,6 @@ class CrOSOAuthDelegateTest : public testing::Test {
         GetValidTokenResponse("token", 3600));
   }
 
-  // Check base/test/scoped_task_environment.h. This must be the first member /
-  // declared before any member that cares about tasks.
-  base::test::ScopedTaskEnvironment scoped_task_environment_;
   // Needed because
   // |content::GetNetworkConnectionTracker()->AddNetworkConnectionObserver| in
   // |ChromeOSOAuth2TokenServiceDelegate|'s constructor CHECKs that we are
@@ -214,10 +189,9 @@ class CrOSOAuthDelegateTest : public testing::Test {
   base::ScopedTempDir tmp_dir_;
   AccountInfo account_info_;
   AccountManager::AccountKey gaia_account_key_;
+  AccountManager::AccountKey ad_account_key_;
   AccountTrackerService account_tracker_service_;
   AccountManager account_manager_;
-  SigninErrorController signin_error_controller_;
-  SigninErrorObserver signin_error_observer_;
   std::unique_ptr<ChromeOSOAuth2TokenServiceDelegate> delegate_;
   AccountManager::DelayNetworkCallRunner immediate_callback_runner_ =
       base::BindRepeating(
@@ -229,62 +203,88 @@ class CrOSOAuthDelegateTest : public testing::Test {
   DISALLOW_COPY_AND_ASSIGN(CrOSOAuthDelegateTest);
 };
 
-TEST_F(CrOSOAuthDelegateTest, RefreshTokenIsAvailableForGaiaAccounts) {
+TEST_F(CrOSOAuthDelegateTest,
+       RefreshTokenIsAvailableReturnsTrueForValidGaiaTokens) {
   EXPECT_EQ(OAuth2TokenServiceDelegate::LoadCredentialsState::
                 LOAD_CREDENTIALS_FINISHED_WITH_SUCCESS,
             delegate_->load_credentials_state());
 
   EXPECT_FALSE(delegate_->RefreshTokenIsAvailable(account_info_.account_id));
+  EXPECT_FALSE(
+      base::ContainsValue(delegate_->GetAccounts(), account_info_.account_id));
 
   account_manager_.UpsertToken(gaia_account_key_, kGaiaToken);
 
   EXPECT_TRUE(delegate_->RefreshTokenIsAvailable(account_info_.account_id));
+  EXPECT_TRUE(
+      base::ContainsValue(delegate_->GetAccounts(), account_info_.account_id));
+}
+
+TEST_F(CrOSOAuthDelegateTest,
+       RefreshTokenIsAvailableReturnsTrueForInvalidGaiaTokens) {
+  EXPECT_EQ(OAuth2TokenServiceDelegate::LoadCredentialsState::
+                LOAD_CREDENTIALS_FINISHED_WITH_SUCCESS,
+            delegate_->load_credentials_state());
+
+  EXPECT_FALSE(delegate_->RefreshTokenIsAvailable(account_info_.account_id));
+  EXPECT_FALSE(
+      base::ContainsValue(delegate_->GetAccounts(), account_info_.account_id));
+
+  account_manager_.UpsertToken(gaia_account_key_,
+                               AccountManager::kInvalidToken);
+
+  EXPECT_TRUE(delegate_->RefreshTokenIsAvailable(account_info_.account_id));
+  EXPECT_TRUE(
+      base::ContainsValue(delegate_->GetAccounts(), account_info_.account_id));
 }
 
 TEST_F(CrOSOAuthDelegateTest, ObserversAreNotifiedOnAuthErrorChange) {
-  TokenServiceObserver observer;
+  TokenServiceObserver observer(delegate_.get());
   auto error =
       GoogleServiceAuthError(GoogleServiceAuthError::State::SERVICE_ERROR);
-  delegate_->AddObserver(&observer);
 
   delegate_->UpdateAuthError(account_info_.account_id, error);
   EXPECT_EQ(error, delegate_->GetAuthError(account_info_.account_id));
   EXPECT_EQ(account_info_.account_id, observer.last_err_account_id_);
   EXPECT_EQ(error, observer.last_err_);
-
-  delegate_->RemoveObserver(&observer);
 }
 
 TEST_F(CrOSOAuthDelegateTest, ObserversAreNotifiedOnCredentialsInsertion) {
-  TokenServiceObserver observer;
-  delegate_->AddObserver(&observer);
+  TokenServiceObserver observer(delegate_.get());
   delegate_->UpdateCredentials(account_info_.account_id, kGaiaToken);
 
   EXPECT_EQ(1UL, observer.account_ids_.size());
   EXPECT_EQ(account_info_.account_id, *observer.account_ids_.begin());
   EXPECT_EQ(account_info_.account_id, observer.last_err_account_id_);
   EXPECT_EQ(GoogleServiceAuthError::AuthErrorNone(), observer.last_err_);
+}
 
-  delegate_->RemoveObserver(&observer);
+TEST_F(CrOSOAuthDelegateTest,
+       ObserversDoNotSeeCachedErrorsOnCredentialsUpdate) {
+  TokenServiceObserver observer(delegate_.get());
+  auto error =
+      GoogleServiceAuthError(GoogleServiceAuthError::State::SERVICE_ERROR);
+  delegate_->UpdateCredentials(account_info_.account_id, kGaiaToken);
+  // Deliberately add an error.
+  delegate_->UpdateAuthError(account_info_.account_id, error);
+
+  // Update credentials. The delegate will check if see cached errors.
+  delegate_->UpdateCredentials(account_info_.account_id, "new-token");
 }
 
 TEST_F(CrOSOAuthDelegateTest, ObserversAreNotifiedOnCredentialsUpdate) {
-  TokenServiceObserver observer;
-  delegate_->AddObserver(&observer);
+  TokenServiceObserver observer(delegate_.get());
   delegate_->UpdateCredentials(account_info_.account_id, kGaiaToken);
 
   EXPECT_EQ(1UL, observer.account_ids_.size());
   EXPECT_EQ(account_info_.account_id, *observer.account_ids_.begin());
   EXPECT_EQ(account_info_.account_id, observer.last_err_account_id_);
   EXPECT_EQ(GoogleServiceAuthError::AuthErrorNone(), observer.last_err_);
-
-  delegate_->RemoveObserver(&observer);
 }
 
 TEST_F(CrOSOAuthDelegateTest,
        ObserversAreNotNotifiedIfCredentialsAreNotUpdated) {
-  TokenServiceObserver observer;
-  delegate_->AddObserver(&observer);
+  TokenServiceObserver observer(delegate_.get());
 
   delegate_->UpdateCredentials(account_info_.account_id, kGaiaToken);
   observer.account_ids_.clear();
@@ -293,21 +293,16 @@ TEST_F(CrOSOAuthDelegateTest,
 
   EXPECT_TRUE(observer.account_ids_.empty());
   EXPECT_EQ(std::string(), observer.last_err_account_id_);
-
-  delegate_->RemoveObserver(&observer);
 }
 
 TEST_F(CrOSOAuthDelegateTest,
        BatchChangeObserversAreNotifiedOnCredentialsUpdate) {
-  TokenServiceObserver observer;
-  delegate_->AddObserver(&observer);
+  TokenServiceObserver observer(delegate_.get());
   delegate_->UpdateCredentials(account_info_.account_id, kGaiaToken);
 
   EXPECT_EQ(1UL, observer.batch_change_records_.size());
   EXPECT_EQ(1UL, observer.batch_change_records_[0].size());
   EXPECT_EQ(account_info_.account_id, observer.batch_change_records_[0][0]);
-
-  delegate_->RemoveObserver(&observer);
 }
 
 // If observers register themselves with |OAuth2TokenServiceDelegate| before
@@ -326,22 +321,21 @@ TEST_F(CrOSOAuthDelegateTest, BatchChangeObserversAreNotifiedOncePerBatch) {
       AccountManager::AccountKey{account1.gaia, ACCOUNT_TYPE_GAIA}, "token1");
   account_manager_.UpsertToken(
       AccountManager::AccountKey{account2.gaia, ACCOUNT_TYPE_GAIA}, "token2");
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
 
   AccountManager account_manager;
   // AccountManager will not be fully initialized until
-  // |scoped_task_environment_.RunUntilIdle()| is called.
+  // |thread_bundle_.RunUntilIdle()| is called.
   account_manager.Initialize(tmp_dir_.GetPath(), client_->GetURLLoaderFactory(),
                              immediate_callback_runner_);
 
   // Register callbacks before AccountManager has been fully initialized.
   auto delegate = std::make_unique<ChromeOSOAuth2TokenServiceDelegate>(
-      &account_tracker_service_, &account_manager, &signin_error_controller_);
+      &account_tracker_service_, &account_manager);
   delegate->LoadCredentials(account1.account_id /* primary_account_id */);
-  TokenServiceObserver observer;
-  delegate->AddObserver(&observer);
+  TokenServiceObserver observer(delegate.get());
   // Wait until AccountManager is fully initialized.
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
 
   // Tests
 
@@ -359,17 +353,13 @@ TEST_F(CrOSOAuthDelegateTest, BatchChangeObserversAreNotifiedOncePerBatch) {
   EXPECT_EQ(2UL, first_batch.size());
   EXPECT_TRUE(base::ContainsValue(first_batch, account1.account_id));
   EXPECT_TRUE(base::ContainsValue(first_batch, account2.account_id));
-
-  delegate->RemoveObserver(&observer);
 }
 
 TEST_F(CrOSOAuthDelegateTest, GetAccountsShouldNotReturnAdAccounts) {
   EXPECT_TRUE(delegate_->GetAccounts().empty());
 
   // Insert an Active Directory account into AccountManager.
-  AccountManager::AccountKey ad_account_key{"object-guid",
-                                            ACCOUNT_TYPE_ACTIVE_DIRECTORY};
-  account_manager_.UpsertToken(ad_account_key,
+  account_manager_.UpsertToken(ad_account_key_,
                                AccountManager::kActiveDirectoryDummyToken);
 
   // OAuth delegate should not return Active Directory accounts.
@@ -386,6 +376,50 @@ TEST_F(CrOSOAuthDelegateTest, GetAccountsReturnsGaiaAccounts) {
   EXPECT_EQ(account_info_.account_id, accounts[0]);
 }
 
+// |GetAccounts| should return all known Gaia accounts, whether or not they have
+// a "valid" refresh token stored against them.
+TEST_F(CrOSOAuthDelegateTest, GetAccountsReturnsGaiaAccountsWithInvalidTokens) {
+  EXPECT_TRUE(delegate_->GetAccounts().empty());
+
+  account_manager_.UpsertToken(gaia_account_key_,
+                               AccountManager::kInvalidToken);
+
+  std::vector<std::string> accounts = delegate_->GetAccounts();
+  EXPECT_EQ(1UL, accounts.size());
+  EXPECT_EQ(account_info_.account_id, accounts[0]);
+}
+
+TEST_F(CrOSOAuthDelegateTest,
+       RefreshTokenMustBeAvailableForAllAccountsReturnedByGetAccounts) {
+  EXPECT_EQ(OAuth2TokenServiceDelegate::LoadCredentialsState::
+                LOAD_CREDENTIALS_FINISHED_WITH_SUCCESS,
+            delegate_->load_credentials_state());
+  EXPECT_TRUE(delegate_->GetAccounts().empty());
+
+  // Insert 2 Gaia accounts and 1 Active Directory Account. Of the 2 Gaia
+  // accounts, 1 has a valid refresh token and 1 has a dummy token.
+  account_manager_.UpsertToken(gaia_account_key_, kGaiaToken);
+
+  AccountManager::AccountKey gaia_account_key2{"random-gaia-id",
+                                               ACCOUNT_TYPE_GAIA};
+  account_tracker_service_.SeedAccountInfo(CreateAccountInfoTestFixture(
+      gaia_account_key2.id, "random-email@domain.com"));
+  account_manager_.UpsertToken(gaia_account_key2,
+                               AccountManager::kInvalidToken);
+
+  account_manager_.UpsertToken(ad_account_key_,
+                               AccountManager::kActiveDirectoryDummyToken);
+
+  // Verify.
+  const std::vector<std::string> accounts = delegate_->GetAccounts();
+  // 2 Gaia accounts should be returned.
+  EXPECT_EQ(2UL, accounts.size());
+  // And |RefreshTokenIsAvailable| should return true for these accounts.
+  for (const std::string& account : accounts) {
+    EXPECT_TRUE(delegate_->RefreshTokenIsAvailable(account));
+  }
+}
+
 TEST_F(CrOSOAuthDelegateTest, UpdateCredentialsSucceeds) {
   EXPECT_TRUE(delegate_->GetAccounts().empty());
 
@@ -399,16 +433,13 @@ TEST_F(CrOSOAuthDelegateTest, UpdateCredentialsSucceeds) {
 TEST_F(CrOSOAuthDelegateTest, ObserversAreNotifiedOnAccountRemoval) {
   delegate_->UpdateCredentials(account_info_.account_id, kGaiaToken);
 
-  TokenServiceObserver observer;
-  delegate_->AddObserver(&observer);
+  TokenServiceObserver observer(delegate_.get());
   account_manager_.RemoveAccount(gaia_account_key_);
 
   EXPECT_EQ(1UL, observer.batch_change_records_.size());
   EXPECT_EQ(1UL, observer.batch_change_records_[0].size());
   EXPECT_EQ(account_info_.account_id, observer.batch_change_records_[0][0]);
   EXPECT_TRUE(observer.account_ids_.empty());
-
-  delegate_->RemoveObserver(&observer);
 }
 
 TEST_F(CrOSOAuthDelegateTest,
@@ -416,28 +447,19 @@ TEST_F(CrOSOAuthDelegateTest,
   auto error =
       GoogleServiceAuthError(GoogleServiceAuthError::State::SERVICE_ERROR);
 
-  EXPECT_EQ(GoogleServiceAuthError::AuthErrorNone(),
-            signin_error_observer_.last_err_);
   delegate_->UpdateAuthError(account_info_.account_id, error);
 
   EXPECT_EQ(error, delegate_->GetAuthError(account_info_.account_id));
-  EXPECT_EQ(account_info_.account_id,
-            signin_error_observer_.last_err_account_id_);
-  EXPECT_EQ(error, signin_error_observer_.last_err_);
 }
 
 TEST_F(CrOSOAuthDelegateTest, TransientErrorsAreNotShown) {
   auto transient_error = GoogleServiceAuthError(
       GoogleServiceAuthError::State::SERVICE_UNAVAILABLE);
   EXPECT_EQ(GoogleServiceAuthError::AuthErrorNone(),
-            signin_error_observer_.last_err_);
-  EXPECT_EQ(GoogleServiceAuthError::AuthErrorNone(),
             delegate_->GetAuthError(account_info_.account_id));
 
   delegate_->UpdateAuthError(account_info_.account_id, transient_error);
 
-  EXPECT_EQ(GoogleServiceAuthError::AuthErrorNone(),
-            signin_error_observer_.last_err_);
   EXPECT_EQ(GoogleServiceAuthError::AuthErrorNone(),
             delegate_->GetAuthError(account_info_.account_id));
 }
@@ -460,9 +482,9 @@ TEST_F(CrOSOAuthDelegateTest, BackOffIsTriggerredForTransientErrors) {
       delegate_->CreateAccessTokenFetcher(account_info_.account_id,
                                           delegate_->GetURLLoaderFactory(),
                                           &access_token_consumer));
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
   fetcher->Start("client_id", "client_secret", scopes);
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
   EXPECT_EQ(0, access_token_consumer.num_access_token_fetch_success_);
   EXPECT_EQ(1, access_token_consumer.num_access_token_fetch_failure_);
   // Expect a positive backoff time.
@@ -474,7 +496,7 @@ TEST_F(CrOSOAuthDelegateTest, BackOffIsTriggerredForTransientErrors) {
       account_info_.account_id, delegate_->GetURLLoaderFactory(),
       &access_token_consumer));
   fetcher->Start("client_id", "client_secret", scopes);
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
   EXPECT_EQ(1, access_token_consumer.num_access_token_fetch_success_);
   EXPECT_EQ(1, access_token_consumer.num_access_token_fetch_failure_);
 }
@@ -497,9 +519,9 @@ TEST_F(CrOSOAuthDelegateTest, BackOffIsResetOnNetworkChange) {
       delegate_->CreateAccessTokenFetcher(account_info_.account_id,
                                           delegate_->GetURLLoaderFactory(),
                                           &access_token_consumer));
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
   fetcher->Start("client_id", "client_secret", scopes);
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
   EXPECT_EQ(0, access_token_consumer.num_access_token_fetch_success_);
   EXPECT_EQ(1, access_token_consumer.num_access_token_fetch_failure_);
   // Expect a positive backoff time.
@@ -512,7 +534,7 @@ TEST_F(CrOSOAuthDelegateTest, BackOffIsResetOnNetworkChange) {
       account_info_.account_id, delegate_->GetURLLoaderFactory(),
       &access_token_consumer));
   fetcher->Start("client_id", "client_secret", scopes);
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
   EXPECT_EQ(1, access_token_consumer.num_access_token_fetch_success_);
   EXPECT_EQ(1, access_token_consumer.num_access_token_fetch_failure_);
 }

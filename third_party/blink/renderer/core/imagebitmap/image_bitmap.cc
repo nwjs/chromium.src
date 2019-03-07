@@ -570,8 +570,7 @@ ImageBitmap::ImageBitmap(ImageElementBase* image,
   if (!image_)
     return;
 
-  image_->SetOriginClean(
-      !image->WouldTaintOrigin(document->GetSecurityOrigin()));
+  image_->SetOriginClean(!image->WouldTaintOrigin());
   UpdateImageBitmapMemoryUsage();
 }
 
@@ -606,8 +605,7 @@ ImageBitmap::ImageBitmap(HTMLVideoElement* video,
   if (!image_)
     return;
 
-  image_->SetOriginClean(
-      !video->WouldTaintOrigin(document->GetSecurityOrigin()));
+  image_->SetOriginClean(!video->WouldTaintOrigin());
   UpdateImageBitmapMemoryUsage();
 }
 
@@ -709,8 +707,9 @@ ImageBitmap::ImageBitmap(ImageData* data,
   }
 
   // Copy / color convert the pixels
-  scoped_refptr<ArrayBuffer> pixels_buffer = ArrayBuffer::CreateOrNull(
-      src_rect.Size().Area(), parsed_options.color_params.BytesPerPixel());
+  scoped_refptr<ArrayBuffer> pixels_buffer =
+      ArrayBuffer::CreateOrNull(SafeCast<uint32_t>(src_rect.Size().Area()),
+                                parsed_options.color_params.BytesPerPixel());
   if (!pixels_buffer)
     return;
   unsigned byte_length = pixels_buffer->ByteLength();
@@ -987,8 +986,7 @@ ScriptPromise ImageBitmap::CreateAsync(ImageElementBase* image,
     ImageBitmap* bitmap =
         MakeGarbageCollected<ImageBitmap>(MakeBlankImage(parsed_options));
     if (bitmap->BitmapImage()) {
-      bitmap->BitmapImage()->SetOriginClean(
-          !image->WouldTaintOrigin(document->GetSecurityOrigin()));
+      bitmap->BitmapImage()->SetOriginClean(!image->WouldTaintOrigin());
       resolver->Resolve(bitmap);
     } else {
       resolver->Reject(
@@ -1011,7 +1009,7 @@ ScriptPromise ImageBitmap::CreateAsync(ImageElementBase* image,
       CrossThreadBind(&RasterizeImageOnBackgroundThread,
                       WrapCrossThreadPersistent(resolver),
                       std::move(paint_record), draw_dst_rect,
-                      !image->WouldTaintOrigin(document->GetSecurityOrigin()),
+                      !image->WouldTaintOrigin(),
                       WTF::Passed(std::move(passed_parsed_options))));
   return promise;
 }

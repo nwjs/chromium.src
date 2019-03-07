@@ -177,10 +177,8 @@ QueryURLResult::~QueryURLResult() {
 
 MostVisitedURL::MostVisitedURL() {}
 
-MostVisitedURL::MostVisitedURL(const GURL& url,
-                               const base::string16& title,
-                               base::Time last_forced_time)
-    : url(url), title(title), last_forced_time(last_forced_time) {}
+MostVisitedURL::MostVisitedURL(const GURL& url, const base::string16& title)
+    : url(url), title(title) {}
 
 MostVisitedURL::MostVisitedURL(const GURL& url,
                                const base::string16& title,
@@ -229,14 +227,6 @@ FilteredURL::~FilteredURL() {}
 // FilteredURL::ExtendedInfo ---------------------------------------------------
 
 FilteredURL::ExtendedInfo::ExtendedInfo() = default;
-
-// Images ---------------------------------------------------------------------
-
-Images::Images() {}
-
-Images::Images(const Images& other) = default;
-
-Images::~Images() {}
 
 // TopSitesDelta --------------------------------------------------------------
 
@@ -291,18 +281,6 @@ HistoryAddPageArgs::HistoryAddPageArgs(const HistoryAddPageArgs& other) =
     default;
 
 HistoryAddPageArgs::~HistoryAddPageArgs() {}
-
-// ThumbnailMigration ---------------------------------------------------------
-
-ThumbnailMigration::ThumbnailMigration() {}
-
-ThumbnailMigration::~ThumbnailMigration() {}
-
-// MostVisitedThumbnails ------------------------------------------------------
-
-MostVisitedThumbnails::MostVisitedThumbnails() {}
-
-MostVisitedThumbnails::~MostVisitedThumbnails() {}
 
 // IconMapping ----------------------------------------------------------------
 

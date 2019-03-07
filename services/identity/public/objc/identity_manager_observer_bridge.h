@@ -27,11 +27,12 @@
                withPassword:(const std::string&)password;
 - (void)onPrimaryAccountCleared:(const AccountInfo&)previousPrimaryAccountInfo;
 - (void)onPrimaryAccountSigninFailed:(const GoogleServiceAuthError&)error;
-- (void)onRefreshTokenUpdatedForAccount:(const AccountInfo&)accountInfo
-                                  valid:(BOOL)isValid;
+- (void)onRefreshTokenUpdatedForAccount:(const AccountInfo&)accountInfo;
 - (void)onRefreshTokenRemovedForAccount:(const std::string&)accountId;
 - (void)onRefreshTokensLoaded;
-- (void)onAccountsInCookieUpdated:(const std::vector<AccountInfo>&)accounts;
+- (void)onAccountsInCookieUpdated:
+            (const identity::AccountsInCookieJarInfo&)accountsInCookieJarInfo
+                            error:(const GoogleServiceAuthError&)error;
 - (void)onStartBatchOfRefreshTokenStateChanges;
 - (void)onEndBatchOfRefreshTokenStateChanges;
 
@@ -56,12 +57,13 @@ class IdentityManagerObserverBridge : public IdentityManager::Observer {
       const AccountInfo& previous_primary_account_info) override;
   void OnPrimaryAccountSigninFailed(
       const GoogleServiceAuthError& error) override;
-  void OnRefreshTokenUpdatedForAccount(const AccountInfo& account_info,
-                                       bool is_valid) override;
+  void OnRefreshTokenUpdatedForAccount(
+      const AccountInfo& account_info) override;
   void OnRefreshTokenRemovedForAccount(const std::string& account_id) override;
   void OnRefreshTokensLoaded() override;
   void OnAccountsInCookieUpdated(
-      const std::vector<AccountInfo>& accounts) override;
+      const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+      const GoogleServiceAuthError& error) override;
   void OnStartBatchOfRefreshTokenStateChanges() override;
   void OnEndBatchOfRefreshTokenStateChanges() override;
 

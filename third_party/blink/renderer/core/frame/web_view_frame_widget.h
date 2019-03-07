@@ -53,7 +53,6 @@ class CORE_EXPORT WebViewFrameWidget : public WebFrameWidgetBase {
   void UpdateLifecycle(LifecycleUpdate requested_update,
                        LifecycleUpdateReason reason) override;
   void PaintContent(cc::PaintCanvas*, const WebRect& view_port) override;
-  void LayoutAndPaintAsync(base::OnceClosure callback) override;
   void CompositeAndReadbackAsync(
       base::OnceCallback<void(const SkBitmap&)>) override;
   void ThemeChanged() override;
@@ -63,23 +62,19 @@ class CORE_EXPORT WebViewFrameWidget : public WebFrameWidgetBase {
   void ApplyViewportChanges(const ApplyViewportChangesArgs&) override;
   void RecordWheelAndTouchScrollingCount(bool has_scrolled_by_wheel,
                                          bool has_scrolled_by_touch) override;
+  void SendOverscrollEventFromImplSide(
+      const gfx::Vector2dF& overscroll_delta,
+      cc::ElementId scroll_latched_element_id) override;
+  void SendScrollEndEventFromImplSide(
+      cc::ElementId scroll_latched_element_id) override;
   void MouseCaptureLost() override;
   void SetFocus(bool) override;
   bool SelectionBounds(WebRect& anchor, WebRect& focus) const override;
   bool IsAcceleratedCompositingActive() const override;
-  bool IsWebView() const override { return false; }
-  bool IsPagePopup() const override { return false; }
   void WillCloseLayerTreeView() override;
-  SkColor BackgroundColor() const override;
-  WebPagePopup* GetPagePopup() const override;
   WebURL GetURLForDebugTrace() override;
 
   // WebFrameWidget overrides:
-  void SetBackgroundColorOverride(SkColor) override;
-  void ClearBackgroundColorOverride() override;
-  void SetBaseBackgroundColorOverride(SkColor) override;
-  void ClearBaseBackgroundColorOverride() override;
-  void SetBaseBackgroundColor(SkColor) override;
   WebInputMethodController* GetActiveWebInputMethodController() const override;
   bool ScrollFocusedEditableElementIntoView() override;
   WebHitTestResult HitTestResultAt(const gfx::Point&) override;
@@ -88,7 +83,6 @@ class CORE_EXPORT WebViewFrameWidget : public WebFrameWidgetBase {
   void Initialize() override;
   void SetLayerTreeView(WebLayerTreeView*) override;
   bool ForSubframe() const override { return false; }
-  void ScheduleAnimation() override;
   base::WeakPtr<AnimationWorkletMutatorDispatcherImpl>
   EnsureCompositorMutatorDispatcher(
       scoped_refptr<base::SingleThreadTaskRunner>*) override;
@@ -98,6 +92,7 @@ class CORE_EXPORT WebViewFrameWidget : public WebFrameWidgetBase {
   WebLayerTreeView* GetLayerTreeView() const override;
   CompositorAnimationHost* AnimationHost() const override;
   HitTestResult CoreHitTestResultAt(const gfx::Point&) override;
+  void ZoomToFindInPageRect(const WebRect& rect_in_root_frame) override;
 
   void Trace(blink::Visitor*) override;
 

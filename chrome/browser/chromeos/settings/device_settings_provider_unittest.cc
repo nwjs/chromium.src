@@ -98,6 +98,9 @@ class DeviceSettingsProviderTest : public DeviceSettingsTestBase {
     proto->set_report_session_status(enable_reporting);
     proto->set_report_os_update_status(enable_reporting);
     proto->set_report_running_kiosk_app(enable_reporting);
+    proto->set_report_power_status(enable_reporting);
+    proto->set_report_storage_status(enable_reporting);
+    proto->set_report_board_status(enable_reporting);
     proto->set_device_status_frequency(frequency);
     BuildAndInstallDevicePolicy();
   }
@@ -159,18 +162,14 @@ class DeviceSettingsProviderTest : public DeviceSettingsTestBase {
   void VerifyReportingSettings(bool expected_enable_state,
                                int expected_frequency) {
     const char* reporting_settings[] = {
-      kReportDeviceVersionInfo,
-      kReportDeviceActivityTimes,
-      kReportDeviceBootMode,
-      // Device location reporting is not currently supported.
-      // kReportDeviceLocation,
-      kReportDeviceNetworkInterfaces,
-      kReportDeviceUsers,
-      kReportDeviceHardwareStatus,
-      kReportDeviceSessionStatus,
-      kReportOsUpdateStatus,
-      kReportRunningKioskApp
-    };
+        kReportDeviceVersionInfo, kReportDeviceActivityTimes,
+        kReportDeviceBoardStatus, kReportDeviceBootMode,
+        // Device location reporting is not currently supported.
+        // kReportDeviceLocation,
+        kReportDeviceNetworkInterfaces, kReportDeviceUsers,
+        kReportDeviceHardwareStatus, kReportDevicePowerStatus,
+        kReportDeviceStorageStatus, kReportDeviceSessionStatus,
+        kReportOsUpdateStatus, kReportRunningKioskApp};
 
     const base::Value expected_enable_value(expected_enable_state);
     for (auto* setting : reporting_settings) {
@@ -246,6 +245,20 @@ class DeviceSettingsProviderTest : public DeviceSettingsTestBase {
     em::AutoUpdateSettingsProto* proto =
         device_policy_.payload().mutable_auto_update_settings();
     proto->set_disallowed_time_intervals(json_string);
+    BuildAndInstallDevicePolicy();
+  }
+
+  void SetPluginVmAllowedSetting(bool plugin_vm_allowed) {
+    em::PluginVmAllowedProto* proto =
+        device_policy_.payload().mutable_plugin_vm_allowed();
+    proto->set_plugin_vm_allowed(plugin_vm_allowed);
+    BuildAndInstallDevicePolicy();
+  }
+
+  void SetPluginVmLicenseKeySetting(const std::string& plugin_vm_license_key) {
+    em::PluginVmLicenseKeyProto* proto =
+        device_policy_.payload().mutable_plugin_vm_license_key();
+    proto->set_plugin_vm_license_key(plugin_vm_license_key);
     BuildAndInstallDevicePolicy();
   }
 
@@ -666,6 +679,19 @@ TEST_F(DeviceSettingsProviderTest, DeviceAutoUpdateTimeRestrictionsExtra) {
   test_list.GetList().push_back(std::move(interval));
   SetDeviceAutoUpdateTimeRestrictions(extra_field);
   VerifyPolicyValue(kDeviceAutoUpdateTimeRestrictions, &test_list);
+}
+
+TEST_F(DeviceSettingsProviderTest, DecodePluginVmAllowedSetting) {
+  SetPluginVmAllowedSetting(true);
+  EXPECT_EQ(base::Value(true), *provider_->Get(kPluginVmAllowed));
+
+  SetPluginVmAllowedSetting(false);
+  EXPECT_EQ(base::Value(false), *provider_->Get(kPluginVmAllowed));
+}
+
+TEST_F(DeviceSettingsProviderTest, DecodePluginVmLicenseKeySetting) {
+  SetPluginVmLicenseKeySetting("LICENSE_KEY");
+  EXPECT_EQ(base::Value("LICENSE_KEY"), *provider_->Get(kPluginVmLicenseKey));
 }
 
 }  // namespace chromeos

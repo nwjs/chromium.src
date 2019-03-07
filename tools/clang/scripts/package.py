@@ -242,11 +242,7 @@ def main():
     want.append('bin/clang-cl.exe')
     want.append('bin/lld-link.exe')
   else:
-    so_ext = 'dylib' if sys.platform == 'darwin' else 'so'
-    want.extend(['bin/clang',
-                 'lib/libFindBadConstructs.' + so_ext,
-                 'lib/libBlinkGCPlugin.' + so_ext,
-                 ])
+    want.append('bin/clang')
   if sys.platform == 'darwin':
     want.extend([
         # AddressSanitizer runtime.
@@ -287,6 +283,9 @@ def main():
 
         # Fuzzing instrumentation (-fsanitize=fuzzer-no-link).
         'lib/clang/*/lib/linux/libclang_rt.fuzzer_no_main-x86_64.a',
+
+        # HWASAN Android runtime.
+        'lib/clang/*/lib/linux/libclang_rt.hwasan-aarch64-android.so',
 
         # MemorySanitizer C runtime (pure C won't link with *_cxx).
         'lib/clang/*/lib/linux/libclang_rt.msan-x86_64.a',
@@ -403,10 +402,7 @@ def main():
     stripped_binaries.append('lld')
     stripped_binaries.append('llvm-ar')
   for f in stripped_binaries:
-    if sys.platform == 'darwin':
-      # See http://crbug.com/256342
-      subprocess.call(['strip', '-x', os.path.join(pdir, 'bin', f)])
-    elif sys.platform.startswith('linux'):
+    if sys.platform != 'win32':
       subprocess.call(['strip', os.path.join(pdir, 'bin', f)])
 
   # Set up symlinks.

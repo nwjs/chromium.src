@@ -41,17 +41,17 @@ class ASH_EXPORT VirtualKeyboardController
   // TabletModeObserver:
   void OnTabletModeEventsBlockingChanged() override;
 
-  // ui::InputDeviceObserver:
-  void OnTouchscreenDeviceConfigurationChanged() override;
-  void OnKeyboardDeviceConfigurationChanged() override;
+  // ui::InputDeviceEventObserver:
+  void OnInputDeviceConfigurationChanged(uint8_t input_device_types) override;
 
   // Toggles whether the presence of an external keyboard should be ignored
   // when determining whether or not to show the on-screen keyboard.
   void ToggleIgnoreExternalKeyboard();
 
   // keyboard::KeyboardLayoutDelegate:
-  void MoveKeyboardToDisplay(const display::Display& display) override;
-  void MoveKeyboardToTouchableDisplay() override;
+  aura::Window* GetContainerForDefaultDisplay() override;
+  aura::Window* GetContainerForDisplay(
+      const display::Display& display) override;
 
   // keyboard::KeyboardControllerObserver:
   void OnKeyboardEnabledChanged(bool is_enabled) override;

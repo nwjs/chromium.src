@@ -149,40 +149,13 @@ QUIC_FLAG(bool,
 // expire when the bandwidth increases more than 25% in QUIC BBR STARTUP.
 QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_bbr_slower_startup4, false)
 
-// If true, QuicCryptoServerConfig::EvaluateClientHello will use GetCertChain
-// instead of the more expensive GetProof.
-QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_use_get_cert_chain, false)
-
 // If true, try to aggregate acked stream frames.
 QUIC_FLAG(bool,
           FLAGS_quic_reloadable_flag_quic_aggregate_acked_stream_frames_2,
-          false)
-
-// If true, only process stateless reset packets on the client side.
-QUIC_FLAG(
-    bool,
-    FLAGS_quic_reloadable_flag_quic_process_stateless_reset_at_client_only,
-    false)
-
-// If true, do not retransmit old window update frames.
-QUIC_FLAG(bool,
-          FLAGS_quic_reloadable_flag_quic_donot_retransmit_old_window_update2,
-          false)
-
-// If ture, make QuicSession::GetStream faster by skipping the lookup into
-// static stream map, when possible.
-QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_session_faster_get_stream, true)
-
-// If true, when session decides what to write, set a approximate retransmission
-// for packets to be retransmitted. Also check packet state in
-// IsPacketUsefulForRetransmittableData.
-QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_fix_is_useful_for_retrans, true)
+          true)
 
 // If true, disable QUIC version 35.
-QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_disable_version_35, false)
-// If true, then QuicCryptoServerConfig::ProcessClientHelloAfterGetProof() will
-// use the async interface to KeyExchange::CalculateSharedKeys.
-QUIC_FLAG(bool, FLAGS_quic_restart_flag_quic_use_async_key_exchange, false)
+QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_disable_version_35, true)
 
 // If true, increase size of random bytes in IETF stateless reset packet.
 QUIC_FLAG(bool,
@@ -191,7 +164,7 @@ QUIC_FLAG(bool,
 
 // If true, use new, lower-overhead implementation of LRU cache for compressed
 // certificates.
-QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_new_lru_cache, false)
+QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_new_lru_cache, true)
 
 // When true and the BBR9 connection option is present, BBR only considers
 // bandwidth samples app-limited if they're not filling the pipe.
@@ -207,7 +180,7 @@ QUIC_FLAG(bool,
 // retransmittable frames.
 QUIC_FLAG(bool,
           FLAGS_quic_reloadable_flag_quic_fix_mark_for_loss_retransmission,
-          false)
+          true)
 
 // If true, enable version 45.
 QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_enable_version_45, false)
@@ -233,12 +206,6 @@ QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_send_timestamps, false)
 // When true, QUIC server push uses a unidirectional stream.
 QUIC_FLAG(bool,
           FLAGS_quic_reloadable_flag_quic_unidirectional_server_push_stream,
-          false)
-
-// If true, a QUIC connection will attempt to process decryptable packets when
-// a new decryption key is made available.
-QUIC_FLAG(bool,
-          FLAGS_quic_reloadable_flag_quic_decrypt_packets_on_key_change,
           true)
 
 // This flag fixes a bug where dispatcher's last_packet_is_ietf_quic may be
@@ -259,7 +226,7 @@ QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_enable_version_46, false)
 // When true, cache that encryption has been established to save CPU.
 QUIC_FLAG(bool,
           FLAGS_quic_reloadable_flag_quic_optimize_encryption_established,
-          false)
+          true)
 
 // When in STARTUP and recovery, do not add bytes_acked to QUIC BBR's CWND in
 // CalculateCongestionWindow()
@@ -287,11 +254,6 @@ QUIC_FLAG(bool,
           false)
 
 // If true, public reset packets sent from GFE will include a kEPID tag.
-QUIC_FLAG(bool,
-          FLAGS_quic_reloadable_flag_quic_enable_server_epid_in_public_reset,
-          true)
-
-// If true, public reset packets sent from GFE will include a kEPID tag.
 QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_fix_spurious_ack_alarm, false)
 
 // If true, QuicSpdyStream::WritevBody() will convert iovs into QuicMemSliceSpan
@@ -304,17 +266,72 @@ QUIC_FLAG(bool,
           FLAGS_quic_reloadable_flag_quic_bbr_startup_rate_reduction,
           false)
 
-// If true, enable the fix for the bug where v44 packets are rejected
-// by a lower-version connection close.
-QUIC_FLAG(bool,
-          FLAGS_quic_reloadable_flag_quic_fix_reject_by_session_type,
-          true)
-
 // If true, only send version negotiation packets when they are at least
 // 1200 bytes.
-QUIC_FLAG(bool,
-          FLAGS_quic_reloadable_flag_quic_limit_version_negotiation,
-          false)
+QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_limit_version_negotiation, true)
 
 // If true, disables key share caching for QUIC key exchange
-QUIC_FLAG(bool, FLAGS_quic_restart_flag_quic_no_ephemeral_key_source, false)
+QUIC_FLAG(bool, FLAGS_quic_restart_flag_quic_no_ephemeral_key_source, true)
+
+// If true, QuicDispatcher will not assume all blocked writers share the same
+// opinion about whether their packet writers are blocked.
+QUIC_FLAG(bool,
+          FLAGS_quic_restart_flag_quic_check_blocked_writer_for_blockage,
+          false)
+
+// If true, for QUIC V44, if a server connection is post handshake and has no
+// termination packets, add it to time wait list with
+// action=SEND_STATELESS_RESET.
+QUIC_FLAG(
+    bool,
+    FLAGS_quic_reloadable_flag_quic_send_reset_for_post_handshake_connections_without_termination_packets,
+    true)
+
+// If true, disconnected quic connection will not be added to dispatcher's write
+// blocked list.
+QUIC_FLAG(
+    bool,
+    FLAGS_quic_reloadable_flag_quic_connection_do_not_add_to_write_blocked_list_if_disconnected,
+    false)
+
+// Changes internal in-memory representation of QUIC connection IDs to network
+// byte order.
+QUIC_FLAG(bool,
+          FLAGS_quic_restart_flag_quic_connection_ids_network_byte_order,
+          true)
+
+// Allows use of new QUIC connection ID constructor designed for
+// variable-length connection IDs when acting as client.
+QUIC_FLAG(bool,
+          FLAGS_quic_restart_flag_quic_variable_length_connection_ids_client,
+          true)
+
+// Allows use of new QUIC connection ID constructor designed for
+// variable-length connection IDs when acting as server
+QUIC_FLAG(bool,
+          FLAGS_quic_restart_flag_quic_variable_length_connection_ids_server,
+          true)
+// If true, QuicPacketCreator::SetTransmissionType will set the transmission
+// type of the next successfully added frame.
+QUIC_FLAG(bool,
+          FLAGS_quic_reloadable_flag_quic_set_transmission_type_for_next_frame,
+          false)
+// If true, always send connection close/reset for IETF connections.
+QUIC_FLAG(bool,
+          FLAGS_quic_reloadable_flag_quic_always_reset_ietf_connections,
+          true)
+
+// When true, allows the AKD2 and AKD4 connection options to continue activating
+// ack decimation with reordering.
+QUIC_FLAG(bool,
+          FLAGS_quic_reloadable_flag_quic_keep_ack_decimation_reordering,
+          false)
+
+// If true, close QUIC connection if peer acks packet number 0 because our
+// implementation never sends packet number 0.
+QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_disallow_peer_ack_0, true)
+
+// If true, log leaf cert subject name into warning log.
+QUIC_FLAG(bool,
+          FLAGS_quic_reloadable_flag_quic_log_cert_name_for_empty_sct,
+          true)

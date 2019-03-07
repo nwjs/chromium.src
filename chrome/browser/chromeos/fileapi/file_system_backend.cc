@@ -11,12 +11,13 @@
 
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "chrome/browser/chromeos/arc/fileapi/arc_documents_provider_util.h"
 #include "chrome/browser/chromeos/fileapi/file_access_permissions.h"
 #include "chrome/browser/chromeos/fileapi/file_system_backend_delegate.h"
 #include "chrome/browser/media_galleries/fileapi/media_file_system_backend.h"
 #include "chrome/common/url_constants.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/cros_disks_client.h"
 #include "net/base/escape.h"
 #include "storage/browser/fileapi/async_file_util.h"
@@ -228,7 +229,7 @@ bool FileSystemBackend::IsAccessAllowed(
 
   const std::string& extension_id = url.origin().host();
   if (url.type() == storage::kFileSystemTypeRestrictedNativeLocal) {
-    for (size_t i = 0; i < arraysize(kOemAccessibleExtensions); ++i) {
+    for (size_t i = 0; i < base::size(kOemAccessibleExtensions); ++i) {
       if (extension_id == kOemAccessibleExtensions[i])
         return true;
     }

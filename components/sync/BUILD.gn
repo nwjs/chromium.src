@@ -92,6 +92,10 @@ jumbo_static_library("sync") {
     "device_info/device_info.h",
     "device_info/device_info_sync_bridge.cc",
     "device_info/device_info_sync_bridge.h",
+    "device_info/device_info_sync_service.cc",
+    "device_info/device_info_sync_service.h",
+    "device_info/device_info_sync_service_impl.cc",
+    "device_info/device_info_sync_service_impl.h",
     "device_info/device_info_tracker.h",
     "device_info/device_info_util.cc",
     "device_info/device_info_util.h",
@@ -136,8 +140,6 @@ jumbo_static_library("sync") {
     "driver/model_type_controller.h",
     "driver/non_ui_syncable_service_based_model_type_controller.cc",
     "driver/non_ui_syncable_service_based_model_type_controller.h",
-    "driver/proxy_data_type_controller.cc",
-    "driver/proxy_data_type_controller.h",
     "driver/shared_change_processor.cc",
     "driver/shared_change_processor.h",
     "driver/shared_change_processor_ref.cc",
@@ -160,6 +162,8 @@ jumbo_static_library("sync") {
     "driver/sync_service_observer.h",
     "driver/sync_service_utils.cc",
     "driver/sync_service_utils.h",
+    "driver/sync_session_durations_metrics_recorder.cc",
+    "driver/sync_session_durations_metrics_recorder.h",
     "driver/sync_stopped_reporter.cc",
     "driver/sync_stopped_reporter.h",
     "driver/sync_token_status.cc",
@@ -606,7 +610,7 @@ jumbo_static_library("sync") {
 
   if (is_chromeos) {
     # Required by get_session_name.cc on Chrome OS.
-    deps += [ "//chromeos" ]
+    deps += [ "//chromeos:chromeos_constants" ]
   }
 
   if (is_mac) {
@@ -871,6 +875,7 @@ source_set("unit_tests") {
     "driver/shared_change_processor_unittest.cc",
     "driver/startup_controller_unittest.cc",
     "driver/sync_service_utils_unittest.cc",
+    "driver/sync_session_durations_metrics_recorder_unittest.cc",
     "driver/sync_stopped_reporter_unittest.cc",
     "driver/sync_util_unittest.cc",
     "engine/cycle/sync_cycle_snapshot_unittest.cc",
@@ -963,7 +968,7 @@ source_set("unit_tests") {
     "//components/invalidation/impl",
     "//components/os_crypt:test_support",
     "//components/prefs:test_support",
-    "//components/signin/core/browser:test_support",
+    "//components/signin/core/browser:internals_test_support",
     "//components/sync_preferences",
     "//components/sync_preferences:test_support",
     "//components/variations",
@@ -973,6 +978,7 @@ source_set("unit_tests") {
     "//google_apis:test_support",
     "//net",
     "//net:test_support",
+    "//services/identity/public/cpp:test_support",
     "//services/network:test_support",
     "//services/network/public/cpp",
     "//sql",
@@ -988,7 +994,7 @@ source_set("unit_tests") {
 
   if (is_chromeos) {
     # Required by get_session_name_unittest.cc on Chrome OS.
-    deps += [ "//chromeos" ]
+    deps += [ "//chromeos:chromeos_constants" ]
   }
 
   if (is_ios) {

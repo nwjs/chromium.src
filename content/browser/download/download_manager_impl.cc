@@ -70,6 +70,8 @@
 #include "content/public/common/origin_util.h"
 #include "content/public/common/previews_state.h"
 #include "content/public/common/referrer.h"
+#include "content/public/common/url_utils.h"
+#include "mojo/public/cpp/bindings/strong_binding.h"
 #include "net/base/elements_upload_data_stream.h"
 #include "net/base/load_flags.h"
 #include "net/base/request_priority.h"
@@ -77,6 +79,7 @@
 #include "net/url_request/url_request_context.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
 #include "storage/browser/blob/blob_url_loader_factory.h"
 #include "storage/browser/blob/blob_url_request_job_factory.h"
 #include "url/origin.h"
@@ -236,8 +239,10 @@ class DownloadItemFactoryImpl : public download::DownloadItemFactory {
         delegate, guid, download_id, current_path, target_path, url_chain,
         referrer_url, site_url, tab_url, tab_refererr_url, mime_type,
         original_mime_type, start_time, end_time, etag, last_modified,
-        received_bytes, total_bytes, hash, state, danger_type, interrupt_reason,
-        opened, last_access_time, transient, received_slices);
+        received_bytes, total_bytes, 0 /* auto_resume_count */, hash, state,
+        danger_type, interrupt_reason, false /* paused */,
+        false /* allow_metered */, opened, last_access_time, transient,
+        received_slices);
   }
 
   download::DownloadItemImpl* CreateActiveItem(
@@ -274,16 +279,34 @@ CreateDownloadURLLoaderFactoryGetter(StoragePartitionImpl* storage_partition,
   network::mojom::URLLoaderFactoryPtrInfo proxy_factory_ptr_info;
   network::mojom::URLLoaderFactoryRequest proxy_factory_request;
   if (rfh) {
-    network::mojom::URLLoaderFactoryPtrInfo devtools_factory_ptr_info;
-    network::mojom::URLLoaderFactoryRequest devtools_factory_request =
-        MakeRequest(&devtools_factory_ptr_info);
-    if (devtools_instrumentation::WillCreateURLLoaderFactory(
-            static_cast<RenderFrameHostImpl*>(rfh), true, is_download,
-            &devtools_factory_request)) {
-      proxy_factory_ptr_info = std::move(devtools_factory_ptr_info);
-      proxy_factory_request = std::move(devtools_factory_request);
+    bool should_proxy = false;
+
+    // Create an intermediate pipe that can be used to proxy the download's
+    // URLLoaderFactory.
+    network::mojom::URLLoaderFactoryPtrInfo maybe_proxy_factory_ptr_info;
+    network::mojom::URLLoaderFactoryRequest maybe_proxy_factory_request =
+        MakeRequest(&maybe_proxy_factory_ptr_info);
+
+    // Allow DevTools to potentially inject itself into the proxy pipe.
+    should_proxy = devtools_instrumentation::WillCreateURLLoaderFactory(
+        static_cast<RenderFrameHostImpl*>(rfh), true, is_download,
+        &maybe_proxy_factory_request);
+
+    // Also allow the Content embedder to inject itself if it wants to.
+    should_proxy |= GetContentClient()->browser()->WillCreateURLLoaderFactory(
+        rfh->GetSiteInstance()->GetBrowserContext(), rfh,
+        rfh->GetProcess()->GetID(), false /* is_navigation */,
+        true /* is_download/ */, url::Origin(), &maybe_proxy_factory_request,
+        nullptr /* header_client */, nullptr /* bypass_redirect_checks */);
+
+    // If anyone above indicated that they care about proxying, pass the
+    // intermediate pipe along to the NetworkDownloadURLLoaderFactoryGetter.
+    if (should_proxy) {
+      proxy_factory_ptr_info = std::move(maybe_proxy_factory_ptr_info);
+      proxy_factory_request = std::move(maybe_proxy_factory_request);
     }
   }
+
   return base::MakeRefCounted<NetworkDownloadURLLoaderFactoryGetter>(
       storage_partition->url_loader_factory_getter(),
       std::move(proxy_factory_ptr_info), std::move(proxy_factory_request));
@@ -1241,7 +1264,7 @@ void DownloadManagerImpl::BeginResourceDownloadOnChecksComplete(
     url_loader_factory_getter =
         base::MakeRefCounted<FileDownloadURLLoaderFactoryGetter>(
             params->url(), browser_context_->GetPath(),
-            BrowserContext::GetSharedCorsOriginAccessList(browser_context_));
+            browser_context_->GetSharedCorsOriginAccessList());
   } else if (params->url().SchemeIs(content::kChromeUIScheme)) {
     url_loader_factory_getter =
         base::MakeRefCounted<WebUIDownloadURLLoaderFactoryGetter>(
@@ -1264,6 +1287,35 @@ void DownloadManagerImpl::BeginResourceDownloadOnChecksComplete(
         base::MakeRefCounted<FileSystemDownloadURLLoaderFactoryGetter>(
             params->url(), rfh, /*is_navigation=*/false,
             storage_partition->GetFileSystemContext(), storage_domain);
+  } else if (!IsURLHandledByNetworkService(params->url())) {
+    ContentBrowserClient::NonNetworkURLLoaderFactoryMap
+        non_network_url_loader_factories;
+    GetContentClient()
+        ->browser()
+        ->RegisterNonNetworkSubresourceURLLoaderFactories(
+            params->render_process_host_id(),
+            params->render_frame_host_routing_id(),
+            &non_network_url_loader_factories);
+    auto it = non_network_url_loader_factories.find(params->url().scheme());
+    if (it == non_network_url_loader_factories.end()) {
+      DLOG(ERROR) << "No URLLoaderFactory found to download " << params->url();
+      return;
+    } else {
+      std::unique_ptr<network::mojom::URLLoaderFactory> factory =
+          std::move(it->second);
+      network::mojom::URLLoaderFactoryPtr factory_ptr;
+      mojo::MakeStrongBinding(std::move(factory),
+                              mojo::MakeRequest(&factory_ptr));
+      network::mojom::URLLoaderFactoryPtrInfo factory_ptr_info =
+          factory_ptr.PassInterface();
+
+      auto wrapper_factory =
+          std::make_unique<network::WrapperSharedURLLoaderFactoryInfo>(
+              std::move(factory_ptr_info));
+      url_loader_factory_getter =
+          base::MakeRefCounted<download::DownloadURLLoaderFactoryGetterImpl>(
+              std::move(wrapper_factory));
+    }
   } else {
     StoragePartitionImpl* storage_partition =
         static_cast<StoragePartitionImpl*>(

@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -26,6 +27,7 @@
 #include "base/task/task_scheduler/test_task_factory.h"
 #include "base/task/task_scheduler/test_utils.h"
 #include "base/task/task_traits.h"
+#include "base/test/bind_test_util.h"
 #include "base/test/gtest_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_timeouts.h"
@@ -35,6 +37,7 @@
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "base/updateable_sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -159,6 +162,18 @@ void VerifyTimeAndTaskEnvironmentAndSignalEvent(const TaskTraits& traits,
   event->Signal();
 }
 
+void VerifyOrderAndTaskEnvironmentAndSignalEvent(
+    const TaskTraits& traits,
+    SchedulerState state,
+    WaitableEvent* expected_previous_event,
+    WaitableEvent* event) {
+  DCHECK(event);
+  if (expected_previous_event)
+    EXPECT_TRUE(expected_previous_event->IsSignaled());
+  VerifyTaskEnvironment(traits, state);
+  event->Signal();
+}
+
 scoped_refptr<TaskRunner> CreateTaskRunnerWithTraitsAndExecutionMode(
     TaskScheduler* scheduler,
     const TaskTraits& traits,
@@ -266,19 +281,17 @@ class TaskSchedulerImplTest
     scheduler_worker_observer_ = scheduler_worker_observer;
   }
 
-  void StartTaskScheduler() {
-    constexpr TimeDelta kSuggestedReclaimTime = TimeDelta::FromSeconds(30);
+  void StartTaskScheduler(TimeDelta reclaim_time = TimeDelta::FromSeconds(30)) {
     constexpr int kMaxNumBackgroundThreads = 1;
     constexpr int kMaxNumBackgroundBlockingThreads = 3;
     constexpr int kMaxNumForegroundThreads = 4;
     constexpr int kMaxNumForegroundBlockingThreads = 12;
 
-    scheduler_.Start(
-        {{kMaxNumBackgroundThreads, kSuggestedReclaimTime},
-         {kMaxNumBackgroundBlockingThreads, kSuggestedReclaimTime},
-         {kMaxNumForegroundThreads, kSuggestedReclaimTime},
-         {kMaxNumForegroundBlockingThreads, kSuggestedReclaimTime}},
-        scheduler_worker_observer_);
+    scheduler_.Start({{kMaxNumBackgroundThreads, reclaim_time},
+                      {kMaxNumBackgroundBlockingThreads, reclaim_time},
+                      {kMaxNumForegroundThreads, reclaim_time},
+                      {kMaxNumForegroundBlockingThreads, reclaim_time}},
+                     scheduler_worker_observer_);
   }
 
   void TearDown() override {
@@ -733,15 +746,19 @@ TEST_P(TaskSchedulerImplTest, FlushAsyncNoTasks) {
 
 namespace {
 
-// Verifies that |query| is found on the current stack. Ignores failures if this
-// configuration doesn't have symbols.
-void VerifyHasStringOnStack(const std::string& query) {
+// Verifies that all strings passed as argument are found on the current stack.
+// Ignores failures if this configuration doesn't have symbols.
+void VerifyHasStringsOnStack(const std::string& pool_str,
+                             const std::string& shutdown_behavior_str) {
   const std::string stack = debug::StackTrace().ToString();
   SCOPED_TRACE(stack);
-  const bool found_on_stack = stack.find(query) != std::string::npos;
   const bool stack_has_symbols =
       stack.find("SchedulerWorker") != std::string::npos;
-  EXPECT_TRUE(found_on_stack || !stack_has_symbols) << query;
+  if (!stack_has_symbols)
+    return;
+
+  EXPECT_THAT(stack, ::testing::HasSubstr(pool_str));
+  EXPECT_THAT(stack, ::testing::HasSubstr(shutdown_behavior_str));
 }
 
 }  // namespace
@@ -760,64 +777,84 @@ void VerifyHasStringOnStack(const std::string& query) {
 #endif
 
 // Integration test that verifies that workers have a frame on their stacks
-// which easily identifies the type of worker (useful to diagnose issues from
-// logs without memory dumps).
+// which easily identifies the type of worker and shutdown behavior (useful to
+// diagnose issues from logs without memory dumps).
 TEST_P(TaskSchedulerImplTest, MAYBE_IdentifiableStacks) {
   StartTaskScheduler();
 
-  scheduler_.CreateSequencedTaskRunnerWithTraits({})->PostTask(
-      FROM_HERE, BindOnce(&VerifyHasStringOnStack, "RunPooledWorker"));
-  scheduler_.CreateSequencedTaskRunnerWithTraits({TaskPriority::BEST_EFFORT})
-      ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringOnStack,
-                                     "RunBackgroundPooledWorker"));
+  // Shutdown behaviors and expected stack frames.
+  constexpr std::pair<TaskShutdownBehavior, const char*> shutdown_behaviors[] =
+      {{TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN, "RunContinueOnShutdown"},
+       {TaskShutdownBehavior::SKIP_ON_SHUTDOWN, "RunSkipOnShutdown"},
+       {TaskShutdownBehavior::BLOCK_SHUTDOWN, "RunBlockShutdown"}};
 
-  scheduler_
-      .CreateSingleThreadTaskRunnerWithTraits(
-          {}, SingleThreadTaskRunnerThreadMode::SHARED)
-      ->PostTask(FROM_HERE,
-                 BindOnce(&VerifyHasStringOnStack, "RunSharedWorker"));
-  scheduler_
-      .CreateSingleThreadTaskRunnerWithTraits(
-          {TaskPriority::BEST_EFFORT}, SingleThreadTaskRunnerThreadMode::SHARED)
-      ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringOnStack,
-                                     "RunBackgroundSharedWorker"));
+  for (const auto& shutdown_behavior : shutdown_behaviors) {
+    const TaskTraits traits = {shutdown_behavior.first};
+    const TaskTraits best_effort_traits = {shutdown_behavior.first,
+                                           TaskPriority::BEST_EFFORT};
 
-  scheduler_
-      .CreateSingleThreadTaskRunnerWithTraits(
-          {}, SingleThreadTaskRunnerThreadMode::DEDICATED)
-      ->PostTask(FROM_HERE,
-                 BindOnce(&VerifyHasStringOnStack, "RunDedicatedWorker"));
-  scheduler_
-      .CreateSingleThreadTaskRunnerWithTraits(
-          {TaskPriority::BEST_EFFORT},
-          SingleThreadTaskRunnerThreadMode::DEDICATED)
-      ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringOnStack,
-                                     "RunBackgroundDedicatedWorker"));
+    scheduler_.CreateSequencedTaskRunnerWithTraits(traits)->PostTask(
+        FROM_HERE, BindOnce(&VerifyHasStringsOnStack, "RunPooledWorker",
+                            shutdown_behavior.second));
+    scheduler_.CreateSequencedTaskRunnerWithTraits(best_effort_traits)
+        ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringsOnStack,
+                                       "RunBackgroundPooledWorker",
+                                       shutdown_behavior.second));
+
+    scheduler_
+        .CreateSingleThreadTaskRunnerWithTraits(
+            traits, SingleThreadTaskRunnerThreadMode::SHARED)
+        ->PostTask(FROM_HERE,
+                   BindOnce(&VerifyHasStringsOnStack, "RunSharedWorker",
+                            shutdown_behavior.second));
+    scheduler_
+        .CreateSingleThreadTaskRunnerWithTraits(
+            best_effort_traits, SingleThreadTaskRunnerThreadMode::SHARED)
+        ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringsOnStack,
+                                       "RunBackgroundSharedWorker",
+                                       shutdown_behavior.second));
+
+    scheduler_
+        .CreateSingleThreadTaskRunnerWithTraits(
+            traits, SingleThreadTaskRunnerThreadMode::DEDICATED)
+        ->PostTask(FROM_HERE,
+                   BindOnce(&VerifyHasStringsOnStack, "RunDedicatedWorker",
+                            shutdown_behavior.second));
+    scheduler_
+        .CreateSingleThreadTaskRunnerWithTraits(
+            best_effort_traits, SingleThreadTaskRunnerThreadMode::DEDICATED)
+        ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringsOnStack,
+                                       "RunBackgroundDedicatedWorker",
+                                       shutdown_behavior.second));
 
 #if defined(OS_WIN)
-  scheduler_
-      .CreateCOMSTATaskRunnerWithTraits(
-          {}, SingleThreadTaskRunnerThreadMode::SHARED)
-      ->PostTask(FROM_HERE,
-                 BindOnce(&VerifyHasStringOnStack, "RunSharedCOMWorker"));
-  scheduler_
-      .CreateCOMSTATaskRunnerWithTraits(
-          {TaskPriority::BEST_EFFORT}, SingleThreadTaskRunnerThreadMode::SHARED)
-      ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringOnStack,
-                                     "RunBackgroundSharedCOMWorker"));
+    scheduler_
+        .CreateCOMSTATaskRunnerWithTraits(
+            traits, SingleThreadTaskRunnerThreadMode::SHARED)
+        ->PostTask(FROM_HERE,
+                   BindOnce(&VerifyHasStringsOnStack, "RunSharedCOMWorker",
+                            shutdown_behavior.second));
+    scheduler_
+        .CreateCOMSTATaskRunnerWithTraits(
+            best_effort_traits, SingleThreadTaskRunnerThreadMode::SHARED)
+        ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringsOnStack,
+                                       "RunBackgroundSharedCOMWorker",
+                                       shutdown_behavior.second));
 
-  scheduler_
-      .CreateCOMSTATaskRunnerWithTraits(
-          {}, SingleThreadTaskRunnerThreadMode::DEDICATED)
-      ->PostTask(FROM_HERE,
-                 BindOnce(&VerifyHasStringOnStack, "RunDedicatedCOMWorker"));
-  scheduler_
-      .CreateCOMSTATaskRunnerWithTraits(
-          {TaskPriority::BEST_EFFORT},
-          SingleThreadTaskRunnerThreadMode::DEDICATED)
-      ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringOnStack,
-                                     "RunBackgroundDedicatedCOMWorker"));
+    scheduler_
+        .CreateCOMSTATaskRunnerWithTraits(
+            traits, SingleThreadTaskRunnerThreadMode::DEDICATED)
+        ->PostTask(FROM_HERE,
+                   BindOnce(&VerifyHasStringsOnStack, "RunDedicatedCOMWorker",
+                            shutdown_behavior.second));
+    scheduler_
+        .CreateCOMSTATaskRunnerWithTraits(
+            best_effort_traits, SingleThreadTaskRunnerThreadMode::DEDICATED)
+        ->PostTask(FROM_HERE, BindOnce(&VerifyHasStringsOnStack,
+                                       "RunBackgroundDedicatedCOMWorker",
+                                       shutdown_behavior.second));
 #endif  // defined(OS_WIN)
+  }
 
   scheduler_.FlushForTesting();
 }
@@ -826,22 +863,25 @@ TEST_P(TaskSchedulerImplTest, SchedulerWorkerObserver) {
   testing::StrictMock<test::MockSchedulerWorkerObserver> observer;
   set_scheduler_worker_observer(&observer);
 
-  // A worker should be created for each pool. After that, 8 threads should be
-  // created for single-threaded work (16 on Windows).
+  // A worker should be created for each pool. After that, 4 threads should be
+  // created for each SingleThreadTaskRunnerThreadMode (8 on Windows).
   const int kExpectedNumPoolWorkers =
       CanUseBackgroundPriorityForSchedulerWorker() ? 4 : 2;
 #if defined(OS_WIN)
-  const int kExpectedNumSingleThreadedWorkers = 16;
+  const int kExpectedNumSingleThreadedWorkersPerMode = 8;
 #else
-  const int kExpectedNumSingleThreadedWorkers = 8;
+  const int kExpectedNumSingleThreadedWorkersPerMode = 4;
 #endif
-  const int kExpectedNumWorkers =
-      kExpectedNumPoolWorkers + kExpectedNumSingleThreadedWorkers;
+  constexpr int kNumSingleThreadTaskRunnerThreadModes = 2;
 
   EXPECT_CALL(observer, OnSchedulerWorkerMainEntry())
-      .Times(kExpectedNumWorkers);
+      .Times(kExpectedNumPoolWorkers +
+             kNumSingleThreadTaskRunnerThreadModes *
+                 kExpectedNumSingleThreadedWorkersPerMode);
 
-  StartTaskScheduler();
+  // Infinite detach time to prevent workers from invoking
+  // OnSchedulerWorkerMainExit() earlier than expected.
+  StartTaskScheduler(TimeDelta::Max());
 
   std::vector<scoped_refptr<SingleThreadTaskRunner>> task_runners;
 
@@ -898,12 +938,216 @@ TEST_P(TaskSchedulerImplTest, SchedulerWorkerObserver) {
   for (auto& task_runner : task_runners)
     task_runner->PostTask(FROM_HERE, DoNothing());
 
-  EXPECT_CALL(observer, OnSchedulerWorkerMainExit()).Times(kExpectedNumWorkers);
-
-  // Allow single-threaded workers to be released.
+  // Release single-threaded workers. This should cause dedicated workers to
+  // invoke OnSchedulerWorkerMainExit().
+  observer.AllowCallsOnMainExit(kExpectedNumSingleThreadedWorkersPerMode);
   task_runners.clear();
+  observer.WaitCallsOnMainExit();
 
+  // Join all remaining workers. This should cause shared single-threaded
+  // workers and pool workers to invoke OnSchedulerWorkerMainExit().
+  observer.AllowCallsOnMainExit(kExpectedNumPoolWorkers +
+                                kExpectedNumSingleThreadedWorkersPerMode);
   TearDown();
+  observer.WaitCallsOnMainExit();
+}
+
+class TaskSchedulerPriorityUpdateTest : public testing::Test {
+ protected:
+  struct PoolBlockingEvents {
+    PoolBlockingEvents(const TaskTraits& pool_traits)
+        : pool_traits(pool_traits) {}
+    const TaskTraits pool_traits;
+    WaitableEvent scheduled;
+    WaitableEvent blocked;
+  };
+
+  struct TaskRunnerAndEvents {
+    TaskRunnerAndEvents(
+        scoped_refptr<UpdateableSequencedTaskRunner> task_runner,
+        const TaskPriority updated_priority,
+        WaitableEvent* expected_previous_event)
+        : task_runner(std::move(task_runner)),
+          updated_priority(updated_priority),
+          expected_previous_event(expected_previous_event) {}
+    scoped_refptr<UpdateableSequencedTaskRunner> task_runner;
+    const TaskPriority updated_priority;
+    WaitableEvent scheduled;
+    WaitableEvent blocked;
+    WaitableEvent task_ran;
+    WaitableEvent* expected_previous_event;
+  };
+
+  TaskSchedulerPriorityUpdateTest() : scheduler_("Test") {}
+
+  void StartTaskSchedulerWithNumThreadsPerPool(int threads_per_pool) {
+    constexpr TimeDelta kSuggestedReclaimTime = TimeDelta::FromSeconds(30);
+
+    scheduler_.Start({{threads_per_pool, kSuggestedReclaimTime},
+                      {threads_per_pool, kSuggestedReclaimTime},
+                      {threads_per_pool, kSuggestedReclaimTime},
+                      {threads_per_pool, kSuggestedReclaimTime}},
+                     nullptr);
+  }
+
+  // Create a series of sample task runners that will post tasks at various
+  // initial priorities, then update priority.
+  void CreateTaskRunnersAndEvents() {
+    // Task runner that will start as USER_VISIBLE and update to USER_BLOCKING.
+    // Its task is expected to run first.
+    task_runners_and_events_.push_back(std::make_unique<TaskRunnerAndEvents>(
+        scheduler_.CreateUpdateableSequencedTaskRunnerWithTraitsForTesting(
+            TaskTraits({TaskPriority::USER_VISIBLE})),
+        TaskPriority::USER_BLOCKING, nullptr));
+
+    // Task runner that will start as BEST_EFFORT and update to USER_VISIBLE.
+    // Its task is expected to run after the USER_BLOCKING task runner's task.
+    task_runners_and_events_.push_back(std::make_unique<TaskRunnerAndEvents>(
+        scheduler_.CreateUpdateableSequencedTaskRunnerWithTraitsForTesting(
+            TaskTraits({TaskPriority::BEST_EFFORT})),
+        TaskPriority::USER_VISIBLE,
+        &task_runners_and_events_.back()->task_ran));
+
+    // Task runner that will start as USER_BLOCKING and update to BEST_EFFORT.
+    // Its task is expected to run asynchronously with the other two task
+    // task runners' tasks if background pools exist, or after the USER_VISIBLE
+    // task runner's task if not.
+    task_runners_and_events_.push_back(std::make_unique<TaskRunnerAndEvents>(
+        scheduler_.CreateUpdateableSequencedTaskRunnerWithTraitsForTesting(
+            TaskTraits({TaskPriority::USER_BLOCKING})),
+        TaskPriority::BEST_EFFORT,
+        CanUseBackgroundPriorityForSchedulerWorker()
+            ? nullptr
+            : &task_runners_and_events_.back()->task_ran));
+  }
+
+  void TearDown() override {
+    scheduler_.FlushForTesting();
+    scheduler_.JoinForTesting();
+  }
+
+  TaskSchedulerImpl scheduler_;
+
+  std::vector<std::unique_ptr<TaskRunnerAndEvents>> task_runners_and_events_;
+
+  DISALLOW_COPY_AND_ASSIGN(TaskSchedulerPriorityUpdateTest);
+};
+
+// Update the priority of a sequence when it is not scheduled.
+TEST_F(TaskSchedulerPriorityUpdateTest, UpdatePrioritySequenceNotScheduled) {
+  StartTaskSchedulerWithNumThreadsPerPool(1);
+
+  // Schedule blocking tasks on all threads to prevent tasks from being
+  // scheduled later in the test.
+  std::vector<std::unique_ptr<PoolBlockingEvents>> pool_blocking_events;
+
+  pool_blocking_events.push_back(std::make_unique<PoolBlockingEvents>(
+      TaskTraits({TaskPriority::USER_BLOCKING})));
+  pool_blocking_events.push_back(std::make_unique<PoolBlockingEvents>(
+      TaskTraits({TaskPriority::USER_BLOCKING, MayBlock()})));
+  if (CanUseBackgroundPriorityForSchedulerWorker()) {
+    pool_blocking_events.push_back(std::make_unique<PoolBlockingEvents>(
+        TaskTraits({TaskPriority::BEST_EFFORT})));
+    pool_blocking_events.push_back(std::make_unique<PoolBlockingEvents>(
+        TaskTraits({TaskPriority::BEST_EFFORT, MayBlock()})));
+  }
+
+  // When all blocking tasks signal |scheduled|, there is a task blocked in
+  // each pool.
+  for (auto& pool_blocking_event : pool_blocking_events) {
+    scheduler_
+        .CreateUpdateableSequencedTaskRunnerWithTraitsForTesting(
+            pool_blocking_event->pool_traits)
+        ->PostTask(
+            FROM_HERE, BindLambdaForTesting([&]() {
+              pool_blocking_event->scheduled.Signal();
+              test::WaitWithoutBlockingObserver(&pool_blocking_event->blocked);
+            }));
+
+    test::WaitWithoutBlockingObserver(&pool_blocking_event->scheduled);
+  }
+
+  CreateTaskRunnersAndEvents();
+
+  // Post tasks to multiple task runners while they are at initial priority.
+  for (auto& task_runner_and_events : task_runners_and_events_) {
+    task_runner_and_events->task_runner->PostTask(
+        FROM_HERE,
+        BindOnce(&VerifyOrderAndTaskEnvironmentAndSignalEvent,
+                 task_runner_and_events->updated_priority,
+                 SchedulerState::kAfterSchedulerStart,
+                 Unretained(task_runner_and_events->expected_previous_event),
+                 Unretained(&task_runner_and_events->task_ran)));
+  }
+
+  // Update the priorities of the task runners that posted the tasks.
+  for (auto& task_runner_and_events : task_runners_and_events_) {
+    task_runner_and_events->task_runner->UpdatePriority(
+        task_runner_and_events->updated_priority);
+  }
+
+  // Unblock the task blocking each pool, allowing the posted tasks to run.
+  // Each posted task will verify that it has been posted with updated priority
+  // when it runs.
+  for (auto& pool_blocking_event : pool_blocking_events) {
+    pool_blocking_event->blocked.Signal();
+  }
+
+  for (auto& task_runner_and_events : task_runners_and_events_) {
+    test::WaitWithoutBlockingObserver(&task_runner_and_events->task_ran);
+  }
+
+  // Make sure to coalesce tasks from |pool_blocking_events| (they are not
+  // guaranteed to all have picked up the Signal() to unblock at this point).
+  scheduler_.FlushForTesting();
+}
+
+// Update the priority of a sequence when it is scheduled, i.e. not currently
+// in a priority queue.
+TEST_F(TaskSchedulerPriorityUpdateTest, UpdatePrioritySequenceScheduled) {
+  StartTaskSchedulerWithNumThreadsPerPool(5);
+
+  CreateTaskRunnersAndEvents();
+
+  // Post blocking tasks to all task runners to prevent tasks from being
+  // scheduled later in the test.
+  for (auto& task_runner_and_events : task_runners_and_events_) {
+    task_runner_and_events->task_runner->PostTask(
+        FROM_HERE, BindLambdaForTesting([&]() {
+          ScopedAllowBaseSyncPrimitivesForTesting allow_base_sync_primitives;
+          task_runner_and_events->scheduled.Signal();
+          test::WaitWithoutBlockingObserver(&task_runner_and_events->blocked);
+        }));
+
+    ScopedAllowBaseSyncPrimitivesForTesting allow_base_sync_primitives;
+    test::WaitWithoutBlockingObserver(&task_runner_and_events->scheduled);
+  }
+
+  // Update the priorities of the task runners while they are scheduled and
+  // blocked.
+  for (auto& task_runner_and_events : task_runners_and_events_) {
+    task_runner_and_events->task_runner->UpdatePriority(
+        task_runner_and_events->updated_priority);
+  }
+
+  // Post an additional task to each task runner.
+  for (auto& task_runner_and_events : task_runners_and_events_) {
+    task_runner_and_events->task_runner->PostTask(
+        FROM_HERE,
+        BindOnce(&VerifyOrderAndTaskEnvironmentAndSignalEvent,
+                 TaskTraits(task_runner_and_events->updated_priority),
+                 SchedulerState::kAfterSchedulerStart,
+                 Unretained(task_runner_and_events->expected_previous_event),
+                 Unretained(&task_runner_and_events->task_ran)));
+  }
+
+  // Unblock the task blocking each task runner, allowing the additional posted
+  // tasks to run. Each posted task will verify that it has been posted with
+  // updated priority when it runs.
+  for (auto& task_runner_and_events : task_runners_and_events_) {
+    task_runner_and_events->blocked.Signal();
+    test::WaitWithoutBlockingObserver(&task_runner_and_events->task_ran);
+  }
 }
 
 }  // namespace internal

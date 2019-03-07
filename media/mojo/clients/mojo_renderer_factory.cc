@@ -8,6 +8,7 @@
 
 #include "base/single_thread_task_runner.h"
 #include "media/mojo/clients/mojo_renderer.h"
+#include "media/renderers/decrypting_renderer.h"
 #include "media/renderers/video_overlay_factory.h"
 #include "mojo/public/cpp/bindings/interface_request.h"
 #include "services/service_manager/public/cpp/connect.h"
@@ -48,9 +49,12 @@ std::unique_ptr<Renderer> MojoRendererFactory::CreateRenderer(
         std::make_unique<VideoOverlayFactory>(get_gpu_factories_cb_.Run());
   }
 
-  return std::unique_ptr<Renderer>(
-      new MojoRenderer(media_task_runner, std::move(overlay_factory),
-                       video_renderer_sink, GetRendererPtr()));
+  // MediaPlayerRendererClientFactory depends on |this| always returning a MR,
+  // since it uses a static_cast to use some MojoRenderer specific interfaces.
+  // Therefore, |this| should never return anything else than a MojoRenderer.
+  return std::make_unique<MojoRenderer>(media_task_runner,
+                                        std::move(overlay_factory),
+                                        video_renderer_sink, GetRendererPtr());
 }
 
 mojom::RendererPtr MojoRendererFactory::GetRendererPtr() {

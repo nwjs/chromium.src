@@ -10,7 +10,6 @@ importScripts('/resources/testharness.js',
 test(t => {
   OriginTrialsHelper.check_properties(this, {
     'ServiceWorkerRegistration': ['backgroundFetch'],
-    'BackgroundFetchFetch': ['request'],
     'BackgroundFetchManager': ['fetch', 'get', 'getIds'],
     'BackgroundFetchEvent': ['registration'],
     'BackgroundFetchUpdateUIEvent': ['updateUI'],
@@ -18,8 +17,7 @@ test(t => {
     'BackgroundFetchRegistration': ['id', 'uploadTotal', 'uploaded',
                                     'downloadTotal', 'downloaded', 'result',
                                     'failureReason', 'recordsAvailable',
-                                    'onprogress', 'abort', 'match',
-                                    'matchAll'],
+                                    'onprogress', 'abort', 'match', 'matchAll'],
   });
 });
 

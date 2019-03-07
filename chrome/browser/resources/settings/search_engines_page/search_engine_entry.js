@@ -9,7 +9,7 @@
 Polymer({
   is: 'settings-search-engine-entry',
 
-  behaviors: [FocusRowBehavior],
+  behaviors: [cr.ui.FocusRowBehavior],
 
   properties: {
     /** @type {!SearchEngine} */
@@ -73,7 +73,9 @@ Polymer({
   /** @private */
   onDotsTap_: function() {
     /** @type {!CrActionMenuElement} */ (this.$$('cr-action-menu'))
-        .showAt(assert(this.$$('paper-icon-button-light button')));
+        .showAt(assert(this.$$('paper-icon-button-light button')), {
+          anchorAlignmentY: AnchorAlignment.AFTER_END,
+        });
   },
 
   /**

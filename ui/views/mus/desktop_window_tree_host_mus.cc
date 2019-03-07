@@ -48,16 +48,16 @@ namespace {
 class ClientSideNonClientFrameView : public NonClientFrameView,
                                      public aura::WindowObserver {
  public:
-  explicit ClientSideNonClientFrameView(views::Widget* widget)
-      : widget_(widget) {
+  explicit ClientSideNonClientFrameView(Widget* widget) : widget_(widget) {
     // Not part of the accessibility node hierarchy because the window frame is
     // provided by the window manager.
-    GetViewAccessibility().OverrideIsIgnored(true);
+    if (MusClient::Get()->use_remote_accessibility_host())
+      GetViewAccessibility().OverrideIsIgnored(true);
 
     // Initialize kTopViewInset to a default value. Further updates will come
     // from Ash. This is necessary so that during app window creation,
     // GetWindowBoundsForClientBounds() can calculate correctly.
-    const auto& values = views::WindowManagerFrameValues::instance();
+    const auto& values = WindowManagerFrameValues::instance();
     widget->GetNativeWindow()->SetProperty(aura::client::kTopViewInset,
                                            widget->IsMaximized()
                                                ? values.maximized_insets.top()
@@ -95,7 +95,7 @@ class ClientSideNonClientFrameView : public NonClientFrameView,
     return outset_bounds;
   }
   int NonClientHitTest(const gfx::Point& point) override { return HTNOWHERE; }
-  void GetWindowMask(const gfx::Size& size, gfx::Path* window_mask) override {
+  void GetWindowMask(const gfx::Size& size, SkPath* window_mask) override {
     // The window manager provides the shape; do nothing.
   }
   void ResetWindowControls() override {
@@ -150,7 +150,7 @@ class ClientSideNonClientFrameView : public NonClientFrameView,
     return widget_->GetNativeWindow()->GetRootWindow();
   }
 
-  views::Widget* widget_;
+  Widget* widget_;
   ScopedObserver<aura::Window, aura::WindowObserver> observed_{this};
 
   DISALLOW_COPY_AND_ASSIGN(ClientSideNonClientFrameView);
@@ -167,18 +167,9 @@ class NativeCursorManagerMus : public wm::NativeCursorManager {
     // We ignore this entirely, as cursor are set on the client.
   }
 
-  void SetCursor(gfx::NativeCursor cursor,
+  void SetCursor(ui::Cursor cursor,
                  wm::NativeCursorManagerDelegate* delegate) override {
-    ui::CursorData mojo_cursor;
-    if (cursor.native_type() == ui::CursorType::kCustom) {
-      mojo_cursor =
-          ui::CursorData(cursor.GetHotspot(), {cursor.GetBitmap()},
-                         cursor.device_scale_factor(), base::TimeDelta());
-    } else {
-      mojo_cursor = ui::CursorData(cursor.native_type());
-    }
-
-    aura::WindowPortMus::Get(window_)->SetCursor(mojo_cursor);
+    aura::WindowPortMus::Get(window_)->SetCursor(cursor);
     delegate->CommitCursor(cursor);
   }
 
@@ -190,7 +181,7 @@ class NativeCursorManagerMus : public wm::NativeCursorManager {
       SetCursor(delegate->GetCursor(), delegate);
     } else {
       aura::WindowPortMus::Get(window_)->SetCursor(
-          ui::CursorData(ui::CursorType::kNone));
+          ui::Cursor(ui::CursorType::kNone));
     }
   }
 
@@ -227,54 +218,6 @@ void OnMoveLoopEnd(bool* out_success,
   *out_success = in_success;
   quit_closure.Run();
 }
-
-// ScopedTouchTransferController controls the transfer of touch events for
-// window move loop. It transfers touches before the window move starts, and
-// then transfers them back to the original window when the window move ends.
-// However this transferring back to the original shouldn't happen if the client
-// wants to continue the dragging on another window (like attaching the dragged
-// tab to another window).
-class ScopedTouchTransferController : public ui::GestureRecognizerObserver {
- public:
-  ScopedTouchTransferController(aura::Window* source, aura::Window* dest)
-      : tracker_({source, dest}),
-        gesture_recognizer_(source->env()->gesture_recognizer()) {
-    gesture_recognizer_->TransferEventsTo(
-        source, dest, ui::TransferTouchesBehavior::kDontCancel);
-    gesture_recognizer_->AddObserver(this);
-  }
-  ~ScopedTouchTransferController() override {
-    gesture_recognizer_->RemoveObserver(this);
-    if (tracker_.windows().size() == 2) {
-      aura::Window* source = tracker_.Pop();
-      aura::Window* dest = tracker_.Pop();
-      gesture_recognizer_->TransferEventsTo(
-          dest, source, ui::TransferTouchesBehavior::kDontCancel);
-    }
-  }
-
- private:
-  // ui::GestureRecognizerObserver:
-  void OnActiveTouchesCanceledExcept(
-      ui::GestureConsumer* not_cancelled) override {}
-  void OnEventsTransferred(
-      ui::GestureConsumer* current_consumer,
-      ui::GestureConsumer* new_consumer,
-      ui::TransferTouchesBehavior transfer_touches_behavior) override {
-    if (tracker_.windows().size() <= 1)
-      return;
-    aura::Window* dest = tracker_.windows()[1];
-    if (current_consumer == dest)
-      tracker_.Remove(dest);
-  }
-  void OnActiveTouchesCanceled(ui::GestureConsumer* consumer) override {}
-
-  aura::WindowTracker tracker_;
-
-  ui::GestureRecognizer* gesture_recognizer_;
-
-  DISALLOW_COPY_AND_ASSIGN(ScopedTouchTransferController);
-};
 
 }  // namespace
 
@@ -394,14 +337,6 @@ float DesktopWindowTreeHostMus::GetScaleFactor() const {
       .device_scale_factor();
 }
 
-void DesktopWindowTreeHostMus::SetBoundsInDIP(const gfx::Rect& bounds_in_dip) {
-  // Do not use ConvertRectToPixel, enclosing rects cause problems.
-  const gfx::Rect rect(
-      gfx::ScaleToFlooredPoint(bounds_in_dip.origin(), GetScaleFactor()),
-      gfx::ScaleToCeiledSize(bounds_in_dip.size(), GetScaleFactor()));
-  SetBoundsInPixels(rect, viz::LocalSurfaceIdAllocation());
-}
-
 bool DesktopWindowTreeHostMus::IsWaitingForRestoreToComplete() const {
   return window_tree_host_window_observer_->is_waiting_for_restore();
 }
@@ -410,9 +345,8 @@ bool DesktopWindowTreeHostMus::ShouldSendClientAreaToServer() const {
   if (!auto_update_client_area_)
     return false;
 
-  using WIP = views::Widget::InitParams;
-  const WIP::Type type = desktop_native_widget_aura_->widget_type();
-  return type == WIP::TYPE_WINDOW || type == WIP::TYPE_PANEL;
+  return desktop_native_widget_aura_->widget_type() ==
+         Widget::InitParams::TYPE_WINDOW;
 }
 
 void DesktopWindowTreeHostMus::RestoreToPreminimizedState() {
@@ -502,15 +436,13 @@ void DesktopWindowTreeHostMus::Init(const Widget::InitParams& params) {
 
   if (!params.accept_events)
     window()->SetEventTargetingPolicy(ws::mojom::EventTargetingPolicy::NONE);
-  else
-    aura::WindowPortMus::Get(content_window())->SetCanAcceptDrops(true);
 
   // Sets the has-content info for the occlusion tracker that runs on the Window
   // Service side.
   content_window()->SetProperty(
       aura::client::kClientWindowHasContent,
       params.layer_type != ui::LAYER_NOT_DRAWN &&
-          params.opacity == views::Widget::InitParams::OPAQUE_WINDOW);
+          params.opacity == Widget::InitParams::OPAQUE_WINDOW);
 }
 
 void DesktopWindowTreeHostMus::OnNativeWidgetCreated(
@@ -519,7 +451,7 @@ void DesktopWindowTreeHostMus::OnNativeWidgetCreated(
     parent_ = static_cast<DesktopWindowTreeHostMus*>(params.parent->GetHost());
     parent_->children_.insert(this);
   }
-  native_widget_delegate_->OnNativeWidgetCreated(true);
+  native_widget_delegate_->OnNativeWidgetCreated();
 }
 
 void DesktopWindowTreeHostMus::OnActiveWindowChanged(bool active) {
@@ -553,10 +485,12 @@ void DesktopWindowTreeHostMus::OnWidgetInitDone() {
   // These views are not part of the accessibility node hierarchy because the
   // window frame is provided by the window manager.
   Widget* widget = native_widget_delegate_->AsWidget();
-  if (widget->non_client_view())
-    widget->non_client_view()->GetViewAccessibility().OverrideIsIgnored(true);
-  if (widget->client_view())
-    widget->client_view()->GetViewAccessibility().OverrideIsIgnored(true);
+  if (MusClient::Get()->use_remote_accessibility_host()) {
+    if (widget->non_client_view())
+      widget->non_client_view()->GetViewAccessibility().OverrideIsIgnored(true);
+    if (widget->client_view())
+      widget->client_view()->GetViewAccessibility().OverrideIsIgnored(true);
+  }
 
   MusClient::Get()->OnWidgetInitDone(widget);
 }
@@ -902,14 +836,6 @@ Widget::MoveLoopResult DesktopWindowTreeHostMus::RunMoveLoop(
     const gfx::Vector2d& drag_offset,
     Widget::MoveLoopSource source,
     Widget::MoveLoopEscapeBehavior escape_behavior) {
-  // When using WindowService, the touch events for the window move will
-  // happen on the root window, so the events need to be transferred from
-  // widget to its root before starting move loop.
-  ScopedTouchTransferController scoped_controller(content_window(), window());
-
-  static_cast<internal::NativeWidgetPrivate*>(
-      desktop_native_widget_aura_)->ReleaseCapture();
-
   base::RunLoop run_loop(base::RunLoop::Type::kNestableTasksAllowed);
 
   ws::mojom::MoveLoopSource mus_source =
@@ -924,8 +850,8 @@ Widget::MoveLoopResult DesktopWindowTreeHostMus::RunMoveLoop(
   gfx::Point cursor_location = window()->GetBoundsInScreen().origin() +
                                gfx::ToFlooredVector2d(drag_offset);
   WindowTreeHostMus::PerformWindowMove(
-      mus_source, cursor_location,
-      base::Bind(OnMoveLoopEnd, &success, run_loop.QuitClosure()));
+      content_window(), mus_source, cursor_location,
+      base::BindOnce(&OnMoveLoopEnd, &success, run_loop.QuitClosure()));
 
   run_loop.Run();
 
@@ -976,6 +902,11 @@ void DesktopWindowTreeHostMus::SetOpacity(float opacity) {
   WindowTreeHostMus::SetOpacity(opacity);
 }
 
+void DesktopWindowTreeHostMus::SetAspectRatio(const gfx::SizeF& aspect_ratio) {
+  window()->SetProperty(aura::client::kAspectRatio,
+                        new gfx::SizeF(aspect_ratio));
+}
+
 void DesktopWindowTreeHostMus::SetWindowIcons(const gfx::ImageSkia& window_icon,
                                               const gfx::ImageSkia& app_icon) {
   NativeWidgetAura::AssignIconToAuraWindow(window(), window_icon, app_icon);
@@ -1021,6 +952,14 @@ bool DesktopWindowTreeHostMus::ShouldUseDesktopNativeCursorManager() const {
 bool DesktopWindowTreeHostMus::ShouldCreateVisibilityController() const {
   // Window manager takes care of all top-level window animations.
   return false;
+}
+
+void DesktopWindowTreeHostMus::SetBoundsInDIP(const gfx::Rect& bounds_in_dip) {
+  // Do not use ConvertRectToPixel, enclosing rects cause problems.
+  const gfx::Rect rect(
+      gfx::ScaleToFlooredPoint(bounds_in_dip.origin(), GetScaleFactor()),
+      gfx::ScaleToCeiledSize(bounds_in_dip.size(), GetScaleFactor()));
+  SetBoundsInPixels(rect, viz::LocalSurfaceIdAllocation());
 }
 
 void DesktopWindowTreeHostMus::OnWindowManagerFrameValuesChanged() {
@@ -1115,7 +1054,7 @@ void DesktopWindowTreeHostMus::SetBoundsInPixels(
                                        local_surface_id_allocation);
 }
 
-void DesktopWindowTreeHostMus::OnViewBoundsChanged(views::View* observed_view) {
+void DesktopWindowTreeHostMus::OnViewBoundsChanged(View* observed_view) {
   DCHECK_EQ(
       observed_view,
       native_widget_delegate_->AsWidget()->non_client_view()->client_view());

@@ -20,18 +20,16 @@ namespace vr {
 // input.
 void TestPresentationLocksFocusImpl(WebXrVrBrowserTestBase* t,
                                     std::string filename) {
-  t->LoadUrlAndAwaitInitialization(t->GetHtmlTestFile(filename));
+  t->LoadUrlAndAwaitInitialization(t->GetFileUrlForHtmlTestFile(filename));
   t->EnterSessionWithUserGestureOrFail();
   t->ExecuteStepAndWait("stepSetupFocusLoss()");
   t->EndTest();
 }
 
-IN_PROC_BROWSER_TEST_F(WebVrBrowserTestStandard,
-                       REQUIRES_GPU(TestPresentationLocksFocus)) {
+IN_PROC_BROWSER_TEST_F(WebVrBrowserTestStandard, TestPresentationLocksFocus) {
   TestPresentationLocksFocusImpl(this, "test_presentation_locks_focus");
 }
-IN_PROC_BROWSER_TEST_F(WebXrVrBrowserTestStandard,
-                       REQUIRES_GPU(TestPresentationLocksFocus)) {
+IN_PROC_BROWSER_TEST_F(WebXrVrBrowserTestStandard, TestPresentationLocksFocus) {
   TestPresentationLocksFocusImpl(this, "webxr_test_presentation_locks_focus");
 }
 
@@ -89,7 +87,7 @@ void WebXrControllerInputOpenVRMock::OnFrameSubmitted(
 // Equivalent to
 // WebXrVrInputTest#testControllerClicksRegisteredOnDaydream_WebXr.
 IN_PROC_BROWSER_TEST_F(WebXrVrBrowserTestStandard,
-                       REQUIRES_GPU(TestControllerInputRegistered)) {
+                       TestControllerInputRegistered) {
   WebXrControllerInputOpenVRMock my_mock;
 
   // Connect a controller.
@@ -99,7 +97,7 @@ IN_PROC_BROWSER_TEST_F(WebXrVrBrowserTestStandard,
 
   // Load the test page and enter presentation.
   this->LoadUrlAndAwaitInitialization(
-      this->GetHtmlTestFile("test_webxr_input"));
+      this->GetFileUrlForHtmlTestFile("test_webxr_input"));
   this->EnterSessionWithUserGestureOrFail();
 
   unsigned int num_iterations = 10;
@@ -121,7 +119,7 @@ IN_PROC_BROWSER_TEST_F(WebXrVrBrowserTestStandard,
 // Equivalent to
 // WebXrVrInputTest#testControllerClicksRegisteredOnDaydream
 IN_PROC_BROWSER_TEST_F(WebVrBrowserTestStandard,
-                       REQUIRES_GPU(TestControllerInputRegistered)) {
+                       TestControllerInputRegistered) {
   WebXrControllerInputOpenVRMock my_mock;
 
   // Connect a controller.
@@ -134,7 +132,7 @@ IN_PROC_BROWSER_TEST_F(WebVrBrowserTestStandard,
 
   // Load the test page and enter presentation.
   this->LoadUrlAndAwaitInitialization(
-      this->GetHtmlTestFile("test_gamepad_button"));
+      this->GetFileUrlForHtmlTestFile("test_gamepad_button"));
   this->EnterSessionWithUserGestureOrFail();
 
   // We need to have this, otherwise the JavaScript side of the Gamepad API

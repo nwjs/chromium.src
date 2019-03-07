@@ -9,13 +9,14 @@
 #include <algorithm>
 #include <set>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
-#include "base/containers/hash_tables.h"
+#include "base/hash.h"
 #include "base/i18n/rtl.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
@@ -100,7 +101,7 @@
 #include "skia/ext/platform_canvas.h"
 #include "storage/browser/fileapi/isolated_context.h"
 #include "third_party/blink/public/web/web_ime_text_span.h"
-#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/display/display_switches.h"
 #include "ui/display/screen.h"
@@ -149,7 +150,9 @@ bool g_check_for_pending_visual_properties_ack = true;
 // <process id, routing id>
 using RenderWidgetHostID = std::pair<int32_t, int32_t>;
 using RoutingIDWidgetMap =
-    base::hash_map<RenderWidgetHostID, RenderWidgetHostImpl*>;
+    std::unordered_map<RenderWidgetHostID,
+                       RenderWidgetHostImpl*,
+                       base::IntPairHash<RenderWidgetHostID>>;
 base::LazyInstance<RoutingIDWidgetMap>::DestructorAtExit
     g_routing_id_widget_map = LAZY_INSTANCE_INITIALIZER;
 
@@ -223,20 +226,17 @@ std::vector<DropData::Metadata> DropDataToMetaData(const DropData& drop_data) {
   std::vector<DropData::Metadata> metadata;
   if (!drop_data.text.is_null()) {
     metadata.push_back(DropData::Metadata::CreateForMimeType(
-        DropData::Kind::STRING,
-        base::ASCIIToUTF16(ui::Clipboard::kMimeTypeText)));
+        DropData::Kind::STRING, base::ASCIIToUTF16(ui::kMimeTypeText)));
   }
 
   if (drop_data.url.is_valid()) {
     metadata.push_back(DropData::Metadata::CreateForMimeType(
-        DropData::Kind::STRING,
-        base::ASCIIToUTF16(ui::Clipboard::kMimeTypeURIList)));
+        DropData::Kind::STRING, base::ASCIIToUTF16(ui::kMimeTypeURIList)));
   }
 
   if (!drop_data.html.is_null()) {
     metadata.push_back(DropData::Metadata::CreateForMimeType(
-        DropData::Kind::STRING,
-        base::ASCIIToUTF16(ui::Clipboard::kMimeTypeHTML)));
+        DropData::Kind::STRING, base::ASCIIToUTF16(ui::kMimeTypeHTML)));
   }
 
   // On Aura, filenames are available before drop.
@@ -314,6 +314,9 @@ class UnboundWidgetInputHandler : public mojom::WidgetInputHandler {
   }
   void DispatchNonBlockingEvent(
       std::unique_ptr<content::InputEvent> event) override {
+    DLOG(WARNING) << "Input request on unbound interface";
+  }
+  void WaitForInputProcessed(WaitForInputProcessedCallback callback) override {
     DLOG(WARNING) << "Input request on unbound interface";
   }
   void AttachSynchronousCompositor(
@@ -528,19 +531,18 @@ RenderWidgetHostImpl* RenderWidgetHostImpl::FromID(
 // static
 std::unique_ptr<RenderWidgetHostIterator>
 RenderWidgetHost::GetRenderWidgetHosts() {
-  std::unique_ptr<RenderWidgetHostIteratorImpl> hosts(
-      new RenderWidgetHostIteratorImpl());
+  auto hosts = std::make_unique<RenderWidgetHostIteratorImpl>();
   for (auto& it : g_routing_id_widget_map.Get()) {
-    RenderWidgetHost* widget = it.second;
-
-    RenderViewHost* rvh = RenderViewHost::From(widget);
-    if (!rvh) {
+    RenderWidgetHostImpl* widget = it.second;
+    RenderWidgetHostOwnerDelegate* owner_delegate = widget->owner_delegate();
+    // If the widget is not for a main frame, add to |hosts|.
+    if (!owner_delegate) {
       hosts->Add(widget);
       continue;
     }
 
-    // For RenderViewHosts, add only active ones.
-    if (static_cast<RenderViewHostImpl*>(rvh)->is_active())
+    // If the widget is for a main frame, only add if it's not swapped out.
+    if (owner_delegate->IsMainFrameActive())
       hosts->Add(widget);
   }
 
@@ -672,6 +674,10 @@ void RenderWidgetHostImpl::InitForFrame() {
     view_->OnRenderWidgetInit();
 }
 
+bool RenderWidgetHostImpl::ShouldShowStaleContentOnEviction() {
+  return delegate_->ShouldShowStaleContentOnEviction();
+}
+
 void RenderWidgetHostImpl::ShutdownAndDestroyWidget(bool also_delete) {
   CancelKeyboardLock();
   RejectMouseLockOrUnlockIfNecessary();
@@ -731,6 +737,8 @@ bool RenderWidgetHostImpl::OnMessageReceived(const IPC::Message &msg) {
                         OnIntrinsicSizingInfoChanged)
     IPC_MESSAGE_HANDLER(WidgetHostMsg_AnimateDoubleTapZoomInMainFrame,
                         OnAnimateDoubleTapZoomInMainFrame)
+    IPC_MESSAGE_HANDLER(WidgetHostMsg_ZoomToFindInPageRectInMainFrame,
+                        OnZoomToFindInPageRectInMainFrame)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
@@ -743,9 +751,6 @@ bool RenderWidgetHostImpl::Send(IPC::Message* msg) {
 }
 
 void RenderWidgetHostImpl::SetIsLoading(bool is_loading) {
-  if (owner_delegate_)
-    owner_delegate_->RenderWidgetWillSetIsLoading(is_loading);
-
   is_loading_ = is_loading;
   if (view_)
     view_->SetIsLoading(is_loading);
@@ -875,10 +880,12 @@ bool RenderWidgetHostImpl::GetVisualProperties(
     visual_properties->top_controls_height = view_->GetTopControlsHeight();
     visual_properties->bottom_controls_height =
         view_->GetBottomControlsHeight();
-    if (IsUseZoomForDSFEnabled()) {
+    if (!IsUseZoomForDSFEnabled()) {
       float device_scale = visual_properties->screen_info.device_scale_factor;
-      visual_properties->top_controls_height *= device_scale;
-      visual_properties->bottom_controls_height *= device_scale;
+      if (device_scale != 0.f) {
+        visual_properties->top_controls_height /= device_scale;
+        visual_properties->bottom_controls_height /= device_scale;
+      }
     }
     visual_properties->browser_controls_shrink_blink_size =
         view_->DoBrowserControlsShrinkRendererSize();
@@ -996,9 +1003,12 @@ void RenderWidgetHostImpl::SynchronizeVisualPropertiesIgnoringPendingAck() {
 bool RenderWidgetHostImpl::SynchronizeVisualProperties(
     bool scroll_focused_node_into_view) {
   // Skip if the |delegate_| has already been detached because
-  // it's web contents is being deleted.
+  // it's web contents is being deleted, or if LocalSurfaceIdAllocation is
+  // suppressed, as we are first updating our internal state from a child's
+  // request, before subsequently merging ids to send.
   if (visual_properties_ack_pending_ || !process_->IsInitializedAndNotDead() ||
-      !view_ || !view_->HasSize() || !renderer_initialized_ || !delegate_) {
+      !view_ || !view_->HasSize() || !renderer_initialized_ || !delegate_ ||
+      surface_id_allocation_suppressed_) {
     return false;
   }
 
@@ -1013,6 +1023,34 @@ bool RenderWidgetHostImpl::SynchronizeVisualProperties(
   bool width_changed =
       !old_visual_properties_ || old_visual_properties_->new_size.width() !=
                                      visual_properties->new_size.width();
+
+  // TODO(jonross): Enable on ChromeOS once blocking mus bugs are fixed:
+  // https://crbug.com/920642 https://crbug.com/920006
+  // TODO(jonross): Enable on Android once root cause of crash is found and
+  // fixed: https://crbug.com/923742
+#if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
+  // When the size has changed, we must ensure that there is a new, updated
+  // viz::LocalSurfaceId. Otherwise we encounter Surface Invariants Violation at
+  // the time of frame submission. Check for this violation here in order to
+  // detect the source of the bug.
+  if (old_visual_properties_ &&
+      old_visual_properties_->new_size != visual_properties->new_size &&
+      old_visual_properties_->local_surface_id_allocation &&
+      visual_properties->local_surface_id_allocation) {
+    // We suspect that we may not be updating viz::LocalSurfaceIds correctly
+    // when auto-resize is enabled. Logging this additional information to
+    // confirm if that is the case. https://crbug.com/900948
+    CHECK_NE(old_visual_properties_->local_surface_id_allocation.value(),
+             visual_properties->local_surface_id_allocation.value())
+        << "Invalid Surface Id State: size changed without a change in "
+           "LocalSurfaceId: auto_resize_enabled "
+        << visual_properties->auto_resize_enabled << " old "
+        << old_visual_properties_->local_surface_id_allocation->ToString()
+        << " new "
+        << visual_properties->local_surface_id_allocation->ToString();
+  }
+#endif
+
   bool sent_visual_properties = false;
   if (Send(new WidgetMsg_SynchronizeVisualProperties(routing_id_,
                                                      *visual_properties))) {
@@ -1095,8 +1133,8 @@ void RenderWidgetHostImpl::SetPageFocus(bool focused) {
   GetWidgetInputHandler()->SetFocus(focused);
 
   // Also send page-level focus state to other SiteInstances involved in
-  // rendering the current FrameTree.
-  if (RenderViewHost::From(this) && delegate_)
+  // rendering the current FrameTree, if this widget is for a main frame.
+  if (owner_delegate_ && delegate_)
     delegate_->ReplicatePageFocus(focused);
 }
 
@@ -1277,6 +1315,18 @@ void RenderWidgetHostImpl::ForwardWheelEventWithLatencyInfo(
   MouseWheelEventWithLatencyInfo wheel_with_latency(wheel_event, latency);
   DispatchInputEventWithLatencyInfo(wheel_event, &wheel_with_latency.latency);
   input_router_->SendWheelEvent(wheel_with_latency);
+}
+
+void RenderWidgetHostImpl::WaitForInputProcessed(
+    SyntheticGestureParams::GestureType type,
+    SyntheticGestureParams::GestureSourceType source,
+    base::OnceClosure callback) {
+  // TODO(bokan): Input can be queued and delayed in InputRouterImpl based on
+  // the kind of events we're getting. To be truly robust, we should wait until
+  // those queues are flushed before issuing this message. This will be done in
+  // a follow-up and is the reason for the currently unused type and source
+  // params. https://crbug.com/902446.
+  input_router_->WaitForInputProcessed(std::move(callback));
 }
 
 void RenderWidgetHostImpl::ForwardEmulatedGestureEvent(
@@ -2329,6 +2379,7 @@ void RenderWidgetHostImpl::DidUpdateVisualProperties(
 
   viz::ScopedSurfaceIdAllocator scoped_allocator =
       view_->DidUpdateVisualProperties(metadata);
+  base::AutoReset<bool> auto_reset(&surface_id_allocation_suppressed_, true);
 
   if (auto_resize_enabled_ && delegate_) {
     // TODO(fsamuel): The fact that we translate the viewport_size from pixels
@@ -2720,10 +2771,6 @@ void RenderWidgetHostImpl::OnUnexpectedEventAck(UnexpectedEventAckType type) {
 bool RenderWidgetHostImpl::IsIgnoringInputEvents() const {
   return process_->IsBlocked() || !delegate_ ||
          delegate_->ShouldIgnoreInputEvents();
-}
-
-void RenderWidgetHostImpl::SetBackgroundOpaque(bool opaque) {
-  Send(new WidgetMsg_SetBackgroundOpaque(GetRoutingID(), opaque));
 }
 
 bool RenderWidgetHostImpl::GotResponseToLockMouseRequest(bool allowed) {
@@ -3181,6 +3228,30 @@ RenderWidgetHostImpl::GetEmbeddedRenderWidgetHosts() {
   return std::move(hosts);
 }
 
+namespace {
+
+bool TransformPointAndRectToRootView(RenderWidgetHostViewBase* view,
+                                     RenderWidgetHostViewBase* root_view,
+                                     gfx::Point* transformed_point,
+                                     gfx::Rect* transformed_rect) {
+  gfx::Transform transform_to_main_frame;
+  if (!view->GetTransformToViewCoordSpace(root_view, &transform_to_main_frame))
+    return false;
+
+  if (transformed_point)
+    transform_to_main_frame.TransformPoint(transformed_point);
+
+  if (transformed_rect) {
+    gfx::RectF transformed_rect_f(*transformed_rect);
+    transform_to_main_frame.TransformRect(&transformed_rect_f);
+    *transformed_rect = gfx::ToEnclosingRect(transformed_rect_f);
+  }
+
+  return true;
+}
+
+}  // namespace
+
 void RenderWidgetHostImpl::OnAnimateDoubleTapZoomInMainFrame(
     const gfx::Point& point,
     const gfx::Rect& rect_to_zoom) {
@@ -3188,20 +3259,34 @@ void RenderWidgetHostImpl::OnAnimateDoubleTapZoomInMainFrame(
     return;
 
   auto* root_view = view_->GetRootView();
-  gfx::Transform transform_to_main_frame;
-  if (!view_->GetTransformToViewCoordSpace(root_view, &transform_to_main_frame))
-    return;
   gfx::Point transformed_point(point);
-  transform_to_main_frame.TransformPoint(&transformed_point);
-  gfx::RectF transformed_rect(rect_to_zoom);
-  transform_to_main_frame.TransformRect(&transformed_rect);
-
-  // Transform the point & rect into the root-view's coordinates.
-  gfx::Rect transformed_rect_to_zoom = gfx::ToEnclosingRect(transformed_rect);
+  gfx::Rect transformed_rect_to_zoom(rect_to_zoom);
+  if (!TransformPointAndRectToRootView(view_.get(), root_view,
+                                       &transformed_point,
+                                       &transformed_rect_to_zoom)) {
+    return;
+  }
 
   auto* root_rvhi = RenderViewHostImpl::From(root_view->GetRenderWidgetHost());
   root_rvhi->Send(new ViewMsg_AnimateDoubleTapZoom(
       root_rvhi->GetRoutingID(), transformed_point, transformed_rect_to_zoom));
+}
+
+void RenderWidgetHostImpl::OnZoomToFindInPageRectInMainFrame(
+    const gfx::Rect& rect_to_zoom) {
+  if (!view_)
+    return;
+
+  auto* root_view = view_->GetRootView();
+  gfx::Rect transformed_rect_to_zoom(rect_to_zoom);
+  if (!TransformPointAndRectToRootView(view_.get(), root_view, nullptr,
+                                       &transformed_rect_to_zoom)) {
+    return;
+  }
+
+  auto* root_rvhi = RenderViewHostImpl::From(root_view->GetRenderWidgetHost());
+  root_rvhi->Send(new ViewMsg_ZoomToFindInPageRect(root_rvhi->GetRoutingID(),
+                                                   transformed_rect_to_zoom));
 }
 
 }  // namespace content

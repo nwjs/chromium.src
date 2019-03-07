@@ -14,7 +14,6 @@
 #include "chrome/browser/signin/gaia_cookie_manager_service_factory.h"
 #include "chrome/browser/signin/local_auth.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
-#include "chrome/browser/signin/signin_error_controller_factory.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -24,11 +23,10 @@ SigninManagerFactory::SigninManagerFactory()
     : BrowserContextKeyedServiceFactory(
         "SigninManager",
         BrowserContextDependencyManager::GetInstance()) {
+  DependsOn(AccountTrackerServiceFactory::GetInstance());
   DependsOn(ChromeSigninClientFactory::GetInstance());
   DependsOn(GaiaCookieManagerServiceFactory::GetInstance());
   DependsOn(ProfileOAuth2TokenServiceFactory::GetInstance());
-  DependsOn(AccountTrackerServiceFactory::GetInstance());
-  DependsOn(SigninErrorControllerFactory::GetInstance());
 }
 
 SigninManagerFactory::~SigninManagerFactory() {
@@ -115,14 +113,13 @@ KeyedService* SigninManagerFactory::BuildServiceInstanceFor(
       ChromeSigninClientFactory::GetInstance()->GetForProfile(profile);
 #if defined(OS_CHROMEOS)
   service = new SigninManagerBase(
-      client, AccountTrackerServiceFactory::GetForProfile(profile),
-      SigninErrorControllerFactory::GetForProfile(profile));
+      client, ProfileOAuth2TokenServiceFactory::GetForProfile(profile),
+      AccountTrackerServiceFactory::GetForProfile(profile));
 #else
   service = new SigninManager(
       client, ProfileOAuth2TokenServiceFactory::GetForProfile(profile),
       AccountTrackerServiceFactory::GetForProfile(profile),
       GaiaCookieManagerServiceFactory::GetForProfile(profile),
-      SigninErrorControllerFactory::GetForProfile(profile),
       AccountConsistencyModeManager::GetMethodForProfile(profile));
 #endif
   AccountFetcherServiceFactory::GetForProfile(profile);

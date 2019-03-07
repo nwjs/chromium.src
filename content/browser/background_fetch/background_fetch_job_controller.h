@@ -46,8 +46,8 @@ class CONTENT_EXPORT BackgroundFetchJobController
       base::OnceCallback<void(const BackgroundFetchRegistrationId&,
                               blink::mojom::BackgroundFetchFailureReason,
                               ErrorCallback)>;
-  using ProgressCallback =
-      base::RepeatingCallback<void(const BackgroundFetchRegistration&)>;
+  using ProgressCallback = base::RepeatingCallback<void(
+      const blink::mojom::BackgroundFetchRegistration&)>;
   using RequestFinishedCallback =
       base::OnceCallback<void(scoped_refptr<BackgroundFetchRequestInfo>)>;
 
@@ -55,9 +55,11 @@ class CONTENT_EXPORT BackgroundFetchJobController
       BackgroundFetchDataManager* data_manager,
       BackgroundFetchDelegateProxy* delegate_proxy,
       const BackgroundFetchRegistrationId& registration_id,
-      const BackgroundFetchOptions& options,
+      blink::mojom::BackgroundFetchOptionsPtr options,
       const SkBitmap& icon,
       uint64_t bytes_downloaded,
+      uint64_t bytes_uploaded,
+      uint64_t upload_total,
       ProgressCallback progress_callback,
       FinishedCallback finished_callback);
   ~BackgroundFetchJobController() override;
@@ -72,24 +74,14 @@ class CONTENT_EXPORT BackgroundFetchJobController
           active_fetch_requests,
       bool start_paused);
 
-  // Gets the number of bytes downloaded for jobs that are currently running.
+  // Gets the number of bytes downloaded/uploaded for jobs that are currently
+  // running.
   uint64_t GetInProgressDownloadedBytes();
+  uint64_t GetInProgressUploadedBytes();
 
-  // Returns a unique_ptr to a BackgroundFetchRegistration object
+  // Returns a blink::mojom::BackgroundFetchRegistrationPtr object
   // created with member fields.
-  std::unique_ptr<BackgroundFetchRegistration> NewRegistration() const;
-
-  // Returns the options with which this job is fetching data.
-  const BackgroundFetchOptions& options() const { return options_; }
-
-  // Returns total downloaded bytes.
-  int downloaded() const { return complete_requests_downloaded_bytes_cache_; }
-
-  // Returns total size of downloads, as indicated by the developer.
-  int download_total() const { return total_downloads_size_; }
-
-  // Returns the number of requests that comprise the whole job.
-  int total_downloads() const { return total_downloads_; }
+  blink::mojom::BackgroundFetchRegistrationPtr NewRegistration() const;
 
   const BackgroundFetchRegistrationId& registration_id() const {
     return registration_id_;
@@ -104,13 +96,14 @@ class CONTENT_EXPORT BackgroundFetchJobController
       const scoped_refptr<BackgroundFetchRequestInfo>& request) override;
   void DidUpdateRequest(
       const scoped_refptr<BackgroundFetchRequestInfo>& request,
+      uint64_t bytes_uploaded,
       uint64_t bytes_downloaded) override;
   void DidCompleteRequest(
       const scoped_refptr<BackgroundFetchRequestInfo>& request) override;
   void AbortFromDelegate(
       blink::mojom::BackgroundFetchFailureReason failure_reason) override;
   void GetUploadData(
-      blink::mojom::FetchAPIRequestPtr request,
+      const scoped_refptr<BackgroundFetchRequestInfo>& request,
       BackgroundFetchDelegate::GetUploadDataCallback callback) override;
 
   // Aborts the fetch. |callback| will run with the result of marking the
@@ -142,7 +135,7 @@ class CONTENT_EXPORT BackgroundFetchJobController
 
   void DidGetUploadData(BackgroundFetchDelegate::GetUploadDataCallback callback,
                         blink::mojom::BackgroundFetchError error,
-                        std::vector<BackgroundFetchSettledFetch> fetches);
+                        blink::mojom::SerializedBlobPtr blob);
 
   // Manager for interacting with the DB. It is owned by the
   // BackgroundFetchContext.
@@ -156,13 +149,14 @@ class CONTENT_EXPORT BackgroundFetchJobController
   BackgroundFetchRegistrationId registration_id_;
 
   // Options for the represented background fetch registration.
-  BackgroundFetchOptions options_;
+  blink::mojom::BackgroundFetchOptionsPtr options_;
 
   // Icon for the represented background fetch registration.
   SkBitmap icon_;
 
-  // Number of bytes downloaded for the active request.
-  uint64_t active_request_downloaded_bytes_ = 0;
+  // Number of bytes downloaded/uploaded for the active request.
+  uint64_t active_request_downloaded_bytes_ = 0u;
+  uint64_t active_request_uploaded_bytes_ = 0u;
 
   // Finished callback to invoke when the active request has finished.
   RequestFinishedCallback active_request_finished_callback_;
@@ -171,8 +165,11 @@ class CONTENT_EXPORT BackgroundFetchJobController
   // delivering progress events without having to read from the database.
   uint64_t complete_requests_downloaded_bytes_cache_;
 
-  // Total downloads size, as indicated by the developer.
-  int total_downloads_size_ = 0;
+  // Overall number of bytes that have been uploaded.
+  uint64_t complete_requests_uploaded_bytes_cache_;
+
+  // Total number of bytes to upload.
+  uint64_t upload_total_;
 
   // Callback run each time download progress updates.
   ProgressCallback progress_callback_;

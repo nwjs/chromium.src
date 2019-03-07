@@ -13,7 +13,6 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "base/time/clock.h"
 #include "components/offline_pages/core/background/request_queue.h"
 #include "components/offline_pages/core/background/save_page_request.h"
 #include "components/offline_pages/core/offline_clock.h"
@@ -58,6 +57,8 @@ SavePageRequest GetTestRequest() {
   request.set_request_origin("http://www.origin.com");
   // Note: pending_state is not stored.
   request.set_original_url(kUrl2);
+  request.set_auto_fetch_notification_state(
+      SavePageRequest::AutoFetchNotificationState::kShown);
   return request;
 }
 
@@ -202,6 +203,56 @@ void BuildTestStoreWithSchemaFromM61(const base::FilePath& file) {
       connection.DoesColumnExist(REQUEST_QUEUE_TABLE_NAME, "fail_state"));
 }
 
+void BuildTestStoreWithSchemaFromM72(const base::FilePath& file) {
+  sql::Database connection;
+  ASSERT_TRUE(
+      connection.Open(file.Append(FILE_PATH_LITERAL("RequestQueue.db"))));
+  ASSERT_TRUE(connection.is_open());
+  ASSERT_TRUE(connection.BeginTransaction());
+  ASSERT_TRUE(
+      connection.Execute("CREATE TABLE " REQUEST_QUEUE_TABLE_NAME
+                         " (request_id INTEGER PRIMARY KEY NOT NULL,"
+                         " creation_time INTEGER NOT NULL,"
+                         " activation_time INTEGER NOT NULL DEFAULT 0,"
+                         " last_attempt_time INTEGER NOT NULL DEFAULT 0,"
+                         " started_attempt_count INTEGER NOT NULL,"
+                         " completed_attempt_count INTEGER NOT NULL,"
+                         " state INTEGER NOT NULL DEFAULT 0,"
+                         " url VARCHAR NOT NULL,"
+                         " client_namespace VARCHAR NOT NULL,"
+                         " client_id VARCHAR NOT NULL,"
+                         " original_url VARCHAR NOT NULL DEFAULT '',"
+                         " request_origin VARCHAR NOT NULL DEFAULT '',"
+                         " fail_state INTEGER NOT NULL DEFAULT 0"
+                         ")"));
+
+  ASSERT_TRUE(connection.CommitTransaction());
+  sql::Statement statement(connection.GetUniqueStatement(
+      "INSERT OR IGNORE INTO " REQUEST_QUEUE_TABLE_NAME
+      " (request_id, creation_time, activation_time,"
+      " last_attempt_time, started_attempt_count, completed_attempt_count,"
+      " state, url, client_namespace, client_id, original_url, request_origin, "
+      " fail_state)"
+      " VALUES "
+      " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"));
+
+  statement.BindInt64(0, kRequestId);
+  statement.BindInt64(1, 0);
+  statement.BindInt64(2, 0);
+  statement.BindInt64(3, 0);
+  statement.BindInt64(4, 0);
+  statement.BindInt64(5, 0);
+  statement.BindInt64(6, 0);
+  statement.BindString(7, kUrl.spec());
+  statement.BindString(8, kClientId.name_space);
+  statement.BindString(9, kClientId.id);
+  statement.BindString(10, kUrl2.spec());
+  statement.BindString(11, kRequestOrigin);
+  statement.BindInt64(12, 1);
+  ASSERT_TRUE(statement.Run());
+  ASSERT_TRUE(connection.DoesTableExist(REQUEST_QUEUE_TABLE_NAME));
+}
+
 // Class that serves as a base for testing different implementations of the
 // |RequestQueueStore|. Specific implementations extend the templatized version
 // of this class and provide appropriate store factory.
@@ -328,10 +379,51 @@ class RequestQueueStoreTest : public RequestQueueStoreTestBase {
       BuildTestStoreWithSchemaFromM58(temp_directory_.GetPath());
     } else if (version == 61) {
       BuildTestStoreWithSchemaFromM61(temp_directory_.GetPath());
+    } else if (version == 72) {
+      BuildTestStoreWithSchemaFromM72(temp_directory_.GetPath());
+    } else {
+      LOG(ERROR) << "Version " << version << " not implemented";
+      return nullptr;
     }
 
     return std::make_unique<RequestQueueStore>(
         base::ThreadTaskRunnerHandle::Get(), temp_directory_.GetPath());
+  }
+
+  // Performs checks on the database to verify it works after upgrading.
+  void PostUpgradeChecks(RequestQueueStore* store) {
+    // First, remove all requests.
+    {
+      store->GetRequests(base::BindOnce(
+          &RequestQueueStoreTestBase::GetRequestsDone, base::Unretained(this)));
+      PumpLoop();
+      ASSERT_EQ(LastResult::RESULT_TRUE, last_result());
+
+      std::vector<int64_t> request_ids;
+      for (const std::unique_ptr<SavePageRequest>& request : last_requests()) {
+        request_ids.push_back(request->request_id());
+      }
+
+      store->RemoveRequests(
+          request_ids,
+          base::BindOnce(&RequestQueueStoreTestBase::UpdateRequestDone,
+                         base::Unretained(this)));
+      PumpLoop();
+    }
+
+    // Verify a request can be added and retrieved.
+    SavePageRequest request(kRequestId, kUrl, kClientId, OfflineTimeNow(),
+                            kUserRequested);
+    store->AddRequest(request,
+                      base::BindOnce(&RequestQueueStoreTestBase::AddRequestDone,
+                                     base::Unretained(this)));
+    store->GetRequests(base::BindOnce(
+        &RequestQueueStoreTestBase::GetRequestsDone, base::Unretained(this)));
+    PumpLoop();
+    ASSERT_EQ(ItemActionStatus::SUCCESS, last_add_status());
+    ASSERT_EQ(LastResult::RESULT_TRUE, last_result());
+    ASSERT_EQ(1ul, last_requests().size());
+    EXPECT_EQ(request, *this->last_requests()[0]);
   }
 
  protected:
@@ -343,9 +435,6 @@ class RequestQueueStoreTest : public RequestQueueStoreTestBase {
 
 TEST_F(RequestQueueStoreTest, UpgradeFromVersion57Store) {
   std::unique_ptr<RequestQueueStore> store = BuildStoreWithOldSchema(57);
-  // In-memory store does not support upgrading.
-  if (!store)
-    return;
   this->InitializeStore(store.get());
 
   store->GetRequests(base::BindOnce(&RequestQueueStoreTestBase::GetRequestsDone,
@@ -356,13 +445,12 @@ TEST_F(RequestQueueStoreTest, UpgradeFromVersion57Store) {
   EXPECT_EQ(kRequestId, this->last_requests()[0]->request_id());
   EXPECT_EQ(kUrl, this->last_requests()[0]->url());
   EXPECT_EQ(GURL(), this->last_requests()[0]->original_url());
+
+  PostUpgradeChecks(store.get());
 }
 
 TEST_F(RequestQueueStoreTest, UpgradeFromVersion58Store) {
   std::unique_ptr<RequestQueueStore> store(BuildStoreWithOldSchema(58));
-  // In-memory store does not support upgrading.
-  if (!store)
-    return;
   this->InitializeStore(store.get());
 
   store->GetRequests(base::BindOnce(&RequestQueueStoreTestBase::GetRequestsDone,
@@ -374,13 +462,12 @@ TEST_F(RequestQueueStoreTest, UpgradeFromVersion58Store) {
   EXPECT_EQ(kUrl, this->last_requests()[0]->url());
   EXPECT_EQ(kUrl2, this->last_requests()[0]->original_url());
   EXPECT_EQ("", this->last_requests()[0]->request_origin());
+
+  PostUpgradeChecks(store.get());
 }
 
 TEST_F(RequestQueueStoreTest, UpgradeFromVersion61Store) {
   std::unique_ptr<RequestQueueStore> store(BuildStoreWithOldSchema(61));
-  // In-memory store does not support upgrading.
-  if (!store)
-    return;
   this->InitializeStore(store.get());
 
   store->GetRequests(base::BindOnce(&RequestQueueStoreTestBase::GetRequestsDone,
@@ -393,6 +480,29 @@ TEST_F(RequestQueueStoreTest, UpgradeFromVersion61Store) {
   EXPECT_EQ(kUrl2, this->last_requests()[0]->original_url());
   EXPECT_EQ(kRequestOrigin, this->last_requests()[0]->request_origin());
   EXPECT_EQ(0, static_cast<int>(this->last_requests()[0]->fail_state()));
+
+  PostUpgradeChecks(store.get());
+}
+
+TEST_F(RequestQueueStoreTest, UpgradeFromVersion72Store) {
+  std::unique_ptr<RequestQueueStore> store(BuildStoreWithOldSchema(72));
+  this->InitializeStore(store.get());
+
+  store->GetRequests(base::BindOnce(&RequestQueueStoreTestBase::GetRequestsDone,
+                                    base::Unretained(this)));
+  this->PumpLoop();
+  ASSERT_EQ(LastResult::RESULT_TRUE, this->last_result());
+  const std::vector<std::unique_ptr<SavePageRequest>>& requests =
+      this->last_requests();
+  ASSERT_EQ(1u, requests.size());
+  EXPECT_EQ(kRequestId, requests[0]->request_id());
+  EXPECT_EQ(kUrl, requests[0]->url());
+  EXPECT_EQ(kUrl2, requests[0]->original_url());
+  EXPECT_EQ(kRequestOrigin, requests[0]->request_origin());
+  EXPECT_EQ(1, static_cast<int>(requests[0]->fail_state()));
+  EXPECT_EQ(0, static_cast<int>(requests[0]->auto_fetch_notification_state()));
+
+  PostUpgradeChecks(store.get());
 }
 
 TEST_F(RequestQueueStoreTest, GetRequestsEmpty) {
@@ -411,7 +521,7 @@ TEST_F(RequestQueueStoreTest, GetRequestsByIds) {
   std::unique_ptr<RequestQueueStore> store(this->BuildStore());
   this->InitializeStore(store.get());
 
-  base::Time creation_time = OfflineClock()->Now();
+  base::Time creation_time = OfflineTimeNow();
   SavePageRequest request1(kRequestId, kUrl, kClientId, creation_time,
                            kUserRequested);
   store->AddRequest(request1,
@@ -472,7 +582,7 @@ TEST_F(RequestQueueStoreTest, AddRequest) {
   std::unique_ptr<RequestQueueStore> store(this->BuildStore());
   this->InitializeStore(store.get());
 
-  base::Time creation_time = OfflineClock()->Now();
+  base::Time creation_time = OfflineTimeNow();
   SavePageRequest request(kRequestId, kUrl, kClientId, creation_time,
                           kUserRequested);
   request.set_original_url(kUrl2);
@@ -534,7 +644,7 @@ TEST_F(RequestQueueStoreTest, UpdateRequest) {
   std::unique_ptr<RequestQueueStore> store(this->BuildStore());
   this->InitializeStore(store.get());
 
-  base::Time creation_time = OfflineClock()->Now();
+  base::Time creation_time = OfflineTimeNow();
   SavePageRequest original_request(kRequestId, kUrl, kClientId, creation_time,
                                    kUserRequested);
   store->AddRequest(original_request,
@@ -590,7 +700,7 @@ TEST_F(RequestQueueStoreTest, RemoveRequests) {
   std::unique_ptr<RequestQueueStore> store(this->BuildStore());
   this->InitializeStore(store.get());
 
-  base::Time creation_time = OfflineClock()->Now();
+  base::Time creation_time = OfflineTimeNow();
   SavePageRequest request1(kRequestId, kUrl, kClientId, creation_time,
                            kUserRequested);
   store->AddRequest(request1,
@@ -654,7 +764,7 @@ TEST_F(RequestQueueStoreTest, ResetStore) {
   std::unique_ptr<RequestQueueStore> store(this->BuildStore());
   this->InitializeStore(store.get());
 
-  base::Time creation_time = OfflineClock()->Now();
+  base::Time creation_time = OfflineTimeNow();
   SavePageRequest original_request(kRequestId, kUrl, kClientId, creation_time,
                                    kUserRequested);
   store->AddRequest(original_request,
@@ -684,7 +794,7 @@ TEST_F(RequestQueueStoreTest, SaveCloseReopenRead) {
   std::unique_ptr<RequestQueueStore> store(BuildStore());
   this->InitializeStore(store.get());
 
-  base::Time creation_time = OfflineClock()->Now();
+  base::Time creation_time = OfflineTimeNow();
   SavePageRequest original_request(kRequestId, kUrl, kClientId, creation_time,
                                    kUserRequested);
   store->AddRequest(original_request,

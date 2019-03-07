@@ -26,10 +26,14 @@ const ContentSettingProvider = {
 let IsValid;
 
 /**
- * Stores origin information.
+ * Stores origin information. The |hasPermissionSettings| will be set to true
+ * when this origin has permissions or when there is a pattern permission
+ * affecting this origin.
  * @typedef {{origin: string,
  *            engagement: number,
- *            usage: number}}
+ *            usage: number,
+              numCookies: number,
+              hasPermissionSettings: boolean}}
  */
 let OriginInfo;
 
@@ -70,6 +74,26 @@ let RawSiteException;
  *            showAndroidSmsNote: (boolean|undefined)}}
  */
 let SiteException;
+
+/**
+ * The chooser exception information passed from the C++ handler.
+ * See also: ChooserException.
+ * @typedef {{chooserType: !settings.ChooserType,
+ *            displayName: string,
+ *            object: Object,
+ *            sites: Array<!RawSiteException>}}
+ */
+let RawChooserException;
+
+/**
+ * The chooser exception after it has been converted/filtered for UI use.
+ * See also: RawChooserException.
+ * @typedef {{chooserType: !settings.ChooserType,
+ *            displayName: string,
+ *            object: Object,
+ *            sites: Array<!SiteException>}}
+ */
+let ChooserException;
 
 /**
  * @typedef {{setting: !settings.ContentSetting,
@@ -142,6 +166,14 @@ cr.define('settings', function() {
     getAllSites(contentTypes) {}
 
     /**
+     * Gets the chooser exceptions for a particular chooser type.
+     * @param {settings.ChooserType} chooserType The chooser type to grab
+     *     exceptions from.
+     * @return {!Promise<!Array<!RawChooserException>>}
+     */
+    getChooserExceptionList(chooserType) {}
+
+    /**
      * Converts a given number of bytes into a human-readable format, with data
      * units.
      * @param {number} numBytes The number of bytes to convert.
@@ -200,6 +232,17 @@ cr.define('settings', function() {
      */
     resetCategoryPermissionForPattern(
         primaryPattern, secondaryPattern, contentType, incognito) {}
+
+    /**
+     * Removes a particular chooser object permission by origin and embedding
+     * origin.
+     * @param {settings.ChooserType} chooserType The chooser exception type
+     * @param {string} origin The origin to look up the permission for.
+     * @param {string} embeddingOrigin the embedding origin to look up.
+     * @param {!Object} exception The exception to revoke permission for.
+     */
+    resetChooserExceptionForSite(
+        chooserType, origin, embeddingOrigin, exception) {}
 
     /**
      * Sets the category permission for a given origin (expressed as primary and
@@ -334,6 +377,12 @@ cr.define('settings', function() {
      * onBlockAutoplayStatusChanged.
      */
     fetchBlockAutoplayStatus() {}
+
+    /**
+     * Clears all the web storage data and cookies for a given etld+1.
+     * @param {string} etldPlus1 The etld+1 to clear data from.
+     */
+    clearEtldPlus1DataAndCookies(etldPlus1) {}
   }
 
   /**
@@ -353,6 +402,11 @@ cr.define('settings', function() {
     /** @override */
     getAllSites(contentTypes) {
       return cr.sendWithPromise('getAllSites', contentTypes);
+    }
+
+    /** @override */
+    getChooserExceptionList(chooserType) {
+      return cr.sendWithPromise('getChooserExceptionList', chooserType);
     }
 
     /** @override */
@@ -387,6 +441,14 @@ cr.define('settings', function() {
       chrome.send(
           'resetCategoryPermissionForPattern',
           [primaryPattern, secondaryPattern, contentType, incognito]);
+    }
+
+    /** @override */
+    resetChooserExceptionForSite(
+        chooserType, origin, embeddingOrigin, exception) {
+      chrome.send(
+          'resetChooserExceptionForSite',
+          [chooserType, origin, embeddingOrigin, exception]);
     }
 
     /** @override */
@@ -480,6 +542,11 @@ cr.define('settings', function() {
     /** @override */
     fetchBlockAutoplayStatus() {
       chrome.send('fetchBlockAutoplayStatus');
+    }
+
+    /** @override */
+    clearEtldPlus1DataAndCookies(etldPlus1) {
+      chrome.send('clearEtldPlus1DataAndCookies', [etldPlus1]);
     }
   }
 

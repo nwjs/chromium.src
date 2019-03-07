@@ -152,20 +152,17 @@ void ActiveTabPermissionGranter::GrantIfRequested(const Extension* extension) {
 
   if (!new_apis.empty() || !new_hosts.is_empty()) {
     granted_extensions_.Insert(extension);
-    PermissionSet new_permissions(new_apis, ManifestPermissionSet(), new_hosts,
-                                  new_hosts);
+    PermissionSet new_permissions(std::move(new_apis), ManifestPermissionSet(),
+                                  new_hosts, new_hosts);
     permissions_data->UpdateTabSpecificPermissions(tab_id_, new_permissions);
-    const content::NavigationEntry* navigation_entry =
+    content::NavigationEntry* navigation_entry =
         web_contents()->GetController().GetVisibleEntry();
     if (navigation_entry) {
       // We update all extension render views with the new tab permissions, and
       // also the tab itself.
       CreateMessageFunction update_message =
-          base::Bind(&CreateUpdateMessage,
-                     navigation_entry->GetURL(),
-                     extension->id(),
-                     new_hosts,
-                     tab_id_);
+          base::Bind(&CreateUpdateMessage, navigation_entry->GetURL(),
+                     extension->id(), new_hosts.Clone(), tab_id_);
       SendMessageToProcesses(
           ProcessManager::Get(web_contents()->GetBrowserContext())
               ->GetRenderFrameHostsForExtension(extension->id()),
@@ -198,7 +195,7 @@ void ActiveTabPermissionGranter::DidFinishNavigation(
   // Only clear the granted permissions for cross-origin navigations.
   // TODO(devlin): We likely shouldn't be using the visible entry. Instead,
   // we should use WebContents::GetLastCommittedURL().
-  const content::NavigationEntry* navigation_entry =
+  content::NavigationEntry* navigation_entry =
       web_contents()->GetController().GetVisibleEntry();
   if (navigation_entry && navigation_entry->GetURL().GetOrigin() ==
                               navigation_handle->GetPreviousURL().GetOrigin()) {

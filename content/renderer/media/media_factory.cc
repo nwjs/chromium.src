@@ -36,6 +36,7 @@
 #include "media/blink/webmediaplayer_impl.h"
 #include "media/filters/context_3d.h"
 #include "media/media_buildflags.h"
+#include "media/renderers/decrypting_renderer_factory.h"
 #include "media/renderers/default_decoder_factory.h"
 #include "media/renderers/default_renderer_factory.h"
 #include "media/video/gpu_video_accelerator_factories.h"
@@ -143,8 +144,8 @@ MediaFactory::GetVideoSurfaceLayerMode() {
   // See https://crbug.com/838128
   content::RenderThreadImpl* render_thread =
       content::RenderThreadImpl::current();
-  if (render_thread && render_thread->layout_test_mode() &&
-      !render_thread->LayoutTestModeUsesDisplayCompositorPixelDump()) {
+  if (render_thread && render_thread->web_test_mode() &&
+      !render_thread->WebTestModeUsesDisplayCompositorPixelDump()) {
     return blink::WebMediaPlayer::SurfaceLayerMode::kNever;
   }
 
@@ -166,7 +167,20 @@ MediaFactory::MediaFactory(
     : render_frame_(render_frame),
       request_routing_token_cb_(std::move(request_routing_token_cb)) {}
 
-MediaFactory::~MediaFactory() {}
+MediaFactory::~MediaFactory() {
+  // Release the DecoderFactory to the media thread since it may still be in use
+  // there due to pending pipeline Stop() calls. Once each Stop() completes, no
+  // new tasks using the DecoderFactory will execute, so we don't need to worry
+  // about additional posted tasks from Stop().
+  if (decoder_factory_) {
+    // DeleteSoon() shouldn't ever fail, we should always have a RenderThread at
+    // this time and subsequently a media thread. To fail, the media thread must
+    // be dead/dying (which only happens at ~RenderThreadImpl), in which case
+    // the process is about to die anyways.
+    RenderThreadImpl::current()->GetMediaThreadTaskRunner()->DeleteSoon(
+        FROM_HERE, std::move(decoder_factory_));
+  }
+}
 
 void MediaFactory::SetupMojo() {
   // Only do setup once.
@@ -369,7 +383,13 @@ blink::WebMediaPlayer* MediaFactory::CreateMediaPlayer(
           base::BindOnce(&blink::WebSurfaceLayerBridge::Create,
                          layer_tree_view),
           RenderThreadImpl::current()->SharedMainThreadContextProvider(),
-          GetVideoSurfaceLayerMode()));
+          GetVideoSurfaceLayerMode(),
+          render_frame_->GetRenderFrameMediaPlaybackOptions()
+              .is_background_suspend_enabled,
+          render_frame_->GetRenderFrameMediaPlaybackOptions()
+              .is_background_video_playback_enabled,
+          render_frame_->GetRenderFrameMediaPlaybackOptions()
+              .is_background_video_track_optimization_supported));
 
   std::unique_ptr<media::VideoFrameCompositor> vfc =
       std::make_unique<media::VideoFrameCompositor>(
@@ -478,13 +498,20 @@ MediaFactory::CreateRendererFactorySelector(
   use_mojo_renderer_factory = true;
 #endif  // BUILDFLAG(ENABLE_RUNTIME_MEDIA_RENDERER_SELECTION)
   if (use_mojo_renderer_factory) {
+    auto mojo_renderer_factory = std::make_unique<media::MojoRendererFactory>(
+        media::mojom::HostedRendererType::kDefault,
+        base::Bind(&RenderThreadImpl::GetGpuFactories,
+                   base::Unretained(render_thread)),
+        GetMediaInterfaceFactory());
+
+    // The "default" MojoRendererFactory can be wrapped by a
+    // DecryptingRendererFactory without changing any behavior.
+    // TODO(tguilbert/xhwang): Add "FactoryType::DECRYPTING" if ever we need to
+    // distinguish between a "pure" and "decrypting" MojoRenderer.
     factory_selector->AddFactory(
         media::RendererFactorySelector::FactoryType::MOJO,
-        std::make_unique<media::MojoRendererFactory>(
-            media::mojom::HostedRendererType::kDefault,
-            base::Bind(&RenderThreadImpl::GetGpuFactories,
-                       base::Unretained(render_thread)),
-            GetMediaInterfaceFactory()));
+        std::make_unique<media::DecryptingRendererFactory>(
+            media_log, std::move(mojo_renderer_factory)));
 
     factory_selector->SetBaseFactoryType(
         media::RendererFactorySelector::FactoryType::MOJO);

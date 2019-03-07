@@ -11,6 +11,7 @@ import static android.support.test.espresso.assertion.ViewAssertions.doesNotExis
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
+import static android.support.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.instanceOf;
@@ -33,6 +34,7 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.chrome.R;
@@ -67,8 +69,10 @@ import java.util.List;
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
 @Features.EnableFeatures(ChromeFeatureList.INTEREST_FEED_CONTENT_SUGGESTIONS)
 public class FeedNewTabPageTest {
-    private static final int SIGNIN_PROMO_POSITION = 1;
-    private static final int ARTICLE_SECTION_HEADER_POSITION = 2;
+    private static final String TEST_FEED =
+            UrlUtils.getIsolatedTestFilePath("/chrome/test/data/android/feed/feed_large.gcl.bin");
+    private static final int ARTICLE_SECTION_HEADER_POSITION = 1;
+    private static final int SIGNIN_PROMO_POSITION = 2;
 
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
@@ -82,9 +86,6 @@ public class FeedNewTabPageTest {
     private FakeMostVisitedSites mMostVisitedSites;
     private EmbeddedTestServer mTestServer;
     private List<SiteSuggestion> mSiteSuggestions;
-
-    private static final String TEST_FEED =
-            UrlUtils.getIsolatedTestFilePath("/chrome/test/data/android/feed/feed_large.gcl.bin");
 
     @Before
     public void setUp() throws Exception {
@@ -125,6 +126,14 @@ public class FeedNewTabPageTest {
                                                             .getSigninObserverForTesting();
         RecyclerView recyclerView = (RecyclerView) mNtp.getStream().getView();
 
+        // Prioritize RecyclerView's focusability so that the sign-in promo button and the action
+        // button don't get focused initially to avoid flakiness.
+        int descendantFocusability = recyclerView.getDescendantFocusability();
+        ThreadUtils.runOnUiThreadBlocking((() -> {
+            recyclerView.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+            recyclerView.requestFocus();
+        }));
+
         // Simulate sign in, scroll to the position where sign-in promo could be placed, and verify
         // that sign-in promo is not shown.
         ThreadUtils.runOnUiThreadBlocking(signinObserver::onSignedIn);
@@ -141,17 +150,17 @@ public class FeedNewTabPageTest {
                 .perform(RecyclerViewActions.scrollToPosition(SIGNIN_PROMO_POSITION));
         onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
 
-        // Scroll to the article section header in case it is not visible.
-        onView(instanceOf(RecyclerView.class))
-                .perform(RecyclerViewActions.scrollToPosition(ARTICLE_SECTION_HEADER_POSITION));
-
         // Hide articles and verify that the sign-in promo is not shown.
-        onView(withId(R.id.header_title)).perform(click());
+        toggleHeader(recyclerView, false);
         onView(withId(R.id.signin_promo_view_container)).check(doesNotExist());
 
         // Show articles and verify that the sign-in promo is shown.
-        onView(withId(R.id.header_title)).perform(click());
+        toggleHeader(recyclerView, true);
         onView(withId(R.id.signin_promo_view_container)).check(matches(isDisplayed()));
+
+        // Reset states.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> recyclerView.setDescendantFocusability(descendantFocusability));
     }
 
     @Test
@@ -192,10 +201,10 @@ public class FeedNewTabPageTest {
     @Test
     @MediumTest
     @Feature({"FeedNewTabPage"})
+    @DisabledTest(message = "https://crbug.com/914068")
     public void testArticleSectionHeader() throws Exception {
-        // Disable the sign-in promo so the header is visible above the fold.
-        SignInPromo.setDisablePromoForTests(true);
-        final int expectedHeaderViewsCount = 2;
+        final int expectedCountWhenCollapsed = 2;
+        final int expectedCountWhenExpanded = 4; // 3 header views and the empty view.
 
         // Open a new tab.
         Tab tab1 = mActivityTestRule.loadUrlInNewTab(UrlConstants.NTP_URL);
@@ -205,15 +214,15 @@ public class FeedNewTabPageTest {
 
         // Check header is expanded.
         Assert.assertTrue(firstHeader.isExpandable() && firstHeader.isExpanded());
-        Assert.assertTrue(adapter1.getItemCount() > expectedHeaderViewsCount);
+        Assert.assertEquals(expectedCountWhenExpanded, adapter1.getItemCount());
         Assert.assertTrue(getPreferenceForArticleSectionHeader());
 
         // Toggle header on the current tab.
-        onView(withId(R.id.header_title)).perform(click());
+        toggleHeader((ViewGroup) ntp1.getStream().getView(), false);
 
         // Check header is collapsed.
         Assert.assertTrue(firstHeader.isExpandable() && !firstHeader.isExpanded());
-        Assert.assertEquals(expectedHeaderViewsCount, adapter1.getItemCount());
+        Assert.assertEquals(expectedCountWhenCollapsed, adapter1.getItemCount());
         Assert.assertFalse(getPreferenceForArticleSectionHeader());
 
         // Open a second new tab.
@@ -224,15 +233,15 @@ public class FeedNewTabPageTest {
 
         // Check header on the second tab is collapsed.
         Assert.assertTrue(secondHeader.isExpandable() && !secondHeader.isExpanded());
-        Assert.assertEquals(expectedHeaderViewsCount, adapter2.getItemCount());
+        Assert.assertEquals(expectedCountWhenCollapsed, adapter2.getItemCount());
         Assert.assertFalse(getPreferenceForArticleSectionHeader());
 
         // Toggle header on the second tab.
-        onView(withId(R.id.header_title)).perform(click());
+        toggleHeader((ViewGroup) ntp2.getStream().getView(), true);
 
         // Check header on the second tab is expanded.
         Assert.assertTrue(secondHeader.isExpandable() && secondHeader.isExpanded());
-        Assert.assertTrue(adapter2.getItemCount() > expectedHeaderViewsCount);
+        Assert.assertEquals(expectedCountWhenExpanded, adapter2.getItemCount());
         Assert.assertTrue(getPreferenceForArticleSectionHeader());
 
         // Go back to the first tab and wait for a stable recycler view.
@@ -240,11 +249,8 @@ public class FeedNewTabPageTest {
 
         // Check header on the first tab is expanded.
         Assert.assertTrue(firstHeader.isExpandable() && firstHeader.isExpanded());
-        Assert.assertTrue(adapter1.getItemCount() > expectedHeaderViewsCount);
+        Assert.assertEquals(expectedCountWhenExpanded, adapter1.getItemCount());
         Assert.assertTrue(getPreferenceForArticleSectionHeader());
-
-        // Reset state.
-        SignInPromo.setDisablePromoForTests(false);
     }
 
     @Test
@@ -302,6 +308,21 @@ public class FeedNewTabPageTest {
         // Reset state.
         ThreadUtils.runOnUiThreadBlocking(() -> PrefServiceBridge.getInstance().setBoolean(
                 Pref.NTP_ARTICLES_SECTION_ENABLED, pref));
+    }
+
+    /**
+     * Toggles the header and checks whether the header has the right status.
+     * @param rootView The {@link ViewGroup} that contains the header view.
+     * @param expanded Whether the header should be expanded.
+     */
+    private void toggleHeader(ViewGroup rootView, boolean expanded) {
+        onView(instanceOf(RecyclerView.class))
+                .perform(RecyclerViewActions.scrollToPosition(ARTICLE_SECTION_HEADER_POSITION),
+                        RecyclerViewActions.actionOnItemAtPosition(
+                                ARTICLE_SECTION_HEADER_POSITION, click()));
+        waitForView(rootView,
+                allOf(withId(R.id.header_status),
+                        withText(expanded ? R.string.hide : R.string.show)));
     }
 
     private boolean getPreferenceForArticleSectionHeader() throws Exception {

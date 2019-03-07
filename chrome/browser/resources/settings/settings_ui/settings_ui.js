@@ -23,7 +23,7 @@ Polymer({
   behaviors: [
     settings.RouteObserverBehavior,
     CrContainerShadowBehavior,
-    settings.FindShortcutBehavior,
+    FindShortcutBehavior,
   ],
 
   properties: {
@@ -55,9 +55,6 @@ Polymer({
 
     /** @private */
     showCrostini_: Boolean,
-
-    /** @private */
-    showMultidevice_: Boolean,
 
     /** @private */
     havePlayStoreApp_: Boolean,
@@ -141,9 +138,6 @@ Polymer({
         loadTimeData.getBoolean('androidAppsVisible');
     this.showCrostini_ = loadTimeData.valueExists('showCrostini') &&
         loadTimeData.getBoolean('showCrostini');
-    this.showMultidevice_ =
-        loadTimeData.valueExists('enableMultideviceSettings') &&
-        loadTimeData.getBoolean('enableMultideviceSettings');
     this.havePlayStoreApp_ = loadTimeData.valueExists('havePlayStoreApp') &&
         loadTimeData.getBoolean('havePlayStoreApp');
 
@@ -171,7 +165,12 @@ Polymer({
     settings.setGlobalScrollTarget(this.$.container);
 
     const scrollToTop = top => new Promise(resolve => {
-      this.$.container.scrollTo({top, behavior: 'smooth'});
+      // When transitioning  back to main page from a subpage on ChromeOS, using
+      // 'smooth' scroll here results in the scroll changing to whatever is last
+      // value of |top|. This happens even after setting the scroll position the
+      // UI or programmatically.
+      const behavior = cr.isChromeOS ? 'auto' : 'smooth';
+      this.$.container.scrollTo({top: top, behavior: behavior});
       const onScroll = () => {
         this.debounce('scrollEnd', () => {
           this.$.container.removeEventListener('scroll', onScroll);
@@ -187,8 +186,6 @@ Polymer({
       scrollToTop(e.detail.bottom - this.$.container.clientHeight)
           .then(e.detail.callback);
     });
-
-    this.becomeActiveFindShortcutListener();
   },
 
   /** @override */
@@ -199,8 +196,9 @@ Polymer({
   /** @param {!settings.Route} route */
   currentRouteChanged: function(route) {
     const urlSearchQuery = settings.getQueryParameters().get('search') || '';
-    if (urlSearchQuery == this.lastSearchQuery_)
+    if (urlSearchQuery == this.lastSearchQuery_) {
       return;
+    }
 
     this.lastSearchQuery_ = urlSearchQuery;
 
@@ -219,21 +217,26 @@ Polymer({
     this.$.main.searchContents(urlSearchQuery);
   },
 
-  // Override settings.FindShortcutBehavior methods.
+  // Override FindShortcutBehavior methods.
   handleFindShortcut: function(modalContextOpen) {
-    if (modalContextOpen)
+    if (modalContextOpen) {
       return false;
+    }
     this.$$('cr-toolbar').getSearchField().showAndFocus();
     return true;
   },
 
+  // Override FindShortcutBehavior methods.
+  searchInputHasFocus: function() {
+    return this.$$('cr-toolbar').getSearchField().isSearchFocused();
+  },
+
   /**
-   * @param {!CustomEvent} e
+   * @param {!CustomEvent<string>} e
    * @private
    */
   onRefreshPref_: function(e) {
-    const prefName = /** @type {string} */ (e.detail);
-    return /** @type {SettingsPrefsElement} */ (this.$.prefs).refresh(prefName);
+    return /** @type {SettingsPrefsElement} */ (this.$.prefs).refresh(e.detail);
   },
 
   /**
@@ -247,8 +250,9 @@ Polymer({
     // after typing 'foo '.
     const query = e.detail.replace(/^\s+/, '');
     // Prevent duplicate history entries.
-    if (query == this.lastSearchQuery_)
+    if (query == this.lastSearchQuery_) {
       return;
+    }
 
     settings.navigateTo(
         settings.routes.BASIC,
@@ -280,16 +284,18 @@ Polymer({
    * @private
    */
   onMenuClose_: function() {
-    if (this.$.drawer.wasCanceled()) {
-      // Add tab index so that the container can be focused.
-      this.$.container.setAttribute('tabindex', '-1');
-      this.$.container.focus();
-
-      listenOnce(this.$.container, ['blur', 'pointerdown'], () => {
-        this.$.container.removeAttribute('tabindex');
-      });
-    } else {
-      this.$.main.focusSection();
+    if (!this.$.drawer.wasCanceled()) {
+      // If a navigation happened, MainPageBehavior#currentRouteChanged handles
+      // focusing the corresponding section.
+      return;
     }
+
+    // Add tab index so that the container can be focused.
+    this.$.container.setAttribute('tabindex', '-1');
+    this.$.container.focus();
+
+    listenOnce(this.$.container, ['blur', 'pointerdown'], () => {
+      this.$.container.removeAttribute('tabindex');
+    });
   },
 });

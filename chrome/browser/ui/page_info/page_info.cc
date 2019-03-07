@@ -14,16 +14,15 @@
 
 #include "base/command_line.h"
 #include "base/i18n/time_formatting.h"
-#include "base/macros.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/browsing_data/browsing_data_channel_id_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_file_system_helper.h"
@@ -832,7 +831,7 @@ void PageInfo::PresentSitePermissions() {
   ChosenObjectInfoList chosen_object_info_list;
 
   PageInfoUI::PermissionInfo permission_info;
-  for (size_t i = 0; i < arraysize(kPermissionType); ++i) {
+  for (size_t i = 0; i < base::size(kPermissionType); ++i) {
     permission_info.type = kPermissionType[i];
 
     content_settings::SettingInfo info;
@@ -896,7 +895,14 @@ void PageInfo::PresentSitePermissions() {
       continue;
 
     auto chosen_objects = context->GetGrantedObjects(origin, origin);
-    for (std::unique_ptr<base::DictionaryValue>& object : chosen_objects) {
+    for (std::unique_ptr<ChooserContextBase::Object>& object : chosen_objects) {
+      // Ignore policy allowed devices until the UI is able to display them
+      // properly.
+      // TODO(https://crbug.com/854329): Remove this condition when the UI is
+      // capable of displaying policy chooser objects.
+      if (object->source == content_settings::SETTING_SOURCE_POLICY)
+        continue;
+
       chosen_object_info_list.push_back(
           std::make_unique<PageInfoUI::ChosenObjectInfo>(ui_info,
                                                          std::move(object)));
@@ -972,7 +978,7 @@ void PageInfo::PresentSiteIdentity() {
 
 std::vector<ContentSettingsType> PageInfo::GetAllPermissionsForTesting() {
   std::vector<ContentSettingsType> permission_list;
-  for (size_t i = 0; i < arraysize(kPermissionType); ++i) {
+  for (size_t i = 0; i < base::size(kPermissionType); ++i) {
 #if !defined(OS_ANDROID)
     if (kPermissionType[i] == CONTENT_SETTINGS_TYPE_AUTOPLAY)
       continue;

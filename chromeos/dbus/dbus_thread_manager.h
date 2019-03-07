@@ -9,9 +9,9 @@
 #include <string>
 
 #include "base/callback.h"
+#include "base/component_export.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
-#include "chromeos/chromeos_export.h"
 
 namespace base {
 class Thread;
@@ -53,6 +53,7 @@ class ModemMessagingClient;
 class OobeConfigurationClient;
 class PermissionBrokerClient;
 class PowerManagerClient;
+class RuntimeProbeClient;
 class SeneschalClient;
 class SessionManagerClient;
 class ShillDeviceClient;
@@ -86,7 +87,7 @@ class VirtualFileProviderClient;
 // WeakPtrFactory when creating callbacks that run on UI thread. See
 // session_manager_client.cc for examples.
 //
-class CHROMEOS_EXPORT DBusThreadManager {
+class COMPONENT_EXPORT(CHROMEOS_DBUS) DBusThreadManager {
  public:
   // Processes for which to create and initialize the D-Bus clients.
   // TODO(jamescook): Move creation of clients into //ash and //chrome/browser.
@@ -161,6 +162,7 @@ class CHROMEOS_EXPORT DBusThreadManager {
   OobeConfigurationClient* GetOobeConfigurationClient();
   PermissionBrokerClient* GetPermissionBrokerClient();
   PowerManagerClient* GetPowerManagerClient();
+  RuntimeProbeClient* GetRuntimeProbeClient();
   SeneschalClient* GetSeneschalClient();
   SessionManagerClient* GetSessionManagerClient();
   ShillDeviceClient* GetShillDeviceClient();
@@ -204,7 +206,7 @@ class CHROMEOS_EXPORT DBusThreadManager {
 };
 
 // TODO(jamescook): Replace these with FooClient::InitializeForTesting().
-class CHROMEOS_EXPORT DBusThreadManagerSetter {
+class COMPONENT_EXPORT(CHROMEOS_DBUS) DBusThreadManagerSetter {
  public:
   ~DBusThreadManagerSetter();
 
@@ -224,6 +226,7 @@ class CHROMEOS_EXPORT DBusThreadManagerSetter {
       std::unique_ptr<PermissionBrokerClient> client);
   void SetPowerManagerClient(std::unique_ptr<PowerManagerClient> client);
   void SetSeneschalClient(std::unique_ptr<SeneschalClient> client);
+  void SetRuntimeProbeClient(std::unique_ptr<RuntimeProbeClient> client);
   void SetSessionManagerClient(std::unique_ptr<SessionManagerClient> client);
   void SetShillDeviceClient(std::unique_ptr<ShillDeviceClient> client);
   void SetShillIPConfigClient(std::unique_ptr<ShillIPConfigClient> client);

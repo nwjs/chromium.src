@@ -22,11 +22,24 @@ print_preview.DestinationType = {
 print_preview.DestinationOrigin = {
   LOCAL: 'local',
   COOKIES: 'cookies',
+  // <if expr="chromeos">
   DEVICE: 'device',
+  // </if>
   PRIVET: 'privet',
   EXTENSION: 'extension',
   CROS: 'chrome_os',
 };
+
+/**
+ * Cloud Print origins.
+ * @const {!Array<!print_preview.DestinationOrigin>}
+ */
+print_preview.CloudOrigins = [
+  print_preview.DestinationOrigin.COOKIES,
+  // <if expr="chromeos">
+  print_preview.DestinationOrigin.DEVICE
+  // </if>
+];
 
 /**
  * Enumeration of the connection statuses of printer destinations.
@@ -217,6 +230,28 @@ cr.define('print_preview', function() {
       extensionId: destination.extensionId || '',
       extensionName: destination.extensionName || '',
     };
+  }
+
+  /**
+   * @param {string} id Destination id.
+   * @param {!print_preview.DestinationOrigin} origin Destination origin.
+   * @param {string} account User account destination is registered for.
+   * @return {string} A key that maps to a destination with the selected |id|,
+   *     |origin|, and |account|.
+   */
+  function createDestinationKey(id, origin, account) {
+    return `${id}/${origin}/${account}`;
+  }
+
+  /**
+   * @param {!print_preview.RecentDestination} recentDestination
+   * @return {string} A key that maps to a destination with parameters matching
+   *     |recentDestination|.
+   */
+  function createRecentDestinationKey(recentDestination) {
+    return print_preview.createDestinationKey(
+        recentDestination.id, recentDestination.origin,
+        recentDestination.account);
   }
 
   class Destination {
@@ -548,8 +583,9 @@ cr.define('print_preview', function() {
      *     destination.
      */
     set capabilities(capabilities) {
-      if (capabilities)
+      if (capabilities) {
         this.capabilities_ = capabilities;
+      }
     }
 
     /**
@@ -606,12 +642,10 @@ cr.define('print_preview', function() {
 
     /** @return {boolean} Whether the destination is considered offline. */
     get isOffline() {
-      return arrayContains(
-          [
-            print_preview.DestinationConnectionStatus.OFFLINE,
-            print_preview.DestinationConnectionStatus.DORMANT
-          ],
-          this.connectionStatus_);
+      return [
+        print_preview.DestinationConnectionStatus.OFFLINE,
+        print_preview.DestinationConnectionStatus.DORMANT
+      ].includes(this.connectionStatus_);
     }
 
     /**
@@ -632,10 +666,12 @@ cr.define('print_preview', function() {
 
     /**
      * @return {string} Human readable status for a destination that is offline
-     *     or has a bad certificate. */
+     *     or has a bad certificate.
+     */
     get connectionStatusText() {
-      if (!this.isOfflineOrInvalid)
+      if (!this.isOfflineOrInvalid) {
         return '';
+      }
       const offlineDurationMs = Date.now() - this.lastAccessTime_;
       let statusMessageId;
       if (this.shouldShowInvalidCertificateError) {
@@ -666,7 +702,7 @@ cr.define('print_preview', function() {
         return 'print-preview:save-to-drive';
       }
       if (this.id_ == Destination.GooglePromotedId.SAVE_AS_PDF) {
-        return 'print-preview:insert-drive-file';
+        return 'cr:insert-drive-file';
       }
       if (this.isEnterprisePrinter) {
         return 'print-preview:business';
@@ -684,52 +720,6 @@ cr.define('print_preview', function() {
         return 'print-preview:print';
       }
       return 'print-preview:printer-shared';
-    }
-
-    /** @return {string} Relative URL of the destination's icon. */
-    get iconUrl() {
-      if (this.id_ == Destination.GooglePromotedId.DOCS) {
-        return Destination.IconUrl_.DOCS;
-      }
-      if (this.id_ == Destination.GooglePromotedId.SAVE_AS_PDF) {
-        return Destination.IconUrl_.PDF;
-      }
-      if (this.isEnterprisePrinter) {
-        return Destination.IconUrl_.ENTERPRISE;
-      }
-      if (this.isLocal) {
-        return Destination.IconUrl_.LOCAL_1X;
-      }
-      if (this.type_ == print_preview.DestinationType.MOBILE && this.isOwned_) {
-        return Destination.IconUrl_.MOBILE;
-      }
-      if (this.type_ == print_preview.DestinationType.MOBILE) {
-        return Destination.IconUrl_.MOBILE_SHARED;
-      }
-      if (this.isOwned_) {
-        return Destination.IconUrl_.CLOUD_1X;
-      }
-      return Destination.IconUrl_.CLOUD_SHARED_1X;
-    }
-
-    /**
-     * @return {string} The srcset="" attribute of a destination. Generally used
-     *     for a 2x (e.g. HiDPI) icon. Can be empty or of the format '<url> 2x'.
-     */
-    get srcSet() {
-      let srcSetIcon = '';
-      let iconUrl = this.iconUrl;
-      if (iconUrl == Destination.IconUrl_.LOCAL_1X) {
-        srcSetIcon = Destination.IconUrl_.LOCAL_2X;
-      } else if (iconUrl == Destination.IconUrl_.CLOUD_1X) {
-        srcSetIcon = Destination.IconUrl_.CLOUD_2X;
-      } else if (iconUrl == Destination.IconUrl_.CLOUD_SHARED_1X) {
-        srcSetIcon = Destination.IconUrl_.CLOUD_SHARED_2X;
-      }
-      if (srcSetIcon) {
-        srcSetIcon += ' 2x';
-      }
-      return srcSetIcon;
     }
 
     /**
@@ -821,8 +811,9 @@ cr.define('print_preview', function() {
      */
     get hasColorCapability() {
       const capability = this.colorCapability_();
-      if (!capability || !capability.option)
+      if (!capability || !capability.option) {
         return false;
+      }
       let hasColor = false;
       let hasMonochrome = false;
       capability.option.forEach(option => {
@@ -858,14 +849,16 @@ cr.define('print_preview', function() {
       const typesToLookFor =
           isColor ? this.COLOR_TYPES_ : this.MONOCHROME_TYPES_;
       const capability = this.colorCapability_();
-      if (!capability || !capability.option)
+      if (!capability || !capability.option) {
         return null;
+      }
       for (let i = 0; i < typesToLookFor.length; i++) {
         const matchingOptions = capability.option.filter(option => {
           return option.type == typesToLookFor[i];
         });
-        if (matchingOptions.length > 0)
+        if (matchingOptions.length > 0) {
           return matchingOptions[0];
+        }
       }
       return null;
     }
@@ -896,12 +889,18 @@ cr.define('print_preview', function() {
      */
     get defaultColorOption() {
       const capability = this.colorCapability_();
-      if (!capability || !capability.option)
+      if (!capability || !capability.option) {
         return null;
+      }
       const defaultOptions = capability.option.filter(option => {
         return option.is_default;
       });
       return defaultOptions.length != 0 ? defaultOptions[0] : null;
+    }
+
+    /** @return {string} A unique identifier for this destination. */
+    get key() {
+      return `${this.id_}/${this.origin_}/${this.account_}`;
     }
   }
 
@@ -922,28 +921,11 @@ cr.define('print_preview', function() {
     SAVE_AS_PDF: 'Save as PDF'
   };
 
-  /**
-   * Enumeration of relative icon URLs for various types of destinations.
-   * @enum {string}
-   * @private
-   */
-  Destination.IconUrl_ = {
-    CLOUD_1X: 'images/1x/printer.png',
-    CLOUD_2X: 'images/2x/printer.png',
-    CLOUD_SHARED_1X: 'images/1x/printer_shared.png',
-    CLOUD_SHARED_2X: 'images/2x/printer_shared.png',
-    LOCAL_1X: 'images/1x/printer.png',
-    LOCAL_2X: 'images/2x/printer.png',
-    MOBILE: 'images/mobile.png',
-    MOBILE_SHARED: 'images/mobile_shared.png',
-    PDF: 'images/pdf.png',
-    DOCS: 'images/google_doc.png',
-    ENTERPRISE: 'images/business.svg'
-  };
-
   // Export
   return {
     Destination: Destination,
     makeRecentDestination: makeRecentDestination,
+    createDestinationKey: createDestinationKey,
+    createRecentDestinationKey: createRecentDestinationKey,
   };
 });

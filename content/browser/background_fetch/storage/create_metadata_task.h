@@ -13,12 +13,10 @@
 #include "content/browser/background_fetch/storage/database_task.h"
 #include "content/browser/cache_storage/cache_storage_cache_handle.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
 namespace content {
-
-struct BackgroundFetchRegistration;
 
 namespace background_fetch {
 
@@ -28,12 +26,12 @@ class CreateMetadataTask : public DatabaseTask {
  public:
   using CreateMetadataCallback =
       base::OnceCallback<void(blink::mojom::BackgroundFetchError,
-                              const BackgroundFetchRegistration&)>;
+                              blink::mojom::BackgroundFetchRegistrationPtr)>;
 
   CreateMetadataTask(DatabaseTaskHost* host,
                      const BackgroundFetchRegistrationId& registration_id,
                      std::vector<blink::mojom::FetchAPIRequestPtr> requests,
-                     const BackgroundFetchOptions& options,
+                     blink::mojom::BackgroundFetchOptionsPtr options,
                      const SkBitmap& icon,
                      bool start_paused,
                      CreateMetadataCallback callback);
@@ -73,7 +71,7 @@ class CreateMetadataTask : public DatabaseTask {
 
   BackgroundFetchRegistrationId registration_id_;
   std::vector<blink::mojom::FetchAPIRequestPtr> requests_;
-  BackgroundFetchOptions options_;
+  blink::mojom::BackgroundFetchOptionsPtr options_;
   SkBitmap icon_;
   bool start_paused_;
   CreateMetadataCallback callback_;

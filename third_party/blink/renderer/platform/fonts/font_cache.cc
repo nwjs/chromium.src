@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/platform/fonts/font_global_context.h"
 #include "third_party/blink/renderer/platform/fonts/font_platform_data.h"
 #include "third_party/blink/renderer/platform/fonts/font_smoothing_mode.h"
+#include "third_party/blink/renderer/platform/fonts/font_unique_name_lookup.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_cache.h"
 #include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
 #include "third_party/blink/renderer/platform/fonts/text_rendering_mode.h"
@@ -117,7 +118,10 @@ FontPlatformData* FontCache::GetFontPlatformData(
 
   float size = font_description.EffectiveFontSize();
   unsigned rounded_size = size * FontCacheKey::PrecisionMultiplier();
-  FontCacheKey key = font_description.CacheKey(creation_params);
+  bool is_unique_match =
+      alternate_font_name == AlternateFontName::kLocalUniqueFace;
+  FontCacheKey key =
+      font_description.CacheKey(creation_params, is_unique_match);
 
   // Remove the font size from the cache key, and handle the font size
   // separately in the inner HashMap. So that different size of FontPlatformData
@@ -438,6 +442,20 @@ void FontCache::DumpShapeResultCache(
   dump->AddScalar("size", "bytes", shape_result_cache_size);
   memory_dump->AddSuballocation(dump->guid(),
                                 WTF::Partitions::kAllocatedObjectPoolName);
+}
+
+sk_sp<SkTypeface> FontCache::CreateTypefaceFromUniqueName(
+    const FontFaceCreationParams& creation_params,
+    CString& name) {
+  FontUniqueNameLookup* unique_name_lookup =
+      FontGlobalContext::Get()->GetFontUniqueNameLookup();
+  DCHECK(unique_name_lookup);
+  sk_sp<SkTypeface> uniquely_identified_font =
+      unique_name_lookup->MatchUniqueName(creation_params.Family());
+  if (uniquely_identified_font) {
+    return uniquely_identified_font;
+  }
+  return nullptr;
 }
 
 }  // namespace blink

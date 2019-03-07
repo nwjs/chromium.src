@@ -85,30 +85,32 @@ Polymer.RenderStatus.beforeNextRender = function(element, fn, args) {};
 
 /**
  * @see
+ * https://www.webcomponents.org/element/@polymer/iron-iconset-svg
+ * Polymer iconset of SVGs.
+ * @implements {Polymer.Iconset}
+ * @constructor
+ * TODO(rbpotter): Remove this once it is added to Closure Compiler itself.
+ */
+Polymer.IronIconsetSvg = function() {};
+
+/**
+ * Added to IronIconsetSvg in chromium.patch.
+ * @param {string} iconName Name of the icon to apply.
+ * @param {boolean} targetIsRTL Whether the target element is RTL.
+ * @return {Element} Returns an installable clone of the SVG element
+ *     matching `id`.
+ * TODO(rbpotter): Remove this once it is added to Closure Compiler itself.
+ */
+Polymer.IronIconsetSvg.prototype.createIcon = function(iconName, targetIsRTL) {};
+
+/**
+ * @see
  * https://github.com/tc39/proposal-bigint
  * This supports wrapping and operating on arbitrarily large integers.
  *
  * @param {number} value
  */
 let BigInt = function(value) {};
-
-/**
- * TODO(manukh): Remove this once it is added to Closure Compiler itself.
- * @see https://w3c.github.io/clipboard-apis/#async-clipboard-api
- * @interface
- */
-function Clipboard() {}
-
-/**
- * @return {!Promise<string>}
- */
-Clipboard.prototype.readText = function() {};
-
-/**
- * @param {string} text
- * @return {!Promise<void>}
- */
-Clipboard.prototype.writeText = function(text) {};
 
 /** @const {!Clipboard} */
 Navigator.prototype.clipboard;

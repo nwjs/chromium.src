@@ -60,7 +60,6 @@ static void SetRuntimeFeatureDefaultsForPlatform() {
   WebRuntimeFeatures::EnableAudioOutputDevices(false);
   // Android does not yet support SystemMonitor.
   WebRuntimeFeatures::EnableOnDeviceChange(false);
-  WebRuntimeFeatures::EnableMediaSession(true);
   WebRuntimeFeatures::EnableMediaControlsOverlayPlayButton(true);
   WebRuntimeFeatures::EnableRemotePlaybackBackend(true);
   WebRuntimeFeatures::EnablePictureInPictureAPI(false);
@@ -102,9 +101,9 @@ static void SetRuntimeFeatureDefaultsForPlatform() {
 
 void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
     const base::CommandLine& command_line) {
-  bool enableExperimentalWebPlatformFeatures = command_line.HasSwitch(
-      switches::kEnableExperimentalWebPlatformFeatures);
-  if (enableExperimentalWebPlatformFeatures)
+  bool enable_experimental_web_platform_features =
+      command_line.HasSwitch(switches::kEnableExperimentalWebPlatformFeatures);
+  if (enable_experimental_web_platform_features)
     WebRuntimeFeatures::EnableExperimentalFeatures(true);
 
   SetRuntimeFeatureDefaultsForPlatform();
@@ -177,6 +176,9 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
     WebRuntimeFeatures::EnableAutomationControlled(true);
   }
 
+  if (command_line.HasSwitch(switches::kEnableWebBluetoothScanning))
+    WebRuntimeFeatures::EnableWebBluetoothScanning(true);
+
 #if defined(OS_MACOSX)
   const bool enable_canvas_2d_image_chromium =
       command_line.HasSwitch(
@@ -216,7 +218,7 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
     WebRuntimeFeatures::EnablePrintBrowser(true);
 
   if (command_line.HasSwitch(switches::kEnableNetworkInformationDownlinkMax) ||
-      enableExperimentalWebPlatformFeatures) {
+      enable_experimental_web_platform_features) {
     WebRuntimeFeatures::EnableNetInfoDownlinkMax(true);
   }
 
@@ -254,7 +256,7 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
 
   WebRuntimeFeatures::EnableSecMetadata(
       base::FeatureList::IsEnabled(features::kSecMetadata) ||
-      enableExperimentalWebPlatformFeatures);
+      enable_experimental_web_platform_features);
 
   WebRuntimeFeatures::EnableUserActivationSameOriginVisibility(
       base::FeatureList::IsEnabled(
@@ -266,13 +268,8 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
   if (base::FeatureList::IsEnabled(features::kScrollAnchorSerialization))
     WebRuntimeFeatures::EnableScrollAnchorSerialization(true);
 
-  if (base::FeatureList::IsEnabled(blink::features::kBlinkGenPropertyTrees) ||
-      command_line.HasSwitch(switches::kEnableBlinkGenPropertyTrees)) {
+  if (base::FeatureList::IsEnabled(blink::features::kBlinkGenPropertyTrees))
     WebRuntimeFeatures::EnableFeatureFromString("BlinkGenPropertyTrees", true);
-  }
-
-  if (command_line.HasSwitch(switches::kEnableSlimmingPaintV2))
-    WebRuntimeFeatures::EnableFeatureFromString("SlimmingPaintV2", true);
 
   WebRuntimeFeatures::EnablePassiveDocumentEventListeners(
       base::FeatureList::IsEnabled(features::kPassiveDocumentEventListeners));
@@ -328,9 +325,6 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
   WebRuntimeFeatures::EnableNetworkService(
       base::FeatureList::IsEnabled(network::features::kNetworkService));
 
-  if (base::FeatureList::IsEnabled(features::kGamepadExtensions))
-    WebRuntimeFeatures::EnableGamepadExtensions(true);
-
   if (base::FeatureList::IsEnabled(features::kGamepadVibration))
     WebRuntimeFeatures::EnableGamepadVibration(true);
 
@@ -382,7 +376,7 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
 
   WebRuntimeFeatures::EnableWebAuthGetTransports(
       base::FeatureList::IsEnabled(features::kWebAuthGetTransports) ||
-      enableExperimentalWebPlatformFeatures);
+      enable_experimental_web_platform_features);
 
   WebRuntimeFeatures::EnableClientPlaceholdersForServerLoFi(
       base::GetFieldTrialParamValue("PreviewsClientLoFi",
@@ -413,9 +407,6 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
   WebRuntimeFeatures::EnableModernMediaControls(
       base::FeatureList::IsEnabled(media::kUseModernMediaControls));
 
-  WebRuntimeFeatures::EnableWorkStealingInScriptRunner(
-      base::FeatureList::IsEnabled(features::kWorkStealingInScriptRunner));
-
   WebRuntimeFeatures::EnableScheduledScriptStreaming(
       base::FeatureList::IsEnabled(features::kScheduledScriptStreaming));
 
@@ -443,9 +434,6 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
           features::kLazyFrameLoading,
           "restrict-lazy-load-images-to-data-saver-only", false));
 
-  WebRuntimeFeatures::EnableV8ContextSnapshot(
-      base::FeatureList::IsEnabled(features::kV8ContextSnapshot));
-
   WebRuntimeFeatures::EnablePictureInPicture(
       base::FeatureList::IsEnabled(media::kPictureInPicture));
 
@@ -457,11 +445,9 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
   WebRuntimeFeatures::EnableWasmCodeCache(
       base::FeatureList::IsEnabled(blink::features::kWasmCodeCache));
 
-  if (base::FeatureList::IsEnabled(features::kSignedHTTPExchange)) {
-    WebRuntimeFeatures::EnableSignedHTTPExchange(true);
-    // Make srcset on link rel=preload work with SignedHTTPExchange flag too.
+  // Make imagesrcset on link rel=preload work with SignedHTTPExchange flag too.
+  if (base::FeatureList::IsEnabled(features::kSignedHTTPExchange))
     WebRuntimeFeatures::EnablePreloadImageSrcSetEnabled(true);
-  }
 
   if (base::FeatureList::IsEnabled(
           features::kExperimentalProductivityFeatures)) {
@@ -485,6 +471,11 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
 
   if (base::FeatureList::IsEnabled(blink::features::kWritableFilesAPI))
     WebRuntimeFeatures::EnableFeatureFromString("WritableFiles", true);
+
+  if (base::FeatureList::IsEnabled(
+          blink::features::kForbidSyncXHRInPageDismissal)) {
+    WebRuntimeFeatures::EnableForbidSyncXHRInPageDismissal(true);
+  }
 
   // End individual features.
   // Do not add individual features below this line.
@@ -522,19 +513,14 @@ void SetRuntimeFeaturesDefaultsAndUpdateFromArgs(
   if (!base::FeatureList::IsEnabled(features::kBackgroundFetch))
     WebRuntimeFeatures::EnableBackgroundFetch(false);
 
-  WebRuntimeFeatures::EnableBackgroundFetchAccessActiveFetches(
-      base::FeatureList::IsEnabled(
-          features::kBackgroundFetchAccessActiveFetches));
-
-  WebRuntimeFeatures::EnableBackgroundFetchUploads(
-      base::FeatureList::IsEnabled(features::kBackgroundFetchUploads));
-
   WebRuntimeFeatures::EnableNoHoverAfterLayoutChange(
       base::FeatureList::IsEnabled(features::kNoHoverAfterLayoutChange));
 
   WebRuntimeFeatures::EnableJankTracking(
       base::FeatureList::IsEnabled(blink::features::kJankTracking) ||
-      enableExperimentalWebPlatformFeatures);
+          enable_experimental_web_platform_features,
+      base::FeatureList::IsEnabled(blink::features::kJankTrackingSweepLine) ||
+          enable_experimental_web_platform_features);
 
   WebRuntimeFeatures::EnableFirstContentfulPaintPlusPlus(
       base::FeatureList::IsEnabled(

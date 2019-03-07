@@ -67,41 +67,48 @@ PageLoadMetricsObserverTester::~PageLoadMetricsObserverTester() {}
 
 void PageLoadMetricsObserverTester::SimulateTimingUpdate(
     const mojom::PageLoadTiming& timing) {
+  SimulateTimingUpdate(timing, web_contents()->GetMainFrame());
+}
+
+void PageLoadMetricsObserverTester::SimulateTimingUpdate(
+    const mojom::PageLoadTiming& timing,
+    content::RenderFrameHost* rfh) {
   SimulatePageLoadTimingUpdate(timing, mojom::PageLoadMetadata(),
                                mojom::PageLoadFeatures(),
-                               mojom::PageRenderData());
+                               mojom::PageRenderData(), rfh);
 }
 
 void PageLoadMetricsObserverTester::SimulateTimingAndMetadataUpdate(
     const mojom::PageLoadTiming& timing,
     const mojom::PageLoadMetadata& metadata) {
   SimulatePageLoadTimingUpdate(timing, metadata, mojom::PageLoadFeatures(),
-                               mojom::PageRenderData());
+                               mojom::PageRenderData(),
+                               web_contents()->GetMainFrame());
 }
 
 void PageLoadMetricsObserverTester::SimulateFeaturesUpdate(
     const mojom::PageLoadFeatures& new_features) {
-  SimulatePageLoadTimingUpdate(mojom::PageLoadTiming(),
-                               mojom::PageLoadMetadata(), new_features,
-                               mojom::PageRenderData());
+  SimulatePageLoadTimingUpdate(
+      mojom::PageLoadTiming(), mojom::PageLoadMetadata(), new_features,
+      mojom::PageRenderData(), web_contents()->GetMainFrame());
 }
 
 void PageLoadMetricsObserverTester::SimulateRenderDataUpdate(
     const mojom::PageRenderData& render_data) {
-  SimulatePageLoadTimingUpdate(mojom::PageLoadTiming(),
-                               mojom::PageLoadMetadata(),
-                               mojom::PageLoadFeatures(), render_data);
+  SimulatePageLoadTimingUpdate(
+      mojom::PageLoadTiming(), mojom::PageLoadMetadata(),
+      mojom::PageLoadFeatures(), render_data, web_contents()->GetMainFrame());
 }
 
 void PageLoadMetricsObserverTester::SimulatePageLoadTimingUpdate(
     const mojom::PageLoadTiming& timing,
     const mojom::PageLoadMetadata& metadata,
     const mojom::PageLoadFeatures& new_features,
-    const mojom::PageRenderData& render_data) {
-  observer_->OnTimingUpdated(web_contents()->GetMainFrame(), timing.Clone(),
-                             metadata.Clone(), new_features.Clone(),
-                             std::vector<mojom::ResourceDataUpdatePtr>(),
-                             render_data.Clone());
+    const mojom::PageRenderData& render_data,
+    content::RenderFrameHost* rfh) {
+  observer_->OnTimingUpdated(
+      rfh, timing.Clone(), metadata.Clone(), new_features.Clone(),
+      std::vector<mojom::ResourceDataUpdatePtr>(), render_data.Clone());
   // If sending the timing update caused the PageLoadMetricsUpdateDispatcher to
   // schedule a buffering timer, then fire it now so metrics are dispatched to
   // observers.
@@ -112,11 +119,19 @@ void PageLoadMetricsObserverTester::SimulatePageLoadTimingUpdate(
 
 void PageLoadMetricsObserverTester::SimulateResourceDataUseUpdate(
     const std::vector<mojom::ResourceDataUpdatePtr>& resources) {
-  observer_->OnTimingUpdated(
-      web_contents()->GetMainFrame(), mojom::PageLoadTimingPtr(base::in_place),
-      mojom::PageLoadMetadataPtr(base::in_place),
-      mojom::PageLoadFeaturesPtr(base::in_place), resources,
-      mojom::PageRenderDataPtr(base::in_place));
+  SimulateResourceDataUseUpdate(resources, web_contents()->GetMainFrame());
+}
+
+void PageLoadMetricsObserverTester::SimulateResourceDataUseUpdate(
+    const std::vector<mojom::ResourceDataUpdatePtr>& resources,
+    content::RenderFrameHost* render_frame_host) {
+  auto timing = mojom::PageLoadTimingPtr(base::in_place);
+  InitPageLoadTimingForTest(timing.get());
+  observer_->OnTimingUpdated(render_frame_host, std::move(timing),
+                             mojom::PageLoadMetadataPtr(base::in_place),
+                             mojom::PageLoadFeaturesPtr(base::in_place),
+                             resources,
+                             mojom::PageRenderDataPtr(base::in_place));
 }
 
 void PageLoadMetricsObserverTester::SimulateLoadedResource(

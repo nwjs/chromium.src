@@ -16,7 +16,6 @@
 #import "components/autofill/ios/browser/js_suggestion_manager.h"
 #include "google_apis/google_api_keys.h"
 #include "ios/web/public/favicon_url.h"
-#include "ios/web/public/load_committed_details.h"
 #import "ios/web/public/navigation_item.h"
 #import "ios/web/public/navigation_manager.h"
 #include "ios/web/public/referrer.h"
@@ -30,7 +29,7 @@
 #import "ios/web/public/web_state/web_state.h"
 #import "ios/web/public/web_state/web_state_delegate_bridge.h"
 #import "ios/web/public/web_state/web_state_observer_bridge.h"
-#include "ios/web_view/cwv_web_view_features.h"
+#include "ios/web_view/cwv_web_view_buildflags.h"
 #import "ios/web_view/internal/autofill/cwv_autofill_controller_internal.h"
 #import "ios/web_view/internal/cwv_favicon_internal.h"
 #import "ios/web_view/internal/cwv_html_element_internal.h"
@@ -308,25 +307,18 @@ static NSString* gUserAgentProduct = nil;
 }
 
 - (void)webState:(web::WebState*)webState
-    didCommitNavigationWithDetails:(const web::LoadCommittedDetails&)details {
-  if (details.is_in_page) {
-    // Do not call webViewDidCommitNavigation: for fragment navigations.
-    return;
-  }
-
-  if ([_navigationDelegate
-          respondsToSelector:@selector(webViewDidCommitNavigation:)]) {
-    [_navigationDelegate webViewDidCommitNavigation:self];
-  }
-}
-
-- (void)webState:(web::WebState*)webState
     didFinishNavigation:(web::NavigationContext*)navigation {
   [self updateNavigationAvailability];
   [self updateCurrentURLs];
 
   // TODO(crbug.com/898357): Remove this once crbug.com/898357 is fixed.
   [self updateVisibleSSLStatus];
+
+  if (navigation->HasCommitted() &&
+      [_navigationDelegate
+          respondsToSelector:@selector(webViewDidCommitNavigation:)]) {
+    [_navigationDelegate webViewDidCommitNavigation:self];
+  }
 
   NSError* error = navigation->GetError();
   SEL selector = @selector(webView:didFailNavigationWithError:);
@@ -350,6 +342,10 @@ static NSString* gUserAgentProduct = nil;
 - (void)webState:(web::WebState*)webState
     didChangeLoadingProgress:(double)progress {
   self.estimatedProgress = progress;
+}
+
+- (void)webStateDidChangeBackForwardState:(web::WebState*)webState {
+  [self updateNavigationAvailability];
 }
 
 - (void)webStateDidStopLoading:(web::WebState*)webState {

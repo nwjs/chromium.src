@@ -43,6 +43,11 @@ class SearchBoxView;
 class SearchModel;
 class TransitionAnimationObserver;
 
+namespace {
+// The background corner radius in peeking and fullscreen state.
+constexpr int kAppListBackgroundRadius = 28;
+}
+
 // AppListView is the top-level view and controller of app list UI. It creates
 // and hosts a AppsGridView and passes AppListModel to it for display.
 // TODO(newcomer|weidongg): Organize the cc file to match the order of
@@ -131,7 +136,6 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView {
   bool CanProcessEventsWithinSubtree() const override;
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
   void Layout() override;
-  void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
 
   // WidgetDelegate:
   ax::mojom::Role GetAccessibleWindowRole() const override;
@@ -242,7 +246,13 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView {
     onscreen_keyboard_shown_ = onscreen_keyboard_shown;
   }
 
+  int get_background_radius_for_test() const {
+    return kAppListBackgroundRadius;
+  }
+
   views::View* GetAppListBackgroundShieldForTest();
+
+  SkColor GetAppListBackgroundShieldColorForTest();
 
  private:
   // A widget observer that is responsible for keeping the AppListView state up
@@ -367,8 +377,10 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView {
   // Y position of the app list in screen space coordinate during dragging.
   int app_list_y_position_in_screen_ = 0;
 
-  // The opacity of app list background during dragging.
-  float background_opacity_ = 0.f;
+  // The opacity of app list background during dragging. This ensures a gradual
+  // opacity shift from the shelf opacity while dragging to show the AppListView
+  // from the shelf.
+  float background_opacity_in_drag_ = 0.f;
 
   // The location of initial gesture event in screen coordinates.
   gfx::Point initial_drag_point_;
@@ -400,9 +412,6 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView {
   // True if the dragging started from PEEKING state.
   bool drag_started_from_peeking_ = false;
 
-  // Accessibility announcement dialogue.
-  base::string16 state_announcement_;
-
   // Metric reporter for state change animations.
   const std::unique_ptr<ui::AnimationMetricsReporter>
       state_animation_metrics_reporter_;
@@ -410,8 +419,8 @@ class APP_LIST_EXPORT AppListView : public views::WidgetDelegateView {
   // Whether the on-screen keyboard is shown.
   bool onscreen_keyboard_shown_ = false;
 
-  // True if new style launcher feature is enabled.
-  const bool is_new_style_launcher_enabled_;
+  // View used to announce the state transition for peeking and fullscreen.
+  views::View* announcement_view_;  // Owned by AppListView.
 
   base::WeakPtrFactory<AppListView> weak_ptr_factory_;
 

@@ -31,7 +31,7 @@
 #include "chrome/browser/metrics/subprocess_metrics_provider.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_io_data.h"
-#include "chrome/browser/ssl/cert_verifier_browser_test.h"
+#include "chrome/browser/ssl/chrome_mock_cert_verifier.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/translate/translate_service.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
@@ -1120,31 +1120,9 @@ class AutofillCompanyInteractiveTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// Test params:
-//  - bool popup_views_enabled_: whether feature AutofillExpandedPopupViews
-//        is enabled.
-//  - bool single_click_enabled_: whether AutofillSingleClick is enabled.
-class AutofillSingleClickTest : public AutofillInteractiveTestBase,
-                                public testing::WithParamInterface<bool> {
- protected:
-  AutofillSingleClickTest() : single_click_enabled_(GetParam()) {}
-
-  void SetUp() override {
-    scoped_feature_list_.InitWithFeatureState(features::kSingleClickAutofill,
-                                              single_click_enabled_);
-    AutofillInteractiveTestBase::SetUp();
-  }
-
-  const bool single_click_enabled_;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-// Depending on whether or not AutofillSingleClick is enabled, makes sure that
-// the first click does or does not activate the autofill popup on the initial
-// click within a fillable field.
-IN_PROC_BROWSER_TEST_P(AutofillSingleClickTest, Click) {
+// Makes sure that the first click does or does not activate the autofill popup
+// on the initial click within a fillable field.
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, Click) {
   // Make sure autofill data exists.
   CreateTestProfile();
 
@@ -1152,16 +1130,6 @@ IN_PROC_BROWSER_TEST_P(AutofillSingleClickTest, Click) {
   SetTestUrlResponse(kTestShippingFormString);
   ASSERT_NO_FATAL_FAILURE(
       ui_test_utils::NavigateToURL(browser(), GetTestUrl()));
-
-  // If AutofillSingleClick is NOT enabled, then the first time we click on the
-  // first name field, nothing should happen.
-  if (!single_click_enabled_) {
-    // Click the first name field while it's out of focus, then twiddle our
-    // thumbs a bit. If the autofill popup shows, it will hit the CHECKs in
-    // AutofillManagerTestDelegateImpl while we're waiting.
-    ASSERT_NO_FATAL_FAILURE(ClickFirstNameField());
-    ASSERT_NO_FATAL_FAILURE(MakeSurePopupDoesntAppear());
-  }
 
   // This click should activate the autofill popup.
   test_delegate()->Reset();
@@ -1241,18 +1209,7 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, OnDeleteValueAfterAutofill) {
 
 // Test that an input field is not rendered with the yellow autofilled
 // background color when choosing an option from the datalist suggestion list.
-#if defined(OS_MACOSX) || defined(OS_CHROMEOS) || defined(OS_WIN) || \
-    defined(OS_LINUX)
-// Flakily triggers and assert on Mac; flakily gets empty string instead
-// of "Adam" on ChromeOS.
-// http://crbug.com/419868, http://crbug.com/595385.
-// Flaky on Windows and Linux as well: http://crbug.com/595385
-#define MAYBE_OnSelectOptionFromDatalist DISABLED_OnSelectOptionFromDatalist
-#else
-#define MAYBE_OnSelectOptionFromDatalist OnSelectOptionFromDatalist
-#endif
-IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
-                       MAYBE_OnSelectOptionFromDatalist) {
+IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest, OnSelectOptionFromDatalist) {
   static const char kTestForm[] =
       "<form action=\"http://www.example.com/\" method=\"POST\">"
       "  <input list=\"dl\" type=\"search\" id=\"firstname\"><br>"
@@ -1276,10 +1233,55 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
                        {ObservedUiEvents::kSuggestionShown});
   SendKeyToDataListPopup(ui::DomKey::ARROW_DOWN);
   SendKeyToDataListPopup(ui::DomKey::ENTER);
-  ExpectFieldValue("firstname", "Adam");
+  // Pressing the down arrow preselects the first item. Pressing it again
+  // selects the second item.
+  ExpectFieldValue("firstname", "Bob");
   std::string color;
   GetFieldBackgroundColor("firstname", &color);
   EXPECT_EQ(color, orginalcolor);
+}
+
+// Test that an <input> field with a <datalist> has a working drop down even if
+// it was dynamically changed to <input type="password"> temporarily. This is a
+// regression test for crbug.com/918351.
+IN_PROC_BROWSER_TEST_F(
+    AutofillInteractiveTest,
+    OnSelectOptionFromDatalistTurningToPasswordFieldAndBack) {
+  static const char kTestForm[] =
+      "<form action=\"http://www.example.com/\" method=\"POST\">"
+      "  <input list=\"dl\" type=\"search\" id=\"firstname\"><br>"
+      "  <datalist id=\"dl\">"
+      "  <option value=\"Adam\"></option>"
+      "  <option value=\"Bob\"></option>"
+      "  <option value=\"Carl\"></option>"
+      "  </datalist>"
+      "</form>";
+
+  // Load the test page.
+  SetTestUrlResponse(kTestForm);
+  ASSERT_NO_FATAL_FAILURE(
+      ui_test_utils::NavigateToURL(browser(), GetTestUrl()));
+
+  ASSERT_TRUE(content::ExecuteScript(
+      GetWebContents(),
+      "document.getElementById('firstname').type = 'password';"));
+  // At this point, the IsPasswordFieldForAutofill() function returns true and
+  // will continue to return true for the field, even when the type is changed
+  // back to 'search'.
+  ASSERT_TRUE(content::ExecuteScript(
+      GetWebContents(),
+      "document.getElementById('firstname').type = 'search';"));
+
+  // Regression test for crbug.com/918351 whether the datalist becomes available
+  // again.
+  FocusFirstNameField();
+  SendKeyToPageAndWait(ui::DomKey::ARROW_DOWN,
+                       {ObservedUiEvents::kSuggestionShown});
+  SendKeyToDataListPopup(ui::DomKey::ARROW_DOWN);
+  SendKeyToDataListPopup(ui::DomKey::ENTER);
+  // Pressing the down arrow preselects the first item. Pressing it again
+  // selects the second item.
+  ExpectFieldValue("firstname", "Bob");
 }
 
 // Test that a JavaScript oninput event is fired after auto-filling a form.
@@ -3467,10 +3469,6 @@ INSTANTIATE_TEST_CASE_P(All, AutofillCompanyInteractiveTest, testing::Bool());
 
 INSTANTIATE_TEST_CASE_P(All,
                         AutofillDynamicFormInteractiveTest,
-                        testing::Bool());
-
-INSTANTIATE_TEST_CASE_P(All,
-                        AutofillSingleClickTest,
                         testing::Bool());
 
 INSTANTIATE_TEST_CASE_P(All,

@@ -138,11 +138,9 @@ class FileURLDirectoryLoader
   }
 
   // network::mojom::URLLoader:
-  void FollowRedirect(
-      const base::Optional<std::vector<std::string>>&
-          to_be_removed_request_headers,
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
-      const base::Optional<GURL>& new_url) override {}
+  void FollowRedirect(const std::vector<std::string>& removed_headers,
+                      const net::HttpRequestHeaders& modified_headers,
+                      const base::Optional<GURL>& new_url) override {}
   void ProceedWithResponse() override { NOTREACHED(); }
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override {}
@@ -350,11 +348,11 @@ class FileURLLoader : public network::mojom::URLLoader {
   }
 
   // network::mojom::URLLoader:
-  void FollowRedirect(
-      const base::Optional<std::vector<std::string>>&
-          to_be_removed_request_headers,
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
-      const base::Optional<GURL>& new_url) override {
+  void FollowRedirect(const std::vector<std::string>& removed_headers,
+                      const net::HttpRequestHeaders& modified_headers,
+                      const base::Optional<GURL>& new_url) override {
+    // |removed_headers| and |modified_headers| are unused. It doesn't make
+    // sense for files. The FileURLLoader can redirect only to another file.
     std::unique_ptr<RedirectData> redirect_data = std::move(redirect_data_);
     if (redirect_data->is_directory) {
       FileURLDirectoryLoader::CreateAndStart(
@@ -852,28 +850,35 @@ void CreateFileURLLoader(
     network::mojom::URLLoaderRequest loader,
     network::mojom::URLLoaderClientPtr client,
     std::unique_ptr<FileURLLoaderObserver> observer,
+    bool allow_directory_listing,
     scoped_refptr<net::HttpResponseHeaders> extra_response_headers) {
+  // TODO(crbug.com/924416): Re-evaluate how TaskPriority is set here and in
+  // other file URL-loading-related code. Some callers require USER_VISIBLE
+  // (i.e., BEST_EFFORT is not enough).
   auto task_runner = base::CreateSequencedTaskRunnerWithTraits(
-      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
        base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN});
   task_runner->PostTask(
       FROM_HERE,
-      base::BindOnce(&FileURLLoader::CreateAndStart, base::FilePath(), request,
-                     std::move(loader), client.PassInterface(),
-                     DirectoryLoadingPolicy::kFail,
-                     FileAccessPolicy::kUnrestricted,
-                     LinkFollowingPolicy::kDoNotFollow, std::move(observer),
-                     std::move(extra_response_headers)));
+      base::BindOnce(
+          &FileURLLoader::CreateAndStart, base::FilePath(), request,
+          std::move(loader), client.PassInterface(),
+          allow_directory_listing ? DirectoryLoadingPolicy::kRespondWithListing
+                                  : DirectoryLoadingPolicy::kFail,
+          FileAccessPolicy::kUnrestricted, LinkFollowingPolicy::kDoNotFollow,
+          std::move(observer), std::move(extra_response_headers)));
 }
 
 std::unique_ptr<network::mojom::URLLoaderFactory> CreateFileURLLoaderFactory(
     const base::FilePath& profile_path,
     scoped_refptr<const SharedCorsOriginAccessList>
         shared_cors_origin_access_list) {
+  // TODO(crbug.com/924416): Re-evaluate TaskPriority: Should the caller provide
+  // it?
   return std::make_unique<content::FileURLLoaderFactory>(
       profile_path, shared_cors_origin_access_list,
       base::CreateSequencedTaskRunnerWithTraits(
-          {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
 }
 

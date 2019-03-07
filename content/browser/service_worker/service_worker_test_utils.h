@@ -15,11 +15,11 @@
 #include "content/browser/service_worker/service_worker_database.h"
 #include "content/browser/service_worker/service_worker_disk_cache.h"
 #include "content/browser/service_worker/service_worker_provider_host.h"
-#include "content/common/service_worker/service_worker_provider.mojom.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_switches.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 
 namespace net {
@@ -72,30 +72,31 @@ class ServiceWorkerRemoteProviderEndpoint {
       ServiceWorkerRemoteProviderEndpoint&& other);
   ~ServiceWorkerRemoteProviderEndpoint();
 
-  void BindWithProviderHostInfo(mojom::ServiceWorkerProviderHostInfoPtr* info);
+  void BindWithProviderHostInfo(
+      blink::mojom::ServiceWorkerProviderHostInfoPtr* info);
   void BindWithProviderInfo(
-      mojom::ServiceWorkerProviderInfoForStartWorkerPtr info);
+      blink::mojom::ServiceWorkerProviderInfoForStartWorkerPtr info);
 
-  mojom::ServiceWorkerContainerHostAssociatedPtr* host_ptr() {
+  blink::mojom::ServiceWorkerContainerHostAssociatedPtr* host_ptr() {
     return &host_ptr_;
   }
 
-  mojom::ServiceWorkerContainerAssociatedRequest* client_request() {
+  blink::mojom::ServiceWorkerContainerAssociatedRequest* client_request() {
     return &client_request_;
   }
 
  private:
   // Bound with content::ServiceWorkerProviderHost. The provider host will be
   // removed asynchronously when this pointer is closed.
-  mojom::ServiceWorkerContainerHostAssociatedPtr host_ptr_;
+  blink::mojom::ServiceWorkerContainerHostAssociatedPtr host_ptr_;
   // This is the other end of ServiceWorkerContainerAssociatedPtr owned by
   // content::ServiceWorkerProviderHost.
-  mojom::ServiceWorkerContainerAssociatedRequest client_request_;
+  blink::mojom::ServiceWorkerContainerAssociatedRequest client_request_;
 
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerRemoteProviderEndpoint);
 };
 
-mojom::ServiceWorkerProviderHostInfoPtr CreateProviderHostInfoForWindow(
+blink::mojom::ServiceWorkerProviderHostInfoPtr CreateProviderHostInfoForWindow(
     int provider_id,
     int route_id);
 

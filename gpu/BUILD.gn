@@ -216,7 +216,6 @@ test("gl_tests") {
     "command_buffer/tests/gl_ext_multisample_compatibility_unittest.cc",
     "command_buffer/tests/gl_ext_srgb_unittest.cc",
     "command_buffer/tests/gl_ext_window_rectangles_unittest.cc",
-    "command_buffer/tests/gl_fence_sync_unittest.cc",
     "command_buffer/tests/gl_gpu_memory_buffer_unittest.cc",
     "command_buffer/tests/gl_iosurface_readback_workaround_unittest.cc",
     "command_buffer/tests/gl_lose_context_chromium_unittest.cc",
@@ -245,6 +244,7 @@ test("gl_tests") {
     "command_buffer/tests/gl_unittests_android.cc",
     "command_buffer/tests/gl_virtual_contexts_ext_window_rectangles_unittest.cc",
     "command_buffer/tests/gl_virtual_contexts_unittest.cc",
+    "command_buffer/tests/gl_webgl_multi_draw_test.cc",
     "command_buffer/tests/occlusion_query_unittest.cc",
     "command_buffer/tests/texture_image_factory.cc",
     "command_buffer/tests/texture_image_factory.h",
@@ -321,6 +321,7 @@ test("gpu_unittests") {
     "command_buffer/client/raster_implementation_unittest.cc",
     "command_buffer/client/raster_implementation_unittest_autogen.h",
     "command_buffer/client/ring_buffer_test.cc",
+    "command_buffer/client/transfer_buffer_cmd_copy_helpers_unittest.cc",
     "command_buffer/client/transfer_buffer_unittest.cc",
     "command_buffer/client/vertex_array_object_manager_unittest.cc",
     "command_buffer/client/webgpu_implementation_unittest.cc",
@@ -440,6 +441,7 @@ test("gpu_unittests") {
     "ipc/service/gpu_channel_test_common.cc",
     "ipc/service/gpu_channel_test_common.h",
     "ipc/service/gpu_channel_unittest.cc",
+    "ipc/service/image_decode_accelerator_stub_unittest.cc",
   ]
 
   if (is_mac) {
@@ -469,7 +471,7 @@ test("gpu_unittests") {
     ]
   }
 
-  if (is_fuchsia || (is_posix && !is_mac)) {
+  if (is_linux || is_android || is_chromeos) {
     sources += [ "command_buffer/service/gpu_fence_manager_unittest.cc" ]
   }
 
@@ -504,6 +506,7 @@ test("gpu_unittests") {
     "//gpu/command_buffer/common",
     "//gpu/command_buffer/common:gles2_utils",
     "//gpu/command_buffer/service",
+    "//gpu/config",
     "//gpu/ipc:gl_in_process_context",
     "//gpu/ipc/client",
     "//gpu/ipc/common",
@@ -610,6 +613,7 @@ fuzzer_test("gpu_fuzzer") {
     ":gles2",
     ":gpu",
     "//base",
+    "//base:i18n",
     "//base/third_party/dynamic_annotations",
     "//ui/gfx/geometry",
     "//ui/gl",

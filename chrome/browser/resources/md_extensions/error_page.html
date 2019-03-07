@@ -34,11 +34,12 @@
       }
 
       iron-icon[icon='cr:warning'] {
+        /* TODO(dbeam): find dark mode equivalent for this orange. */
         --iron-icon-fill-color: var(--paper-orange-500);
       }
 
       iron-icon[icon='cr:error'] {
-        --iron-icon-fill-color: var(--paper-red-700);
+        --iron-icon-fill-color: var(--error-color);
       }
 
       .section {
@@ -122,28 +123,6 @@
         background: white;
         height: 200px;
         margin-bottom: 20px;
-      }
-
-      /* TODO(scottchen): extract to shared location from settings. */
-      .separator {
-        --separator-gaps: 9px;
-        border-inline-start: var(--cr-separator-line);
-        flex-shrink: 0;
-        height: calc(var(--cr-section-min-height) -
-            var(--separator-gaps));
-        margin-inline-end: var(--cr-section-padding);
-
-        /**
-         * Makes the tappable area fill its parent.
-         * TODO(scottchen): This is an explicit reminder to override once
-         * .separator styling is extracted from settings.
-         */
-        margin-inline-start: 0;
-      }
-
-      /* TODO(scottchen): extract to shared location from settings. */
-      .separator + paper-icon-button-light {
-        margin-inline-start: var(--cr-icon-ripple-margin);
       }
 
       :host-context(.focus-outline-visible) .start:focus {

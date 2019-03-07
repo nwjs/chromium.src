@@ -38,6 +38,10 @@ bool TriggerNeedsOptInForCollection(const TriggerType trigger_type) {
       // Suspicious site collection happens in the background so the user must
       // already be opted in before the trigger is allowed to run.
       return true;
+    case TriggerType::APK_DOWNLOAD:
+      // APK download collection happens in the background so the user must
+      // already be opted in before the trigger is allowed to run.
+      return true;
   }
   // By default, require opt-in for all triggers.
   return true;
@@ -243,5 +247,7 @@ void TriggerManagerWebContentsHelper::CreateForWebContents(
 void TriggerManagerWebContentsHelper::WebContentsDestroyed() {
   trigger_manager_->WebContentsDestroyed(web_contents());
 }
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(TriggerManagerWebContentsHelper)
 
 }  // namespace safe_browsing

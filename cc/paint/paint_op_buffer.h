@@ -18,7 +18,6 @@
 #include "base/memory/aligned_memory.h"
 #include "base/optional.h"
 #include "cc/base/math_util.h"
-#include "cc/paint/image_provider.h"
 #include "cc/paint/paint_canvas.h"
 #include "cc/paint/paint_export.h"
 #include "cc/paint/paint_flags.h"
@@ -40,7 +39,9 @@ class SkStrikeServer;
 // See: third_party/skia/src/core/SkLiteDL.h.
 namespace cc {
 class ClientPaintCache;
+class ImageProvider;
 class ServicePaintCache;
+class PaintWorkletImageProvider;
 
 class CC_PAINT_EXPORT ThreadsafeMatrix : public SkMatrix {
  public:
@@ -107,7 +108,9 @@ struct CC_PAINT_EXPORT PlaybackParams {
       base::RepeatingCallback<void(SkCanvas* canvas, uint32_t id)>;
   using DidDrawOpCallback = base::RepeatingCallback<void()>;
 
-  explicit PlaybackParams(ImageProvider* image_provider);
+  explicit PlaybackParams(
+      ImageProvider* image_provider,
+      PaintWorkletImageProvider* paint_worklet_image_provider = nullptr);
   PlaybackParams(
       ImageProvider* image_provider,
       const SkMatrix& original_ctm,
@@ -119,6 +122,7 @@ struct CC_PAINT_EXPORT PlaybackParams {
   PlaybackParams& operator=(const PlaybackParams& other);
 
   ImageProvider* image_provider;
+  PaintWorkletImageProvider* paint_worklet_image_provider;
   SkMatrix original_ctm;
   CustomDataRasterCallback custom_callback;
   DidDrawOpCallback did_draw_op_callback;
@@ -181,13 +185,16 @@ class CC_PAINT_EXPORT PaintOp {
   struct CC_PAINT_EXPORT DeserializeOptions {
     DeserializeOptions(TransferCacheDeserializeHelper* transfer_cache,
                        ServicePaintCache* paint_cache,
-                       SkStrikeClient* strike_client);
+                       SkStrikeClient* strike_client,
+                       std::vector<uint8_t>* scratch_buffer);
     TransferCacheDeserializeHelper* transfer_cache = nullptr;
     ServicePaintCache* paint_cache = nullptr;
     SkStrikeClient* strike_client = nullptr;
     uint32_t raster_color_space_id = gfx::ColorSpace::kInvalidId;
     // Do a DumpWithoutCrashing when serialization fails.
     bool crash_dump_on_failure = false;
+    // Used to memcpy Skia flattenables into to avoid TOCTOU issues.
+    std::vector<uint8_t>* scratch_buffer = nullptr;
   };
 
   // Indicates how PaintImages are serialized.
@@ -270,9 +277,7 @@ class CC_PAINT_EXPORT PaintOp {
            static_cast<uint32_t>(SkClipOp::kMax_EnumValue);
   }
 
-  static bool IsValidPath(const SkPath& path) {
-    return path.isValid() && path.pathRefIsValid();
-  }
+  static bool IsValidPath(const SkPath& path) { return path.isValid(); }
 
   static bool IsUnsetRect(const SkRect& rect) {
     return rect.fLeft == SK_ScalarInfinity;
@@ -827,13 +832,8 @@ class CC_PAINT_EXPORT SaveLayerOp final : public PaintOpWithFlags {
 class CC_PAINT_EXPORT SaveLayerAlphaOp final : public PaintOp {
  public:
   static constexpr PaintOpType kType = PaintOpType::SaveLayerAlpha;
-  SaveLayerAlphaOp(const SkRect* bounds,
-                   uint8_t alpha,
-                   bool preserve_lcd_text_requests)
-      : PaintOp(kType),
-        bounds(bounds ? *bounds : kUnsetRect),
-        alpha(alpha),
-        preserve_lcd_text_requests(preserve_lcd_text_requests) {}
+  SaveLayerAlphaOp(const SkRect* bounds, uint8_t alpha)
+      : PaintOp(kType), bounds(bounds ? *bounds : kUnsetRect), alpha(alpha) {}
   static void Raster(const SaveLayerAlphaOp* op,
                      SkCanvas* canvas,
                      const PlaybackParams& params);
@@ -843,7 +843,6 @@ class CC_PAINT_EXPORT SaveLayerAlphaOp final : public PaintOp {
 
   SkRect bounds;
   uint8_t alpha;
-  bool preserve_lcd_text_requests;
 };
 
 class CC_PAINT_EXPORT ScaleOp final : public PaintOp {

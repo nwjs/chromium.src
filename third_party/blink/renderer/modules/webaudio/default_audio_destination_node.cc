@@ -126,6 +126,20 @@ void DefaultAudioDestinationHandler::StopRendering() {
   StopPlatformDestination();
 }
 
+void DefaultAudioDestinationHandler::Pause() {
+  DCHECK(IsMainThread());
+  if (platform_destination_) {
+    platform_destination_->Pause();
+  }
+}
+
+void DefaultAudioDestinationHandler::Resume() {
+  DCHECK(IsMainThread());
+  if (platform_destination_) {
+    platform_destination_->Resume();
+  }
+}
+
 void DefaultAudioDestinationHandler::RestartRendering() {
   DCHECK(IsMainThread());
 
@@ -147,7 +161,8 @@ double DefaultAudioDestinationHandler::SampleRate() const {
 void DefaultAudioDestinationHandler::Render(
     AudioBus* destination_bus,
     uint32_t number_of_frames,
-    const AudioIOPosition& output_position) {
+    const AudioIOPosition& output_position,
+    const AudioIOCallbackMetric& metric) {
   TRACE_EVENT0("webaudio", "DefaultAudioDestinationHandler::Render");
 
   // Denormals can seriously hurt performance of audio processing. This will
@@ -172,7 +187,7 @@ void DefaultAudioDestinationHandler::Render(
     return;
   }
 
-  Context()->HandlePreRenderTasks(output_position);
+  Context()->HandlePreRenderTasks(output_position, metric);
 
   // Renders the graph by pulling all the input(s) to this node. This will in
   // turn pull on their input(s), all the way backwards through the graph.
@@ -202,7 +217,7 @@ void DefaultAudioDestinationHandler::Render(
   Context()->UpdateWorkletGlobalScopeOnRenderingThread();
 }
 
-size_t DefaultAudioDestinationHandler::GetCallbackBufferSize() const {
+uint32_t DefaultAudioDestinationHandler::GetCallbackBufferSize() const {
   DCHECK(IsMainThread());
   DCHECK(IsInitialized());
 

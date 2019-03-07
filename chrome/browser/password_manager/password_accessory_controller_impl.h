@@ -65,8 +65,6 @@ class PasswordAccessoryControllerImpl
                                   bool is_fillable,
                                   bool is_password_field) override;
   void DidNavigateMainFrame() override;
-  void ShowWhenKeyboardIsVisible() override;
-  void Hide() override;
   void GetFavicon(
       int desired_size_in_pixel,
       base::OnceCallback<void(const gfx::Image&)> icon_callback) override;
@@ -167,6 +165,8 @@ class PasswordAccessoryControllerImpl
 
   // The favicon service used to make retrieve icons for a given origin.
   favicon::FaviconService* favicon_service_;
+
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
 
   DISALLOW_COPY_AND_ASSIGN(PasswordAccessoryControllerImpl);
 };

@@ -139,6 +139,10 @@ ui::EventSink* WindowTreeHost::event_sink() {
   return dispatcher_.get();
 }
 
+base::WeakPtr<WindowTreeHost> WindowTreeHost::GetWeakPtr() {
+  return weak_factory_.GetWeakPtr();
+}
+
 gfx::Transform WindowTreeHost::GetRootTransform() const {
   gfx::Transform transform;
   transform.Scale(device_scale_factor_, device_scale_factor_);
@@ -274,6 +278,10 @@ ui::EventDispatchDetails WindowTreeHost::DispatchKeyEventPostIME(
   return dispatch_details;
 }
 
+ui::EventSink* WindowTreeHost::GetEventSink() {
+  return dispatcher_.get();
+}
+
 int64_t WindowTreeHost::GetDisplayId() {
   return display::Screen::GetScreen()->GetDisplayNearestWindow(window()).id();
 }
@@ -379,28 +387,26 @@ void WindowTreeHost::DestroyDispatcher() {
   //window()->RemoveOrDestroyChildren();
 }
 
-void WindowTreeHost::CreateCompositor(const viz::FrameSinkId& frame_sink_id,
-                                      bool force_software_compositor,
-                                      bool external_begin_frames_enabled,
-                                      bool are_events_in_pixels,
-                                      const char* trace_environment_name) {
+void WindowTreeHost::CreateCompositor(
+    const viz::FrameSinkId& frame_sink_id,
+    bool force_software_compositor,
+    ui::ExternalBeginFrameClient* external_begin_frame_client,
+    bool are_events_in_pixels,
+    const char* trace_environment_name) {
   DCHECK(window()->env());
   Env* env = window()->env();
   ui::ContextFactory* context_factory = env->context_factory();
   DCHECK(context_factory);
   ui::ContextFactoryPrivate* context_factory_private =
       env->context_factory_private();
-  bool enable_surface_synchronization =
-      env->mode() == aura::Env::Mode::MUS ||
-      features::IsSurfaceSynchronizationEnabled();
   compositor_ = std::make_unique<ui::Compositor>(
       (!context_factory_private || frame_sink_id.is_valid())
           ? frame_sink_id
           : context_factory_private->AllocateFrameSinkId(),
       context_factory, context_factory_private,
-      base::ThreadTaskRunnerHandle::Get(), enable_surface_synchronization,
-      ui::IsPixelCanvasRecordingEnabled(), external_begin_frames_enabled,
-      force_software_compositor, trace_environment_name);
+      base::ThreadTaskRunnerHandle::Get(), ui::IsPixelCanvasRecordingEnabled(),
+      external_begin_frame_client, force_software_compositor,
+      trace_environment_name);
 #if defined(OS_CHROMEOS)
   compositor_->AddObserver(this);
 #endif
@@ -495,10 +501,6 @@ void WindowTreeHost::OnHostLostWindowCapture() {
     capture_window->ReleaseCapture();
 }
 
-ui::EventSink* WindowTreeHost::GetEventSink() {
-  return dispatcher_.get();
-}
-
 void WindowTreeHost::OnDisplayMetricsChanged(const display::Display& display,
                                              uint32_t metrics) {
   if (metrics & DisplayObserver::DISPLAY_METRIC_COLOR_SPACE) {
@@ -545,11 +547,6 @@ void WindowTreeHost::OnCompositingDidCommit(ui::Compositor* compositor) {
   UMA_HISTOGRAM_TIMES("UI.WindowTreeHost.SurfaceSynchronizationDuration",
                       base::TimeTicks::Now() - synchronization_start_time_);
 }
-
-void WindowTreeHost::OnCompositingStarted(ui::Compositor* compositor,
-                                          base::TimeTicks start_time) {}
-
-void WindowTreeHost::OnCompositingEnded(ui::Compositor* compositor) {}
 
 void WindowTreeHost::OnCompositingChildResizing(ui::Compositor* compositor) {
   if (!window()->env()->throttle_input_on_resize() || holding_pointer_moves_)

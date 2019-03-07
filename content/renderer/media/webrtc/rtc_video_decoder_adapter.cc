@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -23,13 +24,15 @@
 #include "media/base/media_log.h"
 #include "media/base/media_util.h"
 #include "media/base/overlay_info.h"
+#include "media/base/video_decoder_config.h"
 #include "media/base/video_types.h"
 #include "media/video/gpu_video_accelerator_factories.h"
 #include "third_party/webrtc/api/video/video_frame.h"
+#include "third_party/webrtc/media/base/vp9_profile.h"
 #include "third_party/webrtc/modules/video_coding/codecs/h264/include/h264.h"
 #include "third_party/webrtc/rtc_base/bind.h"
-#include "third_party/webrtc/rtc_base/refcount.h"
-#include "third_party/webrtc/rtc_base/refcountedobject.h"
+#include "third_party/webrtc/rtc_base/ref_count.h"
+#include "third_party/webrtc/rtc_base/ref_counted_object.h"
 #include "ui/gfx/color_space.h"
 
 #if defined(OS_WIN)
@@ -43,10 +46,6 @@ namespace content {
 namespace {
 
 // Any reasonable size, will be overridden by the decoder anyway.
-//
-// TODO(sandersd): DXVA VDA does not compute a visible rect itself; we should
-// not enable RTCVideoDecoderAdapter on Windows until that is fixed.
-// https://crbug.com/869660.
 const gfx::Size kDefaultSize(640, 480);
 
 // Assumed pixel format of the encoded content. WebRTC doesn't tell us, and in
@@ -79,14 +78,27 @@ media::VideoCodec ToVideoCodec(webrtc::VideoCodecType video_codec_type) {
   }
 }
 
-// Map webrtc::VideoCodecType to a guess for media::VideoCodecProfile.
+// Map webrtc::SdpVideoFormat to a guess for media::VideoCodecProfile.
 media::VideoCodecProfile GuessVideoCodecProfile(
-    webrtc::VideoCodecType video_codec_type) {
+    const webrtc::SdpVideoFormat& format) {
+  const webrtc::VideoCodecType video_codec_type =
+      webrtc::PayloadStringToCodecType(format.name);
   switch (video_codec_type) {
     case webrtc::kVideoCodecVP8:
       return media::VP8PROFILE_ANY;
-    case webrtc::kVideoCodecVP9:
+    case webrtc::kVideoCodecVP9: {
+      const webrtc::VP9Profile vp9_profile =
+          webrtc::ParseSdpForVP9Profile(format.parameters)
+              .value_or(webrtc::VP9Profile::kProfile0);
+      switch (vp9_profile) {
+        case webrtc::VP9Profile::kProfile2:
+          return media::VP9PROFILE_PROFILE2;
+        case webrtc::VP9Profile::kProfile0:
+        default:
+          return media::VP9PROFILE_PROFILE0;
+      }
       return media::VP9PROFILE_PROFILE0;
+    }
     case webrtc::kVideoCodecH264:
       return media::H264PROFILE_BASELINE;
     default:
@@ -103,7 +115,8 @@ void FinishWait(base::WaitableEvent* waiter, bool* result_out, bool result) {
 void OnRequestOverlayInfo(bool decoder_requires_restart_for_overlay,
                           const media::ProvideOverlayInfoCB& overlay_info_cb) {
   // Android overlays are not supported.
-  overlay_info_cb.Run(media::OverlayInfo());
+  if (overlay_info_cb)
+    overlay_info_cb.Run(media::OverlayInfo());
 }
 
 }  // namespace
@@ -111,9 +124,11 @@ void OnRequestOverlayInfo(bool decoder_requires_restart_for_overlay,
 // static
 std::unique_ptr<RTCVideoDecoderAdapter> RTCVideoDecoderAdapter::Create(
     media::GpuVideoAcceleratorFactories* gpu_factories,
-    webrtc::VideoCodecType video_codec_type) {
-  DVLOG(1) << __func__ << "(" << video_codec_type << ")";
+    const webrtc::SdpVideoFormat& format) {
+  DVLOG(1) << __func__ << "(" << format.name << ")";
 
+  const webrtc::VideoCodecType video_codec_type =
+      webrtc::PayloadStringToCodecType(format.name);
 #if defined(OS_WIN)
   // Do not use hardware decoding for H.264 on Win7, due to high latency.
   // See https://crbug.com/webrtc/5717.
@@ -126,16 +141,25 @@ std::unique_ptr<RTCVideoDecoderAdapter> RTCVideoDecoderAdapter::Create(
   }
 #endif  // defined(OS_WIN)
 
-  // Short circuit known-unsupported codecs.
+  // Bail early for unknown codecs.
   if (ToVideoCodec(video_codec_type) == media::kUnknownVideoCodec)
     return nullptr;
 
-  std::unique_ptr<RTCVideoDecoderAdapter> rtc_video_decoder_adapter =
-      base::WrapUnique(
-          new RTCVideoDecoderAdapter(gpu_factories, video_codec_type));
+  // Avoid the thread hop if the decoder is known not to support the config.
+  // TODO(sandersd): Predict size from level.
+  media::VideoDecoderConfig config(
+      ToVideoCodec(webrtc::PayloadStringToCodecType(format.name)),
+      GuessVideoCodecProfile(format), kDefaultPixelFormat,
+      media::VideoColorSpace(), media::VIDEO_ROTATION_0, kDefaultSize,
+      gfx::Rect(kDefaultSize), kDefaultSize, media::EmptyExtraData(),
+      media::Unencrypted());
+  if (!gpu_factories->IsDecoderConfigSupported(config))
+    return nullptr;
 
   // Synchronously verify that the decoder can be initialized.
-  if (!rtc_video_decoder_adapter->InitializeSync()) {
+  std::unique_ptr<RTCVideoDecoderAdapter> rtc_video_decoder_adapter =
+      base::WrapUnique(new RTCVideoDecoderAdapter(gpu_factories, format));
+  if (!rtc_video_decoder_adapter->InitializeSync(config)) {
     gpu_factories->GetTaskRunner()->DeleteSoon(
         FROM_HERE, std::move(rtc_video_decoder_adapter));
     return nullptr;
@@ -146,10 +170,10 @@ std::unique_ptr<RTCVideoDecoderAdapter> RTCVideoDecoderAdapter::Create(
 
 RTCVideoDecoderAdapter::RTCVideoDecoderAdapter(
     media::GpuVideoAcceleratorFactories* gpu_factories,
-    webrtc::VideoCodecType video_codec_type)
+    const webrtc::SdpVideoFormat& format)
     : media_task_runner_(gpu_factories->GetTaskRunner()),
       gpu_factories_(gpu_factories),
-      video_codec_type_(video_codec_type),
+      format_(format),
       weak_this_factory_(this) {
   DVLOG(1) << __func__;
   DETACH_FROM_THREAD(decoding_thread_checker_);
@@ -161,7 +185,8 @@ RTCVideoDecoderAdapter::~RTCVideoDecoderAdapter() {
   DCHECK(media_task_runner_->BelongsToCurrentThread());
 }
 
-bool RTCVideoDecoderAdapter::InitializeSync() {
+bool RTCVideoDecoderAdapter::InitializeSync(
+    const media::VideoDecoderConfig& config) {
   DVLOG(3) << __func__;
   DCHECK_CALLED_ON_VALID_THREAD(worker_thread_checker_);
 
@@ -173,7 +198,8 @@ bool RTCVideoDecoderAdapter::InitializeSync() {
   if (media_task_runner_->PostTask(
           FROM_HERE,
           base::BindOnce(&RTCVideoDecoderAdapter::InitializeOnMediaThread,
-                         base::Unretained(this), std::move(init_cb)))) {
+                         base::Unretained(this), base::ConstRef(config),
+                         base::ConstRef(init_cb)))) {
     waiter.Wait();
   }
   return result;
@@ -184,7 +210,8 @@ int32_t RTCVideoDecoderAdapter::InitDecode(
     int32_t number_of_cores) {
   DVLOG(1) << __func__;
   DCHECK_CALLED_ON_VALID_THREAD(decoding_thread_checker_);
-  DCHECK_EQ(video_codec_type_, codec_settings->codecType);
+  DCHECK_EQ(webrtc::PayloadStringToCodecType(format_.name),
+            codec_settings->codecType);
 
   base::AutoLock auto_lock(lock_);
   UMA_HISTOGRAM_BOOLEAN("Media.RTCVideoDecoderInitDecodeSuccess", !has_error_);
@@ -199,7 +226,6 @@ int32_t RTCVideoDecoderAdapter::Decode(
   DVLOG(2) << __func__;
   DCHECK_CALLED_ON_VALID_THREAD(decoding_thread_checker_);
 
-#if defined(OS_WIN)
   // Hardware VP9 decoders don't handle more than one spatial layer. Fall back
   // to software decoding. See https://crbug.com/webrtc/9304.
   if (codec_specific_info &&
@@ -208,7 +234,6 @@ int32_t RTCVideoDecoderAdapter::Decode(
       codec_specific_info->codecSpecific.VP9.num_spatial_layers > 1) {
     return WEBRTC_VIDEO_CODEC_FALLBACK_SOFTWARE;
   }
-#endif  // defined(OS_WIN)
 
   if (missing_frames || !input_image._completeFrame) {
     DVLOG(2) << "Missing or incomplete frames";
@@ -219,7 +244,7 @@ int32_t RTCVideoDecoderAdapter::Decode(
   // Convert to media::DecoderBuffer.
   // TODO(sandersd): What is |render_time_ms|?
   scoped_refptr<media::DecoderBuffer> buffer =
-      media::DecoderBuffer::CopyFrom(input_image._buffer, input_image._length);
+      media::DecoderBuffer::CopyFrom(input_image.data(), input_image.size());
   buffer->set_timestamp(
       base::TimeDelta::FromMicroseconds(input_image.Timestamp()));
 
@@ -276,13 +301,14 @@ const char* RTCVideoDecoderAdapter::ImplementationName() const {
 }
 
 void RTCVideoDecoderAdapter::InitializeOnMediaThread(
-    media::VideoDecoder::InitCB init_cb) {
+    const media::VideoDecoderConfig& config,
+    const media::VideoDecoder::InitCB& init_cb) {
   DVLOG(3) << __func__;
   DCHECK(media_task_runner_->BelongsToCurrentThread());
 
   // TODO(sandersd): Plumb a real log sink here so that we can contribute to the
   // media-internals UI. The current log just discards all messages.
-  media_log_ = std::make_unique<media::MediaLog>();
+  media_log_ = std::make_unique<media::NullMediaLog>();
 
   video_decoder_ = gpu_factories_->CreateVideoDecoder(
       media_log_.get(), base::BindRepeating(&OnRequestOverlayInfo),
@@ -293,26 +319,17 @@ void RTCVideoDecoderAdapter::InitializeOnMediaThread(
     return;
   }
 
-  // We don't know much about the media that is coming.
-  media::VideoDecoderConfig config(
-      ToVideoCodec(video_codec_type_),
-      GuessVideoCodecProfile(video_codec_type_), kDefaultPixelFormat,
-      media::VideoColorSpace(), media::VIDEO_ROTATION_0, kDefaultSize,
-      gfx::Rect(kDefaultSize), kDefaultSize, media::EmptyExtraData(),
-      media::Unencrypted());
-
   // In practice this is ignored by hardware decoders.
   bool low_delay = true;
 
   // Encryption is not supported.
   media::CdmContext* cdm_context = nullptr;
-  media::VideoDecoder::WaitingForDecryptionKeyCB waiting_cb;
 
   media::VideoDecoder::OutputCB output_cb =
       base::BindRepeating(&RTCVideoDecoderAdapter::OnOutput, weak_this_);
 
-  video_decoder_->Initialize(config, low_delay, cdm_context, std::move(init_cb),
-                             std::move(output_cb), std::move(waiting_cb));
+  video_decoder_->Initialize(config, low_delay, cdm_context, init_cb, output_cb,
+                             base::DoNothing());
 }
 
 void RTCVideoDecoderAdapter::DecodeOnMediaThread() {

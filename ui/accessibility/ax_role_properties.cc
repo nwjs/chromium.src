@@ -160,6 +160,26 @@ bool IsImage(const ax::mojom::Role role) {
   }
 }
 
+bool IsItemLike(const ax::mojom::Role role) {
+  switch (role) {
+    case ax::mojom::Role::kArticle:
+    case ax::mojom::Role::kListItem:
+    case ax::mojom::Role::kMenuItem:
+    case ax::mojom::Role::kMenuItemRadio:
+    case ax::mojom::Role::kTab:
+    case ax::mojom::Role::kMenuItemCheckBox:
+    case ax::mojom::Role::kTreeItem:
+    case ax::mojom::Role::kListBoxOption:
+    case ax::mojom::Role::kMenuListOption:
+    case ax::mojom::Role::kRadioButton:
+    case ax::mojom::Role::kDescriptionListTerm:
+    case ax::mojom::Role::kTerm:
+      return true;
+    default:
+      return false;
+  }
+}
+
 bool IsLink(const ax::mojom::Role role) {
   switch (role) {
     case ax::mojom::Role::kDocBackLink:
@@ -230,12 +250,32 @@ bool IsMenuRelated(const ax::mojom::Role role) {
 bool IsRowContainer(const ax::mojom::Role role) {
   switch (role) {
     case ax::mojom::Role::kGrid:
+    case ax::mojom::Role::kListGrid:
     case ax::mojom::Role::kTable:
     case ax::mojom::Role::kTree:
     case ax::mojom::Role::kTreeGrid:
       return true;
     case ax::mojom::Role::kLayoutTable:
       return kExposeLayoutTableAsDataTable;
+    default:
+      return false;
+  }
+}
+
+bool IsSetLike(const ax::mojom::Role role) {
+  switch (role) {
+    case ax::mojom::Role::kFeed:
+    case ax::mojom::Role::kList:
+    case ax::mojom::Role::kGroup:
+    case ax::mojom::Role::kMenu:
+    case ax::mojom::Role::kMenuBar:
+    case ax::mojom::Role::kTabList:
+    case ax::mojom::Role::kTree:
+    case ax::mojom::Role::kListBox:
+    case ax::mojom::Role::kMenuListPopup:
+    case ax::mojom::Role::kRadioGroup:
+    case ax::mojom::Role::kDescriptionList:
+      return true;
     default:
       return false;
   }
@@ -254,6 +294,7 @@ bool IsTableHeader(ax::mojom::Role role) {
 bool IsTableLike(const ax::mojom::Role role) {
   switch (role) {
     case ax::mojom::Role::kGrid:
+    case ax::mojom::Role::kListGrid:
     case ax::mojom::Role::kTable:
     case ax::mojom::Role::kTreeGrid:
       return true;

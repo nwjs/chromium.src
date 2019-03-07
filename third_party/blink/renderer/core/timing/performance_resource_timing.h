@@ -58,10 +58,9 @@ class CORE_EXPORT PerformanceResourceTiming : public PerformanceEntry {
                             TimeTicks time_origin,
                             const AtomicString& initiator_type);
   ~PerformanceResourceTiming() override;
-  static PerformanceResourceTiming* Create(
-      const WebResourceTimingInfo& info,
-      TimeTicks time_origin,
-      const AtomicString& initiator_type = g_null_atom) {
+  static PerformanceResourceTiming* Create(const WebResourceTimingInfo& info,
+                                           TimeTicks time_origin,
+                                           const AtomicString& initiator_type) {
     return MakeGarbageCollected<PerformanceResourceTiming>(info, time_origin,
                                                            initiator_type);
   }
@@ -127,6 +126,7 @@ class CORE_EXPORT PerformanceResourceTiming : public PerformanceEntry {
   bool allow_timing_details_;
   bool allow_redirect_details_;
   bool allow_negative_value_;
+  bool is_secure_context_ = false;
   HeapVector<Member<PerformanceServerTiming>> server_timing_;
 };
 

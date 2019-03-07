@@ -61,7 +61,7 @@
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/public/common/messaging/transferable_message.h"
 #include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 #include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
@@ -412,16 +412,6 @@ IPC_STRUCT_BEGIN_WITH_PARENT(FrameHostMsg_DidCommitProvisionalLoad_Params,
   // successfully cleared.
   IPC_STRUCT_MEMBER(bool, history_list_was_cleared)
 
-  // The routing_id of the render view associated with the navigation. We need
-  // to track the RenderViewHost routing_id because of downstream dependencies
-  // (https://crbug.com/392171 DownloadRequestHandle, SaveFileManager,
-  // ResourceDispatcherHostImpl, MediaStreamUIProxy and possibly others). They
-  // look up the view based on the ID stored in the resource requests. Once
-  // those dependencies are unwound or moved to RenderFrameHost
-  // (https://crbug.com/304341) we can move the client to be based on the
-  // routing_id of the RenderFrameHost.
-  IPC_STRUCT_MEMBER(int, render_view_routing_id)
-
   // Origin of the frame.  This will be replicated to any associated
   // RenderFrameProxies.
   IPC_STRUCT_MEMBER(url::Origin, origin)
@@ -478,6 +468,7 @@ IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::CommonNavigationParams)
   IPC_STRUCT_TRAITS_MEMBER(url)
+  IPC_STRUCT_TRAITS_MEMBER(initiator_origin)
   IPC_STRUCT_TRAITS_MEMBER(referrer)
   IPC_STRUCT_TRAITS_MEMBER(transition)
   IPC_STRUCT_TRAITS_MEMBER(navigation_type)
@@ -504,7 +495,8 @@ IPC_STRUCT_TRAITS_BEGIN(content::NavigationTiming)
   IPC_STRUCT_TRAITS_MEMBER(fetch_start)
 IPC_STRUCT_TRAITS_END()
 
-IPC_STRUCT_TRAITS_BEGIN(content::RequestNavigationParams)
+IPC_STRUCT_TRAITS_BEGIN(content::CommitNavigationParams)
+  IPC_STRUCT_TRAITS_MEMBER(origin_to_commit)
   IPC_STRUCT_TRAITS_MEMBER(is_overriding_user_agent)
   IPC_STRUCT_TRAITS_MEMBER(redirects)
   IPC_STRUCT_TRAITS_MEMBER(redirect_response)
@@ -538,7 +530,6 @@ IPC_STRUCT_TRAITS_BEGIN(blink::ParsedFeaturePolicyDeclaration)
   IPC_STRUCT_TRAITS_MEMBER(feature)
   IPC_STRUCT_TRAITS_MEMBER(matches_all_origins)
   IPC_STRUCT_TRAITS_MEMBER(matches_opaque_src)
-  IPC_STRUCT_TRAITS_MEMBER(disposition)
   IPC_STRUCT_TRAITS_MEMBER(origins)
 IPC_STRUCT_TRAITS_END()
 
@@ -564,6 +555,7 @@ IPC_STRUCT_TRAITS_END()
 // process should look for an existing history item for the frame.
 IPC_STRUCT_BEGIN(FrameHostMsg_OpenURL_Params)
   IPC_STRUCT_MEMBER(GURL, url)
+  IPC_STRUCT_MEMBER(url::Origin, initiator_origin)
   IPC_STRUCT_MEMBER(bool, uses_post)
   IPC_STRUCT_MEMBER(scoped_refptr<network::ResourceRequestBody>,
                     resource_request_body)
@@ -576,6 +568,7 @@ IPC_STRUCT_BEGIN(FrameHostMsg_OpenURL_Params)
   IPC_STRUCT_MEMBER(blink::WebTriggeringEventInfo, triggering_event_info)
   IPC_STRUCT_MEMBER(mojo::MessagePipeHandle, blob_url_token)
   IPC_STRUCT_MEMBER(std::string, href_translate)
+  IPC_STRUCT_MEMBER(content::NavigationDownloadPolicy, download_policy)
 IPC_STRUCT_END()
 
 IPC_STRUCT_BEGIN(FrameHostMsg_DownloadUrl_Params)
@@ -677,6 +670,16 @@ IPC_STRUCT_BEGIN(FrameHostMsg_CreateChildFrame_Params)
   IPC_STRUCT_MEMBER(blink::FramePolicy, frame_policy)
   IPC_STRUCT_MEMBER(content::FrameOwnerProperties, frame_owner_properties)
   IPC_STRUCT_MEMBER(blink::FrameOwnerElementType, frame_owner_element_type)
+IPC_STRUCT_END()
+
+IPC_STRUCT_BEGIN(FrameHostMsg_CreateChildFrame_Params_Reply)
+  IPC_STRUCT_MEMBER(int32_t, child_routing_id)
+  IPC_STRUCT_MEMBER(mojo::MessagePipeHandle, new_interface_provider)
+  IPC_STRUCT_MEMBER(mojo::MessagePipeHandle,
+                    document_interface_broker_content_handle)
+  IPC_STRUCT_MEMBER(mojo::MessagePipeHandle,
+                    document_interface_broker_blink_handle)
+  IPC_STRUCT_MEMBER(base::UnguessableToken, devtools_frame_token)
 IPC_STRUCT_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::CSPSource)
@@ -1167,15 +1170,13 @@ IPC_MESSAGE_ROUTED4(FrameHostMsg_DidAddMessageToConsole,
 //
 // Each of these messages will have a corresponding FrameHostMsg_Detach message
 // sent when the frame is detached from the DOM.
-// Note that |new_render_frame_id|, |new_interface_provider|, and
-// |devtools_frame_token| are out parameters. Browser process defines them for
+// Note that |params_reply| is an out parameter. Browser process defines it for
 // the renderer process.
-IPC_SYNC_MESSAGE_CONTROL1_3(
-    FrameHostMsg_CreateChildFrame,
-    FrameHostMsg_CreateChildFrame_Params,
-    int32_t,                 /* new_routing_id */
-    mojo::MessagePipeHandle, /* new_interface_provider */
-    base::UnguessableToken /* devtools_frame_token */)
+// |params_reply.child_routing_id| may not be assigned MSG_ROUTING_NONE.
+IPC_SYNC_MESSAGE_CONTROL1_1(FrameHostMsg_CreateChildFrame,
+                            FrameHostMsg_CreateChildFrame_Params,
+                            // params_reply
+                            FrameHostMsg_CreateChildFrame_Params_Reply)
 
 // Sent by the renderer to the parent RenderFrameHost when a child frame is
 // detached from the DOM.
@@ -1566,10 +1567,11 @@ IPC_MESSAGE_ROUTED3(FrameHostMsg_UnregisterProtocolHandler,
 // The security info is non empty if the resource was originally loaded over
 // a secure connection.
 // Note: May only be sent once per URL per frame per committed load.
-IPC_MESSAGE_ROUTED4(FrameHostMsg_DidLoadResourceFromMemoryCache,
+IPC_MESSAGE_ROUTED5(FrameHostMsg_DidLoadResourceFromMemoryCache,
                     GURL /* url */,
                     std::string /* http method */,
                     std::string /* mime type */,
+                    base::Optional<url::Origin> /* top frame origin */,
                     content::ResourceType /* resource type */)
 
 // This frame attempted to navigate the main frame to the given url, even

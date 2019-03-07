@@ -17,10 +17,6 @@
 #include "services/service_manager/public/cpp/identity.h"
 #include "services/tracing/public/mojom/tracing.mojom.h"
 
-namespace service_manager {
-struct BindSourceInfo;
-}  // namespace service_manager
-
 namespace tracing {
 
 class AgentRegistry : public mojom::AgentRegistry {
@@ -32,7 +28,6 @@ class AgentRegistry : public mojom::AgentRegistry {
                mojom::AgentPtr agent,
                const std::string& label,
                mojom::TraceDataType type,
-               bool supports_explicit_clock_sync,
                base::ProcessId pid);
     ~AgentEntry();
 
@@ -47,11 +42,6 @@ class AgentRegistry : public mojom::AgentRegistry {
     mojom::Agent* agent() const { return agent_.get(); }
     const std::string& label() const { return label_; }
     mojom::TraceDataType type() const { return type_; }
-    bool supports_explicit_clock_sync() const {
-      return supports_explicit_clock_sync_;
-    }
-    bool is_tracing() const { return is_tracing_; }
-    void set_is_tracing(bool is_tracing) { is_tracing_ = is_tracing; }
     base::ProcessId pid() const { return pid_; }
 
    private:
@@ -62,10 +52,8 @@ class AgentRegistry : public mojom::AgentRegistry {
     mojom::AgentPtr agent_;
     const std::string label_;
     const mojom::TraceDataType type_;
-    const bool supports_explicit_clock_sync_;
     const base::ProcessId pid_;
     std::map<const void*, base::OnceClosure> closures_;
-    bool is_tracing_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentEntry);
   };
@@ -77,13 +65,16 @@ class AgentRegistry : public mojom::AgentRegistry {
   AgentRegistry();
   ~AgentRegistry() override;
 
+  void DisconnectAllAgents();
+
   void BindAgentRegistryRequest(
       scoped_refptr<base::SequencedTaskRunner> task_runner,
-      mojom::AgentRegistryRequest request,
-      const service_manager::BindSourceInfo& source_info);
-  void SetAgentInitializationCallback(
-      const AgentInitializationCallback& callback);
-  void RemoveAgentInitializationCallback();
+      mojom::AgentRegistryRequest request);
+
+  // Returns the number of existing agents that the callback was run on.
+  size_t SetAgentInitializationCallback(
+      const AgentInitializationCallback& callback,
+      bool call_on_new_agents_only);
   bool HasDisconnectClosure(const void* closure_name);
 
   template <typename FunctionType>
@@ -98,20 +89,17 @@ class AgentRegistry : public mojom::AgentRegistry {
   friend class AgentRegistryTest;  // For testing.
   friend class CoordinatorTest;    // For testing.
 
-  void BindAgentRegistryRequestOnSequence(
-      mojom::AgentRegistryRequest request,
-      const service_manager::BindSourceInfo& source_info);
+  void BindAgentRegistryRequestOnSequence(mojom::AgentRegistryRequest request);
 
   // mojom::AgentRegistry
   void RegisterAgent(mojom::AgentPtr agent,
                      const std::string& label,
                      mojom::TraceDataType type,
-                     bool supports_explicit_clock_sync,
                      base::ProcessId pid) override;
 
   void UnregisterAgent(size_t agent_id);
 
-  mojo::BindingSet<mojom::AgentRegistry, service_manager::Identity> bindings_;
+  mojo::BindingSet<mojom::AgentRegistry> bindings_;
   size_t next_agent_id_ = 0;
   std::map<size_t, std::unique_ptr<AgentEntry>> agents_;
   AgentInitializationCallback agent_initialization_callback_;

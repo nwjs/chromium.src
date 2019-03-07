@@ -4,6 +4,7 @@
 
 import("//build/config/chrome_build.gni")
 import("//build/config/jumbo.gni")
+import("//build/util/version.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 
 jumbo_static_library("browser") {
@@ -64,6 +65,8 @@ jumbo_static_library("browser") {
     "autofill_metadata.h",
     "autofill_metrics.cc",
     "autofill_metrics.h",
+    "autofill_observer.cc",
+    "autofill_observer.h",
     "autofill_popup_delegate.h",
     "autofill_profile.cc",
     "autofill_profile.h",
@@ -79,6 +82,8 @@ jumbo_static_library("browser") {
     "autofill_provider.h",
     "autofill_scanner.cc",
     "autofill_scanner.h",
+    "autofill_subject.cc",
+    "autofill_subject.h",
     "autofill_type.cc",
     "autofill_type.h",
     "autofill_wallet_data_type_controller.cc",
@@ -126,6 +131,8 @@ jumbo_static_library("browser") {
     "legal_message_line.h",
     "local_card_migration_manager.cc",
     "local_card_migration_manager.h",
+    "local_card_migration_strike_database.cc",
+    "local_card_migration_strike_database.h",
     "name_field.cc",
     "name_field.h",
     "password_requirements_spec_fetcher.h",
@@ -170,6 +177,8 @@ jumbo_static_library("browser") {
     "state_names.h",
     "strike_database.cc",
     "strike_database.h",
+    "strike_database_integrator_base.cc",
+    "strike_database_integrator_base.h",
     "subkey_requester.cc",
     "subkey_requester.h",
     "suggestion.cc",
@@ -177,6 +186,8 @@ jumbo_static_library("browser") {
     "suggestion_selection.cc",
     "suggestion_selection.h",
     "sync_utils.h",
+    "test_data_creator.cc",
+    "test_data_creator.h",
     "ui/card_unmask_prompt_controller.h",
     "ui/card_unmask_prompt_controller_impl.cc",
     "ui/card_unmask_prompt_controller_impl.h",
@@ -265,6 +276,8 @@ jumbo_static_library("browser") {
     ]
   }
 
+  defines = [ "CHROME_VERSION_MAJOR=" + chrome_version_major ]
+
   configs += [ "//build/config:precompiled_headers" ]
 
   public_deps = [
@@ -322,6 +335,13 @@ jumbo_static_library("browser") {
     ]
   }
 
+  if (!is_android && !is_ios) {
+    deps += [
+      "//ui/native_theme",
+      "//ui/native_theme:native_theme_browser",
+    ]
+  }
+
   configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
 }
 
@@ -332,11 +352,15 @@ jumbo_static_library("test_support") {
     "autofill_test_utils.h",
     "data_driven_test.cc",
     "data_driven_test.h",
+    "mock_autocomplete_history_manager.cc",
+    "mock_autocomplete_history_manager.h",
     "payments/test_payments_client.cc",
     "payments/test_payments_client.h",
     "suggestion_test_helpers.h",
     "test_address_normalizer.cc",
     "test_address_normalizer.h",
+    "test_autofill_async_observer.cc",
+    "test_autofill_async_observer.h",
     "test_autofill_client.cc",
     "test_autofill_client.h",
     "test_autofill_clock.cc",
@@ -366,6 +390,8 @@ jumbo_static_library("test_support") {
     "test_legacy_strike_database.h",
     "test_local_card_migration_manager.cc",
     "test_local_card_migration_manager.h",
+    "test_local_card_migration_strike_database.cc",
+    "test_local_card_migration_strike_database.h",
     "test_personal_data_manager.cc",
     "test_personal_data_manager.h",
     "test_region_data_loader.cc",
@@ -483,6 +509,7 @@ source_set("unit_tests") {
     "autofill_profile_unittest.cc",
     "autofill_profile_validation_util_unittest.cc",
     "autofill_profile_validator_unittest.cc",
+    "autofill_subject_unittest.cc",
     "autofill_type_unittest.cc",
     "autofill_wallet_data_type_controller_unittest.cc",
     "contact_info_unittest.cc",
@@ -500,6 +527,7 @@ source_set("unit_tests") {
     "legacy_strike_database_unittest.cc",
     "legal_message_line_unittest.cc",
     "local_card_migration_manager_unittest.cc",
+    "local_card_migration_strike_database_unittest.cc",
     "name_field_unittest.cc",
     "password_generator_fips181_unittest.cc",
     "password_generator_unittest.cc",
@@ -546,6 +574,8 @@ source_set("unit_tests") {
       "autofill_policy_handler_unittest.cc",
     ]
   }
+
+  defines = [ "CHROME_VERSION_MAJOR=" + chrome_version_major ]
 
   deps = [
     ":browser",

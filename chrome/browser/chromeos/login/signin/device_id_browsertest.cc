@@ -17,7 +17,7 @@
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/signin_pref_names.h"
 #include "components/user_manager/known_user.h"
@@ -123,7 +123,7 @@ class DeviceIDTest : public OobeBaseTest,
   void SignInOffline(const std::string& user_id, const std::string& password) {
     WaitForSigninScreen();
 
-    JS().ExecuteAsync(base::StringPrintf(
+    test::OobeJS().ExecuteAsync(base::StringPrintf(
         "chrome.send('authenticateUser', ['%s', '%s', false])", user_id.c_str(),
         password.c_str()));
     WaitForSessionStart();
@@ -222,7 +222,7 @@ IN_PROC_BROWSER_TEST_F(DeviceIDTest, PRE_PRE_PRE_NewUsers) {
 // Add the second user.
 IN_PROC_BROWSER_TEST_F(DeviceIDTest, PRE_PRE_NewUsers) {
   WaitForSigninScreen();
-  JS().ExecuteAsync("chrome.send('showAddUser')");
+  test::OobeJS().ExecuteAsync("chrome.send('showAddUser')");
   SignInOnline(kSecondUserEmail, kSecondUserPassword, kSecondUserRefreshToken1,
                kSecondUserGaiaId);
   CheckDeviceIDIsConsistent(AccountId::FromUserEmail(kSecondUserEmail),

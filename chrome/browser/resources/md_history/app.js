@@ -2,13 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/**
+ * @typedef {{
+ *   managed: boolean,
+ *   otherFormsOfHistory: boolean,
+ * }}
+ */
+let FooterInfo;
+
 cr.define('md_history', function() {
   let lazyLoadPromise = null;
   function ensureLazyLoaded() {
     if (!lazyLoadPromise) {
       lazyLoadPromise = new Promise(function(resolve, reject) {
-        Polymer.Base.importHref(
-            'chrome://history/lazy_load.html', resolve, reject, true);
+        Polymer.Base.importHref('lazy_load.html', resolve, reject, true);
       });
     }
     return lazyLoadPromise;
@@ -23,6 +30,7 @@ Polymer({
   is: 'history-app',
 
   behaviors: [
+    FindShortcutBehavior,
     Polymer.IronScrollTargetBehavior,
   ],
 
@@ -74,8 +82,16 @@ Polymer({
       observer: 'hasDrawerChanged_',
     },
 
-    // Used to display notices for profile sign-in status.
-    showSidebarFooter: Boolean,
+    /** @type {FooterInfo} */
+    footerInfo: {
+      type: Object,
+      value: function() {
+        return {
+          managed: loadTimeData.getBoolean('isManaged'),
+          otherFormsOfHistory: false,
+        };
+      },
+    },
   },
 
   listeners: {
@@ -136,8 +152,9 @@ Polymer({
 
   /** Overridden from IronScrollTargetBehavior */
   _scrollHandler: function() {
-    if (this.scrollTarget)
+    if (this.scrollTarget) {
       this.toolbarShadow_ = this.scrollTarget.scrollTop != 0;
+    }
   },
 
   /** @private */
@@ -160,9 +177,8 @@ Polymer({
   /**
    * Listens for history-item being selected or deselected (through checkbox)
    * and changes the view of the top toolbar.
-   * @param {{detail: {countAddition: number}}} e
    */
-  checkboxSelected: function(e) {
+  checkboxSelected: function() {
     const toolbar = /** @type {HistoryToolbarElement} */ (this.$.toolbar);
     toolbar.count = /** @type {HistoryListElement} */ (this.$.history)
                         .getSelectedItemCount();
@@ -205,23 +221,12 @@ Polymer({
   },
 
   /**
-   * Shows and focuses the search bar in the toolbar.
-   */
-  focusToolbarSearchField: function() {
-    this.$.toolbar.showSearchField();
-  },
-
-  /**
    * @param {Event} e
    * @private
    */
   onCanExecute_: function(e) {
     e = /** @type {cr.ui.CanExecuteEvent} */ (e);
     switch (e.command.id) {
-      case 'find-command':
-      case 'slash-command':
-        e.canExecute = !this.$.toolbar.searchField.isSearchFocused();
-        break;
       case 'delete-command':
         e.canExecute = this.$.toolbar.count > 0;
         break;
@@ -237,12 +242,11 @@ Polymer({
    * @private
    */
   onCommand_: function(e) {
-    if (e.command.id == 'find-command' || e.command.id == 'slash-command')
-      this.focusToolbarSearchField();
-    else if (e.command.id == 'delete-command')
+    if (e.command.id == 'delete-command') {
       this.deleteSelected();
-    else if (e.command.id == 'select-all-command')
+    } else if (e.command.id == 'select-all-command') {
       this.selectOrUnselectAll();
+    }
   },
 
   /**
@@ -309,8 +313,9 @@ Polymer({
   hasDrawerChanged_: function() {
     const drawer =
         /** @type {?CrDrawerElement} */ (this.$.drawer.getIfExists());
-    if (!this.hasDrawer_ && drawer && drawer.open)
+    if (!this.hasDrawer_ && drawer && drawer.open) {
       drawer.cancel();
+    }
   },
 
   /**
@@ -330,8 +335,9 @@ Polymer({
   /** @private */
   closeDrawer_: function() {
     const drawer = this.$.drawer.get();
-    if (drawer && drawer.open)
+    if (drawer && drawer.open) {
       drawer.close();
+    }
   },
 
   /** @private */
@@ -351,5 +357,19 @@ Polymer({
     md_history.BrowserService.getInstance().recordHistogram(
         'History.HistoryPageView', histogramValue,
         HistoryPageViewHistogram.END);
+  },
+
+  // Override FindShortcutBehavior methods.
+  handleFindShortcut: function(modalContextOpen) {
+    if (modalContextOpen) {
+      return false;
+    }
+    this.$.toolbar.searchField.showAndFocus();
+    return true;
+  },
+
+  // Override FindShortcutBehavior methods.
+  searchInputHasFocus: function() {
+    return this.$.toolbar.searchField.isSearchFocused();
   },
 });

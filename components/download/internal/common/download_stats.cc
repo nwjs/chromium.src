@@ -8,9 +8,9 @@
 
 #include "base/callback.h"
 #include "base/files/file_path.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "components/download/public/common/download_interrupt_reasons.h"
 #include "net/http/http_content_disposition.h"
@@ -403,6 +403,7 @@ constexpr const base::FilePath::CharType* kDangerousFileTypes[] = {
     FILE_PATH_LITERAL(".pyd"),
     FILE_PATH_LITERAL(".pyo"),      // 319
     FILE_PATH_LITERAL(".desktop"),  // 320
+    FILE_PATH_LITERAL(".cpi"),      // 321
     // NOTE! When you add a type here, please add the UMA value as a comment.
     // These must all match DownloadItem.DangerousFileType in
     // enums.xml. From 263 onward, they should also match
@@ -417,7 +418,7 @@ const int64_t kHighBandwidthBytesPerSecond = 30 * 1024 * 1024;
 
 // Maps extensions to their matching UMA histogram int value.
 int GetDangerousFileType(const base::FilePath& file_path) {
-  for (size_t i = 0; i < arraysize(kDangerousFileTypes); ++i) {
+  for (size_t i = 0; i < base::size(kDangerousFileTypes); ++i) {
     if (file_path.MatchesExtension(kDangerousFileTypes[i]))
       return i + 1;
   }

@@ -324,14 +324,6 @@
                file="cr_components/chromeos/multidevice_setup/password_page.js"
                type="chrome_html"
                compress="gzip" />
-    <structure name="IDR_WEBUI_CHROMEOS_MULTIDEVICE_SETUP_SETUP_FAILED_PAGE_HTML"
-               file="cr_components/chromeos/multidevice_setup/setup_failed_page.html"
-               type="chrome_html"
-               compress="gzip" />
-    <structure name="IDR_WEBUI_CHROMEOS_MULTIDEVICE_SETUP_SETUP_FAILED_PAGE_JS"
-               file="cr_components/chromeos/multidevice_setup/setup_failed_page.js"
-               type="chrome_html"
-               compress="gzip" />
     <structure name="IDR_WEBUI_CHROMEOS_MULTIDEVICE_SETUP_SETUP_SUCCEEDED_PAGE_HTML"
                file="cr_components/chromeos/multidevice_setup/setup_succeeded_page.html"
                type="chrome_html"
@@ -383,4 +375,12 @@
                type="chrome_html"
                compress="gzip" />
   </if>
+  <structure name="IDR_WEBUI_MANAGED_FOOTNOTE_HTML"
+             file="cr_components/managed_footnote/managed_footnote.html"
+             type="chrome_html"
+             compress="gzip" />
+  <structure name="IDR_WEBUI_MANAGED_FOOTNOTE_JS"
+             file="cr_components/managed_footnote/managed_footnote.js"
+             type="chrome_html"
+             compress="gzip" />
 </grit-part>

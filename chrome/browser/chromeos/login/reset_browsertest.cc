@@ -13,7 +13,7 @@
 #include "chrome/browser/chromeos/login/ui/webui_login_view.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_power_manager_client.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
@@ -65,45 +65,41 @@ class ResetTest : public LoginManagerTest {
     StartupUtils::MarkOobeCompleted();
   }
 
-  bool JSExecuted(const std::string& script) {
-    return content::ExecuteScript(web_contents(), script);
-  }
-
   void InvokeResetScreen() {
-    ASSERT_TRUE(JSExecuted("cr.ui.Oobe.handleAccelerator('reset');"));
+    test::ExecuteOobeJS("cr.ui.Oobe.handleAccelerator('reset');");
     OobeScreenWaiter(OobeScreen::SCREEN_OOBE_RESET).Wait();
   }
 
   void InvokeRollbackOption() {
-    ASSERT_TRUE(JSExecuted("cr.ui.Oobe.handleAccelerator('reset');"));
+    test::ExecuteOobeJS("cr.ui.Oobe.handleAccelerator('reset');");
   }
 
   void HideRollbackOption() {
-    ASSERT_TRUE(JSExecuted("cr.ui.Oobe.handleAccelerator('reset');"));
+    test::ExecuteOobeJS("cr.ui.Oobe.handleAccelerator('reset');");
   }
 
   void CloseResetScreen() {
-    ASSERT_TRUE(JSExecuted(
-        "chrome.send('login.ResetScreen.userActed', ['cancel-reset']);"));
+    test::ExecuteOobeJS(
+        "chrome.send('login.ResetScreen.userActed', ['cancel-reset']);");
   }
 
   void ClickResetButton() {
-    ASSERT_TRUE(JSExecuted(
-        "chrome.send('login.ResetScreen.userActed', ['powerwash-pressed']);"));
+    test::ExecuteOobeJS(
+        "chrome.send('login.ResetScreen.userActed', ['powerwash-pressed']);");
   }
 
   void ClickRestartButton() {
-    ASSERT_TRUE(JSExecuted(
-        "chrome.send('login.ResetScreen.userActed', ['restart-pressed']);"));
+    test::ExecuteOobeJS(
+        "chrome.send('login.ResetScreen.userActed', ['restart-pressed']);");
   }
   void ClickToConfirmButton() {
-    ASSERT_TRUE(JSExecuted(
-        "chrome.send('login.ResetScreen.userActed', ['show-confirmation']);"));
+    test::ExecuteOobeJS(
+        "chrome.send('login.ResetScreen.userActed', ['show-confirmation']);");
   }
   void ClickDismissConfirmationButton() {
-    ASSERT_TRUE(
-        JSExecuted("chrome.send('login.ResetScreen.userActed', "
-                   "['reset-confirm-dismissed']);"));
+    test::ExecuteOobeJS(
+        "chrome.send('login.ResetScreen.userActed', "
+        "['reset-confirm-dismissed']);");
   }
 
   FakeUpdateEngineClient* update_engine_client_;
@@ -126,11 +122,11 @@ IN_PROC_BROWSER_TEST_F(ResetTest, PRE_ShowAndCancel) {
 }
 
 IN_PROC_BROWSER_TEST_F(ResetTest, ShowAndCancel) {
-  JSExpect("!!document.querySelector('#reset.hidden')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#reset.hidden')");
   InvokeResetScreen();
-  JSExpect("!document.querySelector('#reset.hidden')");
+  test::OobeJS().ExpectTrue("!document.querySelector('#reset.hidden')");
   CloseResetScreen();
-  JSExpect("!!document.querySelector('#reset.hidden')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#reset.hidden')");
 }
 
 IN_PROC_BROWSER_TEST_F(ResetTest, PRE_RestartBeforePowerwash) {
@@ -162,39 +158,39 @@ IN_PROC_BROWSER_TEST_F(ResetFirstAfterBootTest, ViewsLogic) {
 
   // Rollback unavailable. Show and cancel.
   update_engine_client_->set_can_rollback_check_result(false);
-  JSExpect("document.querySelector('#reset').hidden");
-  JSExpect("document.querySelector('#overlay-reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#overlay-reset').hidden");
   InvokeResetScreen();
-  JSExpect("!document.querySelector('#reset').hidden");
-  JSExpect("document.querySelector('#overlay-reset').hidden");
+  test::OobeJS().ExpectTrue("!document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#overlay-reset').hidden");
   CloseResetScreen();
-  JSExpect("document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#reset').hidden");
 
   // Go to confirmation phase, cancel from there in 2 steps.
   prefs->SetBoolean(prefs::kFactoryResetRequested, true);
   InvokeResetScreen();
-  JSExpect("document.querySelector('#overlay-reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#overlay-reset').hidden");
   ClickToConfirmButton();
-  JSExpect("!document.querySelector('#overlay-reset').hidden");
+  test::OobeJS().ExpectTrue("!document.querySelector('#overlay-reset').hidden");
   ClickDismissConfirmationButton();
-  JSExpect("document.querySelector('#overlay-reset').hidden");
-  JSExpect("!document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#overlay-reset').hidden");
+  test::OobeJS().ExpectTrue("!document.querySelector('#reset').hidden");
   CloseResetScreen();
-  JSExpect("document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#reset').hidden");
 
   // Rollback available. Show and cancel from confirmation screen.
   update_engine_client_->set_can_rollback_check_result(true);
   prefs->SetBoolean(prefs::kFactoryResetRequested, true);
   InvokeResetScreen();
   InvokeRollbackOption();
-  JSExpect("document.querySelector('#overlay-reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#overlay-reset').hidden");
   ClickToConfirmButton();
-  JSExpect("!document.querySelector('#overlay-reset').hidden");
+  test::OobeJS().ExpectTrue("!document.querySelector('#overlay-reset').hidden");
   ClickDismissConfirmationButton();
-  JSExpect("document.querySelector('#overlay-reset').hidden");
-  JSExpect("!document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#overlay-reset').hidden");
+  test::OobeJS().ExpectTrue("!document.querySelector('#reset').hidden");
   CloseResetScreen();
-  JSExpect("document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#reset').hidden");
 }
 
 IN_PROC_BROWSER_TEST_F(ResetFirstAfterBootTest, PRE_ShowAfterBootIfRequested) {
@@ -205,9 +201,9 @@ IN_PROC_BROWSER_TEST_F(ResetFirstAfterBootTest, PRE_ShowAfterBootIfRequested) {
 
 IN_PROC_BROWSER_TEST_F(ResetFirstAfterBootTest, ShowAfterBootIfRequested) {
   OobeScreenWaiter(OobeScreen::SCREEN_OOBE_RESET).Wait();
-  JSExpect("!document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("!document.querySelector('#reset').hidden");
   CloseResetScreen();
-  JSExpect("document.querySelector('#reset').hidden");
+  test::OobeJS().ExpectTrue("document.querySelector('#reset').hidden");
 }
 
 IN_PROC_BROWSER_TEST_F(ResetFirstAfterBootTest, PRE_RollbackUnavailable) {
@@ -304,14 +300,16 @@ IN_PROC_BROWSER_TEST_F(ResetFirstAfterBootTest, ErrorOnRollbackRequested) {
   EXPECT_EQ(0, power_manager_client_->num_request_restart_calls());
   EXPECT_EQ(0, session_manager_client_->start_device_wipe_call_count());
   EXPECT_EQ(0, update_engine_client_->rollback_call_count());
-  JSExpect("!$('reset').classList.contains('revert-promise-view')");
+  test::OobeJS().ExpectTrue(
+      "!$('reset').classList.contains('revert-promise-view')");
   InvokeRollbackOption();
   ClickToConfirmButton();
   ClickResetButton();
   EXPECT_EQ(0, power_manager_client_->num_request_restart_calls());
   EXPECT_EQ(0, session_manager_client_->start_device_wipe_call_count());
   EXPECT_EQ(1, update_engine_client_->rollback_call_count());
-  JSExpect("$('reset').classList.contains('revert-promise-view')");
+  test::OobeJS().ExpectTrue(
+      "$('reset').classList.contains('revert-promise-view')");
   UpdateEngineClient::Status error_update_status;
   error_update_status.status = UpdateEngineClient::UPDATE_STATUS_ERROR;
   update_engine_client_->NotifyObserversThatStatusChanged(error_update_status);
@@ -330,14 +328,17 @@ IN_PROC_BROWSER_TEST_F(ResetFirstAfterBootTest, RevertAfterCancel) {
   EXPECT_EQ(0, power_manager_client_->num_request_restart_calls());
   EXPECT_EQ(0, session_manager_client_->start_device_wipe_call_count());
   EXPECT_EQ(0, update_engine_client_->rollback_call_count());
-  JSExpect("!$('reset').classList.contains('rollback-proposal-view')");
+  test::OobeJS().ExpectTrue(
+      "!$('reset').classList.contains('rollback-proposal-view')");
   InvokeRollbackOption();
-  JSExpect("$('reset').classList.contains('rollback-proposal-view')");
+  test::OobeJS().ExpectTrue(
+      "$('reset').classList.contains('rollback-proposal-view')");
   CloseResetScreen();
   InvokeResetScreen();
   OobeScreenWaiter(OobeScreen::SCREEN_OOBE_RESET).Wait();
   InvokeRollbackOption();
-  JSExpect("$('reset').classList.contains('rollback-proposal-view')");
+  test::OobeJS().ExpectTrue(
+      "$('reset').classList.contains('rollback-proposal-view')");
 }
 
 }  // namespace chromeos

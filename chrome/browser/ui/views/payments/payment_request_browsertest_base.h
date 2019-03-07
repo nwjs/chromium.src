@@ -55,6 +55,7 @@ class PersonalDataLoadedObserverMock
   ~PersonalDataLoadedObserverMock() override;
 
   MOCK_METHOD0(OnPersonalDataChanged, void());
+  MOCK_METHOD0(OnPersonalDataFinishedProfileTasks, void());
 };
 
 // Base class for any interactive PaymentRequest test that will need to open
@@ -82,6 +83,8 @@ class PaymentRequestBrowserTestBase
     EDITOR_VIEW_UPDATED,
     CAN_MAKE_PAYMENT_CALLED,
     CAN_MAKE_PAYMENT_RETURNED,
+    HAS_ENROLLED_INSTRUMENT_CALLED,
+    HAS_ENROLLED_INSTRUMENT_RETURNED,
     ERROR_MESSAGE_SHOWN,
     SPEC_DONE_UPDATING,
     CVC_PROMPT_SHOWN,
@@ -109,6 +112,8 @@ class PaymentRequestBrowserTestBase
   // PaymentRequest::ObserverForTest:
   void OnCanMakePaymentCalled() override;
   void OnCanMakePaymentReturned() override;
+  void OnHasEnrolledInstrumentCalled() override;
+  void OnHasEnrolledInstrumentReturned() override;
   void OnNotSupportedError() override;
   void OnConnectionTerminated() override;
   void OnAbortCalled() override;
@@ -174,6 +179,7 @@ class PaymentRequestBrowserTestBase
   // are added close to each other.
   void AddAutofillProfile(const autofill::AutofillProfile& profile);
   void AddCreditCard(const autofill::CreditCard& card);
+  void WaitForOnPersonalDataChanged();
 
   void CreatePaymentRequestForTest(
       payments::mojom::PaymentRequestRequest request,

@@ -15,11 +15,10 @@
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "components/viz/test/fake_host_frame_sink_client.h"
 #include "services/ws/event_test_utils.h"
+#include "services/ws/proxy_window.h"
+#include "services/ws/proxy_window_test_helper.h"
 #include "services/ws/public/cpp/property_type_converters.h"
 #include "services/ws/public/mojom/window_manager.mojom.h"
-#include "services/ws/server_window.h"
-#include "services/ws/server_window_test_helper.h"
-#include "services/ws/window_delegate_impl.h"
 #include "services/ws/window_service.h"
 #include "services/ws/window_service_test_setup.h"
 #include "services/ws/window_tree_test_helper.h"
@@ -1218,17 +1217,16 @@ TEST(WindowTreeTest, PointerDownResetOnCaptureChange) {
   ui::test::EventGenerator event_generator(setup.root());
   event_generator.MoveMouseTo(5, 5);
   event_generator.PressLeftButton();
-  ServerWindow* top_level_server_window = ServerWindow::GetMayBeNull(top_level);
-  ASSERT_TRUE(top_level_server_window);
-  ServerWindowTestHelper top_level_server_window_helper(
-      top_level_server_window);
-  EXPECT_TRUE(top_level_server_window_helper.IsHandlingPointerPress(
+  ProxyWindow* top_level_proxy_window = ProxyWindow::GetMayBeNull(top_level);
+  ASSERT_TRUE(top_level_proxy_window);
+  ProxyWindowTestHelper top_level_proxy_window_helper(top_level_proxy_window);
+  EXPECT_TRUE(top_level_proxy_window_helper.IsHandlingPointerPress(
       ui::MouseEvent::kMousePointerId));
 
   // Set capture on |window|, top_level should no longer be in pointer-down
   // (because capture changed).
   EXPECT_TRUE(setup.window_tree_test_helper()->SetCapture(window));
-  EXPECT_FALSE(top_level_server_window_helper.IsHandlingPointerPress(
+  EXPECT_FALSE(top_level_proxy_window_helper.IsHandlingPointerPress(
       ui::MouseEvent::kMousePointerId));
 }
 
@@ -1245,16 +1243,15 @@ TEST(WindowTreeTest, PointerDownResetOnHide) {
   ui::test::EventGenerator event_generator(setup.root());
   event_generator.MoveMouseTo(5, 5);
   event_generator.PressLeftButton();
-  ServerWindow* top_level_server_window = ServerWindow::GetMayBeNull(top_level);
-  ASSERT_TRUE(top_level_server_window);
-  ServerWindowTestHelper top_level_server_window_helper(
-      top_level_server_window);
-  EXPECT_TRUE(top_level_server_window_helper.IsHandlingPointerPress(
+  ProxyWindow* top_level_proxy_window = ProxyWindow::GetMayBeNull(top_level);
+  ASSERT_TRUE(top_level_proxy_window);
+  ProxyWindowTestHelper top_level_proxy_window_helper(top_level_proxy_window);
+  EXPECT_TRUE(top_level_proxy_window_helper.IsHandlingPointerPress(
       ui::MouseEvent::kMousePointerId));
 
   // Hiding should implicitly cancel capture.
   top_level->Hide();
-  EXPECT_FALSE(top_level_server_window_helper.IsHandlingPointerPress(
+  EXPECT_FALSE(top_level_proxy_window_helper.IsHandlingPointerPress(
       ui::MouseEvent::kMousePointerId));
 }
 
@@ -1342,7 +1339,7 @@ TEST(WindowTreeTest, Embed) {
   const Id embed_window_transport_id =
       setup.window_tree_test_helper()->TransportIdForWindow(embed_window);
   EXPECT_EQ(embed_window_transport_id, (*setup.changes())[0].window_id);
-  EXPECT_EQ(ServerWindow::GetMayBeNull(embed_window)->frame_sink_id(),
+  EXPECT_EQ(ProxyWindow::GetMayBeNull(embed_window)->frame_sink_id(),
             (*setup.changes())[0].frame_sink_id);
 }
 
@@ -1543,10 +1540,10 @@ TEST(WindowTreeTest, DeleteEmbededTreeFromScheduleEmbedForExistingClient) {
                      &embed_result));
   EXPECT_TRUE(embed_callback_called);
   EXPECT_TRUE(embed_result);
-  EXPECT_TRUE(ServerWindow::GetMayBeNull(window_in_parent)->HasEmbedding());
+  EXPECT_TRUE(ProxyWindow::GetMayBeNull(window_in_parent)->HasEmbedding());
 
   tree2.reset();
-  EXPECT_FALSE(ServerWindow::GetMayBeNull(window_in_parent)->HasEmbedding());
+  EXPECT_FALSE(ProxyWindow::GetMayBeNull(window_in_parent)->HasEmbedding());
 }
 
 TEST(WindowTreeTest, StackAtTop) {
@@ -2044,15 +2041,15 @@ TEST(WindowTreeTest, DsfChanges) {
       setup.window_tree_test_helper()->NewTopLevelWindow();
   ASSERT_TRUE(top_level);
   top_level->Show();
-  ServerWindow* top_level_server_window = ServerWindow::GetMayBeNull(top_level);
+  ProxyWindow* top_level_proxy_window = ProxyWindow::GetMayBeNull(top_level);
   const base::Optional<viz::LocalSurfaceId> initial_surface_id =
-      top_level_server_window->local_surface_id();
+      top_level_proxy_window->local_surface_id();
   EXPECT_TRUE(initial_surface_id);
 
   // Changing the scale factor should change the LocalSurfaceId.
   setup.aura_test_helper()->test_screen()->SetDeviceScaleFactor(2.0f);
-  EXPECT_TRUE(top_level_server_window->local_surface_id());
-  EXPECT_NE(*top_level_server_window->local_surface_id(), *initial_surface_id);
+  EXPECT_TRUE(top_level_proxy_window->local_surface_id());
+  EXPECT_NE(*top_level_proxy_window->local_surface_id(), *initial_surface_id);
 }
 
 TEST(WindowTreeTest, DontSendGestures) {
@@ -2142,16 +2139,16 @@ TEST(WindowTreeTest, AttachFrameSinkId) {
       test_frame_sink_id, &test_host_frame_sink_client,
       viz::ReportFirstSurfaceActivation::kYes);
   EXPECT_EQ(test_frame_sink_id,
-            ServerWindow::GetMayBeNull(child_window)->attached_frame_sink_id());
+            ProxyWindow::GetMayBeNull(child_window)->attached_frame_sink_id());
   top_level->AddChild(child_window);
   EXPECT_TRUE(host_frame_sink_manager->IsFrameSinkHierarchyRegistered(
-      ServerWindow::GetMayBeNull(top_level)->frame_sink_id(),
+      ProxyWindow::GetMayBeNull(top_level)->frame_sink_id(),
       test_frame_sink_id));
 
   // Removing the window should remove the association.
   top_level->RemoveChild(child_window);
   EXPECT_FALSE(host_frame_sink_manager->IsFrameSinkHierarchyRegistered(
-      ServerWindow::GetMayBeNull(top_level)->frame_sink_id(),
+      ProxyWindow::GetMayBeNull(top_level)->frame_sink_id(),
       test_frame_sink_id));
 
   setup.window_tree_test_helper()->DeleteWindow(child_window);
@@ -2162,41 +2159,110 @@ TEST(WindowTreeTest, AttachFrameSinkId) {
 TEST(WindowTreeTest, OcclusionStateChange) {
   WindowServiceTestSetup setup;
 
-  // WindowDelegateImpl deletes itself when the window is deleted.
-  WindowDelegateImpl* delegate = new WindowDelegateImpl();
-  setup.delegate()->set_delegate_for_next_top_level(delegate);
+  // Create |tracked| and tracks its occlusion state.
+  aura::Window* tracked = setup.window_tree_test_helper()->NewTopLevelWindow();
+  ASSERT_TRUE(tracked);
+  tracked->SetBounds(gfx::Rect(0, 0, 10, 10));
 
-  // Create |top_level1| and tracks its occlusion state.
-  aura::Window* top_level1 =
-      setup.window_tree_test_helper()->NewTopLevelWindow();
-  delegate->set_window(top_level1);
-  ASSERT_TRUE(top_level1);
-  top_level1->SetBounds(gfx::Rect(0, 0, 10, 10));
+  tracked->TrackOcclusionState();
 
-  top_level1->TrackOcclusionState();
-
-  // Gets HIDDEN state since |top_level1| is created hidden.
+  // Gets HIDDEN state since |tracked| is created hidden.
   EXPECT_TRUE(ContainsChange(
-      *setup.changes(), "OnOcclusionStateChanged window_id=0,1, state=HIDDEN"));
+      *setup.changes(),
+      "OnOcclusionStatesChanged {{window_id=0,1, state=HIDDEN}}"));
 
-  // Gets VISIBLE state when |top_level1| is shown.
-  top_level1->Show();
-  EXPECT_TRUE(
-      ContainsChange(*setup.changes(),
-                     "OnOcclusionStateChanged window_id=0,1, state=VISIBLE"));
+  // Gets VISIBLE state when |tracked| is shown.
+  tracked->Show();
+  EXPECT_TRUE(ContainsChange(
+      *setup.changes(),
+      "OnOcclusionStatesChanged {{window_id=0,1, state=VISIBLE}}"));
 
-  // Creates |top_level2| and make it occlude |top_level1|.
-  aura::Window* top_level2 =
+  // Creates |blocking_window| and make it occlude |tracked|.
+  aura::Window* blocking_window =
       setup.window_tree_test_helper()->NewTopLevelWindow();
-  ASSERT_TRUE(top_level2);
-  top_level2->SetProperty(aura::client::kClientWindowHasContent, true);
-  top_level2->SetBounds(gfx::Rect(0, 0, 15, 15));
-  top_level2->Show();
+  ASSERT_TRUE(blocking_window);
+  blocking_window->SetProperty(aura::client::kClientWindowHasContent, true);
+  blocking_window->SetBounds(gfx::Rect(0, 0, 15, 15));
+  blocking_window->Show();
 
-  // Gets OCCLUDED state since |top_level2| covers |top_level1|.
+  // Gets OCCLUDED state since |blocking_window| covers |tracked|.
+  EXPECT_TRUE(ContainsChange(
+      *setup.changes(),
+      "OnOcclusionStatesChanged {{window_id=0,1, state=OCCLUDED}}"));
+}
+
+TEST(WindowTreeTest, OcclusionStateChangeBatchSameTree) {
+  WindowServiceTestSetup setup;
+
+  // Create two tracked windows and tracks their occlusion state.
+  aura::Window* tracked_1 =
+      setup.window_tree_test_helper()->NewTopLevelWindow();
+  ASSERT_TRUE(tracked_1);
+  tracked_1->SetBounds(gfx::Rect(0, 0, 10, 10));
+  tracked_1->TrackOcclusionState();
+  tracked_1->Show();
+
+  aura::Window* tracked_2 =
+      setup.window_tree_test_helper()->NewTopLevelWindow();
+  ASSERT_TRUE(tracked_2);
+  tracked_2->SetBounds(gfx::Rect(10, 0, 10, 10));
+  tracked_2->TrackOcclusionState();
+  tracked_2->Show();
+
+  // Creates |blocking_window| and make it occlude both tracked windows.
+  aura::Window* blocking_window =
+      setup.window_tree_test_helper()->NewTopLevelWindow();
+  ASSERT_TRUE(blocking_window);
+  blocking_window->SetProperty(aura::client::kClientWindowHasContent, true);
+  blocking_window->SetBounds(gfx::Rect(0, 0, 20, 15));
+  blocking_window->Show();
+
+  // Occlusion changes of windows for the same tree are sent together.
   EXPECT_TRUE(
       ContainsChange(*setup.changes(),
-                     "OnOcclusionStateChanged window_id=0,1, state=OCCLUDED"));
+                     "OnOcclusionStatesChanged {{window_id=0,1, "
+                     "state=OCCLUDED}, {window_id=0,2, state=OCCLUDED}}"));
+}
+
+TEST(WindowTreeTest, OcclusionStateChangeBatchDifferentTree) {
+  WindowServiceTestSetup setup;
+
+  // Create |tracked_1| from default tree.
+  aura::Window* tracked_1 =
+      setup.window_tree_test_helper()->NewTopLevelWindow(100);
+  ASSERT_TRUE(tracked_1);
+  tracked_1->SetBounds(gfx::Rect(0, 0, 10, 10));
+  tracked_1->TrackOcclusionState();
+  tracked_1->Show();
+
+  // Create |tracked_2| from a second tree.
+  TestWindowTreeClient client2;
+  std::unique_ptr<WindowTree> tree2 =
+      setup.service()->CreateWindowTree(&client2);
+  tree2->InitFromFactory();
+  WindowTreeTestHelper tree2_test_helper(tree2.get());
+
+  aura::Window* tracked_2 = tree2_test_helper.NewTopLevelWindow(200);
+  ASSERT_TRUE(tracked_2);
+  tracked_2->SetBounds(gfx::Rect(10, 0, 10, 10));
+  tracked_2->TrackOcclusionState();
+  tracked_2->Show();
+
+  // Creates |blocking_window| and make it occlude both tracked windows.
+  aura::Window* blocking_window =
+      setup.window_tree_test_helper()->NewTopLevelWindow();
+  ASSERT_TRUE(blocking_window);
+  blocking_window->SetProperty(aura::client::kClientWindowHasContent, true);
+  blocking_window->SetBounds(gfx::Rect(0, 0, 20, 15));
+  blocking_window->Show();
+
+  // Occlusion changes are sent separately for different trees.
+  EXPECT_TRUE(ContainsChange(*setup.changes(),
+                             "OnOcclusionStatesChanged {{window_id=0,100, "
+                             "state=OCCLUDED}}"));
+  EXPECT_TRUE(ContainsChange(*client2.tracker()->changes(),
+                             "OnOcclusionStatesChanged {{window_id=0,200, "
+                             "state=OCCLUDED}}"));
 }
 
 TEST(WindowTreeTest, OcclusionTrackingPause) {
@@ -2304,6 +2370,76 @@ TEST(WindowTreeTest, OcclusionTrackingPauseGoingAwayTree) {
       ->window_tree()
       ->UnpauseWindowOcclusionTracking();
   EXPECT_FALSE(tracker_api.IsPaused());
+}
+
+// Forces window visibility to a target value in OnWindowVisibilityChanged().
+// This mimics MultiUserWindowManager in ash.
+class WindowVisibilityEnforcer : public aura::WindowObserver {
+ public:
+  WindowVisibilityEnforcer(aura::Window* window, bool target_visibility)
+      : window_(window), target_visibility_(target_visibility) {
+    window_->AddObserver(this);
+  }
+  ~WindowVisibilityEnforcer() override { StopObservering(); }
+
+  // aura::WindowObserver:
+  void OnWindowVisibilityChanged(aura::Window* window, bool visible) override {
+    if (visible == target_visibility_)
+      return;
+
+    if (target_visibility_)
+      window->Show();
+    else
+      window->Hide();
+  }
+  void OnWindowDestroying(aura::Window* window) override { StopObservering(); }
+
+ private:
+  void StopObservering() {
+    if (!window_)
+      return;
+    window_->RemoveObserver(this);
+    window_ = nullptr;
+  }
+
+  aura::Window* window_;
+  const bool target_visibility_;
+
+  DISALLOW_COPY_AND_ASSIGN(WindowVisibilityEnforcer);
+};
+
+TEST(WindowTreeTest, ForcedWindowVisibility) {
+  WindowServiceTestSetup setup;
+  aura::Window* top_level =
+      setup.window_tree_test_helper()->NewTopLevelWindow();
+  setup.changes()->clear();
+
+  // WindowVisibilityEnforcer ensures the window remains hidden.
+  std::unique_ptr<WindowVisibilityEnforcer> enforcer =
+      std::make_unique<WindowVisibilityEnforcer>(top_level, false);
+  // Attempting to show the window should fail because WindowVisibilityEnforcer
+  // forces the window to remain hidden.
+  EXPECT_FALSE(
+      setup.window_tree_test_helper()->SetWindowVisibility(top_level, true));
+  EXPECT_FALSE(top_level->IsVisible());
+  // The client should not be notified of anything (returning false is enough).
+  EXPECT_TRUE(setup.changes()->empty());
+
+  // Destroy the enforcer and make the window visible.
+  enforcer.reset();
+  EXPECT_TRUE(
+      setup.window_tree_test_helper()->SetWindowVisibility(top_level, true));
+  EXPECT_TRUE(top_level->IsVisible());
+  EXPECT_TRUE(setup.changes()->empty());
+
+  // Create another enforcer that forces the window to remain visible.
+  enforcer = std::make_unique<WindowVisibilityEnforcer>(top_level, true);
+  // Attempting to hide the window should fail because WindowVisibilityEnforcer
+  // forces the window to remain visible.
+  EXPECT_FALSE(
+      setup.window_tree_test_helper()->SetWindowVisibility(top_level, false));
+  EXPECT_TRUE(top_level->IsVisible());
+  EXPECT_TRUE(setup.changes()->empty());
 }
 
 }  // namespace

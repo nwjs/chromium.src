@@ -13,6 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "base/stl_util.h"
 #include "gpu/command_buffer/tests/gl_manager.h"
 #include "gpu/command_buffer/tests/gl_test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -268,7 +269,7 @@ std::unique_ptr<uint8_t[]> getTextureDataAndExpectedRGBA(
     GLsizei height,
     uint8_t* expected_color,
     uint8_t* expected_mask) {
-  const int src_channel_count = gles2::GLES2Util::ElementsPerGroup(
+  const uint32_t src_channel_count = gles2::GLES2Util::ElementsPerGroup(
       src_format_type.format, src_format_type.type);
   uint8_t color[4] = {1u, 63u, 127u, 255u};
   getExpectedColor(src_format_type.internal_format,
@@ -277,9 +278,9 @@ std::unique_ptr<uint8_t[]> getTextureDataAndExpectedRGBA(
   if (src_format_type.type == GL_UNSIGNED_BYTE) {
     std::unique_ptr<uint8_t[]> pixels(
         new uint8_t[width * height * src_channel_count]);
-    for (int i = 0; i < width * height * src_channel_count;
+    for (uint32_t i = 0; i < width * height * src_channel_count;
          i += src_channel_count) {
-      for (int j = 0; j < src_channel_count; ++j)
+      for (uint32_t j = 0; j < src_channel_count; ++j)
         pixels[i + j] = color[j];
     }
     return pixels;
@@ -289,9 +290,9 @@ std::unique_ptr<uint8_t[]> getTextureDataAndExpectedRGBA(
         new uint8_t[width * height * src_channel_count * sizeof(uint16_t)]);
     uint16_t* pixels = reinterpret_cast<uint16_t*>(data.get());
     int16_t flip_sign = -1;
-    for (int i = 0; i < width * height * src_channel_count;
+    for (uint32_t i = 0; i < width * height * src_channel_count;
          i += src_channel_count) {
-      for (int j = 0; j < src_channel_count; ++j) {
+      for (uint32_t j = 0; j < src_channel_count; ++j) {
         // Introduce an offset to the value to check. Expected value should be
         // the same as without the offset.
         flip_sign *= -1;
@@ -770,8 +771,8 @@ TEST_P(GLCopyTextureCHROMIUMTest, InternalFormat) {
                          GL_LUMINANCE, GL_LUMINANCE_ALPHA, GL_BGRA_EXT};
   GLint dest_formats[] = {GL_RGB, GL_RGBA, GL_BGRA_EXT};
 
-  for (size_t src_index = 0; src_index < arraysize(src_formats); src_index++) {
-    for (size_t dest_index = 0; dest_index < arraysize(dest_formats);
+  for (size_t src_index = 0; src_index < base::size(src_formats); src_index++) {
+    for (size_t dest_index = 0; dest_index < base::size(dest_formats);
          dest_index++) {
       CreateAndBindDestinationTextureAndFBO(GL_TEXTURE_2D);
       glBindTexture(GL_TEXTURE_2D, textures_[0]);
@@ -861,7 +862,7 @@ TEST_P(GLCopyTextureCHROMIUMTest, InternalFormatNotSupported) {
 
   // Check unsupported format reports error.
   GLint unsupported_dest_formats[] = {GL_RED, GL_RG};
-  for (size_t dest_index = 0; dest_index < arraysize(unsupported_dest_formats);
+  for (size_t dest_index = 0; dest_index < base::size(unsupported_dest_formats);
        dest_index++) {
     if (copy_type == TexImage) {
       glCopyTextureCHROMIUM(textures_[0], 0, GL_TEXTURE_2D, textures_[1], 0,
@@ -901,7 +902,7 @@ TEST_F(GLCopyTextureCHROMIUMTest, InternalFormatTypeCombinationNotSupported) {
     {GL_RGB, GL_UNSIGNED_SHORT_5_5_5_1},
     {GL_RGBA, GL_UNSIGNED_SHORT_5_6_5},
   };
-  for (size_t dest_index = 0; dest_index < arraysize(unsupported_format_types);
+  for (size_t dest_index = 0; dest_index < base::size(unsupported_format_types);
        dest_index++) {
     glCopyTextureCHROMIUM(textures_[0], 0, GL_TEXTURE_2D, textures_[1], 0,
                           unsupported_format_types[dest_index].format,
@@ -1611,9 +1612,9 @@ TEST_F(GLCopyTextureCHROMIUMTest, CopyTextureBetweenTexture2DAndRectangleArb) {
   uint8_t white[1 * 4] = {255u, 255u, 255u, 255u};
   uint8_t grey[1 * 4] = {199u, 199u, 199u, 255u};
 
-  for (size_t src_index = 0; src_index < arraysize(src_targets); src_index++) {
+  for (size_t src_index = 0; src_index < base::size(src_targets); src_index++) {
     GLenum src_target = src_targets[src_index];
-    for (size_t dest_index = 0; dest_index < arraysize(dest_targets);
+    for (size_t dest_index = 0; dest_index < base::size(dest_targets);
          dest_index++) {
       GLenum dest_target = dest_targets[dest_index];
 

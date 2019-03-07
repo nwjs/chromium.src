@@ -124,9 +124,6 @@ bool StyleSheetContents::IsCacheableForResource() const {
   // This would require dealing with multiple clients for load callbacks.
   if (!LoadCompleted())
     return false;
-  if (has_media_queries_ &&
-      !RuntimeEnabledFeatures::CacheStyleSheetWithMediaQueriesEnabled())
-    return false;
   // FIXME: Support copying import rules.
   if (!import_rules_.IsEmpty())
     return false;
@@ -337,30 +334,15 @@ void StyleSheetContents::ParseAuthorStyleSheet(
       inspector_parse_author_style_sheet_event::Data(cached_style_sheet));
   TimeTicks start_time = CurrentTimeTicks();
 
-  bool is_same_origin_request =
-      security_origin && security_origin->CanRequest(BaseURL());
-
-  // When the response was fetched via the Service Worker, the original URL may
-  // not be same as the base URL.
-  // TODO(horo): When we will use the original URL as the base URL, we can
-  // remove this check. crbug.com/553535
-  if (is_same_origin_request &&
-      cached_style_sheet->GetResponse().WasFetchedViaServiceWorker()) {
-    const KURL original_url(
-        cached_style_sheet->GetResponse().OriginalURLViaServiceWorker());
-    // |originalURL| is empty when the response is created in the SW.
-    if (!original_url.IsEmpty() && !security_origin->CanRequest(original_url))
-      is_same_origin_request = false;
-  }
-
+  const ResourceResponse& response = cached_style_sheet->GetResponse();
   CSSStyleSheetResource::MIMETypeCheck mime_type_check =
-      IsQuirksModeBehavior(parser_context_->Mode()) && is_same_origin_request
+      (IsQuirksModeBehavior(parser_context_->Mode()) &&
+       response.IsCorsSameOrigin())
           ? CSSStyleSheetResource::MIMETypeCheck::kLax
           : CSSStyleSheetResource::MIMETypeCheck::kStrict;
   String sheet_text =
       cached_style_sheet->SheetText(parser_context_, mime_type_check);
 
-  const ResourceResponse& response = cached_style_sheet->GetResponse();
   source_map_url_ = response.HttpHeaderField(http_names::kSourceMap);
   if (source_map_url_.IsEmpty()) {
     // Try to get deprecated header.
@@ -440,6 +422,12 @@ void StyleSheetContents::CheckLoaded() {
   for (unsigned i = 0; i < loading_clients.size(); ++i) {
     if (loading_clients[i]->LoadCompleted())
       continue;
+
+    if (loading_clients[i]->IsConstructed()) {
+      // Resolve the promise for CSSStyleSheet.replace calls.
+      loading_clients[i]->ResolveReplacePromiseIfNeeded(did_load_error_occur_);
+      continue;
+    }
 
     // sheetLoaded might be invoked after its owner node is removed from
     // document.
@@ -567,7 +555,6 @@ StyleSheetContents* StyleSheetContents::ParentStyleSheet() const {
 void StyleSheetContents::RegisterClient(CSSStyleSheet* sheet) {
   DCHECK(!loading_clients_.Contains(sheet));
   DCHECK(!completed_clients_.Contains(sheet));
-
   // InspectorCSSAgent::BuildObjectForRule creates CSSStyleSheet without any
   // owner node.
   if (!sheet->OwnerDocument())

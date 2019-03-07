@@ -39,7 +39,6 @@
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
 #include "third_party/blink/public/common/frame/user_activation_update_type.h"
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-shared.h"
 #include "third_party/blink/public/platform/blame_context.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_provider.h"
 #include "third_party/blink/public/platform/web_application_cache_host.h"
@@ -66,7 +65,6 @@
 #include "third_party/blink/public/web/web_frame.h"
 #include "third_party/blink/public/web/web_frame_load_type.h"
 #include "third_party/blink/public/web/web_frame_owner_properties.h"
-#include "third_party/blink/public/web/web_global_object_reuse_policy.h"
 #include "third_party/blink/public/web/web_history_commit_type.h"
 #include "third_party/blink/public/web/web_history_item.h"
 #include "third_party/blink/public/web/web_icon_url.h"
@@ -230,6 +228,13 @@ class BLINK_EXPORT WebLocalFrameClient {
     return nullptr;
   }
 
+  // Request the creation of a new portal.
+  virtual std::pair<WebRemoteFrame*, base::UnguessableToken> CreatePortal(
+      mojo::ScopedMessagePipeHandle pipe) {
+    return std::pair<WebRemoteFrame*, base::UnguessableToken>(
+        nullptr, base::UnguessableToken());
+  }
+
   // Called when Blink cannot find a frame with the given name in the frame's
   // browsing instance.  This gives the embedder a chance to return a frame
   // from outside of the browsing instance.
@@ -382,8 +387,7 @@ class BLINK_EXPORT WebLocalFrameClient {
   virtual void DidCreateDocumentLoader(WebDocumentLoader*) {}
 
   // A new provisional load has been started.
-  virtual void DidStartProvisionalLoad(WebDocumentLoader* document_loader,
-                                       WebURLRequest& request) {}
+  virtual void DidStartProvisionalLoad(WebDocumentLoader* document_loader) {}
 
   // The provisional load failed. The WebHistoryCommitType is the commit type
   // that would have been used had the load succeeded.
@@ -393,9 +397,17 @@ class BLINK_EXPORT WebLocalFrameClient {
   // The provisional datasource is now committed.  The first part of the
   // response body has been received, and the encoding of the response
   // body is known.
+  // The mojo::ScopedMessagePipeHandle is a DocumentInterfaceBroker handle. When
+  // a load commits and a new Document is created, Blink creates a new
+  // DocumentInterfaceBroker endpoint to ensure that interface requests in the
+  // newly committed Document are associated with the correct origin (even if
+  // the origin of the old and the new Document are the same). The one
+  // exception is if the Window object is reused; in that case, the old
+  // DocumentInterfaceBroker handle will be reused, and the endpoint won't be
+  // bound to any requests.
   virtual void DidCommitProvisionalLoad(const WebHistoryItem&,
                                         WebHistoryCommitType,
-                                        WebGlobalObjectReusePolicy) {}
+                                        mojo::ScopedMessagePipeHandle) {}
 
   // The frame's document has just been initialized.
   virtual void DidCreateNewDocument() {}
@@ -768,11 +780,6 @@ class BLINK_EXPORT WebLocalFrameClient {
   }
 
   // Visibility ----------------------------------------------------------
-
-  // Returns the current visibility of the WebFrame.
-  virtual mojom::PageVisibilityState VisibilityState() const {
-    return mojom::PageVisibilityState::kVisible;
-  }
 
   // Overwrites the given URL to use an HTML5 embed if possible.
   // An empty URL is returned if the URL is not overriden.

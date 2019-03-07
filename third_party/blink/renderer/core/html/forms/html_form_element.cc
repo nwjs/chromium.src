@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/radio_node_list_or_element.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_event_listener.h"
+#include "third_party/blink/renderer/bindings/core/v8/usv_string_or_trusted_url.h"
 #include "third_party/blink/renderer/core/dom/attribute.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
@@ -44,6 +45,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/remote_frame.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
+#include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
 #include "third_party/blink/renderer/core/html/forms/form_controller.h"
 #include "third_party/blink/renderer/core/html/forms/form_data.h"
@@ -62,6 +64,7 @@
 #include "third_party/blink/renderer/core/loader/form_submission.h"
 #include "third_party/blink/renderer/core/loader/mixed_content_checker.h"
 #include "third_party/blink/renderer/core/loader/navigation_scheduler.h"
+#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 
 namespace blink {
@@ -87,7 +90,7 @@ HTMLFormElement* HTMLFormElement::Create(Document& document) {
 
 HTMLFormElement::~HTMLFormElement() = default;
 
-void HTMLFormElement::Trace(blink::Visitor* visitor) {
+void HTMLFormElement::Trace(Visitor* visitor) {
   visitor->Trace(past_names_map_);
   visitor->Trace(radio_button_group_scope_);
   visitor->Trace(listed_elements_);
@@ -96,13 +99,22 @@ void HTMLFormElement::Trace(blink::Visitor* visitor) {
   HTMLElement::Trace(visitor);
 }
 
+const AttrNameToTrustedType& HTMLFormElement::GetCheckedAttributeTypes() const {
+  DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
+                      ({{"action", SpecificTrustedType::kTrustedURL}}));
+  return attribute_map;
+}
+
 bool HTMLFormElement::MatchesValidityPseudoClasses() const {
   return true;
 }
 
 bool HTMLFormElement::IsValidElement() {
-  return !CheckInvalidControlsAndCollectUnhandled(
-      nullptr, kCheckValidityDispatchNoEvent);
+  for (const auto& element : ListedElements()) {
+    if (!element->IsNotCandidateOrValid())
+      return false;
+  }
+  return true;
 }
 
 Node::InsertionNotificationRequest HTMLFormElement::InsertedInto(
@@ -207,14 +219,11 @@ void HTMLFormElement::SubmitImplicitly(Event& event,
 
 bool HTMLFormElement::ValidateInteractively() {
   UseCounter::Count(GetDocument(), WebFeature::kFormValidationStarted);
-  for (const auto& element : ListedElements()) {
-    if (element->IsFormControlElement())
-      ToHTMLFormControlElement(element)->HideVisibleValidationMessage();
-  }
+  for (const auto& element : ListedElements())
+    element->HideVisibleValidationMessage();
 
-  HeapVector<Member<HTMLFormControlElement>> unhandled_invalid_controls;
-  if (!CheckInvalidControlsAndCollectUnhandled(
-          &unhandled_invalid_controls, kCheckValidityDispatchInvalidEvent))
+  ListedElement::List unhandled_invalid_controls;
+  if (!CheckInvalidControlsAndCollectUnhandled(&unhandled_invalid_controls))
     return true;
   UseCounter::Count(GetDocument(),
                     WebFeature::kFormValidationAbortedSubmission);
@@ -227,7 +236,7 @@ bool HTMLFormElement::ValidateInteractively() {
 
   // Focus on the first focusable control and show a validation message.
   for (const auto& unhandled : unhandled_invalid_controls) {
-    if (unhandled->IsFocusable()) {
+    if (ToHTMLElement(unhandled)->IsFocusable()) {
       unhandled->ShowValidationMessage();
       UseCounter::Count(GetDocument(),
                         WebFeature::kFormValidationShowedMessage);
@@ -237,7 +246,7 @@ bool HTMLFormElement::ValidateInteractively() {
   // Warn about all of unfocusable controls.
   if (GetDocument().GetFrame()) {
     for (const auto& unhandled : unhandled_invalid_controls) {
-      if (unhandled->IsFocusable())
+      if (ToHTMLElement(unhandled)->IsFocusable())
         continue;
       String message(
           "An invalid form control with name='%name' is not focusable.");
@@ -412,11 +421,13 @@ void HTMLFormElement::Submit(Event* event,
   }
 }
 
-bool HTMLFormElement::ConstructEntryList(HTMLFormControlElement* submit_button,
-                                         FormData& form_data) {
+FormData* HTMLFormElement::ConstructEntryList(
+    HTMLFormControlElement* submit_button,
+    const WTF::TextEncoding& encoding) {
   if (is_constructing_entry_list_) {
-    return false;
+    return nullptr;
   }
+  auto& form_data = *MakeGarbageCollected<FormData>(encoding);
   base::AutoReset<bool> entry_list_scope(&is_constructing_entry_list_, true);
   if (submit_button)
     submit_button->SetActivatedSubmit(true);
@@ -436,7 +447,7 @@ bool HTMLFormElement::ConstructEntryList(HTMLFormControlElement* submit_button,
 
   if (submit_button)
     submit_button->SetActivatedSubmit(false);
-  return true;
+  return &form_data;
 }
 
 void HTMLFormElement::ScheduleFormSubmission(FormSubmission* submission) {
@@ -467,10 +478,8 @@ void HTMLFormElement::ScheduleFormSubmission(FormSubmission* submission) {
       UseCounter::Count(GetDocument(),
                         WebFeature::kFormDisabledAttributePresentAndSubmit);
     }
-    GetDocument()
-        .GetFrame()
-        ->GetScriptController()
-        .ExecuteScriptIfJavaScriptURL(submission->Action(), this);
+    GetDocument().ProcessJavaScriptUrl(submission->Action(),
+                                       kCheckContentSecurityPolicy);
     return;
   }
 
@@ -534,6 +543,8 @@ void HTMLFormElement::reset() {
   for (const auto& element : elements) {
     if (element->IsFormControlElement())
       ToHTMLFormControlElement(element)->Reset();
+    else if (element->IsElementInternals())
+      CustomElement::EnqueueFormResetCallback(*ToHTMLElement(element));
   }
 
   is_in_reset_function_ = false;
@@ -623,16 +634,8 @@ void HTMLFormElement::CollectListedElements(
     ListedElement::List& elements) const {
   elements.clear();
   for (HTMLElement& element : Traversal<HTMLElement>::StartsAfter(root)) {
-    ListedElement* listed_element = nullptr;
-    if (element.IsFormControlElement())
-      listed_element = ToHTMLFormControlElement(&element);
-    else if (element.IsFormAssociatedCustomElement())
-      listed_element = &element.EnsureElementInternals();
-    else if (auto* object = ToHTMLObjectElementOrNull(element))
-      listed_element = object;
-    else
-      continue;
-    if (listed_element->Form() == this)
+    ListedElement* listed_element = ListedElement::From(element);
+    if (listed_element && listed_element->Form() == this)
       elements.push_back(listed_element);
   }
 }
@@ -692,8 +695,13 @@ String HTMLFormElement::action() const {
   return action_url.GetString();
 }
 
-void HTMLFormElement::setAction(const AtomicString& value) {
-  setAttribute(kActionAttr, value);
+void HTMLFormElement::action(USVStringOrTrustedURL& result) const {
+  result.SetUSVString(action());
+}
+
+void HTMLFormElement::setAction(const USVStringOrTrustedURL& value,
+                                ExceptionState& exception_state) {
+  setAttribute(kActionAttr, value, exception_state);
 }
 
 void HTMLFormElement::setEnctype(const AtomicString& value) {
@@ -720,15 +728,13 @@ HTMLFormControlElement* HTMLFormElement::FindDefaultButton() const {
 }
 
 bool HTMLFormElement::checkValidity() {
-  return !CheckInvalidControlsAndCollectUnhandled(
-      nullptr, kCheckValidityDispatchInvalidEvent);
+  return !CheckInvalidControlsAndCollectUnhandled(nullptr);
 }
 
 bool HTMLFormElement::CheckInvalidControlsAndCollectUnhandled(
-    HeapVector<Member<HTMLFormControlElement>>* unhandled_invalid_controls,
-    CheckValidityEventBehavior event_behavior) {
+    ListedElement::List* unhandled_invalid_controls) {
   // Copy listedElements because event handlers called from
-  // HTMLFormControlElement::checkValidity() might change listedElements.
+  // ListedElement::checkValidity() might change listed_elements.
   const ListedElement::List& listed_elements = ListedElements();
   HeapVector<Member<ListedElement>> elements;
   elements.ReserveCapacity(listed_elements.size());
@@ -736,16 +742,20 @@ bool HTMLFormElement::CheckInvalidControlsAndCollectUnhandled(
     elements.push_back(element);
   int invalid_controls_count = 0;
   for (const auto& element : elements) {
-    if (element->Form() == this && element->IsFormControlElement()) {
-      HTMLFormControlElement* control = ToHTMLFormControlElement(element);
-      if (control->IsSubmittableElement() &&
-          !control->checkValidity(unhandled_invalid_controls, event_behavior) &&
-          control->formOwner() == this) {
-        ++invalid_controls_count;
-        if (!unhandled_invalid_controls &&
-            event_behavior == kCheckValidityDispatchNoEvent)
-          return true;
-      }
+    if (element->Form() != this)
+      continue;
+    // TOOD(tkent): Virtualize checkValidity().
+    bool should_check_validity = false;
+    if (element->IsFormControlElement()) {
+      should_check_validity =
+          ToHTMLFormControlElement(element)->IsSubmittableElement();
+    } else if (element->IsElementInternals()) {
+      should_check_validity = true;
+    }
+    if (should_check_validity &&
+        !element->checkValidity(unhandled_invalid_controls) &&
+        element->Form() == this) {
+      ++invalid_controls_count;
     }
   }
   return invalid_controls_count;

@@ -374,6 +374,30 @@ class GoogleDesktopStory(_ArticleBrowsingStory):
     action_runner.Wait(2)
     action_runner.ScrollPage()
 
+class GoogleAmpStory2018(_ArticleBrowsingStory):
+  """ Story for Google's Accelerated Mobile Pages (AMP).
+
+    The main thing we care about measuring here is load, so just query for
+    news articles and then load the first amp link.
+  """
+  NAME = 'browse:search:amp:2018'
+  URL = 'https://www.google.com/search?q=news&hl=en'
+  # Need to find the first card in the news section that has an amp
+  # indicator on it
+  ITEM_SELECTOR = '.sm62ie > a[class*="amp_r"]'
+  SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
+  TAGS = [story_tags.YEAR_2018]
+
+  def _DidLoadDocument(self, action_runner):
+    # Click on the amp news link and then just wait for it to load.
+    element_function = js_template.Render(
+        'document.querySelectorAll({{ selector }})[{{ index }}]',
+        selector=self.ITEM_SELECTOR, index=0)
+    action_runner.WaitForElement(element_function=element_function)
+    action_runner.ClickElement(element_function=element_function)
+    action_runner.Wait(2)
+
+
 class GoogleDesktopStory2018(_ArticleBrowsingStory):
   """
   A typical google search story:
@@ -612,6 +636,14 @@ class YouTubeDesktopStory2018(_MediaBrowsingStory):
   PLATFORM_SPECIFIC = True
   TAGS = [story_tags.JAVASCRIPT_HEAVY, story_tags.YEAR_2018]
 
+  # TODO(yoichio): Remove this flags when YouTube finish V0 migration.
+  # crbug.com/911943.
+  def __init__(self, story_set, take_memory_measurement):
+    super(YouTubeDesktopStory2018, self).__init__(
+        story_set, take_memory_measurement,
+        extra_browser_args=[
+          '--enable-blink-features=HTMLImports,CustomElementsV0'])
+
 
 class FacebookPhotosMobileStory(_MediaBrowsingStory):
   """Load a photo page from Rihanna's facebook page then navigate a few next
@@ -762,6 +794,29 @@ class PinterestDesktopStory2018(_MediaBrowsingStory):
     action_runner.Wait(1)
     if not self.SKIP_LOGIN:
       action_runner.Wait(2)
+
+class GooglePlayStoreMobileStory(_MediaBrowsingStory):
+  """ Navigate to the movies page of Google Play Store, scroll to the bottom,
+  and click "see more" of a middle category (last before second scroll).
+  """
+  NAME = 'browse:media:googleplaystore:2019'
+  URL = 'https://play.google.com/store/movies'
+  ITEM_SELECTOR = ''
+  SUPPORTED_PLATFORMS = platforms.MOBILE_ONLY
+  IS_SINGLE_PAGE_APP = True
+  TAGS = [story_tags.EMERGING_MARKET, story_tags.YEAR_2019, story_tags.IMAGES]
+  # intends to select the last category of movies and its "see more" button
+  _SEE_MORE_SELECTOR = ('div[class*="cluster-container"]:last-of-type '
+                        'a[class*="see-more"]')
+
+  def _DidLoadDocument(self, action_runner):
+    action_runner.ScrollPage()
+    action_runner.Wait(2)
+    action_runner.ScrollPage()
+    action_runner.Wait(2)
+    action_runner.MouseClick(self._SEE_MORE_SELECTOR)
+    action_runner.Wait(2)
+    action_runner.ScrollPage()
 
 
 class GooglePlayStoreDesktopStory(_MediaBrowsingStory):
@@ -1256,6 +1311,19 @@ class TumblrStory(_InfiniteScrollStory):
   TAGS = [story_tags.INFINITE_SCROLL, story_tags.JAVASCRIPT_HEAVY,
           story_tags.YEAR_2016]
 
+class TumblrStory2018(_InfiniteScrollStory):
+  NAME = 'browse:social:tumblr_infinite_scroll:2018'
+  URL = 'https://techcrunch.tumblr.com/'
+  SCROLL_DISTANCE = 20000
+  TAGS = [story_tags.INFINITE_SCROLL, story_tags.JAVASCRIPT_HEAVY,
+          story_tags.YEAR_2018]
+
+  def _Login(self, action_runner):
+    tumblr_login.LoginDesktopAccount(action_runner, 'tumblr')
+    action_runner.Wait(5)
+    # Without this page reload the mobile version does not correctly
+    # go to the https://techcrunch.tumblr.com
+    action_runner.ReloadPage()
 
 class TwitterScrollDesktopStory(_InfiniteScrollStory):
   NAME = 'browse:social:twitter_infinite_scroll'

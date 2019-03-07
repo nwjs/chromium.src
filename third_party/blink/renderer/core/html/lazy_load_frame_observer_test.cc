@@ -98,11 +98,12 @@ class LazyLoadFramesParamsTest
         scoped_restrict_lazy_frame_loading_to_data_saver_for_test_(false) {}
 
   void SetUp() override {
-    SetEffectiveConnectionTypeForTesting(
+    WebFrameClient().SetEffectiveConnectionTypeForTesting(
         std::get<WebEffectiveConnectionType>(GetParam()));
 
     SimTest::SetUp();
-    WebView().Resize(WebSize(kViewportWidth, kViewportHeight));
+    WebView().MainFrameWidget()->Resize(
+        WebSize(kViewportWidth, kViewportHeight));
 
     Settings& settings = WebView().GetPage()->GetSettings();
 
@@ -114,7 +115,8 @@ class LazyLoadFramesParamsTest
     settings.SetLazyFrameLoadingDistanceThresholdPx2G(500);
     settings.SetLazyFrameLoadingDistanceThresholdPx3G(600);
     settings.SetLazyFrameLoadingDistanceThresholdPx4G(700);
-    settings.SetLazyLoadEnabled(true);
+    settings.SetLazyLoadEnabled(
+        RuntimeEnabledFeatures::LazyFrameLoadingEnabled());
   }
 
   int GetLoadingDistanceThreshold() const {
@@ -717,11 +719,11 @@ TEST_P(LazyLoadFramesParamsTest, JavascriptStringFrameUrl) {
         </body>)HTML",
       kViewportHeight + GetLoadingDistanceThreshold() + 100));
 
-  EXPECT_TRUE(ConsoleMessages().Contains("main body onload"));
-  EXPECT_TRUE(ConsoleMessages().Contains("child frame element onload"));
-
   Compositor().BeginFrame();
   test::RunPendingTasks();
+
+  EXPECT_TRUE(ConsoleMessages().Contains("main body onload"));
+  EXPECT_TRUE(ConsoleMessages().Contains("child frame element onload"));
 
   ExpectVisibleLoadTimeHistogramSamplesIfApplicable(0, 0);
   histogram_tester()->ExpectTotalCount(
@@ -1105,11 +1107,12 @@ class LazyLoadFramesTest : public SimTest {
   static constexpr int kLoadingDistanceThresholdPx = 1000;
 
   void SetUp() override {
-    SetEffectiveConnectionTypeForTesting(
+    WebFrameClient().SetEffectiveConnectionTypeForTesting(
         WebEffectiveConnectionType::kTypeUnknown);
 
     SimTest::SetUp();
-    WebView().Resize(WebSize(kViewportWidth, kViewportHeight));
+    WebView().MainFrameWidget()->Resize(
+        WebSize(kViewportWidth, kViewportHeight));
 
     Settings& settings = WebView().GetPage()->GetSettings();
     settings.SetLazyFrameLoadingDistanceThresholdPxUnknown(
@@ -1248,7 +1251,7 @@ TEST_F(LazyLoadFramesTest, LazyLoadWhenDataSaverDisabledAndRestrictedAttrOn) {
 
   GetNetworkStateNotifier().SetSaveDataEnabled(false);
   WebView().GetPage()->GetSettings().SetDataSaverHoldbackWebApi(false);
-  TestCrossOriginFrameIsLazilyLoaded("lazyload='on'");
+  TestCrossOriginFrameIsImmediatelyLoaded("lazyload='on'");
 }
 
 }  // namespace

@@ -47,12 +47,11 @@ const CLASSES = {
   REORDERING: 'reordering',  // Applied while we are reordering.
   // Material Design classes.
   MD_EMPTY_TILE: 'md-empty-tile',
-  MD_FALLBACK_BACKGROUND: 'md-fallback-background',
+  MD_ICON_BACKGROUND: 'md-icon-background',
   MD_FALLBACK_LETTER: 'md-fallback-letter',
   MD_FAVICON: 'md-favicon',
   MD_ICON: 'md-icon',
   MD_ADD_ICON: 'md-add-icon',
-  MD_ADD_BACKGROUND: 'md-add-background',
   MD_MENU: 'md-menu',
   MD_EDIT_MENU: 'md-edit-menu',
   MD_TILE: 'md-tile',
@@ -344,6 +343,7 @@ var updateTheme = function(info) {
   document.body.style.setProperty('--tile-title-color', info.tileTitleColor);
   document.body.classList.toggle('dark-theme', info.isThemeDark);
   document.body.classList.toggle('using-theme', info.isUsingTheme);
+  document.documentElement.setAttribute('darkmode', info.isDarkMode);
 
   // Reduce font weight on the default(white) background for Mac and CrOS.
   document.body.classList.toggle('mac-chromeos',
@@ -361,10 +361,11 @@ var updateTheme = function(info) {
  */
 var focusTileMenu = function(info) {
   let tile = document.querySelector(`a.md-tile[data-tid="${info.tid}"]`);
-  if (info.tid === -1 /* Add shortcut tile */)
+  if (info.tid === -1 /* Add shortcut tile */) {
     tile.focus();
-  else
+  } else {
     tile.parentNode.childNodes[1].focus();
+  }
 };
 
 
@@ -453,14 +454,16 @@ var swapInNewTiles = function() {
 function updateTileVisibility() {
   const allTiles = document.querySelectorAll(
       '#' + IDS.MV_TILES + ' .' + CLASSES.MD_TILE_CONTAINER);
-  if (allTiles.length === 0)
+  if (allTiles.length === 0) {
     return;
+  }
 
   // Get the current number of tiles per row. Hide any tile after the first two
   // rows.
   const tilesPerRow = Math.trunc(document.body.offsetWidth / MD_TILE_WIDTH);
-  for (let i = MD_NUM_TILES_ALWAYS_VISIBLE; i < allTiles.length; i++)
+  for (let i = MD_NUM_TILES_ALWAYS_VISIBLE; i < allTiles.length; i++) {
     allTiles[i].style.display = (i < tilesPerRow * 2) ? 'block' : 'none';
+  }
 }
 
 
@@ -475,10 +478,14 @@ var addTile = function(args) {
     // An actual suggestion. Grab the data from the embeddedSearch API.
     var data =
         chrome.embeddedSearch.newTabPage.getMostVisitedItemData(args.rid);
-    if (!data)
+    if (!data) {
       return;
+    }
 
     data.tid = data.rid;
+    // Use a dark icon if dark mode is enabled. Keep value in sync with
+    // NtpIconSource.
+    data.dark = args.darkMode ? 'dark/' : '';
     if (!data.faviconUrl) {
       data.faviconUrl = 'chrome-search://favicon/size/16@' +
           window.devicePixelRatio + 'x/' + data.renderViewId + '/' + data.tid;
@@ -504,8 +511,9 @@ var blacklistTile = function(tile) {
   } else {
     tile.classList.add('blacklisted');
     tile.addEventListener('transitionend', function(ev) {
-      if (ev.propertyName != 'width')
+      if (ev.propertyName != 'width') {
         return;
+      }
       window.parent.postMessage(
           {cmd: 'tileBlacklisted', tid: Number(tid)}, DOMAIN_ORIGIN);
     });
@@ -557,8 +565,9 @@ function stopReorder(tile) {
   // Update |data-pos| for all tiles and notify EmbeddedSearchAPI that the tile
   // has been moved.
   const allTiles = document.querySelectorAll('#mv-tiles .' + CLASSES.MD_TILE);
-  for (let i = 0; i < allTiles.length; i++)
+  for (let i = 0; i < allTiles.length; i++) {
     allTiles[i].setAttribute('data-pos', i);
+  }
   chrome.embeddedSearch.newTabPage.reorderCustomLink(
       Number(tile.firstChild.getAttribute('data-tid')),
       Number(tile.firstChild.getAttribute('data-pos')));
@@ -586,14 +595,16 @@ function setupReorder(tile) {
         window.clearTimeout(timeout);
       }, {once: true});
       let mouseup = document.addEventListener('mouseup', () => {
-        if (event.button == 0 /* LEFT CLICK */)
+        if (event.button == 0 /* LEFT CLICK */) {
           window.clearTimeout(timeout);
+        }
       }, {once: true});
 
       // Wait for |REORDER_TIMEOUT_DELAY| before starting the reorder flow.
       timeout = window.setTimeout(() => {
-        if (!reordering)
+        if (!reordering) {
           startReorder(tile);
+        }
         document.removeEventListener('dragend', dragend);
         document.removeEventListener('mouseup', mouseup);
       }, REORDER_TIMEOUT_DELAY);
@@ -708,23 +719,21 @@ function renderMaterialDesignTile(data) {
   let mdIcon = document.createElement('div');
   mdIcon.className = CLASSES.MD_ICON;
 
-  let mdFavicon = document.createElement('div');
-  mdFavicon.className = CLASSES.MD_FAVICON;
   if (data.isAddButton) {
     let mdAdd = document.createElement('div');
     mdAdd.className = CLASSES.MD_ADD_ICON;
     let addBackground = document.createElement('div');
-    addBackground.className = CLASSES.MD_ADD_BACKGROUND;
+    addBackground.className = CLASSES.MD_ICON_BACKGROUND;
 
     addBackground.appendChild(mdAdd);
-    mdFavicon.appendChild(addBackground);
+    mdIcon.appendChild(addBackground);
   } else {
     let fi = document.createElement('img');
     // Set title and alt to empty so screen readers won't say the image name.
     fi.title = '';
     fi.alt = '';
     fi.src = 'chrome-search://ntpicon/size/24@' + window.devicePixelRatio +
-        'x/' + data.url;
+        'x/' + data.dark + data.url;
     loadedCounter += 1;
     fi.addEventListener('load', function(ev) {
       // Store the type for a potential later navigation.
@@ -739,18 +748,18 @@ function renderMaterialDesignTile(data) {
     });
     fi.addEventListener('error', function(ev) {
       let fallbackBackground = document.createElement('div');
-      fallbackBackground.className = CLASSES.MD_FALLBACK_BACKGROUND;
+      fallbackBackground.className = CLASSES.MD_ICON_BACKGROUND;
       let fallbackLetter = document.createElement('div');
       fallbackLetter.className = CLASSES.MD_FALLBACK_LETTER;
-      fallbackLetter.innerText = data.title.charAt(0).toUpperCase();
+      fallbackLetter.textContent = data.title.charAt(0).toUpperCase();
       if (navigator.userAgent.indexOf('Windows') > -1) {
         fallbackLetter.style.fontWeight = 600;
       }
-      mdFavicon.classList.add(CLASSES.FAILED_FAVICON);
+      mdIcon.classList.add(CLASSES.FAILED_FAVICON);
 
       fallbackBackground.appendChild(fallbackLetter);
-      mdFavicon.removeChild(fi);
-      mdFavicon.appendChild(fallbackBackground);
+      mdIcon.removeChild(fi);
+      mdIcon.appendChild(fallbackBackground);
 
       // Store the type for a potential later navigation.
       tileType = TileVisualType.ICON_DEFAULT;
@@ -763,17 +772,17 @@ function renderMaterialDesignTile(data) {
       countLoad();
     });
 
-    mdFavicon.appendChild(fi);
+    mdIcon.appendChild(fi);
   }
 
-  mdIcon.appendChild(mdFavicon);
   mdTileInner.appendChild(mdIcon);
 
   let mdTitleContainer = document.createElement('div');
   mdTitleContainer.className = CLASSES.MD_TITLE_CONTAINER;
   let mdTitle = document.createElement('div');
   mdTitle.className = CLASSES.MD_TITLE;
-  mdTitle.innerText = data.title;
+  let mdTitleTextwrap = document.createElement('span');
+  mdTitleTextwrap.innerText = data.title;
   mdTitle.style.direction = data.direction || 'ltr';
   // Windows font family fallback to Segoe
   if (navigator.userAgent.indexOf('Windows') > -1) {
@@ -783,6 +792,7 @@ function renderMaterialDesignTile(data) {
   mdTileInner.appendChild(mdTitleContainer);
   mdTile.appendChild(mdTileInner);
   mdTileContainer.appendChild(mdTile);
+  mdTitle.appendChild(mdTitleTextwrap);
 
   if (!data.isAddButton) {
     let mdMenu = document.createElement('button');
@@ -845,8 +855,9 @@ var init = function() {
   queryArgs = {};
   for (var i = 0; i < query.length; ++i) {
     var val = query[i].split('=');
-    if (val[0] == '')
+    if (val[0] == '') {
       continue;
+    }
     queryArgs[decodeURIComponent(val[0])] = decodeURIComponent(val[1]);
   }
 
@@ -856,6 +867,11 @@ var init = function() {
   if (queryArgs['rtl'] == '1') {
     var html = document.querySelector('html');
     html.dir = 'rtl';
+  }
+
+  // Enable dark mode.
+  if (queryArgs['enableDarkMode'] == '1') {
+    document.documentElement.setAttribute('darkmode', true);
   }
 
   // Enable custom links.
@@ -871,8 +887,9 @@ var init = function() {
   // Throttle the resize event.
   let resizeTimeout;
   window.onresize = () => {
-    if (resizeTimeout)
+    if (resizeTimeout) {
       return;
+    }
     resizeTimeout = window.setTimeout(() => {
       resizeTimeout = null;
       updateTileVisibility();

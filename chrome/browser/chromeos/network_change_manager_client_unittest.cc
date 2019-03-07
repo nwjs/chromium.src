@@ -8,13 +8,14 @@
 
 #include <string>
 
+#include "base/stl_util.h"
 #include "base/strings/string_split.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/network/network_handler.h"
 #include "chromeos/network/network_state.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "net/base/network_change_notifier.h"
-#include "net/base/network_change_notifier_chromeos.h"
+#include "net/base/network_change_notifier_posix.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace chromeos {
@@ -96,7 +97,7 @@ TEST(NetworkChangeManagerClientTest, ConnectionTypeFromShill) {
       {shill::kTypeCellular, "unknown technology",
        NetworkChangeNotifier::CONNECTION_2G}};
 
-  for (size_t i = 0; i < arraysize(type_mappings); ++i) {
+  for (size_t i = 0; i < base::size(type_mappings); ++i) {
     NetworkChangeNotifier::ConnectionType type =
         NetworkChangeManagerClient::ConnectionTypeFromShill(
             type_mappings[i].shill_type, type_mappings[i].technology);
@@ -111,7 +112,7 @@ class NetworkChangeManagerClientUpdateTest : public testing::Test {
     DBusThreadManager::Initialize();
     NetworkHandler::Initialize();
     proxy_.reset(new NetworkChangeManagerClient(
-        static_cast<net::NetworkChangeNotifierChromeos*>(
+        static_cast<net::NetworkChangeNotifierPosix*>(
             network_change_notifier_.get())));
   }
 
@@ -347,7 +348,7 @@ NotifierUpdateTestCase test_cases[] = {
      false}};
 
 TEST_F(NetworkChangeManagerClientUpdateTest, UpdateDefaultNetwork) {
-  for (size_t i = 0; i < arraysize(test_cases); ++i) {
+  for (size_t i = 0; i < base::size(test_cases); ++i) {
     SCOPED_TRACE(test_cases[i].test_description);
     SetNotifierState(test_cases[i].initial_state);
     SetDefaultNetworkState(test_cases[i].default_network_state);

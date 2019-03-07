@@ -92,7 +92,7 @@ bool ParseHelper(Extension* extension,
   if (!extension->manifest()->HasKey(key))
     return true;
 
-  const base::ListValue* permissions = NULL;
+  const base::Value* permissions = nullptr;
   if (!extension->manifest()->GetList(key, &permissions)) {
     *error = ErrorUtils::FormatErrorMessageUTF16(errors::kInvalidPermissions,
                                                  std::string());
@@ -273,7 +273,7 @@ void RemoveOverlappingAPIPermissions(
                                required_api_permissions,
                                &new_optional_api_permissions);
 
-  *optional_api_permissions = new_optional_api_permissions;
+  *optional_api_permissions = std::move(new_optional_api_permissions);
 }
 
 void RemoveOverlappingHostPermissions(
@@ -301,7 +301,7 @@ void RemoveOverlappingHostPermissions(
   if (!install_warnings.empty())
     extension->AddInstallWarnings(std::move(install_warnings));
 
-  *optional_host_permissions = new_optional_host_permissions;
+  *optional_host_permissions = std::move(new_optional_host_permissions);
 }
 
 }  // namespace
@@ -356,18 +356,18 @@ void PermissionsParser::Finalize(Extension* extension) {
   ManifestHandler::AddExtensionInitialRequiredPermissions(
       extension, &initial_required_permissions_->manifest_permissions);
 
-  std::unique_ptr<const PermissionSet> required_permissions(
-      new PermissionSet(initial_required_permissions_->api_permissions,
-                        initial_required_permissions_->manifest_permissions,
-                        initial_required_permissions_->host_permissions,
-                        initial_required_permissions_->scriptable_hosts));
+  std::unique_ptr<const PermissionSet> required_permissions(new PermissionSet(
+      initial_required_permissions_->api_permissions.Clone(),
+      initial_required_permissions_->manifest_permissions.Clone(),
+      initial_required_permissions_->host_permissions,
+      initial_required_permissions_->scriptable_hosts));
   extension->SetManifestData(
       keys::kPermissions,
       std::make_unique<ManifestPermissions>(std::move(required_permissions)));
 
   std::unique_ptr<const PermissionSet> optional_permissions(new PermissionSet(
-      initial_optional_permissions_->api_permissions,
-      initial_optional_permissions_->manifest_permissions,
+      initial_optional_permissions_->api_permissions.Clone(),
+      initial_optional_permissions_->manifest_permissions.Clone(),
       initial_optional_permissions_->host_permissions, URLPatternSet()));
   extension->SetManifestData(
       keys::kOptionalPermissions,
@@ -406,7 +406,8 @@ void PermissionsParser::SetScriptableHosts(
     const URLPatternSet& scriptable_hosts) {
   DCHECK(extension->permissions_parser());
   extension->permissions_parser()
-      ->initial_required_permissions_->scriptable_hosts = scriptable_hosts;
+      ->initial_required_permissions_->scriptable_hosts =
+      scriptable_hosts.Clone();
 }
 
 // static

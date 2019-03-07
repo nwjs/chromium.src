@@ -12,6 +12,10 @@ namespace features {
 const base::Feature kAutofillPreviewStyleExperiment{
     "AutofillPreviewStyleExperiment", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enable defer commits a bit to avoid flash.
+const base::Feature kAvoidFlashBetweenNavigation{
+    "AvoidFlashBetweenNavigation", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable eagerly setting up a CacheStorage interface pointer and
 // passing it to service workers on startup as an optimization.
 const base::Feature kEagerCacheStorageSetupForServiceWorkers{
@@ -24,6 +28,10 @@ const base::Feature kEnableGpuRasterizationViewportRestriction{
     "EnableGpuRasterizationViewportRestriction",
     base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Controls script streaming.
+const base::Feature kScriptStreaming{"ScriptStreaming",
+                                     base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Enable FCP++ by experiment. See https://crbug.com/869924
 const base::Feature kFirstContentfulPaintPlusPlus{
     "FirstContentfulPaintPlusPlus", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -32,6 +40,9 @@ const base::Feature kFirstContentfulPaintPlusPlus{
 // animation frames (see crbug.com/581518).
 const base::Feature kJankTracking{"JankTracking",
                                   base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kJankTrackingSweepLine{"JankTrackingSweepLine",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable a new compositing mode called BlinkGenPropertyTrees where Blink
 // generates the compositor property trees. See: https://crbug.com/836884.
@@ -49,16 +60,35 @@ const base::Feature kMixedContentAutoupgrade{"AutoupgradeMixedContent",
 const base::Feature kMojoBlobURLs{"MojoBlobURLs",
                                   base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Used to control the collection of anchor element metrics (crbug.com/856683).
+// If kNavigationPredictor is enabled, then metrics of anchor elements
+// in the first viewport after the page load and the metrics of the clicked
+// anchor element will be extracted and recorded. Additionally, navigation
+// predictor may preconnect/prefetch to resources/origins to make the
+// future navigations faster.
+const base::Feature kNavigationPredictor{"NavigationPredictor",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Onion souping for all DOMStorage. https://crbug.com/781870
 const base::Feature kOnionSoupDOMStorage{"OnionSoupDOMStorage",
                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enable browser-initiated dedicated worker script loading
+// (PlzDedicatedWorker). https://crbug.com/906991
+const base::Feature kPlzDedicatedWorker{"PlzDedicatedWorker",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable Portals. https://crbug.com/865123.
 const base::Feature kPortals{"Portals", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enable limiting previews loading hints to specific resource types.
+const base::Feature kPreviewsResourceLoadingHintsSpecificResourceTypes{
+    "PreviewsResourceLoadingHintsSpecificResourceTypes",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable Implicit Root Scroller. https://crbug.com/903260.
 const base::Feature kImplicitRootScroller{"ImplicitRootScroller",
-                                          base::FEATURE_DISABLED_BY_DEFAULT};
+                                          base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables usage of getDisplayMedia() that allows capture of web content, see
 // https://crbug.com/865060.
@@ -70,17 +100,20 @@ const base::Feature kRTCGetDisplayMedia{"RTCGetDisplayMedia",
 // unless the default is overridden (by passing {sdpSemantics:'plan-b'} as the
 // argument).
 const base::Feature kRTCUnifiedPlanByDefault{"RTCUnifiedPlanByDefault",
-                                             base::FEATURE_DISABLED_BY_DEFAULT};
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Used to control the collection of anchor element metrics (crbug.com/856683).
-// If kRecordAnchorMetricsClicked is enabled, then metrics of anchor elements
-// clicked by the user will be extracted and recorded.
-// If kRecordAnchorMetricsVisible is enabled, then metrics of anchor elements
-// in the first viewport after the page load will be extracted and recorded.
-const base::Feature kRecordAnchorMetricsClicked{
-    "RecordAnchorMetricsClicked", base::FEATURE_DISABLED_BY_DEFAULT};
-const base::Feature kRecordAnchorMetricsVisible{
-    "RecordAnchorMetricsVisible", base::FEATURE_DISABLED_BY_DEFAULT};
+// Determines if the SDP attrbute extmap-allow-mixed should be offered by
+// default or not. The default value can be overridden by passing
+// {offerExtmapAllowMixed:true} as an argument to the RTCPeerConnection
+// constructor.
+const base::Feature kRTCOfferExtmapAllowMixed{
+    "RTCOfferExtmapAllowMixed", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables to load the response body through Mojo data pipe passed by
+// WebURLLoaderClient::DidStartLoadingResponseBody() instead of
+// WebURLLoaderClient::DidReceiveData().
+const base::Feature kResourceLoadViaDataPipe{"ResourceLoadViaDataPipe",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kServiceWorkerImportedScriptUpdateCheck{
     "ServiceWorkerImportedScriptUpdateCheck",
@@ -89,6 +122,9 @@ const base::Feature kServiceWorkerImportedScriptUpdateCheck{
 // Enables reading a subresource's body data and side data in parallel.
 const base::Feature kServiceWorkerParallelSideDataReading{
     "ServiceWorkerParallelSideDataReading", base::FEATURE_ENABLED_BY_DEFAULT};
+
+const base::Feature kServiceWorkerAggressiveCodeCache{
+    "ServiceWorkerAggressiveCodeCache", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable new service worker glue for NetworkService. Can be
 // enabled independently of NetworkService.
@@ -127,6 +163,10 @@ const base::Feature kWasmCodeCache = {"WasmCodeCache",
 const base::Feature kWritableFilesAPI{"WritableFilesAPI",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Allows for synchronous XHR requests during page dismissal
+const base::Feature kForbidSyncXHRInPageDismissal{
+    "ForbidSyncXHRInPageDismissal", base::FEATURE_DISABLED_BY_DEFAULT};
+
 const char kAutofillPreviewStyleExperimentBgColorParameterName[] = "bg_color";
 
 const char kAutofillPreviewStyleExperimentColorParameterName[] = "color";
@@ -135,6 +175,19 @@ const char kMixedContentAutoupgradeModeParamName[] = "mode";
 const char kMixedContentAutoupgradeModeBlockable[] = "blockable";
 const char kMixedContentAutoupgradeModeOptionallyBlockable[] =
     "optionally-blockable";
+
+// Decodes lossy WebP images to YUV instead of RGBX and stores in this format
+// in the image decode cache. See crbug.com/900264 for details on the feature.
+const base::Feature kDecodeLossyWebPImagesToYUV{
+    "DecodeLossyWebPImagesToYUV", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Use accelerated canvases whenever possible see https://crbug.com/909937
+const base::Feature kAlwaysAccelerateCanvas{"AlwaysAccelerateCanvas",
+                                            base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables cache-aware WebFonts loading. See https://crbug.com/570205.
+const base::Feature kWebFontsCacheAwareTimeoutAdaption{
+    "WebFontsCacheAwareTimeoutAdaption", base::FEATURE_ENABLED_BY_DEFAULT};
 
 }  // namespace features
 }  // namespace blink

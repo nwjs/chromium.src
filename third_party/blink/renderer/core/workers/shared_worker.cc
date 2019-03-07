@@ -36,13 +36,11 @@
 
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
-#include "third_party/blink/renderer/core/frame/local_frame.h"
-#include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
 #include "third_party/blink/renderer/core/messaging/message_channel.h"
 #include "third_party/blink/renderer/core/messaging/message_port.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
-#include "third_party/blink/renderer/core/workers/shared_worker_repository_client.h"
+#include "third_party/blink/renderer/core/workers/shared_worker_client_holder.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -91,11 +89,18 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
 
   const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
   bool isNodeJS = document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
-  if (document->GetFrame()->Client()->GetSharedWorkerRepositoryClient()) {
-    document->GetFrame()->Client()->GetSharedWorkerRepositoryClient()->Connect(
-        worker, std::move(remote_port), script_url, std::move(blob_url_token),
-        name, isNodeJS);
-  }
+  // |name| should not be null according to the HTML spec, but the current impl
+  // wrongly allows it when |name| is omitted. See TODO comment in
+  // shared_worker.idl.
+  // TODO(nhiroki): Stop assigning null to |name| as a default value, and remove
+  // this hack.
+  String worker_name = "";
+  if (!name.IsNull())
+    worker_name = name;
+
+  SharedWorkerClientHolder::From(*document)->Connect(
+      worker, std::move(remote_port), script_url, std::move(blob_url_token),
+      worker_name, isNodeJS);
 
   return worker;
 }

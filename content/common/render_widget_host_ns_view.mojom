@@ -99,11 +99,10 @@ interface RenderWidgetHostNSViewBridge {
 // de-serializing and re-serializing all events).
 // https://crbug.com/821651
 interface RenderWidgetHostNSViewClient {
-  // Synchronously query if there exists a RenderViewHost for the corresponding
-  // RenderWidgetHostView's RenderWidgetHost, and return the result as
-  // |is_render_view|.
+  // Synchronously query if the RenderWidgetHostView is for a main frame, and
+  // return the result as |is_for_main_frame|.
   [Sync]
-  SyncIsRenderViewHost() => (bool is_render_view);
+  SyncIsWidgetForMainFrame() => (bool is_for_main_frame);
 
   // Request that the RenderWidgetHost be shut down (e.g, when a date/time
   // picker window is closed).
@@ -231,13 +230,13 @@ interface RenderWidgetHostNSViewClient {
   [Sync]
   SyncIsSpeaking() => (bool is_speaking);
 
-  // Return in |element_token| the token for the AX node for this view. Return
-  // the pid of the browser process to be registered as a remote UI process. Set
-  // the AX node for this view to have the element indicated by |window_token|
-  // as its window and the element indicated by |view_token| as its parent.
+  // Return in |element_token| the token for the root content AX node for this
+  // view and in |host_pid| the pid for the host process.
   [Sync]
-  SyncConnectAccessibilityElements(array<uint8> window_token,
-                                   array<uint8> view_token) =>
+  SyncGetRootAccessibilityElement() =>
       (int64 host_pid, array<uint8> element_token);
+
+  // Send the token for the NSWindow in which this NSView is being displayed.
+  SetRemoteAccessibilityWindowToken(array<uint8> window_token);
 };
 

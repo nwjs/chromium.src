@@ -14,9 +14,9 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram.h"
+#include "base/stl_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_task_environment.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_config_test_utils.h"
@@ -25,6 +25,7 @@
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_network_delegate.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_prefs.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_test_utils.h"
+#include "components/data_reduction_proxy/core/common/data_reduction_proxy_bypass_protocol.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_headers_test_utils.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_params_test_utils.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_pref_names.h"
@@ -755,15 +756,15 @@ TEST_F(DataReductionProxyBypassStatsEndToEndTest,
       {true, "HTTP/1.1 404 Not Found\n", 404, -1},
       {false, "HTTP/1.1 404 Not Found\n", -1, 404}};
 
-  for (size_t i = 0; i < arraysize(test_cases); ++i) {
+  for (size_t i = 0; i < base::size(test_cases); ++i) {
     base::HistogramTester histogram_tester;
     std::string raw_headers(test_cases[i].headers);
     HeadersToRaw(&raw_headers);
     scoped_refptr<net::HttpResponseHeaders> headers(
         new net::HttpResponseHeaders(raw_headers));
 
-    DataReductionProxyBypassStats::DetectAndRecordMissingViaHeaderResponseCode(
-        test_cases[i].is_primary, *headers);
+    DetectAndRecordMissingViaHeaderResponseCode(test_cases[i].is_primary,
+                                                *headers);
 
     if (test_cases[i].expected_primary_sample == -1) {
       histogram_tester.ExpectTotalCount(kPrimaryHistogramName, 0);

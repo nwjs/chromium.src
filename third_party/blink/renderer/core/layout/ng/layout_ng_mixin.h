@@ -39,6 +39,7 @@ class LayoutNGMixin : public Base {
   NGInlineNodeData* TakeNGInlineNodeData() final;
   NGInlineNodeData* GetNGInlineNodeData() const final;
   void ResetNGInlineNodeData() final;
+  void ClearNGInlineNodeData() final;
   bool HasNGInlineNodeData() const final { return ng_inline_node_data_.get(); }
 
   LayoutUnit FirstLineBoxBaseline() const final;
@@ -54,6 +55,9 @@ class LayoutNGMixin : public Base {
                    HitTestAction) final;
 
   PositionWithAffinity PositionForPoint(const LayoutPoint&) const final;
+
+  void ComputeSelfHitTestRects(Vector<LayoutRect>&,
+                               const LayoutPoint& layer_offset) const override;
 
   // Returns the last layout result for this block flow with the given
   // constraint space and break token, or null if it is not up-to-date or
@@ -71,29 +75,26 @@ class LayoutNGMixin : public Base {
   scoped_refptr<const NGLayoutResult> CachedLayoutResultForTesting() final;
 
   NGPaintFragment* PaintFragment() const final { return paint_fragment_.get(); }
-  void SetPaintFragment(const NGBreakToken*,
+  void SetPaintFragment(const NGBlockBreakToken*,
                         scoped_refptr<const NGPhysicalFragment>,
                         NGPhysicalOffset) final;
   void UpdatePaintFragmentFromCachedLayoutResult(
-      const NGBreakToken*,
+      const NGBlockBreakToken*,
       scoped_refptr<const NGPhysicalFragment>,
       NGPhysicalOffset) final;
 
  protected:
   bool IsOfType(LayoutObject::LayoutObjectType) const override;
 
-  void ComputeVisualOverflow(const LayoutRect&, bool recompute_floats) final;
+  void ComputeIntrinsicLogicalWidths(
+      LayoutUnit& min_logical_width,
+      LayoutUnit& max_logical_width) const override;
+
+  void ComputeVisualOverflow(bool recompute_floats) final;
 
   void AddVisualOverflowFromChildren();
   void AddLayoutOverflowFromChildren() final;
 
- private:
-  void AddScrollingOverflowFromChildren();
-  void SetPaintFragment(scoped_refptr<const NGPhysicalFragment> fragment,
-                        NGPhysicalOffset offset,
-                        scoped_refptr<NGPaintFragment>* current);
-
- protected:
   void AddOutlineRects(Vector<LayoutRect>&,
                        const LayoutPoint& additional_offset,
                        NGOutlineType) const final;
@@ -111,6 +112,10 @@ class LayoutNGMixin : public Base {
   scoped_refptr<NGPaintFragment> paint_fragment_;
 
   friend class NGBaseLayoutAlgorithmTest;
+
+ private:
+  void AddScrollingOverflowFromChildren();
+  bool NeedsRelativePositionedLayoutOnly() const;
 };
 
 extern template class CORE_EXTERN_TEMPLATE_EXPORT

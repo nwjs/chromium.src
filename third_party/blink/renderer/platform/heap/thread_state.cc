@@ -177,7 +177,6 @@ ThreadState::ThreadState()
       mixins_being_constructed_count_(0),
       object_resurrection_forbidden_(false),
       in_atomic_pause_(false),
-      gc_mixin_marker_(nullptr),
       gc_state_(kNoGCScheduled),
       gc_phase_(GCPhase::kNone),
       reason_for_scheduled_gc_(BlinkGC::GCReason::kMaxValue),
@@ -511,9 +510,14 @@ void ThreadState::ScheduleV8FollowupGCIfNeeded(BlinkGC::V8GCType gc_type) {
   if (IsGCForbidden())
     return;
 
-  // This completeSweep() will do nothing in common cases since we've
-  // called completeSweep() before V8 starts minor/major GCs.
   if (gc_type == BlinkGC::kV8MajorGC) {
+    // In case of unified heap garbage collections a V8 major GC also collects
+    // the Blink heap.
+    if (RuntimeEnabledFeatures::HeapUnifiedGarbageCollectionEnabled())
+      return;
+
+    // This CompleteSweep() will do nothing in common cases since we've
+    // called CompleteSweep() before V8 starts minor/major GCs.
     // TODO(ulan): Try removing this for Major V8 GC too.
     CompleteSweep();
     DCHECK(!IsSweepingInProgress());
@@ -535,13 +539,10 @@ void ThreadState::ScheduleV8FollowupGCIfNeeded(BlinkGC::V8GCType gc_type) {
               << "ScheduleV8FollowupGCIfNeeded: Scheduled precise GC";
       SchedulePreciseGC();
     }
-    return;
-  }
-  if (gc_type == BlinkGC::kV8MajorGC && ShouldScheduleIdleGC()) {
+  } else if (gc_type == BlinkGC::kV8MajorGC && ShouldScheduleIdleGC()) {
     VLOG(2) << "[state:" << this << "] "
             << "ScheduleV8FollowupGCIfNeeded: Scheduled idle GC";
     ScheduleIdleGC();
-    return;
   }
 }
 
@@ -930,7 +931,7 @@ void ThreadState::RunScheduledGC(BlinkGC::StackState stack_state) {
       // Idle time GC will be scheduled by Blink Scheduler.
       break;
     case kIncrementalMarkingStepScheduled:
-      IncrementalMarkingStep();
+      IncrementalMarkingStep(stack_state);
       break;
     case kIncrementalMarkingFinalizeScheduled:
       IncrementalMarkingFinalize();
@@ -1400,32 +1401,32 @@ void ThreadState::InvokePreFinalizers() {
 }
 
 // static
-base::subtle::AtomicWord ThreadState::incremental_marking_counter_ = 0;
+AtomicEntryFlag ThreadState::incremental_marking_flag_;
 
 // static
-base::subtle::AtomicWord ThreadState::wrapper_tracing_counter_ = 0;
+AtomicEntryFlag ThreadState::wrapper_tracing_flag_;
 
 void ThreadState::EnableIncrementalMarkingBarrier() {
   CHECK(!IsIncrementalMarking());
-  base::subtle::Barrier_AtomicIncrement(&incremental_marking_counter_, 1);
+  incremental_marking_flag_.Enter();
   SetIncrementalMarking(true);
 }
 
 void ThreadState::DisableIncrementalMarkingBarrier() {
   CHECK(IsIncrementalMarking());
-  base::subtle::Barrier_AtomicIncrement(&incremental_marking_counter_, -1);
+  incremental_marking_flag_.Exit();
   SetIncrementalMarking(false);
 }
 
 void ThreadState::EnableWrapperTracingBarrier() {
   CHECK(!IsWrapperTracing());
-  base::subtle::Barrier_AtomicIncrement(&wrapper_tracing_counter_, 1);
+  wrapper_tracing_flag_.Enter();
   SetWrapperTracing(true);
 }
 
 void ThreadState::DisableWrapperTracingBarrier() {
   CHECK(IsWrapperTracing());
-  base::subtle::Barrier_AtomicIncrement(&wrapper_tracing_counter_, -1);
+  wrapper_tracing_flag_.Exit();
   SetWrapperTracing(false);
 }
 
@@ -1453,7 +1454,7 @@ void ThreadState::IncrementalMarkingStart(BlinkGC::GCReason reason) {
   }
 }
 
-void ThreadState::IncrementalMarkingStep() {
+void ThreadState::IncrementalMarkingStep(BlinkGC::StackState stack_state) {
   DCHECK(IsMarkingInProgress());
 
   ThreadHeapStatsCollector::EnabledScope stats_scope(
@@ -1463,6 +1464,9 @@ void ThreadState::IncrementalMarkingStep() {
           << "IncrementalMarking: Step "
           << "Reason: " << GcReasonString(current_gc_data_.reason);
   AtomicPauseScope atomic_pause_scope(this);
+  if (stack_state == BlinkGC::kNoHeapPointersOnStack) {
+    Heap().FlushNotFullyConstructedObjects();
+  }
   const bool complete = MarkPhaseAdvanceMarking(
       CurrentTimeTicks() + next_incremental_marking_step_duration_);
   if (complete) {
@@ -1695,6 +1699,11 @@ void ThreadState::MarkPhasePrologue(BlinkGC::StackState stack_state,
 void ThreadState::AtomicPausePrologue(BlinkGC::StackState stack_state,
                                       BlinkGC::MarkingType marking_type,
                                       BlinkGC::GCReason reason) {
+  // Compaction needs to be canceled when incremental marking ends with a
+  // conservative GC.
+  if (stack_state == BlinkGC::kHeapPointersOnStack)
+    Heap().Compaction()->CancelCompaction();
+
   if (IsMarkingInProgress()) {
     // Incremental marking is already in progress. Only update the state
     // that is necessary to update.
@@ -1712,6 +1721,10 @@ void ThreadState::AtomicPausePrologue(BlinkGC::StackState stack_state,
 
   if (isolate_ && perform_cleanup_)
     perform_cleanup_(isolate_);
+
+  if (stack_state == BlinkGC::kNoHeapPointersOnStack) {
+    Heap().FlushNotFullyConstructedObjects();
+  }
 
   DCHECK(InAtomicMarkingPause());
   Heap().MakeConsistentForGC();

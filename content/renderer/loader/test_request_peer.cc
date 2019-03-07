@@ -53,6 +53,7 @@ void TestRequestPeer::OnStartLoadingResponseBody(
   EXPECT_TRUE(context_->received_response);
   EXPECT_FALSE(context_->cancelled);
   EXPECT_FALSE(context_->complete);
+  context_->body_handle = std::move(body);
 }
 
 void TestRequestPeer::OnReceivedData(std::unique_ptr<ReceivedData> data) {
@@ -98,7 +99,7 @@ void TestRequestPeer::OnCompletedRequest(
   context_->completion_status = status;
 }
 
-scoped_refptr<base::TaskRunner> TestRequestPeer::GetTaskRunner() const {
+scoped_refptr<base::TaskRunner> TestRequestPeer::GetTaskRunner() {
   return blink::scheduler::GetSingleThreadTaskRunnerForTesting();
 }
 

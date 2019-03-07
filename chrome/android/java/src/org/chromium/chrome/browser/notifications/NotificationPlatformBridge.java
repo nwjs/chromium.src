@@ -15,6 +15,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.customtabs.trusted.TrustedWebActivityServiceConnectionManager;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
@@ -48,8 +49,6 @@ import org.chromium.webapk.lib.client.WebApkValidator;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
-
-import javax.annotation.Nullable;
 
 /**
  * Provides the ability for the NotificationPlatformBridgeAndroid to talk to the Android platform
@@ -495,8 +494,8 @@ public class NotificationPlatformBridge {
             final String title, final String body, final Bitmap image, final Bitmap icon,
             final Bitmap badge, final int[] vibrationPattern, final long timestamp,
             final boolean renotify, final boolean silent, final ActionInfo[] actions) {
-        final String webApkPackage =
-                WebApkValidator.queryWebApkPackage(ContextUtils.getApplicationContext(), scopeUrl);
+        final String webApkPackage = WebApkValidator.queryFirstWebApkPackage(
+                ContextUtils.getApplicationContext(), scopeUrl);
         if (webApkPackage != null) {
             WebApkIdentityServiceClient.CheckBrowserBacksWebApkCallback callback =
                     new WebApkIdentityServiceClient.CheckBrowserBacksWebApkCallback() {
@@ -701,7 +700,7 @@ public class NotificationPlatformBridge {
     private void closeNotification(final String notificationId, String scopeUrl,
             boolean hasQueriedWebApkPackage, String webApkPackage) {
         if (!hasQueriedWebApkPackage) {
-            final String webApkPackageFound = WebApkValidator.queryWebApkPackage(
+            final String webApkPackageFound = WebApkValidator.queryFirstWebApkPackage(
                     ContextUtils.getApplicationContext(), scopeUrl);
             if (webApkPackageFound != null) {
                 WebApkIdentityServiceClient.CheckBrowserBacksWebApkCallback callback =

@@ -4,12 +4,14 @@
 
 package org.chromium.chrome.browser.vr;
 
-import org.chromium.base.ContextUtils;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.modules.ModuleInstallUi;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.module_installer.ModuleInstaller;
-import org.chromium.ui.widget.Toast;
+import org.chromium.components.module_installer.OnModuleInstallFinishedListener;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,20 +21,36 @@ import java.util.List;
  * instantiate a fallback implementation.
  */
 @JNINamespace("vr")
-public class VrModuleProvider {
+public class VrModuleProvider implements ModuleInstallUi.FailureUiListener {
     private static VrDelegateProvider sDelegateProvider;
     private static final List<VrModeObserver> sVrModeObservers = new ArrayList<>();
+    private static boolean sAlwaysUseFallbackDelegate;
 
     private long mNativeVrModuleProvider;
+    private Tab mTab;
 
     /**
      * Need to be called after native libraries are available. Has no effect if VR is not compiled
      * into Chrome.
-     **/
+     */
     public static void maybeInit() {
-        if (VrBuildConfig.IS_VR_ENABLED) {
-            nativeInit();
-        }
+        if (!VrBuildConfig.IS_VR_ENABLED) return;
+        nativeInit();
+        // Always install the VR module on Daydream-ready devices.
+        maybeRequestModuleIfDaydreamReady();
+    }
+
+    /**
+     * Requests deferred installation of the VR module on Daydream-ready devices. Has no effect if
+     * VR is not compiled into Chrome.
+     */
+    public static void maybeRequestModuleIfDaydreamReady() {
+        if (!VrBuildConfig.IS_VR_ENABLED) return;
+        if (isModuleInstalled()) return;
+        if (!getDelegate().isDaydreamReadyDevice()) return;
+
+        // Installs module when on unmetered network connection and device is charging.
+        ModuleInstaller.installDeferred("vr");
     }
 
     public static VrDelegate getDelegate() {
@@ -69,6 +87,30 @@ public class VrModuleProvider {
         for (VrModeObserver observer : sVrModeObservers) observer.onExitVr();
     }
 
+    @VisibleForTesting
+    public static void setAlwaysUseFallbackDelegate(boolean useFallbackDelegate) {
+        // TODO(bsheedy): Change this to an "assert sDelegateProvider == null" once we change the
+        // restriction checking code to use the Daydream API directly so that a delegate provider
+        // doesn't get created during pre-test setup.
+        sDelegateProvider = null;
+        sAlwaysUseFallbackDelegate = useFallbackDelegate;
+    }
+
+    /* package */ static void installModule(OnModuleInstallFinishedListener onFinishedListener) {
+        assert !isModuleInstalled();
+
+        ModuleInstaller.install("vr", (success) -> {
+            if (success) {
+                // Re-create delegate provider.
+                sDelegateProvider = null;
+                VrDelegate delegate = getDelegate();
+                assert !(delegate instanceof VrDelegateFallback);
+                delegate.initAfterModuleInstall();
+            }
+            onFinishedListener.onFinished(success);
+        });
+    }
+
     // TODO(crbug.com/870055): JNI should be registered in the shared VR library's JNI_OnLoad
     // function. Do this once we have a shared VR library.
     /* package */ static void registerJni() {
@@ -77,6 +119,10 @@ public class VrModuleProvider {
 
     private static VrDelegateProvider getDelegateProvider() {
         if (sDelegateProvider == null) {
+            if (sAlwaysUseFallbackDelegate) {
+                sDelegateProvider = new VrDelegateProviderFallback();
+                return sDelegateProvider;
+            }
             // Need to be called before trying to access the VR module.
             ModuleInstaller.init();
             try {
@@ -98,8 +144,22 @@ public class VrModuleProvider {
     }
 
     @CalledByNative
-    private static boolean isModuleInstalled() {
+    /* package */ static boolean isModuleInstalled() {
         return !(getDelegateProvider() instanceof VrDelegateProviderFallback);
+    }
+
+    @Override
+    public void onRetry() {
+        if (mNativeVrModuleProvider != 0) {
+            installModule(mTab);
+        }
+    }
+
+    @Override
+    public void onCancel() {
+        if (mNativeVrModuleProvider != 0) {
+            nativeOnInstalledModule(mNativeVrModuleProvider, false);
+        }
     }
 
     private VrModuleProvider(long nativeVrModuleProvider) {
@@ -112,28 +172,17 @@ public class VrModuleProvider {
     }
 
     @CalledByNative
-    private void installModule() {
-        assert !isModuleInstalled();
-
-        // TODO(crbug.com/863064): This is a placeholder UI. Replace once proper UI is spec'd.
-        Toast.makeText(ContextUtils.getApplicationContext(), R.string.vr_module_install_start_text,
-                     Toast.LENGTH_SHORT)
-                .show();
-
-        ModuleInstaller.install("vr", (success) -> {
-            if (success) {
-                // Re-create delegate provider.
-                sDelegateProvider = null;
-                VrDelegate delegate = getDelegate();
-                assert !(delegate instanceof VrDelegateFallback);
-                delegate.onNativeLibraryAvailable();
-            }
-            // TODO(crbug.com/863064): This is a placeholder UI. Replace once proper UI is spec'd.
-            int mToastTextRes = success ? R.string.vr_module_install_success_text
-                                        : R.string.vr_module_install_failure_text;
-            Toast.makeText(ContextUtils.getApplicationContext(), mToastTextRes, Toast.LENGTH_SHORT)
-                    .show();
+    private void installModule(Tab tab) {
+        mTab = tab;
+        ModuleInstallUi ui = new ModuleInstallUi(mTab, R.string.vr_module_title, this);
+        ui.showInstallStartUi();
+        installModule((success) -> {
             if (mNativeVrModuleProvider != 0) {
+                if (!success) {
+                    ui.showInstallFailureUi();
+                    return;
+                }
+                ui.showInstallSuccessUi();
                 nativeOnInstalledModule(mNativeVrModuleProvider, success);
             }
         });

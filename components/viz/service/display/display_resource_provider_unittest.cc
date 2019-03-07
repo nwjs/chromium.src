@@ -479,11 +479,11 @@ TEST_P(DisplayResourceProviderTest, LockForExternalUse) {
   unsigned parent_id = resource_map[list.front().id];
 
   DisplayResourceProvider::LockSetForExternalUse lock_set(
-      resource_provider_.get());
+      resource_provider_.get(), /*client=*/nullptr);
 
   ResourceMetadata metadata = lock_set.LockResource(parent_id);
-  ASSERT_EQ(metadata.mailbox, mailbox);
-  ASSERT_TRUE(metadata.sync_token.HasData());
+  ASSERT_EQ(metadata.mailbox_holder.mailbox, mailbox);
+  ASSERT_TRUE(metadata.mailbox_holder.sync_token.HasData());
 
   resource_provider_->DeclareUsedResourcesFromChild(child_id, ResourceIdSet());
   // The resource should not be returned due to the external use lock.

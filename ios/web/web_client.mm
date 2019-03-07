@@ -49,10 +49,6 @@ base::string16 WebClient::GetPluginNotSupportedText() const {
   return base::string16();
 }
 
-std::string WebClient::GetProduct() const {
-  return std::string();
-}
-
 std::string WebClient::GetUserAgent(UserAgentType type) const {
   return std::string();
 }
@@ -87,9 +83,9 @@ std::unique_ptr<service_manager::Service> WebClient::HandleServiceRequest(
   return nullptr;
 }
 
-std::unique_ptr<base::Value> WebClient::GetServiceManifestOverlay(
+base::Optional<service_manager::Manifest> WebClient::GetServiceManifestOverlay(
     base::StringPiece name) {
-  return nullptr;
+  return base::nullopt;
 }
 
 void WebClient::AllowCertificateError(

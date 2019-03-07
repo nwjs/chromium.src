@@ -5,6 +5,7 @@
 #ifndef BASE_TRACE_EVENT_BUILTIN_CATEGORIES_H_
 #define BASE_TRACE_EVENT_BUILTIN_CATEGORIES_H_
 
+#include "base/base_export.h"
 #include "base/macros.h"
 #include "base/stl_util.h"
 #include "base/trace_event/common/trace_event_common.h"
@@ -178,7 +179,6 @@
   X(TRACE_DISABLED_BY_DEFAULT("layer-element"))                          \
   X(TRACE_DISABLED_BY_DEFAULT("lighthouse"))                             \
   X(TRACE_DISABLED_BY_DEFAULT("loading"))                                \
-  X(TRACE_DISABLED_BY_DEFAULT("memory_coordinator"))                     \
   X(TRACE_DISABLED_BY_DEFAULT("memory-infra"))                           \
   X(TRACE_DISABLED_BY_DEFAULT("memory-infra.v8.code_stats"))             \
   X(TRACE_DISABLED_BY_DEFAULT("net"))                                    \
@@ -207,6 +207,7 @@
   X(TRACE_DISABLED_BY_DEFAULT("v8.runtime"))                             \
   X(TRACE_DISABLED_BY_DEFAULT("v8.runtime_stats"))                       \
   X(TRACE_DISABLED_BY_DEFAULT("v8.runtime_stats_sampling"))              \
+  X(TRACE_DISABLED_BY_DEFAULT("video_and_image_capture"))                \
   X(TRACE_DISABLED_BY_DEFAULT("viz.debug.overlay_planes"))               \
   X(TRACE_DISABLED_BY_DEFAULT("viz.hit_testing_flow"))                   \
   X(TRACE_DISABLED_BY_DEFAULT("viz.overdraw"))                           \
@@ -246,7 +247,7 @@ static_assert(!StrEqConstexpr("abc", "ab"), "strings should not be equal");
 
 // Static-only class providing access to the compile-time registry of trace
 // categories.
-class BuiltinCategories {
+class BASE_EXPORT BuiltinCategories {
  public:
   // Returns a built-in category name at |index| in the registry.
   static constexpr const char* At(size_t index) {
@@ -255,6 +256,10 @@ class BuiltinCategories {
 
   // Returns the amount of built-in categories in the registry.
   static constexpr size_t Size() { return base::size(kBuiltinCategories); }
+
+  // Where in the builtin category list to start when populating the
+  // about://tracing UI.
+  static constexpr size_t kVisibleCategoryStart = 3;
 
   // Returns whether the category is either:
   // - Properly registered in the builtin list.

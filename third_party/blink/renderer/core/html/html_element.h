@@ -37,6 +37,7 @@ class ExceptionState;
 class FormAssociated;
 class HTMLFormElement;
 class KeyboardEvent;
+class LabelsNodeList;
 class StringOrTrustedScript;
 class StringTreatNullAsEmptyStringOrTrustedScript;
 
@@ -108,7 +109,11 @@ class CORE_EXPORT HTMLElement : public Element {
   virtual bool IsHTMLUnknownElement() const { return false; }
   virtual bool IsPluginElement() const { return false; }
 
-  virtual bool IsLabelable() const { return false; }
+  // https://html.spec.whatwg.org/multipage/forms.html#category-label
+  virtual bool IsLabelable() const;
+  // |labels| IDL attribute implementation for IsLabelable()==true elements.
+  LabelsNodeList* labels();
+
   // http://www.whatwg.org/specs/web-apps/current-work/multipage/elements.html#interactive-content
   virtual bool IsInteractiveContent() const;
   void DefaultEventHandler(Event&) override;
@@ -116,8 +121,14 @@ class CORE_EXPORT HTMLElement : public Element {
   static const AtomicString& EventNameForAttributeName(
       const QualifiedName& attr_name);
 
+  bool SupportsFocus() const override;
+  bool IsDisabledFormControl() const override;
+  bool MatchesEnabledPseudoClass() const override;
   bool MatchesReadOnlyPseudoClass() const override;
   bool MatchesReadWritePseudoClass() const override;
+  bool MatchesValidityPseudoClasses() const override;
+  bool willValidate() const override;
+  bool IsValidElement() override;
 
   static const AtomicString& EventParameterName();
 
@@ -197,6 +208,7 @@ class CORE_EXPORT HTMLElement : public Element {
       const QualifiedName& attr_name);
 
   void OnDirAttrChanged(const AttributeModificationParams&);
+  void OnFormAttrChanged(const AttributeModificationParams&);
   void OnInertAttrChanged(const AttributeModificationParams&);
   void OnLangAttrChanged(const AttributeModificationParams&);
   void OnNonceAttrChanged(const AttributeModificationParams&);

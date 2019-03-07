@@ -121,7 +121,7 @@ def CheckFilesExpected(actual_files, expected_files, component_build):
   # TODO(crbug.com/839191): Remove this once we're plumbing the lib correctly.
   missing_file_set = set(
       f for f in missing_file_set if not os.path.basename(f) ==
-      'libarcore_sdk_c_minimal.so')
+      'libarcore_sdk_c.so')
 
   errors = []
   if unexpected_file_set:
@@ -189,7 +189,7 @@ def MergeApk(args, tmp_apk, tmp_dir_32, tmp_dir_64):
 
   # TODO(crbug.com/839191): we should pass this in via script arguments.
   if not args.loadable_module_32:
-    args.loadable_module_32.append('libarcore_sdk_c_minimal.so')
+    args.loadable_module_32.append('libarcore_sdk_c.so')
 
   for f in args.loadable_module_32:
     expected_files[f] = not args.uncompress_shared_libraries
@@ -201,6 +201,11 @@ def MergeApk(args, tmp_apk, tmp_dir_32, tmp_dir_64):
   assets_path = 'base/assets' if args.bundle else 'assets'
   exclude_files_64 = ['%s/snapshot_blob_32.bin' % assets_path,
                       GetTargetAbiPath(args.apk_32bit, args.shared_library)]
+  # TODO(benmason): Remove when libcrashpad_handler.so
+  # is no longer a separate lib.
+  if 'libcrashpad_handler.so' in expected_files:
+    exclude_files_64.append(
+        GetTargetAbiPath(args.apk_32bit, 'libcrashpad_handler.so'))
   UnpackApk(args.apk_64bit, tmp_dir_64, exclude_files_64)
   UnpackApk(args.apk_32bit, tmp_dir_32)
 

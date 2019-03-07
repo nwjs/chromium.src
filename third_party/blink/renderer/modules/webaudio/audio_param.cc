@@ -167,7 +167,7 @@ float AudioParamHandler::Value() {
 
 void AudioParamHandler::SetIntrinsicValue(float new_value) {
   new_value = clampTo(new_value, min_value_, max_value_);
-  NoBarrierStore(&intrinsic_value_, new_value);
+  intrinsic_value_.store(new_value, std::memory_order_relaxed);
 }
 
 void AudioParamHandler::SetValue(float value) {
@@ -298,27 +298,6 @@ void AudioParamHandler::CalculateTimelineValues(float* values,
       sample_rate, sample_rate, MinValue(), MaxValue()));
 }
 
-void AudioParamHandler::Connect(AudioNodeOutput& output) {
-  GetDeferredTaskHandler().AssertGraphOwner();
-
-  if (outputs_.Contains(&output))
-    return;
-
-  output.AddParam(*this);
-  outputs_.insert(&output);
-  ChangedOutputs();
-}
-
-void AudioParamHandler::Disconnect(AudioNodeOutput& output) {
-  GetDeferredTaskHandler().AssertGraphOwner();
-
-  if (outputs_.Contains(&output)) {
-    outputs_.erase(&output);
-    ChangedOutputs();
-    output.RemoveParam(*this);
-  }
-}
-
 int AudioParamHandler::ComputeQHistogramValue(float new_value) const {
   // For the Q value, assume a useful range is [0, 25] and that 0.25 dB
   // resolution is good enough.  Then, we can map the floating point Q value (in
@@ -349,11 +328,11 @@ AudioParam::AudioParam(BaseAudioContext& context,
 AudioParam* AudioParam::Create(BaseAudioContext& context,
                                AudioParamType param_type,
                                double default_value) {
-  return new AudioParam(context, param_type, default_value,
-                        AudioParamHandler::AutomationRate::kAudio,
-                        AudioParamHandler::AutomationRateMode::kVariable,
-                        -std::numeric_limits<float>::max(),
-                        std::numeric_limits<float>::max());
+  return MakeGarbageCollected<AudioParam>(
+      context, param_type, default_value,
+      AudioParamHandler::AutomationRate::kAudio,
+      AudioParamHandler::AutomationRateMode::kVariable,
+      -std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
 }
 
 AudioParam* AudioParam::Create(BaseAudioContext& context,
@@ -365,8 +344,9 @@ AudioParam* AudioParam::Create(BaseAudioContext& context,
                                float max_value) {
   DCHECK_LE(min_value, max_value);
 
-  return new AudioParam(context, param_type, default_value, rate, rate_mode,
-                        min_value, max_value);
+  return MakeGarbageCollected<AudioParam>(context, param_type, default_value,
+                                          rate, rate_mode, min_value,
+                                          max_value);
 }
 
 AudioParam::~AudioParam() {

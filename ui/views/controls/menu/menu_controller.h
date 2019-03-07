@@ -85,16 +85,16 @@ class VIEWS_EXPORT MenuController
   // If a menu is currently active, this returns the controller for it.
   static MenuController* GetActiveInstance();
 
-  // Runs the menu at the specified location. If the menu was configured to
-  // block, the selected item is returned. If the menu does not block this
-  // returns NULL immediately.
+  // Runs the menu at the specified location. Menu items with commands in
+  // |alerted_commands| will be rendered differently to draw attention to them.
   void Run(Widget* parent,
            MenuButton* button,
            MenuItemView* root,
            const gfx::Rect& bounds,
            MenuAnchorPosition position,
            bool context_menu,
-           bool is_nested_drag);
+           bool is_nested_drag,
+           base::flat_set<int> alerted_commands = base::flat_set<int>());
 
   bool for_drop() const { return for_drop_; }
 
@@ -164,7 +164,7 @@ class VIEWS_EXPORT MenuController
 
   bool GetDropFormats(SubmenuView* source,
                       int* formats,
-                      std::set<ui::Clipboard::FormatType>* format_types);
+                      std::set<ui::ClipboardFormatType>* format_types);
   bool AreDropTypesRequired(SubmenuView* source);
   bool CanDrop(SubmenuView* source, const ui::OSExchangeData& data);
   void OnDragEntered(SubmenuView* source, const ui::DropTargetEvent& event);
@@ -740,6 +740,9 @@ class VIEWS_EXPORT MenuController
 #endif
 
   std::unique_ptr<MenuPreTargetHandler> menu_pre_target_handler_;
+
+  // Set of menu commands that should be displayed with an alert.
+  base::flat_set<int> alerted_commands_;
 
   DISALLOW_COPY_AND_ASSIGN(MenuController);
 };

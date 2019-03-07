@@ -44,9 +44,9 @@ bool FixedBackgroundPaintsInLocalCoordinates(
 
   const LayoutView& view = ToLayoutView(obj);
 
-  // TODO(wangxianzhu): For SPv2, inline this function into
+  // TODO(wangxianzhu): For CAP, inline this function into
   // FixedBackgroundPaintsInLocalCoordinates().
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     return view.GetBackgroundPaintLocation() !=
            kBackgroundPaintInScrollingContents;
   }
@@ -110,6 +110,8 @@ void BackgroundImageGeometry::SetNoRepeatX(LayoutUnit x_offset,
 
     // Reduce the width of the dest rect to draw only the portion of the
     // tile that remains visible after offsetting the image.
+    // TODO(schenney): This might grow the dest rect if the dest rect has
+    // been adjusted for opaque borders.
     unsnapped_dest_rect_.SetWidth(tile_size_.Width() + x_offset);
     snapped_dest_rect_.SetWidth(tile_size_.Width() + snapped_x_offset);
   }
@@ -145,6 +147,8 @@ void BackgroundImageGeometry::SetNoRepeatY(LayoutUnit y_offset,
 
     // Reduce the height of the dest rect to draw only the portion of the
     // tile that remains visible after offsetting the image.
+    // TODO(schenney): This might grow the dest rect if the dest rect has
+    // been adjusted for opaque borders.
     unsnapped_dest_rect_.SetHeight(tile_size_.Height() + y_offset);
     snapped_dest_rect_.SetHeight(tile_size_.Height() + snapped_y_offset);
   }
@@ -375,7 +379,7 @@ LayoutRect FixedAttachmentPositioningArea(const LayoutBoxModelObject& obj,
   // The LayoutView is the only object that can paint a fixed background into
   // its scrolling contents layer, so it gets a special adjustment here.
   if (obj.IsLayoutView()) {
-    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
       DCHECK_EQ(obj.GetBackgroundPaintLocation(),
                 kBackgroundPaintInScrollingContents);
       rect.SetLocation(IntPoint(ToLayoutView(obj).ScrolledContentOffset()));
@@ -696,7 +700,6 @@ void BackgroundImageGeometry::ComputePositioningArea(
     snapped_box_offset =
         LayoutPoint(snapped_box_outset.Left() - snapped_dest_adjust.Left(),
                     snapped_box_outset.Top() - snapped_dest_adjust.Top());
-
     // For view backgrounds, the input paint rect is specified in root element
     // local coordinate (i.e. a transform is applied on the context for
     // painting), and is expanded to cover the whole canvas. Since left/top is
@@ -796,14 +799,17 @@ void BackgroundImageGeometry::CalculateFillTileSize(
     }
     case EFillSizeType::kContain:
     case EFillSizeType::kCover: {
+      // Always use the snapped positioning area size for this computation,
+      // so that we resize the image to completely fill the actual painted
+      // area.
       float horizontal_scale_factor =
           image_intrinsic_size.Width()
-              ? positioning_area_size.Width().ToFloat() /
+              ? snapped_positioning_area_size.Width().ToFloat() /
                     image_intrinsic_size.Width()
               : 1.0f;
       float vertical_scale_factor =
           image_intrinsic_size.Height()
-              ? positioning_area_size.Height().ToFloat() /
+              ? snapped_positioning_area_size.Height().ToFloat() /
                     image_intrinsic_size.Height()
               : 1.0f;
       // Force the dimension that determines the size to exactly match the
@@ -815,27 +821,27 @@ void BackgroundImageGeometry::CalculateFillTileSize(
         // at the edge of the image when we paint it.
         if (horizontal_scale_factor < vertical_scale_factor) {
           tile_size_ = LayoutSize(
-              positioning_area_size.Width(),
+              snapped_positioning_area_size.Width(),
               LayoutUnit(std::max(1.0f, roundf(image_intrinsic_size.Height() *
                                                horizontal_scale_factor))));
         } else {
           tile_size_ = LayoutSize(
               LayoutUnit(std::max(1.0f, roundf(image_intrinsic_size.Width() *
                                                vertical_scale_factor))),
-              positioning_area_size.Height());
+              snapped_positioning_area_size.Height());
         }
         return;
       }
       if (horizontal_scale_factor > vertical_scale_factor) {
         tile_size_ =
-            LayoutSize(positioning_area_size.Width(),
+            LayoutSize(snapped_positioning_area_size.Width(),
                        LayoutUnit(std::max(1.0f, image_intrinsic_size.Height() *
                                                      horizontal_scale_factor)));
       } else {
         tile_size_ =
             LayoutSize(LayoutUnit(std::max(1.0f, image_intrinsic_size.Width() *
                                                      vertical_scale_factor)),
-                       positioning_area_size.Height());
+                       snapped_positioning_area_size.Height());
       }
       return;
     }

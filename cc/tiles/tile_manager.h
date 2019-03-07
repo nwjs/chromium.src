@@ -292,6 +292,9 @@ class CC_EXPORT TileManager : CheckerImageTrackerClient {
 
   void set_active_url(const GURL& url) { active_url_ = url; }
 
+  void SetPaintWorkletLayerPainter(
+      std::unique_ptr<PaintWorkletLayerPainter> painter);
+
  protected:
   friend class Tile;
   // Must be called by tile during destruction.
@@ -459,7 +462,7 @@ class CC_EXPORT TileManager : CheckerImageTrackerClient {
   // The callback scheduled to poll whether the GPU side work for pending tiles
   // has completed.
   bool has_pending_queries_ = false;
-  base::CancelableClosure check_pending_tile_queries_callback_;
+  base::CancelableOnceClosure check_pending_tile_queries_callback_;
 
   // We need two WeakPtrFactory objects as the invalidation pattern of each is
   // different. The |task_set_finished_weak_ptr_factory_| is invalidated any

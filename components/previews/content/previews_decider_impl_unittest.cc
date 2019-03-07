@@ -15,6 +15,8 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/command_line.h"
+#include "base/files/file_path.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/field_trial_params.h"
@@ -133,8 +135,11 @@ class TestPreviewsOptimizationGuide : public PreviewsOptimizationGuide {
  public:
   TestPreviewsOptimizationGuide(
       optimization_guide::OptimizationGuideService* optimization_guide_service,
-      const scoped_refptr<base::SingleThreadTaskRunner>& ui_task_runner)
-      : PreviewsOptimizationGuide(optimization_guide_service, ui_task_runner) {}
+      const scoped_refptr<base::SingleThreadTaskRunner>& ui_task_runner,
+      const base::FilePath& test_path)
+      : PreviewsOptimizationGuide(optimization_guide_service,
+                                  ui_task_runner,
+                                  test_path) {}
   ~TestPreviewsOptimizationGuide() override {}
 
   // PreviewsOptimizationGuide:
@@ -357,6 +362,8 @@ class PreviewsDeciderImplTest : public testing::Test {
     variations::testing::ClearAllVariationParams();
   }
 
+  void SetUp() override { ASSERT_TRUE(temp_dir_.CreateUniqueTempDir()); }
+
   void TearDown() override { ui_service_.reset(); }
 
   void InitializeUIServiceWithoutWaitingForBlackList() {
@@ -375,7 +382,8 @@ class PreviewsDeciderImplTest : public testing::Test {
         std::move(previews_decider_impl), std::make_unique<TestOptOutStore>(),
         std::make_unique<TestPreviewsOptimizationGuide>(
             &optimization_guide_service_,
-            scoped_task_environment_.GetMainThreadTaskRunner()),
+            scoped_task_environment_.GetMainThreadTaskRunner(),
+            temp_dir_.GetPath()),
         base::BindRepeating(&IsPreviewFieldTrialEnabled),
         std::make_unique<PreviewsLogger>(), std::move(allowed_types),
         &network_quality_tracker_));
@@ -404,6 +412,7 @@ class PreviewsDeciderImplTest : public testing::Test {
 
  private:
   base::test::ScopedTaskEnvironment scoped_task_environment_;
+  base::ScopedTempDir temp_dir_;
   base::FieldTrialList field_trial_list_;
   TestPreviewsDeciderImpl* previews_decider_impl_;
   optimization_guide::OptimizationGuideService optimization_guide_service_;
@@ -426,6 +435,26 @@ TEST_F(PreviewsDeciderImplTest, AllPreviewsDisabledByFeature) {
   EXPECT_FALSE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
       &user_data2, GURL("https://www.google.com"), false,
       PreviewsType::NOSCRIPT));
+}
+
+TEST_F(PreviewsDeciderImplTest, TestDisallowBasicAuthentication) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::kPreviews, features::kClientLoFi}, {});
+  InitializeUIService();
+  ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_2G);
+
+  base::HistogramTester histogram_tester;
+  PreviewsUserData user_data(kDefaultPageId);
+  EXPECT_FALSE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
+      &user_data, GURL("https://user:pass@www.google.com"), false,
+      PreviewsType::LOFI));
+  histogram_tester.ExpectBucketCount(
+      "Previews.EligibilityReason",
+      static_cast<int>(PreviewsEligibilityReason::URL_HAS_BASIC_AUTH), 1);
+  histogram_tester.ExpectBucketCount(
+      "Previews.EligibilityReason.LoFi",
+      static_cast<int>(PreviewsEligibilityReason::URL_HAS_BASIC_AUTH), 1);
 }
 
 // Tests most of the reasons that a preview could be disallowed because of the
@@ -556,6 +585,23 @@ TEST_F(PreviewsDeciderImplTest, TestDisallowOfflineWhenNetworkQualityFast) {
       static_cast<int>(PreviewsEligibilityReason::NETWORK_NOT_SLOW), 1);
 }
 
+TEST_F(PreviewsDeciderImplTest, TestDisallowOfflineWhenNetworkOffline) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kPreviews);
+  InitializeUIService();
+
+  PreviewsUserData user_data(kDefaultPageId);
+
+  ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_OFFLINE);
+  base::HistogramTester histogram_tester;
+  EXPECT_FALSE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
+      &user_data, GURL("https://www.google.com"), false,
+      PreviewsType::OFFLINE));
+  histogram_tester.ExpectUniqueSample(
+      "Previews.EligibilityReason.Offline",
+      static_cast<int>(PreviewsEligibilityReason::DEVICE_OFFLINE), 1);
+}
+
 TEST_F(PreviewsDeciderImplTest, TestDisallowOfflineOnReload) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(features::kPreviews);
@@ -665,7 +711,7 @@ TEST_F(PreviewsDeciderImplTest, ClientLoFiDisallowedWhenFeatureDisabled) {
   InitializeUIService();
 
   EXPECT_EQ(net::EFFECTIVE_CONNECTION_TYPE_2G,
-            params::EffectiveConnectionTypeThresholdForClientLoFi());
+            params::GetECTThresholdForPreview(PreviewsType::LOFI));
   ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_2G);
 
   PreviewsUserData user_data(kDefaultPageId);
@@ -701,7 +747,7 @@ TEST_F(PreviewsDeciderImplTest, ClientLoFiDisallowedWhenNetworkFast) {
   InitializeUIService();
 
   EXPECT_EQ(net::EFFECTIVE_CONNECTION_TYPE_2G,
-            params::EffectiveConnectionTypeThresholdForClientLoFi());
+            params::GetECTThresholdForPreview(PreviewsType::LOFI));
   ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_3G);
 
   base::HistogramTester histogram_tester;
@@ -727,7 +773,7 @@ TEST_F(PreviewsDeciderImplTest, ClientLoFiAllowed) {
   // Verify ECT check cases below.
 
   EXPECT_EQ(net::EFFECTIVE_CONNECTION_TYPE_2G,
-            params::EffectiveConnectionTypeThresholdForClientLoFi());
+            params::GetECTThresholdForPreview(PreviewsType::LOFI));
 
   const struct {
     net::EffectiveConnectionType effective_connection_type;
@@ -769,7 +815,7 @@ TEST_F(PreviewsDeciderImplTest, MissingHostDisallowed) {
   InitializeUIService();
 
   EXPECT_EQ(net::EFFECTIVE_CONNECTION_TYPE_2G,
-            params::EffectiveConnectionTypeThresholdForClientLoFi());
+            params::GetECTThresholdForPreview(PreviewsType::LOFI));
   ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_2G);
 
   PreviewsUserData user_data(kDefaultPageId);
@@ -784,7 +830,7 @@ TEST_F(PreviewsDeciderImplTest, ClientLoFiAllowedOnReload) {
   InitializeUIService();
 
   EXPECT_EQ(net::EFFECTIVE_CONNECTION_TYPE_2G,
-            params::EffectiveConnectionTypeThresholdForClientLoFi());
+            params::GetECTThresholdForPreview(PreviewsType::LOFI));
   ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_2G);
 
   PreviewsUserData user_data(kDefaultPageId);
@@ -804,19 +850,22 @@ TEST_F(PreviewsDeciderImplTest, NoScriptFeatureDefaultBehavior) {
 
   base::HistogramTester histogram_tester;
   PreviewsUserData user_data(kDefaultPageId);
+#if defined(OS_ANDROID)
+  // Enabled by default on Android. NOSCRIPT always allowed at navigation start
+  // to handle asynchronous loading of page hints; non-whitelisted ones are
+  // later blocked on commit.
+  EXPECT_TRUE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
+      &user_data, GURL("https://www.google.com"), false,
+      PreviewsType::NOSCRIPT));
+  histogram_tester.ExpectTotalCount("Previews.EligibilityReason.NoScript", 1);
+  histogram_tester.ExpectBucketCount(
+      "Previews.EligibilityReason.NoScript",
+      static_cast<int>(PreviewsEligibilityReason::ALLOWED), 1);
+#else   // !defined(OS_ANDROID)
+  // Disabled by default on non-Android.
   EXPECT_FALSE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
       &user_data, GURL("https://www.google.com"), false,
       PreviewsType::NOSCRIPT));
-#if defined(OS_ANDROID)
-  // Enabled by default on Android but no server whitelist.
-  histogram_tester.ExpectTotalCount("Previews.EligibilityReason.NoScript", 1);
-  histogram_tester.ExpectUniqueSample(
-      "Previews.EligibilityReason.NoScript",
-      static_cast<int>(
-          PreviewsEligibilityReason::HOST_NOT_WHITELISTED_BY_SERVER),
-      1);
-#else   // !defined(OS_ANDROID)
-  // Disabled by default on non-Android.
   histogram_tester.ExpectTotalCount("Previews.EligibilityReason.NoScript", 0);
 #endif  // defined(OS_ANDROID)
 }
@@ -858,25 +907,20 @@ TEST_F(PreviewsDeciderImplTest, NoScriptAllowedByFeatureWithWhitelist) {
   base::HistogramTester histogram_tester;
 
   PreviewsUserData user_data(kDefaultPageId);
-  // First verify no preview for non-whitelisted url.
-  EXPECT_FALSE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
+  // First verify preview allowed for non-whitelisted url; they're always
+  // allowed at navigation start to enable asynchronous loading of page hints.
+  EXPECT_TRUE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
       &user_data, GURL("https://www.google.com"), false,
       PreviewsType::NOSCRIPT));
 
-  histogram_tester.ExpectUniqueSample(
-      "Previews.EligibilityReason.NoScript",
-      static_cast<int>(
-          PreviewsEligibilityReason::HOST_NOT_WHITELISTED_BY_SERVER),
-      1);
-
-  // Now verify preview for whitelisted url.
+  // Now verify preview allowed for whitelisted url.
   EXPECT_TRUE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
       &user_data, GURL("https://whitelisted.example.com"), false,
       PreviewsType::NOSCRIPT));
 
   histogram_tester.ExpectBucketCount(
       "Previews.EligibilityReason.NoScript",
-      static_cast<int>(PreviewsEligibilityReason::ALLOWED), 1);
+      static_cast<int>(PreviewsEligibilityReason::ALLOWED), 2);
 }
 
 TEST_F(PreviewsDeciderImplTest, NoScriptCommitTimeWhitelistCheck) {
@@ -900,10 +944,6 @@ TEST_F(PreviewsDeciderImplTest, NoScriptCommitTimeWhitelistCheck) {
         static_cast<int>(
             PreviewsEligibilityReason::HOST_NOT_WHITELISTED_BY_SERVER),
         1);
-
-    // Expect no triggered ECT logged.
-    histogram_tester.ExpectTotalCount(
-        "Previews.Triggered.EffectiveConnectionType.NoScript", 0);
   }
 
   // Now verify preview for whitelisted url.
@@ -917,11 +957,6 @@ TEST_F(PreviewsDeciderImplTest, NoScriptCommitTimeWhitelistCheck) {
 
     // Expect no eligibility logging.
     histogram_tester.ExpectTotalCount("Previews.EligibilityReason.NoScript", 0);
-
-    // Triggered ECT logged.
-    histogram_tester.ExpectUniqueSample(
-        "Previews.Triggered.EffectiveConnectionType.NoScript",
-        static_cast<int>(net::EFFECTIVE_CONNECTION_TYPE_2G), 1);
   }
 
   // Verify preview not allowed for whitelisted url when network is not slow.
@@ -936,14 +971,11 @@ TEST_F(PreviewsDeciderImplTest, NoScriptCommitTimeWhitelistCheck) {
     histogram_tester.ExpectUniqueSample(
         "Previews.EligibilityReason.NoScript",
         static_cast<int>(PreviewsEligibilityReason::NETWORK_NOT_SLOW), 1);
-
-    // Expect no triggered ECT logged.
-    histogram_tester.ExpectTotalCount(
-        "Previews.Triggered.EffectiveConnectionType.NoScript", 0);
   }
 
   // Verify preview not allowed for whitelisted url for unknown network quality.
   {
+    ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
     base::HistogramTester histogram_tester;
     PreviewsUserData user_data(kDefaultPageId);
     user_data.set_navigation_ect(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
@@ -956,10 +988,6 @@ TEST_F(PreviewsDeciderImplTest, NoScriptCommitTimeWhitelistCheck) {
         static_cast<int>(
             PreviewsEligibilityReason::NETWORK_QUALITY_UNAVAILABLE),
         1);
-
-    // Expect no triggered ECT logged.
-    histogram_tester.ExpectTotalCount(
-        "Previews.Triggered.EffectiveConnectionType.NoScript", 0);
   }
 
   // Verify preview not allowed for session limited ECT threshold.
@@ -980,10 +1008,83 @@ TEST_F(PreviewsDeciderImplTest, NoScriptCommitTimeWhitelistCheck) {
         static_cast<int>(
             PreviewsEligibilityReason::NETWORK_NOT_SLOW_FOR_SESSION),
         1);
+  }
 
-    // Expect no triggered ECT logged.
-    histogram_tester.ExpectTotalCount(
-        "Previews.Triggered.EffectiveConnectionType.NoScript", 0);
+  // Verify that navigation time ECT is given precedence over commit time ECT,
+  // if the former is available.
+  {
+    ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
+    base::test::ScopedFeatureList nested_scoped_list;
+    nested_scoped_list.InitAndEnableFeatureWithParameters(
+        features::kSlowPageTriggering,
+        {{"session_max_ect_trigger", "Slow-2G"}});
+    base::HistogramTester histogram_tester;
+    PreviewsUserData user_data(kDefaultPageId);
+    user_data.set_navigation_ect(net::EFFECTIVE_CONNECTION_TYPE_2G);
+    EXPECT_FALSE(previews_decider_impl()->ShouldCommitPreview(
+        &user_data, GURL("https://whitelisted.example.com"),
+        PreviewsType::NOSCRIPT));
+
+    histogram_tester.ExpectUniqueSample(
+        "Previews.EligibilityReason.NoScript",
+        static_cast<int>(
+            PreviewsEligibilityReason::NETWORK_NOT_SLOW_FOR_SESSION),
+        1);
+  }
+
+  // Verify preview allowed for network slower than session ECT threshold when
+  // ECT is not available at navigation time.
+  {
+    ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
+    base::test::ScopedFeatureList nested_scoped_list;
+    nested_scoped_list.InitAndEnableFeatureWithParameters(
+        features::kSlowPageTriggering,
+        {{"session_max_ect_trigger", "Slow-2G"}});
+    base::HistogramTester histogram_tester;
+    PreviewsUserData user_data(kDefaultPageId);
+    user_data.set_navigation_ect(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
+    EXPECT_TRUE(previews_decider_impl()->ShouldCommitPreview(
+        &user_data, GURL("https://whitelisted.example.com"),
+        PreviewsType::NOSCRIPT));
+
+    histogram_tester.ExpectTotalCount("Previews.EligibilityReason.NoScript", 0);
+  }
+
+  // Verify preview not allowed for session limited ECT threshold when ECT is
+  // not available at navigation time.
+  {
+    ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_4G);
+    base::test::ScopedFeatureList nested_scoped_list;
+    nested_scoped_list.InitAndEnableFeatureWithParameters(
+        features::kSlowPageTriggering,
+        {{"session_max_ect_trigger", "Slow-2G"}});
+    base::HistogramTester histogram_tester;
+    PreviewsUserData user_data(kDefaultPageId);
+    user_data.set_navigation_ect(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
+    EXPECT_FALSE(previews_decider_impl()->ShouldCommitPreview(
+        &user_data, GURL("https://whitelisted.example.com"),
+        PreviewsType::NOSCRIPT));
+
+    histogram_tester.ExpectUniqueSample(
+        "Previews.EligibilityReason.NoScript",
+        static_cast<int>(PreviewsEligibilityReason::NETWORK_NOT_SLOW), 1);
+  }
+
+  // Verify preview allowed for session when navigation ECT is unknown but max
+  // trigger threshold is 4G.
+  {
+    ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
+    base::test::ScopedFeatureList nested_scoped_list;
+    nested_scoped_list.InitAndEnableFeatureWithParameters(
+        features::kSlowPageTriggering, {{"session_max_ect_trigger", "4G"}});
+    base::HistogramTester histogram_tester;
+    PreviewsUserData user_data(kDefaultPageId);
+    user_data.set_navigation_ect(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
+    EXPECT_TRUE(previews_decider_impl()->ShouldCommitPreview(
+        &user_data, GURL("https://whitelisted.example.com"),
+        PreviewsType::NOSCRIPT));
+
+    histogram_tester.ExpectTotalCount("Previews.EligibilityReason.NoScript", 0);
   }
 }
 
@@ -1154,10 +1255,6 @@ TEST_F(PreviewsDeciderImplTest, ResourceLoadingHintsCommitTimeWhitelistCheck) {
         static_cast<int>(
             PreviewsEligibilityReason::HOST_NOT_WHITELISTED_BY_SERVER),
         1);
-
-    // Expect no triggered ECT logged.
-    histogram_tester.ExpectTotalCount(
-        "Previews.Triggered.EffectiveConnectionType.ResourceLoadingHints", 0);
   }
 
   // Now verify preview for whitelisted url.
@@ -1172,11 +1269,6 @@ TEST_F(PreviewsDeciderImplTest, ResourceLoadingHintsCommitTimeWhitelistCheck) {
     // Expect no eligibility logging.
     histogram_tester.ExpectTotalCount(
         "Previews.EligibilityReason.ResourceLoadingHints", 0);
-
-    // Triggered ECT logged.
-    histogram_tester.ExpectUniqueSample(
-        "Previews.Triggered.EffectiveConnectionType.ResourceLoadingHints",
-        static_cast<int>(net::EFFECTIVE_CONNECTION_TYPE_2G), 1);
   }
 
   // Verify preview not allowed for whitelisted url when network is not slow.
@@ -1191,10 +1283,6 @@ TEST_F(PreviewsDeciderImplTest, ResourceLoadingHintsCommitTimeWhitelistCheck) {
     histogram_tester.ExpectUniqueSample(
         "Previews.EligibilityReason.ResourceLoadingHints",
         static_cast<int>(PreviewsEligibilityReason::NETWORK_NOT_SLOW), 1);
-
-    // Expect no triggered ECT logged.
-    histogram_tester.ExpectTotalCount(
-        "Previews.Triggered.EffectiveConnectionType.ResourceLoadingHints", 0);
   }
 
   // Verify preview not allowed for whitelisted url for unknown network quality.
@@ -1208,13 +1296,7 @@ TEST_F(PreviewsDeciderImplTest, ResourceLoadingHintsCommitTimeWhitelistCheck) {
 
     histogram_tester.ExpectUniqueSample(
         "Previews.EligibilityReason.ResourceLoadingHints",
-        static_cast<int>(
-            PreviewsEligibilityReason::NETWORK_QUALITY_UNAVAILABLE),
-        1);
-
-    // Expect no triggered ECT logged.
-    histogram_tester.ExpectTotalCount(
-        "Previews.Triggered.EffectiveConnectionType.ResourceLoadingHints", 0);
+        static_cast<int>(PreviewsEligibilityReason::DEVICE_OFFLINE), 1);
   }
 
   // Verify preview not allowed for session limited ECT threshold.
@@ -1235,10 +1317,6 @@ TEST_F(PreviewsDeciderImplTest, ResourceLoadingHintsCommitTimeWhitelistCheck) {
         static_cast<int>(
             PreviewsEligibilityReason::NETWORK_NOT_SLOW_FOR_SESSION),
         1);
-
-    // Expect no triggered ECT logged.
-    histogram_tester.ExpectTotalCount(
-        "Previews.Triggered.EffectiveConnectionType.ResourceLoadingHints", 0);
   }
 }
 
@@ -1470,7 +1548,40 @@ TEST_F(PreviewsDeciderImplTest, IgnoreFlagStillHasFiveSecondRule) {
       ::testing::Contains(PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT));
 }
 
-TEST_F(PreviewsDeciderImplTest, LogDecisionMadeNetworkQualityNotAvailable) {
+TEST_F(PreviewsDeciderImplTest, ReloadsTriggerFiveMinuteRule) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::kPreviews, features::kClientLoFi,
+       features::kPreviewsReloadsAreSoftOptOuts},
+      {});
+  InitializeUIService();
+  ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_2G);
+
+  PreviewsUserData user_data(kDefaultPageId);
+  EXPECT_TRUE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
+      &user_data, GURL("https://www.google.com"), false, PreviewsType::LOFI));
+
+  previews_decider_impl()->AddPreviewNavigation(
+      GURL("http://wwww.somedomain.com"), false, PreviewsType::LOFI, 1);
+
+  previews_decider_impl()->AddPreviewReload();
+
+  EXPECT_FALSE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
+      &user_data, GURL("https://www.google.com"), false, PreviewsType::LOFI));
+  EXPECT_EQ(PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT,
+            ui_service()->decision_reasons().back());
+
+  clock_.Advance(base::TimeDelta::FromMinutes(6));
+
+  EXPECT_TRUE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
+      &user_data, GURL("https://www.google.com"), false, PreviewsType::LOFI));
+  EXPECT_THAT(
+      ui_service()->decision_passed_reasons().back(),
+      ::testing::Contains(PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT));
+}
+
+TEST_F(PreviewsDeciderImplTest,
+       LoFi_LogDecisionMadeNetworkQualityNotAvailable) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       {features::kPreviews, features::kClientLoFi}, {});
@@ -1489,6 +1600,51 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeNetworkQualityNotAvailable) {
       PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT,
       PreviewsEligibilityReason::USER_BLACKLISTED,
       PreviewsEligibilityReason::HOST_BLACKLISTED,
+  };
+
+  ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
+  PreviewsUserData user_data(kDefaultPageId);
+  previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
+      &user_data, GURL("http://www.google.com"), false, expected_type);
+
+  base::RunLoop().RunUntilIdle();
+  // Testing correct log method is called.
+  EXPECT_THAT(ui_service()->decision_reasons(),
+              ::testing::Contains(expected_reason));
+  EXPECT_THAT(ui_service()->decision_types(),
+              ::testing::Contains(expected_type));
+
+  EXPECT_EQ(1UL, ui_service()->decision_passed_reasons().size());
+  auto actual_passed_reasons = ui_service()->decision_passed_reasons()[0];
+  EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
+  for (size_t i = 0; i < actual_passed_reasons.size(); i++) {
+    EXPECT_EQ(checked_decisions[i], actual_passed_reasons[i]);
+  }
+}
+
+TEST_F(PreviewsDeciderImplTest,
+       ResourceLoadingHints_LogDecisionMadeNetworkQualityNotAvailable) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {features::kPreviews, features::kResourceLoadingHints,
+       features::kOptimizationHints},
+      {});
+  InitializeUIService();
+  std::unique_ptr<TestPreviewsBlackList> blacklist =
+      std::make_unique<TestPreviewsBlackList>(
+          PreviewsEligibilityReason::ALLOWED, previews_decider_impl());
+  previews_decider_impl()->InjectTestBlacklist(std::move(blacklist));
+
+  auto expected_reason = PreviewsEligibilityReason::ALLOWED;
+  auto expected_type = PreviewsType::RESOURCE_LOADING_HINTS;
+
+  std::vector<PreviewsEligibilityReason> checked_decisions = {
+      PreviewsEligibilityReason::BLACKLIST_UNAVAILABLE,
+      PreviewsEligibilityReason::BLACKLIST_DATA_NOT_LOADED,
+      PreviewsEligibilityReason::USER_RECENTLY_OPTED_OUT,
+      PreviewsEligibilityReason::USER_BLACKLISTED,
+      PreviewsEligibilityReason::HOST_BLACKLISTED,
+      PreviewsEligibilityReason::RELOAD_DISALLOWED,
   };
 
   ReportEffectiveConnectionType(net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN);
@@ -1534,6 +1690,7 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeNetworkNotSlow) {
       PreviewsEligibilityReason::USER_BLACKLISTED,
       PreviewsEligibilityReason::HOST_BLACKLISTED,
       PreviewsEligibilityReason::NETWORK_QUALITY_UNAVAILABLE,
+      PreviewsEligibilityReason::DEVICE_OFFLINE,
   };
   PreviewsUserData user_data(kDefaultPageId);
   previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
@@ -1547,7 +1704,6 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeNetworkNotSlow) {
 
   EXPECT_EQ(1UL, ui_service()->decision_passed_reasons().size());
   auto actual_passed_reasons = ui_service()->decision_passed_reasons()[0];
-  EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
   EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
   for (size_t i = 0; i < actual_passed_reasons.size(); i++) {
     EXPECT_EQ(checked_decisions[i], actual_passed_reasons[i]);
@@ -1576,6 +1732,7 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeReloadDisallowed) {
       PreviewsEligibilityReason::USER_BLACKLISTED,
       PreviewsEligibilityReason::HOST_BLACKLISTED,
       PreviewsEligibilityReason::NETWORK_QUALITY_UNAVAILABLE,
+      PreviewsEligibilityReason::DEVICE_OFFLINE,
       PreviewsEligibilityReason::NETWORK_NOT_SLOW,
   };
 
@@ -1591,7 +1748,6 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeReloadDisallowed) {
 
   EXPECT_EQ(1UL, ui_service()->decision_passed_reasons().size());
   auto actual_passed_reasons = ui_service()->decision_passed_reasons()[0];
-  EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
   EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
   for (size_t i = 0; i < actual_passed_reasons.size(); i++) {
     EXPECT_EQ(checked_decisions[i], actual_passed_reasons[i]);
@@ -1649,6 +1805,7 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeAllowClientPreviewsWithECT) {
       PreviewsEligibilityReason::USER_BLACKLISTED,
       PreviewsEligibilityReason::HOST_BLACKLISTED,
       PreviewsEligibilityReason::NETWORK_QUALITY_UNAVAILABLE,
+      PreviewsEligibilityReason::DEVICE_OFFLINE,
       PreviewsEligibilityReason::NETWORK_NOT_SLOW,
       PreviewsEligibilityReason::RELOAD_DISALLOWED,
   };
@@ -1665,7 +1822,6 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeAllowClientPreviewsWithECT) {
 
   EXPECT_EQ(1UL, ui_service()->decision_passed_reasons().size());
   auto actual_passed_reasons = ui_service()->decision_passed_reasons()[0];
-  EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
   EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
   for (size_t i = 0; i < actual_passed_reasons.size(); i++) {
     EXPECT_EQ(checked_decisions[i], actual_passed_reasons[i]);
@@ -1698,7 +1854,6 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeAllowHintPreviewWithoutECT) {
       PreviewsEligibilityReason::USER_BLACKLISTED,
       PreviewsEligibilityReason::HOST_BLACKLISTED,
       PreviewsEligibilityReason::RELOAD_DISALLOWED,
-      PreviewsEligibilityReason::HOST_NOT_WHITELISTED_BY_SERVER,
   };
   PreviewsUserData user_data(kDefaultPageId);
   EXPECT_TRUE(previews_decider_impl()->ShouldAllowPreviewAtNavigationStart(
@@ -1714,7 +1869,6 @@ TEST_F(PreviewsDeciderImplTest, LogDecisionMadeAllowHintPreviewWithoutECT) {
 
   EXPECT_EQ(1UL, ui_service()->decision_passed_reasons().size());
   auto actual_passed_reasons = ui_service()->decision_passed_reasons()[0];
-  EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
   EXPECT_EQ(checked_decisions.size(), actual_passed_reasons.size());
   for (size_t i = 0; i < actual_passed_reasons.size(); i++) {
     EXPECT_EQ(checked_decisions[i], actual_passed_reasons[i]);

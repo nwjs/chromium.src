@@ -61,8 +61,7 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
                  const gfx::Size& device_viewport_size);
 
   // Public interface implemented by subclasses.
-  virtual void SwapBuffers(std::vector<ui::LatencyInfo> latency_info,
-                           bool need_presentation_feedback) = 0;
+  virtual void SwapBuffers(std::vector<ui::LatencyInfo> latency_info) = 0;
   virtual void SwapBuffersComplete() {}
   virtual void DidReceiveTextureInUseResponses(
       const gpu::TextureInUseResponses& responses) {}
@@ -155,6 +154,8 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
   const cc::FilterOperations* FiltersForPass(RenderPassId render_pass_id) const;
   const cc::FilterOperations* BackgroundFiltersForPass(
       RenderPassId render_pass_id) const;
+  const gfx::RectF* BackgroundFilterBoundsForPass(
+      RenderPassId render_pass_id) const;
 
   // Private interface implemented by subclasses for use by DirectRenderer.
   virtual bool CanPartialSwap() = 0;
@@ -234,6 +235,7 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
   base::flat_map<RenderPassId, cc::FilterOperations*> render_pass_filters_;
   base::flat_map<RenderPassId, cc::FilterOperations*>
       render_pass_backdrop_filters_;
+  base::flat_map<RenderPassId, gfx::RectF*> render_pass_backdrop_filter_bounds_;
 
   bool visible_ = false;
   bool disable_color_checks_for_testing_ = false;

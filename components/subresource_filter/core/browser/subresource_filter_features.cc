@@ -236,7 +236,7 @@ const base::Feature kSafeBrowsingSubresourceFilterConsiderRedirects{
     "SubresourceFilterConsiderRedirects", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kFilterAdsOnAbusiveSites{"FilterAdsOnAbusiveSites",
-                                             base::FEATURE_DISABLED_BY_DEFAULT};
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Legacy name `activation_state` is used in variation parameters.
 const char kActivationLevelParameterName[] = "activation_state";
@@ -285,7 +285,7 @@ Configuration Configuration::MakePresetForLiveRunOnPhishingSites() {
 Configuration Configuration::MakePresetForPerformanceTestingDryRunOnAllSites() {
   Configuration config(mojom::ActivationLevel::kDryRun,
                        ActivationScope::ALL_SITES);
-  config.activation_options.performance_measurement_rate = 1.0;
+  config.activation_options.performance_measurement_rate = 0.01;
   config.activation_conditions.priority = 500;
   return config;
 }

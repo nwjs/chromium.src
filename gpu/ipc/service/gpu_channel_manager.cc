@@ -64,6 +64,7 @@ GpuChannelManager::GpuChannelManager(
     const GpuFeatureInfo& gpu_feature_info,
     GpuProcessActivityFlags activity_flags,
     scoped_refptr<gl::GLSurface> default_offscreen_surface,
+    ImageDecodeAcceleratorWorker* image_decode_accelerator_worker,
     viz::VulkanContextProvider* vulkan_context_provider)
     : task_runner_(task_runner),
       io_task_runner_(io_task_runner),
@@ -80,24 +81,25 @@ GpuChannelManager::GpuChannelManager(
       default_offscreen_surface_(std::move(default_offscreen_surface)),
       gpu_memory_buffer_factory_(gpu_memory_buffer_factory),
       gpu_feature_info_(gpu_feature_info),
-      exiting_for_lost_context_(false),
+      image_decode_accelerator_worker_(image_decode_accelerator_worker),
       activity_flags_(std::move(activity_flags)),
       memory_pressure_listener_(
-          base::Bind(&GpuChannelManager::HandleMemoryPressure,
-                     base::Unretained(this))),
+          base::BindRepeating(&GpuChannelManager::HandleMemoryPressure,
+                              base::Unretained(this))),
       vulkan_context_provider_(vulkan_context_provider),
       weak_factory_(this) {
   DCHECK(task_runner->BelongsToCurrentThread());
   DCHECK(io_task_runner);
   DCHECK(scheduler);
 
-  const bool enable_raster_transport =
-      gpu_feature_info_.status_values[GPU_FEATURE_TYPE_OOP_RASTERIZATION] ==
-      gpu::kGpuFeatureStatusEnabled;
+  const bool enable_gr_shader_cache =
+      (gpu_feature_info_.status_values[GPU_FEATURE_TYPE_OOP_RASTERIZATION] ==
+       gpu::kGpuFeatureStatusEnabled) ||
+      features::IsUsingSkiaRenderer();
   const bool disable_disk_cache =
       gpu_preferences_.disable_gpu_shader_disk_cache ||
       gpu_driver_bug_workarounds_.disable_program_disk_cache;
-  if (enable_raster_transport && !disable_disk_cache)
+  if (enable_gr_shader_cache && !disable_disk_cache)
     gr_shader_cache_.emplace(gpu_preferences.gpu_program_cache_size, this);
 }
 
@@ -157,7 +159,8 @@ GpuChannel* GpuChannelManager::EstablishChannel(int client_id,
 
   std::unique_ptr<GpuChannel> gpu_channel = std::make_unique<GpuChannel>(
       this, scheduler_, sync_point_manager_, share_group_, task_runner_,
-      io_task_runner_, client_id, client_tracing_id, is_gpu_host);
+      io_task_runner_, client_id, client_tracing_id, is_gpu_host,
+      image_decode_accelerator_worker_);
 
   GpuChannel* gpu_channel_ptr = gpu_channel.get();
   gpu_channels_[client_id] = std::move(gpu_channel);
@@ -165,15 +168,6 @@ GpuChannel* GpuChannelManager::EstablishChannel(int client_id,
 }
 
 void GpuChannelManager::InternalDestroyGpuMemoryBuffer(
-    gfx::GpuMemoryBufferId id,
-    int client_id) {
-  io_task_runner_->PostTask(
-      FROM_HERE,
-      base::Bind(&GpuChannelManager::InternalDestroyGpuMemoryBufferOnIO,
-                 base::Unretained(this), id, client_id));
-}
-
-void GpuChannelManager::InternalDestroyGpuMemoryBufferOnIO(
     gfx::GpuMemoryBufferId id,
     int client_id) {
   gpu_memory_buffer_factory_->DestroyGpuMemoryBuffer(id, client_id);
@@ -184,8 +178,8 @@ void GpuChannelManager::DestroyGpuMemoryBuffer(gfx::GpuMemoryBufferId id,
                                                const SyncToken& sync_token) {
   if (!sync_point_manager_->WaitOutOfOrder(
           sync_token,
-          base::Bind(&GpuChannelManager::InternalDestroyGpuMemoryBuffer,
-                     base::Unretained(this), id, client_id))) {
+          base::BindOnce(&GpuChannelManager::InternalDestroyGpuMemoryBuffer,
+                         base::Unretained(this), id, client_id))) {
     // No sync token or invalid sync token, destroy immediately.
     InternalDestroyGpuMemoryBuffer(id, client_id);
   }
@@ -209,17 +203,8 @@ void GpuChannelManager::LoseAllContexts() {
     kv.second->MarkAllContextsLost();
   }
   task_runner_->PostTask(FROM_HERE,
-                         base::Bind(&GpuChannelManager::DestroyAllChannels,
-                                    weak_factory_.GetWeakPtr()));
-}
-
-void GpuChannelManager::MaybeExitOnContextLost() {
-  if (!gpu_preferences().single_process && !gpu_preferences().in_process_gpu) {
-    LOG(ERROR) << "Exiting GPU process because some drivers cannot recover"
-               << " from problems.";
-    exiting_for_lost_context_ = true;
-    delegate_->ExitProcess();
-  }
+                         base::BindOnce(&GpuChannelManager::DestroyAllChannels,
+                                        weak_factory_.GetWeakPtr()));
 }
 
 void GpuChannelManager::DestroyAllChannels() {
@@ -275,8 +260,9 @@ void GpuChannelManager::ScheduleWakeUpGpu() {
   DoWakeUpGpu();
 
   base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-      FROM_HERE, base::Bind(&GpuChannelManager::ScheduleWakeUpGpu,
-                            weak_factory_.GetWeakPtr()),
+      FROM_HERE,
+      base::BindOnce(&GpuChannelManager::ScheduleWakeUpGpu,
+                     weak_factory_.GetWeakPtr()),
       base::TimeDelta::FromMilliseconds(kMaxGpuIdleTimeMs));
 }
 
@@ -314,10 +300,10 @@ void GpuChannelManager::OnBackgroundCleanup() {
   if (program_cache_)
     program_cache_->Trim(0u);
 
-  if (raster_decoder_context_state_) {
+  if (shared_context_state_) {
     gr_cache_controller_.reset();
-    raster_decoder_context_state_->context_lost = true;
-    raster_decoder_context_state_.reset();
+    shared_context_state_->MarkContextLost();
+    shared_context_state_.reset();
   }
 
   SkGraphics::PurgeAllCaches();
@@ -325,8 +311,8 @@ void GpuChannelManager::OnBackgroundCleanup() {
 #endif
 
 void GpuChannelManager::OnApplicationBackgrounded() {
-  if (raster_decoder_context_state_) {
-    raster_decoder_context_state_->PurgeMemory(
+  if (shared_context_state_) {
+    shared_context_state_->PurgeMemory(
         base::MemoryPressureListener::MemoryPressureLevel::
             MEMORY_PRESSURE_LEVEL_CRITICAL);
   }
@@ -341,18 +327,17 @@ void GpuChannelManager::HandleMemoryPressure(
     program_cache_->HandleMemoryPressure(memory_pressure_level);
   discardable_manager_.HandleMemoryPressure(memory_pressure_level);
   passthrough_discardable_manager_.HandleMemoryPressure(memory_pressure_level);
-  if (raster_decoder_context_state_)
-    raster_decoder_context_state_->PurgeMemory(memory_pressure_level);
+  if (shared_context_state_)
+    shared_context_state_->PurgeMemory(memory_pressure_level);
   if (gr_shader_cache_)
     gr_shader_cache_->PurgeMemory(memory_pressure_level);
 }
 
-scoped_refptr<raster::RasterDecoderContextState>
-GpuChannelManager::GetRasterDecoderContextState(ContextResult* result) {
-  if (raster_decoder_context_state_ &&
-      !raster_decoder_context_state_->context_lost) {
+scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
+    ContextResult* result) {
+  if (shared_context_state_ && !shared_context_state_->context_lost()) {
     *result = ContextResult::kSuccess;
-    return raster_decoder_context_state_;
+    return shared_context_state_;
   }
 
   scoped_refptr<gl::GLSurface> surface = default_offscreen_surface();
@@ -368,18 +353,6 @@ GpuChannelManager::GetRasterDecoderContextState(ContextResult* result) {
   // MailboxManagerSync synchronization correctness currently depends on having
   // only a single context. See crbug.com/510243 for details.
   use_virtualized_gl_contexts |= mailbox_manager_->UsesSync();
-
-  const bool use_oop_rasterization =
-      gpu_feature_info_.status_values[GPU_FEATURE_TYPE_OOP_RASTERIZATION] ==
-      gpu::kGpuFeatureStatusEnabled;
-
-  // With OOP-R, SkiaRenderer and Skia DDL, we will only have one GLContext
-  // and share it with RasterDecoders and DisplayCompositor. So it is not
-  // necessary to use virtualized gl context anymore.
-  // TODO(penghuang): Make virtualized gl context work with SkiaRenderer + DDL +
-  // OOPR. https://crbug.com/838899
-  if (features::IsUsingSkiaDeferredDisplayList() && use_oop_rasterization)
-    use_virtualized_gl_contexts = false;
 
   const bool use_passthrough_decoder =
       gles2::PassthroughCommandDecoderSupported() &&
@@ -432,24 +405,56 @@ GpuChannelManager::GetRasterDecoderContextState(ContextResult* result) {
   }
 
   // TODO(penghuang): https://crbug.com/899735 Handle device lost for Vulkan.
-  raster_decoder_context_state_ = new raster::RasterDecoderContextState(
+  shared_context_state_ = base::MakeRefCounted<SharedContextState>(
       std::move(share_group), std::move(surface), std::move(context),
-      use_virtualized_gl_contexts, vulkan_context_provider_);
+      use_virtualized_gl_contexts,
+      base::BindOnce(&GpuChannelManager::OnContextLost, base::Unretained(this),
+                     /*synthetic_loss=*/false),
+      vulkan_context_provider_);
 
-  const bool enable_raster_transport =
+  // OOP-R needs GrContext for raster tiles.
+  bool need_gr_context =
       gpu_feature_info_.status_values[GPU_FEATURE_TYPE_OOP_RASTERIZATION] ==
       gpu::kGpuFeatureStatusEnabled;
-  if (enable_raster_transport || features::IsUsingSkiaDeferredDisplayList()) {
-    raster_decoder_context_state_->InitializeGrContext(
-        gpu_driver_bug_workarounds_, gr_shader_cache(), &activity_flags_,
-        watchdog_);
+
+  // SkiaRenderer needs GrContext to composite output surface.
+  need_gr_context |= features::IsUsingSkiaRenderer();
+
+  if (need_gr_context) {
+    if (!vulkan_context_provider_) {
+      auto feature_info = base::MakeRefCounted<gles2::FeatureInfo>(
+          gpu_driver_bug_workarounds(), gpu_feature_info());
+      if (!shared_context_state_->InitializeGL(gpu_preferences_,
+                                               feature_info.get())) {
+        shared_context_state_ = nullptr;
+        return nullptr;
+      }
+    }
+    shared_context_state_->InitializeGrContext(gpu_driver_bug_workarounds_,
+                                               gr_shader_cache(),
+                                               &activity_flags_, watchdog_);
   }
 
-  gr_cache_controller_.emplace(raster_decoder_context_state_.get(),
-                               task_runner_);
+  gr_cache_controller_.emplace(shared_context_state_.get(), task_runner_);
 
   *result = ContextResult::kSuccess;
-  return raster_decoder_context_state_;
+  return shared_context_state_;
+}
+
+void GpuChannelManager::OnContextLost(bool synthetic_loss) {
+  if (synthetic_loss)
+    return;
+
+  // Work around issues with recovery by allowing a new GPU process to launch.
+  if (gpu_driver_bug_workarounds_.exit_on_context_lost)
+    delegate_->MaybeExitOnContextLost();
+
+  // Lose all other contexts.
+  if (gl::GLContext::LosesAllContextsOnContextLost() ||
+      (shared_context_state_ &&
+       shared_context_state_->use_virtualized_gl_contexts())) {
+    LoseAllContexts();
+  }
 }
 
 void GpuChannelManager::ScheduleGrContextCleanup() {
@@ -460,6 +465,12 @@ void GpuChannelManager::ScheduleGrContextCleanup() {
 void GpuChannelManager::StoreShader(const std::string& key,
                                     const std::string& shader) {
   delegate_->StoreShaderToDisk(kGrShaderCacheClientId, key, shader);
+}
+
+void GpuChannelManager::SetImageDecodeAcceleratorWorkerForTesting(
+    ImageDecodeAcceleratorWorker* worker) {
+  DCHECK(gpu_channels_.empty());
+  image_decode_accelerator_worker_ = worker;
 }
 
 }  // namespace gpu

@@ -9,6 +9,8 @@
 
 #include <map>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "base/callback_list.h"
 #include "base/containers/id_map.h"
@@ -22,7 +24,6 @@
 #include "content/public/browser/media_session_observer.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
-#include "content/public/common/media_metadata.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "mojo/public/cpp/bindings/binding_set.h"
 #include "mojo/public/cpp/bindings/interface_ptr_set.h"
@@ -37,6 +38,10 @@ class MediaSessionImplBrowserTest;
 namespace media {
 enum class MediaContentType;
 }  // namespace media
+
+namespace media_session {
+struct MediaMetadata;
+}  // namespace media_session
 
 namespace content {
 
@@ -88,10 +93,7 @@ class MediaSessionImpl : public MediaSession,
   }
 #endif  // defined(OS_ANDROID)
 
-  void NotifyMediaSessionMetadataChange(
-      const base::Optional<MediaMetadata>& metadata);
-  void NotifyMediaSessionActionsChange(
-      const std::set<media_session::mojom::MediaSessionAction>& actions);
+  void NotifyMediaSessionMetadataChange();
 
   // Adds the given player to the current media session. Returns whether the
   // player was successfully added. If it returns false, AddPlayer() should be
@@ -134,7 +136,8 @@ class MediaSessionImpl : public MediaSession,
   void WebContentsDestroyed() override;
   void RenderFrameDeleted(RenderFrameHost* rfh) override;
   void DidFinishNavigation(NavigationHandle* navigation_handle) override;
-  void OnWebContentsFocused(RenderWidgetHost* render_widget_host) override;
+  void OnWebContentsFocused(RenderWidgetHost*) override;
+  void OnWebContentsLostFocus(RenderWidgetHost*) override;
 
   // MediaSessionService-related methods
 
@@ -168,6 +171,13 @@ class MediaSessionImpl : public MediaSession,
   // Returns information about the MediaSession.
   media_session::mojom::MediaSessionInfoPtr GetMediaSessionInfoSync();
 
+  // Returns if the session can be controlled by the user.
+  CONTENT_EXPORT bool IsControllable() const;
+
+  // Compute if the actual playback state is paused by combining the
+  // MediaSessionService declared state and guessed state (audio_focus_state_).
+  CONTENT_EXPORT bool IsActuallyPaused() const;
+
   // MediaSession overrides ---------------------------------------------------
 
   // Resume the media session.
@@ -181,14 +191,6 @@ class MediaSessionImpl : public MediaSession,
   // Seek the media session.
   CONTENT_EXPORT void Seek(base::TimeDelta seek_time) override;
 
-  // Returns if the session can be controlled by Resume() and Suspend() calls
-  // above.
-  CONTENT_EXPORT bool IsControllable() const override;
-
-  // Compute if the actual playback state is paused by combining the
-  // MediaSessionService declared state and guessed state (audio_focus_state_).
-  CONTENT_EXPORT bool IsActuallyPaused() const override;
-
   // Called when a MediaSessionAction is received. The action will be forwarded
   // to blink::MediaSession corresponding to the current routed service.
   void DidReceiveAction(
@@ -201,7 +203,7 @@ class MediaSessionImpl : public MediaSession,
   // group can share audio focus. Setting this to null will use the browser
   // default value.
   CONTENT_EXPORT void SetAudioFocusGroupId(
-      const base::UnguessableToken& group_id);
+      const base::UnguessableToken& group_id) override;
 
   // Suspend the media session.
   // |type| represents the origin of the request.
@@ -238,9 +240,15 @@ class MediaSessionImpl : public MediaSession,
   // Skip to the next track.
   CONTENT_EXPORT void NextTrack() override;
 
+  // Skip ad.
+  CONTENT_EXPORT void SkipAd() override;
+
   const base::UnguessableToken& audio_focus_group_id() const {
     return audio_focus_group_id_;
   }
+
+  // Returns whether the action should be routed to |routed_service_|.
+  bool ShouldRouteAction(media_session::mojom::MediaSessionAction action) const;
 
  private:
   friend class content::WebContentsUserData<MediaSessionImpl>;
@@ -267,7 +275,7 @@ class MediaSessionImpl : public MediaSession,
     bool operator==(const PlayerIdentifier& player_identifier) const;
     bool operator<(const PlayerIdentifier&) const;
 
-    // Hash operator for base::hash_map<>.
+    // Hash operator for std::unordered_map<>.
     struct Hash {
       size_t operator()(const PlayerIdentifier& player_identifier) const;
     };
@@ -275,7 +283,8 @@ class MediaSessionImpl : public MediaSession,
     MediaSessionPlayerObserver* observer;
     int player_id;
   };
-  using PlayersMap = base::hash_set<PlayerIdentifier, PlayerIdentifier::Hash>;
+  using PlayersMap =
+      std::unordered_set<PlayerIdentifier, PlayerIdentifier::Hash>;
   using StateChangedCallback = base::Callback<void(State)>;
 
   CONTENT_EXPORT explicit MediaSessionImpl(WebContents* web_contents);
@@ -330,6 +339,9 @@ class MediaSessionImpl : public MediaSession,
   CONTENT_EXPORT bool AddOneShotPlayer(MediaSessionPlayerObserver* observer,
                                        int player_id);
 
+  // Returns the current media metadata associated with this session.
+  media_session::MediaMetadata GetMediaMetadata() const;
+
   // MediaSessionService-related methods
 
   // Called when the routed service may have changed.
@@ -342,13 +354,20 @@ class MediaSessionImpl : public MediaSession,
   // to update |routed_service_|.
   CONTENT_EXPORT MediaSessionServiceImpl* ComputeServiceForRouting();
 
-  // Returns whether the action is supported by the media session.
-  bool IsActionSupported(media_session::mojom::MediaSessionAction action) const;
+  // Rebuilds |actions_| and notifies observers if they have changed.
+  void RebuildAndNotifyActionsChanged();
+
+  // A set of actions supported by |routed_service_| and the current media
+  // session.
+  std::set<media_session::mojom::MediaSessionAction> actions_;
 
   std::unique_ptr<AudioFocusDelegate> delegate_;
   std::map<PlayerIdentifier, media_session::mojom::AudioFocusType>
       normal_players_;
   PlayersMap pepper_players_;
+
+  // Players that are playing in the web contents but we cannot control (e.g.
+  // WebAudio or MediaStream).
   PlayersMap one_shot_players_;
 
   State audio_focus_state_ = State::INACTIVE;
@@ -373,6 +392,9 @@ class MediaSessionImpl : public MediaSession,
 
   base::ObserverList<MediaSessionObserver>::Unchecked observers_;
 
+  // True if the WebContents associated with this MediaSessionImpl is focused.
+  bool focused_ = false;
+
 #if defined(OS_ANDROID)
   std::unique_ptr<MediaSessionAndroid> session_android_;
 #endif  // defined(OS_ANDROID)
@@ -395,6 +417,8 @@ class MediaSessionImpl : public MediaSession,
 
   // Timer used for debouncing MediaSessionInfoChanged events.
   std::unique_ptr<base::OneShotTimer> info_changed_timer_;
+
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
 
   DISALLOW_COPY_AND_ASSIGN(MediaSessionImpl);
 };

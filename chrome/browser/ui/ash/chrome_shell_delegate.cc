@@ -12,8 +12,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/chrome_accessibility_delegate.h"
-#include "chrome/browser/ui/ash/chrome_keyboard_ui.h"
 #include "chrome/browser/ui/ash/chrome_screenshot_grabber.h"
+#include "chrome/browser/ui/ash/keyboard/chrome_keyboard_ui.h"
 #include "chrome/browser/ui/ash/session_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -37,7 +37,8 @@ ChromeShellDelegate::ChromeShellDelegate() = default;
 
 ChromeShellDelegate::~ChromeShellDelegate() = default;
 
-bool ChromeShellDelegate::CanShowWindowForUser(aura::Window* window) const {
+bool ChromeShellDelegate::CanShowWindowForUser(
+    const aura::Window* window) const {
   return ::CanShowWindowForUser(window,
                                 base::BindRepeating(&GetActiveBrowserContext));
 }
@@ -50,11 +51,6 @@ void ChromeShellDelegate::OpenKeyboardShortcutHelpPage() const {
                         ui::PAGE_TRANSITION_AUTO_BOOKMARK);
   params.disposition = WindowOpenDisposition::SINGLETON_TAB;
   Navigate(&params);
-}
-
-std::unique_ptr<keyboard::KeyboardUI> ChromeShellDelegate::CreateKeyboardUI() {
-  return std::make_unique<ChromeKeyboardUI>(
-      ProfileManager::GetActiveUserProfile());
 }
 
 ash::AccessibilityDelegate* ChromeShellDelegate::CreateAccessibilityDelegate() {

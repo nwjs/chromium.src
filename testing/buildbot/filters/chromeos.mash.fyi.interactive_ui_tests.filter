@@ -30,6 +30,7 @@
 -StickyKeysBrowserTest.OpenTrayMenu
 -StickyKeysBrowserTest.OverlayShown
 -StickyKeysBrowserTest.SearchLeftOmnibox
+-SwitchAccessTest.IgnoresVirtualKeyEvents
 -TestAsNormalAndGuestUser/SpokenFeedbackTest.ChromeVoxNextTabRecovery/0
 -TestAsNormalAndGuestUser/SpokenFeedbackTest.ChromeVoxNextTabRecovery/1
 -TestAsNormalAndGuestUser/SpokenFeedbackTest.ChromeVoxShiftSearch/0
@@ -42,16 +43,6 @@
 -TestAsNormalAndGuestUser/SpokenFeedbackTest.OpenStatusTray/1
 -TestAsNormalAndGuestUser/SpokenFeedbackTest.OverviewMode/0
 -TestAsNormalAndGuestUser/SpokenFeedbackTest.OverviewMode/1
-
-# TabDragging: crbug.com/890071
--TabDragging/DetachToBrowserTabDragControllerTest.DetachToOwnWindowFromMaximizedWindow/1
--TabDragging/DetachToBrowserTabDragControllerTest.DetachToOwnWindowWhileInImmersiveFullscreenMode/1
--TabDragging/DetachToBrowserTabDragControllerTest.DoNotObserveDraggedWidgetAfterDragEnds/1
--TabDragging/DetachToBrowserTabDragControllerTest.DragToOverviewNewWindowItem/1
--TabDragging/DetachToBrowserTabDragControllerTest.DragToSeparateWindow/1
--TabDragging/DetachToBrowserTabDragControllerTest.DragWithMaskedWindows/0
--TabDragging/DetachToBrowserTabDragControllerTest.DragWithMaskedWindows/1
--TabDragging/DetachToBrowserTabDragControllerTestTouch.PressSecondFingerWhileDetached/0
 
 # This test is flaky. https://crbug.com/897879
 -ExtensionApiTest.DisplayModeWindowIsInFullscreen

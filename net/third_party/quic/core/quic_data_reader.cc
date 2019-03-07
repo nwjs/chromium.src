@@ -128,13 +128,25 @@ bool QuicDataReader::ReadStringPiece(QuicStringPiece* result, size_t size) {
   return true;
 }
 
-bool QuicDataReader::ReadConnectionId(uint64_t* connection_id) {
-  if (!ReadBytes(connection_id, sizeof(*connection_id))) {
-    return false;
+bool QuicDataReader::ReadConnectionId(QuicConnectionId* connection_id,
+                                      uint8_t length,
+                                      Perspective perspective) {
+  if (!QuicConnectionIdSupportsVariableLength(perspective)) {
+    uint64_t connection_id64 = 0;
+    if (!ReadBytes(&connection_id64, sizeof(connection_id64))) {
+      return false;
+    }
+    *connection_id =
+        QuicConnectionIdFromUInt64(QuicEndian::NetToHost64(connection_id64));
+    return true;
   }
-  *connection_id = QuicEndian::NetToHost64(*connection_id);
+  DCHECK_LE(length, kQuicMaxConnectionIdLength);
 
-  return true;
+  const bool ok = ReadBytes(connection_id->mutable_data(), length);
+  if (ok) {
+    connection_id->set_length(length);
+  }
+  return ok;
 }
 
 bool QuicDataReader::ReadTag(uint32_t* tag) {
@@ -169,6 +181,16 @@ bool QuicDataReader::ReadBytes(void* result, size_t size) {
 
 bool QuicDataReader::IsDoneReading() const {
   return len_ == pos_;
+}
+
+int QuicDataReader::PeekVarInt62Length() {
+  DCHECK_EQ(endianness_, NETWORK_BYTE_ORDER);
+  const unsigned char* next =
+      reinterpret_cast<const unsigned char*>(data_ + pos_);
+  if (BytesRemaining() == 0) {
+    return 0;
+  }
+  return 1 << ((*next & 0b11000000) >> 6);
 }
 
 size_t QuicDataReader::BytesRemaining() const {

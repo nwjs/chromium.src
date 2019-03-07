@@ -150,10 +150,12 @@ bool AXNodeObject::ComputeAccessibilityIsIgnored(
 
   // Ignore labels that are already referenced by a control.
   AXObject* control_object = CorrespondingControlForLabelElement();
+  HTMLLabelElement* label = LabelElementContainer();
   if (control_object && control_object->IsCheckboxOrRadio() &&
-      control_object->NameFromLabelElement()) {
+      control_object->NameFromLabelElement() &&
+      AccessibleNode::GetPropertyOrARIAAttribute(
+          label, AOMStringProperty::kRole) == g_null_atom) {
     if (ignored_reasons) {
-      HTMLLabelElement* label = LabelElementContainer();
       if (label && label != GetNode()) {
         AXObject* label_ax_object = AXObjectCache().GetOrCreate(label);
         ignored_reasons->push_back(
@@ -1422,11 +1424,8 @@ ax::mojom::InvalidState AXNodeObject::GetInvalidState() const {
   if (GetNode() && GetNode()->IsElementNode() &&
       ToElement(GetNode())->IsFormControlElement()) {
     HTMLFormControlElement* element = ToHTMLFormControlElement(GetNode());
-    HeapVector<Member<HTMLFormControlElement>> invalid_controls;
-    bool is_invalid = !element->checkValidity(&invalid_controls,
-                                              kCheckValidityDispatchNoEvent);
-    return is_invalid ? ax::mojom::InvalidState::kTrue
-                      : ax::mojom::InvalidState::kFalse;
+    return element->IsNotCandidateOrValid() ? ax::mojom::InvalidState::kFalse
+                                            : ax::mojom::InvalidState::kTrue;
   }
 
   return AXObject::GetInvalidState();
@@ -1437,10 +1436,7 @@ int AXNodeObject::PosInSet() const {
     uint32_t pos_in_set;
     if (HasAOMPropertyOrARIAAttribute(AOMUIntProperty::kPosInSet, pos_in_set))
       return pos_in_set;
-
-    return AutoPosInSet();
   }
-
   return 0;
 }
 
@@ -1449,86 +1445,8 @@ int AXNodeObject::SetSize() const {
     int32_t set_size;
     if (HasAOMPropertyOrARIAAttribute(AOMIntProperty::kSetSize, set_size))
       return set_size;
-
-    return AutoSetSize();
   }
-
   return 0;
-}
-
-int AXNodeObject::AutoPosInSet() const {
-  AXObject* parent = ParentObjectUnignored();
-
-  // Do not continue if the children will need updating soon, because
-  // the calculation requires all the siblings to remain stable.
-  if (!parent || parent->NeedsToUpdateChildren())
-    return 0;
-
-  int pos_in_set = 1;
-  const AXObject::AXObjectVector siblings = parent->Children();
-
-  ax::mojom::Role role = RoleValue();
-  int level = HierarchicalLevel();
-  int index_in_parent = IndexInParent();
-
-  for (int index = index_in_parent - 1; index >= 0; index--) {
-    const AXObject* sibling = siblings[index];
-    ax::mojom::Role sibling_role = sibling->RoleValue();
-    if (sibling_role == ax::mojom::Role::kSplitter ||
-        sibling_role == ax::mojom::Role::kGroup)
-      break;  // Set stops at a separator or an optgroup.
-    if (sibling_role != role || sibling->AccessibilityIsIgnored())
-      continue;
-
-    int sibling_level = sibling->HierarchicalLevel();
-    if (sibling_level < level)
-      break;
-
-    if (sibling_level > level)
-      continue;  // Skip subset
-
-    ++pos_in_set;
-  }
-
-  return pos_in_set;
-}
-
-int AXNodeObject::AutoSetSize() const {
-  AXObject* parent = ParentObjectUnignored();
-
-  // Do not continue if the children will need updating soon, because
-  // the calculation requires all the siblings to remain stable.
-  if (!parent || parent->NeedsToUpdateChildren())
-    return 0;
-
-  int set_size = AutoPosInSet();
-  auto siblings = parent->Children();
-
-  ax::mojom::Role role = RoleValue();
-  int level = HierarchicalLevel();
-  int index_in_parent = IndexInParent();
-  int sibling_count = siblings.size();
-
-  for (int index = index_in_parent + 1; index < sibling_count; index++) {
-    const auto sibling = siblings[index];
-    ax::mojom::Role sibling_role = sibling->RoleValue();
-    if (sibling_role == ax::mojom::Role::kSplitter ||
-        sibling_role == ax::mojom::Role::kGroup)
-      break;  // Set stops at a separator or an optgroup.
-    if (sibling_role != role || sibling->AccessibilityIsIgnored())
-      continue;
-
-    int sibling_level = sibling->HierarchicalLevel();
-    if (sibling_level < level)
-      break;
-
-    if (sibling_level > level)
-      continue;  // Skip subset
-
-    ++set_size;
-  }
-
-  return set_size;
 }
 
 String AXNodeObject::AriaInvalidValue() const {
@@ -2061,9 +1979,8 @@ bool AXNodeObject::NameFromLabelElement() const {
   HTMLElement* html_element = nullptr;
   if (GetNode()->IsHTMLElement())
     html_element = ToHTMLElement(GetNode());
-  if (html_element && IsLabelableElement(html_element)) {
-    if (ToLabelableElement(html_element)->labels() &&
-        ToLabelableElement(html_element)->labels()->length() > 0)
+  if (html_element && html_element->IsLabelable()) {
+    if (html_element->labels() && html_element->labels()->length() > 0)
       return true;
   }
 
@@ -2534,17 +2451,25 @@ void AXNodeObject::ChildrenChanged() {
     // update.
 
     // If this element supports ARIA live regions, then notify the AT of
-    // changes.
-    if (parent->IsLiveRegion()) {
-      AXObjectCache().PostNotification(parent,
-                                       ax::mojom::Event::kLiveRegionChanged);
+    // changes. Do not fire live region changed events if aria-live="off".
+    if (parent->IsLiveRegionRoot()) {
+      if (parent->IsActiveLiveRegionRoot()) {
+        AXObjectCache().PostNotification(parent,
+                                         ax::mojom::Event::kLiveRegionChanged);
+      }
+      break;
     }
+  }
 
+  for (AXObject* parent = this; parent;
+       parent = parent->ParentObjectIfExists()) {
     // If this element is an ARIA text box or content editable, post a "value
     // changed" notification on it so that it behaves just like a native input
     // element or textarea.
-    if (IsNonNativeTextControl())
+    if (IsNonNativeTextControl()) {
       AXObjectCache().PostNotification(parent, ax::mojom::Event::kValueChanged);
+      break;
+    }
   }
 }
 
@@ -2614,14 +2539,27 @@ void AXNodeObject::TextChanged() {
     if (!parent)
       continue;
 
-    if (parent->IsLiveRegion())
-      cache.PostNotification(parent_node, ax::mojom::Event::kLiveRegionChanged);
+    if (parent->IsLiveRegionRoot()) {
+      if (parent->IsActiveLiveRegionRoot()) {
+        cache.PostNotification(parent_node,
+                               ax::mojom::Event::kLiveRegionChanged);
+      }
+      break;
+    }
+  }
 
-    // If this element is an ARIA text box or content editable, post a "value
-    // changed" notification on it so that it behaves just like a native input
-    // element or textarea.
-    if (parent->IsNonNativeTextControl())
+  // If this element is an ARIA text box or content editable, post a "value
+  // changed" notification on it so that it behaves just like a native input
+  // element or textarea.
+  for (Node* parent_node = GetNode(); parent_node;
+       parent_node = parent_node->parentNode()) {
+    AXObject* parent = cache.Get(parent_node);
+    if (!parent)
+      continue;
+    if (parent->IsNonNativeTextControl()) {
       cache.PostNotification(parent_node, ax::mojom::Event::kValueChanged);
+      break;
+    }
   }
 }
 
@@ -2693,7 +2631,7 @@ String AXNodeObject::NativeTextAlternative(
       name_sources->back().native_source = kAXTextFromNativeHTMLLabel;
     }
 
-    LabelsNodeList* labels = ToLabelableElement(html_element)->labels();
+    LabelsNodeList* labels = html_element->labels();
     if (labels && labels->length() > 0) {
       HeapVector<Member<Element>> label_elements;
       for (unsigned label_index = 0; label_index < labels->length();

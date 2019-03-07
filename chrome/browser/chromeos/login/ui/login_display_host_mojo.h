@@ -82,8 +82,6 @@ class LoginDisplayHostMojo : public LoginDisplayHostCommon,
   void OnStartAppLaunch() override;
   void OnStartArcKiosk() override;
   void OnBrowserCreated() override;
-  void StartVoiceInteractionOobe() override;
-  bool IsVoiceInteractionOobe() override;
   void ShowGaiaDialog(
       bool can_close,
       const base::Optional<AccountId>& prefilled_account) override;
@@ -115,7 +113,6 @@ class LoginDisplayHostMojo : public LoginDisplayHostCommon,
   void HandleOnNoPodFocused() override;
   bool HandleFocusLockScreenApps(bool reverse) override;
   void HandleFocusOobeDialog() override;
-  void HandleLoginAsGuest() override;
   void HandleLaunchPublicSession(const AccountId& account_id,
                                  const std::string& locale,
                                  const std::string& input_method) override;

@@ -48,14 +48,19 @@ class LocationBarModel {
   virtual security_state::SecurityLevel GetSecurityLevel(
       bool ignore_editing) const = 0;
 
-  // Returns whether the connection security fields have been initialized.
-  // After a navigation, this is false until the TLS state is updated.
-  virtual bool IsSecurityInfoInitialized() const = 0;
+  // Returns true if the toolbar should display the search terms. When this
+  // method returns true, the extracted search terms will be filled into
+  // |search_terms| if it's not nullptr.
+  //
+  // This method can be called with nullptr |search_terms| if the caller wants
+  // to check the display status only. Virtual for testing purposes.
+  virtual bool GetDisplaySearchTerms(base::string16* search_terms) = 0;
 
   // Returns the id of the icon to show to the left of the address, based on the
   // current URL.  When search term replacement is active, this returns a search
-  // icon.  This doesn't cover specialized icons while the user is editing; see
-  // OmniboxView::GetIcon().
+  // icon.  This always shows the icon based on the current page's security
+  // state, and doesn't account for user editing, or show any specialized icons
+  // for input in progress. See OmniboxView::GetIcon() for those.
   virtual const gfx::VectorIcon& GetVectorIcon() const = 0;
 
   // Returns text for the omnibox secure verbose chip, displayed next to the

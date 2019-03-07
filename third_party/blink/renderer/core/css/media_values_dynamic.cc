@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/css/media_values_dynamic.h"
 
+#include "third_party/blink/public/platform/web_color_scheme.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_resolution_units.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
@@ -52,17 +53,17 @@ MediaValues* MediaValuesDynamic::Copy() const {
 bool MediaValuesDynamic::ComputeLength(double value,
                                        CSSPrimitiveValue::UnitType type,
                                        int& result) const {
-  return MediaValues::ComputeLength(
-      value, type, CalculateDefaultFontSize(frame_),
-      CalculateViewportWidth(frame_), CalculateViewportHeight(frame_), result);
+  return MediaValues::ComputeLength(value, type,
+                                    CalculateDefaultFontSize(frame_),
+                                    ViewportWidth(), ViewportHeight(), result);
 }
 
 bool MediaValuesDynamic::ComputeLength(double value,
                                        CSSPrimitiveValue::UnitType type,
                                        double& result) const {
-  return MediaValues::ComputeLength(
-      value, type, CalculateDefaultFontSize(frame_),
-      CalculateViewportWidth(frame_), CalculateViewportHeight(frame_), result);
+  return MediaValues::ComputeLength(value, type,
+                                    CalculateDefaultFontSize(frame_),
+                                    ViewportWidth(), ViewportHeight(), result);
 }
 
 double MediaValuesDynamic::ViewportWidth() const {
@@ -139,6 +140,14 @@ DisplayShape MediaValuesDynamic::GetDisplayShape() const {
 
 ColorSpaceGamut MediaValuesDynamic::ColorGamut() const {
   return CalculateColorGamut(frame_);
+}
+
+WebColorScheme MediaValuesDynamic::PreferredColorScheme() const {
+  return CalculatePreferredColorScheme(frame_);
+}
+
+bool MediaValuesDynamic::PrefersReducedMotion() const {
+  return CalculatePrefersReducedMotion(frame_);
 }
 
 Document* MediaValuesDynamic::GetDocument() const {

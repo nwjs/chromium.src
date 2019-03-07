@@ -25,7 +25,6 @@
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_client.h"
 #include "components/signin/core/browser/signin_internals_util.h"
-#include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_switches.h"
 #include "google_apis/gaia/oauth2_token_service_delegate.h"
 #include "net/base/backoff_entry.h"
@@ -125,10 +124,6 @@ std::string SigninStatusFieldToLabel(
       return "Gaia Authentication Result";
     case signin_internals_util::REFRESH_TOKEN_RECEIVED:
       return "RefreshToken Received";
-    case signin_internals_util::SIGNIN_STARTED:
-      return "SigninManager Started";
-    case signin_internals_util::SIGNIN_COMPLETED:
-      return "SigninManager Completed";
     case signin_internals_util::TIMED_FIELDS_END:
       NOTREACHED();
       return "Error";
@@ -173,8 +168,6 @@ std::string GetAccountConsistencyDescription(
       return "None";
     case signin::AccountConsistencyMethod::kMirror:
       return "Mirror";
-    case signin::AccountConsistencyMethod::kDiceFixAuthErrors:
-      return "DICE fixing auth errors";
     case signin::AccountConsistencyMethod::kDiceMigration:
       return "DICE migration";
     case signin::AccountConsistencyMethod::kDice:
@@ -190,14 +183,12 @@ AboutSigninInternals::AboutSigninInternals(
     ProfileOAuth2TokenService* token_service,
     AccountTrackerService* account_tracker,
     identity::IdentityManager* identity_manager,
-    SigninManagerBase* signin_manager,
     SigninErrorController* signin_error_controller,
     GaiaCookieManagerService* cookie_manager_service,
     signin::AccountConsistencyMethod account_consistency)
     : token_service_(token_service),
       account_tracker_(account_tracker),
       identity_manager_(identity_manager),
-      signin_manager_(signin_manager),
       client_(nullptr),
       signin_error_controller_(signin_error_controller),
       cookie_manager_service_(cookie_manager_service),
@@ -252,7 +243,7 @@ void AboutSigninInternals::RemoveSigninObserver(
   signin_observers_.RemoveObserver(observer);
 }
 
-void AboutSigninInternals::NotifySigninValueChanged(
+void AboutSigninInternals::NotifyTimedSigninFieldValueChanged(
     const signin_internals_util::TimedSigninStatusField& field,
     const std::string& value) {
   unsigned int field_index = field - signin_internals_util::TIMED_FIELDS_BEGIN;
@@ -274,8 +265,6 @@ void AboutSigninInternals::NotifySigninValueChanged(
   if (field == signin_internals_util::AUTHENTICATION_RESULT_RECEIVED) {
     ClearPref(client_->GetPrefs(),
               signin_internals_util::REFRESH_TOKEN_RECEIVED);
-    ClearPref(client_->GetPrefs(), signin_internals_util::SIGNIN_STARTED);
-    ClearPref(client_->GetPrefs(), signin_internals_util::SIGNIN_COMPLETED);
   }
 
   NotifyObservers();
@@ -313,8 +302,6 @@ void AboutSigninInternals::Initialize(SigninClient* client) {
   signin_error_controller_->AddObserver(this);
   identity_manager_->AddObserver(this);
   identity_manager_->AddDiagnosticsObserver(this);
-  signin_manager_->AddSigninDiagnosticsObserver(this);
-  token_service_->AddObserver(this);
   token_service_->AddDiagnosticsObserver(this);
   cookie_manager_service_->AddObserver(this);
 }
@@ -323,8 +310,6 @@ void AboutSigninInternals::Shutdown() {
   signin_error_controller_->RemoveObserver(this);
   identity_manager_->RemoveObserver(this);
   identity_manager_->RemoveDiagnosticsObserver(this);
-  signin_manager_->RemoveSigninDiagnosticsObserver(this);
-  token_service_->RemoveObserver(this);
   token_service_->RemoveDiagnosticsObserver(this);
   cookie_manager_service_->RemoveObserver(this);
 }
@@ -415,7 +400,7 @@ void AboutSigninInternals::OnRefreshTokensLoaded() {
   NotifyObservers();
 }
 
-void AboutSigninInternals::OnEndBatchChanges() {
+void AboutSigninInternals::OnEndBatchOfRefreshTokenStateChanges() {
   NotifyObservers();
 }
 
@@ -431,13 +416,13 @@ void AboutSigninInternals::OnAccessTokenRemoved(
 }
 
 void AboutSigninInternals::OnRefreshTokenReceived(const std::string& status) {
-  NotifySigninValueChanged(signin_internals_util::REFRESH_TOKEN_RECEIVED,
-                           status);
+  NotifyTimedSigninFieldValueChanged(
+      signin_internals_util::REFRESH_TOKEN_RECEIVED, status);
 }
 
 void AboutSigninInternals::OnAuthenticationResultReceived(
     const std::string& status) {
-  NotifySigninValueChanged(
+  NotifyTimedSigninFieldValueChanged(
       signin_internals_util::AUTHENTICATION_RESULT_RECEIVED, status);
 }
 

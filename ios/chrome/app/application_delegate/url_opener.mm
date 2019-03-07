@@ -6,12 +6,15 @@
 
 #import <Foundation/Foundation.h>
 
+#include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/startup_information.h"
 #import "ios/chrome/app/application_delegate/tab_opening.h"
 #include "ios/chrome/app/startup/chrome_app_startup_parameters.h"
 #import "ios/chrome/browser/chrome_url_util.h"
+#include "ios/chrome/browser/experimental_flags.h"
+#include "url/gurl.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -62,11 +65,29 @@ const char* const kUMAMobileSessionStartFromAppsHistogram =
         [startupInformation setStartupParameters:nil];
       };
 
+      // TODO(crbug.com/935019): Exacly the same copy of this code is present in
+      // +[UserAcrtivityHandler
+      // handleStartupParametersWithTabOpener:startupInformation:interfaceProvider:]
+
+      GURL URL;
+      GURL virtualURL;
+      if ([params completeURL].SchemeIsFile() &&
+          base::FeatureList::IsEnabled(
+              experimental_flags::kExternalFilesLoadedInWebState)) {
+        // External URL will be loaded by WebState, which expects |completeURL|.
+        // Omnibox however suppose to display |externalURL|, which is used as
+        // virtual URL.
+        URL = [params completeURL];
+        virtualURL = [params externalURL];
+      } else {
+        URL = [params externalURL];
+      }
       [tabOpener
           dismissModalsAndOpenSelectedTabInMode:[params launchInIncognito]
                                                     ? ApplicationMode::INCOGNITO
                                                     : ApplicationMode::NORMAL
-                                        withURL:[params externalURL]
+                                        withURL:URL
+                                     virtualURL:virtualURL
                                  dismissOmnibox:[params postOpeningAction] !=
                                                 FOCUS_OMNIBOX
                                      transition:ui::PAGE_TRANSITION_LINK

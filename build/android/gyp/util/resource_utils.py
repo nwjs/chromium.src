@@ -25,22 +25,123 @@ EMPTY_ANDROID_MANIFEST_PATH = os.path.join(
     _SOURCE_ROOT, 'build', 'android', 'AndroidManifest.xml')
 
 
-# A variation of this lists also exists in:
+# A variation of these maps also exists in:
 # //base/android/java/src/org/chromium/base/LocaleUtils.java
 # //ui/android/java/src/org/chromium/base/LocalizationUtils.java
-CHROME_TO_ANDROID_LOCALE_MAP = {
-    'en-GB': 'en-rGB',
-    'en-US': 'en-rUS',
+_CHROME_TO_ANDROID_LOCALE_MAP = {
     'es-419': 'es-rUS',
     'fil': 'tl',
     'he': 'iw',
     'id': 'in',
-    'pt-PT': 'pt-rPT',
-    'pt-BR': 'pt-rBR',
     'yi': 'ji',
-    'zh-CN': 'zh-rCN',
-    'zh-TW': 'zh-rTW',
 }
+_ANDROID_TO_CHROMIUM_LANGUAGE_MAP = {
+    'tl': 'fil',
+    'iw': 'he',
+    'in': 'id',
+    'ji': 'yi',
+    'no': 'nb',  # 'no' is not a real language. http://crbug.com/920960
+}
+
+
+def ToAndroidLocaleName(chromium_locale):
+  """Convert an Chromium locale name into a corresponding Android one."""
+  # First handle the special cases, these are needed to deal with Android
+  # releases *before* 5.0/Lollipop.
+  android_locale = _CHROME_TO_ANDROID_LOCALE_MAP.get(chromium_locale)
+  if android_locale:
+    return android_locale
+
+  # Format of Chromium locale name is '<lang>' or '<lang>-<region>'
+  # where <lang> is a 2 or 3 letter language code (ISO 639-1 or 639-2)
+  # and region is a capitalized locale region name.
+  lang, _, region = chromium_locale.partition('-')
+  if not region:
+    return lang
+
+  # Translate newer language tags into obsolete ones. Only necessary if
+  #  region is not None (e.g. 'he-IL' -> 'iw-rIL')
+  lang = _CHROME_TO_ANDROID_LOCALE_MAP.get(lang, lang)
+
+  # Using '<lang>-r<region>' is now acceptable as a locale name for all
+  # versions of Android.
+  return '%s-r%s' % (lang, region)
+
+
+# ISO 639 language code + optional ("-r" + capitalized region code).
+# Note that before Android 5.0/Lollipop, only 2-letter ISO 639-1 codes
+# are supported.
+_RE_ANDROID_LOCALE_QUALIFIER_1 = re.compile(r'^([a-z]{2,3})(\-r([A-Z]+))?$')
+
+# Starting with Android 7.0/Nougat, BCP 47 codes are supported but must
+# be prefixed with 'b+', and may include optional tags. e.g. 'b+en+US',
+# 'b+ja+Latn', 'b+ja+JP+Latn'
+_RE_ANDROID_LOCALE_QUALIFIER_2 = re.compile(r'^b\+([a-z]{2,3})(\+.+)?$')
+
+# Matches an all-uppercase region name.
+_RE_ALL_UPPERCASE = re.compile(r'^[A-Z]+$')
+
+
+def ToChromiumLocaleName(android_locale):
+  """Convert an Android locale name into a Chromium one."""
+  lang = None
+  region = None
+  m = _RE_ANDROID_LOCALE_QUALIFIER_1.match(android_locale)
+  if m:
+    lang = m.group(1)
+    if m.group(2):
+      region = m.group(3)
+  else:
+    m = _RE_ANDROID_LOCALE_QUALIFIER_2.match(android_locale)
+    if m:
+      lang = m.group(1)
+      if m.group(2):
+        tags = m.group(2).split('+')
+        # First all-uppercase tag is a region. This deals with cases where
+        # a special tag is placed before it (e.g. 'cmn+Hant-TW')
+        for tag in tags:
+          if _RE_ALL_UPPERCASE.match(tag):
+            region = tag
+            break
+
+  if not lang:
+    return None
+
+  # Special case for es-rUS -> es-419
+  if lang == 'es' and region == 'US':
+    return 'es-419'
+
+  lang = _ANDROID_TO_CHROMIUM_LANGUAGE_MAP.get(lang, lang)
+  if not region:
+    return lang
+
+  return '%s-%s' % (lang, region)
+
+
+def IsAndroidLocaleQualifier(string):
+  """Returns true if |string| is a valid Android resource locale qualifier."""
+  return (_RE_ANDROID_LOCALE_QUALIFIER_1.match(string)
+          or _RE_ANDROID_LOCALE_QUALIFIER_2.match(string))
+
+
+def FindLocaleInStringResourceFilePath(file_path):
+  """Return Android locale name of a string resource file path.
+
+  Args:
+    file_path: A file path.
+  Returns:
+    If |file_path| is of the format '.../values-<locale>/<name>.xml', return
+    the value of <locale> (and Android locale qualifier). Otherwise return None.
+  """
+  if not file_path.endswith('.xml'):
+    return None
+  prefix = 'values-'
+  dir_name = os.path.basename(os.path.dirname(file_path))
+  if not dir_name.startswith(prefix):
+    return None
+  qualifier = dir_name[len(prefix):]
+  return qualifier if IsAndroidLocaleQualifier(qualifier) else None
+
 
 # Represents a line from a R.txt file.
 _TextSymbolEntry = collections.namedtuple('RTextEntry',
@@ -68,7 +169,7 @@ def _ParseTextSymbolsFile(path, fix_package_ids=False):
 
   Args:
     path: Input file path.
-    fix_package_ids: if True, all packaged IDs read from the file
+    fix_package_ids: if True, 0x00 and 0x02 package IDs read from the file
       will be fixed to 0x7f.
   Returns:
     A list of _TextSymbolEntry instances.
@@ -92,20 +193,49 @@ def _FixPackageIds(resource_value):
   # Resource IDs for resources belonging to regular APKs have their first byte
   # as 0x7f (package id). However with webview, since it is not a regular apk
   # but used as a shared library, aapt is passed the --shared-resources flag
-  # which changes some of the package ids to 0x02 and 0x00.  This function just
-  # normalises all package ids to 0x7f, which the generated code in R.java
-  # changes to the correct package id at runtime.
+  # which changes some of the package ids to 0x00 and 0x02.  This function
+  # normalises these (0x00 and 0x02) package ids to 0x7f, which the generated
+  # code in R.java changes to the correct package id at runtime.
   # resource_value is a string with either, a single value '0x12345678', or an
   # array of values like '{ 0xfedcba98, 0x01234567, 0x56789abc }'
-  return re.sub(r'0x(?!01)\d\d', r'0x7f', resource_value)
+  return re.sub(r'0x(?:00|02)', r'0x7f', resource_value)
 
 
 def _GetRTxtResourceNames(r_txt_path):
   """Parse an R.txt file and extract the set of resource names from it."""
-  result = set()
-  for entry in _ParseTextSymbolsFile(r_txt_path):
-    result.add(entry.name)
-  return result
+  return {entry.name for entry in _ParseTextSymbolsFile(r_txt_path)}
+
+
+def GetRTxtStringResourceNames(r_txt_path):
+  """Parse an R.txt file and the list of its string resource names."""
+  return sorted({
+      entry.name
+      for entry in _ParseTextSymbolsFile(r_txt_path)
+      if entry.resource_type == 'string'
+  })
+
+
+def GenerateStringResourcesWhitelist(module_r_txt_path, whitelist_r_txt_path):
+  """Generate a whitelist of string resource IDs.
+
+  Args:
+    module_r_txt_path: Input base module R.txt path.
+    whitelist_r_txt_path: Input whitelist R.txt path.
+  Returns:
+    A dictionary mapping numerical resource IDs to the corresponding
+    string resource names. The ID values are taken from string resources in
+    |module_r_txt_path| that are also listed by name in |whitelist_r_txt_path|.
+  """
+  whitelisted_names = {
+      entry.name
+      for entry in _ParseTextSymbolsFile(whitelist_r_txt_path)
+      if entry.resource_type == 'string'
+  }
+  return {
+      int(entry.value, 0): entry.name
+      for entry in _ParseTextSymbolsFile(module_r_txt_path)
+      if entry.resource_type == 'string' and entry.name in whitelisted_names
+  }
 
 
 class RJavaBuildOptions:
@@ -189,9 +319,8 @@ class RJavaBuildOptions:
       return entry.name not in self.resources_whitelist
 
 
-def CreateRJavaFiles(srcjar_dir, package, main_r_txt_file,
-                     extra_res_packages, extra_r_txt_files,
-                     rjava_build_options):
+def CreateRJavaFiles(srcjar_dir, package, main_r_txt_file, extra_res_packages,
+                     extra_r_txt_files, rjava_build_options):
   """Create all R.java files for a set of packages and R.txt files.
 
   Args:
@@ -495,6 +624,15 @@ def ResourceArgsParser():
       help='For each additional package, the R.txt file should contain a '
            'list of resources to be included in the R.java file in the format '
            'generated by aapt.')
+
+  input_opts.add_argument(
+      '--package-name',
+      help='Package name that will be used to determine package ID.')
+
+  input_opts.add_argument(
+      '--package-name-to-id-mapping',
+      help='List containing mapping from package name to package IDs that will '
+      'be assigned.')
 
   return (parser, input_opts, output_opts)
 

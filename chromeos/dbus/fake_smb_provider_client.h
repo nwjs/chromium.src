@@ -14,7 +14,8 @@
 namespace chromeos {
 
 // A fake implementation of SmbProviderClient.
-class CHROMEOS_EXPORT FakeSmbProviderClient : public SmbProviderClient {
+class COMPONENT_EXPORT(CHROMEOS_DBUS) FakeSmbProviderClient
+    : public SmbProviderClient {
  public:
   FakeSmbProviderClient();
   explicit FakeSmbProviderClient(bool should_run_synchronously);
@@ -129,6 +130,16 @@ class CHROMEOS_EXPORT FakeSmbProviderClient : public SmbProviderClient {
   void ContinueReadDirectory(int32_t mount_id,
                              int32_t read_dir_token,
                              ReadDirectoryCallback callback) override;
+
+  void UpdateMountCredentials(int32_t mount_id,
+                              std::string workgroup,
+                              std::string username,
+                              base::ScopedFD password_fd,
+                              StatusCallback callback) override;
+
+  void Premount(const base::FilePath& share_path,
+                bool ntlm_enabled,
+                MountCallback callback) override;
 
   // Adds |share| to the list of shares for |server_url| in |shares_|.
   void AddToShares(const std::string& server_url, const std::string& share);

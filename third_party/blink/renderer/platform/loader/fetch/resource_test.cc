@@ -30,15 +30,28 @@ class MockPlatform final : public TestingPlatformSupportWithMockScheduler {
   void CacheMetadata(blink::mojom::CodeCacheType cache_type,
                      const WebURL& url,
                      Time,
-                     const char*,
+                     const uint8_t*,
                      size_t) override {
     cached_urls_.push_back(url);
   }
 
+  void CacheMetadataInCacheStorage(const blink::WebURL& url,
+                                   base::Time,
+                                   const uint8_t*,
+                                   size_t,
+                                   const blink::WebSecurityOrigin&,
+                                   const blink::WebString&) override {
+    cache_storage_cached_urls_.push_back(url);
+  }
+
   const Vector<WebURL>& CachedURLs() const { return cached_urls_; }
+  const Vector<WebURL>& CacheStorageCachedURLs() const {
+    return cache_storage_cached_urls_;
+  }
 
  private:
   Vector<WebURL> cached_urls_;
+  Vector<WebURL> cache_storage_cached_urls_;
 };
 
 ResourceResponse CreateTestResourceResponse() {
@@ -48,8 +61,11 @@ ResourceResponse CreateTestResourceResponse() {
 }
 
 void CreateTestResourceAndSetCachedMetadata(const ResourceResponse& response) {
-  const char kTestData[] = "test data";
-  MockResource* resource = MockResource::Create(response.Url());
+  const uint8_t kTestData[] = {1, 2, 3, 4, 5};
+  ResourceRequest request(response.CurrentRequestUrl());
+  request.SetRequestorOrigin(
+      SecurityOrigin::Create(response.CurrentRequestUrl()));
+  MockResource* resource = MockResource::Create(request);
   resource->SetResponse(response);
   resource->SendCachedMetadata(kTestData, sizeof(kTestData));
   return;
@@ -62,16 +78,68 @@ TEST(ResourceTest, SetCachedMetadata_SendsMetadataToPlatform) {
   ResourceResponse response(CreateTestResourceResponse());
   CreateTestResourceAndSetCachedMetadata(response);
   EXPECT_EQ(1u, mock->CachedURLs().size());
+  EXPECT_EQ(0u, mock->CacheStorageCachedURLs().size());
 }
 
 TEST(
     ResourceTest,
-    SetCachedMetadata_DoesNotSendMetadataToPlatformWhenFetchedViaServiceWorker) {
+    SetCachedMetadata_DoesNotSendMetadataToPlatformWhenFetchedViaServiceWorkerWithSyntheticResponse) {
   ScopedTestingPlatformSupport<MockPlatform> mock;
+
+  // Equivalent to service worker calling respondWith(new Response(...))
   ResourceResponse response(CreateTestResourceResponse());
   response.SetWasFetchedViaServiceWorker(true);
+
   CreateTestResourceAndSetCachedMetadata(response);
   EXPECT_EQ(0u, mock->CachedURLs().size());
+  EXPECT_EQ(0u, mock->CacheStorageCachedURLs().size());
+}
+
+TEST(
+    ResourceTest,
+    SetCachedMetadata_SendsMetadataToPlatformWhenFetchedViaServiceWorkerWithPassThroughResponse) {
+  ScopedTestingPlatformSupport<MockPlatform> mock;
+
+  // Equivalent to service worker calling respondWith(fetch(evt.request.url));
+  ResourceResponse response(CreateTestResourceResponse());
+  response.SetWasFetchedViaServiceWorker(true);
+  response.SetURLListViaServiceWorker(
+      Vector<KURL>(1, response.CurrentRequestUrl()));
+
+  CreateTestResourceAndSetCachedMetadata(response);
+  EXPECT_EQ(1u, mock->CachedURLs().size());
+  EXPECT_EQ(0u, mock->CacheStorageCachedURLs().size());
+}
+
+TEST(
+    ResourceTest,
+    SetCachedMetadata_DoesNotSendMetadataToPlatformWhenFetchedViaServiceWorkerWithDifferentURLResponse) {
+  ScopedTestingPlatformSupport<MockPlatform> mock;
+
+  // Equivalent to service worker calling respondWith(fetch(some_different_url))
+  ResourceResponse response(CreateTestResourceResponse());
+  response.SetWasFetchedViaServiceWorker(true);
+  response.SetURLListViaServiceWorker(Vector<KURL>(
+      1, url_test_helpers::ToKURL("https://example.com/different/url")));
+
+  CreateTestResourceAndSetCachedMetadata(response);
+  EXPECT_EQ(0u, mock->CachedURLs().size());
+  EXPECT_EQ(0u, mock->CacheStorageCachedURLs().size());
+}
+
+TEST(
+    ResourceTest,
+    SetCachedMetadata_SendsMetadataToPlatformWhenFetchedViaServiceWorkerWithCacheResponse) {
+  ScopedTestingPlatformSupport<MockPlatform> mock;
+
+  // Equivalent to service worker calling respondWith(cache.match(some_url));
+  ResourceResponse response(CreateTestResourceResponse());
+  response.SetWasFetchedViaServiceWorker(true);
+  response.SetCacheStorageCacheName("dummy");
+
+  CreateTestResourceAndSetCachedMetadata(response);
+  EXPECT_EQ(0u, mock->CachedURLs().size());
+  EXPECT_EQ(1u, mock->CacheStorageCachedURLs().size());
 }
 
 TEST(ResourceTest, RevalidateWithFragment) {

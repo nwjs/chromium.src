@@ -821,10 +821,10 @@
         tbl <ph name="tableName">$1</ph> <ph name="tableRows">$2</ph>x<ph name="tableCols">$3</ph>
       </message>
       <message desc="summarizes a table cell." name="IDS_CHROMEVOX_CELL_SUMMARY">
-        row $1 column $2
+        row <ph name="tableCellRowIndex">$1</ph> column <ph name="tableCellColumnIndex">$2</ph>
       </message>
       <message desc="summarizes a table cell for braille; for example, r1c2 means row 1, column 2. Try to localize the 'r' and 'c' to the first letter of something that would be recognizable." name="IDS_CHROMEVOX_CELL_SUMMARY_BRL">
-        r$1c$2
+        r<ph name="tableCellRowIndex">$1</ph>c<ph name="tableCellColumnIndex">$2</ph>
       </message>
       <message desc="Spoken if the user attempts to jump to the next checkbox when none exists." name="IDS_CHROMEVOX_NO_NEXT_CHECKBOX">
         No next checkbox.
@@ -1486,6 +1486,12 @@
       <message desc="This is the name of an ARIA document structure role shown on a braille display. When translating, try to find a contracted form of the translation for 'list' according to local conventions. If reasonable, use all lowercase and avoid punctuation to keep the number of characters as low as possible." name="IDS_CHROMEVOX_ROLE_LIST_BRL">
         lst
       </message>
+      <message desc="Describes an element with the internal role of listGrid. This is similar to an ARIA grid." name="IDS_CHROMEVOX_ROLE_LIST_GRID">
+        List grid
+      </message>
+      <message desc="This is the name of an internal role shown on a braille display. When translating, try to find a contracted form of the translation for 'list grid' according to local conventions. If reasonable, use all lowercase and avoid punctuation to keep the number of characters as low as possible." name="IDS_CHROMEVOX_ROLE_LIST_GRID_BRL">
+        lstgrd
+      </message>
       <message desc="Describes an element with the ARIA role listitem." name="IDS_CHROMEVOX_ROLE_LISTITEM">
         List item
       </message>
@@ -2105,13 +2111,13 @@
         Start or end selection.
       </message>
       <message desc="Spoken when the browser's copy command is invoked." name="IDS_CHROMEVOX_COPY">
-        copy $1.
+        copy <ph name="TEXT">$1</ph>.
       </message>
       <message desc="Spoken when the browser's cut command is invoked." name="IDS_CHROMEVOX_CUT">
-        cut $1.
+        cut <ph name="TEXT">$1</ph>.
       </message>
       <message desc="Spoken when the browser's paste command is invoked." name="IDS_CHROMEVOX_PASTE">
-        paste $1.
+        paste <ph name="TEXT">$1</ph>.
       </message>
       <message desc="Spoken when additional characters are selected in editable text." name="IDS_CHROMEVOX_SELECTED">
         selected
@@ -2519,7 +2525,7 @@
         {COUNT, plural, =1 {bullet}other {# bullets}}
       </message>
       <message desc="Describes the braille click command. Displayed in the options page." name="IDS_CHROMEVOX_BRAILLE_ROUTING">
-        Click the item under routing key $1
+        Click the item under routing key <ph name="ROUTING_KEY_NUMBER">$1</ph>
       </message>
       <message desc="Describes the braille pan backward command. Displayed in the options page." name="IDS_CHROMEVOX_BRAILLE_PAN_LEFT">
         Pan backward
@@ -2546,7 +2552,7 @@
         dots <ph name="dot">$1</ph>
       </message>
       <message desc="Describes dots on a refreshable braille display pressed with the space key. For example, dots 1 2 3 4 8 chord" name="IDS_CHROMEVOX_BRAILLE_CHORD">
-        $1 chord
+        <ph name="dot">$1</ph> chord
       </message>
       <message desc="The description of the command that allows the user to view a graphic as a dot pattern on a refreshable braille display." name="IDS_CHROMEVOX_VIEW_GRAPHIC_AS_BRAILLE">
         View Graphic As Braille
@@ -2559,44 +2565,85 @@
       </message>
       <message desc="A dictionary mapping locale identifiers to their corresponding language names. The format is the following: { ..., 'en_US': 'English (United States)', ...}. Translation only needed for the language and country names (e.g. English (United States)). All other strings must be kept as is." name="IDS_CHROMEVOX_LOCALE_DICT">
         {"ar": "Arabic",
+        "as": "Assamese",
+        "aw": "Awadhi",
+        "be": "Bengali",
         "bg": "Bulgarian",
+        "bh": "Bihari",
+        "bo": "Tibetan",
+        "br": "Braj",
         "ca": "Catalan",
+        "ckb": "Sorani",
         "cs": "Czech",
+        "cy": "Welsh",
         "da": "Danish",
         "de": "German",
         "de_CH": "German (Switzerland)",
         "de_DE": "German (Germany)",
+        "dra": "Dravidian",
         "el": "Greek",
         "en": "English",
         "en_CA": "English (Canada)",
         "en_GB": "English (United Kingdom)",
         "en_US": "English (United States)",
+        "eo": "Esperanto",
         "es": "Spanish",
         "et": "Estonian",
+        "fa": "Persian",
         "fr": "French",
         "fr_CA": "French (Canada)",
         "fr_FR": "French (France)",
         "fi": "Finnish",
+        "ga": "Irish",
+        "gd": "Gaelic",
+        "gon": "Gondi",
+        "gu": "Gujarati",
         "he": "Hebrew",
         "hi": "Hindi",
         "hr": "Croatian",
         "hu": "Hungarian",
+        "hy": "Armenian",
         "is": "Icelandic",
         "it": "Italian",
+        "iu": "Inuktitut",
+        "ka": "Kannada",
+        "kh": "Khasi",
         "ko": "Korean",
+        "kok": "Konkani",
+        "kru": "Kurukh",
+        "ks": "Kashmiri",
         "lt": "Lithuanian",
         "lv": "Latvian",
+        "mao": "Maori",
+        "ml": "Malayalam",
+        "mt": "Maltese",
+        "mwr": "Marwari",
+        "mn": "Mongolian",
+        "mun": "Munda",
         "nb": "Norwegian Bokmål",
+        "ne": "Nepali",
         "nl": "Dutch",
+        "no": "Norwegian",
+        "or": "Oriya",
+        "pi": "Pali",
         "pl": "Polish",
         "pt": "Portuguese",
+        "pu": "Punjabi",
         "ro": "Romanian",
         "ru": "Russian",
+        "sa": "Sanskrit",
+        "si": "Sindhi",
+        "sin": "Sinhala",
         "sk": "Slovak",
         "sl": "Slovenian",
         "sr": "Serbian",
         "sv": "Swedish",
+        "ta": "Tamil",
+        "te": "Telugu",
         "tr": "Turkish",
+        "tsn": "Afrikaans",
+        "uk": "Ukrainian",
+        "ur": "Urdu",
         "vi": "Vietnamese",
         "zh": "Chinese",
         "zh_TW": "Chinese (Traditional Han)"}
@@ -2668,6 +2715,9 @@
       </message>
       <message desc="Describes the volume up key in the ChromeVox keyboard explorer." name="IDS_CHROMEVOX_VOLUME_UP_KEY">
         volume up
+      </message>
+      <message desc="Describes the Assistant key in the ChromeVox keyboard explorer." name="IDS_CHROMEVOX_ASSISTANT_KEY">
+        Google Assistant
       </message>
 
       <!-- Panel -->
@@ -3125,6 +3175,34 @@ If you're done with the tutorial, use ChromeVox to navigate to the Close button 
       </message>
       <message desc="Part of the ChromeVox touch tutorial page. Concludes this page." name="IDS_CHROMEVOX_TUTORIAL_TOUCH_LEARN_MORE">
         Explore more gestures in Learn Mode and the Chromebook Help Center
+      </message>
+      <message desc="Title of the bluetooth braille display section in ChromeVox options." name="IDS_CHROMEVOX_OPTIONS_BLUETOOTH_BRAILLE_DISPLAY_TITLE">
+        Bluetooth Braille Display
+      </message>
+      <message desc="Labels a button which when pressed, connects to a selected braille display." name="IDS_CHROMEVOX_OPTIONS_BLUETOOTH_BRAILLE_DISPLAY_CONNECT">
+        Connect
+      </message>
+      <message desc="Labels a button which when pressed, disconnects from a selected braille display." name="IDS_CHROMEVOX_OPTIONS_BLUETOOTH_BRAILLE_DISPLAY_DISCONNECT">
+        Disconnect
+      </message>
+      <message desc="Labels a button which is disabled and indicates the system is connecting to a braille display." name="IDS_CHROMEVOX_OPTIONS_BLUETOOTH_BRAILLE_DISPLAY_CONNECTING">
+        Connecting
+      </message>
+      <message desc="Labels a button which when pressed, forgets the selected braille display." name="IDS_CHROMEVOX_OPTIONS_BLUETOOTH_BRAILLE_DISPLAY_FORGET">
+        Forget
+      </message>
+      <message desc="Labels a text field which prompts the user for a pincode when pairing a braille display." name="IDS_CHROMEVOX_OPTIONS_BLUETOOTH_BRAILLE_DISPLAY_PINCODE_LABEL">
+        Please enter a pin
+      </message>
+      <message desc="Labels a select control which lists all bluetooth braille displays." name="IDS_CHROMEVOX_OPTIONS_BLUETOOTH_BRAILLE_DISPLAY_SELECT_LABEL">
+        Select a bluetooth braille display
+      </message>
+      <message desc="Describes web content that has no title." name="IDS_CHROMEVOX_WEB_CONTENT">
+        Web Content
+      </message>
+      <message desc="The text label for ChromeVox language switching checkbox."
+        name="IDS_CHROMEVOX_OPTIONS_LANG_SWITCHING_CHECKBOX_LABEL">
+        Automatically detect and switch ChromeVox language.
       </message>
     </messages>
   </release>

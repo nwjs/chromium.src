@@ -22,7 +22,7 @@ class EmptyMutationCallback : public MutationObserver::Delegate {
 
   void Deliver(const MutationRecordVector&, MutationObserver&) override {}
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(document_);
     MutationObserver::Delegate::Trace(visitor);
   }
@@ -40,8 +40,8 @@ TEST(MutationObserverTest, DisconnectCrash) {
   root->SetInnerHTMLFromString("<head><title>\n</title></head><body></body>");
   Node* head = root->firstChild()->firstChild();
   DCHECK(head);
-  Persistent<MutationObserver> observer =
-      MutationObserver::Create(new EmptyMutationCallback(*document));
+  Persistent<MutationObserver> observer = MutationObserver::Create(
+      MakeGarbageCollected<EmptyMutationCallback>(*document));
   MutationObserverInit* init = MutationObserverInit::Create();
   init->setCharacterDataOldValue(false);
   observer->observe(head, init, ASSERT_NO_EXCEPTION);

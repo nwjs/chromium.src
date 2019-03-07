@@ -25,10 +25,10 @@
 #include "chrome/browser/sessions/session_tab_helper.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/color_chooser.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -694,6 +694,9 @@ void DevToolsWindow::ToggleDevToolsWindow(
         break;
       case DevToolsToggleAction::kShowConsolePanel:
         panel = "console";
+        break;
+      case DevToolsToggleAction::kPauseInDebugger:
+        panel = "sources";
         break;
       case DevToolsToggleAction::kShow:
       case DevToolsToggleAction::kToggle:
@@ -1603,6 +1606,7 @@ void DevToolsWindow::DoAction(const DevToolsToggleAction& action) {
       break;
 
     case DevToolsToggleAction::kShowElementsPanel:
+    case DevToolsToggleAction::kPauseInDebugger:
     case DevToolsToggleAction::kShowConsolePanel:
     case DevToolsToggleAction::kShow:
     case DevToolsToggleAction::kToggle:

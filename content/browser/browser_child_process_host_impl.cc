@@ -162,7 +162,7 @@ BrowserChildProcessHostImpl::BrowserChildProcessHostImpl(
       weak_factory_(this) {
   data_.id = ChildProcessHostImpl::GenerateChildProcessUniqueId();
 
-  child_process_host_.reset(ChildProcessHost::Create(this));
+  child_process_host_ = ChildProcessHost::Create(this);
   AddFilter(new TraceMessageFilter(data_.id));
 
   g_child_process_list.Get().push_back(this);
@@ -317,6 +317,7 @@ void BrowserChildProcessHostImpl::LaunchWithoutExtraCommandLineSwitches(
       switches::kDisableLogging,
       switches::kEnableLogging,
       switches::kIPCConnectionTimeout,
+      switches::kLogFile,
       switches::kLoggingLevel,
       switches::kTraceToConsole,
       switches::kV,

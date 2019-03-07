@@ -67,7 +67,10 @@ class FetchDataLoaderForWasmStreaming final : public FetchDataLoader,
           break;
         }
         case BytesConsumer::Result::kDone: {
-          streaming_->Finish();
+          {
+            ScriptState::Scope scope(script_state_);
+            streaming_->Finish();
+          }
           client_->DidFetchDataLoadedCustomFormat();
           return;
         }
@@ -222,9 +225,10 @@ void StreamFromResponseCallback(
   }
 
   FetchDataLoaderForWasmStreaming* loader =
-      new FetchDataLoaderForWasmStreaming(script_state, streaming);
-  response->BodyBuffer()->StartLoading(loader, new WasmDataLoaderClient(),
-                                       exception_state);
+      MakeGarbageCollected<FetchDataLoaderForWasmStreaming>(script_state,
+                                                            streaming);
+  response->BodyBuffer()->StartLoading(
+      loader, MakeGarbageCollected<WasmDataLoaderClient>(), exception_state);
 }
 
 }  // namespace

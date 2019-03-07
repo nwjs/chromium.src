@@ -230,6 +230,9 @@ class BBJSONGenerator(object):
   def is_android(self, tester_config):
     return tester_config.get('os_type') == 'android'
 
+  def is_chromeos(self, tester_config):
+    return tester_config.get('os_type') == 'chromeos'
+
   def is_linux(self, tester_config):
     return tester_config.get('os_type') == 'linux'
 
@@ -447,6 +450,54 @@ class BBJSONGenerator(object):
           'True'
         ],
       }
+    elif self.is_chromeos(tester_config) and tester_config.get('use_swarming',
+                                                               True):
+      # The presence of the "device_type" dimension indicates that the tests
+      # are targetting CrOS hardware and so need the special trigger script.
+      dimension_sets = tester_config['swarming']['dimension_sets']
+      if all('device_type' in ds for ds in dimension_sets):
+        test['trigger_script'] = {
+          'script': '//testing/trigger_scripts/chromeos_device_trigger.py',
+        }
+
+  def add_android_presentation_args(self, tester_config, test_name, result):
+    args = result.get('args', [])
+    args.append('--gs-results-bucket=chromium-result-details')
+    if (result['swarming']['can_use_on_swarming_builders'] and not
+        tester_config.get('skip_merge_script', False)):
+      result['merge'] = {
+        'args': [
+          '--bucket',
+          'chromium-result-details',
+          '--test-name',
+          test_name
+        ],
+        'script': '//build/android/pylib/results/presentation/'
+          'test_results_presentation.py',
+      }
+    if not tester_config.get('skip_cipd_packages', False):
+      cipd_packages = result['swarming'].get('cipd_packages', [])
+      cipd_packages.append(
+        {
+          'cipd_package': 'infra/tools/luci/logdog/butler/${platform}',
+          'location': 'bin',
+          'revision': 'git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c',
+        }
+      )
+      result['swarming']['cipd_packages'] = cipd_packages
+    if not tester_config.get('skip_output_links', False):
+      result['swarming']['output_links'] = [
+        {
+          'link': [
+            'https://luci-logdog.appspot.com/v/?s',
+            '=android%2Fswarming%2Flogcats%2F',
+            '${TASK_ID}%2F%2B%2Funified_logcats',
+          ],
+          'name': 'shard #${SHARD_INDEX} logcats',
+        },
+      ]
+    if args:
+      result['args'] = args
 
   def generate_gtest(self, waterfall, tester_name, tester_config, test_name,
                      test_config):
@@ -464,42 +515,8 @@ class BBJSONGenerator(object):
         result, tester_config, additional_arg_keys=['gtest_args'])
     if self.is_android(tester_config) and tester_config.get('use_swarming',
                                                             True):
-      args = result.get('args', [])
-      args.append('--gs-results-bucket=chromium-result-details')
-      if (result['swarming']['can_use_on_swarming_builders'] and not
-          tester_config.get('skip_merge_script', False)):
-        result['merge'] = {
-          'args': [
-            '--bucket',
-            'chromium-result-details',
-            '--test-name',
-            test_name
-          ],
-          'script': '//build/android/pylib/results/presentation/'
-            'test_results_presentation.py',
-        } # pragma: no cover
-      if not tester_config.get('skip_cipd_packages', False):
-        result['swarming']['cipd_packages'] = [
-          {
-            'cipd_package': 'infra/tools/luci/logdog/butler/${platform}',
-            'location': 'bin',
-            'revision': 'git_revision:ff387eadf445b24c935f1cf7d6ddd279f8a6b04c',
-          }
-        ]
-      if not tester_config.get('skip_output_links', False):
-        result['swarming']['output_links'] = [
-          {
-            'link': [
-              'https://luci-logdog.appspot.com/v/?s',
-              '=android%2Fswarming%2Flogcats%2F',
-              '${TASK_ID}%2F%2B%2Funified_logcats',
-            ],
-            'name': 'shard #${SHARD_INDEX} logcats',
-          },
-        ]
-      args.append('--recover-devices')
-      if args:
-        result['args'] = args
+      self.add_android_presentation_args(tester_config, test_name, result)
+      result['args'] = result.get('args', []) + ['--recover-devices']
 
     result = self.update_and_cleanup_test(
         result, test_name, tester_name, tester_config, waterfall)
@@ -516,6 +533,8 @@ class BBJSONGenerator(object):
     result['name'] = test_name
     self.initialize_swarming_dictionary_for_test(result, tester_config)
     self.initialize_args_for_test(result, tester_config)
+    if tester_config.get('use_android_presentation', False):
+      self.add_android_presentation_args(tester_config, test_name, result)
     result = self.update_and_cleanup_test(
         result, test_name, tester_name, tester_config, waterfall)
     self.add_common_test_properties(result, tester_config)
@@ -599,6 +618,13 @@ class BBJSONGenerator(object):
     # These tests upload and download results from cloud storage and therefore
     # aren't idempotent yet. https://crbug.com/549140.
     result['swarming']['idempotent'] = False
+
+    # The GPU tests act much like integration tests for the entire browser, and
+    # tend to uncover flakiness bugs more readily than other test suites. In
+    # order to surface any flakiness more readily to the developer of the CL
+    # which is introducing it, we disable retries with patch on the commit
+    # queue.
+    result['should_retry_with_patch'] = False
 
     args = [
       test_to_run,
@@ -841,6 +867,12 @@ class BBJSONGenerator(object):
 
   def get_valid_bot_names(self):
     # Extract bot names from infra/config/global/luci-milo.cfg.
+    # NOTE: This reference can cause issues; if a file changes there, the
+    # presubmit here won't be run by default. A manually maintained list there
+    # tries to run presubmit here when luci-milo.cfg is changed. If any other
+    # references to configs outside of this directory are added, please change
+    # their presubmit to run `generate_buildbot_json.py -c`, so that the tree
+    # never ends up in an invalid state.
     bot_names = set()
     infra_config_dir = os.path.abspath(
         os.path.join(os.path.dirname(__file__),
@@ -852,7 +884,8 @@ class BBJSONGenerator(object):
     for c in milo_configs:
       for l in self.read_file(c).splitlines():
         if (not 'name: "buildbucket/luci.chromium.' in l and
-            not 'name: "buildbot/chromium.' in l):
+            not 'name: "buildbot/chromium.' in l and
+            not 'name: "buildbot/tryserver.chromium.' in l):
           continue
         # l looks like
         # `name: "buildbucket/luci.chromium.try/win_chromium_dbg_ng"`
@@ -893,9 +926,9 @@ class BBJSONGenerator(object):
       'win7-blink-rel-dummy',
       'win10-blink-rel-dummy',
       'Dummy WebKit Mac10.13',
+      'WebKit Linux composite_after_paint Dummy Builder',
       'WebKit Linux layout_ng Dummy Builder',
       'WebKit Linux root_layer_scrolls Dummy Builder',
-      'WebKit Linux slimming_paint_v2 Dummy Builder',
       # chromium, due to https://crbug.com/878915
       'win-dbg',
       'win32-dbg',

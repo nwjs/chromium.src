@@ -15,6 +15,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/resource_request_info.h"
+#include "content/public/common/user_agent.h"
 #include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/core_extensions_browser_api_provider.h"
 #include "extensions/browser/event_router.h"
@@ -33,7 +34,7 @@
 #include "extensions/shell/browser/shell_navigation_ui_data.h"
 
 #if defined(OS_CHROMEOS)
-#include "chromeos/login/login_state.h"
+#include "chromeos/login/login_state/login_state.h"
 #endif
 
 using content::BrowserContext;
@@ -315,6 +316,11 @@ bool ShellExtensionsBrowserClient::IsLockScreenContext(
 std::string ShellExtensionsBrowserClient::GetApplicationLocale() {
   // TODO(michaelpg): Use system locale.
   return "en-US";
+}
+
+std::string ShellExtensionsBrowserClient::GetUserAgent() const {
+  return content::BuildUserAgentFromProduct(
+      version_info::GetProductNameAndVersionForUserAgent());
 }
 
 void ShellExtensionsBrowserClient::InitWithBrowserContext(

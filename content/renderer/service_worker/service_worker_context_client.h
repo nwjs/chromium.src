@@ -8,32 +8,32 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <deque>
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "base/callback.h"
 #include "base/containers/id_map.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/strings/string16.h"
+#include "base/synchronization/lock.h"
 #include "base/time/time.h"
-#include "content/common/service_worker/controller_service_worker.mojom.h"
 #include "content/common/service_worker/embedded_worker.mojom.h"
-#include "content/common/service_worker/service_worker.mojom.h"
-#include "content/common/service_worker/service_worker_provider.mojom.h"
 #include "content/common/service_worker/service_worker_types.h"
 #include "ipc/ipc_listener.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
 #include "third_party/blink/public/mojom/blob/blob_registry.mojom.h"
 #include "third_party/blink/public/mojom/payments/payment_app.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/controller_service_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_client.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_event_status.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_error.h"
 #include "third_party/blink/public/web/modules/service_worker/web_service_worker_context_client.h"
 #include "third_party/blink/public/web/modules/service_worker/web_service_worker_context_proxy.h"
@@ -55,8 +55,6 @@ namespace content {
 
 class EmbeddedWorkerInstanceClientImpl;
 class HostChildURLLoaderFactoryBundle;
-class ServiceWorkerNetworkProvider;
-class ServiceWorkerProviderContext;
 class ServiceWorkerTimeoutTimer;
 class WebWorkerFetchContext;
 
@@ -70,7 +68,7 @@ class WebWorkerFetchContext;
 // called on the worker thread.
 class CONTENT_EXPORT ServiceWorkerContextClient
     : public blink::WebServiceWorkerContextClient,
-      public mojom::ServiceWorker {
+      public blink::mojom::ServiceWorker {
  public:
   // Returns a thread-specific client instance.  This does NOT create a
   // new instance.
@@ -90,14 +88,14 @@ class CONTENT_EXPORT ServiceWorkerContextClient
       const GURL& script_url,
       bool is_starting_installed_worker,
       RendererPreferences renderer_preferences,
-      mojom::ServiceWorkerRequest service_worker_request,
-      mojom::ControllerServiceWorkerRequest controller_request,
+      blink::mojom::ServiceWorkerRequest service_worker_request,
+      blink::mojom::ControllerServiceWorkerRequest controller_request,
       mojom::EmbeddedWorkerInstanceHostAssociatedPtrInfo instance_host,
-      mojom::ServiceWorkerProviderInfoForStartWorkerPtr provider_info,
+      blink::mojom::ServiceWorkerProviderInfoForStartWorkerPtr provider_info,
       std::unique_ptr<EmbeddedWorkerInstanceClientImpl> embedded_worker_client,
       mojom::EmbeddedWorkerStartTimingPtr start_timing,
       mojom::RendererPreferenceWatcherRequest preference_watcher_request,
-      std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loaders,
+      std::unique_ptr<blink::URLLoaderFactoryBundleInfo> subresource_loaders,
       scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner);
   ~ServiceWorkerContextClient() override;
 
@@ -196,6 +194,8 @@ class CONTENT_EXPORT ServiceWorkerContextClient
   CreateServiceWorkerNetworkProvider() override;
   scoped_refptr<blink::WebWorkerFetchContext> CreateServiceWorkerFetchContext(
       blink::WebServiceWorkerNetworkProvider*) override;
+  int WillStartTask() override;
+  void DidEndTask(int task_id) override;
 
   // Dispatches the fetch event if the worker is running normally, and queues it
   // instead if the worker has already requested to be terminated by the
@@ -210,6 +210,11 @@ class CONTENT_EXPORT ServiceWorkerContextClient
       blink::mojom::ServiceWorkerFetchResponseCallbackPtr response_callback,
       DispatchFetchEventCallback callback);
 
+  // TODO(crbug.com/907311): Remove after we identified the cause of crash.
+  void SetReportDebugLogForTesting(bool report_debug_log) {
+    report_debug_log_ = report_debug_log;
+  }
+
  private:
   struct WorkerContextData;
   class NavigationPreloadRequest;
@@ -223,6 +228,12 @@ class CONTENT_EXPORT ServiceWorkerContextClient
       DispatchOrQueueFetchEvent_RequestedTerminationAndWakeUp);
   FRIEND_TEST_ALL_PREFIXES(ServiceWorkerContextClientTest,
                            DispatchOrQueueFetchEvent_NotRequestedTermination);
+  FRIEND_TEST_ALL_PREFIXES(ServiceWorkerContextClientTest, TaskInServiceWorker);
+
+  static void ToWebServiceWorkerRequestForFetchEvent(
+      blink::mojom::FetchAPIRequestPtr request,
+      const std::string& client_id,
+      blink::WebServiceWorkerRequest* web_request);
 
   // Get routing_id for sending message to the ServiceWorkerVersion
   // in the browser process.
@@ -230,7 +241,7 @@ class CONTENT_EXPORT ServiceWorkerContextClient
 
   void SendWorkerStarted(blink::mojom::ServiceWorkerStartStatus status);
 
-  // Implements mojom::ServiceWorker.
+  // Implements blink::mojom::ServiceWorker.
   void InitializeGlobalScope(
       blink::mojom::ServiceWorkerHostAssociatedPtrInfo service_worker_host,
       blink::mojom::ServiceWorkerRegistrationObjectInfoPtr registration_info)
@@ -239,22 +250,22 @@ class CONTENT_EXPORT ServiceWorkerContextClient
       DispatchInstallEventCallback callback) override;
   void DispatchActivateEvent(DispatchActivateEventCallback callback) override;
   void DispatchBackgroundFetchAbortEvent(
-      const BackgroundFetchRegistration& registration,
+      blink::mojom::BackgroundFetchRegistrationPtr registration,
       DispatchBackgroundFetchAbortEventCallback callback) override;
   void DispatchBackgroundFetchClickEvent(
-      const BackgroundFetchRegistration& registration,
+      blink::mojom::BackgroundFetchRegistrationPtr registration,
       DispatchBackgroundFetchClickEventCallback callback) override;
   void DispatchBackgroundFetchFailEvent(
-      const BackgroundFetchRegistration& registration,
+      blink::mojom::BackgroundFetchRegistrationPtr registration,
       DispatchBackgroundFetchFailEventCallback callback) override;
   void DispatchBackgroundFetchSuccessEvent(
-      const BackgroundFetchRegistration& registration,
+      blink::mojom::BackgroundFetchRegistrationPtr registration,
       DispatchBackgroundFetchSuccessEventCallback callback) override;
   void DispatchExtendableMessageEvent(
-      mojom::ExtendableMessageEventPtr event,
+      blink::mojom::ExtendableMessageEventPtr event,
       DispatchExtendableMessageEventCallback callback) override;
   void DispatchExtendableMessageEventWithCustomTimeout(
-      mojom::ExtendableMessageEventPtr event,
+      blink::mojom::ExtendableMessageEventPtr event,
       base::TimeDelta timeout,
       DispatchExtendableMessageEventCallback callback) override;
   void DispatchFetchEvent(
@@ -356,6 +367,9 @@ class CONTENT_EXPORT ServiceWorkerContextClient
   void SetTimeoutTimerForTesting(
       std::unique_ptr<ServiceWorkerTimeoutTimer> timeout_timer);
 
+  // TODO(crbug.com/907311): Remove after we identified the cause of crash.
+  void RecordDebugLog(const char* message);
+
   const int embedded_worker_id_;
   const int64_t service_worker_version_id_;
   const GURL service_worker_scope_;
@@ -371,22 +385,24 @@ class CONTENT_EXPORT ServiceWorkerContextClient
   scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner_;
   scoped_refptr<base::TaskRunner> worker_task_runner_;
 
-  scoped_refptr<ServiceWorkerProviderContext> provider_context_;
-
   // Not owned; |this| is destroyed when |proxy_| becomes invalid.
   blink::WebServiceWorkerContextProxy* proxy_;
 
   // These Mojo objects are bound on the worker thread.
-  mojom::ServiceWorkerRequest pending_service_worker_request_;
-  mojom::ControllerServiceWorkerRequest pending_controller_request_;
+  blink::mojom::ServiceWorkerRequest pending_service_worker_request_;
+  blink::mojom::ControllerServiceWorkerRequest pending_controller_request_;
 
   // This is bound on the main thread.
   scoped_refptr<mojom::ThreadSafeEmbeddedWorkerInstanceHostAssociatedPtr>
       instance_host_;
 
-  // This is passed to ServiceWorkerNetworkProvider when
+  // This holds blink.mojom.ServiceWorkerContainer(Host) connections to the
+  // browser-side ServiceWorkerProviderHost to keep it alive there.
+  // Note: |service_worker_provider_info_->script_loader_factory_ptr_info| is
+  // moved to WebServiceWorkerNetworkProviderImpl when
   // CreateServiceWorkerNetworkProvider is called.
-  std::unique_ptr<ServiceWorkerNetworkProvider> pending_network_provider_;
+  blink::mojom::ServiceWorkerProviderInfoForStartWorkerPtr
+      service_worker_provider_info_;
 
   // This is valid from the ctor to WorkerContextDestroyed.
   std::unique_ptr<EmbeddedWorkerInstanceClientImpl> embedded_worker_client_;
@@ -409,6 +425,11 @@ class CONTENT_EXPORT ServiceWorkerContextClient
   // Detects disconnection from the network service.
   network::mojom::URLLoaderFactoryPtr
       network_service_connection_error_handler_holder_;
+
+  // TODO(crbug.com/907311): Remove after we identified the cause of crash.
+  bool report_debug_log_ = true;
+  base::Lock debug_log_lock_;
+  std::deque<std::string> debug_log_ GUARDED_BY(debug_log_lock_);
 
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerContextClient);
 };

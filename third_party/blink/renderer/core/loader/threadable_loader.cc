@@ -59,9 +59,11 @@
 #include "third_party/blink/renderer/platform/heap/self_keep_alive.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors_error_string.h"
+#include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loader.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loader_options.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
@@ -199,9 +201,11 @@ ThreadableLoader::CreateAccessControlPreflightRequestForTesting(
 ThreadableLoader::ThreadableLoader(
     ExecutionContext& execution_context,
     ThreadableLoaderClient* client,
-    const ResourceLoaderOptions& resource_loader_options)
+    const ResourceLoaderOptions& resource_loader_options,
+    ResourceFetcher* resource_fetcher)
     : client_(client),
       execution_context_(execution_context),
+      resource_fetcher_(resource_fetcher),
       resource_loader_options_(resource_loader_options),
       out_of_blink_cors_(RuntimeEnabledFeatures::OutOfBlinkCorsEnabled()),
       is_using_data_consumer_handle_(false),
@@ -217,8 +221,11 @@ ThreadableLoader::ThreadableLoader(
       redirect_mode_(network::mojom::FetchRedirectMode::kFollow),
       override_referrer_(false) {
   DCHECK(client);
-  if (auto* scope = DynamicTo<WorkerGlobalScope>(*execution_context_))
-    scope->EnsureFetcher();
+  if (!resource_fetcher_) {
+    if (auto* scope = DynamicTo<WorkerGlobalScope>(*execution_context_))
+      scope->EnsureFetcher();
+    resource_fetcher_ = execution_context_->Fetcher();
+  }
 }
 
 void ThreadableLoader::Start(const ResourceRequest& request) {
@@ -289,7 +296,7 @@ void ThreadableLoader::Start(const ResourceRequest& request) {
   // is_controlled_by_service_worker is the same as
   // ControllerServiceWorkerMode::kControlled, so this code can be simplified.
   bool is_controlled_by_service_worker = false;
-  switch (execution_context_->Fetcher()->IsControlledByServiceWorker()) {
+  switch (resource_fetcher_->IsControlledByServiceWorker()) {
     case blink::mojom::ControllerServiceWorkerMode::kControlled:
       is_controlled_by_service_worker = true;
       break;
@@ -569,7 +576,7 @@ bool ThreadableLoader::RedirectReceived(
     checker_.RedirectReceived();
 
     const KURL& new_url = new_request.Url();
-    const KURL& original_url = redirect_response.Url();
+    const KURL& original_url = redirect_response.CurrentRequestUrl();
 
     if (out_of_blink_cors_)
       return client_->WillFollowRedirect(new_url, redirect_response);
@@ -696,6 +703,7 @@ bool ThreadableLoader::RedirectReceived(
   // |last_request_url_| by destroying |assign_on_scope_exit|.
 
   ResourceRequest cross_origin_request(new_request);
+  cross_origin_request.SetInitialUrlForResourceTiming(initial_request_url_);
 
   // Remove any headers that may have been added by the network layer that cause
   // access control to fail.
@@ -733,7 +741,8 @@ void ThreadableLoader::DataSent(Resource* resource,
   client_->DidSendData(bytes_sent, total_bytes_to_be_sent);
 }
 
-void ThreadableLoader::DataDownloaded(Resource* resource, int data_length) {
+void ThreadableLoader::DataDownloaded(Resource* resource,
+                                      unsigned long long data_length) {
   DCHECK(client_);
   DCHECK_EQ(resource, GetResource());
   DCHECK(actual_request_.IsNull());
@@ -763,19 +772,19 @@ void ThreadableLoader::DidDownloadToBlob(Resource* resource,
 void ThreadableLoader::HandlePreflightResponse(
     const ResourceResponse& response) {
   base::Optional<network::CorsErrorStatus> cors_error_status =
-      cors::CheckPreflightAccess(response.Url(), response.HttpStatusCode(),
-                                 response.HttpHeaderFields(),
-                                 actual_request_.GetFetchCredentialsMode(),
-                                 *GetSecurityOrigin());
+      cors::CheckPreflightAccess(
+          response.CurrentRequestUrl(), response.HttpStatusCode(),
+          response.HttpHeaderFields(),
+          actual_request_.GetFetchCredentialsMode(), *GetSecurityOrigin());
   if (cors_error_status) {
-    HandlePreflightFailure(response.Url(), *cors_error_status);
+    HandlePreflightFailure(response.CurrentRequestUrl(), *cors_error_status);
     return;
   }
 
   base::Optional<network::mojom::CorsError> preflight_error =
       cors::CheckPreflight(response.HttpStatusCode());
   if (preflight_error) {
-    HandlePreflightFailure(response.Url(),
+    HandlePreflightFailure(response.CurrentRequestUrl(),
                            network::CorsErrorStatus(*preflight_error));
     return;
   }
@@ -784,7 +793,7 @@ void ThreadableLoader::HandlePreflightResponse(
   if (actual_request_.IsExternalRequest()) {
     error_status = cors::CheckExternalPreflight(response.HttpHeaderFields());
     if (error_status) {
-      HandlePreflightFailure(response.Url(), *error_status);
+      HandlePreflightFailure(response.CurrentRequestUrl(), *error_status);
       return;
     }
   }
@@ -796,7 +805,7 @@ void ThreadableLoader::HandlePreflightResponse(
       actual_request_.HttpHeaderFields(),
       actual_request_.GetFetchCredentialsMode());
   if (error_status)
-    HandlePreflightFailure(response.Url(), *error_status);
+    HandlePreflightFailure(response.CurrentRequestUrl(), *error_status);
 }
 
 void ThreadableLoader::ReportResponseReceived(
@@ -806,8 +815,9 @@ void ThreadableLoader::ReportResponseReceived(
   if (!frame)
     return;
   DocumentLoader* loader = frame->Loader().GetDocumentLoader();
-  probe::didReceiveResourceResponse(execution_context_, identifier, loader,
-                                    response, GetResource());
+  probe::didReceiveResourceResponse(probe::ToCoreProbeSink(execution_context_),
+                                    identifier, loader, response,
+                                    GetResource());
   frame->Console().ReportResourceResponseReceived(loader, identifier, response);
 }
 
@@ -861,9 +871,10 @@ void ThreadableLoader::ResponseReceived(
     // https://github.com/w3c/preload/issues/100 is addressed.
     if (fetch_request_mode_ != network::mojom::FetchRequestMode::kNoCors &&
         response.GetType() == network::mojom::FetchResponseType::kOpaque) {
-      DispatchDidFail(ResourceError(
-          response.Url(), network::CorsErrorStatus(
-                              network::mojom::CorsError::kInvalidResponse)));
+      DispatchDidFail(
+          ResourceError(response.CurrentRequestUrl(),
+                        network::CorsErrorStatus(
+                            network::mojom::CorsError::kInvalidResponse)));
       return;
     }
 
@@ -887,11 +898,13 @@ void ThreadableLoader::ResponseReceived(
 
   if (cors_flag_) {
     base::Optional<network::CorsErrorStatus> access_error = cors::CheckAccess(
-        response.Url(), response.HttpStatusCode(), response.HttpHeaderFields(),
-        fetch_credentials_mode_, *GetSecurityOrigin());
+        response.CurrentRequestUrl(), response.HttpStatusCode(),
+        response.HttpHeaderFields(), fetch_credentials_mode_,
+        *GetSecurityOrigin());
     if (access_error) {
       ReportResponseReceived(resource->Identifier(), response);
-      DispatchDidFail(ResourceError(response.Url(), *access_error));
+      DispatchDidFail(
+          ResourceError(response.CurrentRequestUrl(), *access_error));
       return;
     }
   }
@@ -904,13 +917,14 @@ void ThreadableLoader::ResponseReceived(
 }
 
 void ThreadableLoader::SetSerializedCachedMetadata(Resource*,
-                                                   const char* data,
+                                                   const uint8_t* data,
                                                    size_t size) {
   checker_.SetSerializedCachedMetadata();
 
   if (!actual_request_.IsNull())
     return;
-  client_->DidReceiveCachedMetadata(data, SafeCast<int>(size));
+  client_->DidReceiveCachedMetadata(reinterpret_cast<const char*>(data),
+                                    SafeCast<int>(size));
 }
 
 void ThreadableLoader::DataReceived(Resource* resource,
@@ -1075,25 +1089,26 @@ void ThreadableLoader::LoadRequest(
   DCHECK(!GetResource());
 
   checker_.WillAddClient();
-  ResourceFetcher* fetcher = execution_context_->Fetcher();
   if (request.GetRequestContext() == mojom::RequestContextType::VIDEO ||
       request.GetRequestContext() == mojom::RequestContextType::AUDIO) {
     DCHECK(async_);
-    RawResource::FetchMedia(new_params, fetcher, this);
+    RawResource::FetchMedia(new_params, resource_fetcher_, this);
   } else if (request.GetRequestContext() ==
              mojom::RequestContextType::MANIFEST) {
     DCHECK(async_);
-    RawResource::FetchManifest(new_params, fetcher, this);
+    RawResource::FetchManifest(new_params, resource_fetcher_, this);
   } else if (async_) {
-    RawResource::Fetch(new_params, fetcher, this);
+    RawResource::Fetch(new_params, resource_fetcher_, this);
   } else {
-    RawResource::FetchSynchronously(new_params, fetcher, this);
+    RawResource::FetchSynchronously(new_params, resource_fetcher_, this);
   }
 }
 
 const SecurityOrigin* ThreadableLoader::GetSecurityOrigin() const {
   return security_origin_ ? security_origin_.get()
-                          : execution_context_->GetSecurityOrigin();
+                          : resource_fetcher_->GetProperties()
+                                .GetFetchClientSettingsObject()
+                                .GetSecurityOrigin();
 }
 
 Document* ThreadableLoader::GetDocument() const {
@@ -1103,6 +1118,7 @@ Document* ThreadableLoader::GetDocument() const {
 void ThreadableLoader::Trace(blink::Visitor* visitor) {
   visitor->Trace(execution_context_);
   visitor->Trace(client_);
+  visitor->Trace(resource_fetcher_);
   RawResourceClient::Trace(visitor);
 }
 

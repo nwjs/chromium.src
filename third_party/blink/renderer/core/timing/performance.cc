@@ -33,8 +33,7 @@
 
 #include <algorithm>
 #include "base/metrics/histogram_macros.h"
-#include "third_party/blink/renderer/bindings/core/v8/double_or_performance_mark_options.h"
-#include "third_party/blink/renderer/bindings/core/v8/string_or_double_or_performance_measure_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/string_or_performance_measure_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_timing.h"
@@ -43,9 +42,12 @@
 #include "third_party/blink/renderer/core/frame/use_counter.h"
 #include "third_party/blink/renderer/core/loader/document_load_timing.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
+#include "third_party/blink/renderer/core/timing/performance_element_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_event_timing.h"
+#include "third_party/blink/renderer/core/timing/performance_layout_jank.h"
 #include "third_party/blink/renderer/core/timing/performance_long_task_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_mark.h"
+#include "third_party/blink/renderer/core/timing/performance_mark_options.h"
 #include "third_party/blink/renderer/core/timing/performance_measure.h"
 #include "third_party/blink/renderer/core/timing/performance_measure_options.h"
 #include "third_party/blink/renderer/core/timing/performance_observer.h"
@@ -130,32 +132,17 @@ Performance::MeasureParameterType StringToNavigationTimingParameterType(
 }
 
 Performance::MeasureParameterType StartOrOptionsToParameterType(
-    const StringOrDoubleOrPerformanceMeasureOptions& start_or_options) {
+    const StringOrPerformanceMeasureOptions& start_or_options) {
   if (start_or_options.IsString()) {
     return StringToNavigationTimingParameterType(
         start_or_options.GetAsString());
   }
-  if (start_or_options.IsDouble())
-    return Performance::MeasureParameterType::kNumber;
+  // Since start_or_options cannot be number any more, we don't record number
+  // type  as MeasureParameterType in UMA any more.
   if (start_or_options.IsPerformanceMeasureOptions())
     return Performance::MeasureParameterType::kObjectObject;
   // null and undefined are undistinguishable in
-  // StringOrDoubleOrPerformanceMeasureOptions.
-  return Performance::MeasureParameterType::kUndefinedOrNull;
-}
-
-Performance::MeasureParameterType EndToParameterType(
-    const StringOrDouble& end) {
-  if (end.IsString()) {
-    // When passing an object to |end|, the object will be implicitly converted
-    // as the following string.
-    if (end.GetAsString() == "[object Object]")
-      return Performance::MeasureParameterType::kObjectObject;
-    return StringToNavigationTimingParameterType(end.GetAsString());
-  }
-  if (end.IsDouble())
-    return Performance::MeasureParameterType::kNumber;
-  // null and undefined are undistinguishable in StringOrDouble.
+  // StringOrPerformanceMeasureOptions.
   return Performance::MeasureParameterType::kUndefinedOrNull;
 }
 
@@ -171,21 +158,28 @@ void LogMeasureEndToUma(Performance::MeasureParameterType type) {
 
 using PerformanceObserverVector = HeapVector<Member<PerformanceObserver>>;
 
-static const size_t kDefaultResourceTimingBufferSize = 250;
+constexpr size_t kDefaultResourceTimingBufferSize = 250;
 constexpr size_t kDefaultEventTimingBufferSize = 150;
+constexpr size_t kDefaultElementTimingBufferSize = 150;
+constexpr size_t kDefaultLayoutJankBufferSize = 150;
 
 Performance::Performance(
     TimeTicks time_origin,
     scoped_refptr<base::SingleThreadTaskRunner> task_runner)
-    : resource_timing_buffer_size_(kDefaultResourceTimingBufferSize),
+    : resource_timing_buffer_size_limit_(kDefaultResourceTimingBufferSize),
       event_timing_buffer_max_size_(kDefaultEventTimingBufferSize),
+      element_timing_buffer_max_size_(kDefaultElementTimingBufferSize),
       user_timing_(nullptr),
       time_origin_(time_origin),
       observer_filter_options_(PerformanceEntry::kInvalid),
-      deliver_observations_timer_(std::move(task_runner),
+      task_runner_(std::move(task_runner)),
+      deliver_observations_timer_(task_runner_,
                                   this,
-                                  &Performance::DeliverObservationsTimerFired) {
-}
+                                  &Performance::DeliverObservationsTimerFired),
+      resource_timing_buffer_full_timer_(
+          task_runner_,
+          this,
+          &Performance::FireResourceTimingBufferFull) {}
 
 Performance::~Performance() = default;
 
@@ -220,6 +214,8 @@ PerformanceEntryVector Performance::getEntries() {
 
   entries.AppendVector(resource_timing_buffer_);
   entries.AppendVector(event_timing_buffer_);
+  entries.AppendVector(element_timing_buffer_);
+  entries.AppendVector(layout_jank_buffer_);
   if (first_input_timing_)
     entries.push_back(first_input_timing_);
   if (!navigation_timing_)
@@ -254,6 +250,12 @@ PerformanceEntryVector Performance::getEntriesByType(
     case PerformanceEntry::kResource:
       for (const auto& resource : resource_timing_buffer_)
         entries.push_back(resource);
+      break;
+    case PerformanceEntry::kElement:
+      UseCounter::Count(GetExecutionContext(),
+                        WebFeature::kElementTimingExplicitlyRequested);
+      for (const auto& element : element_timing_buffer_)
+        entries.push_back(element);
       break;
     case PerformanceEntry::kEvent:
       UseCounter::Count(GetExecutionContext(),
@@ -296,10 +298,11 @@ PerformanceEntryVector Performance::getEntriesByType(
       break;
     case PerformanceEntry::kTaskAttribution:
       break;
-    // TODO(npm): decide which element timing and layout jank entries are
-    // accessible via the performance buffer.
-    case PerformanceEntry::kElement:
     case PerformanceEntry::kLayoutJank:
+      UseCounter::Count(GetExecutionContext(),
+                        WebFeature::kLayoutJankExplicitlyRequested);
+      for (const auto& layout_jank : layout_jank_buffer_)
+        entries.push_back(layout_jank);
       break;
     case PerformanceEntry::kInvalid:
       break;
@@ -325,6 +328,27 @@ PerformanceEntryVector Performance::getEntriesByName(
       if (resource->name() == name)
         entries.push_back(resource);
     }
+  }
+
+  if (entry_type.IsNull() || type == PerformanceEntry::kLayoutJank) {
+    for (const auto& layout_jank : layout_jank_buffer_) {
+      if (layout_jank->name() == name)
+        entries.push_back(layout_jank);
+    }
+  }
+  if (type == PerformanceEntry::kLayoutJank) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kLayoutJankExplicitlyRequested);
+  }
+  if (entry_type.IsNull() || type == PerformanceEntry::kElement) {
+    for (const auto& element : element_timing_buffer_) {
+      if (element->name() == name)
+        entries.push_back(element);
+    }
+  }
+  if (type == PerformanceEntry::kElement) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kElementTimingExplicitlyRequested);
   }
 
   if (entry_type.IsNull() || type == PerformanceEntry::kEvent) {
@@ -379,9 +403,7 @@ void Performance::clearResourceTimings() {
 }
 
 void Performance::setResourceTimingBufferSize(unsigned size) {
-  resource_timing_buffer_size_ = size;
-  if (IsResourceTimingBufferFull())
-    DispatchEvent(*Event::Create(event_type_names::kResourcetimingbufferfull));
+  resource_timing_buffer_size_limit_ = size;
 }
 
 bool Performance::PassesTimingAllowCheck(
@@ -389,9 +411,7 @@ bool Performance::PassesTimingAllowCheck(
     const SecurityOrigin& initiator_security_origin,
     const AtomicString& original_timing_allow_origin,
     ExecutionContext* context) {
-  const KURL& response_url = response.WasFetchedViaServiceWorker()
-                                 ? response.OriginalURLViaServiceWorker()
-                                 : response.Url();
+  const KURL& response_url = response.ResponseUrl();
   scoped_refptr<const SecurityOrigin> resource_origin =
       SecurityOrigin::Create(response_url);
   if (resource_origin->IsSameSchemeHostPort(&initiator_security_origin))
@@ -454,10 +474,6 @@ bool Performance::AllowsTimingRedirect(
 void Performance::GenerateAndAddResourceTiming(
     const ResourceTimingInfo& info,
     const AtomicString& initiator_type) {
-  if (IsResourceTimingBufferFull() &&
-      !HasObserverFor(PerformanceEntry::kResource))
-    return;
-
   ExecutionContext* context = GetExecutionContext();
   const SecurityOrigin* security_origin = GetSecurityOrigin(context);
   if (!security_origin)
@@ -520,6 +536,8 @@ WebResourceTimingInfo Performance::GenerateResourceTiming(
   result.encoded_body_size = final_response.EncodedBodyLength();
   result.decoded_body_size = final_response.DecodedBodyLength();
   result.did_reuse_connection = final_response.ConnectionReused();
+  result.is_secure_context =
+      SecurityOrigin::IsSecure(final_response.ResponseUrl());
   result.allow_negative_values = info.NegativeAllowed();
 
   if (result.allow_timing_details) {
@@ -535,15 +553,20 @@ WebResourceTimingInfo Performance::GenerateResourceTiming(
 
 void Performance::AddResourceTiming(const WebResourceTimingInfo& info,
                                     const AtomicString& initiator_type) {
-  if (IsResourceTimingBufferFull() &&
-      !HasObserverFor(PerformanceEntry::kResource))
-    return;
-
   PerformanceEntry* entry =
       PerformanceResourceTiming::Create(info, time_origin_, initiator_type);
   NotifyObserversOfEntry(*entry);
-  if (!IsResourceTimingBufferFull())
-    AddResourceTimingBuffer(*entry);
+  // https://w3c.github.io/resource-timing/#dfn-add-a-performanceresourcetiming-entry
+  if (CanAddResourceTimingEntry() &&
+      !resource_timing_buffer_full_event_pending_) {
+    resource_timing_buffer_.push_back(entry);
+    return;
+  }
+  if (!resource_timing_buffer_full_event_pending_) {
+    resource_timing_buffer_full_event_pending_ = true;
+    resource_timing_buffer_full_timer_.StartOneShot(TimeDelta(), FROM_HERE);
+  }
+  resource_timing_secondary_buffer_.push_back(entry);
 }
 
 // Called after loadEventEnd happens.
@@ -554,8 +577,48 @@ void Performance::NotifyNavigationTimingToObservers() {
     NotifyObserversOfEntry(*navigation_timing_);
 }
 
+bool Performance::IsElementTimingBufferFull() const {
+  return element_timing_buffer_.size() >= element_timing_buffer_max_size_;
+}
+
 bool Performance::IsEventTimingBufferFull() const {
   return event_timing_buffer_.size() >= event_timing_buffer_max_size_;
+}
+
+void Performance::CopySecondaryBuffer() {
+  // https://w3c.github.io/resource-timing/#dfn-copy-secondary-buffer
+  while (resource_timing_secondary_buffer_.size() &&
+         CanAddResourceTimingEntry()) {
+    PerformanceEntry* entry = resource_timing_secondary_buffer_.front();
+    DCHECK(entry);
+    resource_timing_secondary_buffer_.pop_front();
+    resource_timing_buffer_.push_back(entry);
+  }
+}
+
+void Performance::FireResourceTimingBufferFull(TimerBase*) {
+  // https://w3c.github.io/resource-timing/#dfn-fire-a-buffer-full-event
+  while (resource_timing_secondary_buffer_.size()) {
+    int excess_entries_before = resource_timing_secondary_buffer_.size();
+    if (!CanAddResourceTimingEntry()) {
+      DispatchEvent(
+          *Event::Create(event_type_names::kResourcetimingbufferfull));
+    }
+    CopySecondaryBuffer();
+    int excess_entries_after = resource_timing_secondary_buffer_.size();
+    if (excess_entries_after >= excess_entries_before) {
+      resource_timing_secondary_buffer_.clear();
+      break;
+    }
+  }
+  resource_timing_buffer_full_event_pending_ = false;
+}
+
+void Performance::AddElementTimingBuffer(PerformanceElementTiming& entry) {
+  element_timing_buffer_.push_back(&entry);
+
+  if (IsElementTimingBufferFull())
+    DispatchEvent(*Event::Create(event_type_names::kElementtimingbufferfull));
 }
 
 void Performance::AddEventTimingBuffer(PerformanceEventTiming& entry) {
@@ -565,14 +628,36 @@ void Performance::AddEventTimingBuffer(PerformanceEventTiming& entry) {
     DispatchEvent(*Event::Create(event_type_names::kEventtimingbufferfull));
 }
 
+void Performance::AddLayoutJankBuffer(PerformanceLayoutJank& entry) {
+  if (layout_jank_buffer_.size() < kDefaultLayoutJankBufferSize)
+    layout_jank_buffer_.push_back(&entry);
+}
+
+unsigned Performance::ElementTimingBufferSize() const {
+  return element_timing_buffer_.size();
+}
+
 unsigned Performance::EventTimingBufferSize() const {
   return event_timing_buffer_.size();
+}
+
+void Performance::clearElementTimings() {
+  element_timing_buffer_.clear();
 }
 
 void Performance::clearEventTimings() {
   event_timing_buffer_.clear();
 }
 
+// TODO(crbug.com/72556): remove Element Timing buffering when shipping the
+// 'buffered' flag.
+void Performance::setElementTimingBufferMaxSize(unsigned size) {
+  element_timing_buffer_max_size_ = size;
+  if (IsElementTimingBufferFull())
+    DispatchEvent(*Event::Create(event_type_names::kElementtimingbufferfull));
+}
+
+// TODO(yoav): EventTiming should follow a simpler buffering model.
 void Performance::setEventTimingBufferMaxSize(unsigned size) {
   event_timing_buffer_max_size_ = size;
   if (IsEventTimingBufferFull())
@@ -600,15 +685,9 @@ void Performance::AddPaintTiming(PerformancePaintTiming::PaintType type,
   NotifyObserversOfEntry(*entry);
 }
 
-void Performance::AddResourceTimingBuffer(PerformanceEntry& entry) {
-  resource_timing_buffer_.push_back(&entry);
-
-  if (IsResourceTimingBufferFull())
-    DispatchEvent(*Event::Create(event_type_names::kResourcetimingbufferfull));
-}
-
-bool Performance::IsResourceTimingBufferFull() {
-  return resource_timing_buffer_.size() >= resource_timing_buffer_size_;
+bool Performance::CanAddResourceTimingEntry() {
+  // https://w3c.github.io/resource-timing/#dfn-can-add-resource-timing-entry
+  return resource_timing_buffer_.size() < resource_timing_buffer_size_limit_;
 }
 
 void Performance::AddLongTaskTiming(
@@ -638,19 +717,17 @@ void Performance::AddLongTaskTiming(
 PerformanceMark* Performance::mark(ScriptState* script_state,
                                    const AtomicString& mark_name,
                                    ExceptionState& exception_state) {
-  DoubleOrPerformanceMarkOptions startOrOptions;
-  return mark(script_state, mark_name, startOrOptions, exception_state);
+  return mark(script_state, mark_name, nullptr, exception_state);
 }
 
-PerformanceMark* Performance::mark(
-    ScriptState* script_state,
-    const AtomicString& mark_name,
-    DoubleOrPerformanceMarkOptions& start_time_or_mark_options,
-    ExceptionState& exception_state) {
+PerformanceMark* Performance::mark(ScriptState* script_state,
+                                   const AtomicString& mark_name,
+                                   PerformanceMarkOptions* mark_options,
+                                   ExceptionState& exception_state) {
   if (!user_timing_)
     user_timing_ = UserTiming::Create(*this);
   PerformanceMark* performance_mark = user_timing_->Mark(
-      script_state, mark_name, start_time_or_mark_options, exception_state);
+      script_state, mark_name, mark_options, exception_state);
   if (performance_mark)
     NotifyObserversOfEntry(*performance_mark);
   if (RuntimeEnabledFeatures::CustomUserTimingEnabled())
@@ -671,32 +748,31 @@ PerformanceMeasure* Performance::measure(ScriptState* script_state,
   LogMeasureEndToUma(MeasureParameterType::kUnprovided);
   return MeasureInternal(
       script_state, measure_name,
-      NativeValueTraits<StringOrDoubleOrPerformanceMeasureOptions>::NullValue(),
-      NativeValueTraits<StringOrDouble>::NullValue(), exception_state);
+      NativeValueTraits<StringOrPerformanceMeasureOptions>::NullValue(),
+      base::nullopt, exception_state);
 }
 
 PerformanceMeasure* Performance::measure(
     ScriptState* script_state,
     const AtomicString& measure_name,
-    const StringOrDoubleOrPerformanceMeasureOptions& start_or_options,
+    const StringOrPerformanceMeasureOptions& start_or_options,
     ExceptionState& exception_state) {
   LogMeasureStartToUma(StartOrOptionsToParameterType(start_or_options));
   LogMeasureEndToUma(MeasureParameterType::kUnprovided);
   return MeasureInternal(script_state, measure_name, start_or_options,
-                         NativeValueTraits<StringOrDouble>::NullValue(),
-                         exception_state);
+                         base::nullopt, exception_state);
 }
 
 PerformanceMeasure* Performance::measure(
     ScriptState* script_state,
     const AtomicString& measure_name,
-    const StringOrDoubleOrPerformanceMeasureOptions& start_or_options,
-    const StringOrDouble& end,
+    const StringOrPerformanceMeasureOptions& start_or_options,
+    const String& end,
     ExceptionState& exception_state) {
   LogMeasureStartToUma(StartOrOptionsToParameterType(start_or_options));
-  LogMeasureEndToUma(EndToParameterType(end));
-  return MeasureInternal(script_state, measure_name, start_or_options, end,
-                         exception_state);
+  LogMeasureEndToUma(StringToNavigationTimingParameterType(end));
+  return MeasureInternal(script_state, measure_name, start_or_options,
+                         base::Optional<String>(end), exception_state);
 }
 
 // |start_or_options|: while in options type, the value is an object {start,
@@ -719,12 +795,13 @@ PerformanceMeasure* Performance::measure(
 PerformanceMeasure* Performance::MeasureInternal(
     ScriptState* script_state,
     const AtomicString& measure_name,
-    const StringOrDoubleOrPerformanceMeasureOptions& start_or_options,
-    const StringOrDouble& end,
+    const StringOrPerformanceMeasureOptions& start_or_options,
+    base::Optional<String> end,
     ExceptionState& exception_state) {
   if (RuntimeEnabledFeatures::CustomUserTimingEnabled()) {
     if (start_or_options.IsPerformanceMeasureOptions()) {
-      if (!end.IsNull()) {
+      // measure("name", {}, *)
+      if (end) {
         exception_state.ThrowDOMException(
             DOMExceptionCode::kSyntaxError,
             "If a PerformanceMeasureOptions object was passed, |end| must be "
@@ -737,11 +814,9 @@ PerformanceMeasure* Performance::MeasureInternal(
                                options->endTime(), options->detail(),
                                exception_state);
     } else {
+      // measure("name", "mark1", *)
       StringOrDouble converted_start;
-      if (start_or_options.IsDouble()) {
-        converted_start =
-            StringOrDouble::FromDouble(start_or_options.GetAsDouble());
-      } else if (start_or_options.IsString()) {
+      if (start_or_options.IsString()) {
         converted_start =
             StringOrDouble::FromString(start_or_options.GetAsString());
       } else {
@@ -750,9 +825,11 @@ PerformanceMeasure* Performance::MeasureInternal(
       }
       // We let |end| behave the same whether it's empty, undefined or null in
       // JS, as long as |end| is null in C++.
-      return MeasureWithDetail(script_state, measure_name, converted_start, end,
-                               ScriptValue::CreateNull(script_state),
-                               exception_state);
+      return MeasureWithDetail(
+          script_state, measure_name, converted_start,
+          end ? StringOrDouble::FromString(*end)
+              : NativeValueTraits<StringOrDouble>::NullValue(),
+          ScriptValue::CreateNull(script_state), exception_state);
     }
   } else {
     // For consistency with UserTimingL2: the L2 API took |start| as a string,
@@ -761,9 +838,6 @@ PerformanceMeasure* Performance::MeasureInternal(
     StringOrDouble converted_start;
     if (start_or_options.IsPerformanceMeasureOptions()) {
       converted_start = StringOrDouble::FromString("[object Object]");
-    } else if (start_or_options.IsDouble()) {
-      converted_start = StringOrDouble::FromString(
-          String::NumberToStringECMAScript(start_or_options.GetAsDouble()));
     } else if (start_or_options.IsString()) {
       converted_start =
           StringOrDouble::FromString(start_or_options.GetAsString());
@@ -772,19 +846,10 @@ PerformanceMeasure* Performance::MeasureInternal(
       DCHECK(converted_start.IsNull());
     }
 
-    StringOrDouble converted_end;
-    if (end.IsString()) {
-      converted_end = StringOrDouble::FromString(end.GetAsString());
-    } else if (end.IsDouble()) {
-      converted_end = StringOrDouble::FromString(
-          String::NumberToStringECMAScript(end.GetAsDouble()));
-    } else {
-      DCHECK(end.IsNull());
-      DCHECK(converted_end.IsNull());
-    }
     MeasureWithDetail(script_state, measure_name, converted_start,
-                      converted_end, ScriptValue::CreateNull(script_state),
-                      exception_state);
+                      end ? StringOrDouble::FromString(*end)
+                          : NativeValueTraits<StringOrDouble>::NullValue(),
+                      ScriptValue::CreateNull(script_state), exception_state);
     // Return nullptr to distinguish from L3.
     return nullptr;
   }
@@ -938,7 +1003,10 @@ void Performance::BuildJSONValue(V8ObjectBuilder& builder) const {
 
 void Performance::Trace(blink::Visitor* visitor) {
   visitor->Trace(resource_timing_buffer_);
+  visitor->Trace(resource_timing_secondary_buffer_);
+  visitor->Trace(element_timing_buffer_);
   visitor->Trace(event_timing_buffer_);
+  visitor->Trace(layout_jank_buffer_);
   visitor->Trace(navigation_timing_);
   visitor->Trace(user_timing_);
   visitor->Trace(first_paint_timing_);

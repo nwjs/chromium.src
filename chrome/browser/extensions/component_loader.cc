@@ -19,7 +19,6 @@
 #include "chrome/browser/extensions/component_extensions_whitelist/whitelist.h"
 #include "chrome/browser/extensions/data_deleter.h"
 #include "chrome/browser/extensions/extension_service.h"
-#include "chrome/browser/pdf/pdf_extension_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
@@ -33,7 +32,6 @@
 #include "components/nacl/common/buildflags.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/browser/plugin_service.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/common/constants.h"
@@ -41,14 +39,14 @@
 #include "extensions/common/extension_l10n_util.h"
 #include "extensions/common/file_util.h"
 #include "extensions/common/manifest_constants.h"
-#include "ppapi/buildflags/buildflags.h"
+#include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "ui/accessibility/accessibility_switches.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_CHROMEOS)
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/storage_partition.h"
@@ -57,6 +55,10 @@
 #include "ui/chromeos/devicetype_utils.h"
 #include "ui/file_manager/grit/file_manager_resources.h"
 #include "ui/keyboard/grit/keyboard_resources.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PDF)
+#include "chrome/browser/pdf/pdf_extension_util.h"
 #endif
 
 #if defined(GOOGLE_CHROME_BUILD)
@@ -374,12 +376,10 @@ void ComponentLoader::AddChromeOsSpeechSynthesisExtensions() {
                           weak_factory_.GetWeakPtr(),
                           extension_misc::kGoogleSpeechSynthesisExtensionId));
 
-  if (::switches::AreExperimentalAccessibilityFeaturesEnabled()) {
-    AddComponentFromDir(
-        base::FilePath(extension_misc::kEspeakSpeechSynthesisExtensionPath),
-        extension_misc::kEspeakSpeechSynthesisExtensionId,
-        base::RepeatingClosure());
-  }
+  AddComponentFromDir(
+      base::FilePath(extension_misc::kEspeakSpeechSynthesisExtensionPath),
+      extension_misc::kEspeakSpeechSynthesisExtensionId,
+      base::RepeatingClosure());
 }
 #endif
 
@@ -492,7 +492,7 @@ void ComponentLoader::AddDefaultComponentExtensions(
 
   AddDefaultComponentExtensionsWithBackgroundPages(skip_session_components);
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PDF)
   Add(pdf_extension_util::GetManifest(),
       base::FilePath(FILE_PATH_LITERAL("pdf")));
 #endif
@@ -548,7 +548,7 @@ void ComponentLoader::AddDefaultComponentExtensionsForKioskMode(
 
   AddDefaultComponentExtensionsWithBackgroundPagesForKioskMode();
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PDF)
   Add(pdf_extension_util::GetManifest(),
       base::FilePath(FILE_PATH_LITERAL("pdf")));
 #endif

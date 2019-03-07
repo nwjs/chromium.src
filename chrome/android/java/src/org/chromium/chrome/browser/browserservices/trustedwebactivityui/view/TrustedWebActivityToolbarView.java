@@ -11,10 +11,12 @@ import org.chromium.chrome.browser.customtabs.CustomTabBrowserControlsVisibility
 import org.chromium.chrome.browser.dependency_injection.ActivityScope;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
-import org.chromium.chrome.browser.modelutil.PropertyKey;
-import org.chromium.chrome.browser.modelutil.PropertyObservable;
+import org.chromium.ui.modelutil.PropertyKey;
+import org.chromium.ui.modelutil.PropertyObservable;
 
 import javax.inject.Inject;
+
+import dagger.Lazy;
 
 /**
  * Hides and shows the toolbar according to the state of the Trusted Web Activity.
@@ -22,14 +24,14 @@ import javax.inject.Inject;
 @ActivityScope
 public class TrustedWebActivityToolbarView implements
         PropertyObservable.PropertyObserver<PropertyKey> {
-    private final ChromeFullscreenManager mFullscreenManager;
+    private final Lazy<ChromeFullscreenManager> mFullscreenManager;
     private final CustomTabBrowserControlsVisibilityDelegate mControlsVisibilityDelegate;
     private final TrustedWebActivityModel mModel;
 
     private int mControlsHidingToken = FullscreenManager.INVALID_TOKEN;
 
     @Inject
-    public TrustedWebActivityToolbarView(ChromeFullscreenManager fullscreenManager,
+    public TrustedWebActivityToolbarView(Lazy<ChromeFullscreenManager> fullscreenManager,
             CustomTabBrowserControlsVisibilityDelegate controlsVisibilityDelegate,
             TrustedWebActivityModel model) {
         mFullscreenManager = fullscreenManager;
@@ -46,13 +48,14 @@ public class TrustedWebActivityToolbarView implements
 
         mControlsVisibilityDelegate.setTrustedWebActivityMode(hide);
 
+        ChromeFullscreenManager fullscreenManager = mFullscreenManager.get();
         if (hide) {
             mControlsHidingToken =
-                    mFullscreenManager.hideAndroidControlsAndClearOldToken(mControlsHidingToken);
+                    fullscreenManager.hideAndroidControlsAndClearOldToken(mControlsHidingToken);
         } else {
-            mFullscreenManager.releaseAndroidControlsHidingToken(mControlsHidingToken);
+            fullscreenManager.releaseAndroidControlsHidingToken(mControlsHidingToken);
             // Force showing the controls for a bit when leaving Trusted Web Activity mode.
-            mFullscreenManager.getBrowserVisibilityDelegate().showControlsTransient();
+            fullscreenManager.getBrowserVisibilityDelegate().showControlsTransient();
         }
     }
 }

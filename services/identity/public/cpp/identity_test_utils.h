@@ -51,9 +51,12 @@ AccountInfo SetPrimaryAccount(IdentityManager* identity_manager,
                               const std::string& email);
 
 // Sets a refresh token for the primary account (which must already be set).
-// Blocks until the refresh token is set.
+// Blocks until the refresh token is set. If |token_value| is empty a default
+// value will be used instead.
 // NOTE: See disclaimer at top of file re: direct usage.
-void SetRefreshTokenForPrimaryAccount(IdentityManager* identity_manager);
+void SetRefreshTokenForPrimaryAccount(
+    IdentityManager* identity_manager,
+    const std::string& token_value = std::string());
 
 // Sets a special invalid refresh token for the primary account (which must
 // already be set). Blocks until the refresh token is set.
@@ -96,10 +99,12 @@ AccountInfo MakeAccountAvailable(IdentityManager* identity_manager,
                                  const std::string& email);
 
 // Sets a refresh token for the given account (which must already be available).
-// Blocks until the refresh token is set.
+// Blocks until the refresh token is set. If |token_value| is empty a default
+// value will be used instead.
 // NOTE: See disclaimer at top of file re: direct usage.
 void SetRefreshTokenForAccount(IdentityManager* identity_manager,
-                               const std::string& account_id);
+                               const std::string& account_id,
+                               const std::string& token_value = std::string());
 
 // Sets a special invalid refresh token for the given account (which must
 // already be available). Blocks until the refresh token is set.
@@ -128,10 +133,15 @@ void UpdateAccountInfoForAccount(IdentityManager* identity_manager,
 
 std::string GetTestGaiaIdForEmail(const std::string& email);
 
-void SetAccountWithRefreshTokenInPersistentErrorState(
+// Updates the persistent auth error set on |account_id| which must be a known
+// account, i.e., an account with a refresh token.
+void UpdatePersistentErrorOfRefreshTokenForAccount(
     IdentityManager* identity_manager,
     const std::string& account_id,
     const GoogleServiceAuthError& auth_error);
+
+// Disables internal retries of failed access token fetches.
+void DisableAccessTokenFetchRetries(IdentityManager* identity_manager);
 
 }  // namespace identity
 

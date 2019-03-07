@@ -198,7 +198,7 @@ void OmniboxPopupModel::SetSelectedLineState(LineState state) {
     DCHECK(match.associated_keyword.get());
   }
 
-  if (state == TAB_SWITCH) {
+  if (state == BUTTON_FOCUSED) {
     // TODO(orinj): If in-suggestion Pedals are kept, refactor a bit
     // so that button presence doesn't always assume tab switching use case.
     DCHECK(match.has_tab_match || match.pedal);
@@ -208,9 +208,11 @@ void OmniboxPopupModel::SetSelectedLineState(LineState state) {
   selected_line_state_ = state;
   view_->InvalidateLine(selected_line_);
 
-  // Ensures update of accessibility data.
-  edit_model_->view()->OnTemporaryTextMaybeChanged(
-    edit_model_->view()->GetText(), match, false, false);
+  // Ensures update of accessibility data for button text.
+  if (state == BUTTON_FOCUSED) {
+    edit_model_->view()->OnTemporaryTextMaybeChanged(
+        edit_model_->view()->GetText(), match, false, false);
+  }
 }
 
 void OmniboxPopupModel::TryDeletingCurrentItem() {
@@ -259,10 +261,11 @@ void OmniboxPopupModel::OnResultChanged() {
   // There had better not be a nonempty result set with no default match.
   CHECK((selected_line_ != kNoMatch) || result.empty());
   has_selected_match_ = false;
-  // If selected line state was |TAB_SWITCH| and nothing has changed, leave it.
+  // If selected line state was |BUTTON_FOCUSED| and nothing has changed, leave
+  // it.
   if (selected_line_ != kNoMatch) {
     const bool has_focused_match =
-        selected_line_state_ == TAB_SWITCH &&
+        selected_line_state_ == BUTTON_FOCUSED &&
         result.match_at(selected_line_).has_tab_match;
     const bool has_changed =
         selected_line_ != old_selected_line ||
@@ -335,6 +338,11 @@ gfx::Image OmniboxPopupModel::GetMatchIcon(const AutocompleteMatch& match,
 bool OmniboxPopupModel::SelectedLineHasTabMatch() {
   return selected_line_ != kNoMatch &&
          result().match_at(selected_line_).ShouldShowTabMatch();
+}
+
+bool OmniboxPopupModel::SelectedLineHasButton() {
+  return selected_line_ != kNoMatch &&
+         result().match_at(selected_line_).ShouldShowButton();
 }
 
 void OmniboxPopupModel::OnFaviconFetched(const GURL& page_url,

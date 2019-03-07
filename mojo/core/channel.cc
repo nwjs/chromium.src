@@ -193,8 +193,10 @@ Channel::MessagePtr Channel::Message::Deserialize(
     return nullptr;
   }
 
+  // If a message isn't explicitly identified as type NORMAL_LEGACY, it is
+  // expected to have a full-size header.
   const Header* header = nullptr;
-  if (legacy_header->message_type == MessageType::NORMAL)
+  if (legacy_header->message_type != MessageType::NORMAL_LEGACY)
     header = reinterpret_cast<const Header*>(data);
 
   uint32_t extra_header_size = 0;
@@ -213,6 +215,13 @@ Channel::MessagePtr Channel::Message::Deserialize(
     extra_header_size = header->num_header_bytes - sizeof(Header);
     payload_size = data_num_bytes - header->num_header_bytes;
     payload = static_cast<const char*>(data) + header->num_header_bytes;
+  }
+
+  if (!IsAlignedForChannelMessage(extra_header_size)) {
+    // Well-formed messages always have any extra header bytes aligned to a
+    // |kChannelMessageAlignment| boundary.
+    DLOG(ERROR) << "Invalid extra header size";
+    return nullptr;
   }
 
 #if defined(OS_WIN)
@@ -611,8 +620,10 @@ class Channel::ReadBuffer {
   DISALLOW_COPY_AND_ASSIGN(ReadBuffer);
 };
 
-Channel::Channel(Delegate* delegate)
-    : delegate_(delegate), read_buffer_(new ReadBuffer) {}
+Channel::Channel(Delegate* delegate, HandlePolicy handle_policy)
+    : delegate_(delegate),
+      handle_policy_(handle_policy),
+      read_buffer_(new ReadBuffer) {}
 
 Channel::~Channel() {}
 
@@ -699,6 +710,9 @@ bool Channel::OnReadComplete(size_t bytes_read, size_t* next_read_size_hint) {
     std::vector<PlatformHandle> handles;
     bool deferred = false;
     if (num_handles > 0) {
+      if (handle_policy_ == HandlePolicy::kRejectHandles)
+        return false;
+
       if (!GetReadPlatformHandles(payload, payload_size, num_handles,
                                   extra_header, extra_header_size, &handles,
                                   &deferred)) {

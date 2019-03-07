@@ -18,13 +18,13 @@
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "content/common/content_export.h"
-#include "content/public/common/media_stream_request.h"
 #include "content/renderer/media/stream/aec_dump_message_filter.h"
 #include "content/renderer/media/stream/media_stream_audio_processor_options.h"
 #include "content/renderer/media/webrtc/webrtc_audio_device_impl.h"
 #include "media/base/audio_converter.h"
 #include "media/webrtc/audio_delay_stats_reporter.h"
-#include "third_party/webrtc/api/mediastreaminterface.h"
+#include "third_party/blink/public/common/mediastream/media_stream_request.h"
+#include "third_party/webrtc/api/media_stream_interface.h"
 #include "third_party/webrtc/modules/audio_processing/include/audio_processing.h"
 #include "third_party/webrtc/rtc_base/task_queue.h"
 
@@ -191,9 +191,9 @@ class CONTENT_EXPORT MediaStreamAudioProcessor
   const scoped_refptr<base::SingleThreadTaskRunner> main_thread_runner_;
 
   // Used to DCHECK that some methods are called on the capture audio thread.
-  base::ThreadChecker capture_thread_checker_;
+  THREAD_CHECKER(capture_thread_checker_);
   // Used to DCHECK that some methods are called on the render audio thread.
-  base::ThreadChecker render_thread_checker_;
+  THREAD_CHECKER(render_thread_checker_);
 
   // Flag to enable stereo channel mirroring.
   bool audio_mirroring_;

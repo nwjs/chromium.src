@@ -9,6 +9,7 @@
 #include "ash/screen_util.h"
 #include "ash/shell.h"
 #include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/window_positioning_utils.h"
 #include "ash/wm/wm_event.h"
 #include "ui/aura/client/aura_constants.h"
@@ -123,8 +124,7 @@ void BaseState::CycleSnap(WindowState* window_state, WMEventType event) {
                                         : mojom::WindowStateType::RIGHT_SNAPPED;
 
   if (window_state->CanSnap() &&
-      window_state->GetStateType() != desired_snap_state &&
-      window_state->window()->type() != aura::client::WINDOW_TYPE_PANEL) {
+      window_state->GetStateType() != desired_snap_state) {
     const wm::WMEvent event(desired_snap_state ==
                                     mojom::WindowStateType::LEFT_SNAPPED
                                 ? wm::WM_EVENT_SNAP_LEFT
@@ -180,7 +180,7 @@ gfx::Rect BaseState::GetSnappedWindowBoundsInParent(
     aura::Window* window,
     const mojom::WindowStateType state_type) {
   gfx::Rect bounds_in_parent;
-  if (SplitViewController::ShouldAllowSplitView()) {
+  if (ShouldAllowSplitView()) {
     bounds_in_parent =
         Shell::Get()->split_view_controller()->GetSnappedWindowBoundsInParent(
             window, (state_type == mojom::WindowStateType::LEFT_SNAPPED)

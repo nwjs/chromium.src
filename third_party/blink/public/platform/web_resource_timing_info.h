@@ -17,7 +17,7 @@ namespace blink {
 
 // The browser-side equivalent to this struct is content::ServerTimingInfo.
 // TODO(dcheng): Migrate this struct over to Mojo so it doesn't need to be
-// duplicated in //content and //third_party/WebKit.
+// duplicated in //content and //third_party/blink.
 struct WebServerTimingInfo {
   WebServerTimingInfo(const WebString& name,
                       double duration,
@@ -34,7 +34,7 @@ struct WebServerTimingInfo {
 // information about cross-process iframes for window.performance. The
 // browser-side equivalent to this struct is content::ResourceTimingInfo.
 // TODO(dcheng): Migrate this struct over to Mojo so it doesn't need to be
-// duplicated in //content and //third_party/WebKit.
+// duplicated in //content and //third_party/blink.
 struct WebResourceTimingInfo {
   // The name to associate with the performance entry. For iframes, this is
   // typically the initial URL of the iframe resource.
@@ -53,6 +53,7 @@ struct WebResourceTimingInfo {
   uint64_t decoded_body_size;
 
   bool did_reuse_connection;
+  bool is_secure_context;
 
   // TODO(dcheng): The way this code works is fairly confusing: it might seem
   // unusual to store policy members like |allow_timing_details| inline, rather

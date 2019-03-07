@@ -54,8 +54,14 @@ class CORE_EXPORT ModuleScript final : public Script, public NameClient {
   ScriptModule Record() const;
   bool HasEmptyRecord() const;
 
+  // Note: ParseError-related methods should only be used from ModuleTreeLinker
+  //       or unit tests. You probably want to check |*ErrorToRethrow*()|
+  //       instead.
+
   void SetParseErrorAndClearRecord(ScriptValue error);
   bool HasParseError() const { return !parse_error_.IsEmpty(); }
+
+  // CreateParseError() retrieves |parse_error_| as a ScriptValue.
   ScriptValue CreateParseError() const;
 
   void SetErrorToRethrow(ScriptValue error);
@@ -93,6 +99,9 @@ class CORE_EXPORT ModuleScript final : public Script, public NameClient {
   Member<Modulator> settings_object_;
 
   // https://html.spec.whatwg.org/multipage/webappapis.html#concept-script-record
+  // TODO(keishi): Visitor only defines a trace method for v8::Value so this
+  // needs to be cast.
+  GC_PLUGIN_IGNORE("757708")
   TraceWrapperV8Reference<v8::Module> record_;
 
   // https://html.spec.whatwg.org/multipage/webappapis.html#concept-script-parse-error

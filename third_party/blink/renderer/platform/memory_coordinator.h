@@ -38,7 +38,7 @@ class PLATFORM_EXPORT MemoryCoordinator final
   static MemoryCoordinator& Instance();
 
   // Whether the device Blink runs on is a low-end device.
-  // Can be overridden in layout tests via internals.
+  // Can be overridden in web tests via internals.
   static bool IsLowEndDevice();
 
   // Returns true when available memory is low.
@@ -51,6 +51,8 @@ class PLATFORM_EXPORT MemoryCoordinator final
   // object - meaning it's not thread-safe as well as might break tests counting
   // the heap size.
   static void Initialize();
+
+  MemoryCoordinator();
 
   void RegisterThread(Thread*) LOCKS_EXCLUDED(threads_mutex_);
   void UnregisterThread(Thread*) LOCKS_EXCLUDED(threads_mutex_);
@@ -72,8 +74,6 @@ class PLATFORM_EXPORT MemoryCoordinator final
   friend class Internals;
 
   static void SetIsLowEndDeviceForTesting(bool);
-
-  MemoryCoordinator();
 
   void ClearMemory();
   static void ClearThreadSpecificMemory();

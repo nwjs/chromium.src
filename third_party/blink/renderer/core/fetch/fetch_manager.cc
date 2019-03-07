@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fetch/body.h"
 #include "third_party/blink/renderer/core/fetch/body_stream_buffer.h"
+#include "third_party/blink/renderer/core/fetch/buffering_bytes_consumer.h"
 #include "third_party/blink/renderer/core/fetch/bytes_consumer.h"
 #include "third_party/blink/renderer/core/fetch/bytes_consumer_for_data_consumer_handle.h"
 #include "third_party/blink/renderer/core/fetch/fetch_request_data.h"
@@ -455,15 +456,15 @@ void FetchManager::Loader::DidReceiveResponse(
   DCHECK(handle);
   // TODO(horo): This check could be false when we will use the response url
   // in service worker responses. (crbug.com/553535)
-  DCHECK(response.Url() == url_list_.back());
+  DCHECK(response.CurrentRequestUrl() == url_list_.back());
   ScriptState* script_state = resolver_->GetScriptState();
   ScriptState::Scope scope(script_state);
 
   response_http_status_code_ = response.HttpStatusCode();
   FetchRequestData::Tainting tainting = fetch_request_data_->ResponseTainting();
 
-  if (response.Url().ProtocolIsData()) {
-    if (fetch_request_data_->Url() == response.Url()) {
+  if (response.CurrentRequestUrl().ProtocolIsData()) {
+    if (fetch_request_data_->Url() == response.CurrentRequestUrl()) {
       // A direct request to data.
       tainting = FetchRequestData::kBasicTainting;
     } else {
@@ -487,7 +488,7 @@ void FetchManager::Loader::DidReceiveResponse(
           return;
       }
     }
-  } else if (!SecurityOrigin::Create(response.Url())
+  } else if (!SecurityOrigin::Create(response.CurrentRequestUrl())
                   ->IsSameSchemeHostPort(fetch_request_data_->Origin().get())) {
     // Recompute the tainting if the request was redirected to a different
     // origin.
@@ -534,19 +535,32 @@ void FetchManager::Loader::DidReceiveResponse(
   FetchResponseData* response_data = nullptr;
   SRIBytesConsumer* sri_consumer = nullptr;
   if (fetch_request_data_->Integrity().IsEmpty()) {
-    response_data = FetchResponseData::CreateWithBuffer(new BodyStreamBuffer(
-        script_state,
-        new BytesConsumerForDataConsumerHandle(
-            ExecutionContext::From(script_state), std::move(handle)),
-        signal_));
-  } else {
-    sri_consumer = new SRIBytesConsumer();
+    BytesConsumer* bytes_consumer =
+        MakeGarbageCollected<BytesConsumerForDataConsumerHandle>(
+            GetExecutionContext(), std::move(handle));
+    if (!response.CacheControlContainsNoStore()) {
+      // BufferingBytesConsumer reads chunks from |bytes_consumer| as soon as
+      // they get available to relieve backpressure.
+      //
+      // https://fetch.spec.whatwg.org/#fetching
+      // The user agent should ignore the suspension request if the ongoing
+      // fetch is updating the response in the HTTP cache for the request.
+      bytes_consumer =
+          MakeGarbageCollected<BufferingBytesConsumer>(bytes_consumer);
+    }
     response_data = FetchResponseData::CreateWithBuffer(
-        new BodyStreamBuffer(script_state, sri_consumer, signal_));
+        MakeGarbageCollected<BodyStreamBuffer>(script_state, bytes_consumer,
+                                               signal_));
+  } else {
+    sri_consumer = MakeGarbageCollected<SRIBytesConsumer>();
+    response_data = FetchResponseData::CreateWithBuffer(
+        MakeGarbageCollected<BodyStreamBuffer>(script_state, sri_consumer,
+                                               signal_));
   }
   response_data->SetStatus(response.HttpStatusCode());
-  if (response.Url().ProtocolIsAbout() || response.Url().ProtocolIsData() ||
-      response.Url().ProtocolIs("blob")) {
+  if (response.CurrentRequestUrl().ProtocolIsAbout() ||
+      response.CurrentRequestUrl().ProtocolIsData() ||
+      response.CurrentRequestUrl().ProtocolIs("blob")) {
     response_data->SetStatusMessage("OK");
   } else {
     response_data->SetStatusMessage(response.HttpStatusText());
@@ -554,17 +568,30 @@ void FetchManager::Loader::DidReceiveResponse(
 
   for (auto& it : response.HttpHeaderFields())
     response_data->HeaderList()->Append(it.key, it.value);
+
+  // Corresponds to https://fetch.spec.whatwg.org/#main-fetch step:
+  // "If |internalResponse|’s URL list is empty, then set it to a clone of
+  // |request|’s URL list."
   if (response.UrlListViaServiceWorker().IsEmpty()) {
-    // Note: |urlListViaServiceWorker| is empty, unless the response came from a
-    // service worker, in which case it will only be empty if it was created
-    // through MakeGarbageCollected<Response>().
+    // Note: |UrlListViaServiceWorker()| is empty, unless the response came from
+    // a service worker, in which case it will only be empty if it was created
+    // through new Response().
     response_data->SetURLList(url_list_);
   } else {
     DCHECK(response.WasFetchedViaServiceWorker());
     response_data->SetURLList(response.UrlListViaServiceWorker());
   }
+
   response_data->SetMIMEType(response.MimeType());
   response_data->SetResponseTime(response.ResponseTime());
+
+  if (response.WasCached()) {
+    response_data->SetResponseSource(
+        network::mojom::FetchResponseSource::kHttpCache);
+  } else if (!response.WasFetchedViaServiceWorker()) {
+    response_data->SetResponseSource(
+        network::mojom::FetchResponseSource::kNetwork);
+  }
 
   FetchResponseData* tainted_response = nullptr;
 
@@ -604,7 +631,7 @@ void FetchManager::Loader::DidReceiveResponse(
     DCHECK(!integrity_verifier_);
     integrity_verifier_ = MakeGarbageCollected<SRIVerifier>(
         std::move(handle), sri_consumer, r, this,
-        fetch_request_data_->Integrity(), response.Url(),
+        fetch_request_data_->Integrity(), response.CurrentRequestUrl(),
         r->GetResponse()->GetType(),
         resolver_->GetExecutionContext()->GetTaskRunner(TaskType::kNetworking));
   }

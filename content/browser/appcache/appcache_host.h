@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <vector>
 
 #include "base/callback.h"
 #include "base/gtest_prod_util.h"
@@ -20,7 +21,10 @@
 #include "content/browser/appcache/appcache_storage.h"
 #include "content/common/appcache_interfaces.h"
 #include "content/common/content_export.h"
+#include "content/public/common/child_process_host.h"
 #include "content/public/common/resource_type.h"
+#include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
+#include "third_party/blink/public/mojom/appcache/appcache_info.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -31,21 +35,13 @@ class URLRequest;
 namespace content {
 FORWARD_DECLARE_TEST(AppCacheGroupTest, CleanupUnusedGroup);
 FORWARD_DECLARE_TEST(AppCacheGroupTest, QueueUpdate);
-FORWARD_DECLARE_TEST(AppCacheHostTest, Basic);
-FORWARD_DECLARE_TEST(AppCacheHostTest, SelectNoCache);
-FORWARD_DECLARE_TEST(AppCacheHostTest, ForeignEntry);
 FORWARD_DECLARE_TEST(AppCacheHostTest, FailedCacheLoad);
 FORWARD_DECLARE_TEST(AppCacheHostTest, FailedGroupLoad);
 FORWARD_DECLARE_TEST(AppCacheHostTest, SetSwappableCache);
-FORWARD_DECLARE_TEST(AppCacheHostTest, ForDedicatedWorker);
-FORWARD_DECLARE_TEST(AppCacheHostTest, SelectCacheAllowed);
-FORWARD_DECLARE_TEST(AppCacheHostTest, SelectCacheBlocked);
-FORWARD_DECLARE_TEST(AppCacheHostTest, SelectCacheTwice);
 FORWARD_DECLARE_TEST(AppCacheTest, CleanupUnusedCache);
 class AppCache;
 class AppCacheFrontend;
 class AppCacheGroupTest;
-class AppCacheHostTest;
 class AppCacheRequest;
 class AppCacheRequestHandler;
 class AppCacheRequestHandlerTest;
@@ -57,7 +53,8 @@ namespace appcache_update_job_unittest {
 class AppCacheUpdateJobTest;
 }
 
-using GetStatusCallback = base::OnceCallback<void(AppCacheStatus)>;
+using GetStatusCallback =
+    base::OnceCallback<void(blink::mojom::AppCacheStatus)>;
 using StartUpdateCallback = base::OnceCallback<void(bool)>;
 using SwapCacheCallback = base::OnceCallback<void(bool)>;
 
@@ -67,7 +64,6 @@ class CONTENT_EXPORT AppCacheHost
       public AppCacheGroup::UpdateObserver,
       public AppCacheServiceImpl::Observer {
  public:
-
   class CONTENT_EXPORT Observer {
    public:
     // Called just after the cache selection algorithm completes.
@@ -79,7 +75,9 @@ class CONTENT_EXPORT AppCacheHost
     virtual ~Observer() {}
   };
 
-  AppCacheHost(int host_id, AppCacheFrontend* frontend,
+  AppCacheHost(int host_id,
+               int process_id,
+               AppCacheFrontend* frontend,
                AppCacheServiceImpl* service);
   ~AppCacheHost() override;
 
@@ -88,16 +86,19 @@ class CONTENT_EXPORT AppCacheHost
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
-  // Support for cache selection and scriptable method calls.
+  // Support for cache selection and scriptable method calls. These methods
+  // return false if their preconditions have been broken.
+  // TODO(mek): WARN_UNUSED_RESULT to make sure we're actually checking the
+  // return values.
   bool SelectCache(const GURL& document_url,
                    const int64_t cache_document_was_loaded_from,
                    const GURL& manifest_url);
   bool SelectCacheForSharedWorker(int64_t appcache_id);
   bool MarkAsForeignEntry(const GURL& document_url,
                           int64_t cache_document_was_loaded_from);
-  void GetStatusWithCallback(GetStatusCallback callback);
-  void StartUpdateWithCallback(StartUpdateCallback callback);
-  void SwapCacheWithCallback(SwapCacheCallback callback);
+  bool GetStatusWithCallback(GetStatusCallback callback);
+  bool StartUpdateWithCallback(StartUpdateCallback callback);
+  bool SwapCacheWithCallback(SwapCacheCallback callback);
 
   // Called prior to the main resource load. When the system contains multiple
   // candidates for a main resource load, the appcache preferred by the host
@@ -123,7 +124,8 @@ class CONTENT_EXPORT AppCacheHost
       bool should_reset_appcache);
 
   // Support for devtools inspecting appcache resources.
-  void GetResourceList(std::vector<AppCacheResourceInfo>* resource_infos);
+  void GetResourceList(
+      std::vector<blink::mojom::AppCacheResourceInfo>* resource_infos);
 
   // Breaks any existing association between this host and a cache.
   // 'manifest_url' is sent to DevTools as the manifest url that could have
@@ -168,6 +170,16 @@ class CONTENT_EXPORT AppCacheHost
 
   int host_id() const { return host_id_; }
 
+  int process_id() const {
+    DCHECK_NE(process_id_, ChildProcessHost::kInvalidUniqueID);
+    return process_id_;
+  }
+  // SetProcessId may only be called once, and only if kInvalidUniqueID was
+  // passed to the AppCacheHost's constructor (e.g. in a scenario where
+  // NavigationHandleImpl needs to delay specifying the |process_id| until
+  // ReadyToCommit time).
+  void SetProcessId(int process_id);
+
   AppCacheServiceImpl* service() const { return service_; }
   AppCacheStorage* storage() const { return storage_; }
   AppCacheFrontend* frontend() const { return frontend_; }
@@ -185,11 +197,15 @@ class CONTENT_EXPORT AppCacheHost
   }
 
   bool is_selection_pending() const {
-    return pending_selected_cache_id_ != kAppCacheNoCacheId ||
+    return pending_selected_cache_id_ != blink::mojom::kAppCacheNoCacheId ||
            !pending_selected_manifest_url_.is_empty();
   }
 
   const GURL& first_party_url() const { return first_party_url_; }
+  void SetFirstPartyUrlForTesting(const GURL& url) {
+    first_party_url_ = url;
+    first_party_url_initialized_ = true;
+  }
 
   // Returns a weak pointer reference to the host.
   base::WeakPtr<AppCacheHost> GetWeakPtr();
@@ -205,12 +221,11 @@ class CONTENT_EXPORT AppCacheHost
       AppCacheSubresourceURLFactory* subresource_factory);
 
  private:
-  friend class content::AppCacheHostTest;
   friend class content::AppCacheStorageImplTest;
   friend class content::AppCacheRequestHandlerTest;
   friend class content::appcache_update_job_unittest::AppCacheUpdateJobTest;
 
-  AppCacheStatus GetStatus();
+  blink::mojom::AppCacheStatus GetStatus();
   void LoadSelectedCache(int64_t cache_id);
   void LoadOrCreateGroup(const GURL& manifest_url);
 
@@ -236,7 +251,7 @@ class CONTENT_EXPORT AppCacheHost
 
   // Returns true if this host is for a dedicated worker context.
   bool is_for_dedicated_worker() const {
-    return parent_host_id_ != kAppCacheNoHostId;
+    return parent_host_id_ != blink::mojom::kAppCacheNoHostId;
   }
 
   // Returns the parent context's host instance. This is only valid
@@ -245,6 +260,10 @@ class CONTENT_EXPORT AppCacheHost
 
   // Identifies the corresponding appcache host in the child process.
   int host_id_;
+
+  // Identifies the renderer process associated with the AppCacheHost.  Used for
+  // security checks via ChildProcessSecurityPolicyImpl::CanAccessDataForOrigin.
+  int process_id_;
 
   // Information about the host that created this one; the manifest
   // preferred by our creator influences which cache our main resource
@@ -347,19 +366,13 @@ class CONTENT_EXPORT AppCacheHost
 
   // First party url to be used in policy checks.
   GURL first_party_url_;
+  bool first_party_url_initialized_ = false;
 
   FRIEND_TEST_ALL_PREFIXES(content::AppCacheGroupTest, CleanupUnusedGroup);
   FRIEND_TEST_ALL_PREFIXES(content::AppCacheGroupTest, QueueUpdate);
-  FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, Basic);
-  FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, SelectNoCache);
-  FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, ForeignEntry);
   FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, FailedCacheLoad);
   FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, FailedGroupLoad);
   FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, SetSwappableCache);
-  FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, ForDedicatedWorker);
-  FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, SelectCacheAllowed);
-  FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, SelectCacheBlocked);
-  FRIEND_TEST_ALL_PREFIXES(content::AppCacheHostTest, SelectCacheTwice);
   FRIEND_TEST_ALL_PREFIXES(content::AppCacheTest, CleanupUnusedCache);
 
   // In the network service world points to the subresource URLLoaderFactory.

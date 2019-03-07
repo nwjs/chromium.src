@@ -52,11 +52,10 @@ void IdentityManagerObserverBridge::OnPrimaryAccountSigninFailed(
 }
 
 void IdentityManagerObserverBridge::OnRefreshTokenUpdatedForAccount(
-    const AccountInfo& account_info,
-    bool is_valid) {
-  if ([delegate_ respondsToSelector:@selector
-                 (onRefreshTokenUpdatedForAccount:valid:)]) {
-    [delegate_ onRefreshTokenUpdatedForAccount:account_info valid:is_valid];
+    const AccountInfo& account_info) {
+  if ([delegate_
+          respondsToSelector:@selector(onRefreshTokenUpdatedForAccount:)]) {
+    [delegate_ onRefreshTokenUpdatedForAccount:account_info];
   }
 }
 
@@ -75,9 +74,12 @@ void IdentityManagerObserverBridge::OnRefreshTokensLoaded() {
 }
 
 void IdentityManagerObserverBridge::OnAccountsInCookieUpdated(
-    const std::vector<AccountInfo>& accounts) {
-  if ([delegate_ respondsToSelector:@selector(onAccountsInCookieUpdated:)]) {
-    [delegate_ onAccountsInCookieUpdated:accounts];
+    const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+    const GoogleServiceAuthError& error) {
+  if ([delegate_ respondsToSelector:@selector(onAccountsInCookieUpdated:
+                                                                  error:)]) {
+    [delegate_ onAccountsInCookieUpdated:accounts_in_cookie_jar_info
+                                   error:error];
   }
 }
 

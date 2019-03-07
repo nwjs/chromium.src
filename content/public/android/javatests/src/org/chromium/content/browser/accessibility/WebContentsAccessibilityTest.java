@@ -385,6 +385,7 @@ public class WebContentsAccessibilityTest {
         Assert.fail("ACTION_SET_TEXT not found");
     }
 
+
     /**
      * ContentEditable elements should get a class name of EditText.
      **/

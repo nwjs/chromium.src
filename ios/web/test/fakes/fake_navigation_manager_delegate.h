@@ -22,11 +22,13 @@ class FakeNavigationManagerDelegate : public NavigationManagerDelegate {
   void LoadIfNecessary() override;
   void Reload() override;
   void OnNavigationItemsPruned(size_t pruned_item_count) override;
-  void OnNavigationItemChanged() override;
-  void OnNavigationItemCommitted(
-      const LoadCommittedDetails& load_details) override;
+  void OnNavigationItemCommitted(NavigationItem* item) override;
   WebState* GetWebState() override;
   id<CRWWebViewNavigationProxy> GetWebViewNavigationProxy() const override;
+  void GoToBackForwardListItem(WKBackForwardListItem* wk_item,
+                               NavigationItem* item,
+                               NavigationInitiationType type,
+                               bool has_user_gesture) override;
   void RemoveWebView() override;
 
   // Setters for tests to inject dependencies.

@@ -107,6 +107,7 @@ class AutofillCapturedSitesInteractiveTest
   // TestRecipeReplayChromeFeatureActionExecutor
   bool AutofillForm(content::RenderFrameHost* frame,
                     const std::string& focus_element_css_selector,
+                    const std::vector<std::string> iframe_path,
                     const int attempts = 1) override {
     content::WebContents* web_contents =
         content::WebContents::FromRenderFrameHost(frame);
@@ -121,7 +122,8 @@ class AutofillCapturedSitesInteractiveTest
       tries++;
       autofill_manager->client()->HideAutofillPopup();
 
-      if (!ShowAutofillSuggestion(frame, focus_element_css_selector)) {
+      if (!ShowAutofillSuggestion(frame, focus_element_css_selector,
+                                  iframe_path)) {
         LOG(WARNING) << "Failed to bring up the autofill suggestion drop down.";
         continue;
       }
@@ -171,8 +173,8 @@ class AutofillCapturedSitesInteractiveTest
           type == autofill::CREDIT_CARD_NAME_LAST) {
         card_.SetRawInfo(autofill::CREDIT_CARD_NAME_FULL,
                          base::ASCIIToUTF16(""));
-        card_.SetRawInfo(type, base::UTF8ToUTF16(field_value));
       }
+      card_.SetRawInfo(type, base::UTF8ToUTF16(field_value));
     } else {
       profile_.SetRawInfo(type, base::UTF8ToUTF16(field_value));
     }
@@ -244,25 +246,25 @@ class AutofillCapturedSitesInteractiveTest
   const AutofillProfile profile() { return profile_; }
 
  private:
-
   bool ShowAutofillSuggestion(content::RenderFrameHost* frame,
-                              const std::string& target_element_xpath) {
+                              const std::string& target_element_xpath,
+                              const std::vector<std::string> iframe_path) {
     // First, automation should focus on the frame containg the autofill form.
     // Doing so ensures that Chrome scrolls the element into view if the
     // element is off the page.
     if (!captured_sites_test_utils::TestRecipeReplayer::PlaceFocusOnElement(
-            frame, target_element_xpath))
+            frame, target_element_xpath, iframe_path))
       return false;
 
-    int x, y;
+    gfx::Rect rect;
     if (!captured_sites_test_utils::TestRecipeReplayer::
-            GetCenterCoordinateOfTargetElement(frame, target_element_xpath, x,
-                                               y))
+            GetBoundingRectOfTargetElement(frame, target_element_xpath,
+                                           iframe_path, &rect))
       return false;
 
     test_delegate()->Reset();
     if (!captured_sites_test_utils::TestRecipeReplayer::
-            SimulateLeftMouseClickAt(frame, gfx::Point(x, y)))
+            SimulateLeftMouseClickAt(frame, rect.CenterPoint()))
       return false;
 
     return test_delegate()->Wait({ObservedUiEvents::kSuggestionShown},

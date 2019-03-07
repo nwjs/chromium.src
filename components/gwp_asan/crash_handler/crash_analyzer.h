@@ -47,8 +47,10 @@ class CrashAnalyzer {
     kErrorMismatchedBitness = 7,
     // The allocator computed an invalid slot index.
     kErrorBadSlot = 8,
+    // Failed to read the crashing process' memory of the SlotMetadata.
+    kErrorFailedToReadSlotMetadata = 9,
     // Number of values in this enumeration, required by UMA.
-    kMaxValue = kErrorBadSlot
+    kMaxValue = kErrorFailedToReadSlotMetadata
   };
 
   // Given a ProcessSnapshot, determine if the exception is related to GWP-ASan.
@@ -61,10 +63,6 @@ class CrashAnalyzer {
 
  private:
   using SlotMetadata = AllocatorState::SlotMetadata;
-
-  // The maximum stack trace size the analyzer will extract from a crashing
-  // process.
-  static constexpr size_t kMaxStackTraceLen = 64;
 
   // Given an ExceptionSnapshot, return the address of where the exception
   // occurred (or null if it was not a data access exception.)
@@ -88,16 +86,8 @@ class CrashAnalyzer {
 
   // This method fills out an AllocationInfo protobuf from a
   // SlotMetadata::AllocationInfo struct.
-  static bool ReadAllocationInfo(const crashpad::ProcessMemory& memory,
-                                 const SlotMetadata::AllocationInfo& slot_info,
+  static void ReadAllocationInfo(const SlotMetadata::AllocationInfo& slot_info,
                                  gwp_asan::Crash_AllocationInfo* proto_info);
-
-  // Read a stack trace from a crashing process with address crashing_trace_addr
-  // and length trace_len into trace_output. On failure returns false.
-  static bool ReadStackTrace(const crashpad::ProcessMemory& memory,
-                             crashpad::VMAddress crashing_trace_addr,
-                             uintptr_t* trace_output,
-                             size_t trace_len);
 };
 
 }  // namespace internal

@@ -39,17 +39,18 @@
 #include "build/build_config.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
+using base::sequence_manager::internal::EnqueueOrder;
+using testing::_;
 using testing::AnyNumber;
 using testing::Contains;
 using testing::ElementsAre;
 using testing::ElementsAreArray;
+using testing::HasSubstr;
 using testing::Mock;
 using testing::Not;
 using testing::Return;
 using testing::StrictMock;
 using testing::UnorderedElementsAre;
-using testing::_;
-using base::sequence_manager::internal::EnqueueOrder;
 
 namespace base {
 namespace sequence_manager {
@@ -105,9 +106,10 @@ class SequenceManagerTest : public SequenceManagerTestBase {
     test_task_runner_->AdvanceMockTickClock(TimeDelta::FromMilliseconds(1));
     start_time_ = GetTickClock()->NowTicks();
 
-    manager_ =
-        SequenceManagerForTest::Create(nullptr, ThreadTaskRunnerHandle::Get(),
-                                       test_task_runner_->GetMockTickClock());
+    manager_ = SequenceManagerForTest::Create(
+        nullptr, ThreadTaskRunnerHandle::Get(),
+        test_task_runner_->GetMockTickClock(),
+        SequenceManager::Settings{.randomised_sampling_enabled = false});
   }
 
   const TickClock* GetTickClock() {
@@ -178,7 +180,8 @@ class SequenceManagerTestWithMessageLoop : public SequenceManagerTestBase {
 
     manager_ = SequenceManagerForTest::Create(
         message_loop_->GetMessageLoopBase(), ThreadTaskRunnerHandle::Get(),
-        &mock_clock_);
+        &mock_clock_,
+        SequenceManager::Settings{.randomised_sampling_enabled = false});
   }
 
   void SetUpWithMessagePump() {
@@ -186,7 +189,8 @@ class SequenceManagerTestWithMessageLoop : public SequenceManagerTestBase {
     start_time_ = mock_clock_.NowTicks();
     manager_ = SequenceManagerForTest::Create(
         std::make_unique<ThreadControllerWithMessagePumpImpl>(
-            std::make_unique<MessagePumpDefault>(), &mock_clock_));
+            std::make_unique<MessagePumpDefault>(), &mock_clock_),
+        SequenceManager::Settings{.randomised_sampling_enabled = false});
     // ThreadControllerWithMessagePumpImpl doesn't provide
     // a default task runner.
     default_task_queue_ = manager_->CreateTaskQueueWithType<TestTaskQueue>(
@@ -213,7 +217,8 @@ class SequenceManagerTestWithMessagePump : public SequenceManagerTestBase {
 
     manager_ = SequenceManagerForTest::Create(
         message_loop_->GetMessageLoopBase(), ThreadTaskRunnerHandle::Get(),
-        &mock_clock_);
+        &mock_clock_,
+        SequenceManager::Settings{.randomised_sampling_enabled = false});
   }
 
   void SetUpWithMessagePump() {
@@ -221,7 +226,8 @@ class SequenceManagerTestWithMessagePump : public SequenceManagerTestBase {
     start_time_ = mock_clock_.NowTicks();
     manager_ = SequenceManagerForTest::Create(
         std::make_unique<ThreadControllerWithMessagePumpImpl>(
-            std::make_unique<MessagePumpDefault>(), &mock_clock_));
+            std::make_unique<MessagePumpDefault>(), &mock_clock_),
+        SequenceManager::Settings{.randomised_sampling_enabled = false});
     // ThreadControllerWithMessagePumpImpl doesn't provide
     // a default task runner.
     default_task_queue_ = manager_->CreateTaskQueueWithType<TestTaskQueue>(
@@ -298,7 +304,8 @@ TEST_P(SequenceManagerTestWithCustomInitialization, NowNotCalledIfUnneeded) {
   TestCountUsesTimeSource test_count_uses_time_source;
 
   manager_ = SequenceManagerForTest::Create(
-      nullptr, ThreadTaskRunnerHandle::Get(), &test_count_uses_time_source);
+      nullptr, ThreadTaskRunnerHandle::Get(), &test_count_uses_time_source,
+      SequenceManager::Settings{.randomised_sampling_enabled = false});
   manager_->SetWorkBatchSize(6);
 
   CreateTaskQueues(3u);
@@ -321,7 +328,8 @@ TEST_P(SequenceManagerTestWithCustomInitialization,
   TestCountUsesTimeSource test_count_uses_time_source;
 
   manager_ = SequenceManagerForTest::Create(
-      nullptr, ThreadTaskRunnerHandle::Get(), &test_count_uses_time_source);
+      nullptr, ThreadTaskRunnerHandle::Get(), &test_count_uses_time_source,
+      SequenceManager::Settings{.randomised_sampling_enabled = false});
   manager_->SetWorkBatchSize(6);
   manager_->AddTaskTimeObserver(&test_task_time_observer_);
 
@@ -346,7 +354,8 @@ TEST_P(SequenceManagerTestWithCustomInitialization,
   TestCountUsesTimeSource test_count_uses_time_source;
 
   manager_ = SequenceManagerForTest::Create(
-      nullptr, ThreadTaskRunnerHandle::Get(), &test_count_uses_time_source);
+      nullptr, ThreadTaskRunnerHandle::Get(), &test_count_uses_time_source,
+      SequenceManager::Settings{.randomised_sampling_enabled = false});
   manager_->SetWorkBatchSize(6);
   manager_->AddTaskTimeObserver(&test_task_time_observer_);
 
@@ -2244,7 +2253,7 @@ TEST_P(SequenceManagerTest, TaskQueueObserver_SweepCanceledDelayedTasks) {
   EXPECT_CALL(observer,
               OnQueueNextWakeUpChanged(queues_[0].get(), start_time + delay2))
       .Times(1);
-  manager_->SweepCanceledDelayedTasks();
+  manager_->ReclaimMemory();
 }
 
 namespace {
@@ -2833,14 +2842,51 @@ TEST_P(SequenceManagerTest, SweepCanceledDelayedTasks) {
   task3.weak_factory_.InvalidateWeakPtrs();
   EXPECT_EQ(4u, queues_[0]->GetNumberOfPendingTasks());
 
-  manager_->SweepCanceledDelayedTasks();
+  manager_->ReclaimMemory();
   EXPECT_EQ(2u, queues_[0]->GetNumberOfPendingTasks());
 
   task1.weak_factory_.InvalidateWeakPtrs();
   task4.weak_factory_.InvalidateWeakPtrs();
 
-  manager_->SweepCanceledDelayedTasks();
+  manager_->ReclaimMemory();
   EXPECT_EQ(0u, queues_[0]->GetNumberOfPendingTasks());
+}
+
+TEST_P(SequenceManagerTest, SweepCanceledDelayedTasks_ManyTasks) {
+  CreateTaskQueues(1u);
+
+  TimeTicks start_time = manager_->NowTicks();
+
+  constexpr const int kNumTasks = 100;
+
+  std::vector<std::unique_ptr<CancelableTask>> tasks(100);
+  std::vector<TimeTicks> run_times;
+  for (int i = 0; i < kNumTasks; i++) {
+    tasks[i] = std::make_unique<CancelableTask>(GetTickClock());
+    queues_[0]->task_runner()->PostDelayedTask(
+        FROM_HERE,
+        BindOnce(&CancelableTask::RecordTimeTask,
+                 tasks[i]->weak_factory_.GetWeakPtr(), &run_times),
+        TimeDelta::FromSeconds(i + 1));
+  }
+
+  // Invalidate ever other timer.
+  for (int i = 0; i < kNumTasks; i++) {
+    if (i % 2)
+      tasks[i]->weak_factory_.InvalidateWeakPtrs();
+  }
+
+  manager_->ReclaimMemory();
+  EXPECT_EQ(50u, queues_[0]->GetNumberOfPendingTasks());
+
+  // Make sure the priority queue still operates as expected.
+  test_task_runner_->FastForwardUntilNoTasksRemain();
+  ASSERT_EQ(50u, run_times.size());
+  for (int i = 0; i < 50; i++) {
+    TimeTicks expected_run_time =
+        start_time + TimeDelta::FromSeconds(2 * i + 1);
+    EXPECT_EQ(run_times[i], expected_run_time);
+  }
 }
 
 TEST_P(SequenceManagerTest, DelayTillNextTask) {
@@ -3376,8 +3422,10 @@ TEST_P(SequenceManagerTestWithCustomInitialization, DefaultTaskRunnerSupport) {
       MakeRefCounted<TestSimpleTaskRunner>();
   {
     std::unique_ptr<SequenceManagerForTest> manager =
-        SequenceManagerForTest::Create(message_loop.GetMessageLoopBase(),
-                                       message_loop.task_runner(), nullptr);
+        SequenceManagerForTest::Create(
+            message_loop.GetMessageLoopBase(), message_loop.task_runner(),
+            nullptr,
+            SequenceManager::Settings{.randomised_sampling_enabled = false});
     manager->SetDefaultTaskRunner(custom_task_runner);
     DCHECK_EQ(custom_task_runner, message_loop.task_runner());
   }
@@ -4069,6 +4117,70 @@ TEST_P(SequenceManagerTest, PostDelayedTaskFromOtherThread) {
   test_task_runner_->FastForwardUntilNoTasksRemain();
   RunLoop().RunUntilIdle();
   thread.Stop();
+}
+
+void PostTaskA(scoped_refptr<TaskRunner> task_runner) {
+  task_runner->PostTask(FROM_HERE, BindOnce(&NopTask));
+  task_runner->PostDelayedTask(FROM_HERE, BindOnce(&NopTask),
+                               base::TimeDelta::FromMilliseconds(10));
+}
+
+void PostTaskB(scoped_refptr<TaskRunner> task_runner) {
+  task_runner->PostTask(FROM_HERE, BindOnce(&NopTask));
+  task_runner->PostDelayedTask(FROM_HERE, BindOnce(&NopTask),
+                               base::TimeDelta::FromMilliseconds(20));
+}
+
+void PostTaskC(scoped_refptr<TaskRunner> task_runner) {
+  task_runner->PostTask(FROM_HERE, BindOnce(&NopTask));
+  task_runner->PostDelayedTask(FROM_HERE, BindOnce(&NopTask),
+                               base::TimeDelta::FromMilliseconds(30));
+}
+
+TEST_P(SequenceManagerTest, DescribeAllPendingTasks) {
+  CreateTaskQueues(3u);
+
+  PostTaskA(queues_[0]->task_runner());
+  PostTaskB(queues_[1]->task_runner());
+  PostTaskC(queues_[2]->task_runner());
+
+  std::string description = manager_->DescribeAllPendingTasks();
+  EXPECT_THAT(description, HasSubstr("PostTaskA@"));
+  EXPECT_THAT(description, HasSubstr("PostTaskB@"));
+  EXPECT_THAT(description, HasSubstr("PostTaskC@"));
+}
+
+TEST_P(SequenceManagerTest, TaskPriortyInterleaving) {
+  CreateTaskQueues(TaskQueue::QueuePriority::kQueuePriorityCount);
+
+  for (uint8_t priority = 0;
+       priority < TaskQueue::QueuePriority::kQueuePriorityCount; priority++) {
+    if (priority != TaskQueue::QueuePriority::kNormalPriority) {
+      queues_[priority]->SetQueuePriority(
+          static_cast<TaskQueue::QueuePriority>(priority));
+    }
+  }
+
+  std::string order;
+  for (int i = 0; i < 60; i++) {
+    for (uint8_t priority = 0;
+         priority < TaskQueue::QueuePriority::kQueuePriorityCount; priority++) {
+      queues_[priority]->task_runner()->PostTask(
+          FROM_HERE,
+          base::BindOnce([](std::string* str, char c) { str->push_back(c); },
+                         &order, '0' + priority));
+    }
+  }
+
+  RunLoop().RunUntilIdle();
+
+  EXPECT_EQ(order,
+            "000000000000000000000000000000000000000000000000000000000000"
+            "111121111213112141121113121111211412311121111211312411121111"
+            "231112114121131211112111123412222223222224223222222223242222"
+            "223222222423222222223433333343333334333333433333343333334333"
+            "333433333343333344444444444444444444444444444444444444444444"
+            "555555555555555555555555555555555555555555555555555555555555");
 }
 
 }  // namespace sequence_manager_impl_unittest

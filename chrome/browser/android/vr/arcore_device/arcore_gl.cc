@@ -75,6 +75,9 @@ gfx::Transform ConvertUvsToTransformMatrix(const std::vector<float>& uvs) {
   return result;
 }
 
+const gfx::Size kDefaultFrameSize = {1, 1};
+const display::Display::Rotation kDefaultRotation = display::Display::ROTATE_0;
+
 }  // namespace
 
 namespace device {
@@ -135,7 +138,7 @@ void ArCoreGl::Initialize(vr::ArCoreInstallUtils* install_utils,
   // Set the texture on ArCore to render the camera.
   arcore_->SetCameraTexture(ar_image_transport_->GetCameraTextureId());
   // Set the Geometry to ensure consistent behaviour.
-  arcore_->SetDisplayGeometry(gfx::Size(0, 0), display::Display::ROTATE_0);
+  arcore_->SetDisplayGeometry(kDefaultFrameSize, kDefaultRotation);
 
   is_initialized_ = true;
 
@@ -208,9 +211,11 @@ void ArCoreGl::ProduceFrame(
     should_recalculate_uvs_ = false;
   }
 
-  // Now check if the frame_size or display_rotation neds to be updated
+  // Now check if the frame_size or display_rotation needs to be updated
   // for the next frame. This must happen after the should_recalculate_uvs_
   // check above to ensure it executes with the needed one-frame delay.
+  // The delay is needed due to the fact that ArCoreImpl already got a frame
+  // and we don't want to calculate uvs for stale frame with new geometry.
   if (transfer_size_ != frame_size || display_rotation_ != display_rotation) {
     // Set display geometry before calling Update. It's a pending request that
     // applies to the next frame.
@@ -260,8 +265,7 @@ void ArCoreGl::ProduceFrame(
   gl_thread_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&ArCoreGl::ProcessFrame, weak_ptr_factory_.GetWeakPtr(),
-                     base::Passed(&frame_data), frame_size,
-                     base::Passed(&callback)));
+                     base::Passed(&frame_data), base::Passed(&callback)));
 }
 
 void ArCoreGl::RequestHitTest(
@@ -279,7 +283,6 @@ void ArCoreGl::RequestHitTest(
 
 void ArCoreGl::ProcessFrame(
     mojom::XRFrameDataPtr frame_data,
-    const gfx::Size& frame_size,
     mojom::XRFrameDataProvider::GetFrameDataCallback callback) {
   DCHECK(IsOnGlThread());
   DCHECK(is_initialized_);
@@ -299,7 +302,7 @@ void ArCoreGl::ProcessFrame(
   // obvious how the timing between the results and the frame should go.
   for (auto& request : hit_test_requests_) {
     std::vector<mojom::XRHitResultPtr> results;
-    if (arcore_->RequestHitTest(request->ray, frame_size, &results)) {
+    if (arcore_->RequestHitTest(request->ray, &results)) {
       std::move(request->callback).Run(std::move(results));
     } else {
       // Hit test failed, i.e. unprojected location was offscreen.

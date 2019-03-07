@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 
+#include "ash/public/interfaces/assistant_setup.mojom.h"
 #include "base/macros.h"
 #include "chrome/browser/chromeos/arc/voice_interaction/voice_interaction_controller_client.h"
 #include "chrome/browser/chromeos/login/screens/assistant_optin_flow_screen_view.h"
@@ -81,16 +82,14 @@ class AssistantOptInFlowScreenHandler
   void HandleVoiceMatchScreenUserAction(const std::string& action);
   void HandleGetMoreScreenUserAction(const bool screen_context,
                                      const bool email_opted_in);
-  void HandleReadyScreenUserAction(const std::string& action);
   void HandleValuePropScreenShown();
   void HandleThirdPartyScreenShown();
   void HandleVoiceMatchScreenShown();
   void HandleGetMoreScreenShown();
-  void HandleReadyScreenShown();
   void HandleLoadingTimeout();
   void HandleHotwordResult(bool enable_hotword);
   void HandleFlowFinished();
-  void HandleFlowInitialized();
+  void HandleFlowInitialized(const int flow_type);
 
   AssistantOptInFlowScreen* screen_ = nullptr;
 

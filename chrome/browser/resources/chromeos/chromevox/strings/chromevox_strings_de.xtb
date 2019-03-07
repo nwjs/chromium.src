@@ -54,6 +54,7 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="1346059596910821859">Trinkgeld</translation>
 <translation id="1346748346194534595">Rechts</translation>
 <translation id="135978014023467274">ChromeVox wurde auf Version 63 aktualisiert.</translation>
+<translation id="1360699455582016846">Klicken Sie auf das Element unterhalb des Routing-Schlüssels <ph name="ROUTING_KEY_NUMBER" /></translation>
 <translation id="136718599399906424">Nächste Tabellenzeile</translation>
 <translation id="1377925789329510816">Hierbei handelt es sich um die letzte Überschrift. Drücken Sie "Suche + H", um zur ersten Überschrift zu gelangen, oder "Suche + Umschalttaste + H", um zur zweiten Überschrift auf dieser Seite zu springen.</translation>
 <translation id="1383876407941801731">Suchen</translation>
@@ -104,6 +105,7 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="1828385960365606039">Mai</translation>
 <translation id="1834891354138622109">Spalte</translation>
 <translation id="1845944666972354496">Zum Aktivieren doppeltippen</translation>
+<translation id="1846771122725914429">Bluetooth-Braillezeile</translation>
 <translation id="1865601187525349519">Ende des Texts</translation>
 <translation id="1876229593313240038">doc</translation>
 <translation id="188130072164734898">Uhrzeit und Datum ansagen</translation>
@@ -111,6 +113,7 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="1905379170753160525">Überschriftenliste anzeigen</translation>
 <translation id="1912556590115083156">vlnk</translation>
 <translation id="1913761808037590218">#ed</translation>
+<translation id="1914635379910604678">Akkord mit <ph name="DOT" /></translation>
 <translation id="1954623340234317532">Steuerung für Kalenderwoche</translation>
 <translation id="1964135212174907577">Nächstes Objekt</translation>
 <translation id="1969092762068865084">Juli</translation>
@@ -265,6 +268,7 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="316542773973815724">Navigation</translation>
 <translation id="3172700825913348768">{COUNT,plural, =1{Leerzeichen}other{# Leerzeichen}}</translation>
 <translation id="320961988183078793"><ph name="TYPE" /> eingegeben</translation>
+<translation id="3218691001991391708"><ph name="TEXT" /> einfügen.</translation>
 <translation id="3223701887221307104">Tab "<ph name="NAME" />"</translation>
 <translation id="3226035351387556942">chk</translation>
 <translation id="3229375994964697375">Besuchter Link</translation>
@@ -284,48 +288,6 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="3322936298410871309">Vorherige Überschrift der Ebene 1</translation>
 <translation id="3323447499041942178">Textfeld</translation>
 <translation id="3338224621010291843">Schieberegler <ph name="VALUE" /><ph name="NAME" /></translation>
-<translation id="3353420241558113817">{"ar": "Arabisch",
-        "bg": "Bulgarisch",
-        "ca": "Katalanisch",
-        "cs": "Tschechisch",
-        "da": "Dänisch",
-        "de": "Deutsch",
-        "de_CH": "Deutsch (Schweiz)",
-        "de_DE": "Deutsch (Deutschland)",
-        "el": "Griechisch",
-        "en": "Englisch",
-        "en_CA": "Englisch (Kanada)",
-        "en_GB": "Englisch (Vereinigtes Königreich)",
-        "en_US": "Englisch (USA)",
-        "es": "Spanisch",
-        "et": "Estnisch",
-        "fr": "Französisch",
-        "fr_CA": "Französisch (Kanada)",
-        "fr_FR": "Französisch (Frankreich)",
-        "fi": "Finnisch",
-        "he": "Hebräisch",
-        "hi": "Hindi",
-        "hr": "Kroatisch",
-        "hu": "Ungarisch",
-        "is": "Isländisch",
-        "it": "Italienisch",
-        "ko": "Koreanisch",
-        "lt": "Litauisch",
-        "lv": "Lettisch",
-        "nb": "Norwegisch (Bokmål)",
-        "nl": "Niederländisch",
-        "pl": "Polnisch",
-        "pt": "Portugiesisch",
-        "ro": "Rumänisch",
-        "ru": "Russisch",
-        "sk": "Slowakisch",
-        "sl": "Slowenisch",
-        "sr": "Serbisch",
-        "sv": "Schwedisch",
-        "tr": "Türkisch",
-        "vi": "Vietnamesisch",
-        "zh": "Chinesisch",
-        "zh_TW": ""Chinesisch (Traditionelles Han)"}</translation>
 <translation id="335581015389089642">Sprachausgabe</translation>
 <translation id="3359142382821736686">seprtr</translation>
 <translation id="3374537878095184207">{COUNT,plural, =1{Pluszeichen}other{# Pluszeichen}}</translation>
@@ -335,7 +297,6 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="3392045790598181549">Menüeintrag "<ph name="NAME" />"</translation>
 <translation id="3393605254399152980">Ziehen Sie einen Finger, um zu hören, was Sie berühren</translation>
 <translation id="3406283310380167331">Formularliste anzeigen</translation>
-<translation id="3423495725743882470">Zeile: $1, Spalte: $2</translation>
 <translation id="3457000393508828486">Teilweise gedrückt</translation>
 <translation id="3458865416877308321">Der Schalter "<ph name="NAME" />" ist deaktiviert</translation>
 <translation id="3462439746547587373">Schaltfläche "<ph name="NAME" />"</translation>
@@ -343,12 +304,14 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="3468959318854349468">Kein Titel</translation>
 <translation id="3473644018603298796">sld <ph name="COUNT" /></translation>
 <translation id="3486232535569802404"><ph name="V1" /> bis <ph name="V2" /></translation>
+<translation id="3490765818161916458">Listenraster</translation>
 <translation id="3492609944033322585">{COUNT,plural, =1{eckige Klammer rechts}other{# eckige Klammern rechts}}</translation>
 <translation id="3493915602752813531">Kein nächstes Ankerelement</translation>
 <translation id="3494946239022273294">mnuitm</translation>
 <translation id="3497063866483065785">{COUNT,plural, =1{Fragezeichen}other{# Fragezeichen}}</translation>
 <translation id="3514822174137761109">{COUNT,plural, =1{Caret-Zeichen}other{# Caret-Zeichen}}</translation>
 <translation id="352577523970648069">Ein bearbeitbares Textfeld</translation>
+<translation id="3549141990712742152"><ph name="TEXT" /> ausschneiden.</translation>
 <translation id="3549680091535286226">Tippen Sie mit zwei Fingern, um die Sprachausgabe vorübergehend zu beenden</translation>
 <translation id="3568702578574425662">Das Kästchen "<ph name="NAME" />" ist nicht angeklickt.</translation>
 <translation id="3589661172894441357">Glossar</translation>
@@ -373,14 +336,14 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="3793710123303304873">Dialogfeld geschlossen</translation>
 <translation id="3795836767122514678">+{COUNT,plural, =1{#}other{#}}</translation>
 <translation id="3801735343383419236">Liste der Autovervollständigungen</translation>
-<translation id="3810838688059735925">Video</translation>
-<translation id="3812237531158591503">$1 einfügen.</translation>
+<translation id="3810838688059735925">Videos</translation>
 <translation id="3816633764618089385">Nächstes Medium</translation>
 <translation id="3819376190738087562">Keine Sprünge</translation>
 <translation id="385383972552776628">Seite "Optionen" öffnen</translation>
 <translation id="3856075812838139784">Schreibgeschützt</translation>
 <translation id="3887576927692165210">ed</translation>
 <translation id="3897092660631435901">Menü</translation>
+<translation id="3907138069015388678">Listenraster</translation>
 <translation id="3909320334364316587">Vorherige Überschrift der Ebene 6</translation>
 <translation id="3914173277599553213">Erforderlich</translation>
 <translation id="3914732343065571127">ChromeVox – Befehle in der Übersicht</translation>
@@ -488,6 +451,7 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="4763480195061959176">Video</translation>
 <translation id="4764692524839457597">Standard</translation>
 <translation id="479989351350248267">Suchen</translation>
+<translation id="4804818685124855865">Verbindung trennen</translation>
 <translation id="481165870889056555">Titel der aktuellen Seite ansagen</translation>
 <translation id="4826415162591436065">Vorwärts navigieren</translation>
 <translation id="4826604887384865800">Nächster Sprung</translation>
@@ -529,6 +493,7 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="5020651427400641814">Sprachprotokollierung aktivieren</translation>
 <translation id="5041394372352067729">Braillezeile an den Seitenanfang verschieben</translation>
 <translation id="5042770794184672516">Sprachlautstärke erhöhen</translation>
+<translation id="5042992464904238023">Webinhalte</translation>
 <translation id="5050015258024679800">Vorherige Überschrift der Ebene 4</translation>
 <translation id="5054047268577924192">Vorheriges Listenelement</translation>
 <translation id="5075936896689244141">Next-Tastaturbelegung</translation>
@@ -557,6 +522,7 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="5291783959063340370">Objekt</translation>
 <translation id="5302089807023311274">Bibliografiereferenz</translation>
 <translation id="5304943142864553931">Tab "<ph name="TITLE" />"</translation>
+<translation id="5308380583665731573">Verbinden</translation>
 <translation id="5310788376443009632">Entfernt:</translation>
 <translation id="5320727453979144100">Fixierter Modus aktiviert</translation>
 <translation id="5321085947096604457">{COUNT,plural, =1{Komma}other{# Kommas}}</translation>
@@ -574,7 +540,6 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="5402791055281059602">Eine modale Benachrichtigung</translation>
 <translation id="5407530583102765689">{COUNT,plural, =1{Strichpunkt}other{# Strichpunkte}}</translation>
 <translation id="5411891038905756502">Kein vorheriger Ausgangspunkt</translation>
-<translation id="5417034931411865818">Klicken Sie auf das Element unterhalb des Routing-Schlüssels $1</translation>
 <translation id="5435274640623994081">Earcon-Protokollierung aktivieren</translation>
 <translation id="5436105723448703439">{COUNT,plural, =1{Kleiner-als-Zeichen}other{# Kleiner-als-Zeichen}}</translation>
 <translation id="5444587279251314700">(aktiv)</translation>
@@ -645,6 +610,7 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="5887397643266327462">Braille-Untertitel aktiviert</translation>
 <translation id="5891934789323004067">Tabelle</translation>
 <translation id="5899860758576822363">Mit geringerer Lautstärke wiedergeben, wenn eine Sprachausgabe durch ChromeVox stattfindet</translation>
+<translation id="5906974869830879618">Bitte geben Sie eine PIN ein</translation>
 <translation id="5921587111466148855">Kapitel</translation>
 <translation id="5937336320314038555">{COUNT,plural, =1{Gleichheitszeichen}other{# Gleichheitszeichen}}</translation>
 <translation id="5939518447894949180">Zurücksetzen</translation>
@@ -671,8 +637,8 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="6122013438240733403">btn</translation>
 <translation id="6129953537138746214">Leerzeichen</translation>
 <translation id="6132506484792346370">Ein Listen- oder Kombinationsfeld</translation>
-<translation id="6138576064440631958">$1 Akkord</translation>
 <translation id="6142308968191113180">Überschrift 4</translation>
+<translation id="6158882249329863701">Zeile <ph name="TABLECELLROWINDEX" />, Spalte <ph name="TABLECELLCOLUMNINDEX" /></translation>
 <translation id="6164829606128959761">Messinstrument</translation>
 <translation id="6169420925157477918">Bild mit ausführlicher Beschreibung</translation>
 <translation id="6186305613600865047">Zum Seitenende</translation>
@@ -688,16 +654,17 @@ Wenn Sie die Anleitung abgeschlossen haben, navigieren Sie mit ChromeVox zur Sch
 <translation id="6307969636681130414">Gedrückt</translation>
 <translation id="6322856989298155004">Töne</translation>
 <translation id="6324551002951139333">Grammatikfehler gefunden</translation>
+<translation id="6325241889020214828"><ph name="TEXT" /> kopieren.</translation>
 <translation id="6348657800373377022">Kombinationsfeld</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{Aufzählungspunkt}other{# Aufzählungspunkte}}</translation>
 <translation id="6355910664415701303">Kein vorheriges Listenelement</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">Vorherige Überschrift</translation>
-<translation id="6378565991815958969">$1 kopieren.</translation>
 <translation id="6385591741672306837">Spalte</translation>
 <translation id="6387719785439924554">aside</translation>
 <translation id="6411426777058107714">Kein vorheriges Optionsfeld</translation>
 <translation id="6414968628640960377">Vorheriges anderes Element</translation>
+<translation id="6417265370957905582">Google Assistant</translation>
 <translation id="641759969622533235">{COUNT,plural, =1{Doppelpunkt}other{# Doppelpunkte}}</translation>
 <translation id="6438968337250688271">Menü "<ph name="NAME" />"</translation>
 <translation id="6444046323172968959">Benachrichtigungsdialogfeld</translation>
@@ -773,6 +740,7 @@ Um das Chrome-Browsermenü zu öffnen, drücken Sie Alt + F.</translation>
 <translation id="712735679809149106">Wortecho</translation>
 <translation id="713824876195128146">Nächstes Blockzitat</translation>
 <translation id="7143034430156387447">Zwischen 6- und 8-Punkt-Braille wechseln</translation>
+<translation id="7143207342074048698">Verbindung wird hergestellt.</translation>
 <translation id="7157306005867877619">Zusammenfassung</translation>
 <translation id="7161425887892204659">Ende Textübereinstimmung</translation>
 <translation id="7161771961008409533">Pop-up-Schaltfläche</translation>
@@ -876,6 +844,89 @@ Um das Chrome-Browsermenü zu öffnen, drücken Sie Alt + F.</translation>
 <translation id="8037651341025652929">Fazit</translation>
 <translation id="8042761080832772327">Text bearbeiten, Sucheintrag</translation>
 <translation id="8049189770492311300">Timer</translation>
+<translation id="8056782883599416672">{"ar": "Arabisch",
+        "as": "Assamesisch",
+        "aw": "Awadhi",
+        "be": "Bengali",
+        "bg": "Bulgarisch",
+        "bh": "Bihari",
+        "bo": "Tibetisch",
+        "br": "Braj",
+        "ca": "Katalanisch",
+        "ckb": "Sorani",
+        "cs": "Tschechisch",
+        "cy": "Walisisch",
+        "da": "Dänisch",
+        "de": "Deutsch",
+        "de_CH": "Deutsch (Schweiz)",
+        "de_DE": "Deutsch (Deutschland)",
+        "dra": "Dravidisch",
+        "el": "Griechisch",
+        "en": "Englisch",
+        "en_CA": "Englisch (Kanada)",
+        "en_GB": "Englisch (Großbritannien)",
+        "en_US": "Englisch (USA)",
+        "eo": "Esperanto",
+        "es": "Spanisch",
+        "et": "Estnisch",
+        "fa": "Persisch",
+        "fr": "Französisch",
+        "fr_CA": "Französisch (Kanada)",
+        "fr_FR": "Französisch (Frankreich)",
+        "fi": "Finnisch",
+        "ga": "Irisch",
+        "gd": "Gälisch",
+        "gon": "Gondi",
+        "gu": "Gujarati",
+        "he": "Hebräisch",
+        "hi": "Hindi",
+        "hr": "Kroatisch",
+        "hu": "Ungarisch",
+        "hy": "Armenisch",
+        "is": "Isländisch",
+        "it": "Italienisch",
+        "iu": "Inuktitut",
+        "ka": "Kannada",
+        "kh": "Khasi",
+        "ko": "Koreanisch",
+        "kok": "Konkani",
+        "kru": "Kurukh",
+        "ks": "Kashmiri",
+        "lt": "Litauisch",
+        "lv": "Lettisch",
+        "mao": "Maorisch",
+        "ml": "Malayalam",
+        "mt": "Maltesisch",
+        "mwr": "Marwari",
+        "mn": "Mongolisch",
+        "mun": "Munda",
+        "nb": "Bokmål (Norwegen)",
+        "ne": "Nepali",
+        "nl": "Niederländisch",
+        "no": "Norwegisch",
+        "or": "Oriya",
+        "pi": "Pali",
+        "pl": "Polnisch",
+        "pt": "Portugiesisch",
+        "pu": "Punjabi",
+        "ro": "Rumänisch",
+        "ru": "Russisch",
+        "sa": "Sanskrit",
+        "si": "Sindhi",
+        "sin": "Singhalesisch",
+        "sk": "Slowakisch",
+        "sl": "Slowenisch",
+        "sr": "Serbisch",
+        "sv": "Schwedisch",
+        "ta": "Tamil",
+        "te": "Telugu",
+        "tr": "Türkisch",
+        "tsn": "Afrikaans",
+        "uk": "Ukrainisch",
+        "ur": "Urdu",
+        "vi": "Vietnamesisch",
+        "zh": "Chinesisch",
+        "zh_TW": "Chinesisch (traditionell, Han)"}</translation>
 <translation id="8065607967589909823">Ausgewählt ist</translation>
 <translation id="8066678206530322333">Banner</translation>
 <translation id="8076492880354921740">Tabs</translation>
@@ -885,6 +936,7 @@ Um das Chrome-Browsermenü zu öffnen, drücken Sie Alt + F.</translation>
 <translation id="8153880621934657047">Nicht in der Tabelle</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{Unterstrich}other{# Unterstriche}}</translation>
 <translation id="8179976553408161302">Enter</translation>
+<translation id="8183813379996435469">ChromeVox-Sprache automatisch erkennen und wechseln.</translation>
 <translation id="8184828902145951186">Zeile</translation>
 <translation id="8186185314313222077">Vollbildmodus an oder aus</translation>
 <translation id="8199231515320852133">Überschriften der aktuellen Zelle ansagen</translation>
@@ -892,7 +944,6 @@ Um das Chrome-Browsermenü zu öffnen, drücken Sie Alt + F.</translation>
 <translation id="820469951249669083">Zur nächsten Zeile</translation>
 <translation id="8215202828671303819">Mehrfachauswahl</translation>
 <translation id="826825447994856889">Einleitung</translation>
-<translation id="826991282343985864">Z$1S$2</translation>
 <translation id="8276439074553447000">Zum vorherigen fokussierbaren Element springen</translation>
 <translation id="8278417001922463147">Kein vorheriger Artikel</translation>
 <translation id="8283603667300770666">Nächstes Formularfeld</translation>
@@ -960,7 +1011,9 @@ Um das Chrome-Browsermenü zu öffnen, drücken Sie Alt + F.</translation>
 <translation id="8937112856099038376">intlnk</translation>
 <translation id="8940925288729953902">Modifikatortasten</translation>
 <translation id="8943175951035496220">Keine Zelle rechts</translation>
+<translation id="8946628535652548639">z<ph name="TABLECELLROWINDEX" />s<ph name="TABLECELLCOLUMNINDEX" /></translation>
 <translation id="8978496506222343566">tltip</translation>
+<translation id="8986362086234534611">Entfernen</translation>
 <translation id="900114243503212879">file</translation>
 <translation id="9027462562263121875">Keine Tabellen</translation>
 <translation id="9040132695316389094">Überschrift 1</translation>
@@ -973,7 +1026,6 @@ Um das Chrome-Browsermenü zu öffnen, drücken Sie Alt + F.</translation>
 <translation id="9082874451376019682">Kein vorheriger Schieberegler</translation>
 <translation id="9087707351856729768">Zur automatischen Vervollständigung etwas eintippen.</translation>
 <translation id="9089864840575085222">Eingabeecho wiederholen</translation>
-<translation id="9105227991373418255">$1 ausschneiden.</translation>
 <translation id="9107530006868467849">Kein vorheriges Medien-Widget</translation>
 <translation id="9108370397979208512">math</translation>
 <translation id="9108589040018540527">scbr</translation>
@@ -994,6 +1046,7 @@ Um das Chrome-Browsermenü zu öffnen, drücken Sie Alt + F.</translation>
 <translation id="948171205378458592">Sprechgeschwindigkeit verringern</translation>
 <translation id="958854023026327378">Mit einem Finger nach unten wischen</translation>
 <translation id="962913030769097253">Nächste Überschrift der Ebene 1</translation>
+<translation id="966588271015727539">Wählen Sie eine Bluetooth-Braillezeile aus</translation>
 <translation id="973955474346881951">Fixierten Modus aktivieren/deaktivieren</translation>
 <translation id="976849232629612000">Keine Elemente.</translation>
 <translation id="995852680044449248">Anfang durchgestrichener Text</translation>

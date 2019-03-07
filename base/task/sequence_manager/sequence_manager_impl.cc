@@ -11,8 +11,10 @@
 #include "base/bit_cast.h"
 #include "base/compiler_specific.h"
 #include "base/debug/crash_logging.h"
+#include "base/json/json_writer.h"
 #include "base/memory/ptr_util.h"
 #include "base/message_loop/message_loop_current.h"
+#include "base/optional.h"
 #include "base/rand_util.h"
 #include "base/task/sequence_manager/real_time_domain.h"
 #include "base/task/sequence_manager/task_time_observer.h"
@@ -36,22 +38,26 @@ namespace sequence_manager {
 // greater than current anticipated usage.
 static constexpr const size_t kInitialTaskExecutionStackReserveCount = 10;
 
-std::unique_ptr<SequenceManager> CreateSequenceManagerOnCurrentThread() {
-  return internal::SequenceManagerImpl::CreateOnCurrentThread();
+std::unique_ptr<SequenceManager> CreateSequenceManagerOnCurrentThread(
+    SequenceManager::Settings settings) {
+  return internal::SequenceManagerImpl::CreateOnCurrentThread(
+      std::move(settings));
 }
 
 std::unique_ptr<SequenceManager> CreateSequenceManagerOnCurrentThreadWithPump(
-    MessageLoop::Type type,
-    std::unique_ptr<MessagePump> message_pump) {
+    std::unique_ptr<MessagePump> message_pump,
+    SequenceManager::Settings settings) {
   std::unique_ptr<SequenceManager> sequence_manager =
-      internal::SequenceManagerImpl::CreateUnboundWithPump(type);
+      internal::SequenceManagerImpl::CreateUnboundWithPump(std::move(settings));
   sequence_manager->BindToMessagePump(std::move(message_pump));
   return sequence_manager;
 }
 
 std::unique_ptr<SequenceManager> CreateUnboundSequenceManager(
-    MessageLoopBase* message_loop_base) {
-  return internal::SequenceManagerImpl::CreateUnbound(message_loop_base);
+    MessageLoopBase* message_loop_base,
+    SequenceManager::Settings settings) {
+  return internal::SequenceManagerImpl::CreateUnbound(message_loop_base,
+                                                      std::move(settings));
 }
 
 namespace internal {
@@ -70,41 +76,39 @@ const double kThreadSamplingRateForRecordingCPUTime = 0.0001;
 // early when detected.
 constexpr int kMemoryCorruptionSentinelValue = 0xdeadbeef;
 
-void SweepCanceledDelayedTasksInQueue(
-    internal::TaskQueueImpl* queue,
-    std::map<TimeDomain*, TimeTicks>* time_domain_now) {
+void ReclaimMemoryFromQueue(internal::TaskQueueImpl* queue,
+                            std::map<TimeDomain*, TimeTicks>* time_domain_now) {
   TimeDomain* time_domain = queue->GetTimeDomain();
   if (time_domain_now->find(time_domain) == time_domain_now->end())
     time_domain_now->insert(std::make_pair(time_domain, time_domain->Now()));
-  queue->SweepCanceledDelayedTasks(time_domain_now->at(time_domain));
+  queue->ReclaimMemory(time_domain_now->at(time_domain));
 }
 
-SequenceManager::MetricRecordingSettings InitializeMetricRecordingSettings() {
-  bool cpu_time_recording_always_on =
+SequenceManager::MetricRecordingSettings InitializeMetricRecordingSettings(
+    bool randomised_sampling_enabled) {
+  if (!randomised_sampling_enabled)
+    return SequenceManager::MetricRecordingSettings(0);
+  bool records_cpu_time_for_each_task =
       base::RandDouble() < kThreadSamplingRateForRecordingCPUTime;
   return SequenceManager::MetricRecordingSettings(
-      cpu_time_recording_always_on, kTaskSamplingRateForRecordingCPUTime);
+      records_cpu_time_for_each_task ? 1
+                                     : kTaskSamplingRateForRecordingCPUTime);
 }
 
 }  // namespace
 
 SequenceManagerImpl::SequenceManagerImpl(
     std::unique_ptr<internal::ThreadController> controller,
-    MessageLoop::Type type)
+    SequenceManager::Settings settings)
     : associated_thread_(controller->GetAssociatedThread()),
       controller_(std::move(controller)),
-      type_(type),
-      metric_recording_settings_(InitializeMetricRecordingSettings()),
+      type_(settings.message_loop_type),
+      metric_recording_settings_(InitializeMetricRecordingSettings(
+          settings.randomised_sampling_enabled)),
       memory_corruption_sentinel_(kMemoryCorruptionSentinelValue),
-      main_thread_only_(associated_thread_),
+      main_thread_only_(associated_thread_,
+                        settings.randomised_sampling_enabled),
       weak_factory_(this) {
-  TRACE_EVENT_WARMUP_CATEGORY("sequence_manager");
-  TRACE_EVENT_WARMUP_CATEGORY(TRACE_DISABLED_BY_DEFAULT("sequence_manager"));
-  TRACE_EVENT_WARMUP_CATEGORY(
-      TRACE_DISABLED_BY_DEFAULT("sequence_manager.debug"));
-  TRACE_EVENT_WARMUP_CATEGORY(
-      TRACE_DISABLED_BY_DEFAULT("sequence_manager.verbose_snapshots"));
-
   TRACE_EVENT_OBJECT_CREATED_WITH_ID(
       TRACE_DISABLED_BY_DEFAULT("sequence_manager"), "SequenceManager", this);
   main_thread_only().selector.SetTaskQueueSelectorObserver(this);
@@ -150,21 +154,25 @@ SequenceManagerImpl::AnyThread::AnyThread() = default;
 SequenceManagerImpl::AnyThread::~AnyThread() = default;
 
 SequenceManagerImpl::MainThreadOnly::MainThreadOnly(
-    const scoped_refptr<AssociatedThreadId>& associated_thread)
-    : random_generator(RandUint64()),
-      uniform_distribution(0.0, 1.0),
-      selector(associated_thread),
+    const scoped_refptr<AssociatedThreadId>& associated_thread,
+    bool randomised_sampling_enabled)
+    : selector(associated_thread),
       real_time_domain(new internal::RealTimeDomain()) {
+  if (randomised_sampling_enabled) {
+    random_generator = std::mt19937_64(RandUint64());
+    uniform_distribution = std::uniform_real_distribution<double>(0.0, 1.0);
+  }
   task_execution_stack.reserve(kInitialTaskExecutionStackReserveCount);
 }
 
 SequenceManagerImpl::MainThreadOnly::~MainThreadOnly() = default;
 
 // static
-std::unique_ptr<SequenceManagerImpl>
-SequenceManagerImpl::CreateOnCurrentThread() {
+std::unique_ptr<SequenceManagerImpl> SequenceManagerImpl::CreateOnCurrentThread(
+    SequenceManager::Settings settings) {
   std::unique_ptr<SequenceManagerImpl> manager =
-      CreateUnbound(MessageLoopCurrent::Get()->ToMessageLoopBaseDeprecated());
+      CreateUnbound(MessageLoopCurrent::Get()->ToMessageLoopBaseDeprecated(),
+                    std::move(settings));
   manager->BindToCurrentThread();
   manager->CompleteInitializationOnBoundThread();
   return manager;
@@ -173,18 +181,18 @@ SequenceManagerImpl::CreateOnCurrentThread() {
 // static
 std::unique_ptr<SequenceManagerImpl> SequenceManagerImpl::CreateUnbound(
     MessageLoopBase* message_loop_base,
-    const TickClock* clock) {
+    SequenceManager::Settings settings) {
   return WrapUnique(new SequenceManagerImpl(
-      ThreadControllerImpl::Create(message_loop_base, clock),
-      MessageLoop::Type::TYPE_DEFAULT));
+      ThreadControllerImpl::Create(message_loop_base, settings.clock),
+      std::move(settings)));
 }
 
 // static
 std::unique_ptr<SequenceManagerImpl> SequenceManagerImpl::CreateUnboundWithPump(
-    MessageLoop::Type type,
-    const TickClock* clock) {
+    SequenceManager::Settings settings) {
   return WrapUnique(new SequenceManagerImpl(
-      ThreadControllerWithMessagePumpImpl::CreateUnbound(clock), type));
+      ThreadControllerWithMessagePumpImpl::CreateUnbound(settings.clock),
+      std::move(settings)));
 }
 
 void SequenceManagerImpl::BindToMessageLoop(
@@ -199,9 +207,7 @@ void SequenceManagerImpl::BindToMessagePump(std::unique_ptr<MessagePump> pump) {
 }
 
 void SequenceManagerImpl::BindToCurrentThread() {
-  // Associated thread is bound early for thread controller with message pump.
-  if (associated_thread_->thread_id == kInvalidThreadId)
-    associated_thread_->BindToCurrentThread();
+  associated_thread_->BindToCurrentThread();
 }
 
 void SequenceManagerImpl::BindToCurrentThread(
@@ -212,6 +218,7 @@ void SequenceManagerImpl::BindToCurrentThread(
 
 void SequenceManagerImpl::CompleteInitializationOnBoundThread() {
   controller_->AddNestingObserver(this);
+  work_id_provider_ = WorkIdProvider::GetForCurrentThread();
   main_thread_only().nesting_observer_registered_ = true;
   if (GetMessagePump())
     MessageLoopCurrent::BindToCurrentThreadInternal(this);
@@ -432,6 +439,8 @@ Optional<PendingTask> SequenceManagerImpl::TakeTask() {
                      executing_task.task_queue->GetName(), "task_type",
                      executing_task.task_type);
 
+  work_id_provider_->IncrementWorkId();
+
   return task;
 }
 
@@ -446,14 +455,13 @@ Optional<PendingTask> SequenceManagerImpl::TakeTaskImpl() {
   WakeUpReadyDelayedQueues(&lazy_now);
 
   while (true) {
-    internal::WorkQueue* work_queue = nullptr;
-    bool should_run =
-        main_thread_only().selector.SelectWorkQueueToService(&work_queue);
+    internal::WorkQueue* work_queue =
+        main_thread_only().selector.SelectWorkQueueToService();
     TRACE_EVENT_OBJECT_SNAPSHOT_WITH_ID(
         TRACE_DISABLED_BY_DEFAULT("sequence_manager.debug"), "SequenceManager",
-        this, AsValueWithSelectorResult(should_run, work_queue));
+        this, AsValueWithSelectorResult(work_queue, /* force_verbose */ false));
 
-    if (!should_run)
+    if (!work_queue)
       return nullopt;
 
     // If the head task was canceled, remove it and run the selector again.
@@ -732,28 +740,28 @@ internal::EnqueueOrder SequenceManagerImpl::GetNextSequenceNumber() {
 
 std::unique_ptr<trace_event::ConvertableToTraceFormat>
 SequenceManagerImpl::AsValueWithSelectorResult(
-    bool should_run,
-    internal::WorkQueue* selected_work_queue) const {
+    internal::WorkQueue* selected_work_queue,
+    bool force_verbose) const {
   DCHECK_CALLED_ON_VALID_THREAD(associated_thread_->thread_checker);
   std::unique_ptr<trace_event::TracedValue> state(
       new trace_event::TracedValue());
   TimeTicks now = NowTicks();
   state->BeginArray("active_queues");
   for (auto* const queue : main_thread_only().active_queues)
-    queue->AsValueInto(now, state.get());
+    queue->AsValueInto(now, state.get(), force_verbose);
   state->EndArray();
   state->BeginArray("queues_to_gracefully_shutdown");
   for (const auto& pair : main_thread_only().queues_to_gracefully_shutdown)
-    pair.first->AsValueInto(now, state.get());
+    pair.first->AsValueInto(now, state.get(), force_verbose);
   state->EndArray();
   state->BeginArray("queues_to_delete");
   for (const auto& pair : main_thread_only().queues_to_delete)
-    pair.first->AsValueInto(now, state.get());
+    pair.first->AsValueInto(now, state.get(), force_verbose);
   state->EndArray();
   state->BeginDictionary("selector");
   main_thread_only().selector.AsValueInto(state.get());
   state->EndDictionary();
-  if (should_run) {
+  if (selected_work_queue) {
     state->SetString("selected_queue",
                      selected_work_queue->task_queue()->GetName());
     state->SetString("work_queue_name", selected_work_queue->name());
@@ -784,12 +792,12 @@ void SequenceManagerImpl::OnTaskQueueEnabled(internal::TaskQueueImpl* queue) {
     MaybeScheduleImmediateWork(FROM_HERE);
 }
 
-void SequenceManagerImpl::SweepCanceledDelayedTasks() {
+void SequenceManagerImpl::ReclaimMemory() {
   std::map<TimeDomain*, TimeTicks> time_domain_now;
   for (auto* const queue : main_thread_only().active_queues)
-    SweepCanceledDelayedTasksInQueue(queue, &time_domain_now);
+    ReclaimMemoryFromQueue(queue, &time_domain_now);
   for (const auto& pair : main_thread_only().queues_to_gracefully_shutdown)
-    SweepCanceledDelayedTasksInQueue(pair.first, &time_domain_now);
+    ReclaimMemoryFromQueue(pair.first, &time_domain_now);
 }
 
 void SequenceManagerImpl::CleanUpQueues() {
@@ -825,7 +833,9 @@ TimeTicks SequenceManagerImpl::NowTicks() const {
 }
 
 bool SequenceManagerImpl::ShouldRecordCPUTimeForTask() {
-  return ThreadTicks::IsSupported() &&
+  DCHECK(ThreadTicks::IsSupported() ||
+         !metric_recording_settings_.records_cpu_time_for_some_tasks());
+  return metric_recording_settings_.records_cpu_time_for_some_tasks() &&
          main_thread_only().uniform_distribution(
              main_thread_only().random_generator) <
              metric_recording_settings_
@@ -883,8 +893,11 @@ void SequenceManagerImpl::AttachToMessagePump() {
 #endif
 
 bool SequenceManagerImpl::IsIdleForTesting() {
-  LazyNow lazy_now(controller_->GetClock());
-  return DelayTillNextTask(&lazy_now) != TimeDelta();
+  // We don't use DelayTillNextTask here because the MessageLoop version which
+  // we're emulating does not take Now() into account.  If it did tests would
+  // become flaky wrt delayed tasks that are just about to run.
+  ReloadEmptyWorkQueues();
+  return main_thread_only().selector.AllEnabledWorkQueuesAreEmpty();
 }
 
 size_t SequenceManagerImpl::GetPendingTaskCountForTesting() const {
@@ -898,6 +911,11 @@ size_t SequenceManagerImpl::GetPendingTaskCountForTesting() const {
 scoped_refptr<TaskQueue> SequenceManagerImpl::CreateTaskQueue(
     const TaskQueue::Spec& spec) {
   return WrapRefCounted(new TaskQueue(CreateTaskQueueImpl(spec), spec));
+}
+
+std::string SequenceManagerImpl::DescribeAllPendingTasks() const {
+  return AsValueWithSelectorResult(nullptr, /* force_verbose */ true)
+      ->ToString();
 }
 
 void SequenceManagerImpl::AddDestructionObserver(
@@ -920,15 +938,15 @@ scoped_refptr<SingleThreadTaskRunner> SequenceManagerImpl::GetTaskRunner() {
 }
 
 std::string SequenceManagerImpl::GetThreadName() const {
-  DCHECK_NE(kInvalidThreadId, associated_thread_->thread_id)
+  Optional<PlatformThreadId> thread_id = associated_thread_->GetBoundThreadId();
+  DCHECK(thread_id)
       << "GetThreadName() must only be called after BindToCurrentThread()'s "
       << "side-effects have been synchronized with this thread.";
-  return ThreadIdNameManager::GetInstance()->GetName(
-      associated_thread_->thread_id);
+  return ThreadIdNameManager::GetInstance()->GetName(*thread_id);
 }
 
 bool SequenceManagerImpl::IsBoundToCurrentThread() const {
-  return associated_thread_->thread_id == PlatformThread::CurrentId();
+  return associated_thread_->IsBoundToCurrentThread();
 }
 
 MessagePump* SequenceManagerImpl::GetMessagePump() const {

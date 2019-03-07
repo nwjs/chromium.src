@@ -4,13 +4,14 @@
 
 package org.chromium.chrome.browser.toolbar.bottom;
 
-import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.view.View;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.ThemeColorProvider;
+import org.chromium.chrome.browser.ThemeColorProvider.ThemeColorObserver;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelManager.OverlayPanelManagerObserver;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
@@ -21,8 +22,6 @@ import org.chromium.chrome.browser.compositor.layouts.ToolbarSwipeLayout;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.EdgeSwipeHandler;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager.FullscreenListener;
-import org.chromium.chrome.browser.toolbar.ThemeColorProvider;
-import org.chromium.chrome.browser.toolbar.ThemeColorProvider.ThemeColorObserver;
 import org.chromium.chrome.browser.widget.FeatureHighlightProvider;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
@@ -66,6 +65,9 @@ class BrowsingModeBottomToolbarMediator
     /** A provider that notifies components when the theme color changes.*/
     private ThemeColorProvider mThemeColorProvider;
 
+    /** A state set to {@code true} while any overlay panel is showing. */
+    private boolean mIsOverlayPanelShowing;
+
     /**
      * Build a new mediator that handles events from outside the bottom toolbar.
      * @param model The {@link BrowsingModeBottomToolbarModel} that holds all the state for the
@@ -95,7 +97,7 @@ class BrowsingModeBottomToolbarMediator
 
     void setThemeColorProvider(ThemeColorProvider themeColorProvider) {
         mThemeColorProvider = themeColorProvider;
-        mThemeColorProvider.addObserver(this);
+        mThemeColorProvider.addThemeColorObserver(this);
     }
 
     void setResourceManager(ResourceManager resourceManager) {
@@ -141,9 +143,9 @@ class BrowsingModeBottomToolbarMediator
 
         FeatureHighlightProvider.getInstance().buildForView(activity, anchor,
                 R.string.iph_duet_title, FeatureHighlightProvider.TextAlignment.CENTER,
-                R.style.WhiteTitle1, R.string.iph_duet_description,
-                FeatureHighlightProvider.TextAlignment.CENTER, R.style.WhiteBody, finalColor,
-                DUET_IPH_BUBBLE_SHOW_DURATION_MS);
+                R.style.TextAppearance_WhiteTitle1, R.string.iph_duet_description,
+                FeatureHighlightProvider.TextAlignment.CENTER, R.style.TextAppearance_WhiteBody,
+                finalColor, DUET_IPH_BUBBLE_SHOW_DURATION_MS);
 
         anchor.postDelayed(() -> tracker.dismissed(FeatureConstants.CHROME_DUET_FEATURE),
                 DUET_IPH_BUBBLE_SHOW_DURATION_MS);
@@ -172,17 +174,17 @@ class BrowsingModeBottomToolbarMediator
             manager.removeSceneChangeObserver(this);
         }
         if (mThemeColorProvider != null) {
-            mThemeColorProvider.removeObserver(this);
+            mThemeColorProvider.removeThemeColorObserver(this);
             mThemeColorProvider = null;
         }
     }
 
     @Override
-    public void onContentOffsetChanged(float offset) {}
+    public void onContentOffsetChanged(int offset) {}
 
     @Override
-    public void onControlsOffsetChanged(float topOffset, float bottomOffset, boolean needsAnimate) {
-        mModel.set(BrowsingModeBottomToolbarModel.Y_OFFSET, (int) bottomOffset);
+    public void onControlsOffsetChanged(int topOffset, int bottomOffset, boolean needsAnimate) {
+        mModel.set(BrowsingModeBottomToolbarModel.Y_OFFSET, bottomOffset);
         if (bottomOffset > 0 || mFullscreenManager.getBottomControlsHeight() == 0) {
             mModel.set(BrowsingModeBottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
         } else {
@@ -216,11 +218,13 @@ class BrowsingModeBottomToolbarMediator
 
     @Override
     public void onOverlayPanelShown() {
+        mIsOverlayPanelShowing = true;
         mModel.set(BrowsingModeBottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
     }
 
     @Override
     public void onOverlayPanelHidden() {
+        mIsOverlayPanelShowing = false;
         tryShowingAndroidView();
     }
 
@@ -259,7 +263,7 @@ class BrowsingModeBottomToolbarMediator
     }
 
     @Override
-    public void onThemeColorChanged(ColorStateList tintList, int primaryColor) {
+    public void onThemeColorChanged(int primaryColor, boolean shouldAnimate) {
         mModel.set(BrowsingModeBottomToolbarModel.PRIMARY_COLOR, primaryColor);
     }
 
@@ -270,6 +274,7 @@ class BrowsingModeBottomToolbarMediator
      */
     private void tryShowingAndroidView() {
         if (mFullscreenManager.getBottomControlOffset() > 0) return;
+        if (mIsOverlayPanelShowing) return;
         if (mModel.get(BrowsingModeBottomToolbarModel.Y_OFFSET) != 0) return;
         mModel.set(BrowsingModeBottomToolbarModel.ANDROID_VIEW_VISIBLE, true);
     }

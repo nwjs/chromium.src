@@ -167,11 +167,11 @@ void WorkerThread::Start(
 void WorkerThread::EvaluateClassicScript(
     const KURL& script_url,
     const String& source_code,
-    std::unique_ptr<Vector<char>> cached_meta_data,
+    std::unique_ptr<Vector<uint8_t>> cached_meta_data,
     const v8_inspector::V8StackTraceId& stack_id) {
   DCHECK_CALLED_ON_VALID_THREAD(parent_thread_checker_);
   PostCrossThreadTask(
-      *GetTaskRunner(TaskType::kInternalWorker), FROM_HERE,
+      *GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
       CrossThreadBind(&WorkerThread::EvaluateClassicScriptOnWorkerThread,
                       CrossThreadUnretained(this), script_url, source_code,
                       WTF::Passed(std::move(cached_meta_data)), stack_id));
@@ -183,7 +183,7 @@ void WorkerThread::ImportClassicScript(
     const v8_inspector::V8StackTraceId& stack_id) {
   DCHECK_CALLED_ON_VALID_THREAD(parent_thread_checker_);
   PostCrossThreadTask(
-      *GetTaskRunner(TaskType::kInternalWorker), FROM_HERE,
+      *GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
       CrossThreadBind(&WorkerThread::ImportClassicScriptOnWorkerThread,
                       CrossThreadUnretained(this), script_url,
                       WTF::Passed(outside_settings_object->CopyData()),
@@ -196,7 +196,7 @@ void WorkerThread::ImportModuleScript(
     network::mojom::FetchCredentialsMode credentials_mode) {
   DCHECK_CALLED_ON_VALID_THREAD(parent_thread_checker_);
   PostCrossThreadTask(
-      *GetTaskRunner(TaskType::kInternalWorker), FROM_HERE,
+      *GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
       CrossThreadBind(&WorkerThread::ImportModuleScriptOnWorkerThread,
                       CrossThreadUnretained(this), script_url,
                       WTF::Passed(outside_settings_object->CopyData()),
@@ -463,7 +463,7 @@ void WorkerThread::InitializeOnWorkerThread(
 
     const KURL url_for_debugger = global_scope_creation_params->script_url;
 
-    console_message_storage_ = new ConsoleMessageStorage();
+    console_message_storage_ = MakeGarbageCollected<ConsoleMessageStorage>();
     global_scope_ =
         CreateWorkerGlobalScope(std::move(global_scope_creation_params));
     worker_reporting_proxy_.DidCreateWorkerGlobalScope(GlobalScope());
@@ -511,11 +511,11 @@ void WorkerThread::InitializeOnWorkerThread(
 void WorkerThread::EvaluateClassicScriptOnWorkerThread(
     const KURL& script_url,
     String source_code,
-    std::unique_ptr<Vector<char>> cached_meta_data,
+    std::unique_ptr<Vector<uint8_t>> cached_meta_data,
     const v8_inspector::V8StackTraceId& stack_id) {
   To<WorkerGlobalScope>(GlobalScope())
-      ->EvaluateClassicScriptPausable(script_url, std::move(source_code),
-                                      std::move(cached_meta_data), stack_id);
+      ->EvaluateClassicScript(script_url, std::move(source_code),
+                              std::move(cached_meta_data), stack_id);
 }
 
 void WorkerThread::ImportClassicScriptOnWorkerThread(
@@ -524,7 +524,7 @@ void WorkerThread::ImportClassicScriptOnWorkerThread(
         outside_settings_object,
     const v8_inspector::V8StackTraceId& stack_id) {
   To<WorkerGlobalScope>(GlobalScope())
-      ->ImportClassicScriptPausable(
+      ->ImportClassicScript(
           script_url,
           MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
               std::move(outside_settings_object)),
@@ -540,7 +540,7 @@ void WorkerThread::ImportModuleScriptOnWorkerThread(
   // TODO(nhiroki): Consider excluding this code path from WorkerThread like
   // Worklets.
   To<WorkerGlobalScope>(GlobalScope())
-      ->ImportModuleScriptPausable(
+      ->ImportModuleScript(
           script_url,
           MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
               std::move(outside_settings_object)),

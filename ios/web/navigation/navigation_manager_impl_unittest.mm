@@ -18,7 +18,6 @@
 #import "ios/web/navigation/wk_based_navigation_manager_impl.h"
 #import "ios/web/navigation/wk_navigation_util.h"
 #include "ios/web/public/features.h"
-#include "ios/web/public/load_committed_details.h"
 #include "ios/web/public/navigation_item.h"
 #include "ios/web/public/test/fakes/test_browser_state.h"
 #import "ios/web/public/test/fakes/test_navigation_manager.h"
@@ -88,9 +87,13 @@ class MockNavigationManagerDelegate : public NavigationManagerDelegate {
   MOCK_METHOD0(LoadIfNecessary, void());
   MOCK_METHOD0(Reload, void());
   MOCK_METHOD1(OnNavigationItemsPruned, void(size_t));
-  MOCK_METHOD0(OnNavigationItemChanged, void());
-  MOCK_METHOD1(OnNavigationItemCommitted, void(const LoadCommittedDetails&));
+  MOCK_METHOD1(OnNavigationItemCommitted, void(NavigationItem* item));
   MOCK_METHOD0(RemoveWebView, void());
+  MOCK_METHOD4(GoToBackForwardListItem,
+               void(WKBackForwardListItem*,
+                    NavigationItem*,
+                    NavigationInitiationType,
+                    bool));
 
  private:
   WebState* GetWebState() override { return nullptr; }
@@ -1767,7 +1770,8 @@ TEST_P(NavigationManagerTest, ReloadWithUserAgentType) {
 
   navigation_manager()->ReloadWithUserAgentType(UserAgentType::DESKTOP);
 
-  NavigationItem* pending_item = navigation_manager()->GetPendingItem();
+  NavigationItem* pending_item =
+      navigation_manager()->GetPendingItemInCurrentOrRestoredSession();
   if (!web::GetWebClient()->IsSlimNavigationManagerEnabled()) {
     EXPECT_EQ(url, pending_item->GetURL());
   } else {
@@ -1788,13 +1792,17 @@ TEST_P(NavigationManagerTest, ReloadWithUserAgentTypeOnIntenalUrl) {
       NavigationInitiationType::BROWSER_INITIATED,
       NavigationManager::UserAgentOverrideOption::MOBILE);
   GURL virtual_url("http://www.1.com/virtual");
-  navigation_manager()->GetPendingItem()->SetVirtualURL(virtual_url);
+  navigation_manager()
+      ->GetPendingItemInCurrentOrRestoredSession()
+      ->SetVirtualURL(virtual_url);
   [mock_wk_list_ setCurrentURL:base::SysUTF8ToNSString(url.spec())];
-  navigation_manager()->CommitPendingItem();
+  navigation_manager()->OnRendererInitiatedNavigationStarted(
+      GURL("http://www.1.com/virtual"));
 
   navigation_manager()->ReloadWithUserAgentType(UserAgentType::DESKTOP);
 
-  NavigationItem* pending_item = navigation_manager()->GetPendingItem();
+  NavigationItem* pending_item =
+      navigation_manager()->GetPendingItemInCurrentOrRestoredSession();
   if (!web::GetWebClient()->IsSlimNavigationManagerEnabled()) {
     EXPECT_EQ(url, pending_item->GetURL());
   } else {
@@ -1988,8 +1996,10 @@ TEST_P(NavigationManagerTest, Restore) {
     ASSERT_FALSE(restore_done);
 
     // Verify that restore session URL is pending.
-    NavigationItem* pending_item = navigation_manager()->GetPendingItem();
-    ASSERT_TRUE(pending_item != nullptr);
+    EXPECT_FALSE(navigation_manager()->GetPendingItem());
+    NavigationItem* pending_item =
+        navigation_manager()->GetPendingItemInCurrentOrRestoredSession();
+    ASSERT_TRUE(pending_item);
     GURL pending_url = pending_item->GetURL();
     EXPECT_TRUE(pending_url.SchemeIsFile());
     EXPECT_EQ("restore_session.html", pending_url.ExtractFileName());
@@ -2000,7 +2010,8 @@ TEST_P(NavigationManagerTest, Restore) {
     [mock_wk_list_ setCurrentURL:@"http://www.url.com/1"
                     backListURLs:@[ @"http://www.url.com/0" ]
                  forwardListURLs:@[ @"http://www.url.com/2" ]];
-    navigation_manager()->CommitPendingItem();
+    navigation_manager()->OnRendererInitiatedNavigationStarted(
+        GURL("http://www.url.com/2"));
   }
 
   ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
@@ -2377,7 +2388,9 @@ TEST_P(NavigationManagerTest,
       GURL("http://www.url.com/#hash"), Referrer(), ui::PAGE_TRANSITION_TYPED,
       web::NavigationInitiationType::BROWSER_INITIATED,
       web::NavigationManager::UserAgentOverrideOption::INHERIT);
-  navigation_manager()->GetPendingItemImpl()->SetIsCreatedFromHashChange(true);
+  navigation_manager()
+      ->GetPendingItemInCurrentOrRestoredSession()
+      ->SetIsCreatedFromHashChange(true);
   [mock_wk_list_ setCurrentURL:@"http://www.url.com/#hash"
                   backListURLs:@[ @"http://www.url.com" ]
                forwardListURLs:nil];

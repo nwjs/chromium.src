@@ -4,7 +4,7 @@
 
 #import "ios/chrome/browser/ui/table_view/cells/table_view_item.h"
 
-#import "base/logging.h"
+#include "base/logging.h"
 #import "ios/chrome/browser/ui/table_view/chrome_table_view_styler.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -24,6 +24,7 @@
            withStyler:(ChromeTableViewStyler*)styler {
   DCHECK(styler);
   DCHECK([cell class] == self.cellClass);
+  cell.accessoryType = self.accessoryType;
   cell.accessibilityTraits = self.accessibilityTraits;
   cell.accessibilityIdentifier = self.accessibilityIdentifier;
   if (!cell.backgroundView) {

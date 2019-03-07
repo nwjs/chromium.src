@@ -31,6 +31,7 @@
 #include <memory>
 
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "build/build_config.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -69,6 +70,12 @@ void NotifyFinishObservers(
     observer->NotifyFinished();
 }
 
+blink::mojom::CodeCacheType ToCodeCacheType(ResourceType resource_type) {
+  return resource_type == ResourceType::kRaw
+             ? blink::mojom::CodeCacheType::kWebAssembly
+             : blink::mojom::CodeCacheType::kJavascript;
+}
+
 }  // namespace
 
 // These response headers are not copied from a revalidated response to the
@@ -99,90 +106,18 @@ const char* const kHeaderPrefixesToIgnoreAfterRevalidation[] = {
 
 static inline bool ShouldUpdateHeaderAfterRevalidation(
     const AtomicString& header) {
-  for (size_t i = 0; i < arraysize(kHeadersToIgnoreAfterRevalidation); i++) {
+  for (size_t i = 0; i < base::size(kHeadersToIgnoreAfterRevalidation); i++) {
     if (DeprecatedEqualIgnoringCase(header,
                                     kHeadersToIgnoreAfterRevalidation[i]))
       return false;
   }
-  for (size_t i = 0; i < arraysize(kHeaderPrefixesToIgnoreAfterRevalidation);
+  for (size_t i = 0; i < base::size(kHeaderPrefixesToIgnoreAfterRevalidation);
        i++) {
     if (header.StartsWithIgnoringASCIICase(
             kHeaderPrefixesToIgnoreAfterRevalidation[i]))
       return false;
   }
   return true;
-}
-
-// This is a CachedMetadataSender implementation for normal responses.
-class CachedMetadataSenderImpl : public CachedMetadataSender {
- public:
-  CachedMetadataSenderImpl(const Resource*);
-  ~CachedMetadataSenderImpl() override = default;
-
-  void Send(const char*, size_t) override;
-  bool IsServedFromCacheStorage() override { return false; }
-
- private:
-  const KURL response_url_;
-  const Time response_time_;
-  const ResourceType resource_type_;
-};
-
-CachedMetadataSenderImpl::CachedMetadataSenderImpl(const Resource* resource)
-    : response_url_(resource->GetResponse().Url()),
-      response_time_(resource->GetResponse().ResponseTime()),
-      resource_type_(resource->GetType()) {
-  DCHECK(resource->GetResponse().CacheStorageCacheName().IsNull());
-}
-
-void CachedMetadataSenderImpl::Send(const char* data, size_t size) {
-  Platform::Current()->CacheMetadata(
-      Resource::ResourceTypeToCodeCacheType(resource_type_), response_url_,
-      response_time_, data, size);
-}
-
-// This is a CachedMetadataSender implementation that does nothing.
-class NullCachedMetadataSender : public CachedMetadataSender {
- public:
-  NullCachedMetadataSender() = default;
-  ~NullCachedMetadataSender() override = default;
-
-  void Send(const char*, size_t) override {}
-  bool IsServedFromCacheStorage() override { return false; }
-};
-
-// This is a CachedMetadataSender implementation for responses that are served
-// by a ServiceWorker from cache storage.
-class ServiceWorkerCachedMetadataSender : public CachedMetadataSender {
- public:
-  ServiceWorkerCachedMetadataSender(const Resource*, const SecurityOrigin*);
-  ~ServiceWorkerCachedMetadataSender() override = default;
-
-  void Send(const char*, size_t) override;
-  bool IsServedFromCacheStorage() override { return true; }
-
- private:
-  const KURL response_url_;
-  const Time response_time_;
-  const String cache_storage_cache_name_;
-  scoped_refptr<const SecurityOrigin> security_origin_;
-};
-
-ServiceWorkerCachedMetadataSender::ServiceWorkerCachedMetadataSender(
-    const Resource* resource,
-    const SecurityOrigin* security_origin)
-    : response_url_(resource->GetResponse().Url()),
-      response_time_(resource->GetResponse().ResponseTime()),
-      cache_storage_cache_name_(
-          resource->GetResponse().CacheStorageCacheName()),
-      security_origin_(security_origin) {
-  DCHECK(!cache_storage_cache_name_.IsNull());
-}
-
-void ServiceWorkerCachedMetadataSender::Send(const char* data, size_t size) {
-  Platform::Current()->CacheMetadataInCacheStorage(
-      response_url_, response_time_, data, size,
-      WebSecurityOrigin(security_origin_), cache_storage_cache_name_);
 }
 
 Resource::Resource(const ResourceRequest& request,
@@ -350,7 +285,7 @@ static bool NeedsSynchronousCacheHit(ResourceType type,
   if (options.synchronous_policy == kRequestSynchronously)
     return true;
   // Some resources types default to return data synchronously. For most of
-  // these, it's because there are layout tests that expect data to return
+  // these, it's because there are web tests that expect data to return
   // synchronously in case of cache hit. In the case of fonts, there was a
   // performance regression.
   // FIXME: Get to the point where we don't need to special-case sync/async
@@ -452,13 +387,13 @@ static double FreshnessLifetime(const ResourceResponse& response,
                                 double response_timestamp) {
 #if !defined(OS_ANDROID)
   // On desktop, local files should be reloaded in case they change.
-  if (response.Url().IsLocalFile())
+  if (response.CurrentRequestUrl().IsLocalFile())
     return 0;
 #endif
 
   // Cache other non-http / non-filesystem resources liberally.
-  if (!response.Url().ProtocolIsInHTTPFamily() &&
-      !response.Url().ProtocolIs("filesystem"))
+  if (!response.CurrentRequestUrl().ProtocolIsInHTTPFamily() &&
+      !response.CurrentRequestUrl().ProtocolIs("filesystem"))
     return std::numeric_limits<double>::max();
 
   // RFC2616 13.2.4
@@ -539,27 +474,14 @@ void Resource::SetResponse(const ResourceResponse& response) {
 
   // Currently we support the metadata caching only for HTTP family.
   if (!GetResourceRequest().Url().ProtocolIsInHTTPFamily() ||
-      !GetResponse().Url().ProtocolIsInHTTPFamily()) {
+      !GetResponse().CurrentRequestUrl().ProtocolIsInHTTPFamily()) {
     cache_handler_.Clear();
     return;
   }
 
-  cache_handler_ = CreateCachedMetadataHandler(CreateCachedMetadataSender());
-}
-
-std::unique_ptr<CachedMetadataSender> Resource::CreateCachedMetadataSender()
-    const {
-  if (GetResponse().WasFetchedViaServiceWorker()) {
-    scoped_refptr<const SecurityOrigin> origin =
-        GetResourceRequest().RequestorOrigin();
-    // TODO(leszeks): Check whether it's correct that |origin| can be nullptr.
-    if (!origin || GetResponse().CacheStorageCacheName().IsNull()) {
-      return std::make_unique<NullCachedMetadataSender>();
-    }
-    return std::make_unique<ServiceWorkerCachedMetadataSender>(this,
-                                                               origin.get());
-  }
-  return std::make_unique<CachedMetadataSenderImpl>(this);
+  cache_handler_ = CreateCachedMetadataHandler(
+      CachedMetadataSender::Create(GetResponse(), ToCodeCacheType(GetType()),
+                                   GetResourceRequest().RequestorOrigin()));
 }
 
 void Resource::ResponseReceived(const ResourceResponse& response,
@@ -578,7 +500,7 @@ void Resource::ResponseReceived(const ResourceResponse& response,
     SetEncoding(encoding);
 }
 
-void Resource::SetSerializedCachedMetadata(const char* data, size_t size) {
+void Resource::SetSerializedCachedMetadata(const uint8_t* data, size_t size) {
   DCHECK(!is_revalidating_);
   DCHECK(!GetResponse().IsNull());
 }
@@ -1021,8 +943,9 @@ void Resource::ClearRangeRequestHeader() {
 void Resource::RevalidationSucceeded(
     const ResourceResponse& validating_response) {
   SECURITY_CHECK(redirect_chain_.IsEmpty());
-  SECURITY_CHECK(EqualIgnoringFragmentIdentifier(validating_response.Url(),
-                                                 GetResponse().Url()));
+  SECURITY_CHECK(
+      EqualIgnoringFragmentIdentifier(validating_response.CurrentRequestUrl(),
+                                      GetResponse().CurrentRequestUrl()));
   response_.SetResourceLoadTiming(validating_response.GetResourceLoadTiming());
 
   // RFC2616 10.3.5
@@ -1265,15 +1188,15 @@ const char* Resource::ResourceTypeToString(
 // static
 blink::mojom::CodeCacheType Resource::ResourceTypeToCodeCacheType(
     ResourceType resource_type) {
-  // Cacheable WebAssembly modules are fetched, so raw resource type.
-  if (resource_type == ResourceType::kRaw)
-    return blink::mojom::CodeCacheType::kWebAssembly;
-  // Cacheable Javascript is a script or a document resource. Also accept mock
-  // resources for testing.
-  DCHECK(resource_type == ResourceType::kScript ||
-         resource_type == ResourceType::kMainResource ||
-         resource_type == ResourceType::kMock);
-  return blink::mojom::CodeCacheType::kJavascript;
+  DCHECK(
+      // Cacheable WebAssembly modules are fetched, so raw resource type.
+      resource_type == ResourceType::kRaw ||
+      // Cacheable Javascript is a script or a document resource.
+      resource_type == ResourceType::kScript ||
+      resource_type == ResourceType::kMainResource ||
+      // Also accept mock resources for testing.
+      resource_type == ResourceType::kMock);
+  return ToCodeCacheType(resource_type);
 }
 
 bool Resource::ShouldBlockLoadEvent() const {

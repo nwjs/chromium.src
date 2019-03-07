@@ -23,7 +23,8 @@ BackgroundFetchBridge* BackgroundFetchBridge::From(
           service_worker_registration);
 
   if (!bridge) {
-    bridge = new BackgroundFetchBridge(*service_worker_registration);
+    bridge = MakeGarbageCollected<BackgroundFetchBridge>(
+        *service_worker_registration);
     ProvideTo(*service_worker_registration, bridge);
   }
 
@@ -130,7 +131,10 @@ void BackgroundFetchBridge::AddRegistrationObserver(
 
 mojom::blink::BackgroundFetchService* BackgroundFetchBridge::GetService() {
   if (!background_fetch_service_) {
-    auto request = mojo::MakeRequest(&background_fetch_service_);
+    auto request = mojo::MakeRequest(
+        &background_fetch_service_,
+        GetSupplementable()->GetExecutionContext()->GetTaskRunner(
+            TaskType::kBackgroundFetch));
     if (auto* interface_provider = GetSupplementable()
                                        ->GetExecutionContext()
                                        ->GetInterfaceProvider()) {

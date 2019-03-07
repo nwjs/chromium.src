@@ -7,6 +7,7 @@
 #include "base/json/json_reader.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
@@ -73,7 +74,7 @@ class YUVReadbackTest : public testing::Test {
   }
 
   static void TraceDataCB(
-      const base::Callback<void()>& callback,
+      base::OnceClosure quit_closure,
       std::string* output,
       const scoped_refptr<base::RefCountedString>& json_events_str,
       bool has_more_events) {
@@ -82,7 +83,7 @@ class YUVReadbackTest : public testing::Test {
     }
     output->append(json_events_str->data());
     if (!has_more_events) {
-      callback.Run();
+      std::move(quit_closure).Run();
     }
   }
 
@@ -92,9 +93,9 @@ class YUVReadbackTest : public testing::Test {
     std::string json_data = "[";
     base::trace_event::TraceLog::GetInstance()->SetDisabled();
     base::RunLoop run_loop;
-    base::trace_event::TraceLog::GetInstance()->Flush(
-        base::Bind(&YUVReadbackTest::TraceDataCB, run_loop.QuitClosure(),
-                   base::Unretained(&json_data)));
+    base::trace_event::TraceLog::GetInstance()->Flush(base::BindRepeating(
+        &YUVReadbackTest::TraceDataCB, run_loop.QuitClosure(),
+        base::Unretained(&json_data)));
     run_loop.Run();
     json_data.append("]");
 
@@ -256,11 +257,6 @@ class YUVReadbackTest : public testing::Test {
     return ret;
   }
 
-  static void callcallback(const base::Callback<void()>& callback,
-                           bool result) {
-    callback.Run();
-  }
-
   void PrintPlane(unsigned char* plane, int xsize, int stride, int ysize) {
     for (int y = 0; y < std::min(24, ysize); y++) {
       std::string formatted;
@@ -390,16 +386,20 @@ class YUVReadbackTest : public testing::Test {
             base::TimeDelta::FromSeconds(0));
 
     base::RunLoop run_loop;
-    yuv_reader->ReadbackYUV(mailbox, sync_token, gfx::Size(xsize, ysize),
-                            gfx::Rect(0, 0, xsize, ysize),
-                            output_frame->stride(media::VideoFrame::kYPlane),
-                            output_frame->data(media::VideoFrame::kYPlane),
-                            output_frame->stride(media::VideoFrame::kUPlane),
-                            output_frame->data(media::VideoFrame::kUPlane),
-                            output_frame->stride(media::VideoFrame::kVPlane),
-                            output_frame->data(media::VideoFrame::kVPlane),
-                            gfx::Point(xmargin, ymargin),
-                            base::Bind(&callcallback, run_loop.QuitClosure()));
+    auto run_quit_closure = [](base::OnceClosure quit_closure, bool result) {
+      std::move(quit_closure).Run();
+    };
+    yuv_reader->ReadbackYUV(
+        mailbox, sync_token, gfx::Size(xsize, ysize),
+        gfx::Rect(0, 0, xsize, ysize),
+        output_frame->stride(media::VideoFrame::kYPlane),
+        output_frame->data(media::VideoFrame::kYPlane),
+        output_frame->stride(media::VideoFrame::kUPlane),
+        output_frame->data(media::VideoFrame::kUPlane),
+        output_frame->stride(media::VideoFrame::kVPlane),
+        output_frame->data(media::VideoFrame::kVPlane),
+        gfx::Point(xmargin, ymargin),
+        base::BindOnce(run_quit_closure, run_loop.QuitClosure()));
 
     const gfx::Rect paste_rect(gfx::Point(xmargin, ymargin),
                                gfx::Size(xsize, ysize));
@@ -523,8 +523,8 @@ TEST_P(YUVReadbackPixelTest, Test) {
   unsigned int x = std::get<2>(GetParam());
   unsigned int y = std::get<3>(GetParam());
 
-  for (unsigned int ox = x; ox < arraysize(kYUVReadbackSizes); ox++) {
-    for (unsigned int oy = y; oy < arraysize(kYUVReadbackSizes); oy++) {
+  for (unsigned int ox = x; ox < base::size(kYUVReadbackSizes); ox++) {
+    for (unsigned int oy = y; oy < base::size(kYUVReadbackSizes); oy++) {
       // If output is a subsection of the destination frame, (letterbox)
       // then try different variations of where the subsection goes.
       for (Margin xm = x < ox ? MarginLeft : MarginRight; xm <= MarginRight;
@@ -555,8 +555,8 @@ INSTANTIATE_TEST_CASE_P(
     ::testing::Combine(
         ::testing::Bool(),
         ::testing::Bool(),
-        ::testing::Range<unsigned int>(0, arraysize(kYUVReadbackSizes)),
-        ::testing::Range<unsigned int>(0, arraysize(kYUVReadbackSizes))));
+        ::testing::Range<unsigned int>(0, base::size(kYUVReadbackSizes)),
+        ::testing::Range<unsigned int>(0, base::size(kYUVReadbackSizes))));
 
 }  // namespace viz
 

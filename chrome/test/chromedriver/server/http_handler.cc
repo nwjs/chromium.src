@@ -14,8 +14,8 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"  // For CHECK macros.
-#include "base/macros.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -319,8 +319,8 @@ HttpHandler::HttpHandler(
                         base::BindRepeating(&ExecutePerformActions))),
       CommandMapping(
           kDelete, "session/:sessionId/actions",
-          WrapToCommand("DeleteActions",
-                        base::BindRepeating(&ExecuteUnimplementedCommand))),
+          WrapToCommand("ReleaseActions",
+                        base::BindRepeating(&ExecuteReleaseActions))),
 
       CommandMapping(
           kPost, "session/:sessionId/alert/dismiss",
@@ -734,6 +734,23 @@ HttpHandler::HttpHandler(
       CommandMapping(
           kPost, "session/:sessionId/goog/page/resume",
           WrapToCommand("Resume", base::BindRepeating(&ExecuteResume))),
+      CommandMapping(kPost, "session/:sessionId/goog/cast/set_sink_to_use",
+                     WrapToCommand("SetSinkToUse",
+                                   base::BindRepeating(&ExecuteSetSinkToUse))),
+      CommandMapping(
+          kPost, "session/:sessionId/goog/cast/start_tab_mirroring",
+          WrapToCommand("StartTabMirroring",
+                        base::BindRepeating(&ExecuteStartTabMirroring))),
+      CommandMapping(kPost, "session/:sessionId/goog/cast/stop_casting",
+                     WrapToCommand("StopCasting",
+                                   base::BindRepeating(&ExecuteStopCasting))),
+      CommandMapping(
+          kGet, "session/:sessionId/goog/cast/get_sinks",
+          WrapToCommand("GetSinks", base::BindRepeating(&ExecuteGetSinks))),
+      CommandMapping(
+          kGet, "session/:sessionId/goog/cast/get_issue_message",
+          WrapToCommand("GetIssueMessage",
+                        base::BindRepeating(&ExecuteGetIssueMessage))),
 
       //
       // Commands of unknown origins.
@@ -786,8 +803,7 @@ HttpHandler::HttpHandler(
           kPost, "session/:sessionId/touch/pinch",
           WrapToCommand("TouchPinch", base::BindRepeating(&ExecuteTouchPinch))),
   };
-  command_map_.reset(
-      new CommandMap(commands, commands + arraysize(commands)));
+  command_map_.reset(new CommandMap(commands, commands + base::size(commands)));
 }
 
 HttpHandler::~HttpHandler() {}
@@ -848,10 +864,17 @@ void HttpHandler::HandleCommand(
   CommandMap::const_iterator iter = command_map_->begin();
   while (true) {
     if (iter == command_map_->end()) {
-      std::unique_ptr<net::HttpServerResponseInfo> response(
-          new net::HttpServerResponseInfo(net::HTTP_NOT_FOUND));
-      response->SetBody("unknown command: " + trimmed_path, "text/plain");
-      send_response_func.Run(std::move(response));
+      if (kW3CDefault) {
+        PrepareResponse(
+            trimmed_path, send_response_func,
+            Status(kUnknownCommand, "unknown command: " + trimmed_path),
+            nullptr, session_id, kW3CDefault);
+      } else {
+        std::unique_ptr<net::HttpServerResponseInfo> response(
+            new net::HttpServerResponseInfo(net::HTTP_NOT_FOUND));
+        response->SetBody("unknown command: " + trimmed_path, "text/plain");
+        send_response_func.Run(std::move(response));
+      }
       return;
     }
     if (internal::MatchesCommand(
@@ -866,13 +889,26 @@ void HttpHandler::HandleCommand(
     std::unique_ptr<base::Value> parsed_body =
         base::JSONReader::Read(request.data);
     if (!parsed_body || !parsed_body->GetAsDictionary(&body_params)) {
-      std::unique_ptr<net::HttpServerResponseInfo> response(
-          new net::HttpServerResponseInfo(net::HTTP_BAD_REQUEST));
-      response->SetBody("missing command parameters", "text/plain");
-      send_response_func.Run(std::move(response));
+      if (kW3CDefault) {
+        PrepareResponse(trimmed_path, send_response_func,
+                        Status(kInvalidArgument, "missing command parameters"),
+                        nullptr, session_id, kW3CDefault);
+      } else {
+        std::unique_ptr<net::HttpServerResponseInfo> response(
+            new net::HttpServerResponseInfo(net::HTTP_BAD_REQUEST));
+        response->SetBody("missing command parameters", "text/plain");
+        send_response_func.Run(std::move(response));
+      }
       return;
     }
     params.MergeDictionary(body_params);
+  } else if (kW3CDefault && iter->method == kPost) {
+    // Data in JSON format is required for POST requests. See step 5 of
+    // https://www.w3.org/TR/2018/REC-webdriver1-20180605/#processing-model.
+    PrepareResponse(trimmed_path, send_response_func,
+                    Status(kInvalidArgument, "missing command parameters"),
+                    nullptr, session_id, kW3CDefault);
+    return;
   }
 
   iter->command.Run(params,
@@ -974,7 +1010,8 @@ HttpHandler::PrepareStandardResponse(
       response.reset(new net::HttpServerResponseInfo(net::HTTP_BAD_REQUEST));
       break;
     case kJavaScriptError:
-      response.reset(new net::HttpServerResponseInfo(net::HTTP_BAD_REQUEST));
+      response.reset(
+          new net::HttpServerResponseInfo(net::HTTP_INTERNAL_SERVER_ERROR));
       break;
     case kMoveTargetOutOfBounds:
       response.reset(
@@ -1128,7 +1165,8 @@ bool MatchesCommand(const std::string& method,
       CHECK(name.length());
       url::RawCanonOutputT<base::char16> output;
       url::DecodeURLEscapeSequences(
-          path_parts[i].data(), path_parts[i].length(), &output);
+          path_parts[i].data(), path_parts[i].length(),
+          url::DecodeURLMode::kUTF8OrIsomorphic, &output);
       std::string decoded = base::UTF16ToASCII(
           base::string16(output.data(), output.length()));
       // Due to crbug.com/533361, the url decoding libraries decodes all of the

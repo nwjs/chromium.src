@@ -289,7 +289,7 @@ class CORE_EXPORT ContainerNode : public Node {
                                    Element* changed_element,
                                    Node* node_before_change,
                                    Node* node_after_change);
-  void RecalcDescendantStyles(StyleRecalcChange);
+  void RecalcDescendantStyles(StyleRecalcChange, bool calc_invisible = false);
   void RebuildChildrenLayoutTrees(WhitespaceAttacher&);
   void RebuildLayoutTreeForChild(Node* child, WhitespaceAttacher&);
   void RebuildNonDistributedChildren();
@@ -365,7 +365,9 @@ class CORE_EXPORT ContainerNode : public Node {
   // CDATA_SECTION_NODE, TEXT_NODE or COMMENT_NODE has changed its value.
   virtual void ChildrenChanged(const ChildrenChange&);
 
-  void Trace(blink::Visitor*) override;
+  virtual bool ChildrenCanHaveStyle() const { return true; }
+
+  void Trace(Visitor*) override;
 
  protected:
   ContainerNode(TreeScope*, ConstructionType = kCreateContainer);

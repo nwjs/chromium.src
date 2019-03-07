@@ -33,6 +33,7 @@
 #include "third_party/blink/public/platform/web_float_rect.h"
 #include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/public/platform/web_vector.h"
+#include "third_party/blink/public/web/web_frame_widget.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_view_client.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache_base.h"
@@ -44,7 +45,6 @@
 #include "third_party/blink/renderer/core/editing/finder/find_options.h"
 #include "third_party/blink/renderer/core/editing/finder/find_task_controller.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
-#include "third_party/blink/renderer/core/editing/iterators/search_buffer.h"
 #include "third_party/blink/renderer/core/editing/markers/document_marker.h"
 #include "third_party/blink/renderer/core/editing/markers/document_marker_controller.h"
 #include "third_party/blink/renderer/core/editing/selection_template.h"
@@ -154,7 +154,7 @@ bool TextFinder::Find(int identifier,
           ->GetDocument()
           ->GetTextAutosizer()
           ->PageNeedsAutosizing()) {
-    OwnerFrame().ViewImpl()->ZoomToFindInPageRect(
+    OwnerFrame().LocalRoot()->FrameWidget()->ZoomToFindInPageRect(
         OwnerFrame().GetFrameView()->ConvertToRootFrame(
             EnclosingIntRect(LayoutObject::AbsoluteBoundingBoxRectForRange(
                 EphemeralRange(active_match_.Get())))));
@@ -635,7 +635,8 @@ int TextFinder::SelectFindMatch(unsigned index, WebRect* selection_rect) {
     // Zoom to the active match.
     active_match_rect = OwnerFrame().GetFrameView()->ConvertToRootFrame(
         active_match_bounding_box);
-    OwnerFrame().ViewImpl()->ZoomToFindInPageRect(active_match_rect);
+    OwnerFrame().LocalRoot()->FrameWidget()->ZoomToFindInPageRect(
+        active_match_rect);
   }
 
   if (selection_rect)

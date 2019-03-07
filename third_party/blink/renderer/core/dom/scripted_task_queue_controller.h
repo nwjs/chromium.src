@@ -34,11 +34,11 @@ class CORE_EXPORT ScriptedTaskQueueController final
 
   ScriptedTaskQueue* defaultQueue(const String&);
 
-  void Trace(blink::Visitor*) override;
-
- private:
   explicit ScriptedTaskQueueController(ExecutionContext*);
 
+  void Trace(Visitor*) override;
+
+ private:
   HeapHashMap<String, TraceWrapperMember<ScriptedTaskQueue>> task_queues_;
 };
 

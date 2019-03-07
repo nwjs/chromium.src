@@ -161,7 +161,7 @@ class ElementRareData : public NodeRareData {
   AccessibleNode* GetAccessibleNode() const { return accessible_node_.Get(); }
   AccessibleNode* EnsureAccessibleNode(Element* owner_element) {
     if (!accessible_node_) {
-      accessible_node_ = new AccessibleNode(owner_element);
+      accessible_node_ = MakeGarbageCollected<AccessibleNode>(owner_element);
     }
     return accessible_node_;
   }
@@ -194,8 +194,9 @@ class ElementRareData : public NodeRareData {
 
   DisplayLockContext* EnsureDisplayLockContext(Element* element,
                                                ExecutionContext* context) {
-    if (!display_lock_context_ || display_lock_context_->IsResolved()) {
-      display_lock_context_ = new DisplayLockContext(element, context);
+    if (!display_lock_context_) {
+      display_lock_context_ =
+          MakeGarbageCollected<DisplayLockContext>(element, context);
     }
     return display_lock_context_.Get();
   }
@@ -219,8 +220,8 @@ class ElementRareData : public NodeRareData {
   std::unique_ptr<NamesMap> part_names_map_;
   TraceWrapperMember<NamedNodeMap> attribute_map_;
   TraceWrapperMember<AttrNodeList> attr_node_list_;
-  Member<InlineCSSStyleDeclaration> cssom_wrapper_;
-  Member<InlineStylePropertyMap> cssom_map_wrapper_;
+  TraceWrapperMember<InlineCSSStyleDeclaration> cssom_wrapper_;
+  TraceWrapperMember<InlineStylePropertyMap> cssom_map_wrapper_;
 
   Member<ElementAnimations> element_animations_;
   TraceWrapperMember<ElementIntersectionObserverData>

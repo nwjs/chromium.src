@@ -8,6 +8,13 @@
 #include <string>
 
 #include "components/account_id/account_id.h"
+#include "ui/gfx/image/image.h"
+
+// Value representing no hosted domain associated with an account.
+extern const char kNoHostedDomainFound[];
+
+// Value representing no picture URL associated with an account.
+extern const char kNoPictureURLFound[];
 
 // Information about a specific account.
 struct AccountInfo {
@@ -30,6 +37,7 @@ struct AccountInfo {
   std::string hosted_domain;
   std::string locale;
   std::string picture_url;
+  gfx::Image account_image;
   bool is_child_account = false;
   bool is_under_advanced_protection = false;
 

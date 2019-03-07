@@ -26,7 +26,9 @@
 #include <memory>
 
 #include "base/auto_reset.h"
+#include "base/feature_list.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/bindings/core/v8/array_buffer_or_array_buffer_view_or_blob_or_document_or_string_or_form_data_or_url_search_params.h"
@@ -262,24 +264,18 @@ XMLHttpRequest* XMLHttpRequest::Create(ScriptState* script_state) {
   DOMWrapperWorld& world = script_state->World();
   v8::Isolate* isolate = script_state->GetIsolate();
 
-  XMLHttpRequest* xml_http_request =
-      world.IsIsolatedWorld()
-          ? MakeGarbageCollected<XMLHttpRequest>(
-                context, isolate, true, world.IsolatedWorldSecurityOrigin())
-          : MakeGarbageCollected<XMLHttpRequest>(context, isolate, false,
-                                                 nullptr);
-  xml_http_request->PauseIfNeeded();
-  return xml_http_request;
+  return world.IsIsolatedWorld()
+             ? MakeGarbageCollected<XMLHttpRequest>(
+                   context, isolate, true, world.IsolatedWorldSecurityOrigin())
+             : MakeGarbageCollected<XMLHttpRequest>(context, isolate, false,
+                                                    nullptr);
 }
 
 XMLHttpRequest* XMLHttpRequest::Create(ExecutionContext* context) {
-  v8::Isolate* isolate = ToIsolate(context);
+  v8::Isolate* isolate = context->GetIsolate();
   CHECK(isolate);
 
-  XMLHttpRequest* xml_http_request =
-      MakeGarbageCollected<XMLHttpRequest>(context, isolate, false, nullptr);
-  xml_http_request->PauseIfNeeded();
-  return xml_http_request;
+  return MakeGarbageCollected<XMLHttpRequest>(context, isolate, false, nullptr);
 }
 
 XMLHttpRequest::XMLHttpRequest(
@@ -287,7 +283,7 @@ XMLHttpRequest::XMLHttpRequest(
     v8::Isolate* isolate,
     bool is_isolated_world,
     scoped_refptr<SecurityOrigin> isolated_world_security_origin)
-    : PausableObject(context),
+    : ContextLifecycleObserver(context),
       progress_event_throttle_(
           XMLHttpRequestProgressEventThrottle::Create(this)),
       isolate_(isolate),
@@ -359,7 +355,7 @@ void XMLHttpRequest::InitResponseDocument() {
 
   DocumentInit init = DocumentInit::Create()
                           .WithContextDocument(GetDocument()->ContextDocument())
-                          .WithURL(response_.Url());
+                          .WithURL(response_.ResponseUrl());
   if (is_html)
     response_document_ = HTMLDocument::Create(init);
   else
@@ -544,7 +540,7 @@ String XMLHttpRequest::responseType() {
 }
 
 String XMLHttpRequest::responseURL() {
-  KURL response_url(response_.Url());
+  KURL response_url(response_.ResponseUrl());
   if (!response_url.IsNull())
     response_url.RemoveFragmentIdentifier();
   return response_url.GetString();
@@ -1007,6 +1003,16 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
     return;
   }
 
+  if (url_.ProtocolIs("ftp")) {
+    LogConsoleError(GetExecutionContext(), "FTP is not supported.");
+    HandleNetworkError();
+    if (!async_) {
+      ThrowForLoadFailureIfNeeded(
+          exception_state, "Making a request to a FTP URL is not supported.");
+    }
+    return;
+  }
+
   DCHECK(GetExecutionContext());
   ExecutionContext& execution_context = *GetExecutionContext();
 
@@ -1063,7 +1069,7 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
       execution_context.GetSecurityContext().AddressSpace());
 
   probe::willLoadXHR(&execution_context, this, this, method_, url_, async_,
-                     request_headers_, with_credentials_);
+                     http_body.get(), request_headers_, with_credentials_);
 
   if (http_body) {
     DCHECK_NE(method_, http_names::kGET);
@@ -1097,9 +1103,6 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
     resource_loader_options.data_buffering_policy = kDoNotBufferData;
   }
 
-  exception_code_ = DOMExceptionCode::kNoError;
-  error_ = false;
-
   if (async_) {
     UseCounter::Count(&execution_context,
                       WebFeature::kXMLHttpRequestAsynchronous);
@@ -1127,14 +1130,33 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
       // Update histogram for usage of sync xhr within pagedismissal.
       auto pagedismissal = GetDocument()->PageDismissalEventBeingDispatched();
       if (pagedismissal != Document::kNoDismissal) {
-        UseCounter::Count(GetDocument(), WebFeature::kSyncXhrInPageDismissal);
-        DEFINE_STATIC_LOCAL(EnumerationHistogram, syncxhr_pagedismissal_histogram,
-                            ("XHR.Sync.PageDismissal", 5));
-        syncxhr_pagedismissal_histogram.Count(pagedismissal);
+        // Disallow synchronous requests on page dismissal
+        if (base::FeatureList::IsEnabled(
+                features::kForbidSyncXHRInPageDismissal)) {
+          UseCounter::Count(GetDocument(),
+                            WebFeature::kForbiddenSyncXhrInPageDismissal);
+          DEFINE_STATIC_LOCAL(EnumerationHistogram,
+                              forbidden_syncxhr_pagedismissal_histogram,
+                              ("XHR.Sync.PageDismissal_forbidden", 5));
+          forbidden_syncxhr_pagedismissal_histogram.Count(pagedismissal);
+          HandleNetworkError();
+          ThrowForLoadFailureIfNeeded(exception_state,
+                                      "Synchronous XHR in page dismissal.");
+          return;
+        } else {
+          UseCounter::Count(GetDocument(), WebFeature::kSyncXhrInPageDismissal);
+          DEFINE_STATIC_LOCAL(EnumerationHistogram,
+                              syncxhr_pagedismissal_histogram,
+                              ("XHR.Sync.PageDismissal", 5));
+          syncxhr_pagedismissal_histogram.Count(pagedismissal);
+        }
       }
     }
     resource_loader_options.synchronous_policy = kRequestSynchronously;
   }
+
+  exception_code_ = DOMExceptionCode::kNoError;
+  error_ = false;
 
   loader_ = MakeGarbageCollected<ThreadableLoader>(execution_context, this,
                                                    resource_loader_options);
@@ -1799,6 +1821,8 @@ std::unique_ptr<TextResourceDecoder> XMLHttpRequest::CreateDecoder() const {
   if (!final_response_charset.IsEmpty()) {
     // If the final charset is given, use the charset without sniffing the
     // content.
+    // TODO(crbug/905968): If WTF::TextEncoding::IsValid() is false, this
+    // currently falls back to Latin1Encoding(). Fallback to UTF-8 instead.
     return TextResourceDecoder::Create(TextResourceDecoderOptions(
         TextResourceDecoderOptions::kPlainTextContent,
         WTF::TextEncoding(final_response_charset)));
@@ -1883,7 +1907,7 @@ void XMLHttpRequest::DidReceiveData(const char* data, unsigned len) {
   TrackProgress(len);
 }
 
-void XMLHttpRequest::DidDownloadData(int data_length) {
+void XMLHttpRequest::DidDownloadData(unsigned long long data_length) {
   ScopedEventDispatchProtect protect(&event_dispatch_recursion_level_);
   if (error_)
     return;
@@ -1955,14 +1979,6 @@ void XMLHttpRequest::HandleDidTimeout() {
                      expected_length);
 }
 
-void XMLHttpRequest::Pause() {
-  progress_event_throttle_->Pause();
-}
-
-void XMLHttpRequest::Unpause() {
-  progress_event_throttle_->Unpause();
-}
-
 void XMLHttpRequest::ContextDestroyed(ExecutionContext*) {
   Dispose();
 
@@ -1988,7 +2004,7 @@ const AtomicString& XMLHttpRequest::InterfaceName() const {
 }
 
 ExecutionContext* XMLHttpRequest::GetExecutionContext() const {
-  return PausableObject::GetExecutionContext();
+  return ContextLifecycleObserver::GetExecutionContext();
 }
 
 void XMLHttpRequest::ReportMemoryUsageToV8() {
@@ -2021,7 +2037,7 @@ void XMLHttpRequest::Trace(blink::Visitor* visitor) {
   XMLHttpRequestEventTarget::Trace(visitor);
   ThreadableLoaderClient::Trace(visitor);
   DocumentParserClient::Trace(visitor);
-  PausableObject::Trace(visitor);
+  ContextLifecycleObserver::Trace(visitor);
 }
 
 std::ostream& operator<<(std::ostream& ostream, const XMLHttpRequest* xhr) {

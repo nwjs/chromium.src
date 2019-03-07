@@ -79,6 +79,11 @@ void OnSetOomScoreAdj(bool success, const std::string& output) {
     LOG(WARNING) << "Set OOM score: " << output;
 }
 
+bool IsNewProcessTypesEnabled() {
+  return base::FeatureList::IsEnabled(features::kNewProcessTypes) &&
+         !base::FeatureList::IsEnabled(features::kTabRanker);
+}
+
 }  // namespace
 
 // static
@@ -100,6 +105,12 @@ std::ostream& operator<<(std::ostream& os, const ProcessType& type) {
       return os << "PROTECTED_BACKGROUND_TAB";
     case ProcessType::UNKNOWN_TYPE:
       return os << "UNKNOWN_TYPE";
+    case ProcessType::BACKGROUND:
+      return os << "BACKGROUND";
+    case ProcessType::PROTECTED_BACKGROUND:
+      return os << "PROTECTED_BACKGROUND";
+    case ProcessType::CACHED_APP:
+      return os << "CACHED_APP";
     default:
       return os << "NOT_IMPLEMENTED_ERROR";
   }
@@ -128,20 +139,40 @@ bool TabManagerDelegate::Candidate::operator<(
     return *app() < *rhs.app();
   if (lifecycle_unit() && rhs.lifecycle_unit())
     return lifecycle_unit_sort_key_ > rhs.lifecycle_unit_sort_key_;
-  // Impossible case. If app and tab are mixed in one process type, favor
-  // apps.
+  // When NewProcessTypes feature is turned off and using old ProcessType
+  // categories, tabs and apps are in separate categories so this is an
+  // impossible case. Otherwise, tabs and apps are compared using last active
+  // time.
+  if ((lifecycle_unit() && rhs.app()) || (app() && rhs.lifecycle_unit()))
+    return GetLastActiveTime() < rhs.GetLastActiveTime();
+
   NOTREACHED() << "Undefined comparison between apps and tabs: process_type="
                << process_type();
   return app();
 }
 
+TimeTicks TabManagerDelegate::Candidate::GetLastActiveTime() const {
+  if (app())
+    return TimeTicks::FromUptimeMillis(app()->last_activity_time());
+  if (lifecycle_unit())
+    return lifecycle_unit()->GetLastFocusedTime();
+  return TimeTicks();
+}
+
 ProcessType TabManagerDelegate::Candidate::GetProcessTypeInternal() const {
+  const bool use_new_proc_types = IsNewProcessTypesEnabled();
   if (app()) {
     if (app()->is_focused())
       return ProcessType::FOCUSED_APP;
-    if (app()->IsImportant())
-      return ProcessType::IMPORTANT_APP;
-    return ProcessType::BACKGROUND_APP;
+    if (!use_new_proc_types) {
+      return app()->IsImportant() ? ProcessType::IMPORTANT_APP
+                                  : ProcessType::BACKGROUND_APP;
+    }
+    if (app()->IsBackgroundProtected())
+      return ProcessType::PROTECTED_BACKGROUND;
+    if (app()->IsCached())
+      return ProcessType::CACHED_APP;
+    return ProcessType::BACKGROUND;
   }
   if (lifecycle_unit()) {
     if (lifecycle_unit_sort_key_.last_focused_time == base::TimeTicks::Max())
@@ -150,11 +181,12 @@ ProcessType TabManagerDelegate::Candidate::GetProcessTypeInternal() const {
     if (!lifecycle_unit()->CanDiscard(
             ::mojom::LifecycleUnitDiscardReason::PROACTIVE,
             &decision_details)) {
-      return ProcessType::PROTECTED_BACKGROUND_TAB;
+      return use_new_proc_types ? ProcessType::PROTECTED_BACKGROUND
+                                : ProcessType::PROTECTED_BACKGROUND_TAB;
     }
-    return ProcessType::BACKGROUND_TAB;
+    return use_new_proc_types ? ProcessType::BACKGROUND
+                              : ProcessType::BACKGROUND_TAB;
   }
-  NOTREACHED() << "Unexpected process type";
   return ProcessType::UNKNOWN_TYPE;
 }
 
@@ -486,9 +518,7 @@ void TabManagerDelegate::AdjustOomPriorities() {
   AdjustOomPrioritiesImpl(std::vector<arc::ArcProcess>());
 }
 
-// Excludes persistent ARC apps, but still preserves active chrome tabs and
-// focused ARC apps. The latter ones should not be killed by TabManager here,
-// but we want to adjust their oom_score_adj.
+// Get a list of candidates to kill, sorted by descending importance.
 // static
 std::vector<TabManagerDelegate::Candidate>
 TabManagerDelegate::GetSortedCandidates(
@@ -551,6 +581,9 @@ void TabManagerDelegate::LowMemoryKillImpl(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   VLOG(2) << "LowMemoryKillImpl";
 
+  // Prevent persistent ARC processes from being killed.
+  base::EraseIf(arc_processes, [](auto& proc) { return proc.IsPersistent(); });
+
   std::vector<TabManagerDelegate::Candidate> candidates =
       GetSortedCandidates(GetLifecycleUnits(), arc_processes);
 
@@ -582,21 +615,25 @@ void TabManagerDelegate::LowMemoryKillImpl(
 
     const ProcessType process_type = it->process_type();
 
+    // Never kill selected tab, foreground app, and important apps regardless of
+    // whether they're in the active window. Since the user experience would be
+    // bad.
     if (it->app()) {
       if (process_type == ProcessType::FOCUSED_APP) {
         MEMORY_LOG(ERROR) << "Skipped killing focused app "
                           << it->app()->process_name();
         continue;
-      } else if (process_type == ProcessType::IMPORTANT_APP) {
+      }
+      if (process_type == ProcessType::IMPORTANT_APP) {
         MEMORY_LOG(ERROR) << "Skipped killing important app "
                           << it->app()->process_name();
         continue;
-      } else if (IsRecentlyKilledArcProcess(it->app()->process_name(), now)) {
+      }
+      if (IsRecentlyKilledArcProcess(it->app()->process_name(), now)) {
         MEMORY_LOG(ERROR) << "Avoided killing " << it->app()->process_name()
                           << " too often";
         continue;
       }
-
       int estimated_memory_freed_kb =
           mem_stat_->EstimatedMemoryFreedKB(it->app()->pid());
       if (KillArcProcess(it->app()->nspid())) {
@@ -691,8 +728,11 @@ void TabManagerDelegate::AdjustOomPrioritiesImpl(
   // Find some pivot point. For now (roughly) apps are in the first half and
   // tabs are in the second half.
   auto lower_priority_part = candidates.end();
+  bool use_new_proc_types = IsNewProcessTypesEnabled();
+  ProcessType pivot_type = use_new_proc_types ? ProcessType::BACKGROUND
+                                              : ProcessType::BACKGROUND_TAB;
   for (auto it = candidates.begin(); it != candidates.end(); ++it) {
-    if (it->process_type() >= ProcessType::BACKGROUND_TAB) {
+    if (it->process_type() >= pivot_type) {
       lower_priority_part = it;
       break;
     }

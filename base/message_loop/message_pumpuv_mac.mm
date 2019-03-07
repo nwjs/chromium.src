@@ -324,7 +324,7 @@ void MessagePumpUVNSRunLoop::DoRun(Delegate* delegate) {
   nw_nesting_level_--;
 }
 
-void MessagePumpUVNSRunLoop::Quit() {
+bool MessagePumpUVNSRunLoop::DoQuit() {
   keep_running_ = false;
   CFRunLoopSourceSignal(quit_source_);
   CFRunLoopWakeUp(run_loop());
@@ -332,6 +332,7 @@ void MessagePumpUVNSRunLoop::Quit() {
     g_quit_written = true;
     write(g_main_thread_pipe_fd, "q", 1);
   }
+  return true;
 }
 
 void MessagePumpUVNSRunLoop::EmbedThreadRunner(void *arg) {

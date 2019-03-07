@@ -23,7 +23,7 @@ class Connector;
 namespace ash {
 
 // Provides a convenient client to access various Assistant states. The state
-// infomration can be accessed through direct accessors which returns
+// information can be accessed through direct accessors which returns
 // |base::Optional<>| or observers. When adding an observer, all change events
 // will fire if this client already have data.
 class ASH_PUBLIC_EXPORT AssistantStateProxy
@@ -45,6 +45,7 @@ class ASH_PUBLIC_EXPORT AssistantStateProxy
   void OnVoiceInteractionContextEnabled(bool enabled) override;
   void OnVoiceInteractionHotwordEnabled(bool enabled) override;
   void OnVoiceInteractionSetupCompleted(bool completed) override;
+  void OnVoiceInteractionHotwordAlwaysOn(bool always_on) override;
   void OnAssistantFeatureAllowedChanged(
       ash::mojom::AssistantAllowedState state) override;
   void OnLocaleChanged(const std::string& locale) override;

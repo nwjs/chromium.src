@@ -29,6 +29,7 @@
 #include <utility>
 
 #include "services/network/public/mojom/request_context_frame_type.mojom-blink.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/loader/subresource_integrity_helper.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/web_memory_allocator_dump.h"
@@ -84,7 +85,7 @@ ScriptResource* ScriptResource::Fetch(FetchParameters& params,
   if (streaming_allowed == kAllowStreaming) {
     // Start streaming the script as soon as we get it.
     if (RuntimeEnabledFeatures::ScriptStreamingOnPreloadEnabled()) {
-      resource->StartStreaming(fetcher->Context().GetLoadingTaskRunner());
+      resource->StartStreaming(fetcher->GetTaskRunner());
     }
   } else {
     // Advance the |streaming_state_| to kStreamingNotAllowed by calling
@@ -98,7 +99,7 @@ ScriptResource* ScriptResource::Fetch(FetchParameters& params,
     // clients were already finished. If this behaviour becomes necessary, we
     // would have to either check that streaming wasn't started (if that would
     // be a logic error), or cancel any existing streaming.
-    fetcher->Context().GetLoadingTaskRunner()->PostTask(
+    fetcher->GetTaskRunner()->PostTask(
         FROM_HERE, WTF::Bind(&ScriptResource::SetClientIsWaitingForFinished,
                              WrapWeakPersistent(resource)));
   }
@@ -126,10 +127,7 @@ void ScriptResource::OnMemoryDump(WebMemoryDumpLevelOfDetail level_of_detail,
                                   WebProcessMemoryDump* memory_dump) const {
   Resource::OnMemoryDump(level_of_detail, memory_dump);
   const String name = GetMemoryDumpName() + "/decoded_script";
-  auto* dump = memory_dump->CreateMemoryAllocatorDump(name);
-  dump->AddScalar("size", "bytes", source_text_.CharactersSizeInBytes());
-  memory_dump->AddSuballocation(
-      dump->Guid(), String(WTF::Partitions::kAllocatedObjectPoolName));
+  source_text_.OnMemoryDump(memory_dump, name);
 }
 
 const ParkableString& ScriptResource::SourceText() {
@@ -193,7 +191,7 @@ CachedMetadataHandler* ScriptResource::CreateCachedMetadataHandler(
       Encoding(), std::move(send_callback));
 }
 
-void ScriptResource::SetSerializedCachedMetadata(const char* data,
+void ScriptResource::SetSerializedCachedMetadata(const uint8_t* data,
                                                  size_t size) {
   Resource::SetSerializedCachedMetadata(data, size);
   ScriptCachedMetadataHandler* cache_handler =
@@ -290,21 +288,27 @@ void ScriptResource::StreamingFinished() {
   TextResource::NotifyFinished();
 }
 
-bool ScriptResource::StartStreaming(
+void ScriptResource::StartStreaming(
     scoped_refptr<base::SingleThreadTaskRunner> loading_task_runner) {
   CheckStreamingState();
 
   if (streamer_) {
-    return !streamer_->IsStreamingFinished();
+    return;
   }
 
   if (streaming_state_ != StreamingState::kCanStartStreaming) {
-    return false;
+    return;
   }
 
   // Don't bother streaming if there was an error, it won't work anyway.
   if (ErrorOccurred()) {
-    return false;
+    return;
+  }
+
+  static bool script_streaming_enabled =
+      base::FeatureList::IsEnabled(features::kScriptStreaming);
+  if (!script_streaming_enabled) {
+    return;
   }
 
   CHECK(!IsCacheValidator());
@@ -337,7 +341,7 @@ bool ScriptResource::StartStreaming(
   }
 
   CheckStreamingState();
-  return streamer_ && !streamer_->IsStreamingFinished();
+  return;
 }
 
 void ScriptResource::SetClientIsWaitingForFinished() {

@@ -32,6 +32,9 @@ enum class LocalCardMigrationFlowStep {
   // Migration is finished. Should show the credit card icon when migration
   // is finished and the feedback dialog is ready.
   MIGRATION_FINISHED,
+  // Migration is finished and there are some cards save fails, or payments
+  // server error.
+  MIGRATION_FAILED,
   // Should show the feedback dialog containing the migration results of cards
   // that the user selected to upload after the user clicking the credit card
   // icon.
@@ -53,6 +56,7 @@ class ManageMigrationUiController
 
   void ShowOfferDialog(
       std::unique_ptr<base::DictionaryValue> legal_message,
+      const std::string& user_email,
       const std::vector<MigratableCreditCard>& migratable_credit_cards,
       AutofillClient::LocalCardMigrationCallback
           start_migrating_cards_callback);
@@ -99,6 +103,8 @@ class ManageMigrationUiController
   // This indicates if we should show error dialog or normal feedback dialog
   // after users click the credit card icon.
   bool show_error_dialog_ = false;
+
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
 
   DISALLOW_COPY_AND_ASSIGN(ManageMigrationUiController);
 };

@@ -10,6 +10,7 @@
 
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
+#include "third_party/skia/include/core/SkPath.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -17,7 +18,6 @@
 #include "ui/gfx/font.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image.h"
-#include "ui/gfx/path.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/resources/grit/views_resources.h"
@@ -179,7 +179,7 @@ int CustomFrameView::NonClientHitTest(const gfx::Point& point) {
 }
 
 void CustomFrameView::GetWindowMask(const gfx::Size& size,
-                                    gfx::Path* window_mask) {
+                                    SkPath* window_mask) {
   DCHECK(window_mask);
   if (frame_->IsMaximized() || !ShouldShowTitleBarAndBorder())
     return;
@@ -286,7 +286,7 @@ gfx::Size CustomFrameView::GetMaximumSize() const {
 
 void CustomFrameView::ButtonPressed(Button* sender, const ui::Event& event) {
   if (sender == close_button_)
-    frame_->Close();
+    frame_->CloseWithReason(views::Widget::ClosedReason::kCloseButtonClicked);
   else if (sender == minimize_button_)
     frame_->Minimize();
   else if (sender == maximize_button_)

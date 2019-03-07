@@ -21,6 +21,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.StrictMode;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintManager;
 import android.provider.Browser;
 import android.util.SparseArray;
 import android.view.Gravity;
@@ -546,6 +549,15 @@ public class WebViewBrowserActivity extends Activity implements PopupMenu.OnMenu
                         }
                     }
                 }
+                return true;
+            case R.id.start_animation_activity:
+                startActivity(new Intent(this, WebViewAnimationTestActivity.class));
+                return true;
+            case R.id.menu_print:
+                PrintManager printManager = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                String jobName = "WebViewShell document";
+                PrintDocumentAdapter printAdapter = mWebView.createPrintDocumentAdapter(jobName);
+                printManager.print(jobName, printAdapter, new PrintAttributes.Builder().build());
                 return true;
             case R.id.menu_about:
                 about();

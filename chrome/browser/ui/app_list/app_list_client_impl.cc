@@ -15,7 +15,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
-#include "chrome/browser/chromeos/arc/voice_interaction/arc_voice_interaction_framework_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
@@ -106,6 +105,8 @@ void AppListClientImpl::OpenSearchResult(const std::string& result_id,
       search_controller_->Train(
           static_cast<app_list::AppResult*>(result)->app_id());
     }
+
+    app_launch_event_logger_.OnSuggestionChipClicked(result_id);
   }
 }
 
@@ -172,6 +173,8 @@ void AppListClientImpl::ActivateItem(const std::string& id, int event_flags) {
 
   // Send training signal to search controller.
   search_controller_->Train(id);
+
+  app_launch_event_logger_.OnGridClicked(id);
 }
 
 void AppListClientImpl::GetContextMenuModel(
@@ -242,22 +245,6 @@ void AppListClientImpl::OnPageBreakItemDeleted(const std::string& id) {
   if (!model_updater_)
     return;
   model_updater_->OnPageBreakItemDeleted(id);
-}
-
-void AppListClientImpl::StartVoiceInteractionSession() {
-  auto* service =
-      arc::ArcVoiceInteractionFrameworkService::GetForBrowserContext(
-          ChromeLauncherController::instance()->profile());
-  if (service)
-    service->StartSessionFromUserInteraction(gfx::Rect());
-}
-
-void AppListClientImpl::ToggleVoiceInteractionSession() {
-  auto* service =
-      arc::ArcVoiceInteractionFrameworkService::GetForBrowserContext(
-          ChromeLauncherController::instance()->profile());
-  if (service)
-    service->ToggleSessionFromUserInteraction();
 }
 
 void AppListClientImpl::GetNavigableContentsFactory(

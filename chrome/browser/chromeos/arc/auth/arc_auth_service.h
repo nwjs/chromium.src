@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/callback.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -27,6 +28,10 @@ class Profile;
 namespace content {
 class BrowserContext;
 }  // namespace content
+
+namespace identity {
+class IdentityManager;
+}  // namespace identity
 
 namespace network {
 class SharedURLLoaderFactory;
@@ -47,6 +52,9 @@ class ArcAuthService : public KeyedService,
                        public AccountTrackerService::Observer,
                        public ArcSessionManager::Observer {
  public:
+  using GetGoogleAccountsInArcCallback =
+      base::OnceCallback<void(std::vector<mojom::ArcAccountInfoPtr>)>;
+
   // Returns singleton instance for the given BrowserContext,
   // or nullptr if the browser |context| is not allowed to use ARC.
   static ArcAuthService* GetForBrowserContext(content::BrowserContext* context);
@@ -54,6 +62,11 @@ class ArcAuthService : public KeyedService,
   ArcAuthService(content::BrowserContext* profile,
                  ArcBridgeService* bridge_service);
   ~ArcAuthService() override;
+
+  // Gets the list of Google accounts currently stored in ARC. This is used by
+  // the one-time migration flow for migrating Google accounts in ARC to Chrome
+  // OS Account Manager.
+  void GetGoogleAccountsInArc(GetGoogleAccountsInArcCallback callback);
 
   // For supporting ArcServiceManager::GetService<T>().
   static const char kArcServiceName[];
@@ -174,10 +187,15 @@ class ArcAuthService : public KeyedService,
   // Triggers an async push of the accounts in Chrome OS Account Manager to ARC.
   void TriggerAccountsPushToArc();
 
+  // Issues a request to ARC, which will complete callback with the list of
+  // Google accounts in ARC.
+  void DispatchAccountsInArc(GetGoogleAccountsInArcCallback callback);
+
   // Non-owning pointers.
   Profile* const profile_;
   chromeos::AccountManager* account_manager_ = nullptr;
   AccountTrackerService* const account_tracker_service_;
+  identity::IdentityManager* const identity_manager_;
   ArcBridgeService* const arc_bridge_service_;
 
   chromeos::AccountMapperUtil account_mapper_util_;
@@ -187,6 +205,10 @@ class ArcAuthService : public KeyedService,
 
   // A list of pending enrollment token / auth code requests.
   std::vector<std::unique_ptr<ArcFetcherBase>> pending_token_requests_;
+
+  // Pending callback for |GetGoogleAccountsInArc| if ARC bridge is not yet
+  // ready.
+  GetGoogleAccountsInArcCallback pending_get_arc_accounts_callback_;
 
   bool skip_merge_session_for_testing_ = false;
 

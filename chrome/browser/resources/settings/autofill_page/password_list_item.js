@@ -11,7 +11,7 @@ Polymer({
   is: 'password-list-item',
 
   behaviors: [
-    FocusRowBehavior,
+    cr.ui.FocusRowBehavior,
     ShowPasswordBehavior,
   ],
 
@@ -20,8 +20,9 @@ Polymer({
    * @private
    */
   onReadonlyInputTap_: function() {
-    if (this.item.password)
+    if (this.item.password) {
       this.$$('#password').select();
+    }
   },
 
   /**

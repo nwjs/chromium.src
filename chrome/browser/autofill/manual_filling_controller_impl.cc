@@ -12,6 +12,7 @@
 #include "chrome/browser/password_manager/password_accessory_controller.h"
 #include "chrome/browser/password_manager/password_accessory_metrics_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "content/public/browser/web_contents.h"
 
 using autofill::AccessorySheetData;
@@ -37,8 +38,8 @@ void ManualFillingControllerImpl::CreateForWebContentsForTesting(
 
   web_contents->SetUserData(
       UserDataKey(),
-      base::WrapUnique(new ManualFillingControllerImpl(
-          web_contents, std::move(pwd_controller), std::move(view))));
+      std::make_unique<ManualFillingControllerImpl>(
+          web_contents, std::move(pwd_controller), std::move(view)));
 }
 
 void ManualFillingControllerImpl::OnAutomaticGenerationStatusChanged(
@@ -68,12 +69,28 @@ void ManualFillingControllerImpl::RefreshSuggestionsForField(
   }
 }
 
-void ManualFillingControllerImpl::ShowWhenKeyboardIsVisible() {
+void ManualFillingControllerImpl::ShowWhenKeyboardIsVisible(
+    FillingSource source) {
+  if (source == FillingSource::AUTOFILL &&
+      !base::FeatureList::IsEnabled(
+          autofill::features::kAutofillKeyboardAccessory)) {
+    // Ignore autofill signals if the feature is disabled.
+    return;
+  }
+  visible_sources_.insert(source);
   view_->ShowWhenKeyboardIsVisible();
 }
 
-void ManualFillingControllerImpl::Hide() {
-  view_->Hide();
+void ManualFillingControllerImpl::Hide(FillingSource source) {
+  if (source == FillingSource::AUTOFILL &&
+      !base::FeatureList::IsEnabled(
+          autofill::features::kAutofillKeyboardAccessory)) {
+    // Ignore autofill signals if the feature is disabled.
+    return;
+  }
+  visible_sources_.erase(source);
+  if (visible_sources_.empty())
+    view_->Hide();
 }
 
 void ManualFillingControllerImpl::OnFillingTriggered(
@@ -131,3 +148,5 @@ ManualFillingControllerImpl::ManualFillingControllerImpl(
       pwd_controller_(std::move(pwd_controller)),
       view_(std::move(view)),
       weak_factory_(this) {}
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(ManualFillingControllerImpl)

@@ -13,6 +13,8 @@
 namespace blink {
 
 class HTMLElement;
+class LabelsNodeList;
+class ValidityStateFlags;
 
 class ElementInternals : public ScriptWrappable, public ListedElement {
   DEFINE_WRAPPERTYPEINFO();
@@ -32,19 +34,46 @@ class ElementInternals : public ScriptWrappable, public ListedElement {
                     FormData* entry_source,
                     ExceptionState& exception_state);
   HTMLFormElement* form(ExceptionState& exception_state) const;
+  void setValidity(ValidityStateFlags* flags, ExceptionState& exception_state);
+  void setValidity(ValidityStateFlags* flags,
+                   const String& message,
+                   ExceptionState& exception_state);
+  bool willValidate(ExceptionState& exception_state) const;
+  ValidityState* validity(ExceptionState& exception_state);
+  String ValidationMessageForBinding(ExceptionState& exception_state);
+  bool checkValidity(ExceptionState& exception_state);
+  bool reportValidity(ExceptionState& exception_state);
+  LabelsNodeList* labels();
 
  private:
+  bool IsTargetFormAssociated() const;
+
   // ListedElement overrides:
   bool IsFormControlElement() const override;
   bool IsElementInternals() const override;
   bool IsEnumeratable() const override;
   void AppendToFormData(FormData& form_data) override;
   void DidChangeForm() override;
+  bool HasBadInput() const override;
+  bool PatternMismatch() const override;
+  bool RangeOverflow() const override;
+  bool RangeUnderflow() const override;
+  bool StepMismatch() const override;
+  bool TooLong() const override;
+  bool TooShort() const override;
+  bool TypeMismatch() const override;
+  bool ValueMissing() const override;
+  bool CustomError() const override;
+  String validationMessage() const override;
+  String ValidationSubMessage() const override;
+  void DisabledStateMightBeChanged() override;
 
   Member<HTMLElement> target_;
 
   FileOrUSVString value_;
   Member<FormData> entry_source_;
+  bool is_disabled_ = false;
+  Member<ValidityStateFlags> validity_flags_;
 
   DISALLOW_COPY_AND_ASSIGN(ElementInternals);
 };

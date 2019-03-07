@@ -41,7 +41,8 @@ class FeedbackPrivateAPI : public BrowserContextKeyedAPI {
                               const std::string& category_tag,
                               const std::string& extra_diagnostics,
                               const GURL& page_url,
-                              api::feedback_private::FeedbackFlow flow);
+                              api::feedback_private::FeedbackFlow flow,
+                              bool from_assistant = false);
 
   // BrowserContextKeyedAPI implementation.
   static BrowserContextKeyedAPIFactory<FeedbackPrivateAPI>*
@@ -140,7 +141,6 @@ class FeedbackPrivateSendFeedbackFunction : public UIThreadExtensionFunction {
  private:
   void OnAllLogsFetched(
       scoped_refptr<feedback::FeedbackData> feedback_data,
-      bool send_histograms,
       bool send_bluetooth_logs,
       std::unique_ptr<FeedbackCommon::SystemLogsMap> sys_logs);
   void OnCompleted(api::feedback_private::LandingPageType type, bool success);

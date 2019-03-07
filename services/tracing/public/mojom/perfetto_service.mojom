@@ -7,6 +7,7 @@ module tracing.mojom;
 const string kTraceEventDataSourceName = "org.chromium.trace_event";
 const string kMetaDataSourceName = "org.chromium.trace_metadata";
 const string kSystemTraceDataSourceName = "org.chromium.trace_system";
+const string kArcTraceDataSourceName = "org.chromium.trace_arc";
 
 // Brief description of the flow: There's a per-process ProducerClient which
 // connects to the central PerfettoService and establishes a two-way connection
@@ -89,6 +90,11 @@ interface ProducerHost {
 
   // Called to let the Service know that a flush is complete.
   NotifyFlushComplete(uint64 flush_request_id);
+
+  // Called by the ProducerClient to associate a TraceWriter with a target
+  // buffer, which is required to support scraping of the SMB by the service.
+  RegisterTraceWriter(uint32 writer_id, uint32 target_buffer);
+  UnregisterTraceWriter(uint32 writer_id);
 };
 
 interface ProducerClient {

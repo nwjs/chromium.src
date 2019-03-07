@@ -12,6 +12,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.support.annotation.Nullable;
+import android.support.v4.view.ViewCompat;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
@@ -33,7 +34,6 @@ import org.chromium.chrome.browser.compositor.layouts.content.InvalidationAwareT
 import org.chromium.chrome.browser.explore_sites.ExperimentalExploreSitesSection;
 import org.chromium.chrome.browser.explore_sites.ExploreSitesBridge;
 import org.chromium.chrome.browser.explore_sites.ExploreSitesSection;
-import org.chromium.chrome.browser.explore_sites.ExploreSitesVariation;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.ntp.NewTabPage.OnSearchBoxScrollListener;
@@ -186,9 +186,10 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
         mSearchBoxView = findViewById(R.id.search_box);
         insertSiteSectionView();
 
-        if (ExploreSitesBridge.getVariation() == ExploreSitesVariation.ENABLED) {
+        int variation = ExploreSitesBridge.getVariation();
+        if (ExploreSitesBridge.isEnabled(variation)) {
             mExploreSectionView = ((ViewStub) findViewById(R.id.explore_sites_stub)).inflate();
-        } else if (ExploreSitesBridge.getVariation() == ExploreSitesVariation.EXPERIMENT) {
+        } else if (ExploreSitesBridge.isExperimental(variation)) {
             ViewStub exploreStub = findViewById(R.id.explore_sites_stub);
             exploreStub.setLayoutResource(R.layout.experimental_explore_sites_section);
             mExploreSectionView = exploreStub.inflate();
@@ -237,10 +238,11 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
         mSiteSectionViewHolder = SiteSection.createViewHolder(getSiteSectionView(), mUiConfig);
         mSiteSectionViewHolder.bindDataSource(mTileGroup, tileRenderer);
 
-        if (ExploreSitesBridge.getVariation() == ExploreSitesVariation.ENABLED) {
+        int variation = ExploreSitesBridge.getVariation();
+        if (ExploreSitesBridge.isEnabled(variation)) {
             mExploreSection = new ExploreSitesSection(mExploreSectionView, profile,
                     mManager.getNavigationDelegate(), SuggestionsConfig.getTileStyle(mUiConfig));
-        } else if (ExploreSitesBridge.getVariation() == ExploreSitesVariation.EXPERIMENT) {
+        } else if (ExploreSitesBridge.isExperimental(variation)) {
             mExploreSection = new ExperimentalExploreSitesSection(
                     mExploreSectionView, profile, mManager.getNavigationDelegate());
         }
@@ -447,7 +449,7 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
         ViewGroup.LayoutParams layoutParams = mSiteSectionView.getLayoutParams();
         layoutParams.width = ViewGroup.LayoutParams.WRAP_CONTENT;
         // If the explore sites section exists, then space it more closely.
-        if (ExploreSitesBridge.getVariation() == ExploreSitesVariation.ENABLED) {
+        if (ExploreSitesBridge.isEnabled(ExploreSitesBridge.getVariation())) {
             ((MarginLayoutParams) layoutParams).bottomMargin =
                     getResources().getDimensionPixelOffset(
                             R.dimen.tile_grid_layout_vertical_spacing);
@@ -772,6 +774,12 @@ public class NewTabPageLayout extends LinearLayout implements TileGroup.Observer
      */
     void updateVoiceSearchButtonVisibility() {
         mVoiceSearchButton.setVisibility(mManager.isVoiceSearchEnabled() ? VISIBLE : GONE);
+        ViewCompat.setPaddingRelative(mSearchBoxView, ViewCompat.getPaddingStart(mSearchBoxView),
+                mSearchBoxView.getPaddingTop(),
+                mManager.isVoiceSearchEnabled() ? 0
+                                                : getResources().getDimensionPixelSize(
+                                                        R.dimen.location_bar_lateral_padding),
+                mSearchBoxView.getPaddingBottom());
     }
 
     @Override

@@ -84,15 +84,19 @@ mojom::TextInputStatePtr InputConnectionImpl::GetTextInputState(
     bool is_input_state_update_requested) const {
   ui::TextInputClient* client = GetTextInputClient();
   gfx::Range text_range, selection_range;
+  base::Optional<gfx::Range> composition_text_range = gfx::Range();
   base::string16 text;
   client->GetTextRange(&text_range);
-  client->GetSelectionRange(&selection_range);
+  client->GetEditableSelectionRange(&selection_range);
+  if (!client->GetCompositionTextRange(&composition_text_range.value()))
+    composition_text_range.reset();
   client->GetTextFromRange(text_range, &text);
 
   return mojom::TextInputStatePtr(
       base::in_place, selection_range.start(), text, text_range,
       selection_range, client->GetTextInputType(), client->ShouldDoLearning(),
-      client->GetTextInputFlags(), is_input_state_update_requested);
+      client->GetTextInputFlags(), is_input_state_update_requested,
+      composition_text_range);
 }
 
 void InputConnectionImpl::CommitText(const base::string16& text,
@@ -116,6 +120,8 @@ void InputConnectionImpl::CommitText(const base::string16& text,
 }
 
 void InputConnectionImpl::DeleteSurroundingText(int before, int after) {
+  StartStateUpdateTimer();
+
   if (before == 0 && after == 0) {
     // This should be no-op.
     // Return the current state immediately.
@@ -147,7 +153,7 @@ void InputConnectionImpl::FinishComposingText() {
 
   ui::TextInputClient* client = GetTextInputClient();
   gfx::Range selection_range, composition_range;
-  client->GetSelectionRange(&selection_range);
+  client->GetEditableSelectionRange(&selection_range);
   client->GetCompositionTextRange(&composition_range);
 
   std::string error;
@@ -175,6 +181,8 @@ void InputConnectionImpl::SetComposingText(
   // so 0 means the cursor should be just before the last character of the text.
   new_cursor_pos += text.length() - 1;
 
+  StartStateUpdateTimer();
+
   const int selection_start = new_selection_range
                                   ? new_selection_range.value().start()
                                   : new_cursor_pos;
@@ -183,7 +191,7 @@ void InputConnectionImpl::SetComposingText(
 
   ui::TextInputClient* client = GetTextInputClient();
   gfx::Range selection_range;
-  client->GetSelectionRange(&selection_range);
+  client->GetEditableSelectionRange(&selection_range);
   if (text.empty() &&
       selection_range.start() == static_cast<uint32_t>(selection_start) &&
       selection_range.end() == static_cast<uint32_t>(selection_end)) {
@@ -208,6 +216,21 @@ void InputConnectionImpl::SetComposingText(
 void InputConnectionImpl::RequestTextInputState(
     mojom::InputConnection::RequestTextInputStateCallback callback) {
   std::move(callback).Run(GetTextInputState(false));
+}
+
+void InputConnectionImpl::SetSelection(const gfx::Range& new_selection_range) {
+  ui::TextInputClient* client = GetTextInputClient();
+
+  gfx::Range selection_range;
+  client->GetEditableSelectionRange(&selection_range);
+  if (new_selection_range == selection_range) {
+    // This SetSelection call is no-op.
+    // Return the current state immediately.
+    UpdateTextInputState(true);
+  }
+
+  StartStateUpdateTimer();
+  client->SetEditableSelectionRange(new_selection_range);
 }
 
 void InputConnectionImpl::StartStateUpdateTimer() {

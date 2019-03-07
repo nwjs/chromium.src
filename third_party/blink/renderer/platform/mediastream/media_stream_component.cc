@@ -65,6 +65,7 @@ MediaStreamComponent::MediaStreamComponent(const String& id,
                                            MediaStreamSource* source)
     : source_(source), id_(id), unique_id_(GenerateUniqueId()) {
   DCHECK(id_.length());
+  DCHECK(source_);
 }
 
 MediaStreamComponent* MediaStreamComponent::Clone() const {
@@ -79,7 +80,7 @@ MediaStreamComponent* MediaStreamComponent::Clone() const {
 }
 
 void MediaStreamComponent::Dispose() {
-  track_data_.reset();
+  platform_track_.reset();
 }
 
 void MediaStreamComponent::AudioSourceProviderImpl::Wrap(
@@ -90,9 +91,9 @@ void MediaStreamComponent::AudioSourceProviderImpl::Wrap(
 
 void MediaStreamComponent::GetSettings(
     WebMediaStreamTrack::Settings& settings) {
-  DCHECK(track_data_);
+  DCHECK(platform_track_);
   source_->GetSettings(settings);
-  track_data_->GetSettings(settings);
+  platform_track_->GetSettings(settings);
 }
 
 void MediaStreamComponent::SetContentHint(

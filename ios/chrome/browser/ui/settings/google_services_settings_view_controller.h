@@ -5,13 +5,12 @@
 #ifndef IOS_CHROME_BROWSER_UI_SETTINGS_GOOGLE_SERVICES_SETTINGS_VIEW_CONTROLLER_H_
 #define IOS_CHROME_BROWSER_UI_SETTINGS_GOOGLE_SERVICES_SETTINGS_VIEW_CONTROLLER_H_
 
-#import "ios/chrome/browser/ui/settings/settings_root_collection_view_controller.h"
+#import "ios/chrome/browser/ui/settings/settings_root_table_view_controller.h"
 
 #import "ios/chrome/browser/ui/settings/google_services_settings_consumer.h"
 
 @class GoogleServicesSettingsViewController;
 @protocol GoogleServicesSettingsServiceDelegate;
-@protocol GoogleServicesSettingsLocalCommands;
 @protocol GoogleServicesSettingsViewControllerModelDelegate;
 
 // Delegate for presentation events related to
@@ -26,7 +25,7 @@
 
 // View controller to related to Google services settings.
 @interface GoogleServicesSettingsViewController
-    : SettingsRootCollectionViewController<GoogleServicesSettingsConsumer>
+    : SettingsRootTableViewController <GoogleServicesSettingsConsumer>
 
 // Presentation delegate.
 @property(nonatomic, weak)
@@ -38,9 +37,6 @@
 // Handler for GoogleServicesSettingsCommand.
 @property(nonatomic, weak) id<GoogleServicesSettingsServiceDelegate>
     serviceDelegate;
-// Local command dispatcher.
-@property(nonatomic, weak) id<GoogleServicesSettingsLocalCommands>
-    localDispatcher;
 
 @end
 

@@ -37,14 +37,16 @@ bool AddVideoTrackToMediaStream(
       video_source->GetPreferredFormats();
   MediaStreamVideoSource* const media_stream_source =
       new MediaStreamVideoCapturerSource(
-          MediaStreamSource::SourceStoppedCallback(), std::move(video_source));
+          blink::WebPlatformMediaStreamSource::SourceStoppedCallback(),
+          std::move(video_source));
   const blink::WebString track_id =
       blink::WebString::FromUTF8(base::GenerateGUID());
   blink::WebMediaStreamSource web_media_stream_source;
   web_media_stream_source.Initialize(
       track_id, blink::WebMediaStreamSource::kTypeVideo, track_id, is_remote);
   // Takes ownership of |media_stream_source|.
-  web_media_stream_source.SetExtraData(media_stream_source);
+  web_media_stream_source.SetPlatformSource(
+      base::WrapUnique(media_stream_source));
   web_media_stream_source.SetCapabilities(ComputeCapabilitiesForVideoSource(
       track_id, preferred_formats,
       media::VideoFacingMode::MEDIA_VIDEO_FACING_NONE,
@@ -86,13 +88,18 @@ bool AddAudioTrackToMediaStream(
                                          channel_layout, frames_per_buffer,
                                          is_remote);
   // Takes ownership of |media_stream_source|.
-  web_media_stream_source.SetExtraData(media_stream_source);
+  web_media_stream_source.SetPlatformSource(
+      base::WrapUnique(media_stream_source));
 
   blink::WebMediaStreamSource::Capabilities capabilities;
   capabilities.device_id = track_id;
   capabilities.echo_cancellation = std::vector<bool>({false});
   capabilities.auto_gain_control = std::vector<bool>({false});
   capabilities.noise_suppression = std::vector<bool>({false});
+  capabilities.sample_size = {
+      media::SampleFormatToBitsPerChannel(media::kSampleFormatS16),  // min
+      media::SampleFormatToBitsPerChannel(media::kSampleFormatS16)   // max
+  };
   web_media_stream_source.SetCapabilities(capabilities);
 
   blink::WebMediaStreamTrack web_media_stream_track;

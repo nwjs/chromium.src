@@ -34,7 +34,6 @@
 #include "content/public/browser/resource_dispatcher_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/media_stream_request.h"
 #include "extensions/browser/app_window/app_delegate.h"
 #include "extensions/browser/app_window/app_web_contents_helper.h"
 #include "extensions/browser/app_window/app_window_client.h"
@@ -56,6 +55,7 @@
 #include "extensions/common/manifest_handlers/icons_handler.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "ipc/ipc_message_macros.h"
+#include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/display/display.h"
@@ -430,7 +430,7 @@ void AppWindow::RequestMediaAccessPermission(
 bool AppWindow::CheckMediaAccessPermission(
     content::RenderFrameHost* render_frame_host,
     const GURL& security_origin,
-    content::MediaStreamType type) {
+    blink::MediaStreamType type) {
   DCHECK_EQ(web_contents(),
             content::WebContents::FromRenderFrameHost(render_frame_host)
                 ->GetOutermostWebContents());
@@ -576,9 +576,10 @@ bool AppWindow::TakeFocus(WebContents* source, bool reverse) {
   return app_delegate_->TakeFocus(source, reverse);
 }
 
-gfx::Size AppWindow::EnterPictureInPicture(const viz::SurfaceId& surface_id,
+gfx::Size AppWindow::EnterPictureInPicture(content::WebContents* web_contents,
+                                           const viz::SurfaceId& surface_id,
                                            const gfx::Size& natural_size) {
-  return app_delegate_->EnterPictureInPicture(web_contents(), surface_id,
+  return app_delegate_->EnterPictureInPicture(web_contents, surface_id,
                                               natural_size);
 }
 

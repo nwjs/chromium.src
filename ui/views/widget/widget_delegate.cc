@@ -34,6 +34,10 @@ void WidgetDelegate::OnDisplayChanged() {
 void WidgetDelegate::OnWorkAreaChanged() {
 }
 
+bool WidgetDelegate::OnCloseRequested(Widget::ClosedReason close_reason) {
+  return true;
+}
+
 View* WidgetDelegate::GetInitiallyFocusedView() {
   return nullptr;
 }
@@ -187,7 +191,7 @@ bool WidgetDelegate::WidgetHasHitTestMask() const {
   return false;
 }
 
-void WidgetDelegate::GetWidgetHitTestMask(gfx::Path* mask) const {
+void WidgetDelegate::GetWidgetHitTestMask(SkPath* mask) const {
   DCHECK(mask);
 }
 

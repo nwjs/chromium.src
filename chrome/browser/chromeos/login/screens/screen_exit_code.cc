@@ -50,8 +50,6 @@ std::string ExitCodeToString(ScreenExitCode code) {
       return "TERMS_OF_SERVICE_ACCEPTED";
     case ScreenExitCode::WRONG_HWID_WARNING_SKIPPED:
       return "WRONG_HWID_WARNING_SKIPPED";
-    case ScreenExitCode::CONTROLLER_PAIRING_FINISHED:
-      return "CONTROLLER_PAIRING_FINISHED";
     case ScreenExitCode::ENABLE_DEBUGGING_FINISHED:
       return "ENABLE_DEBUGGING_FINISHED";
     case ScreenExitCode::ENABLE_DEBUGGING_CANCELED:
@@ -62,14 +60,6 @@ std::string ExitCodeToString(ScreenExitCode code) {
       return "ARC_TERMS_OF_SERVICE_ACCEPTED";
     case ScreenExitCode::UPDATE_ERROR_UPDATING_CRITICAL_UPDATE:
       return "UPDATE_ERROR_UPDATING_CRITICAL_UPDATE";
-    case ScreenExitCode::VOICE_INTERACTION_VALUE_PROP_SKIPPED:
-      return "VOICE_INTERACTION_VALUE_PROP_SKIPPED";
-    case ScreenExitCode::VOICE_INTERACTION_VALUE_PROP_ACCEPTED:
-      return "VOICE_INTERACTION_VALUE_PROP_ACCEPTED";
-    case ScreenExitCode::WAIT_FOR_CONTAINER_READY_FINISHED:
-      return "WAIT_FOR_CONTAINER_READY_FINISHED";
-    case ScreenExitCode::WAIT_FOR_CONTAINER_READY_ERROR:
-      return "WAIT_FOR_CONTAINER_READY_ERROR";
     case ScreenExitCode::SYNC_CONSENT_FINISHED:
       return "SYNC_CONSENT_FINISHED";
     case ScreenExitCode::DEMO_MODE_SETUP_FINISHED:
@@ -104,6 +94,8 @@ std::string ExitCodeToString(ScreenExitCode code) {
       return "ASSISTANT_OPTIN_FLOW_FINISHED";
     case ScreenExitCode::MULTIDEVICE_SETUP_FINISHED:
       return "MULTIDEVICE_SETUP_FINISHED";
+    case ScreenExitCode::SUPERVISION_TRANSITION_FINISHED:
+      return "SUPERVISION_TRANSITION_FINISHED";
     case ScreenExitCode::EXIT_CODES_COUNT:
     default:
       NOTREACHED();

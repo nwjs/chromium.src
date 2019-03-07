@@ -4,9 +4,10 @@
 
 #include "chrome/browser/content_settings/local_shared_objects_container.h"
 
+#include <vector>
+
 #include "chrome/browser/browsing_data/browsing_data_appcache_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_cache_storage_helper.h"
-#include "chrome/browser/browsing_data/browsing_data_channel_id_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_file_system_helper.h"
@@ -22,6 +23,7 @@
 #include "content/public/common/url_constants.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "net/cookies/canonical_cookie.h"
+#include "third_party/blink/public/mojom/appcache/appcache_info.mojom.h"
 #include "url/gurl.h"
 
 namespace {
@@ -37,7 +39,6 @@ bool SameDomainOrHost(const GURL& gurl1, const GURL& gurl2) {
 
 LocalSharedObjectsContainer::LocalSharedObjectsContainer(Profile* profile)
     : appcaches_(new CannedBrowsingDataAppCacheHelper(profile)),
-      channel_ids_(new CannedBrowsingDataChannelIDHelper()),
       cookies_(new CannedBrowsingDataCookieHelper(
           content::BrowserContext::GetDefaultStoragePartition(profile))),
       databases_(new CannedBrowsingDataDatabaseHelper(profile)),
@@ -63,7 +64,6 @@ LocalSharedObjectsContainer::~LocalSharedObjectsContainer() {
 size_t LocalSharedObjectsContainer::GetObjectCount() const {
   size_t count = 0;
   count += appcaches()->GetAppCacheCount();
-  count += channel_ids()->GetChannelIDCount();
   count += cookies()->GetCookieCount();
   count += databases()->GetDatabaseCount();
   count += file_systems()->GetFileSystemCount();
@@ -169,7 +169,7 @@ size_t LocalSharedObjectsContainer::GetObjectCountForDomain(
   const FileSystemInfoList& file_system_info =
       file_systems()->GetFileSystemInfo();
   for (auto it = file_system_info.begin(); it != file_system_info.end(); ++it) {
-    if (SameDomainOrHost(origin, it->origin))
+    if (SameDomainOrHost(origin, it->origin.GetURL()))
       ++count;
   }
 
@@ -187,7 +187,7 @@ size_t LocalSharedObjectsContainer::GetObjectCountForDomain(
       OriginAppCacheInfoMap;
   const OriginAppCacheInfoMap& map = appcaches()->GetOriginAppCacheInfoMap();
   for (auto it = map.begin(); it != map.end(); ++it) {
-    const content::AppCacheInfoVector& info_vector = it->second;
+    const std::vector<blink::mojom::AppCacheInfo>& info_vector = it->second;
     for (auto info = info_vector.begin(); info != info_vector.end(); ++info) {
       if (SameDomainOrHost(origin, info->manifest_url))
         ++count;
@@ -199,7 +199,6 @@ size_t LocalSharedObjectsContainer::GetObjectCountForDomain(
 
 void LocalSharedObjectsContainer::Reset() {
   appcaches_->Reset();
-  channel_ids_->Reset();
   cookies_->Reset();
   databases_->Reset();
   file_systems_->Reset();
@@ -215,8 +214,8 @@ std::unique_ptr<CookiesTreeModel>
 LocalSharedObjectsContainer::CreateCookiesTreeModel() const {
   auto container = std::make_unique<LocalDataContainer>(
       cookies_, databases_, local_storages_, session_storages_, appcaches_,
-      indexed_dbs_, file_systems_, nullptr, channel_ids_, service_workers_,
-      shared_workers_, cache_storages_, nullptr, nullptr);
+      indexed_dbs_, file_systems_, nullptr, service_workers_, shared_workers_,
+      cache_storages_, nullptr, nullptr);
 
   return std::make_unique<CookiesTreeModel>(std::move(container), nullptr);
 }

@@ -26,8 +26,6 @@ import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.autofill.CardUnmaskPrompt;
 import org.chromium.chrome.browser.autofill.CardUnmaskPrompt.CardUnmaskObserverForTest;
-import org.chromium.chrome.browser.modaldialog.ModalDialogProperties;
-import org.chromium.chrome.browser.modelutil.PropertyModel;
 import org.chromium.chrome.browser.payments.PaymentRequestImpl.PaymentRequestServiceObserverForTest;
 import org.chromium.chrome.browser.payments.ui.PaymentRequestSection.OptionSection;
 import org.chromium.chrome.browser.payments.ui.PaymentRequestSection.OptionSection.OptionRow;
@@ -43,6 +41,8 @@ import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.payments.mojom.PaymentDetailsModifier;
 import org.chromium.payments.mojom.PaymentItem;
 import org.chromium.payments.mojom.PaymentMethodData;
+import org.chromium.ui.modaldialog.ModalDialogProperties;
+import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -212,6 +212,12 @@ public class PaymentRequestTestRule extends ChromeActivityTestRule<ChromeTabbedA
         return mShowFailed;
     }
     public CallbackHelper getCanMakePaymentQueryResponded() {
+        return mCanMakePaymentQueryResponded;
+    }
+    public CallbackHelper getHasEnrolledInstrumentQueryResponded() {
+        // TODO(https://crbug.com/915907): return mHasEnrolledInstrumentQueryResponded once
+        // hasEnrolledInstrument is exposed in the PaymentRequest JavaScript API and browser tests
+        // are switched over to use the new API.
         return mCanMakePaymentQueryResponded;
     }
     public CallbackHelper getExpirationMonthChange() {
@@ -893,6 +899,15 @@ public class PaymentRequestTestRule extends ChromeActivityTestRule<ChromeTabbedA
     @Override
     public void onPaymentRequestServiceCanMakePaymentQueryResponded() {
         ThreadUtils.assertOnUiThread();
+        mCanMakePaymentQueryResponded.notifyCalled();
+    }
+
+    @Override
+    public void onPaymentRequestServiceHasEnrolledInstrumentQueryResponded() {
+        ThreadUtils.assertOnUiThread();
+        // TODO(https://crbug.com/915907): return mHasEnrolledInstrumentQueryResponded once
+        // hasEnrolledInstrument is exposed in the PaymentRequest JavaScript API and browser tests
+        // are switched over to use the new API.
         mCanMakePaymentQueryResponded.notifyCalled();
     }
 

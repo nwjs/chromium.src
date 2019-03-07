@@ -29,6 +29,7 @@ include_rules = [
   "+components/cbor",
 
   "+content/app/strings/grit",  # For generated headers
+  "+content/public/app",
   "+content/public/browser",
   "+device/base/synchronization",
   "+device/gamepad", # For gamepad API
@@ -103,11 +104,11 @@ include_rules = [
   "+third_party/blink/public/platform/web_text_input_type.h",
   "+third_party/blink/public/platform/mac/web_scrollbar_theme.h",
   "+third_party/blink/public/platform/modules/font_unique_name_lookup/font_unique_name_lookup.mojom.h",
+  "+third_party/blink/public/platform/modules/idle/idle_manager.mojom.h",
   "+third_party/blink/public/platform/modules/indexeddb/web_idb_database_exception.h",
   "+third_party/blink/public/platform/modules/locks/lock_manager.mojom.h",
   "+third_party/blink/public/platform/modules/notifications/web_notification_constants.h",
   "+third_party/blink/public/platform/modules/service_worker/web_service_worker_error.h",
-  "+third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom.h",
   "+third_party/blink/public/public_buildflags.h",
   "+third_party/blink/public/web/web_ax_enums.h",
   "+third_party/blink/public/web/web_console_message.h",
@@ -128,14 +129,13 @@ include_rules = [
 
   # Allow mojo generated files in WebKit. These files use STL types and
   # don't use WTF types.
-  "+third_party/blink/public/platform/dedicated_worker_factory.mojom.h",
   "+third_party/blink/public/platform/input_host.mojom.h",
   "+third_party/blink/public/platform/input_messages.mojom.h",
   "+third_party/blink/public/platform/mime_registry.mojom.h",
   "+third_party/blink/public/platform/modules/background_sync/background_sync.mojom.h",
   "+third_party/blink/public/platform/modules/bluetooth/web_bluetooth.mojom.h",
+  "+third_party/blink/public/platform/modules/broadcastchannel/broadcast_channel.mojom-test-utils.h",
   "+third_party/blink/public/platform/modules/broadcastchannel/broadcast_channel.mojom.h",
-  "+third_party/blink/public/platform/modules/cache_storage/cache_storage.mojom.h",
   "+third_party/blink/public/platform/modules/cookie_store/cookie_store.mojom.h",
   "+third_party/blink/public/platform/modules/geolocation/geolocation_service.mojom.h",
   "+third_party/blink/public/platform/modules/installedapp/installed_app_provider.mojom.h",
@@ -155,10 +155,17 @@ include_rules = [
   "+third_party/blink/public/platform/reporting.mojom.h",
   "+third_party/blink/public/platform/web_feature.mojom.h",
   "+third_party/blink/public/web/commit_result.mojom.h",
-  "+third_party/blink/public/web/devtools_agent.mojom.h",
   "+third_party/blink/public/web/devtools_frontend.mojom.h",
 
   # DO NOT ADD ANY CHROME OR COMPONENTS INCLUDES HERE!!!
   # See https://sites.google.com/a/chromium.org/dev/developers/content-module
   # for more information.
 ]
+
+specific_include_rules = {
+  # To share values of UMA enums between product code and tests.
+  "cross_site_document_blocking_browsertest.cc": [
+    "+services/network/cross_origin_read_blocking.h",
+    "+services/network/initiator_lock_compatibility.h",
+  ],
+}

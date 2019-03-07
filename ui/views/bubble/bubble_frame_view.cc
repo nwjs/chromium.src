@@ -9,6 +9,7 @@
 
 #include "build/build_config.h"
 #include "components/vector_icons/vector_icons.h"
+#include "third_party/skia/include/core/SkPath.h"
 #include "ui/base/default_style.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -18,7 +19,6 @@
 #include "ui/display/screen.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/vector2d.h"
-#include "ui/gfx/path.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/native_theme/native_theme.h"
 #include "ui/resources/grit/ui_resources.h"
@@ -82,14 +82,13 @@ BubbleFrameView::BubbleFrameView(const gfx::Insets& title_margins,
       default_title_(CreateDefaultTitleLabel(base::string16()).release()),
       custom_title_(nullptr),
       close_(nullptr),
-      footnote_container_(nullptr),
-      close_button_clicked_(false) {
+      footnote_container_(nullptr) {
   AddChildView(title_icon_);
 
   default_title_->SetVisible(false);
   AddChildView(default_title_);
 
-  close_ = CreateCloseButton(this);
+  close_ = CreateCloseButton(this, GetNativeTheme()->SystemDarkModeEnabled());
   close_->SetVisible(false);
 #if defined(OS_WIN)
   // Windows will automatically create a tooltip for the close button based on
@@ -112,10 +111,13 @@ std::unique_ptr<Label> BubbleFrameView::CreateDefaultTitleLabel(
 }
 
 // static
-Button* BubbleFrameView::CreateCloseButton(ButtonListener* listener) {
+Button* BubbleFrameView::CreateCloseButton(ButtonListener* listener,
+                                           bool is_dark_mode) {
   ImageButton* close_button = nullptr;
   close_button = CreateVectorImageButton(listener);
-  SetImageFromVectorIcon(close_button, vector_icons::kCloseRoundedIcon);
+  SetImageFromVectorIconWithColor(
+      close_button, vector_icons::kCloseRoundedIcon,
+      is_dark_mode ? SkColorSetA(SK_ColorWHITE, 0xDD) : gfx::kGoogleGrey700);
   close_button->SetTooltipText(l10n_util::GetStringUTF16(IDS_APP_CLOSE));
   close_button->SizeToPreferredSize();
 
@@ -152,22 +154,24 @@ gfx::Rect BubbleFrameView::GetWindowBoundsForClientBounds(
   return bubble_border_->GetBounds(gfx::Rect(), size);
 }
 
-bool BubbleFrameView::GetClientMask(const gfx::Size& size,
-                                    gfx::Path* path) const {
+bool BubbleFrameView::GetClientMask(const gfx::Size& size, SkPath* path) const {
   // NonClientView calls this after setting the client view size from the return
   // of GetBoundsForClientView(); feeding it back in |size|.
   DCHECK(GetBoundsForClientView().size() == size);
   DCHECK(GetWidget()->client_view()->size() == size);
 
   const int radius = bubble_border_->GetBorderCornerRadius();
-  gfx::Insets content_insets = GetInsets();
-  // If the client bounds don't touch the edges, no need to mask.
-  if (std::min({content_insets.top(), content_insets.left(),
-                content_insets.bottom(), content_insets.right()}) > radius) {
+  const gfx::Insets insets =
+      GetClientInsetsForFrameWidth(GetContentsBounds().width());
+
+  // A mask is not needed if the content does not overlap the rounded corners.
+  if ((insets.top() > radius && insets.bottom() > radius) ||
+      (insets.left() > radius && insets.right() > radius)) {
     return false;
   }
-  gfx::RectF rect((gfx::Rect(size)));
-  path->addRoundRect(gfx::RectFToSkRect(rect), radius, radius);
+
+  const SkRect rect = SkRect::MakeIWH(size.width(), size.height());
+  path->addRoundRect(rect, radius, radius);
   return true;
 }
 
@@ -194,7 +198,7 @@ int BubbleFrameView::NonClientHitTest(const gfx::Point& point) {
 }
 
 void BubbleFrameView::GetWindowMask(const gfx::Size& size,
-                                    gfx::Path* window_mask) {
+                                    SkPath* window_mask) {
   if (bubble_border_->shadow() != BubbleBorder::SMALL_SHADOW &&
       bubble_border_->shadow() != BubbleBorder::NO_SHADOW_OPAQUE_BORDER &&
       bubble_border_->shadow() != BubbleBorder::NO_ASSETS)
@@ -265,10 +269,6 @@ void BubbleFrameView::SetTitleView(std::unique_ptr<View> title_view) {
 
 const char* BubbleFrameView::GetClassName() const {
   return kViewClassName;
-}
-
-gfx::Insets BubbleFrameView::GetInsets() const {
-  return GetClientInsetsForFrameWidth(GetContentsBounds().width());
 }
 
 gfx::Size BubbleFrameView::CalculatePreferredSize() const {
@@ -428,8 +428,7 @@ void BubbleFrameView::ButtonPressed(Button* sender, const ui::Event& event) {
     return;
 
   if (sender == close_) {
-    close_button_clicked_ = true;
-    GetWidget()->Close();
+    GetWidget()->CloseWithReason(Widget::ClosedReason::kCloseButtonClicked);
   }
 }
 

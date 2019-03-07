@@ -10,6 +10,11 @@
 #include "ui/message_center/views/message_view.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/image_button.h"
+#include "ui/views/controls/label.h"
+
+namespace media_session {
+struct MediaMetadata;
+}  // namespace media_session
 
 namespace media_session {
 enum class MediaSessionAction;
@@ -42,7 +47,7 @@ class ASH_EXPORT MediaNotificationView : public message_center::MessageView,
       const message_center::Notification& notification) override;
   message_center::NotificationControlButtonsView* GetControlButtonsView()
       const override;
-  void UpdateControlButtonsVisibility() override;
+  void SetExpanded(bool expanded) override;
 
   // views::View:
   void OnMouseEvent(ui::MouseEvent* event) override;
@@ -52,6 +57,9 @@ class ASH_EXPORT MediaNotificationView : public message_center::MessageView,
 
   void UpdateWithMediaSessionInfo(
       const media_session::mojom::MediaSessionInfoPtr& session_info);
+  void UpdateWithMediaMetadata(const media_session::MediaMetadata& metadata);
+  void UpdateWithMediaActions(
+      const std::set<media_session::mojom::MediaSessionAction>& actions);
 
  private:
   friend class MediaNotificationViewTest;
@@ -64,14 +72,30 @@ class ASH_EXPORT MediaNotificationView : public message_center::MessageView,
   void CreateMediaButton(const gfx::VectorIcon& icon,
                          media_session::mojom::MediaSessionAction action);
 
+  bool IsActionButtonVisible(
+      media_session::mojom::MediaSessionAction action) const;
+
+  void UpdateActionButtonsVisibility();
+  void UpdateViewForExpandedState();
+
   // View containing close and settings buttons.
   std::unique_ptr<message_center::NotificationControlButtonsView>
       control_buttons_view_;
+
+  // Whether this notification is expanded or not.
+  bool expanded_ = false;
+
+  // Set of enabled actions.
+  std::set<media_session::mojom::MediaSessionAction> enabled_actions_;
 
   // Container views directly attached to this view.
   message_center::NotificationHeaderView* header_row_ = nullptr;
   views::View* button_row_ = nullptr;
   views::ToggleImageButton* play_pause_button_ = nullptr;
+  views::View* title_artist_row_ = nullptr;
+  views::Label* title_label_ = nullptr;
+  views::Label* artist_label_ = nullptr;
+  views::View* main_row_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(MediaNotificationView);
 };

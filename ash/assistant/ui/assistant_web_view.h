@@ -9,7 +9,7 @@
 #include <memory>
 #include <string>
 
-#include "ash/assistant/assistant_controller_observer.h"
+#include "ash/assistant/ui/assistant_view_delegate.h"
 #include "ash/assistant/ui/caption_bar.h"
 #include "base/macros.h"
 #include "base/optional.h"
@@ -20,7 +20,8 @@
 
 namespace ash {
 
-class AssistantController;
+enum class AssistantButtonId;
+class AssistantViewDelegate;
 
 // AssistantWebView is a child of AssistantBubbleView which allows Assistant UI
 // to render remotely hosted content within its bubble. It provides a CaptionBar
@@ -28,11 +29,11 @@ class AssistantController;
 // Service.
 class AssistantWebView : public views::View,
                          public aura::WindowObserver,
-                         public AssistantControllerObserver,
+                         public AssistantViewDelegateObserver,
                          public CaptionBarDelegate,
                          public content::NavigableContentsObserver {
  public:
-  explicit AssistantWebView(AssistantController* assistant_controller);
+  explicit AssistantWebView(AssistantViewDelegate* delegate);
   ~AssistantWebView() override;
 
   // views::View:
@@ -51,9 +52,9 @@ class AssistantWebView : public views::View,
   void OnWindowDestroying(aura::Window* window) override;
 
   // CaptionBarDelegate:
-  bool OnCaptionButtonPressed(CaptionButtonId id) override;
+  bool OnCaptionButtonPressed(AssistantButtonId id) override;
 
-  // AssistantControllerObserver:
+  // AssistantViewDelegateObserver:
   void OnDeepLinkReceived(
       assistant::util::DeepLinkType type,
       const std::map<std::string, std::string>& params) override;
@@ -69,7 +70,7 @@ class AssistantWebView : public views::View,
   void InitLayout();
   void RemoveContents();
 
-  AssistantController* const assistant_controller_;  // Owned by Shell.
+  AssistantViewDelegate* const delegate_;
 
   CaptionBar* caption_bar_;  // Owned by view hierarchy.
 

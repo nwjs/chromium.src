@@ -49,7 +49,7 @@
 #include "gin/v8_initializer.h"  // nogncheck
 #endif
 
-#include "third_party/webrtc/rtc_base/rtccertificate.h"  // nogncheck
+#include "third_party/webrtc/rtc_base/rtc_certificate.h"  // nogncheck
 
 using blink::WebString;
 
@@ -177,7 +177,7 @@ TestBlinkWebUnitTestSupport::TestBlinkWebUnitTestSupport()
   service_manager::BinderRegistry empty_registry;
   blink::Initialize(this, &empty_registry, main_thread_scheduler_.get());
   g_test_platform = this;
-  blink::SetLayoutTestMode(true);
+  blink::SetWebTestMode(true);
   blink::WebRuntimeFeatures::EnableDatabase(true);
   blink::WebRuntimeFeatures::EnableNotifications(true);
   blink::WebRuntimeFeatures::EnableTouchEventFeatureDetection(true);

@@ -224,7 +224,7 @@ bool MockRenderThread::IsOnline() {
 void MockRenderThread::SetRendererProcessType(
     blink::scheduler::WebRendererProcessType type) {}
 
-blink::WebString MockRenderThread::GetUserAgent() const {
+blink::WebString MockRenderThread::GetUserAgent() {
   return blink::WebString();
 }
 
@@ -273,6 +273,18 @@ MockRenderThread::TakeInitialInterfaceProviderRequestForFrame(
   return interface_provider_request;
 }
 
+blink::mojom::DocumentInterfaceBrokerRequest
+MockRenderThread::TakeInitialDocumentInterfaceBrokerRequestForFrame(
+    int32_t routing_id) {
+  auto it =
+      frame_routing_id_to_initial_document_broker_requests_.find(routing_id);
+  if (it == frame_routing_id_to_initial_document_broker_requests_.end())
+    return nullptr;
+  auto document_broker_request = std::move(it->second);
+  frame_routing_id_to_initial_document_broker_requests_.erase(it);
+  return document_broker_request;
+}
+
 void MockRenderThread::PassInitialInterfaceProviderRequestForFrame(
     int32_t routing_id,
     service_manager::mojom::InterfaceProviderRequest
@@ -287,16 +299,27 @@ void MockRenderThread::PassInitialInterfaceProviderRequestForFrame(
 // The Frame expects to be returned a valid route_id different from its own.
 void MockRenderThread::OnCreateChildFrame(
     const FrameHostMsg_CreateChildFrame_Params& params,
-    int* new_render_frame_id,
-    mojo::MessagePipeHandle* new_interface_provider,
-    base::UnguessableToken* devtools_frame_token) {
-  *new_render_frame_id = GetNextRoutingID();
+    FrameHostMsg_CreateChildFrame_Params_Reply* params_reply) {
+  params_reply->child_routing_id = GetNextRoutingID();
   service_manager::mojom::InterfaceProviderPtr interface_provider;
   frame_routing_id_to_initial_interface_provider_requests_.emplace(
-      *new_render_frame_id, mojo::MakeRequest(&interface_provider));
-  *new_interface_provider =
+      params_reply->child_routing_id, mojo::MakeRequest(&interface_provider));
+  params_reply->new_interface_provider =
       interface_provider.PassInterface().PassHandle().release();
-  *devtools_frame_token = base::UnguessableToken::Create();
+
+  blink::mojom::DocumentInterfaceBrokerPtr document_interface_broker;
+  frame_routing_id_to_initial_document_broker_requests_.emplace(
+      params_reply->child_routing_id,
+      mojo::MakeRequest(&document_interface_broker));
+  params_reply->document_interface_broker_content_handle =
+      document_interface_broker.PassInterface().PassHandle().release();
+
+  blink::mojom::DocumentInterfaceBrokerPtr document_interface_broker_blink;
+  mojo::MakeRequest(&document_interface_broker_blink);
+  params_reply->document_interface_broker_blink_handle =
+      document_interface_broker_blink.PassInterface().PassHandle().release();
+
+  params_reply->devtools_frame_token = base::UnguessableToken::Create();
 }
 
 bool MockRenderThread::OnControlMessageReceived(const IPC::Message& msg) {
@@ -335,9 +358,23 @@ void MockRenderThread::OnCreateWindow(
     mojom::CreateNewWindowReply* reply) {
   reply->route_id = GetNextRoutingID();
   reply->main_frame_route_id = GetNextRoutingID();
+  reply->main_frame_interface_bundle =
+      mojom::DocumentScopedInterfaceBundle::New();
   frame_routing_id_to_initial_interface_provider_requests_.emplace(
       reply->main_frame_route_id,
-      mojo::MakeRequest(&reply->main_frame_interface_provider));
+      mojo::MakeRequest(
+          &reply->main_frame_interface_bundle->interface_provider));
+
+  blink::mojom::DocumentInterfaceBrokerPtrInfo document_interface_broker;
+  frame_routing_id_to_initial_document_broker_requests_.emplace(
+      reply->main_frame_route_id,
+      mojo::MakeRequest(&document_interface_broker));
+  reply->main_frame_interface_bundle->document_interface_broker_content =
+      std::move(document_interface_broker);
+
+  mojo::MakeRequest(&document_interface_broker);
+  reply->main_frame_interface_bundle->document_interface_broker_blink =
+      std::move(document_interface_broker);
   reply->main_frame_widget_route_id = GetNextRoutingID();
   reply->cloned_session_storage_namespace_id =
       blink::AllocateSessionStorageNamespaceId();

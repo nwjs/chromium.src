@@ -159,6 +159,7 @@ enum class AccessPoint : int {
   ACCESS_POINT_SAVE_CARD_BUBBLE = 24,
   ACCESS_POINT_MANAGE_CARDS_BUBBLE = 25,
   ACCESS_POINT_MACHINE_LOGON = 26,
+  ACCESS_POINT_GOOGLE_SERVICES_SETTINGS = 27,
   ACCESS_POINT_MAX,  // This must be last.
 };
 
@@ -342,7 +343,10 @@ enum class SourceForRefreshTokenOperation {
   kDiceResponseHandler_Signin,
   kDiceResponseHandler_Signout,
   kDiceTurnOnSyncHelper_Abort,
-  kMaxValue = kDiceTurnOnSyncHelper_Abort
+  kMachineLogon_CredentialProvider,
+  kTokenService_ExtractCredentials,
+
+  kMaxValue = kTokenService_ExtractCredentials
 };
 
 // Different types of reporting. This is used as a histogram suffix.

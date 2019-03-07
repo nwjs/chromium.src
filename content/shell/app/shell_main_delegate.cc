@@ -23,18 +23,18 @@
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
-#include "content/public/test/layouttest_support.h"
 #include "content/public/test/ppapi_test_utils.h"
+#include "content/public/test/web_test_support.h"
 #include "content/shell/app/blink_test_platform_support.h"
 #include "content/shell/app/shell_crash_reporter_client.h"
-#include "content/shell/browser/layout_test/layout_test_browser_main.h"
-#include "content/shell/browser/layout_test/layout_test_content_browser_client.h"
 #include "content/shell/browser/shell_browser_main.h"
 #include "content/shell/browser/shell_content_browser_client.h"
-#include "content/shell/common/layout_test/layout_test_content_client.h"
-#include "content/shell/common/layout_test/layout_test_switches.h"
+#include "content/shell/browser/web_test/web_test_browser_main.h"
+#include "content/shell/browser/web_test/web_test_content_browser_client.h"
 #include "content/shell/common/shell_content_client.h"
 #include "content/shell/common/shell_switches.h"
+#include "content/shell/common/web_test/web_test_content_client.h"
+#include "content/shell/common/web_test/web_test_switches.h"
 #include "content/shell/gpu/shell_content_gpu_client.h"
 #include "content/shell/renderer/shell_content_renderer_client.h"
 #include "content/shell/renderer/web_test/web_test_content_renderer_client.h"
@@ -68,7 +68,7 @@
 #include "content/shell/android/shell_descriptors.h"
 #endif
 
-#if defined(OS_MACOSX) || defined(OS_WIN)
+#if defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_ANDROID)
 #include "components/crash/content/app/crashpad.h"  // nogncheck
 #endif
 
@@ -85,7 +85,7 @@
 #include "content/shell/common/v8_crashpad_support_win.h"
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
+#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
 #include "components/crash/content/app/breakpad_linux.h"
 #endif
 
@@ -201,7 +201,7 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
       }
     }
 
-    EnableBrowserLayoutTestMode();
+    EnableBrowserWebTestMode();
 
 #if BUILDFLAG(ENABLE_PLUGINS)
     if (!ppapi::RegisterBlinkTestPlugin(&command_line)) {
@@ -215,7 +215,7 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
 #if !defined(OS_ANDROID)
     // TODO(crbug/567947) Enable display compositor pixel dumps for Android
     // once testing becomes possible on post-kitkat OSes, and once we've
-    // had a chance to debug the layout test failures that occur when this
+    // had a chance to debug the web test failures that occur when this
     // flag is present.
     command_line.AppendSwitch(switches::kEnableDisplayCompositorPixelDump);
 #endif
@@ -254,7 +254,7 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
     // and display compositor pixel dumps.
     if (command_line.HasSwitch(switches::kEnableDisplayCompositorPixelDump)) {
       // TODO(crbug.com/894613) Add kRunAllCompositorStagesBeforeDraw back here
-      // once you figure out why it causes so much layout test flakiness.
+      // once you figure out why it causes so much web test flakiness.
       // command_line.AppendSwitch(switches::kRunAllCompositorStagesBeforeDraw);
       command_line.AppendSwitch(cc::switches::kDisableCheckerImaging);
     }
@@ -282,7 +282,7 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
                                      "srgb");
     }
 
-    // We want stable/baseline results when running layout tests.
+    // We want stable/baseline results when running web tests.
     command_line.AppendSwitch(switches::kDisableSkiaRuntimeOpts);
 
     command_line.AppendSwitch(switches::kDisallowNonExactResourceReuse);
@@ -304,7 +304,7 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
   }
 
   content_client_.reset(switches::IsRunWebTestsSwitchPresent()
-                            ? new LayoutTestContentClient
+                            ? new WebTestContentClient
                             : new ShellContentClient);
   SetContentClient(content_client_.get());
 
@@ -328,18 +328,13 @@ void ShellMainDelegate::PreSandboxStartup() {
         base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
             switches::kProcessType);
     crash_reporter::SetCrashReporterClient(g_shell_crash_client.Pointer());
-#if defined(OS_MACOSX) || defined(OS_WIN)
+#if defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_ANDROID)
     crash_reporter::InitializeCrashpad(process_type.empty(), process_type);
 #elif defined(OS_LINUX)
     // Reporting for sub-processes will be initialized in ZygoteForked.
     if (process_type != service_manager::switches::kZygoteProcess)
       breakpad::InitCrashReporter(process_type);
-#elif defined(OS_ANDROID)
-    if (process_type.empty())
-      breakpad::InitCrashReporter(process_type);
-    else
-      breakpad::InitNonBrowserCrashReporterForAndroid(process_type);
-#endif  // defined(OS_ANDROID)
+#endif  // defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_ANDROID)
   }
 #endif  // !defined(OS_FUCHSIA)
 
@@ -364,10 +359,10 @@ int ShellMainDelegate::RunProcess(
   base::trace_event::TraceLog::GetInstance()->SetProcessSortIndex(
       kTraceEventBrowserProcessSortIndex);
 
-  browser_runner_.reset(BrowserMainRunner::Create());
+  browser_runner_ = BrowserMainRunner::Create();
   base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
   return command_line.HasSwitch(switches::kRunWebTests)
-             ? LayoutTestBrowserMain(main_function_params, browser_runner_)
+             ? WebTestBrowserMain(main_function_params, browser_runner_)
              : ShellBrowserMain(main_function_params, browser_runner_);
 }
 
@@ -440,7 +435,7 @@ void ShellMainDelegate::PreCreateMainMessageLoop() {
 
 ContentBrowserClient* ShellMainDelegate::CreateContentBrowserClient() {
   browser_client_.reset(switches::IsRunWebTestsSwitchPresent()
-                            ? new LayoutTestContentBrowserClient
+                            ? new WebTestContentBrowserClient
                             : new ShellContentBrowserClient);
 
   return browser_client_.get();

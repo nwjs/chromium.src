@@ -43,6 +43,13 @@ if (is_android) {
   import("//third_party/icu/config.gni")
 }
 
+declare_args() {
+  # Indicates whether keystone registration framework should be enabled (see
+  # action("keystone_registration_framework") below).  There are some tests
+  # where we'd like for it to be disabled. (https://crbug.com/909080)
+  enable_keystone_registration_framework = true
+}
+
 assert(!is_ios, "Chromium/iOS shouldn't use anything in //chrome")
 
 if (enable_resource_whitelist_generation) {
@@ -115,9 +122,6 @@ if (!is_android && !is_mac) {
     if (is_win) {
       public_deps += [ ":reorder_imports" ]
       data_deps += [ ":reorder_imports" ]
-    }
-    if (use_aura && (is_win || is_linux)) {
-      data_deps += [ "//chrome/app:service_manifests" ]
     }
     if (is_chromeos) {
       data_deps += [ "//sandbox/linux:chrome_sandbox" ]
@@ -217,6 +221,7 @@ if (!is_android && !is_mac) {
         ]
         data_deps = [
           "//chrome/app/version_assembly:version_assembly_manifest",
+          "//chrome/chrome_proxy",
           "//chrome/elevation_service",
           "//chrome/notification_helper",
         ]
@@ -1078,8 +1083,9 @@ if (is_win || (is_linux && !is_component_build)) {
       ]
     }
 
-    bundle_data("widevine_cdm_library_manifest") {
+    bundle_data("widevine_cdm_library_manifest_and_license_files") {
       sources = [
+        "$root_out_dir/WidevineCdm/LICENSE",
         "$root_out_dir/WidevineCdm/manifest.json",
       ]
       outputs = [
@@ -1095,7 +1101,7 @@ if (is_win || (is_linux && !is_component_build)) {
     if (bundle_widevine_cdm) {
       deps = [
         ":widevine_cdm_library_binaries",
-        ":widevine_cdm_library_manifest",
+        ":widevine_cdm_library_manifest_and_license_files",
       ]
     }
   }
@@ -1156,7 +1162,7 @@ if (is_win || (is_linux && !is_component_build)) {
     }
   }
 
-  if (is_chrome_branded) {
+  if (is_chrome_branded && enable_keystone_registration_framework) {
     action("keystone_registration_framework") {
       script = "//chrome/tools/build/mac/copy_keystone_framework.py"
 
@@ -1267,11 +1273,12 @@ if (is_win || (is_linux && !is_component_build)) {
     ]
 
     if (is_chrome_branded) {
-      framework_contents += [
-        "Default Apps",
-        "Frameworks",  # For KeystoneRegistration.framework.
-      ]
+      framework_contents += [ "Default Apps" ]
+      if (enable_keystone_registration_framework) {
+        framework_contents += [ "Frameworks" ]  # For KeystoneRegistration.framework.
+      }
     }
+
     if (enable_nacl) {
       framework_contents += [ "Internet Plug-Ins" ]
     }
@@ -1657,6 +1664,7 @@ group("extra_resources") {
       "//chrome/browser/resources/chromeos/chromevox",
       "//chrome/browser/resources/chromeos/select_to_speak:build",
       "//chrome/browser/resources/chromeos/switch_access:build",
+      "//third_party/ink:ink_resources",
     ]
   }
 

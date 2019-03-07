@@ -35,6 +35,7 @@ const double kDefaultSwapFreeThresholdRatio = 0.45;
 // Field trial parameter names.
 const char kRendererPauseParamName[] = "pause_renderer";
 const char kNavigateAdsParamName[] = "navigate_ads";
+const char kPurgeV8MemoryParamName[] = "purge_v8";
 const char kShouldDetectInRenderer[] = "detect_in_renderer";
 
 bool GetThresholdParam(const char* param,
@@ -111,6 +112,7 @@ enum class OomInterventionBrowserMonitorStatus {
 
 OomInterventionConfig::OomInterventionConfig()
     : is_intervention_enabled_(
+          base::SysInfo::IsLowEndDevice() &&
           base::FeatureList::IsEnabled(subresource_filter::kAdTagging) &&
           base::FeatureList::IsEnabled(features::kOomIntervention)),
       renderer_detection_args_(blink::mojom::DetectionArgs::New()) {
@@ -118,26 +120,28 @@ OomInterventionConfig::OomInterventionConfig()
     return;
 
   is_renderer_pause_enabled_ = base::GetFieldTrialParamByFeatureAsBool(
-      features::kOomIntervention, kRendererPauseParamName, false);
+      features::kOomIntervention, kRendererPauseParamName, true);
   is_navigate_ads_enabled_ = base::GetFieldTrialParamByFeatureAsBool(
-      features::kOomIntervention, kNavigateAdsParamName, false);
+      features::kOomIntervention, kNavigateAdsParamName, true);
+  is_purge_v8_memory_enabled_ = base::GetFieldTrialParamByFeatureAsBool(
+      features::kOomIntervention, kPurgeV8MemoryParamName, false);
   should_detect_in_renderer_ = base::GetFieldTrialParamByFeatureAsBool(
       features::kOomIntervention, kShouldDetectInRenderer, true);
 
   use_components_callback_ = base::GetFieldTrialParamByFeatureAsBool(
       features::kOomIntervention, kUseComponentCallbacks, true);
 
-  // Enable intervention only if at least one threshold is set for detection
-  // in each process.
   OomInterventionBrowserMonitorStatus status =
       OomInterventionBrowserMonitorStatus::kEnabledWithValidConfig;
   if (!GetSwapFreeThreshold(&swapfree_threshold_)) {
     is_swap_monitor_enabled_ = false;
     status = OomInterventionBrowserMonitorStatus::kEnabledWithNoSwap;
   }
+  // If no threshold is specified, set blink_workload_threshold to 10 by
+  // default, meaning that 10% of the RAM size is set to blink memory usage
+  // threshold to trigger intervention.
   if (!GetRendererMemoryThresholds(&renderer_detection_args_)) {
-    is_intervention_enabled_ = false;
-    status = OomInterventionBrowserMonitorStatus::kDisabledWithInvalidParam;
+    renderer_detection_args_->blink_workload_threshold = 10;
   }
 }
 

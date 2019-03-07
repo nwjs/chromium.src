@@ -28,6 +28,8 @@
 
 #include <algorithm>
 #include <memory>
+
+#include "base/stl_util.h"
 #include "third_party/blink/renderer/core/css/css_markup.h"
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser_context.h"
@@ -419,11 +421,11 @@ static CSSSelector::PseudoType NameToPseudoType(const AtomicString& name,
   if (has_arguments) {
     pseudo_type_map = kPseudoTypeWithArgumentsMap;
     pseudo_type_map_end =
-        kPseudoTypeWithArgumentsMap + arraysize(kPseudoTypeWithArgumentsMap);
+        kPseudoTypeWithArgumentsMap + base::size(kPseudoTypeWithArgumentsMap);
   } else {
     pseudo_type_map = kPseudoTypeWithoutArgumentsMap;
     pseudo_type_map_end = kPseudoTypeWithoutArgumentsMap +
-                          arraysize(kPseudoTypeWithoutArgumentsMap);
+                          base::size(kPseudoTypeWithoutArgumentsMap);
   }
   const NameToPseudoStruct* match = std::lower_bound(
       pseudo_type_map, pseudo_type_map_end, name,
@@ -1042,6 +1044,25 @@ bool CSSSelector::IsTreeAbidingPseudoElement() const {
           GetPseudoType() == kPseudoPlaceholder);
 }
 
+bool CSSSelector::IsAllowedAfterPart() const {
+  if (Match() != CSSSelector::kPseudoElement) {
+    return false;
+  }
+  // Everything that makes sense should work following ::part. This whitelist
+  // restricts it to what has been tested.
+  switch (GetPseudoType()) {
+    case kPseudoBefore:
+    case kPseudoAfter:
+    case kPseudoPlaceholder:
+    case kPseudoFirstLine:
+    case kPseudoFirstLetter:
+    case kPseudoSelection:
+      return true;
+    default:
+      return false;
+  }
+}
+
 template <typename Functor>
 static bool ForAnyInTagHistory(const Functor& functor,
                                const CSSSelector& selector) {
@@ -1084,6 +1105,13 @@ bool CSSSelector::HasDeepCombinatorOrShadowPseudo() const {
                selector.GetPseudoType() == CSSSelector::kPseudoShadow;
       },
       *this);
+}
+
+bool CSSSelector::FollowsPart() const {
+  const CSSSelector* previous = TagHistory();
+  if (!previous)
+    return false;
+  return previous->GetPseudoType() == kPseudoPart;
 }
 
 bool CSSSelector::NeedsUpdatedDistribution() const {

@@ -20,7 +20,6 @@
 #include "base/files/file_util.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
@@ -35,6 +34,7 @@
 #include "base/threading/thread_local.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
+#include "chrome/test/chromedriver/chrome/version.h"
 #include "chrome/test/chromedriver/logging.h"
 #include "chrome/test/chromedriver/server/http_handler.h"
 #include "chrome/test/chromedriver/version.h"
@@ -65,14 +65,14 @@ int ListenOnIPv4(net::ServerSocket* socket, uint16_t port, bool allow_remote) {
   std::string binding_ip = net::IPAddress::IPv4Localhost().ToString();
   if (allow_remote)
     binding_ip = net::IPAddress::IPv4AllZeros().ToString();
-  return socket->ListenWithAddressAndPort(binding_ip, port, 1);
+  return socket->ListenWithAddressAndPort(binding_ip, port, 5);
 }
 
 int ListenOnIPv6(net::ServerSocket* socket, uint16_t port, bool allow_remote) {
   std::string binding_ip = net::IPAddress::IPv6Localhost().ToString();
   if (allow_remote)
     binding_ip = net::IPAddress::IPv6AllZeros().ToString();
-  return socket->ListenWithAddressAndPort(binding_ip, port, 1);
+  return socket->ListenWithAddressAndPort(binding_ip, port, 5);
 }
 
 bool RequestIsSafeToServe(const net::HttpServerRequestInfo& info) {
@@ -142,7 +142,7 @@ class HttpServer : public net::HttpServer::Delegate {
         base::Bind(&HttpServer::OnResponse,
                    weak_factory_.GetWeakPtr(),
                    connection_id,
-                   info.HasHeaderValue("connection", "keep-alive")));
+                   !info.HasHeaderValue("connection", "close")));
   }
   void OnWebSocketRequest(int connection_id,
                           const net::HttpServerRequestInfo& info) override {}
@@ -409,8 +409,10 @@ int main(int argc, char *argv[]) {
         "whitelisted-ips",
         "comma-separated whitelist of remote IP addresses "
         "which are allowed to connect to ChromeDriver",
+        "minimum-chrome-version",
+        "minimum supported Chrome version",
     };
-    for (size_t i = 0; i < arraysize(kOptionAndDescriptions) - 1; i += 2) {
+    for (size_t i = 0; i < base::size(kOptionAndDescriptions) - 1; i += 2) {
       options += base::StringPrintf(
           "  --%-30s%s\n",
           kOptionAndDescriptions[i], kOptionAndDescriptions[i + 1]);
@@ -418,10 +420,18 @@ int main(int argc, char *argv[]) {
     printf("Usage: %s [OPTIONS]\n\nOptions\n%s", argv[0], options.c_str());
     return 0;
   }
+  bool early_exit = false;
   if (cmd_line->HasSwitch("v") || cmd_line->HasSwitch("version")) {
     printf("ChromeDriver %s\n", kChromeDriverVersion);
-    return 0;
+    early_exit = true;
   }
+  if (cmd_line->HasSwitch("minimum-chrome-version")) {
+    printf("minimum supported Chrome version: %s\n",
+           GetMinimumSupportedChromeVersion().c_str());
+    early_exit = true;
+  }
+  if (early_exit)
+    return 0;
   if (cmd_line->HasSwitch("port")) {
     int cmd_line_port;
     if (!base::StringToInt(cmd_line->GetSwitchValueASCII("port"),

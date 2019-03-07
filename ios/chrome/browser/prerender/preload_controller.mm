@@ -282,7 +282,7 @@ bool IsPrerenderTabEvictionExperimentalGroup() {
     accountConsistencyService->RemoveWebStateHandler(webState.get());
   }
 
-  if ([tab loadFinished]) {
+  if (!webState->IsLoading()) {
     [[OmniboxGeolocationController sharedInstance] finishPageLoadForTab:tab
                                                             loadSuccess:YES];
   }

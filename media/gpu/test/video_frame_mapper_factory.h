@@ -16,6 +16,9 @@ namespace test {
 // The appropriate VideoFrameMapper is a platform-dependent.
 class VideoFrameMapperFactory {
  public:
+  // Create an instance of the frame mapper.
+  static std::unique_ptr<VideoFrameMapper> CreateMapper();
+
   // |linear_buffer_mapper| stands for a created mapper type. If true, the
   // mapper will expect frames passed to it to be in linear format.
   static std::unique_ptr<VideoFrameMapper> CreateMapper(
@@ -25,4 +28,4 @@ class VideoFrameMapperFactory {
 }  // namespace test
 }  // namespace media
 
-#endif  // MEDIA_GPU_TEST_GENERIC_VIDEO_FRAME_MAPPER_FACTORY_H_
+#endif  // MEDIA_GPU_TEST_VIDEO_FRAME_MAPPER_FACTORY_H_

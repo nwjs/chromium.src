@@ -211,15 +211,19 @@ void ScriptController::UpdateDocument() {
   EnableEval();
 }
 
-bool ScriptController::ExecuteScriptIfJavaScriptURL(const KURL& url,
-                                                    Element* element) {
+bool ScriptController::ExecuteScriptIfJavaScriptURL(
+    const KURL& url,
+    Element* element,
+    ContentSecurityPolicyDisposition check_main_world_csp) {
   if (!url.ProtocolIsJavaScript())
     return false;
 
   const int kJavascriptSchemeLength = sizeof("javascript:") - 1;
-  String script_source = DecodeURLEscapeSequences(url.GetString());
+  String script_source = DecodeURLEscapeSequences(
+      url.GetString(), DecodeURLMode::kUTF8OrIsomorphic);
 
   bool should_bypass_main_world_content_security_policy =
+      check_main_world_csp == kDoNotCheckContentSecurityPolicy ||
       ContentSecurityPolicy::ShouldBypassMainWorld(GetFrame()->GetDocument());
   if (!GetFrame()->GetPage() ||
       (!should_bypass_main_world_content_security_policy &&
@@ -233,12 +237,6 @@ bool ScriptController::ExecuteScriptIfJavaScriptURL(const KURL& url,
   }
 
   script_source = script_source.Substring(kJavascriptSchemeLength);
-
-  bool progress_notifications_needed =
-      GetFrame()->Loader().StateMachine()->IsDisplayingInitialEmptyDocument() &&
-      !GetFrame()->IsLoading();
-  if (progress_notifications_needed)
-    GetFrame()->Loader().Progress().ProgressStarted();
 
   Document* owner_document = GetFrame()->GetDocument();
 
@@ -266,11 +264,8 @@ bool ScriptController::ExecuteScriptIfJavaScriptURL(const KURL& url,
   if (!GetFrame()->GetPage())
     return true;
 
-  if (result.IsEmpty() || !result->IsString()) {
-    if (progress_notifications_needed)
-      GetFrame()->Loader().Progress().ProgressCompleted();
+  if (result.IsEmpty() || !result->IsString())
     return true;
-  }
   String script_result = ToCoreString(v8::Local<v8::String>::Cast(result));
 
   // We're still in a frame, so there should be a DocumentLoader.

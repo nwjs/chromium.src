@@ -8,7 +8,6 @@
 
 #include <tuple>
 
-#include "base/macros.h"
 #include "base/stl_util.h"
 #include "base/test/test_reg_util_win.h"
 #include "chrome/install_static/install_details.h"
@@ -96,6 +95,10 @@ TEST(InstallStaticTest, GetSwitchValueFromCommandLineTest) {
 
   // Bad command line without closing quotes. Should not crash.
   value = GetSwitchValueFromCommandLine(L"\"blah --type=\t\t\t", L"type");
+  EXPECT_TRUE(value.empty());
+
+  // Anything following "--" should be considered args and therfore ignored.
+  value = GetSwitchValueFromCommandLine(L"blah -- --type=bleh", L"type");
   EXPECT_TRUE(value.empty());
 }
 
@@ -369,7 +372,7 @@ TEST_P(InstallStaticUtilTest, GetChromeInstallSubDirectory) {
       L"Chromium",
   };
 #endif
-  static_assert(arraysize(kInstallDirs) == NUM_INSTALL_MODES,
+  static_assert(base::size(kInstallDirs) == NUM_INSTALL_MODES,
                 "kInstallDirs out of date.");
   EXPECT_THAT(GetChromeInstallSubDirectory(),
               StrCaseEq(kInstallDirs[std::get<0>(GetParam())]));
@@ -390,7 +393,7 @@ TEST_P(InstallStaticUtilTest, GetRegistryPath) {
       L"Software\\Chromium",
   };
 #endif
-  static_assert(arraysize(kRegistryPaths) == NUM_INSTALL_MODES,
+  static_assert(base::size(kRegistryPaths) == NUM_INSTALL_MODES,
                 "kRegistryPaths out of date.");
   EXPECT_THAT(GetRegistryPath(),
               StrCaseEq(kRegistryPaths[std::get<0>(GetParam())]));
@@ -416,7 +419,7 @@ TEST_P(InstallStaticUtilTest, GetUninstallRegistryPath) {
       L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Chromium",
   };
 #endif
-  static_assert(arraysize(kUninstallRegistryPaths) == NUM_INSTALL_MODES,
+  static_assert(base::size(kUninstallRegistryPaths) == NUM_INSTALL_MODES,
                 "kUninstallRegistryPaths out of date.");
   EXPECT_THAT(GetUninstallRegistryPath(),
               StrCaseEq(kUninstallRegistryPaths[std::get<0>(GetParam())]));
@@ -438,7 +441,7 @@ TEST_P(InstallStaticUtilTest, GetAppGuid) {
       L"{401C381F-E0DE-4B85-8BD8-3F3F14FBDA57}",  // Google Chrome Dev.
       L"{4EA16AC7-FD5A-47C3-875B-DBF4A2008C20}",  // Google Chrome SxS (Canary).
   };
-  static_assert(arraysize(kAppGuids) == NUM_INSTALL_MODES,
+  static_assert(base::size(kAppGuids) == NUM_INSTALL_MODES,
                 "kAppGuids out of date.");
   EXPECT_THAT(GetAppGuid(), StrCaseEq(kAppGuids[std::get<0>(GetParam())]));
 #else
@@ -458,7 +461,7 @@ TEST_P(InstallStaticUtilTest, GetBaseAppId) {
       L"Chromium",
   };
 #endif
-  static_assert(arraysize(kBaseAppIds) == NUM_INSTALL_MODES,
+  static_assert(base::size(kBaseAppIds) == NUM_INSTALL_MODES,
                 "kBaseAppIds out of date.");
   EXPECT_THAT(GetBaseAppId(), StrCaseEq(kBaseAppIds[std::get<0>(GetParam())]));
 }
@@ -510,7 +513,7 @@ TEST_P(InstallStaticUtilTest, GetToastActivatorClsid) {
       L"{635EFA6F-08D6-4EC9-BD14-8A0FDE975159}"  // Chromium.
   };
 #endif
-  static_assert(arraysize(kToastActivatorClsids) == NUM_INSTALL_MODES,
+  static_assert(base::size(kToastActivatorClsids) == NUM_INSTALL_MODES,
                 "kToastActivatorClsids out of date.");
 
   EXPECT_EQ(GetToastActivatorClsid(),

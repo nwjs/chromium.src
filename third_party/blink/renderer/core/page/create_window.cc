@@ -365,16 +365,17 @@ static Frame* CreateWindowHelper(LocalFrame& opener_frame,
 DOMWindow* CreateWindow(const String& url_string,
                         const AtomicString& frame_name,
                         const String& window_features_string,
-                        LocalDOMWindow& calling_window,
-                        LocalFrame& first_frame,
+                        LocalDOMWindow& incumbent_window,
+                        LocalFrame& entered_window_frame,
                         LocalFrame& opener_frame,
                         ExceptionState& exception_state) {
-  LocalFrame* active_frame = calling_window.GetFrame();
+  LocalFrame* active_frame = incumbent_window.GetFrame();
   DCHECK(active_frame);
 
-  KURL completed_url = url_string.IsEmpty()
-                           ? KURL(g_empty_string)
-                           : first_frame.GetDocument()->CompleteURL(url_string);
+  KURL completed_url =
+      url_string.IsEmpty()
+          ? KURL(g_empty_string)
+          : entered_window_frame.GetDocument()->CompleteURL(url_string);
   if (!completed_url.IsEmpty() && !completed_url.IsValid()) {
     UseCounter::Count(active_frame, WebFeature::kWindowOpenWithInvalidURL);
     exception_state.ThrowDOMException(
@@ -388,7 +389,8 @@ DOMWindow* CreateWindow(const String& url_string,
       opener_frame.GetDocument()->GetContentSecurityPolicy() &&
       !ContentSecurityPolicy::ShouldBypassMainWorld(
           opener_frame.GetDocument())) {
-    String script_source = DecodeURLEscapeSequences(completed_url.GetString());
+    String script_source = DecodeURLEscapeSequences(
+        completed_url.GetString(), DecodeURLMode::kUTF8OrIsomorphic);
 
     if (!opener_frame.GetDocument()
              ->GetContentSecurityPolicy()
@@ -402,7 +404,7 @@ DOMWindow* CreateWindow(const String& url_string,
   WebWindowFeatures window_features =
       GetWindowFeaturesFromString(window_features_string);
 
-  FrameLoadRequest frame_request(calling_window.document(),
+  FrameLoadRequest frame_request(incumbent_window.document(),
                                  ResourceRequest(completed_url), frame_name);
   frame_request.SetShouldSetOpener(window_features.noopener ? kNeverSetOpener
                                                             : kMaybeSetOpener);
@@ -448,7 +450,7 @@ DOMWindow* CreateWindow(const String& url_string,
     return nullptr;
   else
     new_frame = &opener_frame;
-  if (new_frame->DomWindow()->IsInsecureScriptAccess(calling_window,
+  if (new_frame->DomWindow()->IsInsecureScriptAccess(incumbent_window,
                                                      completed_url))
     return window_features.noopener ? nullptr : new_frame->DomWindow();
 
@@ -466,7 +468,7 @@ DOMWindow* CreateWindow(const String& url_string,
   // causes the navigation to be flagged as a client redirect, which is
   // observable via the webNavigation extension api.
   if (created) {
-    FrameLoadRequest request(calling_window.document(),
+    FrameLoadRequest request(incumbent_window.document(),
                              ResourceRequest(completed_url));
     request.GetResourceRequest().SetHasUserGesture(has_user_gesture);
     if (const WebInputEvent* input_event = CurrentInputEvent::Get()) {
@@ -474,7 +476,7 @@ DOMWindow* CreateWindow(const String& url_string,
     }
     new_frame->Navigate(request, WebFrameLoadType::kStandard);
   } else if (!url_string.IsEmpty()) {
-    new_frame->ScheduleNavigation(*calling_window.document(), completed_url,
+    new_frame->ScheduleNavigation(*incumbent_window.document(), completed_url,
                                   WebFrameLoadType::kStandard,
                                   has_user_gesture ? UserGestureStatus::kActive
                                                    : UserGestureStatus::kNone);

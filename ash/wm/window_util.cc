@@ -5,19 +5,18 @@
 #include "ash/wm/window_util.h"
 
 #include <memory>
-#include <vector>
 
 #include "ash/public/cpp/ash_constants.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/root_window_controller.h"
+#include "ash/scoped_animation_disabler.h"
 #include "ash/session/session_controller.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/widget_finder.h"
 #include "ash/wm/window_positioning_utils.h"
-#include "ash/wm/window_properties.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/wm_event.h"
 #include "ash/ws/window_service_owner.h"
@@ -31,6 +30,7 @@
 #include "ui/aura/window_targeter.h"
 #include "ui/base/hit_test.h"
 #include "ui/compositor/dip_util.h"
+#include "ui/compositor/layer_tree_owner.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/geometry/rect.h"
@@ -39,6 +39,7 @@
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/coordinate_conversion.h"
 #include "ui/wm/core/easy_resize_window_targeter.h"
+#include "ui/wm/core/window_animations.h"
 #include "ui/wm/core/window_properties.h"
 #include "ui/wm/core/window_util.h"
 #include "ui/wm/public/activation_client.h"
@@ -97,12 +98,6 @@ class InteriorResizeHandleTargeter : public aura::WindowTargeter {
   }
 
   bool ShouldUseExtendedBounds(const aura::Window* target) const override {
-    // Fullscreen/maximized windows can't be drag-resized.
-    if (GetWindowState(window())->IsMaximizedOrFullscreenOrPinned() ||
-        !wm::GetWindowState(target)->CanResize()) {
-      return false;
-    }
-
     // The shrunken hit region only applies to children of |window()|.
     return target->parent() == window();
   }
@@ -164,7 +159,7 @@ void GetBlockingContainersForRoot(aura::Window* root_window,
 }
 
 bool IsWindowUserPositionable(aura::Window* window) {
-  return GetWindowState(window)->IsUserPositionable();
+  return window->type() == aura::client::WINDOW_TYPE_NORMAL;
 }
 
 void PinWindow(aura::Window* window, bool trusted) {
@@ -303,6 +298,42 @@ bool ShouldExcludeForOverview(const aura::Window* window) {
   }
 
   return ShouldExcludeForBothCycleListAndOverview(window);
+}
+
+void RemoveTransientDescendants(std::vector<aura::Window*>* out_window_list) {
+  for (auto it = out_window_list->begin(); it != out_window_list->end();) {
+    aura::Window* transient_root = ::wm::GetTransientRoot(*it);
+    if (*it != transient_root &&
+        base::ContainsValue(*out_window_list, transient_root)) {
+      it = out_window_list->erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+void HideAndMaybeMinimizeWithoutAnimation(std::vector<aura::Window*> windows,
+                                          bool minimize) {
+  for (auto* window : windows) {
+    ScopedAnimationDisabler disable(window);
+
+    // ARC windows are minimized asynchronously, so hide here now.
+    // TODO(oshima): Investigate better way to handle ARC apps immediately.
+    window->Hide();
+
+    if (minimize)
+      wm::GetWindowState(window)->Minimize();
+  }
+  if (windows.size()) {
+    // Disable the animations using |disable|. However, doing so will skip
+    // detaching the resources associated with the layer. So we have to trick
+    // the compositor into releasing the resources.
+    // crbug.com/924802.
+    auto* compositor = windows[0]->layer()->GetCompositor();
+    bool was_visible = compositor->IsVisible();
+    compositor->SetVisible(false);
+    compositor->SetVisible(was_visible);
+  }
 }
 
 }  // namespace wm

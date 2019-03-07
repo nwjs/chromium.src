@@ -19,7 +19,7 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "ui/aura/window.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/display/screen.h"
@@ -51,6 +51,10 @@ class Insets;
 class Point;
 }
 
+namespace keyboard {
+class KeyboardUIFactory;
+}
+
 namespace service_manager {
 class Connector;
 }
@@ -75,6 +79,7 @@ class AcceleratorFilter;
 class ActivationClient;
 class CompoundEventFilter;
 class FocusController;
+class FocusRules;
 class ShadowController;
 class VisibilityController;
 class WindowModalityController;
@@ -130,7 +135,7 @@ class KeyAccessibilityEnabler;
 class KeyboardBrightnessControlDelegate;
 class AshKeyboardController;
 class LaserPointerController;
-class LocaleNotificationController;
+class LocaleUpdateController;
 class LockStateController;
 class LogoutConfirmationController;
 class LoginScreenController;
@@ -195,7 +200,8 @@ class WaylandServerController;
 class WindowServiceOwner;
 class WindowCycleController;
 class WindowPositioner;
-class WindowSelectorController;
+class OverviewSession;
+class OverviewController;
 class WindowTreeHostManager;
 
 enum class LoginStatus;
@@ -266,9 +272,10 @@ class ASH_EXPORT Shell : public SessionObserver,
   // Returns true if a system-modal dialog window is currently open.
   static bool IsSystemModalWindowOpen();
 
-  // Whether |window| hosts a remote client (e.g. the keyboard shortcut viewer
-  // app under classic ash, or a browser window under mash).
-  static bool HasRemoteClient(aura::Window* window);
+  // Returns true if |window| is a proxy window. A proxy window is a window that
+  // was created by way of a WindowService client (e.g. the keyboard shortcut
+  // viewer app under classic ash, or a browser window under mash).
+  static bool IsProxyWindow(aura::Window* window);
 
   // Registers all ash related local state prefs to the given |registry|.
   static void RegisterLocalStatePrefs(PrefRegistrySimple* registry,
@@ -401,6 +408,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   }
   FirstRunHelper* first_run_helper() { return first_run_helper_.get(); }
   ::wm::FocusController* focus_controller() { return focus_controller_.get(); }
+  ::wm::FocusRules* focus_rules() { return focus_rules_; }
   FocusCycler* focus_cycler() { return focus_cycler_.get(); }
   HighlighterController* highlighter_controller() {
     return highlighter_controller_.get();
@@ -422,8 +430,8 @@ class ASH_EXPORT Shell : public SessionObserver,
   LaserPointerController* laser_pointer_controller() {
     return laser_pointer_controller_.get();
   }
-  LocaleNotificationController* locale_notification_controller() {
-    return locale_notification_controller_.get();
+  LocaleUpdateController* locale_update_controller() {
+    return locale_update_controller_.get();
   }
   LoginScreenController* login_screen_controller() {
     return login_screen_controller_.get();
@@ -546,8 +554,8 @@ class ASH_EXPORT Shell : public SessionObserver,
     return window_cycle_controller_.get();
   }
   WindowPositioner* window_positioner() { return window_positioner_.get(); }
-  WindowSelectorController* window_selector_controller() {
-    return window_selector_controller_.get();
+  OverviewController* overview_controller() {
+    return overview_controller_.get();
   }
   WindowServiceOwner* window_service_owner() {
     return window_service_owner_.get();
@@ -601,8 +609,8 @@ class ASH_EXPORT Shell : public SessionObserver,
   void NotifyOverviewModeStartingAnimationComplete(bool canceled);
 
   // Notifies observers that overview mode is about to end (before the windows
-  // restore themselves).
-  void NotifyOverviewModeEnding();
+  // restore themselves). |overview_session| must not be null.
+  void NotifyOverviewModeEnding(OverviewSession* overview_session);
 
   // Notifies observers that overview mode has ended.
   void NotifyOverviewModeEnded();
@@ -638,8 +646,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   // Used to provide better error messages for Shell::Get() under mash.
   static void SetIsBrowserProcessWithMash();
 
-  void NotifyAppListVisibilityChanged(bool visible, aura::Window* root_window);
-
  private:
   FRIEND_TEST_ALL_PREFIXES(ExtendedDesktopTest, TestCursor);
   FRIEND_TEST_ALL_PREFIXES(WindowManagerTest, MouseEventCursors);
@@ -658,7 +664,8 @@ class ASH_EXPORT Shell : public SessionObserver,
   void Init(ui::ContextFactory* context_factory,
             ui::ContextFactoryPrivate* context_factory_private,
             std::unique_ptr<base::Value> initial_display_prefs,
-            std::unique_ptr<ws::GpuInterfaceProvider> gpu_interface_provider);
+            std::unique_ptr<ws::GpuInterfaceProvider> gpu_interface_provider,
+            std::unique_ptr<keyboard::KeyboardUIFactory> keyboard_ui_factory);
 
   // Initializes the display manager and related components.
   void InitializeDisplayManager();
@@ -737,7 +744,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<ImmersiveContext> immersive_context_;
   std::unique_ptr<KeyboardBrightnessControlDelegate>
       keyboard_brightness_control_delegate_;
-  std::unique_ptr<LocaleNotificationController> locale_notification_controller_;
+  std::unique_ptr<LocaleUpdateController> locale_update_controller_;
   std::unique_ptr<LoginScreenController> login_screen_controller_;
   std::unique_ptr<LogoutConfirmationController> logout_confirmation_controller_;
   std::unique_ptr<TabletModeController> tablet_mode_controller_;
@@ -769,7 +776,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<VpnList> vpn_list_;
   std::unique_ptr<WallpaperController> wallpaper_controller_;
   std::unique_ptr<WindowCycleController> window_cycle_controller_;
-  std::unique_ptr<WindowSelectorController> window_selector_controller_;
+  std::unique_ptr<OverviewController> overview_controller_;
+  // Owned by |focus_controller_|.
+  ::wm::FocusRules* focus_rules_ = nullptr;
   std::unique_ptr<::wm::ShadowController> shadow_controller_;
   std::unique_ptr<::wm::VisibilityController> visibility_controller_;
   std::unique_ptr<::wm::WindowModalityController> window_modality_controller_;

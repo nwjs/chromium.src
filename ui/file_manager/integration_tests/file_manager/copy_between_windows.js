@@ -15,8 +15,8 @@ const USB_VOLUME_QUERY = '#directory-tree [volume-type-icon="removable"]';
  * @return {Promise} Promise fulfilled with an array containing two window IDs.
  */
 async function openTwoWindows(rootPath1, rootPath2) {
-  const windowIds = await Promise.all(
-      [openNewWindow(null, rootPath1), openNewWindow(null, rootPath2)]);
+  const windowIds =
+      await Promise.all([openNewWindow(rootPath1), openNewWindow(rootPath2)]);
 
   await Promise.all([
     remoteCall.waitForElement(windowIds[0], '#detail-table'),
@@ -34,8 +34,9 @@ async function openTwoWindows(rootPath1, rootPath2) {
  */
 async function copyBetweenWindows(
     window1, window2, file, alreadyPresentFile = null) {
-  if (!file || !file.nameText)
+  if (!file || !file.nameText) {
     chrome.test.assertTrue(false, 'copyBetweenWindows invalid file name');
+  }
 
   const flag = {ignoreLastModifiedTime: true};
   const name = file.nameText;

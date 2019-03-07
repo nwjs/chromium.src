@@ -17,7 +17,6 @@
 #include "content/browser/web_package/signed_exchange_error.h"
 #include "content/common/content_export.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
-#include "url/origin.h"
 
 namespace network {
 class SharedURLLoaderFactory;
@@ -52,9 +51,7 @@ class CONTENT_EXPORT SignedExchangeCertFetcher
       scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
       std::vector<std::unique_ptr<URLLoaderThrottle>> throttles,
       const GURL& cert_url,
-      url::Origin request_initiator,
       bool force_fetch,
-      SignedExchangeVersion version,
       CertificateCallback callback,
       SignedExchangeDevToolsProxy* devtools_proxy,
       const base::Optional<base::UnguessableToken>& throttling_profile_id);
@@ -75,9 +72,7 @@ class CONTENT_EXPORT SignedExchangeCertFetcher
       scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
       std::vector<std::unique_ptr<URLLoaderThrottle>> throttles,
       const GURL& cert_url,
-      url::Origin request_initiator,
       bool force_fetch,
-      SignedExchangeVersion version,
       CertificateCallback callback,
       SignedExchangeDevToolsProxy* devtools_proxy,
       const base::Optional<base::UnguessableToken>& throttling_profile_id);
@@ -102,7 +97,6 @@ class CONTENT_EXPORT SignedExchangeCertFetcher
   scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory_;
   std::vector<std::unique_ptr<URLLoaderThrottle>> throttles_;
   std::unique_ptr<network::ResourceRequest> resource_request_;
-  const SignedExchangeVersion version_;
   CertificateCallback callback_;
 
   std::unique_ptr<ThrottlingURLLoader> url_loader_;

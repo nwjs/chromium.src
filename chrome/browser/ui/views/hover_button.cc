@@ -73,7 +73,6 @@ HoverButton::HoverButton(views::ButtonListener* button_listener,
       listener_(button_listener) {
   SetInstallFocusRingOnFocus(false);
   SetFocusBehavior(FocusBehavior::ALWAYS);
-  SetFocusPainter(nullptr);
 
   const int vert_spacing = ChromeLayoutProvider::Get()->GetDistanceMetric(
       DISTANCE_CONTROL_LIST_VERTICAL);
@@ -290,8 +289,7 @@ SkColor HoverButton::GetInkDropBaseColor() const {
 }
 
 std::unique_ptr<views::InkDrop> HoverButton::CreateInkDrop() {
-  std::unique_ptr<views::InkDrop> ink_drop =
-      CreateDefaultFloodFillInkDropImpl();
+  std::unique_ptr<views::InkDrop> ink_drop = MenuButton::CreateInkDrop();
   // Turn on highlighting when the button is focused only - hovering the button
   // will request focus.
   ink_drop->SetShowHighlightOnFocus(true);

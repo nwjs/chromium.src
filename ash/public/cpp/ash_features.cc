@@ -13,14 +13,8 @@ namespace features {
 const base::Feature kDockedMagnifier{"DockedMagnifier",
                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
-const base::Feature kDragAppsInTabletMode{"DragAppsInTabletMode",
-                                          base::FEATURE_ENABLED_BY_DEFAULT};
-
 const base::Feature kDragTabsInTabletMode{"DragTabsInTabletMode",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
-
-const base::Feature kKeyboardShortcutViewerApp{
-    "KeyboardShortcutViewerApp", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kLockScreenNotifications{"LockScreenNotifications",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
@@ -31,9 +25,6 @@ const base::Feature kLockScreenInlineReply{"LockScreenInlineReply",
 const base::Feature kLockScreenHideSensitiveNotificationsSupport{
     "LockScreenHideSensitiveNotificationsSupport",
     base::FEATURE_DISABLED_BY_DEFAULT};
-
-const base::Feature kMediaSessionAccelerators{
-    "MediaSessionAccelerators", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kMediaSessionNotification{
     "MediaSessionNotification", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -67,14 +58,10 @@ const base::Feature kUseBluetoothSystemInAsh{"UseBluetoothSystemInAsh",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kSupervisedUserDeprecationNotice{
-    "SupervisedUserDeprecationNotice", base::FEATURE_DISABLED_BY_DEFAULT};
+    "SupervisedUserDeprecationNotice", base::FEATURE_ENABLED_BY_DEFAULT};
 
 bool IsDockedMagnifierEnabled() {
   return base::FeatureList::IsEnabled(kDockedMagnifier);
-}
-
-bool IsKeyboardShortcutViewerAppEnabled() {
-  return base::FeatureList::IsEnabled(kKeyboardShortcutViewerApp);
 }
 
 bool IsLockScreenNotificationsEnabled() {

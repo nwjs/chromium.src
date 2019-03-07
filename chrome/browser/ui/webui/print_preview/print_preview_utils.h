@@ -32,7 +32,7 @@ extern const char kVendorCapabilityKey[];
 void ConvertPrinterListForCallback(
     const PrinterHandler::AddedPrintersCallback& callback,
     PrinterHandler::GetPrintersDoneCallback done_callback,
-    const printing::PrinterList& printer_list);
+    const PrinterList& printer_list);
 
 // Returns a unique_ptr to a sanitized version of |cdd| to prevent possible JS
 // errors in Print Preview. Will remove null items from lists or options lists
@@ -41,9 +41,9 @@ std::unique_ptr<base::DictionaryValue> ValidateCddForPrintPreview(
     const base::DictionaryValue& cdd);
 
 // Starts a local print of |print_data| with print settings dictionary
-// |ticket_json|. Runs |callback| on failure or success.
-void StartLocalPrint(const std::string& ticket_json,
-                     const scoped_refptr<base::RefCountedMemory>& print_data,
+// |job_settings|. Runs |callback| on failure or success.
+void StartLocalPrint(base::Value job_settings,
+                     scoped_refptr<base::RefCountedMemory> print_data,
                      content::WebContents* preview_web_contents,
                      PrinterHandler::PrintCallback callback);
 

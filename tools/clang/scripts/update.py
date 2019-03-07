@@ -27,7 +27,7 @@ import zipfile
 # Do NOT CHANGE this if you don't know what you're doing -- see
 # https://chromium.googlesource.com/chromium/src/+/master/docs/updating_clang.md
 # Reverting problematic clang rolls is safe, though.
-CLANG_REVISION = '346388'
+CLANG_REVISION = '351477'
 
 use_head_revision = bool(os.environ.get('LLVM_FORCE_HEAD_REVISION', '0')
                          in ('1', 'YES'))
@@ -35,7 +35,7 @@ if use_head_revision:
   CLANG_REVISION = 'HEAD'
 
 # This is incremented when pushing a new build of Clang at the same revision.
-CLANG_SUB_REVISION=5
+CLANG_SUB_REVISION=1
 
 PACKAGE_VERSION = "%s-%s" % (CLANG_REVISION, CLANG_SUB_REVISION)
 
@@ -68,7 +68,7 @@ LLVM_BUILD_TOOLS_DIR = os.path.abspath(
     os.path.join(LLVM_DIR, '..', 'llvm-build-tools'))
 STAMP_FILE = os.path.normpath(
     os.path.join(LLVM_DIR, '..', 'llvm-build', 'cr_build_revision'))
-VERSION = '8.0.0'
+VERSION = '9.0.0'
 ANDROID_NDK_DIR = os.path.join(
     CHROMIUM_DIR, 'third_party', 'android_ndk')
 FUCHSIA_SDK_DIR = os.path.join(CHROMIUM_DIR, 'third_party', 'fuchsia-sdk',
@@ -384,6 +384,7 @@ def GetWinSDKDir():
     '2013': 'msdia120.dll',
     '2015': 'msdia140.dll',
     '2017': 'msdia140.dll',
+    '2019': 'msdia140.dll',
   }
 
   # Don't let vs_toolchain overwrite our environment.
@@ -525,12 +526,15 @@ def UpdateClang(args):
   cxxflags = []
   ldflags = []
 
+  targets = 'AArch64;ARM;Mips;PowerPC;SystemZ;WebAssembly;X86'
   base_cmake_args = ['-GNinja',
                      '-DCMAKE_BUILD_TYPE=Release',
                      '-DLLVM_ENABLE_ASSERTIONS=ON',
                      '-DLLVM_ENABLE_TERMINFO=OFF',
+                     '-DLLVM_TARGETS_TO_BUILD=' + targets,
                      # Statically link MSVCRT to avoid DLL dependencies.
                      '-DLLVM_USE_CRT_RELEASE=MT',
+                     '-DCLANG_PLUGIN_SUPPORT=OFF',
                      ]
 
   if sys.platform != 'win32':
@@ -828,25 +832,22 @@ def UpdateClang(args):
         '-DANDROID=1']
       RmCmakeCache('.')
       RunCommand(['cmake'] + android_args + [COMPILER_RT_DIR])
-      RunCommand(['ninja', 'asan', 'ubsan', 'profile'])
+
+      # We use ASan i686 build for fuzzing.
+      libs_want = ['lib/linux/libclang_rt.asan-{0}-android.so']
+      if target_arch in ['aarch64', 'arm']:
+        libs_want += [
+            'lib/linux/libclang_rt.ubsan_standalone-{0}-android.so',
+            'lib/linux/libclang_rt.profile-{0}-android.a',
+        ]
+      if target_arch == 'aarch64':
+        libs_want += ['lib/linux/libclang_rt.hwasan-{0}-android.so']
+      libs_want = [lib.format(target_arch) for lib in libs_want]
+      RunCommand(['ninja'] + libs_want)
 
       # And copy them into the main build tree.
-      asan_lib_path_format = 'lib/linux/libclang_rt.asan-{0}-android.so'
-      libs_want = [
-          asan_lib_path_format,
-          'lib/linux/libclang_rt.ubsan_standalone-{0}-android.so',
-          'lib/linux/libclang_rt.profile-{0}-android.a',
-      ]
-      for arch in ['aarch64', 'arm']:
-        for p in libs_want:
-          lib_path = os.path.join(build_dir, p.format(arch))
-          if os.path.exists(lib_path):
-            shutil.copy(lib_path, rt_lib_dst_dir)
-
-      # We also use ASan i686 build for fuzzing.
-      lib_path = os.path.join(build_dir, asan_lib_path_format.format('i686'))
-      if os.path.exists(lib_path):
-        shutil.copy(lib_path, rt_lib_dst_dir)
+      for p in libs_want:
+        shutil.copy(p, rt_lib_dst_dir)
 
   if args.with_fuchsia:
     # Fuchsia links against libclang_rt.builtins-<arch>.a instead of libgcc.a.
@@ -927,9 +928,6 @@ def main():
   parser = argparse.ArgumentParser(description='Build Clang.')
   parser.add_argument('--bootstrap', action='store_true',
                       help='first build clang with CC, then with itself.')
-  # TODO(phajdan.jr): remove --if-needed after fixing callers. It's no-op.
-  parser.add_argument('--if-needed', action='store_true',
-                      help="run only if the script thinks clang is needed")
   parser.add_argument('--force-local-build', action='store_true',
                       help="don't try to download prebuild binaries")
   parser.add_argument('--gcc-toolchain', help='set the version for which gcc '
@@ -980,11 +978,6 @@ def main():
   if (use_head_revision or args.llvm_force_head_revision or
       args.force_local_build):
     AddSvnToPathOnWin()
-
-  if use_head_revision:
-    # TODO(hans): Trunk version was updated; remove after the next roll.
-    global VERSION
-    VERSION = '8.0.0'
 
   if args.verify_version and args.verify_version != VERSION:
     print 'VERSION is %s but --verify-version argument was %s, exiting.' % (

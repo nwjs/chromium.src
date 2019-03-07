@@ -8,7 +8,8 @@ source_set("cpp") {
     "access_token_fetcher.h",
     "access_token_info.cc",
     "access_token_info.h",
-    "accounts_mutator.cc",
+    "accounts_in_cookie_jar_info.cc",
+    "accounts_in_cookie_jar_info.h",
     "accounts_mutator.h",
     "identity_manager.cc",
     "identity_manager.h",
@@ -24,11 +25,19 @@ source_set("cpp") {
     ]
   }
 
+  if (!is_android && !is_ios) {
+    sources += [
+      "accounts_mutator_impl.cc",
+      "accounts_mutator_impl.h",
+    ]
+  }
+
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   public_deps = [
     "//components/signin/core/browser:internals",
     "//components/signin/core/browser:shared",
+    "//components/signin/core/browser:signin_buildflags",
     "//services/identity/public/cpp:cpp_types",
     "//services/network/public/cpp",
   ]
@@ -70,6 +79,7 @@ source_set("test_support") {
 source_set("tests") {
   testonly = true
   sources = [
+    "accounts_mutator_unittest.cc",
     "primary_account_mutator_unittest.cc",
   ]
 

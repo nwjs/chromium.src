@@ -327,9 +327,9 @@ void WindowPerformance::ReportLongTask(
   }
 }
 
-// We buffer long-latency events until onload, i.e., LoadEventStart is not
-// reached yet.
-bool WindowPerformance::ShouldBufferEventTiming() {
+// We buffer Element Timing and Event Timing (long-latency events) entries until
+// onload, i.e., LoadEventStart is not reached yet.
+bool WindowPerformance::ShouldBufferEntries() {
   return !timing() || !timing()->loadEventStart();
 }
 
@@ -340,7 +340,7 @@ void WindowPerformance::RegisterEventTiming(const AtomicString& event_type,
                                             bool cancelable) {
   DCHECK(origin_trials::EventTimingEnabled(GetExecutionContext()));
 
-  DCHECK(!start_time.is_null());
+  // |start_time| could be null in some tests that inject input.
   DCHECK(!processing_start.is_null());
   DCHECK(!processing_end.is_null());
   DCHECK_GE(processing_end, processing_start);
@@ -374,7 +374,7 @@ void WindowPerformance::ReportEventTimings(WebLayerTreeView::SwapResult result,
   for (const auto& entry : event_timings_) {
     int duration_in_ms = std::ceil((end_time - entry->startTime()) / 8) * 8;
     entry->SetDuration(duration_in_ms);
-    if (!first_input_detected_) {
+    if (!first_input_timing_) {
       if (entry->name() == "pointerdown") {
         first_pointer_down_event_timing_ =
             PerformanceEventTiming::CreateFirstInputTiming(entry);
@@ -395,7 +395,7 @@ void WindowPerformance::ReportEventTimings(WebLayerTreeView::SwapResult result,
       NotifyObserversOfEntry(*entry);
     }
 
-    if (ShouldBufferEventTiming() && !IsEventTimingBufferFull())
+    if (ShouldBufferEntries() && !IsEventTimingBufferFull())
       AddEventTimingBuffer(*entry);
   }
   event_timings_.clear();
@@ -404,16 +404,21 @@ void WindowPerformance::ReportEventTimings(WebLayerTreeView::SwapResult result,
 void WindowPerformance::AddElementTiming(const AtomicString& name,
                                          const IntRect& rect,
                                          TimeTicks timestamp) {
-  DCHECK(RuntimeEnabledFeatures::ElementTimingEnabled());
-  PerformanceEntry* entry = PerformanceElementTiming::Create(
+  DCHECK(origin_trials::ElementTimingEnabled(GetExecutionContext()));
+  PerformanceElementTiming* entry = PerformanceElementTiming::Create(
       name, rect, MonotonicTimeToDOMHighResTimeStamp(timestamp));
-  NotifyObserversOfEntry(*entry);
+  if (HasObserverFor(PerformanceEntry::kElement)) {
+    UseCounter::Count(GetFrame(),
+                      WebFeature::kElementTimingExplicitlyRequested);
+    NotifyObserversOfEntry(*entry);
+  }
+  if (ShouldBufferEntries() && !IsElementTimingBufferFull())
+    AddElementTimingBuffer(*entry);
 }
 
 void WindowPerformance::DispatchFirstInputTiming(
     PerformanceEventTiming* entry) {
   DCHECK(origin_trials::EventTimingEnabled(GetExecutionContext()));
-  first_input_detected_ = true;
 
   if (!entry)
     return;
@@ -424,14 +429,16 @@ void WindowPerformance::DispatchFirstInputTiming(
   }
 
   DCHECK(!first_input_timing_);
-  if (ShouldBufferEventTiming())
-    first_input_timing_ = entry;
+  first_input_timing_ = entry;
 }
 
 void WindowPerformance::AddLayoutJankFraction(double jank_fraction) {
-  DCHECK(RuntimeEnabledFeatures::LayoutJankAPIEnabled());
-  PerformanceEntry* entry = PerformanceLayoutJank::Create(jank_fraction);
-  NotifyObserversOfEntry(*entry);
+  DCHECK(origin_trials::LayoutJankAPIEnabled(GetExecutionContext()));
+  PerformanceLayoutJank* entry = PerformanceLayoutJank::Create(jank_fraction);
+  if (HasObserverFor(PerformanceEntry::kLayoutJank))
+    NotifyObserversOfEntry(*entry);
+  if (ShouldBufferEntries())
+    AddLayoutJankBuffer(*entry);
 }
 
 }  // namespace blink

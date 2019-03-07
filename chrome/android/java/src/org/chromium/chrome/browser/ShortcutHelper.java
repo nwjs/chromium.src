@@ -196,8 +196,6 @@ public class ShortcutHelper {
             protected Intent doInBackground() {
                 // Encoding {@link icon} as a string and computing the mac are expensive.
 
-                Context context = ContextUtils.getApplicationContext();
-
                 // Encode the icon as a base64 string (Launcher drops Bitmaps in the Intent).
                 String encodedIcon = encodeBitmapAsString(icon);
 
@@ -207,7 +205,7 @@ public class ShortcutHelper {
                         sDelegate.getFullscreenAction(), url, nonEmptyScopeUrl, name, shortName,
                         encodedIcon, WEBAPP_SHORTCUT_VERSION, displayMode, orientation, themeColor,
                         backgroundColor, splashScreenUrl, iconUrl.isEmpty(), isIconAdaptive);
-                shortcutIntent.putExtra(EXTRA_MAC, getEncodedMac(context, url));
+                shortcutIntent.putExtra(EXTRA_MAC, getEncodedMac(url));
                 shortcutIntent.putExtra(EXTRA_SOURCE, source);
                 return shortcutIntent;
             }
@@ -539,12 +537,12 @@ public class ShortcutHelper {
     }
 
     /**
-     * Returns the package name of the WebAPK if WebAPKs are enabled and there is an installed
-     * WebAPK which can handle {@link url}. Returns null otherwise.
+     * Returns the package name of one of the WebAPKs which can handle {@link url}. Returns null if
+     * there are no matches.
      */
     @CalledByNative
-    private static String queryWebApkPackage(String url) {
-        return WebApkValidator.queryWebApkPackage(ContextUtils.getApplicationContext(), url);
+    private static String queryFirstWebApkPackage(String url) {
+        return WebApkValidator.queryFirstWebApkPackage(ContextUtils.getApplicationContext(), url);
     }
 
     /**
@@ -626,11 +624,11 @@ public class ShortcutHelper {
     /**
      * @return String that can be used to verify that a WebappActivity is being started by Chrome.
      */
-    public static String getEncodedMac(Context context, String url) {
+    public static String getEncodedMac(String url) {
         // The only reason we convert to a String here is because Android inexplicably eats a
         // byte[] when adding the shortcut -- the Bundle received by the launched Activity even
         // lacks the key for the extra.
-        byte[] mac = WebappAuthenticator.getMacForUrl(context, url);
+        byte[] mac = WebappAuthenticator.getMacForUrl(url);
         return Base64.encodeToString(mac, Base64.DEFAULT);
     }
 

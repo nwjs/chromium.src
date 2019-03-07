@@ -42,10 +42,6 @@ const base::Feature kProtectSyncCredentialOnReauth = {
 const base::Feature kPasswordImport = {"PasswordImport",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Allows searching for saved passwords in the settings page on mobile devices.
-const base::Feature kPasswordSearchMobile = {"PasswordSearchMobile",
-                                             base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Adds password-related features to the keyboard accessory on mobile devices.
 const base::Feature kPasswordsKeyboardAccessory = {
     "PasswordsKeyboardAccessory", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -59,6 +55,11 @@ const base::Feature kRecoverPasswordsForSyncUsers = {
 // selection, rather than autofilling on page load, with highlighting of fields.
 const base::Feature kFillOnAccountSelect = {"fill-on-account-select",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables the experiment for the password manager to only fill on account
+// selection when the password form was served over HTTP.
+const base::Feature kFillOnAccountSelectHttp = {
+    "FillOnAccountSelectHttp", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Integration with Google's Password Manager for signed-in and sync users.
 const base::Feature kGooglePasswordManager = {

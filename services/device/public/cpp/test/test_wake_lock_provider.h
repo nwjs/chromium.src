@@ -14,6 +14,7 @@
 #include "services/device/public/mojom/wake_lock.mojom.h"
 #include "services/device/public/mojom/wake_lock_provider.mojom.h"
 #include "services/service_manager/public/cpp/service.h"
+#include "services/service_manager/public/cpp/service_binding.h"
 
 namespace device {
 
@@ -22,7 +23,7 @@ namespace device {
 class TestWakeLockProvider : public mojom::WakeLockProvider,
                              public service_manager::Service {
  public:
-  TestWakeLockProvider();
+  explicit TestWakeLockProvider(service_manager::mojom::ServiceRequest request);
   ~TestWakeLockProvider() override;
 
   void set_wake_lock_requested_callback(const base::RepeatingClosure& cb) {
@@ -53,9 +54,13 @@ class TestWakeLockProvider : public mojom::WakeLockProvider,
  private:
   class TestWakeLock;
 
-  // Called by |wake_lock| when the lock is requested or canceled.
-  void OnWakeLockRequested(TestWakeLock* wake_lock);
-  void OnWakeLockCanceled(TestWakeLock* wake_lock);
+  // Called by |wake_lock| when the lock is requested for the first time.
+  void OnWakeLockActivated(TestWakeLock* wake_lock);
+
+  // Called by |wake_lock| when the lock is canceled for the last time.
+  void OnWakeLockDeactivated(TestWakeLock* wake_lock);
+
+  service_manager::ServiceBinding service_binding_;
 
   mojo::BindingSet<mojom::WakeLockProvider> bindings_;
 

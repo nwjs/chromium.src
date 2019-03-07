@@ -33,6 +33,8 @@ source_set("web_applications") {
     "web_app_install_manager.h",
     "web_app_registrar.cc",
     "web_app_registrar.h",
+    "web_app_tab_helper.cc",
+    "web_app_tab_helper.h",
     "web_app_utils.cc",
     "web_app_utils.h",
   ]
@@ -87,6 +89,7 @@ source_set("web_applications_unit_tests") {
 
   sources = [
     "web_app_database_unittest.cc",
+    "web_app_icon_manager_unittest.cc",
     "web_app_install_manager_unittest.cc",
     "web_app_registrar_unittest.cc",
   ]

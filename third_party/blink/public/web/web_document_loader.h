@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "base/time/time.h"
+#include "services/network/public/mojom/referrer_policy.mojom-shared.h"
 #include "third_party/blink/public/platform/web_archive_info.h"
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_source_location.h"
@@ -50,6 +51,10 @@ class WebURLResponse;
 template <typename T>
 class WebVector;
 
+namespace mojom {
+enum class FetchCacheMode : int32_t;
+}  // namespace mojom
+
 // An interface to expose the blink::DocumentLoader to the content layer,
 // including SetExtraData() and GetExtraData() to allow the content layer to
 // store data that isn't relevant to Blink.
@@ -60,8 +65,29 @@ class BLINK_EXPORT WebDocumentLoader {
     virtual ~ExtraData() = default;
   };
 
-  // Returns the original request that resulted in this datasource.
-  virtual const WebURLRequest& OriginalRequest() const = 0;
+  static bool WillLoadUrlAsEmpty(const WebURL&);
+
+  // Returns the url of original request which initited this load.
+  virtual WebURL OriginalUrl() const = 0;
+
+  // Returns the http referrer of original request which initited this load.
+  virtual WebString OriginalReferrer() const = 0;
+
+  // Returns the url corresponding to this load. It may also be a url
+  // specified by a redirect that was followed.
+  virtual WebURL GetUrl() const = 0;
+
+  // Returns the http method of the request corresponding to this load.
+  virtual WebString HttpMethod() const = 0;
+
+  // Returns the cache mode of the request corresponding to this load.
+  virtual mojom::FetchCacheMode GetCacheMode() const = 0;
+
+  // Returns the http referrer of the request corresponding to this load.
+  virtual WebString Referrer() const = 0;
+
+  // Returns the referrer policy of the request corresponding to this load.
+  virtual network::mojom::ReferrerPolicy GetReferrerPolicy() const = 0;
 
   // Returns the request corresponding to this datasource.  It may
   // include additional request headers added by WebKit that were not
@@ -119,8 +145,6 @@ class BLINK_EXPORT WebDocumentLoader {
   virtual WebServiceWorkerNetworkProvider*
   GetServiceWorkerNetworkProvider() = 0;
 
-  virtual void ResetSourceLocation() = 0;
-
   // Can be used to temporarily suspend feeding the parser with new data. The
   // parser will be allowed to read new data when ResumeParser() is called the
   // same number of time than BlockParser().
@@ -135,6 +159,9 @@ class BLINK_EXPORT WebDocumentLoader {
 
   // Whether this load was started with a user gesture.
   virtual bool HadUserGesture() const = 0;
+
+  // Returns true when the document is a FTP directory.
+  virtual bool IsListingFtpDirectory() const = 0;
 
  protected:
   ~WebDocumentLoader() = default;

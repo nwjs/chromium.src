@@ -17,6 +17,7 @@
 #include "base/message_loop/message_loop.h"
 #include "base/pending_task.h"
 #include "base/task/common/intrusive_heap.h"
+#include "base/task/common/operations_controller.h"
 #include "base/task/sequence_manager/associated_thread_id.h"
 #include "base/task/sequence_manager/enqueue_order.h"
 #include "base/task/sequence_manager/lazily_deallocated_deque.h"
@@ -35,7 +36,6 @@ class TimeDomain;
 namespace internal {
 
 class SequenceManagerImpl;
-class TaskQueueProxy;
 class WorkQueue;
 class WorkQueueSets;
 
@@ -104,8 +104,6 @@ class BASE_EXPORT TaskQueueImpl {
 
   // TaskQueue implementation.
   const char* GetName() const;
-  bool RunsTasksInCurrentSequence() const;
-  void PostTask(PostedTask task, CurrentThread current_thread);
   std::unique_ptr<TaskQueue::QueueEnabledVoter> CreateQueueEnabledVoter(
       scoped_refptr<TaskQueue> owning_task_queue);
   bool IsQueueEnabled() const;
@@ -140,7 +138,9 @@ class BASE_EXPORT TaskQueueImpl {
   // Must only be called from the thread this task queue was created on.
   void ReloadImmediateWorkQueueIfEmpty();
 
-  void AsValueInto(TimeTicks now, trace_event::TracedValue* state) const;
+  void AsValueInto(TimeTicks now,
+                   trace_event::TracedValue* state,
+                   bool force_verbose) const;
 
   bool GetQuiescenceMonitored() const { return should_monitor_quiescence_; }
   bool GetShouldNotifyObservers() const { return should_notify_observers_; }
@@ -217,8 +217,9 @@ class BASE_EXPORT TaskQueueImpl {
     bool enabled_;
   };
 
-  // Iterates over |delayed_incoming_queue| removing canceled tasks.
-  void SweepCanceledDelayedTasks(TimeTicks now);
+  // Iterates over |delayed_incoming_queue| removing canceled tasks. In
+  // addition MaybeShrinkQueue is called on all internal queues.
+  void ReclaimMemory(TimeTicks now);
 
   // Allows wrapping TaskQueue to set a handler to subscribe for notifications
   // about started and completed tasks.
@@ -256,6 +257,63 @@ class BASE_EXPORT TaskQueueImpl {
   friend class WorkQueue;
   friend class WorkQueueTest;
 
+  // A TaskQueueImpl instance can be destroyed or unregistered before all its
+  // associated TaskRunner instances are (they are refcounted). Thus we need a
+  // way to prevent TaskRunner instances from posting further tasks. This class
+  // guards PostTask calls using an OperationsController.
+  // This class is ref-counted as both the TaskQueueImpl instance and all
+  // associated TaskRunner instances share the same GuardedTaskPoster instance.
+  // When TaskQueueImpl shuts down it calls ShutdownAndWaitForZeroOperations(),
+  // preventing further PostTask calls being made to the underlying
+  // TaskQueueImpl.
+  class GuardedTaskPoster : public RefCountedThreadSafe<GuardedTaskPoster> {
+   public:
+    explicit GuardedTaskPoster(TaskQueueImpl* outer);
+
+    bool PostTask(PostedTask task);
+
+    void StartAcceptingOperations() {
+      operations_controller_.StartAcceptingOperations();
+    }
+
+    void ShutdownAndWaitForZeroOperations() {
+      operations_controller_.ShutdownAndWaitForZeroOperations();
+    }
+
+   private:
+    friend class RefCountedThreadSafe<GuardedTaskPoster>;
+
+    ~GuardedTaskPoster();
+
+    base::internal::OperationsController operations_controller_;
+    // Pointer might be stale, access guarded by |operations_controller_|
+    TaskQueueImpl* const outer_;
+  };
+
+  class TaskRunner : public SingleThreadTaskRunner {
+   public:
+    explicit TaskRunner(scoped_refptr<GuardedTaskPoster> task_poster,
+                        scoped_refptr<AssociatedThreadId> associated_thread,
+                        int task_type);
+
+    bool PostDelayedTask(const Location& location,
+                         OnceClosure callback,
+                         TimeDelta delay) final;
+    bool PostNonNestableDelayedTask(const Location& location,
+                                    OnceClosure callback,
+                                    TimeDelta delay) final;
+    bool RunsTasksInCurrentSequence() const final;
+
+   private:
+    ~TaskRunner() final;
+
+    bool PostTask(PostedTask task) const;
+
+    const scoped_refptr<GuardedTaskPoster> task_poster_;
+    const scoped_refptr<AssociatedThreadId> associated_thread_;
+    const int task_type_;
+  };
+
   struct AnyThread {
     explicit AnyThread(TimeDomain* time_domain);
     ~AnyThread();
@@ -279,7 +337,7 @@ class BASE_EXPORT TaskQueueImpl {
     bool empty() const { return queue_.empty(); }
     size_t size() const { return queue_.size(); }
     const Task& top() const { return queue_.top(); }
-    void swap(DelayedIncomingQueue& other);
+    void swap(DelayedIncomingQueue* other);
 
     bool has_pending_high_resolution_tasks() const {
       return pending_high_res_tasks_;
@@ -290,7 +348,14 @@ class BASE_EXPORT TaskQueueImpl {
     void AsValueInto(TimeTicks now, trace_event::TracedValue* state) const;
 
    private:
-    std::priority_queue<Task> queue_;
+    struct PQueue : public std::priority_queue<Task> {
+      // Expose the container and comparator.
+      using std::priority_queue<Task>::c;
+      using std::priority_queue<Task>::comp;
+    };
+
+    PQueue queue_;
+
     // Number of pending tasks in the queue that need high resolution timing.
     int pending_high_res_tasks_ = 0;
 
@@ -312,7 +377,6 @@ class BASE_EXPORT TaskQueueImpl {
     std::unique_ptr<WorkQueue> immediate_work_queue;
     DelayedIncomingQueue delayed_incoming_queue;
     ObserverList<MessageLoop::TaskObserver>::Unchecked task_observers;
-    size_t set_index;
     base::internal::HeapHandle heap_handle;
     int is_enabled_refcount;
     int voter_refcount;
@@ -327,6 +391,8 @@ class BASE_EXPORT TaskQueueImpl {
     // If false, queue will be disabled. Used only for tests.
     bool is_enabled_for_test;
   };
+
+  void PostTask(PostedTask task);
 
   void PostImmediateTaskImpl(PostedTask task, CurrentThread current_thread);
   void PostDelayedTaskImpl(PostedTask task, CurrentThread current_thread);
@@ -345,7 +411,10 @@ class BASE_EXPORT TaskQueueImpl {
 
   void MoveReadyImmediateTasksToImmediateWorkQueueLocked();
 
-  using TaskDeque = LazilyDeallocatedDeque<Task>;
+  // LazilyDeallocatedDeque use TimeTicks to figure out when to resize.  We
+  // should use real time here always.
+  using TaskDeque =
+      LazilyDeallocatedDeque<Task, subtle::TimeTicksNowIgnoringOverride>;
 
   // Extracts all the tasks from the immediate incoming queue and swaps it with
   // |queue| which must be empty.
@@ -380,6 +449,8 @@ class BASE_EXPORT TaskQueueImpl {
 
   scoped_refptr<AssociatedThreadId> associated_thread_;
 
+  const scoped_refptr<GuardedTaskPoster> task_poster_;
+
   mutable Lock any_thread_lock_;
   AnyThread any_thread_;
   struct AnyThread& any_thread() {
@@ -400,10 +471,6 @@ class BASE_EXPORT TaskQueueImpl {
     DCHECK_CALLED_ON_VALID_THREAD(associated_thread_->thread_checker);
     return main_thread_only_;
   }
-
-  // Proxy which allows TaskQueueTaskRunner to dispatch tasks and it can be
-  // detached from TaskQueueImpl to leave dangling task runners behind sefely.
-  const scoped_refptr<TaskQueueProxy> proxy_;
 
   mutable Lock immediate_incoming_queue_lock_;
   TaskDeque immediate_incoming_queue_;

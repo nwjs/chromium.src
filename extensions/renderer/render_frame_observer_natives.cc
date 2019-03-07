@@ -8,6 +8,7 @@
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_frame_observer.h"
@@ -85,7 +86,7 @@ class CloseWatcher : public content::RenderFrameObserver {
       v8::HandleScope handle_scope(isolate);
       v8::Local<v8::Value> args[] = {v8::Integer::New(isolate, routing_id)};
       context_->SafeCallFunction(v8::Local<v8::Function>::New(isolate, callback_),
-                             arraysize(args), args);
+                                 base::size(args), args);
     }
     delete this;
   }
@@ -106,11 +107,11 @@ RenderFrameObserverNatives::~RenderFrameObserverNatives() {}
 void RenderFrameObserverNatives::AddRoutes() {
   RouteHandlerFunction(
       "OnDocumentElementCreated", "app.window",
-      base::Bind(&RenderFrameObserverNatives::OnDocumentElementCreated,
-                 base::Unretained(this)));
+      base::BindRepeating(&RenderFrameObserverNatives::OnDocumentElementCreated,
+                          base::Unretained(this)));
   RouteHandlerFunction(
       "OnDestruct",
-      base::Bind(&RenderFrameObserverNatives::OnDestruct,
+      base::BindRepeating(&RenderFrameObserverNatives::OnDestruct,
                  base::Unretained(this)));
 }
 
@@ -160,7 +161,7 @@ void RenderFrameObserverNatives::InvokeCallback(
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Value> args[] = {v8::Boolean::New(isolate, succeeded), v8::Integer::New(isolate, frame_id)};
   context()->SafeCallFunction(v8::Local<v8::Function>::New(isolate, callback),
-                          arraysize(args), args);
+                              base::size(args), args);
 }
 
 void RenderFrameObserverNatives::OnDestruct(

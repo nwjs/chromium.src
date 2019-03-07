@@ -16,7 +16,9 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/language/language_model_manager_factory.h"
+#include "chrome/browser/language/url_language_histogram_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sync/user_event_service_factory.h"
 #include "chrome/browser/translate/translate_accept_languages_factory.h"
 #include "chrome/browser/translate/translate_ranker_factory.h"
@@ -93,8 +95,7 @@ void LogTranslateEvent(content::WebContents* const web_contents,
   syncer::UserEventService* const user_event_service =
       browser_sync::UserEventServiceFactory::GetForProfile(profile);
 
-  const auto* const entry =
-      web_contents->GetController().GetLastCommittedEntry();
+  auto* const entry = web_contents->GetController().GetLastCommittedEntry();
 
   // If entry is null, we don't record the page.
   // The navigation entry can be null in situations like download or initial
@@ -116,7 +117,12 @@ void LogTranslateEvent(content::WebContents* const web_contents,
 
 ChromeTranslateClient::ChromeTranslateClient(content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
-      translate_driver_(&web_contents->GetController()),
+      translate_driver_(
+          &web_contents->GetController(),
+          TemplateURLServiceFactory::GetForProfile(
+              Profile::FromBrowserContext(web_contents->GetBrowserContext())),
+          UrlLanguageHistogramFactory::GetForBrowserContext(
+              web_contents->GetBrowserContext())),
       translate_manager_(new translate::TranslateManager(
           this,
           translate::TranslateRankerFactory::GetForBrowserContext(
@@ -316,8 +322,7 @@ void ChromeTranslateClient::RecordLanguageDetectionEvent(
   syncer::UserEventService* const user_event_service =
       browser_sync::UserEventServiceFactory::GetForProfile(profile);
 
-  const auto* const entry =
-      web_contents()->GetController().GetLastCommittedEntry();
+  auto* const entry = web_contents()->GetController().GetLastCommittedEntry();
 
   // If entry is null, we don't record the page.
   // The navigation entry can be null in situations like download or initial
@@ -437,3 +442,5 @@ ShowTranslateBubbleResult ChromeTranslateClient::ShowBubble(
   return ShowTranslateBubbleResult::SUCCESS;
 #endif
 }
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(ChromeTranslateClient)

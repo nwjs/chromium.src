@@ -18,9 +18,11 @@ WorkerModuleScriptFetcher::WorkerModuleScriptFetcher(
     : global_scope_(global_scope) {}
 
 // https://html.spec.whatwg.org/multipage/workers.html#worker-processing-model
-void WorkerModuleScriptFetcher::Fetch(FetchParameters& fetch_params,
-                                      ModuleGraphLevel level,
-                                      ModuleScriptFetcher::Client* client) {
+void WorkerModuleScriptFetcher::Fetch(
+    FetchParameters& fetch_params,
+    ResourceFetcher* fetch_client_settings_object_fetcher,
+    ModuleGraphLevel level,
+    ModuleScriptFetcher::Client* client) {
   DCHECK(global_scope_->IsContextThread());
   client_ = client;
   level_ = level;
@@ -33,8 +35,8 @@ void WorkerModuleScriptFetcher::Fetch(FetchParameters& fetch_params,
   // Step 13.2. "Fetch request, and asynchronously wait to run the remaining
   // steps as part of fetch's process response for the response response." [spec
   // text]
-  ScriptResource::Fetch(fetch_params, global_scope_->EnsureFetcher(), this,
-                        ScriptResource::kNoStreaming);
+  ScriptResource::Fetch(fetch_params, fetch_client_settings_object_fetcher,
+                        this, ScriptResource::kNoStreaming);
 }
 
 void WorkerModuleScriptFetcher::Trace(blink::Visitor* visitor) {
@@ -65,7 +67,7 @@ void WorkerModuleScriptFetcher::NotifyFinished(Resource* resource) {
 
     // Ensure redirects don't affect SecurityOrigin.
     const KURL request_url = resource->Url();
-    const KURL response_url = resource->GetResponse().Url();
+    const KURL response_url = resource->GetResponse().CurrentRequestUrl();
     if (request_url != response_url &&
         !global_scope_->GetSecurityOrigin()->IsSameSchemeHostPort(
             SecurityOrigin::Create(response_url).get())) {
@@ -99,7 +101,8 @@ void WorkerModuleScriptFetcher::NotifyFinished(Resource* resource) {
   }
 
   ModuleScriptCreationParams params(
-      script_resource->GetResponse().Url(), script_resource->SourceText(),
+      script_resource->GetResponse().CurrentRequestUrl(),
+      script_resource->SourceText(),
       script_resource->GetResourceRequest().GetFetchCredentialsMode());
 
   // Step 13.7. "Asynchronously complete the perform the fetch steps with

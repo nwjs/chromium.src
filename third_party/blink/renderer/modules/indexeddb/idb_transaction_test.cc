@@ -64,15 +64,13 @@ void DeactivateNewTransactions(v8::Isolate* isolate) {
 class FakeIDBDatabaseCallbacks final : public IDBDatabaseCallbacks {
  public:
   static FakeIDBDatabaseCallbacks* Create() {
-    return new FakeIDBDatabaseCallbacks();
+    return MakeGarbageCollected<FakeIDBDatabaseCallbacks>();
   }
+  FakeIDBDatabaseCallbacks() = default;
   void OnVersionChange(int64_t old_version, int64_t new_version) override {}
   void OnForcedClose() override {}
   void OnAbort(int64_t transaction_id, DOMException* error) override {}
   void OnComplete(int64_t transaction_id) override {}
-
- private:
-  FakeIDBDatabaseCallbacks() = default;
 };
 
 class IDBTransactionTest : public testing::Test {
@@ -80,7 +78,7 @@ class IDBTransactionTest : public testing::Test {
   void SetUp() override {
     url_loader_mock_factory_ = platform_->GetURLLoaderMockFactory();
     WebURLResponse response;
-    response.SetURL(KURL("blob:"));
+    response.SetCurrentRequestUrl(KURL("blob:"));
     url_loader_mock_factory_->RegisterURLProtocol(WebString("blob"), response,
                                                   "");
   }
@@ -326,7 +324,7 @@ TEST_F(IDBTransactionTest, DocumentShutdownWithQueuedAndBlockedResults) {
 TEST_F(IDBTransactionTest, TransactionFinish) {
   V8TestingScope scope;
   std::unique_ptr<MockWebIDBDatabase> backend = MockWebIDBDatabase::Create();
-  EXPECT_CALL(*backend, Commit(kTransactionId)).Times(1);
+  EXPECT_CALL(*backend, Commit(kTransactionId, 0)).Times(1);
   EXPECT_CALL(*backend, Close()).Times(1);
   BuildTransaction(scope, std::move(backend));
 

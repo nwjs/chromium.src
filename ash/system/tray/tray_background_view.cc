@@ -9,7 +9,6 @@
 
 #include "ash/focus_cycler.h"
 #include "ash/login/ui/lock_screen.h"
-#include "ash/login/ui/lock_window.h"
 #include "ash/public/cpp/ash_constants.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/shelf/shelf_constants.h"
@@ -42,6 +41,7 @@
 #include "ui/views/background.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/painter.h"
+#include "ui/views/view_properties.h"
 #include "ui/wm/core/window_animations.h"
 
 namespace {
@@ -115,12 +115,9 @@ class TrayBackgroundView::TrayWidgetObserver : public views::WidgetObserver {
 class TrayBackground : public views::Background {
  public:
   explicit TrayBackground(TrayBackgroundView* tray_background_view)
-      : tray_background_view_(tray_background_view),
-        color_(SK_ColorTRANSPARENT) {}
+      : tray_background_view_(tray_background_view) {}
 
   ~TrayBackground() override = default;
-
-  void set_color(SkColor color) { color_ = color; }
 
  private:
   // Overridden from views::Background.
@@ -140,8 +137,6 @@ class TrayBackground : public views::Background {
 
   // Reference to the TrayBackgroundView for which this is a background.
   TrayBackgroundView* tray_background_view_;
-
-  SkColor color_;
 
   DISALLOW_COPY_AND_ASSIGN(TrayBackground);
 };
@@ -167,6 +162,9 @@ TrayBackgroundView::TrayBackgroundView(Shelf* shelf)
 
   SetLayoutManager(std::make_unique<views::FillLayout>());
   SetBackground(std::unique_ptr<views::Background>(background_));
+  SetInstallFocusRingOnFocus(true);
+  focus_ring()->SetColor(kFocusBorderColor);
+  SetFocusPainter(nullptr);
 
   AddChildView(tray_container_);
 
@@ -261,19 +259,6 @@ void TrayBackgroundView::SetVisible(bool visible) {
   }
 }
 
-void TrayBackgroundView::Layout() {
-  ActionableView::Layout();
-
-  // The tray itself expands to the right and bottom edge of the screen to make
-  // sure clicking on the edges brings up the popup. However, the focus border
-  // should be only around the container.
-  gfx::Rect paint_bounds(GetBackgroundBounds());
-  paint_bounds.Inset(gfx::Insets(-kFocusBorderThickness));
-  SetFocusPainter(views::Painter::CreateSolidFocusPainter(
-      kFocusBorderColor, kFocusBorderThickness,
-      GetLocalBounds().InsetsFrom(paint_bounds)));
-}
-
 const char* TrayBackgroundView::GetClassName() const {
   return kViewClassName;
 }
@@ -303,7 +288,7 @@ void TrayBackgroundView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
 
   if (LockScreen::HasInstance()) {
     int next_id = views::AXAuraObjCache::GetInstance()->GetID(
-        static_cast<views::Widget*>(LockScreen::Get()->window()));
+        LockScreen::Get()->widget());
     node_data->AddIntAttribute(ax::mojom::IntAttribute::kNextFocusId, next_id);
   }
 
@@ -434,11 +419,6 @@ void TrayBackgroundView::UpdateBubbleViewArrow(TrayBubbleView* bubble_view) {
   // Nothing to do here.
 }
 
-void TrayBackgroundView::UpdateShelfItemBackground(SkColor color) {
-  background_->set_color(color);
-  SchedulePaint();
-}
-
 views::View* TrayBackgroundView::GetBubbleAnchor() const {
   return tray_container_;
 }
@@ -462,17 +442,19 @@ aura::Window* TrayBackgroundView::GetBubbleWindowContainer() {
 }
 
 gfx::Rect TrayBackgroundView::GetBackgroundBounds() const {
-  gfx::Insets insets = GetBackgroundInsets();
   gfx::Rect bounds = GetLocalBounds();
-  bounds.Inset(insets);
+  bounds.Inset(GetBackgroundInsets());
   return bounds;
 }
 
-std::unique_ptr<views::InkDropMask> TrayBackgroundView::CreateInkDropMask()
-    const {
+void TrayBackgroundView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   const int border_radius = ShelfConstants::control_border_radius();
-  return std::make_unique<views::RoundRectInkDropMask>(
-      size(), GetBackgroundInsets(), border_radius);
+  auto path = std::make_unique<SkPath>();
+  path->addRoundRect(gfx::RectToSkRect(GetBackgroundBounds()), border_radius,
+                     border_radius);
+  SetProperty(views::kHighlightPathKey, path.release());
+  // Bypass ActionableView::OnBoundsChanged which sets its own highlight path.
+  Button::OnBoundsChanged(previous_bounds);
 }
 
 bool TrayBackgroundView::ShouldEnterPushedState(const ui::Event& event) {

@@ -80,7 +80,7 @@ class PopupMenuCSSFontSelector : public CSSFontSelector,
   scoped_refptr<FontData> GetFontData(const FontDescription&,
                                       const AtomicString&) override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   void FontsNeedUpdate(FontSelector*) override;
@@ -107,7 +107,7 @@ void PopupMenuCSSFontSelector::FontsNeedUpdate(FontSelector* font_selector) {
   DispatchInvalidationCallbacks();
 }
 
-void PopupMenuCSSFontSelector::Trace(blink::Visitor* visitor) {
+void PopupMenuCSSFontSelector::Trace(Visitor* visitor) {
   visitor->Trace(owner_font_selector_);
   CSSFontSelector::Trace(visitor);
   FontSelectorClient::Trace(visitor);
@@ -223,7 +223,7 @@ InternalPopupMenu::~InternalPopupMenu() {
   DCHECK(!popup_);
 }
 
-void InternalPopupMenu::Trace(blink::Visitor* visitor) {
+void InternalPopupMenu::Trace(Visitor* visitor) {
   visitor->Trace(chrome_client_);
   visitor->Trace(owner_element_);
   PopupMenu::Trace(visitor);
@@ -480,7 +480,7 @@ Locale& InternalPopupMenu::GetLocale() {
   return Locale::DefaultLocale();
 }
 
-void InternalPopupMenu::ClosePopup() {
+void InternalPopupMenu::CancelPopup() {
   if (popup_)
     chrome_client_->ClosePagePopup(popup_);
   if (owner_element_)
@@ -498,7 +498,7 @@ void InternalPopupMenu::Show() {
 }
 
 void InternalPopupMenu::Hide() {
-  ClosePopup();
+  CancelPopup();
 }
 
 void InternalPopupMenu::UpdateFromElement(UpdateReason) {

@@ -8,11 +8,12 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/metrics/histogram_macros.h"
 #include "base/time/default_tick_clock.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chromeos/chromeos_features.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/dbus/power_manager/backlight.pb.h"
 #include "components/prefs/pref_service.h"
 
@@ -20,8 +21,7 @@ namespace chromeos {
 namespace power {
 namespace auto_screen_brightness {
 
-constexpr base::TimeDelta Adapter::kAmbientLightShortHorizon;
-constexpr int Adapter::kNumberAmbientValuesToTrack;
+Adapter::Params::Params() {}
 
 Adapter::Adapter(Profile* profile,
                  AlsReader* als_reader,
@@ -33,6 +33,7 @@ Adapter::Adapter(Profile* profile,
       als_reader_observer_(this),
       brightness_monitor_observer_(this),
       modeller_observer_(this),
+      power_manager_client_observer_(this),
       metrics_reporter_(metrics_reporter),
       power_manager_client_(power_manager_client),
       tick_clock_(base::DefaultTickClock::GetInstance()),
@@ -46,6 +47,7 @@ Adapter::Adapter(Profile* profile,
   als_reader_observer_.Add(als_reader);
   brightness_monitor_observer_.Add(brightness_monitor);
   modeller_observer_.Add(modeller);
+  power_manager_client_observer_.Add(power_manager_client);
 
   power_manager_client_->WaitForServiceToBeAvailable(
       base::BindOnce(&Adapter::OnPowerManagerServiceAvailable,
@@ -55,10 +57,6 @@ Adapter::Adapter(Profile* profile,
     adapter_status_ = Status::kDisabled;
     return;
   }
-
-  continue_auto_brightness_after_user_adjustment_ =
-      base::FeatureList::IsEnabled(
-          features::kAutoScreenBrightnessContinuedAdjustment);
 
   InitParams();
 }
@@ -76,9 +74,10 @@ void Adapter::OnAmbientLightUpdated(int lux) {
 
   latest_als_time_ = now;
 
-  ambient_light_values_.SaveToBuffer({lux, now});
+  ambient_light_values_->SaveToBuffer(
+      {params_.average_log_als ? ConvertToLog(lux) : lux, now});
 
-  MaybeAdjustBrightness();
+  MaybeAdjustBrightness(now);
 }
 
 void Adapter::OnAlsReaderInitialized(AlsReader::AlsInitStatus status) {
@@ -99,10 +98,10 @@ void Adapter::OnUserBrightnessChanged(double old_brightness_percent,
                                       double new_brightness_percent) {}
 
 void Adapter::OnUserBrightnessChangeRequested() {
-  if (!continue_auto_brightness_after_user_adjustment_) {
-    // This will disable |adapter_status_| so that the model will not make any
-    // brightness adjustment.
-    adapter_status_ = Status::kDisabled;
+  if (params_.user_adjustment_effect != UserAdjustmentEffect::kContinueAuto) {
+    // Adapter will stop making brightness adjustment until suspend/resume or
+    // when browser restarts.
+    adapter_disabled_by_user_adjustment_ = true;
   }
 
   if (!als_init_status_)
@@ -152,12 +151,22 @@ void Adapter::OnModelInitialized(
   UpdateStatus();
 }
 
+void Adapter::SuspendDone(const base::TimeDelta& /* sleep_duration */) {
+  if (params_.user_adjustment_effect == UserAdjustmentEffect::kPauseAuto)
+    adapter_disabled_by_user_adjustment_ = false;
+}
+
 void Adapter::SetTickClockForTesting(const base::TickClock* test_tick_clock) {
   tick_clock_ = test_tick_clock;
 }
 
 Adapter::Status Adapter::GetStatusForTesting() const {
   return adapter_status_;
+}
+
+bool Adapter::IsAppliedForTesting() const {
+  return (adapter_status_ == Status::kSuccess &&
+          !adapter_disabled_by_user_adjustment_);
 }
 
 base::Optional<MonotoneCubicSpline> Adapter::GetGlobalCurveForTesting() const {
@@ -169,8 +178,9 @@ base::Optional<MonotoneCubicSpline> Adapter::GetPersonalCurveForTesting()
   return personal_curve_;
 }
 
-double Adapter::GetAverageAmbientForTesting() const {
-  return AverageAmbient(ambient_light_values_, -1);
+base::Optional<double> Adapter::GetAverageAmbientForTesting(
+    base::TimeTicks now) {
+  return ambient_light_values_->AverageAmbient(now);
 }
 
 double Adapter::GetBrighteningThresholdForTesting() const {
@@ -251,6 +261,39 @@ void Adapter::InitParams() {
     return;
   }
   params_.model_curve = static_cast<ModelCurve>(model_curve);
+
+  const int auto_brightness_als_horizon_seconds =
+      GetFieldTrialParamByFeatureAsInt(
+          features::kAutoScreenBrightness,
+          "auto_brightness_als_horizon_seconds",
+          params_.auto_brightness_als_horizon.InSeconds());
+
+  if (auto_brightness_als_horizon_seconds <= 0) {
+    adapter_status_ = Status::kDisabled;
+    LogParameterError(ParameterError::kAdapterError);
+    return;
+  }
+  params_.auto_brightness_als_horizon =
+      base::TimeDelta::FromSeconds(auto_brightness_als_horizon_seconds);
+  ambient_light_values_ = std::make_unique<AmbientLightSampleBuffer>(
+      params_.auto_brightness_als_horizon);
+
+  params_.average_log_als = GetFieldTrialParamByFeatureAsBool(
+      features::kAutoScreenBrightness, "average_log_als",
+      params_.average_log_als);
+
+  const int user_adjustment_effect_as_int = GetFieldTrialParamByFeatureAsInt(
+      features::kAutoScreenBrightness, "user_adjustment_effect",
+      static_cast<int>(params_.user_adjustment_effect));
+  if (user_adjustment_effect_as_int < 0 || user_adjustment_effect_as_int > 2) {
+    LogParameterError(ParameterError::kAdapterError);
+    return;
+  }
+  params_.user_adjustment_effect =
+      static_cast<UserAdjustmentEffect>(user_adjustment_effect_as_int);
+
+  UMA_HISTOGRAM_ENUMERATION("AutoScreenBrightness.UserAdjustmentEffect",
+                            params_.user_adjustment_effect);
 }
 
 void Adapter::OnPowerManagerServiceAvailable(bool service_is_ready) {
@@ -299,9 +342,11 @@ void Adapter::UpdateStatus() {
   adapter_status_ = Status::kSuccess;
 }
 
-bool Adapter::CanAdjustBrightness(double current_average_ambient) const {
-  if (adapter_status_ != Status::kSuccess)
-    return false;
+base::Optional<Adapter::BrightnessChangeCause> Adapter::CanAdjustBrightness(
+    double current_average_ambient) const {
+  if (adapter_status_ != Status::kSuccess ||
+      adapter_disabled_by_user_adjustment_)
+    return base::nullopt;
 
   // Do not change brightness if it's set by the policy, but do not completely
   // disable the model as the policy could change.
@@ -309,39 +354,68 @@ bool Adapter::CanAdjustBrightness(double current_average_ambient) const {
           ash::prefs::kPowerAcScreenBrightnessPercent) >= 0 ||
       profile_->GetPrefs()->GetInteger(
           ash::prefs::kPowerBatteryScreenBrightnessPercent) >= 0) {
-    return false;
+    return base::nullopt;
   }
 
   if (latest_brightness_change_time_.is_null()) {
     // Brightness hasn't been changed before.
-    return latest_als_time_ - first_als_time_ >= kAmbientLightShortHorizon ||
-           params_.update_brightness_on_startup;
+    const bool can_adjust_brightness =
+        latest_als_time_ - first_als_time_ >=
+            params_.auto_brightness_als_horizon ||
+        params_.update_brightness_on_startup;
+
+    if (can_adjust_brightness)
+      return BrightnessChangeCause::kInitialAlsReceived;
+
+    return base::nullopt;
   }
 
   // The following thresholds should have been set last time when brightness was
   // changed.
-  if (current_average_ambient > *immediate_brightening_lux_threshold_ ||
-      current_average_ambient < *immediate_darkening_lux_threshold_) {
-    return true;
+  if (current_average_ambient > *immediate_brightening_lux_threshold_) {
+    return BrightnessChangeCause::kImmediateBrightneningThresholdExceeded;
+  }
+
+  if (current_average_ambient < *immediate_darkening_lux_threshold_) {
+    return BrightnessChangeCause::kImmediateDarkeningThresholdExceeded;
   }
 
   if (tick_clock_->NowTicks() - latest_brightness_change_time_ <
       params_.min_time_between_brightness_changes) {
-    return false;
+    return base::nullopt;
   }
 
-  return current_average_ambient > *brightening_lux_threshold_ ||
-         current_average_ambient < *darkening_lux_threshold_;
+  if (current_average_ambient > *brightening_lux_threshold_) {
+    return BrightnessChangeCause::kBrightneningThresholdExceeded;
+  }
+
+  if (current_average_ambient < *darkening_lux_threshold_) {
+    return BrightnessChangeCause::kDarkeningThresholdExceeded;
+  }
+
+  return base::nullopt;
 }
 
-void Adapter::MaybeAdjustBrightness() {
-  const double average_ambient_lux = AverageAmbient(ambient_light_values_, -1);
-
-  if (!CanAdjustBrightness(average_ambient_lux))
+void Adapter::MaybeAdjustBrightness(base::TimeTicks now) {
+  const base::Optional<double> average_ambient_lux_opt =
+      ambient_light_values_->AverageAmbient(now);
+  if (!average_ambient_lux_opt)
     return;
 
-  const base::Optional<double> brightness =
-      GetBrightnessBasedOnAmbientLogLux(ConvertToLog(average_ambient_lux));
+  const double average_ambient_lux = average_ambient_lux_opt.value();
+
+  const base::Optional<BrightnessChangeCause> can_adjust_brightness =
+      CanAdjustBrightness(average_ambient_lux);
+
+  if (!can_adjust_brightness.has_value())
+    return;
+
+  // If |params_.average_log_als| is true, then |average_ambient_lux| is
+  // the average of log-lux. Hence we don't need to convert it into log space
+  // again.
+  const base::Optional<double> brightness = GetBrightnessBasedOnAmbientLogLux(
+      params_.average_log_als ? average_ambient_lux
+                              : ConvertToLog(average_ambient_lux));
 
   // This could occur if curve isn't set up (e.g. when we want to use
   // personal only that's not yet available).
@@ -355,7 +429,18 @@ void Adapter::MaybeAdjustBrightness() {
   request.set_cause(power_manager::SetBacklightBrightnessRequest_Cause_MODEL);
   power_manager_client_->SetScreenBrightness(request);
 
-  latest_brightness_change_time_ = tick_clock_->NowTicks();
+  const base::TimeTicks brightness_change_time = tick_clock_->NowTicks();
+  if (!latest_brightness_change_time_.is_null()) {
+    UMA_HISTOGRAM_LONG_TIMES(
+        "AutoScreenBrightness.BrightnessChange.ElapsedTime",
+        brightness_change_time - latest_brightness_change_time_);
+  }
+  latest_brightness_change_time_ = brightness_change_time;
+
+  const BrightnessChangeCause cause = *can_adjust_brightness;
+  UMA_HISTOGRAM_ENUMERATION("AutoScreenBrightness.BrightnessChange.Cause",
+                            cause);
+
   average_ambient_lux_ = average_ambient_lux;
 
   UpdateLuxThresholds();

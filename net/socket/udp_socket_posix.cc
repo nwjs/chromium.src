@@ -441,7 +441,7 @@ int UDPSocketPosix::SendToOrWrite(IOBuffer* buf,
   if (!base::MessageLoopCurrentForIO::Get()->WatchFileDescriptor(
           socket_, true, base::MessagePumpForIO::WATCH_WRITE,
           &write_socket_watcher_, &write_watcher_)) {
-    DVLOG(1) << "WatchFileDescriptor failed on write, errno " << errno;
+    DVPLOG(1) << "WatchFileDescriptor failed on write";
     int result = MapSystemError(errno);
     LogWrite(result, NULL, NULL);
     return result;
@@ -461,7 +461,10 @@ int UDPSocketPosix::Connect(const IPEndPoint& address) {
   DCHECK_NE(socket_, kInvalidSocket);
   net_log_.BeginEvent(NetLogEventType::UDP_CONNECT,
                       CreateNetLogUDPConnectCallback(&address, bound_network_));
-  int rv = InternalConnect(address);
+  int rv = SetMulticastOptions();
+  if (rv != OK)
+    return rv;
+  rv = InternalConnect(address);
   net_log_.EndEventWithNetErrorCode(NetLogEventType::UDP_CONNECT, rv);
   is_connected_ = (rv == OK);
   if (rv != OK)
@@ -1415,7 +1418,7 @@ void UDPSocketPosix::DidSendBuffers(SendResult send_result) {
   if (last_async_result_ == ERR_IO_PENDING) {
     DVLOG(2) << __func__ << " WatchFileDescriptor start";
     if (!WatchFileDescriptor()) {
-      DVLOG(1) << "WatchFileDescriptor failed on write, errno " << errno;
+      DVPLOG(1) << "WatchFileDescriptor failed on write";
       last_async_result_ = MapSystemError(errno);
       LogWrite(last_async_result_, NULL, NULL);
     } else {

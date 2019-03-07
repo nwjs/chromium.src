@@ -112,14 +112,6 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
     ACTIVE
   };
 
-  // Passed as an argument to RequestStop to control whether or not the sync
-  // engine should clear its data directory when it shuts down. See
-  // RequestStop for more information.
-  enum SyncStopDataFate {
-    KEEP_DATA,
-    CLEAR_DATA,
-  };
-
   ~SyncService() override {}
 
   virtual SyncUserSettings* GetUserSettings() = 0;
@@ -238,8 +230,17 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
   // DATA TYPE STATE
   //////////////////////////////////////////////////////////////////////////////
 
+  // Returns the set of data types that are supported in principle. These will
+  // typically only change via a command-line option.
+  virtual syncer::ModelTypeSet GetRegisteredDataTypes() const = 0;
+
+  // Returns the set of types which are enforced programmatically and can not
+  // be disabled by the user.
+  virtual syncer::ModelTypeSet GetForcedDataTypes() const = 0;
+
   // Returns the set of types which are preferred for enabling. This is a
-  // superset of the active types (see GetActiveDataTypes()).
+  // superset of the active types (see GetActiveDataTypes()). This also includes
+  // any forced types.
   virtual ModelTypeSet GetPreferredDataTypes() const = 0;
 
   // Get the set of current active data types (those chosen or configured by
@@ -253,13 +254,11 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
   // ACTIONS / STATE CHANGE REQUESTS
   //////////////////////////////////////////////////////////////////////////////
 
-  // Stops sync at the user's request. |data_fate| controls whether the sync
-  // engine should clear its data directory when it shuts down. Generally
-  // KEEP_DATA is used when the user just stops sync, and CLEAR_DATA is used
-  // when they sign out of the profile entirely.
+  // Stops sync and clears all local data. This usually gets called when the
+  // user fully signs out (i.e. removes the primary account).
   // Note: This refers to Sync-the-feature. Sync-the-transport may remain active
   // after calling this.
-  virtual void RequestStop(SyncStopDataFate data_fate) = 0;
+  virtual void StopAndClear() = 0;
 
   // Called when a datatype (SyncableService) has a need for sync to start
   // ASAP, presumably because a local change event has occurred but we're
@@ -310,32 +309,9 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
   // we have an encrypted data type enabled.
   virtual bool IsPassphraseRequiredForDecryption() const = 0;
 
-  // Returns the time the current explicit passphrase (if any), was set.
-  // If no secondary passphrase is in use, or no time is available, returns an
-  // unset base::Time.
-  virtual base::Time GetExplicitPassphraseTime() const = 0;
-
-  // Returns true if a secondary (explicit) passphrase is being used. It is not
-  // legal to call this method before the engine is initialized.
+  // Returns true if a secondary (explicit) passphrase is being used. Before the
+  // engine is initialized, this will always return false.
   virtual bool IsUsingSecondaryPassphrase() const = 0;
-
-  // Turns on encryption for all data. Callers must call OnUserChoseDatatypes()
-  // after calling this to force the encryption to occur.
-  virtual void EnableEncryptEverything() = 0;
-
-  // Returns true if we are currently set to encrypt all the sync data.
-  virtual bool IsEncryptEverythingEnabled() const = 0;
-
-  // Asynchronously sets the passphrase to |passphrase| for encryption. |type|
-  // specifies whether the passphrase is a custom passphrase or the GAIA
-  // password being reused as a passphrase.
-  virtual void SetEncryptionPassphrase(const std::string& passphrase) = 0;
-
-  // Asynchronously decrypts pending keys using |passphrase|. Returns false
-  // immediately if the passphrase could not be used to decrypt a locally cached
-  // copy of encrypted keys; returns true otherwise.
-  virtual bool SetDecryptionPassphrase(const std::string& passphrase)
-      WARN_UNUSED_RESULT = 0;
 
   //////////////////////////////////////////////////////////////////////////////
   // ACCESS TO INNER OBJECTS

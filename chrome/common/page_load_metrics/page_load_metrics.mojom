@@ -24,9 +24,6 @@ struct PaintTiming {
   // Time when the first paint is performed.
   mojo_base.mojom.TimeDelta? first_paint;
 
-  // Time when the first non-blank text is painted.
-  mojo_base.mojom.TimeDelta? first_text_paint;
-
   // Time when the first image is painted.
   mojo_base.mojom.TimeDelta? first_image_paint;
 
@@ -39,14 +36,28 @@ struct PaintTiming {
   // (Experimental) Time when the page's largest image is painted.
   mojo_base.mojom.TimeDelta? largest_image_paint;
 
+  // (Experimental) Size of the largest image of the largest image paint, by
+  // Size = Height * Width.
+  uint64 largest_image_paint_size;
+
   // (Experimental) Time when the page's last image is painted.
   mojo_base.mojom.TimeDelta? last_image_paint;
+
+  // (Experimental) Size of the last image of the last image paint.
+  uint64 last_image_paint_size;
 
   // (Experimental) Time when the page's largest text is painted.
   mojo_base.mojom.TimeDelta? largest_text_paint;
 
+  // (Experimental) Size of the largest text of the largest text paint, by
+  // Size = Height * Width.
+  uint64 largest_text_paint_size;
+
   // (Experimental) Time when the page's last text is painted.
   mojo_base.mojom.TimeDelta? last_text_paint;
+
+  // (Experimental) Size of the last text of the last text paint.
+  uint64 last_text_paint_size;
 };
 
 // TimeDeltas below represent durations of time during the page load.
@@ -201,6 +212,9 @@ struct ResourceDataUpdate {
 
   // Whether this resource was fetched from the http cache.
   bool was_fetched_via_cache;
+
+  // Whether this resource is the primary resource for a frame.
+  bool is_primary_frame_resource;
 
   // Mime type for the resource found in the network response header.
   string mime_type;

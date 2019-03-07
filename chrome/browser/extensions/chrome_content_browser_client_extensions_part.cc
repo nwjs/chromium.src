@@ -18,9 +18,11 @@
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_piece.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/extension_web_ui.h"
 #include "chrome/browser/extensions/extension_webkit_preferences.h"
@@ -40,7 +42,6 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browser_url_handler.h"
-#include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -314,31 +315,6 @@ GURL ChromeContentBrowserClientExtensionsPart::GetEffectiveURL(
   // treated as normal URLs.
   if (extension->from_bookmark())
     return url;
-
-  // If |url| corresponds to both an isolated origin and a hosted app,
-  // determine whether to use the effective URL, which also determines whether
-  // the isolated origin should take precedence over a matching hosted app:
-  // - Chrome Web Store should always be resolved to its effective URL, so that
-  //   the CWS process gets proper bindings.
-  // - for other hosted apps, if the isolated origin covers the app's entire
-  //   web extent (i.e., *all* URLs matched by the hosted app will have this
-  //   isolated origin), allow the hosted app to take effect and return an
-  //   effective URL.
-  // - for other cases, disallow effective URLs, as otherwise this would allow
-  //   the isolated origin to share the hosted app process with other origins
-  //   it does not trust, due to https://crbug.com/791796.
-  //
-  // TODO(alexmos): Revisit and possibly remove this once
-  // https://crbug.com/791796 is fixed.
-  url::Origin isolated_origin;
-  auto* policy = content::ChildProcessSecurityPolicy::GetInstance();
-  bool is_isolated_origin = policy->GetMatchingIsolatedOrigin(
-      url::Origin::Create(url), &isolated_origin);
-  if (is_isolated_origin && extension->id() != kWebStoreAppId &&
-      !DoesOriginMatchAllURLsInWebExtent(isolated_origin,
-                                         extension->web_extent())) {
-    return url;
-  }
 
   // If the URL is part of an extension's web extent, convert it to an
   // extension URL.
@@ -909,6 +885,20 @@ ChromeContentBrowserClientExtensionsPart::
 }
 
 // static
+bool ChromeContentBrowserClientExtensionsPart::IsBuiltinComponent(
+    content::BrowserContext* browser_context,
+    const url::Origin& origin) {
+  if (origin.scheme() != extensions::kExtensionScheme)
+    return false;
+
+  const auto& extension_id = origin.host();
+  return ExtensionSystem::Get(browser_context)
+      ->extension_service()
+      ->component_loader()
+      ->Exists(extension_id);
+}
+
+// static
 void ChromeContentBrowserClientExtensionsPart::RecordShouldAllowOpenURLFailure(
     ShouldAllowOpenURLFailureReason reason,
     const GURL& site_url) {
@@ -940,7 +930,7 @@ void ChromeContentBrowserClientExtensionsPart::RecordShouldAllowOpenURLFailure(
       "last",
   };
 
-  static_assert(arraysize(kSchemeNames) == SCHEME_LAST + 1,
+  static_assert(base::size(kSchemeNames) == SCHEME_LAST + 1,
                 "kSchemeNames should have SCHEME_LAST + 1 elements");
 
   ShouldAllowOpenURLFailureScheme scheme = SCHEME_UNKNOWN;
@@ -953,36 +943,6 @@ void ChromeContentBrowserClientExtensionsPart::RecordShouldAllowOpenURLFailure(
 
   UMA_HISTOGRAM_ENUMERATION("Extensions.ShouldAllowOpenURL.Failure.Scheme",
                             scheme, SCHEME_LAST);
-}
-
-// static
-bool ChromeContentBrowserClientExtensionsPart::
-    DoesOriginMatchAllURLsInWebExtent(const url::Origin& origin,
-                                      const URLPatternSet& web_extent) {
-  // This function assumes |origin| is an isolated origin, which can only have
-  // an HTTP or HTTPS scheme (see IsolatedOriginUtil::IsValidIsolatedOrigin()),
-  // so these are the only schemes allowed to be matched below.
-  DCHECK(origin.scheme() == url::kHttpsScheme ||
-         origin.scheme() == url::kHttpScheme);
-  URLPattern origin_pattern(URLPattern::SCHEME_HTTPS | URLPattern::SCHEME_HTTP);
-  // TODO(alexmos): Temporarily disable precise scheme matching on
-  // |origin_pattern| to allow apps that use *://foo.com/ in their web extent
-  // to still work with isolated origins.  See https://crbug.com/799638.  We
-  // should use SetScheme(origin.scheme()) here once https://crbug.com/791796
-  // is fixed.
-  origin_pattern.SetScheme("*");
-  origin_pattern.SetHost(origin.host());
-  origin_pattern.SetPath("/*");
-  // We allow matching subdomains here because |origin| is the precise origin
-  // retrieved from site isolation policy. Thus, we'll only allow an extent of
-  // foo.example.com and bar.example.com if the isolated origin was
-  // example.com; if the isolated origin is foo.example.com, this will
-  // correctly fail.
-  origin_pattern.SetMatchSubdomains(true);
-
-  URLPatternSet origin_pattern_list;
-  origin_pattern_list.AddPattern(origin_pattern);
-  return origin_pattern_list.Contains(web_extent);
 }
 
 void ChromeContentBrowserClientExtensionsPart::RenderProcessWillLaunch(

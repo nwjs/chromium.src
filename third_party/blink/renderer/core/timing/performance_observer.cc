@@ -11,6 +11,9 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
+#include "third_party/blink/renderer/core/inspector/console_message.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
+#include "third_party/blink/renderer/core/performance_entry_names.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/timing/performance_entry.h"
 #include "third_party/blink/renderer/core/timing/performance_observer_entry_list.h"
@@ -47,6 +50,33 @@ PerformanceObserver* PerformanceObserver::Create(
   return nullptr;
 }
 
+// static
+Vector<AtomicString> PerformanceObserver::supportedEntryTypes(
+    ScriptState* script_state) {
+  // The list of supported types, in alphabetical order.
+  Vector<AtomicString> supportedEntryTypes;
+  auto* execution_context = ExecutionContext::From(script_state);
+  if (execution_context->IsDocument()) {
+    if (origin_trials::ElementTimingEnabled(execution_context))
+      supportedEntryTypes.push_back(performance_entry_names::kElement);
+    if (origin_trials::EventTimingEnabled(execution_context)) {
+      supportedEntryTypes.push_back(performance_entry_names::kEvent);
+      supportedEntryTypes.push_back(performance_entry_names::kFirstInput);
+    }
+    if (origin_trials::LayoutJankAPIEnabled(execution_context))
+      supportedEntryTypes.push_back(performance_entry_names::kLayoutJank);
+    supportedEntryTypes.push_back(performance_entry_names::kLongtask);
+  }
+  supportedEntryTypes.push_back(performance_entry_names::kMark);
+  supportedEntryTypes.push_back(performance_entry_names::kMeasure);
+  if (execution_context->IsDocument()) {
+    supportedEntryTypes.push_back(performance_entry_names::kNavigation);
+    supportedEntryTypes.push_back(performance_entry_names::kPaint);
+  }
+  supportedEntryTypes.push_back(performance_entry_names::kResource);
+  return supportedEntryTypes;
+}
+
 PerformanceObserver::PerformanceObserver(
     ExecutionContext* execution_context,
     Performance* performance,
@@ -77,12 +107,18 @@ void PerformanceObserver::observe(const PerformanceObserverInit* observer_init,
     }
   }
   if (entry_types == PerformanceEntry::kInvalid) {
-    exception_state.ThrowTypeError(
+    String message =
         "A Performance Observer MUST have at least one valid entryType in its "
-        "entryTypes attribute.");
+        "entryTypes attribute.";
+    GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
+        kJSMessageSource, kWarningMessageLevel, message));
     return;
   }
   filter_options_ = entry_types;
+  if (filter_options_ & PerformanceEntry::kLayoutJank) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kLayoutJankExplicitlyRequested);
+  }
   if (is_registered_)
     performance_->UpdatePerformanceObserverFilterOptions();
   else

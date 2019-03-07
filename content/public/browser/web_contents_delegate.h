@@ -18,11 +18,13 @@
 #include "content/common/content_export.h"
 #include "content/public/browser/bluetooth_chooser.h"
 #include "content/public/browser/invalidate_type.h"
+#include "content/public/browser/media_stream_request.h"
+#include "content/public/browser/serial_chooser.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/media_stream_request.h"
 #include "content/public/common/previews_state.h"
 #include "content/public/common/window_container_type.mojom.h"
 #include "third_party/blink/public/common/manifest/web_display_mode.h"
+#include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/mojom/color_chooser/color_chooser.mojom.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
 #include "third_party/blink/public/platform/web_security_style.h"
@@ -217,7 +219,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Sets focus to the location bar or some other place that is appropriate.
   // This is called when the tab wants to encourage user input, like for the
   // new tab page.
-  virtual void SetFocusToLocationBar(bool select_all) {}
+  virtual void SetFocusToLocationBar() {}
 
   // Returns whether the page should be focused when transitioning from crashed
   // to live. Default is true.
@@ -244,7 +246,7 @@ class CONTENT_EXPORT WebContentsDelegate {
                            const base::Callback<void(bool)>& callback);
 
   // Returns true if the context menu operation was handled by the delegate.
-  virtual bool HandleContextMenu(const content::ContextMenuParams& params);
+  virtual bool HandleContextMenu(const ContextMenuParams& params);
 
   // Allows delegates to handle keyboard events before sending to the renderer.
   // See enum for description of return values.
@@ -394,6 +396,14 @@ class CONTENT_EXPORT WebContentsDelegate {
       RenderFrameHost* frame,
       const BluetoothChooser::EventHandler& event_handler);
 
+  // Shows a chooser for the user to select a serial port.  |callback| will be
+  // run when the prompt is closed. Deleting the returned object will cancel the
+  // prompt.
+  virtual std::unique_ptr<SerialChooser> RunSerialChooser(
+      RenderFrameHost* frame,
+      std::vector<blink::mojom::SerialPortFilterPtr> filters,
+      SerialChooser::Callback callback);
+
   // Returns true if the delegate will embed a WebContents-owned fullscreen
   // render widget.  In this case, the delegate may access the widget by calling
   // WebContents::GetFullscreenRenderWidgetHostView().  If false is returned,
@@ -489,22 +499,23 @@ class CONTENT_EXPORT WebContentsDelegate {
   // request is denied, a call should be made to |callback| with an empty list
   // of devices. |request| has the details of the request (e.g. which of audio
   // and/or video devices are requested, and lists of available devices).
-  virtual void RequestMediaAccessPermission(WebContents* web_contents,
-                                            const MediaStreamRequest& request,
-                                            MediaResponseCallback callback);
+  virtual void RequestMediaAccessPermission(
+      WebContents* web_contents,
+      const MediaStreamRequest& request,
+      content::MediaResponseCallback callback);
 
   // Checks if we have permission to access the microphone or camera. Note that
   // this does not query the user. |type| must be MEDIA_DEVICE_AUDIO_CAPTURE
   // or MEDIA_DEVICE_VIDEO_CAPTURE.
   virtual bool CheckMediaAccessPermission(RenderFrameHost* render_frame_host,
                                           const GURL& security_origin,
-                                          MediaStreamType type);
+                                          blink::MediaStreamType type);
 
   // Returns the ID of the default device for the given media device |type|.
   // If the returned value is an empty string, it means that there is no
   // default device for the given |type|.
   virtual std::string GetDefaultMediaDeviceID(WebContents* web_contents,
-                                              MediaStreamType type);
+                                              blink::MediaStreamType type);
 
 #if defined(OS_ANDROID)
   // Returns true if the given media should be blocked to load.
@@ -514,7 +525,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Overlay mode means that we are currently using AndroidOverlays to display
   // video, and that the compositor's surface should support alpha and not be
   // marked as opaque. See media/base/android/android_overlay.h.
-  virtual void SetOverlayMode(bool use_overlay_mode);
+  virtual void SetOverlayMode(bool use_overlay_mode) {}
 #endif
 
   // Requests permission to access the PPAPI broker. The delegate should return
@@ -548,15 +559,12 @@ class CONTENT_EXPORT WebContentsDelegate {
       WebContents* web_contents,
       SecurityStyleExplanations* security_style_explanations);
 
-  // Requests the app banner. This method is called from the DevTools.
-  virtual void RequestAppBannerFromDevTools(content::WebContents* web_contents);
-
   // Called when a suspicious navigation of the main frame has been blocked.
   // Allows the delegate to provide some UI to let the user know about the
   // blocked navigation and give them the option to recover from it. The given
   // URL is the blocked navigation target.
-  virtual void OnDidBlockFramebust(content::WebContents* web_contents,
-                                   const GURL& url) {}
+  virtual void OnDidBlockFramebust(WebContents* web_contents, const GURL& url) {
+  }
 
   // Reports that passive mixed content was found at the specified url.
   virtual void PassiveInsecureContentFound(const GURL& resource_url) {}
@@ -584,12 +592,12 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Propagates to the browser that gesture scrolling has changed state. This is
   // used by the browser to assist in controlling the behavior of sliding the
   // top controls as a result of page gesture scrolling while in tablet mode.
-  virtual void SetTopControlsGestureScrollInProgress(bool in_progress);
+  virtual void SetTopControlsGestureScrollInProgress(bool in_progress) {}
 
   // Give WebContentsDelegates the opportunity to adjust the previews state.
-  virtual void AdjustPreviewsStateForNavigation(
-      content::WebContents* web_contents,
-      PreviewsState* previews_state) {}
+  virtual void AdjustPreviewsStateForNavigation(WebContents* web_contents,
+                                                PreviewsState* previews_state) {
+  }
 
   // Requests to print an out-of-process subframe for the specified WebContents.
   // |rect| is the rectangular area where its content resides in its parent
@@ -606,12 +614,13 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Notifies the Picture-in-Picture controller that there is a new player
   // entering Picture-in-Picture.
   // Returns the size of the Picture-in-Picture window.
-  virtual gfx::Size EnterPictureInPicture(const viz::SurfaceId&,
+  virtual gfx::Size EnterPictureInPicture(WebContents* web_contents,
+                                          const viz::SurfaceId&,
                                           const gfx::Size& natural_size);
 
   // Updates the Picture-in-Picture controller with a signal that
   // Picture-in-Picture mode has ended.
-  virtual void ExitPictureInPicture();
+  virtual void ExitPictureInPicture() {}
 
 #if defined(OS_ANDROID)
   // Updates information to determine whether a user gesture should carryover to
@@ -630,11 +639,16 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Otherwise, |new_contents| is returned.
   // |did_finish_load| is true if WebContentsObserver::DidFinishLoad() has
   // already been called for |new_contents|.
-  virtual std::unique_ptr<content::WebContents> SwapWebContents(
-      content::WebContents* old_contents,
-      std::unique_ptr<content::WebContents> new_contents,
+  virtual std::unique_ptr<WebContents> SwapWebContents(
+      WebContents* old_contents,
+      std::unique_ptr<WebContents> new_contents,
       bool did_start_load,
       bool did_finish_load);
+
+  // Returns true if the widget's frame content needs to be stored before
+  // eviction and displayed until a new frame is generated. If false, a white
+  // solid color is displayed instead.
+  virtual bool ShouldShowStaleContentOnEviction(WebContents* source);
 
  protected:
   virtual ~WebContentsDelegate();

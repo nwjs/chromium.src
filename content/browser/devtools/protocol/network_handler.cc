@@ -10,7 +10,6 @@
 #include "base/barrier_closure.h"
 #include "base/base64.h"
 #include "base/command_line.h"
-#include "base/containers/hash_tables.h"
 #include "base/containers/queue.h"
 #include "base/json/json_reader.h"
 #include "base/process/process_handle.h"
@@ -730,7 +729,7 @@ bool GetPostData(const network::ResourceRequestBody& request_body,
   if (elements->empty())
     return false;
   for (const auto& element : *elements) {
-    if (element.type() != network::DataElement::TYPE_BYTES)
+    if (element.type() != network::mojom::DataElementType::kBytes)
       return false;
     result->append(element.bytes(), element.length());
   }
@@ -1609,10 +1608,10 @@ void NetworkHandler::NavigationRequestWillBeSent(
     headers_dict->setString(net::HttpRequestHeaders::kReferer, referrer.spec());
 
   std::unique_ptr<Network::Response> redirect_response;
-  const RequestNavigationParams& request_params = nav_request.request_params();
-  if (!request_params.redirect_response.empty()) {
-    redirect_response = BuildResponse(request_params.redirects.back(),
-                                      request_params.redirect_response.back());
+  const CommitNavigationParams& commit_params = nav_request.commit_params();
+  if (!commit_params.redirect_response.empty()) {
+    redirect_response = BuildResponse(commit_params.redirects.back(),
+                                      commit_params.redirect_response.back());
   }
   std::string url_fragment;
   std::string url_without_fragment =
@@ -1770,7 +1769,7 @@ void NetworkHandler::OnSignedExchangeReceived(
             .SetSignature(base::HexEncode(sig.sig.data(), sig.sig.size()))
             .SetIntegrity(sig.integrity)
             .SetCertUrl(sig.cert_url.spec())
-            .SetValidityUrl(sig.validity_url.spec())
+            .SetValidityUrl(sig.validity_url.url.spec())
             .SetDate(sig.date)
             .SetExpires(sig.expires)
             .Build();
@@ -1797,8 +1796,7 @@ void NetworkHandler::OnSignedExchangeReceived(
 
     signed_exchange_info->SetHeader(
         Network::SignedExchangeHeader::Create()
-            .SetRequestUrl(envelope->request_url().spec())
-            .SetRequestMethod(envelope->request_method())
+            .SetRequestUrl(envelope->request_url().url.spec())
             .SetResponseCode(envelope->response_code())
             .SetResponseHeaders(Object::fromValue(headers_dict.get(), nullptr))
             .SetSignatures(std::move(signatures))

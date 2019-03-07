@@ -7,13 +7,16 @@
 #include <fuchsia/mediacodec/cpp/fidl.h>
 #include <zircon/rights.h>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/fuchsia/component_context.h"
 #include "base/fuchsia/fuchsia_logging.h"
+#include "base/location.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/threading/sequenced_task_runner_handle.h"
 #include "media/base/bind_to_current_loop.h"
 #include "media/base/video_decoder.h"
 #include "media/base/video_decoder_config.h"
@@ -265,18 +268,17 @@ class OutputBuffer : public base::RefCountedThreadSafe<OutputBuffer> {
 
 class FuchsiaVideoDecoder : public VideoDecoder {
  public:
-  FuchsiaVideoDecoder();
+  explicit FuchsiaVideoDecoder(bool enable_sw_decoding);
   ~FuchsiaVideoDecoder() override;
 
   // VideoDecoder implementation.
   std::string GetDisplayName() const override;
-  void Initialize(
-      const VideoDecoderConfig& config,
-      bool low_delay,
-      CdmContext* cdm_context,
-      const InitCB& init_cb,
-      const OutputCB& output_cb,
-      const WaitingForDecryptionKeyCB& waiting_for_decryption_key_cb) override;
+  void Initialize(const VideoDecoderConfig& config,
+                  bool low_delay,
+                  CdmContext* cdm_context,
+                  const InitCB& init_cb,
+                  const OutputCB& output_cb,
+                  const WaitingCB& waiting_cb) override;
   void Decode(scoped_refptr<DecoderBuffer> buffer,
               const DecodeCB& decode_cb) override;
   void Reset(const base::Closure& closure) override;
@@ -316,6 +318,8 @@ class FuchsiaVideoDecoder : public VideoDecoder {
                         uint64_t buffer_lifetime_ordinal,
                         uint32_t packet_index);
 
+  const bool enable_sw_decoding_;
+
   OutputCB output_cb_;
 
   // Aspect ratio specified in container, or 1.0 if it's not specified. This
@@ -350,7 +354,8 @@ class FuchsiaVideoDecoder : public VideoDecoder {
   DISALLOW_COPY_AND_ASSIGN(FuchsiaVideoDecoder);
 };
 
-FuchsiaVideoDecoder::FuchsiaVideoDecoder() : weak_factory_(this) {
+FuchsiaVideoDecoder::FuchsiaVideoDecoder(bool enable_sw_decoding)
+    : enable_sw_decoding_(enable_sw_decoding), weak_factory_(this) {
   weak_this_ = weak_factory_.GetWeakPtr();
 }
 
@@ -360,13 +365,12 @@ std::string FuchsiaVideoDecoder::GetDisplayName() const {
   return "FuchsiaVideoDecoder";
 }
 
-void FuchsiaVideoDecoder::Initialize(
-    const VideoDecoderConfig& config,
-    bool low_delay,
-    CdmContext* cdm_context,
-    const InitCB& init_cb,
-    const OutputCB& output_cb,
-    const WaitingForDecryptionKeyCB& waiting_for_decryption_key_cb) {
+void FuchsiaVideoDecoder::Initialize(const VideoDecoderConfig& config,
+                                     bool low_delay,
+                                     CdmContext* cdm_context,
+                                     const InitCB& init_cb,
+                                     const OutputCB& output_cb,
+                                     const WaitingCB& waiting_cb) {
   output_cb_ = output_cb;
   container_pixel_aspect_ratio_ = config.GetPixelAspectRatio();
 
@@ -398,7 +402,7 @@ void FuchsiaVideoDecoder::Initialize(
   }
 
   codec_params.promise_separate_access_units_on_input = true;
-  codec_params.require_hw = true;
+  codec_params.require_hw = !enable_sw_decoding_;
 
   auto codec_factory =
       base::fuchsia::ComponentContext::GetDefault()
@@ -436,7 +440,10 @@ void FuchsiaVideoDecoder::Decode(scoped_refptr<DecoderBuffer> buffer,
             GetMaxDecodeRequests());
 
   if (!codec_) {
-    decode_cb.Run(DecodeStatus::DECODE_ERROR);
+    // Post the callback to the current sequence as DecoderStream doesn't expect
+    // Decode() to complete synchronously.
+    base::SequencedTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(decode_cb, DecodeStatus::DECODE_ERROR));
     return;
   }
 
@@ -569,6 +576,22 @@ void FuchsiaVideoDecoder::OnOutputPacket(
               VideoFrameLayout::Plane(
                   output_format_.secondary_line_stride_bytes,
                   output_format_.secondary_start_offset)});
+      DCHECK(layout);
+      break;
+
+    case libyuv::FOURCC_YV12:
+      layout = VideoFrameLayout::CreateWithPlanes(
+          PIXEL_FORMAT_YV12, coded_size,
+          std::vector<VideoFrameLayout::Plane>{
+              VideoFrameLayout::Plane(output_format_.primary_line_stride_bytes,
+                                      output_format_.primary_start_offset),
+              VideoFrameLayout::Plane(
+                  output_format_.secondary_line_stride_bytes,
+                  output_format_.secondary_start_offset),
+              VideoFrameLayout::Plane(
+                  output_format_.secondary_line_stride_bytes,
+                  output_format_.tertiary_start_offset),
+          });
       DCHECK(layout);
       break;
 
@@ -738,6 +761,7 @@ void FuchsiaVideoDecoder::PumpInput() {
     fuchsia::mediacodec::CodecPacket packet;
     packet.header.buffer_lifetime_ordinal = input_buffer_lifetime_ordinal_;
     packet.header.packet_index = input_buffer - input_buffers_.begin();
+    packet.buffer_index = packet.header.packet_index;
     packet.has_timestamp_ish = true;
     packet.timestamp_ish =
         pending_decodes_.front().buffer().timestamp().InNanoseconds();
@@ -807,7 +831,12 @@ void FuchsiaVideoDecoder::OnFrameDestroyed(scoped_refptr<OutputBuffer> buffer,
 }
 
 std::unique_ptr<VideoDecoder> CreateFuchsiaVideoDecoder() {
-  return std::make_unique<FuchsiaVideoDecoder>();
+  return std::make_unique<FuchsiaVideoDecoder>(/*enable_sw_decoding=*/false);
+}
+
+std::unique_ptr<VideoDecoder> CreateFuchsiaVideoDecoderForTests(
+    bool enable_sw_decoding) {
+  return std::make_unique<FuchsiaVideoDecoder>(enable_sw_decoding);
 }
 
 }  // namespace media

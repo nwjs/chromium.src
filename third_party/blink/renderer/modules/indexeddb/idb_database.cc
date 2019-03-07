@@ -25,13 +25,13 @@
 
 #include "third_party/blink/renderer/modules/indexeddb/idb_database.h"
 
+#include <limits>
+#include <memory>
+
 #include "base/atomic_sequence_num.h"
 #include "base/optional.h"
 #include "third_party/blink/public/common/indexeddb/web_idb_types.h"
-#include "third_party/blink/public/platform/modules/indexeddb/web_idb_database_callbacks.h"
 #include "third_party/blink/public/platform/modules/indexeddb/web_idb_database_exception.h"
-#include "third_party/blink/public/platform/modules/indexeddb/web_idb_key_path.h"
-#include "third_party/blink/public/platform/modules/indexeddb/web_idb_observation.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_binding_for_modules.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_idb_observer_callback.h"
@@ -45,16 +45,12 @@
 #include "third_party/blink/renderer/modules/indexeddb/idb_observer_changes.h"
 #include "third_party/blink/renderer/modules/indexeddb/idb_tracing.h"
 #include "third_party/blink/renderer/modules/indexeddb/idb_version_change_event.h"
+#include "third_party/blink/renderer/modules/indexeddb/web_idb_database_callbacks.h"
 #include "third_party/blink/renderer/modules/indexeddb/web_idb_database_callbacks_impl.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/histogram.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
-
-#include <limits>
-#include <memory>
-
-using blink::WebIDBDatabase;
 
 namespace blink {
 
@@ -190,14 +186,10 @@ void IDBDatabase::OnComplete(int64_t transaction_id) {
 
 void IDBDatabase::OnChanges(
     const WebIDBDatabaseCallbacks::ObservationIndexMap& observation_index_map,
-    WebVector<WebIDBObservation> web_observations,
+    Vector<Persistent<IDBObservation>> observations,
     const WebIDBDatabaseCallbacks::TransactionMap& transactions) {
-  HeapVector<Member<IDBObservation>> observations;
-  observations.ReserveInitialCapacity(
-      SafeCast<wtf_size_t>(web_observations.size()));
-  for (WebIDBObservation& web_observation : web_observations) {
-    observations.emplace_back(
-        IDBObservation::Create(std::move(web_observation), isolate_));
+  for (const auto& observation : observations) {
+    observation->SetIsolate(isolate_);
   }
 
   for (const auto& map_entry : observation_index_map) {
@@ -208,7 +200,7 @@ void IDBDatabase::OnChanges(
       IDBTransaction* transaction = nullptr;
       auto it = transactions.find(map_entry.first);
       if (it != transactions.end()) {
-        const std::pair<int64_t, WebVector<int64_t>>& obs_txn = it->second;
+        const std::pair<int64_t, Vector<int64_t>>& obs_txn = it->second;
         HashSet<String> stores;
         for (int64_t store_id : obs_txn.second) {
           stores.insert(metadata_.object_stores.at(store_id)->name);
@@ -219,9 +211,8 @@ void IDBDatabase::OnChanges(
       }
 
       observer->Callback()->InvokeAndReportException(
-          observer,
-          IDBObserverChanges::Create(this, transaction, web_observations,
-                                     observations, map_entry.second));
+          observer, IDBObserverChanges::Create(this, transaction, observations,
+                                               map_entry.second));
       if (transaction)
         transaction->SetActive(false);
     }
@@ -295,9 +286,9 @@ IDBObjectStore* IDBDatabase::createObjectStore(
     return nullptr;
   }
 
-  if (auto_increment && ((key_path.GetType() == IDBKeyPath::kStringType &&
+  if (auto_increment && ((key_path.GetType() == mojom::IDBKeyPathType::String &&
                           key_path.GetString().IsEmpty()) ||
-                         key_path.GetType() == IDBKeyPath::kArrayType)) {
+                         key_path.GetType() == mojom::IDBKeyPathType::Array)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         "The autoIncrement option was set but the "

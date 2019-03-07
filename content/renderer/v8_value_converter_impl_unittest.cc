@@ -170,7 +170,7 @@ class V8ValueConverterImplTest : public testing::Test {
     return child->IsNull();
   }
 
-  void TestWeirdType(const V8ValueConverterImpl& converter,
+  void TestWeirdType(V8ValueConverterImpl& converter,
                      v8::Local<v8::Value> val,
                      base::Value::Type expected_type,
                      std::unique_ptr<base::Value> expected_value) {
@@ -276,7 +276,7 @@ TEST_F(V8ValueConverterImplTest, BasicRoundTrip) {
   ASSERT_FALSE(v8_object.IsEmpty());
 
   EXPECT_EQ(static_cast<const base::DictionaryValue&>(*original_root).size(),
-            v8_object->GetPropertyNames()->Length());
+            v8_object->GetPropertyNames(context).ToLocalChecked()->Length());
   EXPECT_TRUE(v8_object
                   ->Get(v8::String::NewFromUtf8(
                             isolate_, "null", v8::NewStringType::kInternalized)
@@ -418,7 +418,7 @@ TEST_F(V8ValueConverterImplTest, ObjectExceptions) {
   v8::Local<v8::Object> copy =
       converter.ToV8Value(converted.get(), context).As<v8::Object>();
   EXPECT_FALSE(copy.IsEmpty());
-  EXPECT_EQ(2u, copy->GetPropertyNames()->Length());
+  EXPECT_EQ(2u, copy->GetPropertyNames(context).ToLocalChecked()->Length());
   EXPECT_EQ("foo", GetString(copy, "foo"));
   EXPECT_EQ("bar", GetString(copy, "bar"));
 }
@@ -560,7 +560,8 @@ TEST_F(V8ValueConverterImplTest, ObjectPrototypeSetter) {
   EXPECT_EQ(1, GetInt(result, "getters"));
   EXPECT_EQ(1, GetInt(result, "setters"));
 
-  EXPECT_EQ(1u, converted->GetPropertyNames()->Length());
+  EXPECT_EQ(1u,
+            converted->GetPropertyNames(context).ToLocalChecked()->Length());
   EXPECT_EQ("good value", GetString(converted, "foo"));
 
   // Getters/setters shouldn't be triggered while accessing existing values.
@@ -578,7 +579,8 @@ TEST_F(V8ValueConverterImplTest, ObjectPrototypeSetter) {
   EXPECT_EQ(1, GetInt(result, "getters"));
   EXPECT_EQ(1, GetInt(result, "setters"));
 
-  EXPECT_EQ(1u, converted2->GetPropertyNames()->Length());
+  EXPECT_EQ(1u,
+            converted2->GetPropertyNames(context).ToLocalChecked()->Length());
   EXPECT_EQ("hello", GetString(converted2, "otherkey"));
 
   // Missing key = should trigger getter upon access.
@@ -1042,29 +1044,29 @@ class V8ValueConverterOverridingStrategyForTesting
   bool FromV8Object(v8::Local<v8::Object> value,
                     std::unique_ptr<base::Value>* out,
                     v8::Isolate* isolate,
-                    const FromV8ValueCallback& callback) const override {
+                    const FromV8ValueCallback& callback) override {
     *out = NewReferenceValue();
     return true;
   }
   bool FromV8Array(v8::Local<v8::Array> value,
                    std::unique_ptr<base::Value>* out,
                    v8::Isolate* isolate,
-                   const FromV8ValueCallback& callback) const override {
+                   const FromV8ValueCallback& callback) override {
     *out = NewReferenceValue();
     return true;
   }
   bool FromV8ArrayBuffer(v8::Local<v8::Object> value,
                          std::unique_ptr<base::Value>* out,
-                         v8::Isolate* isolate) const override {
+                         v8::Isolate* isolate) override {
     *out = NewReferenceValue();
     return true;
   }
   bool FromV8Number(v8::Local<v8::Number> value,
-                    std::unique_ptr<base::Value>* out) const override {
+                    std::unique_ptr<base::Value>* out) override {
     *out = NewReferenceValue();
     return true;
   }
-  bool FromV8Undefined(std::unique_ptr<base::Value>* out) const override {
+  bool FromV8Undefined(std::unique_ptr<base::Value>* out) override {
     *out = NewReferenceValue();
     return true;
   }
@@ -1131,25 +1133,25 @@ class V8ValueConverterBypassStrategyForTesting
   bool FromV8Object(v8::Local<v8::Object> value,
                     std::unique_ptr<base::Value>* out,
                     v8::Isolate* isolate,
-                    const FromV8ValueCallback& callback) const override {
+                    const FromV8ValueCallback& callback) override {
     return false;
   }
   bool FromV8Array(v8::Local<v8::Array> value,
                    std::unique_ptr<base::Value>* out,
                    v8::Isolate* isolate,
-                   const FromV8ValueCallback& callback) const override {
+                   const FromV8ValueCallback& callback) override {
     return false;
   }
   bool FromV8ArrayBuffer(v8::Local<v8::Object> value,
                          std::unique_ptr<base::Value>* out,
-                         v8::Isolate* isolate) const override {
+                         v8::Isolate* isolate) override {
     return false;
   }
   bool FromV8Number(v8::Local<v8::Number> value,
-                    std::unique_ptr<base::Value>* out) const override {
+                    std::unique_ptr<base::Value>* out) override {
     return false;
   }
-  bool FromV8Undefined(std::unique_ptr<base::Value>* out) const override {
+  bool FromV8Undefined(std::unique_ptr<base::Value>* out) override {
     return false;
   }
 };

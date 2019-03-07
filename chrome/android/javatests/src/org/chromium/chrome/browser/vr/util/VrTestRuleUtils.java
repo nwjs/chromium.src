@@ -18,10 +18,12 @@ import org.junit.runners.model.Statement;
 import org.chromium.base.test.params.ParameterSet;
 import org.chromium.chrome.browser.vr.TestVrShellDelegate;
 import org.chromium.chrome.browser.vr.VrFeedbackStatus;
-import org.chromium.chrome.browser.vr.VrIntentUtils;
+import org.chromium.chrome.browser.vr.VrIntentDelegate;
+import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.chrome.browser.vr.rules.ChromeTabbedActivityVrTestRule;
 import org.chromium.chrome.browser.vr.rules.CustomTabActivityVrTestRule;
 import org.chromium.chrome.browser.vr.rules.VrActivityRestrictionRule;
+import org.chromium.chrome.browser.vr.rules.VrModuleNotInstalled;
 import org.chromium.chrome.browser.vr.rules.VrTestRule;
 import org.chromium.chrome.browser.vr.rules.WebappActivityVrTestRule;
 
@@ -57,6 +59,12 @@ public class VrTestRuleUtils extends XrTestRuleUtils {
      */
     public static void evaluateVrTestRuleImpl(final Statement base, final Description desc,
             final VrTestRule rule, final ChromeLaunchMethod launcher) throws Throwable {
+        // Should be called before any other VR methods get called.
+        if (desc.getAnnotation(VrModuleNotInstalled.class) != null) {
+            VrModuleProvider.setAlwaysUseFallbackDelegate(true);
+        }
+        TestVrShellDelegate.setDescription(desc);
+
         VrTestRuleUtils.ensureNoVrActivitiesDisplayed();
         HeadTrackingUtils.checkForAndApplyHeadTrackingModeAnnotation(rule, desc);
         launcher.launch();
@@ -166,7 +174,7 @@ public class VrTestRuleUtils extends XrTestRuleUtils {
         if (TestVrShellDelegate.isOnStandalone()) {
             // Tell VrShellDelegate that it should create a TestVrShellDelegate on startup
             TestVrShellDelegate.enableTestVrShellDelegateOnStartupForTesting();
-            intent.addCategory(VrIntentUtils.DAYDREAM_CATEGORY);
+            intent.addCategory(VrIntentDelegate.DAYDREAM_CATEGORY);
             intent.putExtra("android.intent.extra.VR_LAUNCH", true);
         }
         return intent;

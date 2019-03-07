@@ -288,6 +288,32 @@ HtmlFieldType FieldTypeFromAutocompleteAttributeValue(
   return HTML_TYPE_UNRECOGNIZED;
 }
 
+// Helper function for explicit conversion between |ButtonTitleType| defined in
+// "button_title_type.h" and "server.proto".
+AutofillUploadContents_ButtonTitle_ButtonTitleType ToServerButtonTitleType(
+    autofill::ButtonTitleType input) {
+  switch (input) {
+    case ButtonTitleType::NONE:
+      return AutofillUploadContents::ButtonTitle::NONE;
+    case ButtonTitleType::BUTTON_ELEMENT_SUBMIT_TYPE:
+      return AutofillUploadContents::ButtonTitle::BUTTON_ELEMENT_SUBMIT_TYPE;
+    case ButtonTitleType::BUTTON_ELEMENT_BUTTON_TYPE:
+      return AutofillUploadContents::ButtonTitle::BUTTON_ELEMENT_BUTTON_TYPE;
+    case ButtonTitleType::INPUT_ELEMENT_SUBMIT_TYPE:
+      return AutofillUploadContents::ButtonTitle::INPUT_ELEMENT_SUBMIT_TYPE;
+    case ButtonTitleType::INPUT_ELEMENT_BUTTON_TYPE:
+      return AutofillUploadContents::ButtonTitle::INPUT_ELEMENT_BUTTON_TYPE;
+    case ButtonTitleType::HYPERLINK:
+      return AutofillUploadContents::ButtonTitle::HYPERLINK;
+    case ButtonTitleType::DIV:
+      return AutofillUploadContents::ButtonTitle::DIV;
+    case ButtonTitleType::SPAN:
+      return AutofillUploadContents::ButtonTitle::SPAN;
+  }
+  NOTREACHED();
+  return AutofillUploadContents::ButtonTitle::NONE;
+}
+
 std::ostream& operator<<(
     std::ostream& out,
     const autofill::AutofillQueryResponseContents& response) {
@@ -441,7 +467,7 @@ FormStructure::FormStructure(const FormData& form)
     : id_attribute_(form.id_attribute),
       name_attribute_(form.name_attribute),
       form_name_(form.name),
-      button_title_(form.button_title),
+      button_titles_(form.button_titles),
       submission_event_(SubmissionIndicatorEvent::NONE),
       source_url_(form.origin),
       target_url_(form.action),
@@ -529,9 +555,7 @@ void FormStructure::DetermineHeuristicTypes() {
         1 << AutofillMetrics::FORM_CONTAINS_UPI_VPA_HINT;
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillRationalizeFieldTypePredictions))
-    RationalizeFieldTypePredictions();
+  RationalizeFieldTypePredictions();
 
   AutofillMetrics::LogDetermineHeuristicTypesTiming(
       base::TimeTicks::Now() - determine_heuristic_types_start_time);
@@ -551,6 +575,7 @@ bool FormStructure::EncodeUploadRequest(
   upload->set_autofill_used(form_was_autofilled);
   upload->set_data_present(EncodeFieldTypes(available_field_types));
   upload->set_passwords_revealed(passwords_were_revealed_);
+  upload->set_has_form_tag(is_form_tag_);
   if (!page_language_.empty() && randomized_encoder_ != nullptr) {
     upload->set_language(page_language_);
   }
@@ -574,6 +599,11 @@ bool FormStructure::EncodeUploadRequest(
     upload->set_action_signature(StrToHash64Bit(target_url_.host()));
     if (!form_name().empty())
       upload->set_form_name(base::UTF16ToUTF8(form_name()));
+    for (const ButtonTitleInfo& e : button_titles_) {
+      auto* button_title = upload->add_button_title();
+      button_title->set_title(base::UTF16ToUTF8(e.first));
+      button_title->set_type(ToServerButtonTitleType(e.second));
+    }
   }
 
   if (!login_form_signature.empty()) {
@@ -720,14 +750,8 @@ void FormStructure::ProcessQueryResponse(
         !query_response_has_no_server_data);
 
     form->UpdateAutofillCount();
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillRationalizeRepeatedServerPredictions))
-      form->RationalizeRepeatedFields(form_interactions_ukm_logger);
-
-    if (base::FeatureList::IsEnabled(
-            features::kAutofillRationalizeFieldTypePredictions))
-      form->RationalizeFieldTypePredictions();
-
+    form->RationalizeRepeatedFields(form_interactions_ukm_logger);
+    form->RationalizeFieldTypePredictions();
     form->IdentifySections(false);
   }
 
@@ -942,6 +966,7 @@ void FormStructure::LogQualityMetrics(
   bool did_autofill_all_possible_fields = true;
   bool did_autofill_some_possible_fields = false;
   bool is_for_credit_card = IsCompleteCreditCardForm();
+  bool has_upi_vpa_field = false;
 
   // Determine the correct suffix for the metric, depending on whether or
   // not a submission was observed.
@@ -952,6 +977,7 @@ void FormStructure::LogQualityMetrics(
   for (size_t i = 0; i < field_count(); ++i) {
     auto* const field = this->field(i);
     if (IsUPIVirtualPaymentAddress(field->value)) {
+      has_upi_vpa_field = true;
       AutofillMetrics::LogUserHappinessMetric(
           AutofillMetrics::USER_DID_ENTER_UPI_VPA, field->Type().group(),
           security_state::SecurityLevel::SECURITY_LEVEL_COUNT);
@@ -1036,8 +1062,8 @@ void FormStructure::LogQualityMetrics(
     }
 
     AutofillMetrics::LogAutofillFormSubmittedState(
-        state, is_for_credit_card, GetFormTypes(), form_parsed_timestamp_,
-        form_signature(), form_interactions_ukm_logger);
+        state, is_for_credit_card, has_upi_vpa_field, GetFormTypes(),
+        form_parsed_timestamp_, form_signature(), form_interactions_ukm_logger);
   }
 }
 

@@ -14,7 +14,6 @@
 
 namespace service_manager {
 
-class ServiceContext;
 struct BindSourceInfo;
 
 // The primary contract between a Service and the Service Manager, receiving
@@ -32,7 +31,10 @@ class COMPONENT_EXPORT(SERVICE_MANAGER_CPP) Service {
   // This should really only be called on a Service instance that has a bound
   // connection to the Service Manager, e.g. a functioning ServiceBinding. If
   // the service never calls |Terminate()|, it will effectively leak.
-  static void RunAsyncUntilTermination(std::unique_ptr<Service> service);
+  //
+  // If |callback| is non-null, it will be invoked after |service| is destroyed.
+  static void RunAsyncUntilTermination(std::unique_ptr<Service> service,
+                                       base::OnceClosure callback = {});
 
   // Sets a closure to run when the service wants to self-terminate. This may be
   // used by whomever created the Service instance in order to clean up
@@ -80,6 +82,11 @@ class COMPONENT_EXPORT(SERVICE_MANAGER_CPP) Service {
   // deprecated.
   virtual bool OnServiceManagerConnectionLost();
 
+  // Runs a RunLoop until this service self-terminates. This is intended for use
+  // in environments where the service is the only thing running, e.g. as a
+  // standalone executable.
+  void RunUntilTermination();
+
  protected:
   // Subclasses should always invoke |Terminate()| when they want to
   // self-terminate. This should generally only be done once the service is
@@ -96,23 +103,9 @@ class COMPONENT_EXPORT(SERVICE_MANAGER_CPP) Service {
   // delete |*this| before returning.
   void Terminate();
 
-  // Accesses the ServiceContext associated with this Service. Note that this is
-  // only valid AFTER the Service's constructor has run.
-  ServiceContext* context() const;
-
  private:
-  friend class ServiceContext;
-  friend class TestServiceDecorator;
-
   base::OnceClosure termination_closure_;
 
-  // NOTE: This MUST be called before any public Service methods. ServiceContext
-  // satisfies this guarantee for any Service instance it owns.
-  virtual void SetContext(ServiceContext* context);
-
-  ServiceContext* service_context_ = nullptr;
-
-  DISALLOW_COPY_AND_ASSIGN(Service);
 };
 
 }  // namespace service_manager

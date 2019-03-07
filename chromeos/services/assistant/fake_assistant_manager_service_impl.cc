@@ -38,23 +38,8 @@ AssistantManagerService::State FakeAssistantManagerServiceImpl::GetState()
 
 AssistantSettingsManager*
 FakeAssistantManagerServiceImpl::GetAssistantSettingsManager() {
-  return nullptr;
+  return &assistant_settings_manager_;
 }
-
-void FakeAssistantManagerServiceImpl::SendGetSettingsUiRequest(
-    const std::string& selector,
-    GetSettingsUiResponseCallback callback) {}
-
-void FakeAssistantManagerServiceImpl::SendUpdateSettingsUiRequest(
-    const std::string& update,
-    UpdateSettingsUiResponseCallback callback) {}
-
-void FakeAssistantManagerServiceImpl::StartSpeakerIdEnrollment(
-    bool skip_cloud_enrollment,
-    mojom::SpeakerIdEnrollmentClientPtr client) {}
-
-void FakeAssistantManagerServiceImpl::StopSpeakerIdEnrollment(
-    AssistantSettingsManager::StopSpeakerIdEnrollmentCallback on_stopped) {}
 
 void FakeAssistantManagerServiceImpl::StartCachedScreenContextInteraction() {}
 
@@ -67,14 +52,15 @@ void FakeAssistantManagerServiceImpl::StartTextInteraction(
 
 void FakeAssistantManagerServiceImpl::StartVoiceInteraction() {}
 
+void FakeAssistantManagerServiceImpl::StartWarmerWelcomeInteraction(
+    int num_warmer_welcome_triggered,
+    bool allow_tts) {}
+
 void FakeAssistantManagerServiceImpl::StopActiveInteraction(
     bool cancel_conversation) {}
 
 void FakeAssistantManagerServiceImpl::AddAssistantInteractionSubscriber(
     mojom::AssistantInteractionSubscriberPtr subscriber) {}
-
-void FakeAssistantManagerServiceImpl::AddAssistantNotificationSubscriber(
-    mojom::AssistantNotificationSubscriberPtr subscriber) {}
 
 void FakeAssistantManagerServiceImpl::RetrieveNotification(
     mojom::AssistantNotificationPtr notification,
@@ -84,10 +70,17 @@ void FakeAssistantManagerServiceImpl::DismissNotification(
     mojom::AssistantNotificationPtr notification) {}
 
 void FakeAssistantManagerServiceImpl::CacheScreenContext(
-    CacheScreenContextCallback callback) {}
+    CacheScreenContextCallback callback) {
+  std::move(callback).Run();
+}
+
+void FakeAssistantManagerServiceImpl::ClearScreenContextCache() {}
 
 void FakeAssistantManagerServiceImpl::OnAccessibilityStatusChanged(
     bool spoken_feedback_enabled) {}
+
+void FakeAssistantManagerServiceImpl::SendAssistantFeedback(
+    mojom::AssistantFeedbackPtr feedback) {}
 
 }  // namespace assistant
 }  // namespace chromeos

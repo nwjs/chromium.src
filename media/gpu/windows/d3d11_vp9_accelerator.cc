@@ -47,7 +47,12 @@ D3D11VP9Accelerator::D3D11VP9Accelerator(
       status_feedback_(0),
       video_decoder_(std::move(video_decoder)),
       video_device_(std::move(video_device)),
-      video_context_(std::move(video_context)) {}
+      video_context_(std::move(video_context)) {
+  DCHECK(client);
+  DCHECK(media_log_);
+  // |cdm_proxy_context_| is non-null for encrypted content but can be null for
+  // clear content.
+}
 
 D3D11VP9Accelerator::~D3D11VP9Accelerator() {}
 
@@ -81,6 +86,7 @@ bool D3D11VP9Accelerator::BeginFrame(D3D11VP9Picture* pic) {
   base::Optional<CdmProxyContext::D3D11DecryptContext> decrypt_context;
   std::unique_ptr<D3D11_VIDEO_DECODER_BEGIN_FRAME_CRYPTO_SESSION> content_key;
   if (const DecryptConfig* config = pic->decrypt_config()) {
+    DCHECK(cdm_proxy_context_) << "No CdmProxyContext but picture is encrypted";
     decrypt_context = cdm_proxy_context_->GetD3D11DecryptContext(
         CdmProxy::KeyType::kDecryptAndDecode, config->key_id());
     if (!decrypt_context) {
@@ -125,6 +131,7 @@ void D3D11VP9Accelerator::CopyFrameParams(
   COPY_PARAM(frame_parallel_decoding_mode);
   COPY_PARAM(intra_only);
   COPY_PARAM(frame_context_idx);
+  COPY_PARAM(reset_frame_context);
   COPY_PARAM(allow_high_precision_mv);
   COPY_PARAM(refresh_frame_context);
   COPY_PARAM(frame_parallel_decoding_mode);
@@ -137,8 +144,8 @@ void D3D11VP9Accelerator::CopyFrameParams(
 
   pic_params->CurrPic.Index7Bits = pic->level();
   pic_params->frame_type = !pic->frame_hdr->IsKeyframe();
-  pic_params->subsampling_x = pic->frame_hdr->subsampling_x == 1;
-  pic_params->subsampling_y = pic->frame_hdr->subsampling_y == 1;
+  pic_params->subsampling_x = pic->frame_hdr->subsampling_x;
+  pic_params->subsampling_y = pic->frame_hdr->subsampling_y;
 
   SET_PARAM(width, frame_width);
   SET_PARAM(height, frame_height);
@@ -260,7 +267,8 @@ void D3D11VP9Accelerator::CopyHeaderSizeAndID(
   pic_params->first_partition_size =
       static_cast<USHORT>(pic->frame_hdr->header_size_in_bytes);
 
-  pic_params->StatusReportFeedbackNumber = status_feedback_++;
+  // StatusReportFeedbackNumber "should not be equal to 0".
+  pic_params->StatusReportFeedbackNumber = ++status_feedback_;
 }
 
 bool D3D11VP9Accelerator::SubmitDecoderBuffer(

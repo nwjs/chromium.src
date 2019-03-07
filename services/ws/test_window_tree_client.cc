@@ -222,7 +222,7 @@ void TestWindowTreeClient::OnWindowFocused(Id focused_window_id) {
 }
 
 void TestWindowTreeClient::OnWindowCursorChanged(Id window_id,
-                                                 ui::CursorData cursor) {
+                                                 ui::Cursor cursor) {
   tracker_.OnWindowCursorChanged(window_id, cursor);
 }
 
@@ -233,7 +233,8 @@ void TestWindowTreeClient::OnDragDropStart(
 
 void TestWindowTreeClient::OnDragEnter(Id window,
                                        uint32_t key_state,
-                                       const gfx::Point& position,
+                                       const gfx::PointF& location_in_root,
+                                       const gfx::PointF& location,
                                        uint32_t effect_bitmask,
                                        OnDragEnterCallback callback) {
   tracker_.OnDragEnter(window);
@@ -241,7 +242,8 @@ void TestWindowTreeClient::OnDragEnter(Id window,
 
 void TestWindowTreeClient::OnDragOver(Id window,
                                       uint32_t key_state,
-                                      const gfx::Point& position,
+                                      const gfx::PointF& location_in_root,
+                                      const gfx::PointF& location,
                                       uint32_t effect_bitmask,
                                       OnDragOverCallback callback) {
   tracker_.OnDragOver(window);
@@ -253,7 +255,8 @@ void TestWindowTreeClient::OnDragLeave(Id window) {
 
 void TestWindowTreeClient::OnCompleteDrop(Id window,
                                           uint32_t key_state,
-                                          const gfx::Point& position,
+                                          const gfx::PointF& location_in_root,
+                                          const gfx::PointF& location,
                                           uint32_t effect_bitmask,
                                           OnCompleteDropCallback callback) {
   tracker_.OnCompleteDrop(window);
@@ -287,10 +290,9 @@ void TestWindowTreeClient::GetScreenProviderObserver(
   screen_provider_observer_binding_.Bind(std::move(observer));
 }
 
-void TestWindowTreeClient::OnOcclusionStateChanged(
-    Id window_id,
-    mojom::OcclusionState occlusion_state) {
-  tracker_.OnOcclusionStateChanged(window_id, occlusion_state);
+void TestWindowTreeClient::OnOcclusionStatesChanged(
+    const base::flat_map<Id, mojom::OcclusionState>& occlusion_changes) {
+  tracker_.OnOcclusionStatesChanged(occlusion_changes);
 }
 
 }  // namespace ws

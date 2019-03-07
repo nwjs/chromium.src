@@ -21,7 +21,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
+#include "chrome/browser/chromeos/arc/fileapi/arc_documents_provider_root_map.h"
 #include "chrome/browser/chromeos/arc/fileapi/arc_documents_provider_util.h"
+#include "chrome/browser/chromeos/arc/fileapi/arc_file_system_operation_runner.h"
 #include "chrome/browser/chromeos/arc/fileapi/arc_media_view_util.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
@@ -36,7 +38,7 @@
 #include "chrome/browser/media_galleries/fileapi/mtp_device_map_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/disks/disk.h"
 #include "chromeos/disks/disk_mount_manager.h"
 #include "components/drive/chromeos/file_system_interface.h"
@@ -146,6 +148,8 @@ std::string VolumeTypeToString(VolumeType type) {
       return "media_view";
     case VOLUME_TYPE_ANDROID_FILES:
       return "android_files";
+    case VOLUME_TYPE_DOCUMENTS_PROVIDER:
+      return "documents_provider";
     case VOLUME_TYPE_TESTING:
       return "testing";
     case VOLUME_TYPE_CROSTINI:
@@ -248,6 +252,7 @@ std::unique_ptr<Volume> Volume::CreateForRemovable(
     volume->is_read_only_ = disk->is_read_only();
     volume->is_read_only_removable_device_ = disk->is_read_only_hardware();
     volume->has_media_ = disk->has_media();
+    volume->drive_label_ = disk->drive_label();
   } else {
     volume->volume_label_ = volume->mount_path().BaseName().AsUTF8Unsafe();
     volume->device_type_ = chromeos::DEVICE_TYPE_UNKNOWN;
@@ -358,20 +363,55 @@ std::unique_ptr<Volume> Volume::CreateForAndroidFiles(
 }
 
 // static
+std::unique_ptr<Volume> Volume::CreateForDocumentsProvider(
+    const std::string& authority,
+    const std::string& root_id,
+    const std::string& document_id,
+    const std::string& title,
+    const std::string& summary,
+    const GURL& icon_url) {
+  std::unique_ptr<Volume> volume(new Volume());
+  volume->type_ = VOLUME_TYPE_DOCUMENTS_PROVIDER;
+  volume->device_type_ = chromeos::DEVICE_TYPE_UNKNOWN;
+  // Keep source_path empty.
+  volume->source_ = SOURCE_SYSTEM;
+  volume->mount_path_ =
+      arc::GetDocumentsProviderMountPath(authority, document_id);
+  volume->mount_condition_ = chromeos::disks::MOUNT_CONDITION_NONE;
+  volume->volume_label_ = title;
+  // TODO(fukino): Set a proper flag when write operations are supported.
+  volume->is_read_only_ = true;
+  volume->watchable_ = false;
+  volume->volume_id_ = arc::GetDocumentsProviderVolumeId(authority, root_id);
+  if (!icon_url.is_empty()) {
+    chromeos::file_system_provider::IconSet icon_set;
+    icon_set.SetIcon(
+        chromeos::file_system_provider::IconSet::IconSize::SIZE_32x32,
+        icon_url);
+    volume->icon_set_ = icon_set;
+  }
+  return volume;
+}
+
+// static
 std::unique_ptr<Volume> Volume::CreateForTesting(
     const base::FilePath& path,
     VolumeType volume_type,
     chromeos::DeviceType device_type,
-    bool read_only) {
+    bool read_only,
+    const base::FilePath& device_path,
+    const std::string& drive_label) {
   std::unique_ptr<Volume> volume(new Volume());
   volume->type_ = volume_type;
   volume->device_type_ = device_type;
   // Keep source_path empty.
   volume->source_ = SOURCE_DEVICE;
   volume->mount_path_ = path;
+  volume->system_path_prefix_ = device_path;
   volume->mount_condition_ = chromeos::disks::MOUNT_CONDITION_NONE;
   volume->is_read_only_ = read_only;
   volume->volume_id_ = GenerateVolumeId(*volume);
+  volume->drive_label_ = drive_label;
   return volume;
 }
 
@@ -398,6 +438,11 @@ VolumeManager::VolumeManager(
       file_system_provider_service_(file_system_provider_service),
       get_mtp_storage_info_callback_(get_mtp_storage_info_callback),
       snapshot_manager_(new SnapshotManager(profile_)),
+      documents_provider_root_manager_(
+          std::make_unique<DocumentsProviderRootManager>(
+              profile_,
+              arc::ArcFileSystemOperationRunner::GetForBrowserContext(
+                  profile_))),
       weak_ptr_factory_(this) {
   DCHECK(disk_mount_manager);
 }
@@ -437,6 +482,9 @@ void VolumeManager::Initialize() {
       base::BindOnce(&VolumeManager::OnDiskMountManagerRefreshed,
                      weak_ptr_factory_.GetWeakPtr()),
       false /* force */);
+
+  // Subscribe to ARC DocumentsProvider events about roots.
+  documents_provider_root_manager_->AddObserver(this);
 
   // Subscribe to FileSystemProviderService and register currently mounted
   // volumes for the profile.
@@ -490,6 +538,8 @@ void VolumeManager::Shutdown() {
   snapshot_manager_.reset();
   pref_change_registrar_.RemoveAll();
   disk_mount_manager_->RemoveObserver(this);
+  documents_provider_root_manager_->RemoveObserver(this);
+  documents_provider_root_manager_.reset();
   if (storage_monitor::StorageMonitor::GetInstance())
     storage_monitor::StorageMonitor::GetInstance()->RemoveObserver(this);
 
@@ -638,11 +688,13 @@ bool VolumeManager::RegisterCrostiniDirectoryForTesting(
 void VolumeManager::AddVolumeForTesting(const base::FilePath& path,
                                         VolumeType volume_type,
                                         chromeos::DeviceType device_type,
-                                        bool read_only) {
+                                        bool read_only,
+                                        const base::FilePath& device_path,
+                                        const std::string& drive_label) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DoMountEvent(
-      chromeos::MOUNT_ERROR_NONE,
-      Volume::CreateForTesting(path, volume_type, device_type, read_only));
+  DoMountEvent(chromeos::MOUNT_ERROR_NONE,
+               Volume::CreateForTesting(path, volume_type, device_type,
+                                        read_only, device_path, drive_label));
 }
 
 void VolumeManager::AddVolumeForTesting(std::unique_ptr<Volume> volume) {
@@ -982,6 +1034,7 @@ void VolumeManager::OnArcPlayStoreEnabledChanged(bool enabled) {
     }
   }
 
+  documents_provider_root_manager_->SetEnabled(enabled);
   arc_volumes_mounted_ = enabled;
 }
 
@@ -1101,6 +1154,31 @@ void VolumeManager::OnRemovableStorageDetached(
       return;
     }
   }
+}
+
+void VolumeManager::OnDocumentsProviderRootAdded(const std::string& authority,
+                                                 const std::string& root_id,
+                                                 const std::string& document_id,
+                                                 const std::string& title,
+                                                 const std::string& summary,
+                                                 const GURL& icon_url) {
+  arc::ArcDocumentsProviderRootMap::GetForArcBrowserContext()->RegisterRoot(
+      authority, document_id);
+  DoMountEvent(chromeos::MOUNT_ERROR_NONE,
+               Volume::CreateForDocumentsProvider(
+                   authority, root_id, document_id, title, summary, icon_url));
+}
+
+void VolumeManager::OnDocumentsProviderRootRemoved(
+    const std::string& authority,
+    const std::string& root_id,
+    const std::string& document_id) {
+  DoUnmountEvent(chromeos::MOUNT_ERROR_NONE,
+                 *Volume::CreateForDocumentsProvider(
+                     authority, root_id, std::string(), std::string(),
+                     std::string(), GURL()));
+  arc::ArcDocumentsProviderRootMap::GetForArcBrowserContext()->UnregisterRoot(
+      authority, document_id);
 }
 
 void VolumeManager::OnDiskMountManagerRefreshed(bool success) {

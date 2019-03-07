@@ -341,8 +341,8 @@ void ConversionContext::SwitchToClip(const ClipPaintPropertyNode* target_clip) {
 #endif
       // This bug is known to happen in SPv1 due to some clip-escaping corner
       // cases that are very difficult to fix in legacy architecture.
-      // In SPv2 this should never happen.
-      if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+      // In CAP this should never happen.
+      if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
         NOTREACHED();
       break;
     }
@@ -515,9 +515,7 @@ void ConversionContext::StartEffect(const EffectPaintPropertyNode* effect) {
           effect->GetColorFilter()));
       save_layer_id = cc_list_.push<cc::SaveLayerOp>(nullptr, &flags);
     } else {
-      constexpr bool preserve_lcd_text_requests = false;
-      save_layer_id = cc_list_.push<cc::SaveLayerAlphaOp>(
-          nullptr, alpha, preserve_lcd_text_requests);
+      save_layer_id = cc_list_.push<cc::SaveLayerAlphaOp>(nullptr, alpha);
     }
     saved_count++;
   } else {

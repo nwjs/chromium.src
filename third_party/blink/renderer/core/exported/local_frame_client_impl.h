@@ -36,6 +36,7 @@
 
 #include "base/memory/scoped_refptr.h"
 
+#include "third_party/blink/public/mojom/frame/document_interface_broker.mojom-blink.h"
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
@@ -51,9 +52,10 @@ struct WebScrollIntoViewParams;
 
 class LocalFrameClientImpl final : public LocalFrameClient {
  public:
-  static LocalFrameClientImpl* Create(WebLocalFrameImpl*);
+  static LocalFrameClientImpl* Create(WebLocalFrameImpl*,
+                                      mojo::ScopedMessagePipeHandle);
 
-  explicit LocalFrameClientImpl(WebLocalFrameImpl*);
+  LocalFrameClientImpl(WebLocalFrameImpl*, mojo::ScopedMessagePipeHandle);
   ~LocalFrameClientImpl() override;
 
   void Trace(blink::Visitor*) override;
@@ -98,8 +100,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
                                        WebHistoryCommitType,
                                        bool content_initiated) override;
   void DispatchWillCommitProvisionalLoad() override;
-  void DispatchDidStartProvisionalLoad(DocumentLoader*,
-                                       const ResourceRequest&) override;
+  void DispatchDidStartProvisionalLoad(DocumentLoader*) override;
   void DispatchDidReceiveTitle(const String&) override;
   void DispatchDidChangeIcons(IconType) override;
   void DispatchDidCommitLoad(HistoryItem*,
@@ -127,6 +128,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
       mojom::blink::BlobURLTokenPtr,
       base::TimeTicks input_start_time,
       const String& href_translate,
+      WebContentSecurityPolicyList,
       mojom::blink::NavigationInitiatorPtr) override;
   void DispatchWillSendSubmitEvent(HTMLFormElement*) override;
   void DidStartLoading() override;
@@ -162,11 +164,6 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   //   layer
   DocumentLoader* CreateDocumentLoader(
       LocalFrame*,
-      const ResourceRequest&,
-      const SubstituteData&,
-      ClientRedirectPolicy,
-      const base::UnguessableToken& devtools_navigation_token,
-      WebFrameLoadType,
       WebNavigationType,
       std::unique_ptr<WebNavigationParams> navigation_params,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override;
@@ -181,6 +178,9 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void TransitionToCommittedForNewPage() override;
   LocalFrame* CreateFrame(const WTF::AtomicString& name,
                           HTMLFrameOwnerElement*) override;
+  std::pair<RemoteFrame*, base::UnguessableToken> CreatePortal(
+      HTMLPortalElement*,
+      mojom::blink::PortalRequest) override;
   WebPluginContainerImpl* CreatePlugin(HTMLPlugInElement&,
                                        const KURL&,
                                        const Vector<WTF::String>&,
@@ -223,8 +223,6 @@ class LocalFrameClientImpl final : public LocalFrameClient {
       override;
   WebContentSettingsClient* GetContentSettingsClient() override;
 
-  SharedWorkerRepositoryClient* GetSharedWorkerRepositoryClient() override;
-
   std::unique_ptr<WebApplicationCacheHost> CreateApplicationCacheHost(
       WebApplicationCacheHostClient*) override;
 
@@ -260,6 +258,9 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   std::unique_ptr<WebURLLoaderFactory> CreateURLLoaderFactory() override;
 
   service_manager::InterfaceProvider* GetInterfaceProvider() override;
+
+  mojom::blink::DocumentInterfaceBroker* GetDocumentInterfaceBroker() override;
+
   AssociatedInterfaceProvider* GetRemoteNavigationAssociatedInterfaces()
       override;
 
@@ -309,6 +310,8 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   Member<WebLocalFrameImpl> web_frame_;
 
   String user_agent_;
+
+  mojom::blink::DocumentInterfaceBrokerPtr document_interface_broker_;
 };
 
 DEFINE_TYPE_CASTS(LocalFrameClientImpl,

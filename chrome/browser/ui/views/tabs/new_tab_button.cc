@@ -75,7 +75,6 @@ NewTabButton::NewTabButton(TabStrip* tab_strip, views::ButtonListener* listener)
   SetInkDropMode(InkDropMode::ON);
   set_ink_drop_visible_opacity(0.08f);
 
-  SetFocusPainter(nullptr);
   SetInstallFocusRingOnFocus(true);
 }
 
@@ -227,14 +226,13 @@ void NewTabButton::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   GetInkDrop()->HostSizeChanged(ink_drop_size);
 }
 
-bool NewTabButton::GetHitTestMask(gfx::Path* mask) const {
+bool NewTabButton::GetHitTestMask(SkPath* mask) const {
   DCHECK(mask);
 
   const float scale = GetWidget()->GetCompositor()->device_scale_factor();
   // TODO(pkasting): Fitts' Law horizontally when appropriate.
-  gfx::Path border =
-      GetBorderPath(GetContentsBounds().origin(), scale,
-                    tab_strip_->controller()->IsFrameCondensed());
+  SkPath border = GetBorderPath(GetContentsBounds().origin(), scale,
+                                tab_strip_->controller()->IsFrameCondensed());
   mask->addPath(border, SkMatrix::MakeScale(1 / scale));
   return true;
 }
@@ -290,9 +288,13 @@ void NewTabButton::PaintFill(gfx::Canvas* canvas) const {
 }
 
 void NewTabButton::PaintPlusIcon(gfx::Canvas* canvas) const {
+  const SkColor background_color =
+      tab_strip_->GetTabBackgroundColor(TAB_INACTIVE);
+
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
-  flags.setColor(tab_strip_->GetTabForegroundColor(TAB_INACTIVE));
+  flags.setColor(
+      tab_strip_->GetTabForegroundColor(TAB_INACTIVE, background_color));
   flags.setStrokeCap(cc::PaintFlags::kRound_Cap);
   constexpr int kStrokeWidth = 2;
   flags.setStrokeWidth(kStrokeWidth);
@@ -324,14 +326,14 @@ SkColor NewTabButton::GetButtonFillColor() const {
              : SK_ColorTRANSPARENT;
 }
 
-gfx::Path NewTabButton::GetBorderPath(const gfx::Point& origin,
-                                      float scale,
-                                      bool extend_to_top) const {
+SkPath NewTabButton::GetBorderPath(const gfx::Point& origin,
+                                   float scale,
+                                   bool extend_to_top) const {
   gfx::PointF scaled_origin(origin);
   scaled_origin.Scale(scale);
   const float radius = GetCornerRadius() * scale;
 
-  gfx::Path path;
+  SkPath path;
   if (extend_to_top) {
     path.moveTo(scaled_origin.x(), 0);
     const float diameter = radius * 2;
@@ -348,6 +350,6 @@ gfx::Path NewTabButton::GetBorderPath(const gfx::Point& origin,
 }
 
 void NewTabButton::UpdateInkDropBaseColor() {
-  set_ink_drop_base_color(color_utils::BlendTowardOppositeLuma(
-      GetButtonFillColor(), SK_AlphaOPAQUE));
+  set_ink_drop_base_color(
+      color_utils::GetColorWithMaxContrast(GetButtonFillColor()));
 }

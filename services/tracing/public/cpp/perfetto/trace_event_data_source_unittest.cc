@@ -146,6 +146,10 @@ class DummyTraceWriter : public perfetto::TraceWriter {
     return perfetto::WriterID(0);
   }
 
+  uint64_t written() const override {
+    return 0u;
+  }
+
  private:
   perfetto::protos::pbzero::TracePacket trace_packet_;
   protozero::ScatteredStreamWriterNullDelegate delegate_;
@@ -166,6 +170,10 @@ class MockTraceWriter : public perfetto::TraceWriter {
 
   perfetto::WriterID writer_id() const override {
     return perfetto::WriterID(0);
+  }
+
+  uint64_t written() const override {
+    return 0u;
   }
 
  private:
@@ -290,9 +298,9 @@ TEST_F(TraceEventDataSourceTest, MetadataSourceBasicTypes) {
   auto data_source_config = mojom::DataSourceConfig::New();
   metadata_source->StartTracing(producer_client(), *data_source_config);
 
-  base::RunLoop wait_for_flush;
-  metadata_source->Flush(wait_for_flush.QuitClosure());
-  wait_for_flush.Run();
+  base::RunLoop wait_for_stop;
+  metadata_source->StopTracing(wait_for_stop.QuitClosure());
+  wait_for_stop.Run();
 
   auto metadata = producer_client()->GetChromeMetadata();
   EXPECT_EQ(4, metadata.size());

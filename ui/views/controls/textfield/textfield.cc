@@ -354,9 +354,9 @@ void Textfield::SetReadOnly(bool read_only) {
 void Textfield::SetTextInputType(ui::TextInputType type) {
   GetRenderText()->SetObscured(type == ui::TEXT_INPUT_TYPE_PASSWORD);
   text_input_type_ = type;
-  OnCaretBoundsChanged();
   if (GetInputMethod())
     GetInputMethod()->OnTextInputTypeChanged(this);
+  OnCaretBoundsChanged();
   SchedulePaint();
 }
 
@@ -914,7 +914,7 @@ bool Textfield::SkipDefaultKeyEventProcessing(const ui::KeyEvent& event) {
 
 bool Textfield::GetDropFormats(
     int* formats,
-    std::set<ui::Clipboard::FormatType>* format_types) {
+    std::set<ui::ClipboardFormatType>* format_types) {
   if (!enabled() || read_only())
     return false;
   // TODO(msw): Can we support URL, FILENAME, etc.?
@@ -926,7 +926,7 @@ bool Textfield::GetDropFormats(
 
 bool Textfield::CanDrop(const OSExchangeData& data) {
   int formats;
-  std::set<ui::Clipboard::FormatType> format_types;
+  std::set<ui::ClipboardFormatType> format_types;
   GetDropFormats(&formats, &format_types);
   return enabled() && !read_only() && data.HasAnyFormat(formats, format_types);
 }
@@ -1046,7 +1046,7 @@ bool Textfield::HandleAccessibleAction(const ui::AXActionData& action_data) {
       return false;
     // TODO(nektar): Check that the focus_node_id matches the ID of this node.
     const gfx::Range range(action_data.anchor_offset, action_data.focus_offset);
-    return SetSelectionRange(range);
+    return SetEditableSelectionRange(range);
   }
 
   // Remaining actions cannot be performed on readonly fields.
@@ -1187,15 +1187,6 @@ void Textfield::OnCompositionTextConfirmedOrCleared() {
 void Textfield::ShowContextMenuForView(View* source,
                                        const gfx::Point& point,
                                        ui::MenuSourceType source_type) {
-#if defined(OS_MACOSX)
-  // On Mac, the context menu contains a look up item which displays the
-  // selected text. As such, the menu needs to be updated if the selection has
-  // changed. Be careful to reset the MenuRunner first so it doesn't reference
-  // the old model.
-  context_menu_runner_.reset();
-  context_menu_contents_.reset();
-#endif
-
   UpdateContextMenu();
   context_menu_runner_->RunMenuAt(GetWidget(), NULL,
                                   gfx::Rect(point, gfx::Size()),
@@ -1590,14 +1581,14 @@ bool Textfield::GetCompositionTextRange(gfx::Range* range) const {
   return true;
 }
 
-bool Textfield::GetSelectionRange(gfx::Range* range) const {
+bool Textfield::GetEditableSelectionRange(gfx::Range* range) const {
   if (!ImeEditingAllowed())
     return false;
   *range = GetRenderText()->selection();
   return true;
 }
 
-bool Textfield::SetSelectionRange(const gfx::Range& range) {
+bool Textfield::SetEditableSelectionRange(const gfx::Range& range) {
   if (!ImeEditingAllowed() || !range.IsValid())
     return false;
   OnBeforeUserAction();
@@ -2265,30 +2256,33 @@ bool Textfield::Paste() {
 }
 
 void Textfield::UpdateContextMenu() {
-  if (!context_menu_contents_.get()) {
-    context_menu_contents_.reset(new ui::SimpleMenuModel(this));
-    context_menu_contents_->AddItemWithStringId(IDS_APP_UNDO, IDS_APP_UNDO);
-    context_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
-    context_menu_contents_->AddItemWithStringId(IDS_APP_CUT, IDS_APP_CUT);
-    context_menu_contents_->AddItemWithStringId(IDS_APP_COPY, IDS_APP_COPY);
-    context_menu_contents_->AddItemWithStringId(IDS_APP_PASTE, IDS_APP_PASTE);
-    context_menu_contents_->AddItemWithStringId(IDS_APP_DELETE, IDS_APP_DELETE);
-    context_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
-    context_menu_contents_->AddItemWithStringId(IDS_APP_SELECT_ALL,
-                                                IDS_APP_SELECT_ALL);
+  // TextfieldController may modify Textfield's menu, so the menu should be
+  // recreated each time it's shown. Reset the MenuRunner first so it doesn't
+  // reference the old menu model.
+  context_menu_runner_.reset();
 
-    // If the controller adds menu commands, also override ExecuteCommand() and
-    // IsCommandIdEnabled() as appropriate, for the commands added.
-    if (controller_)
-      controller_->UpdateContextMenu(context_menu_contents_.get());
+  context_menu_contents_.reset(new ui::SimpleMenuModel(this));
+  context_menu_contents_->AddItemWithStringId(IDS_APP_UNDO, IDS_APP_UNDO);
+  context_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
+  context_menu_contents_->AddItemWithStringId(IDS_APP_CUT, IDS_APP_CUT);
+  context_menu_contents_->AddItemWithStringId(IDS_APP_COPY, IDS_APP_COPY);
+  context_menu_contents_->AddItemWithStringId(IDS_APP_PASTE, IDS_APP_PASTE);
+  context_menu_contents_->AddItemWithStringId(IDS_APP_DELETE, IDS_APP_DELETE);
+  context_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
+  context_menu_contents_->AddItemWithStringId(IDS_APP_SELECT_ALL,
+                                              IDS_APP_SELECT_ALL);
 
-    text_services_context_menu_ = ViewsTextServicesContextMenu::Create(
-        context_menu_contents_.get(), this);
-  }
+  // If the controller adds menu commands, also override ExecuteCommand() and
+  // IsCommandIdEnabled() as appropriate, for the commands added.
+  if (controller_)
+    controller_->UpdateContextMenu(context_menu_contents_.get());
 
-  context_menu_runner_.reset(
-      new MenuRunner(context_menu_contents_.get(),
-                     MenuRunner::HAS_MNEMONICS | MenuRunner::CONTEXT_MENU));
+  text_services_context_menu_ =
+      ViewsTextServicesContextMenu::Create(context_menu_contents_.get(), this);
+
+  context_menu_runner_ = std::make_unique<MenuRunner>(
+      context_menu_contents_.get(),
+      MenuRunner::HAS_MNEMONICS | MenuRunner::CONTEXT_MENU);
 }
 
 bool Textfield::ImeEditingAllowed() const {

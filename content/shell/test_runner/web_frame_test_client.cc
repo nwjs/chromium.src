@@ -67,11 +67,12 @@ void PrintResponseDescription(WebTestDelegate* delegate,
     delegate->PrintMessage("(null)");
     return;
   }
-  delegate->PrintMessage(base::StringPrintf(
-      "<NSURLResponse %s, http status code %d>",
-      DescriptionSuitableForTestResult(response.Url().GetString().Utf8())
-          .c_str(),
-      response.HttpStatusCode()));
+  delegate->PrintMessage(
+      base::StringPrintf("<NSURLResponse %s, http status code %d>",
+                         DescriptionSuitableForTestResult(
+                             response.CurrentRequestUrl().GetString().Utf8())
+                             .c_str(),
+                         response.HttpStatusCode()));
 }
 
 void BlockRequest(blink::WebURLRequest& request) {
@@ -158,7 +159,7 @@ WebFrameTestClient::~WebFrameTestClient() {}
 // static
 void WebFrameTestClient::PrintFrameDescription(WebTestDelegate* delegate,
                                                blink::WebLocalFrame* frame) {
-  std::string name = content::GetFrameNameForLayoutTests(frame);
+  std::string name = content::GetFrameNameForWebTests(frame);
   if (frame == frame->View()->MainFrame()) {
     DCHECK(name.empty());
     delegate->PrintMessage("main frame");
@@ -466,7 +467,7 @@ void WebFrameTestClient::WillSendRequest(blink::WebURLRequest& request) {
   }
 
   // Set the new substituted URL.
-  request.SetURL(delegate_->RewriteLayoutTestsURL(
+  request.SetURL(delegate_->RewriteWebTestsURL(
       request.Url().GetString().Utf8(),
       test_runner()->is_web_platform_tests_mode()));
 }
@@ -475,13 +476,13 @@ void WebFrameTestClient::DidReceiveResponse(
     const blink::WebURLResponse& response) {
   if (test_runner()->shouldDumpResourceLoadCallbacks()) {
     delegate_->PrintMessage(DescriptionSuitableForTestResult(
-        GURL(response.Url()).possibly_invalid_spec()));
+        GURL(response.CurrentRequestUrl()).possibly_invalid_spec()));
     delegate_->PrintMessage(" - didReceiveResponse ");
     PrintResponseDescription(delegate_, response);
     delegate_->PrintMessage("\n");
   }
   if (test_runner()->shouldDumpResourceResponseMIMETypes()) {
-    GURL url = response.Url();
+    GURL url = response.CurrentRequestUrl();
     blink::WebString mime_type = response.MimeType();
     delegate_->PrintMessage(url.ExtractFileName());
     delegate_->PrintMessage(" has MIME type ");
@@ -502,16 +503,16 @@ void WebFrameTestClient::DidAddMessageToConsole(
     return;
   std::string level;
   switch (message.level) {
-    case blink::WebConsoleMessage::kLevelVerbose:
+    case blink::mojom::ConsoleMessageLevel::kVerbose:
       level = "DEBUG";
       break;
-    case blink::WebConsoleMessage::kLevelInfo:
+    case blink::mojom::ConsoleMessageLevel::kInfo:
       level = "MESSAGE";
       break;
-    case blink::WebConsoleMessage::kLevelWarning:
+    case blink::mojom::ConsoleMessageLevel::kWarning:
       level = "WARNING";
       break;
-    case blink::WebConsoleMessage::kLevelError:
+    case blink::mojom::ConsoleMessageLevel::kError:
       level = "ERROR";
       break;
     default:

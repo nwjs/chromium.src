@@ -109,6 +109,9 @@ message DeviceReportingProto {
   optional bool report_session_status = 8 [default = true];
   optional bool report_os_update_status = 10 [default = false];
   optional bool report_running_kiosk_app = 11 [default = false];
+  optional bool report_power_status = 12 [default = false];
+  optional bool report_storage_status = 13 [default = false];
+  optional bool report_board_status = 14 [default = false];
 
   // Frequency to report device status, default to 3 hours.
   optional int64 device_status_frequency = 9 [default = 10800000];
@@ -764,6 +767,18 @@ message DisplayRotationDefaultProto {
 // This setting is configured by the device policy DeviceDisplayResolution.
 // If |device_display_resolution| contains a value, then it's treated as a JSON
 // object that uses the schema defined for DeviceDisplayResolution policy.
+// Example of the policy value:
+// {
+//   "external_width": 1920,
+//   "external_height": 1080,
+//   "external_scale_percentage": 50,
+//   "internal_scale_percentage": 150,
+//   "recommended": true
+// }
+// It sets a 1920x1080 display mode for any external displays and
+// scales them to 50%, also scales the built-in display to 150%.
+// If "recommended" flag is set to true, user is able to override
+// any settings via the settings page.
 message DeviceDisplayResolutionProto {
   optional string device_display_resolution = 1;
 }
@@ -1073,6 +1088,21 @@ message DeviceMachinePasswordChangeRateProto {
   optional int32 rate_days = 1;
 }
 
+// Specifies how long cached Active Directory Group Policy Objects (GPOs) may be
+// reused until they are re-downloaded (a version change also forces a
+// re-download).
+// Applies to Active Directory management mode only.
+message DeviceGpoCacheLifetimeProto {
+  optional int32 lifetime_hours = 1;
+}
+
+// Specifies how long cached Active Directory authentication data may be reused
+// until it is refreshed. This can significantly speed up user authentication.
+// Applies to Active Directory management mode only.
+message DeviceAuthDataCacheLifetimeProto {
+  optional int32 lifetime_hours = 1;
+}
+
 // Setting to control the authentication type for newly added users which log in
 // via SAML.
 message SamlLoginAuthenticationTypeProto {
@@ -1094,6 +1124,11 @@ message DeviceUnaffiliatedCrostiniAllowedProto {
 // Setting that controls whether PluginVm is allowed to run on this device.
 message PluginVmAllowedProto {
   optional bool plugin_vm_allowed = 1;
+}
+
+// Setting that specifies PluginVm license key for this device.
+message PluginVmLicenseKeyProto {
+  optional string plugin_vm_license_key = 1;
 }
 
 message ChromeDeviceSettingsProto {
@@ -1192,4 +1227,8 @@ message ChromeDeviceSettingsProto {
       device_wifi_fast_transition_enabled = 73;
   optional DeviceDisplayResolutionProto device_display_resolution = 74;
   optional PluginVmAllowedProto plugin_vm_allowed = 75;
+  optional DeviceGpoCacheLifetimeProto device_gpo_cache_lifetime = 76;
+  optional DeviceAuthDataCacheLifetimeProto device_auth_data_cache_lifetime =
+      77;
+  optional PluginVmLicenseKeyProto plugin_vm_license_key = 78;
 }

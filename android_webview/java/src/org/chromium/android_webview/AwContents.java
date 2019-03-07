@@ -269,6 +269,12 @@ public class AwContents implements SmartClipProvider {
          * Create a GL functor associated with native context |context|.
          */
         NativeDrawGLFunctor createGLFunctor(long context);
+
+        /**
+         * Used for draw_fn functor. Only one of these methods need to return non-null.
+         * Prefer this over createGLFunctor.
+         */
+        AwDrawFnImpl.DrawFnAccess getDrawFnAccess();
     }
 
     /**
@@ -524,6 +530,8 @@ public class AwContents implements SmartClipProvider {
         private FullScreenView mFullScreenView;
         /** Whether the initial container view was focused when we entered fullscreen */
         private boolean mWasInitialContainerViewFocused;
+        private int mScrollX;
+        private int mScrollY;
 
         private FullScreenTransitionsState(ViewGroup initialContainerView,
                 InternalAccessDelegate initialInternalAccessAdapter,
@@ -534,13 +542,23 @@ public class AwContents implements SmartClipProvider {
         }
 
         private void enterFullScreen(FullScreenView fullScreenView,
-                boolean wasInitialContainerViewFocused) {
+                boolean wasInitialContainerViewFocused, int scrollX, int scrollY) {
             mFullScreenView = fullScreenView;
             mWasInitialContainerViewFocused = wasInitialContainerViewFocused;
+            mScrollX = scrollX;
+            mScrollY = scrollY;
         }
 
         private boolean wasInitialContainerViewFocused() {
             return mWasInitialContainerViewFocused;
+        }
+
+        private int getScrollX() {
+            return mScrollX;
+        }
+
+        private int getScrollY() {
+            return mScrollY;
         }
 
         private void exitFullScreen() {
@@ -977,7 +995,8 @@ public class AwContents implements SmartClipProvider {
         if (wasInitialContainerViewFocused) {
             fullScreenView.requestFocus();
         }
-        mFullScreenTransitionsState.enterFullScreen(fullScreenView, wasInitialContainerViewFocused);
+        mFullScreenTransitionsState.enterFullScreen(fullScreenView, wasInitialContainerViewFocused,
+                mScrollOffsetManager.getScrollX(), mScrollOffsetManager.getScrollY());
         mAwViewMethods = new NullAwViewMethods(this, mInternalAccessAdapter, mContainerView);
 
         // Associate this AwContents with the FullScreenView.
@@ -1029,6 +1048,13 @@ public class AwContents implements SmartClipProvider {
         if (mFullScreenTransitionsState.wasInitialContainerViewFocused()) {
             mContainerView.requestFocus();
         }
+
+        if (!isDestroyedOrNoOperation(NO_WARN)) {
+            nativeRestoreScrollAfterTransition(mNativeAwContents,
+                    mFullScreenTransitionsState.getScrollX(),
+                    mFullScreenTransitionsState.getScrollY());
+        }
+
         mFullScreenTransitionsState.exitFullScreen();
     }
 
@@ -3432,7 +3458,15 @@ public class AwContents implements SmartClipProvider {
             }
 
             if (canvas.isHardwareAccelerated() && mDrawFunctor == null) {
-                setFunctor(new AwGLFunctor(mNativeDrawFunctorFactory, mContainerView));
+                AwFunctor newFunctor;
+                AwDrawFnImpl.DrawFnAccess drawFnAccess =
+                        mNativeDrawFunctorFactory.getDrawFnAccess();
+                if (drawFnAccess != null) {
+                    newFunctor = new AwDrawFnImpl(drawFnAccess);
+                } else {
+                    newFunctor = new AwGLFunctor(mNativeDrawFunctorFactory, mContainerView);
+                }
+                setFunctor(newFunctor);
             }
 
             mScrollOffsetManager.syncScrollOffsetFromOnDraw();
@@ -3843,6 +3877,7 @@ public class AwContents implements SmartClipProvider {
 
     private native void nativeOnSizeChanged(long nativeAwContents, int w, int h, int ow, int oh);
     private native void nativeScrollTo(long nativeAwContents, int x, int y);
+    private native void nativeRestoreScrollAfterTransition(long nativeAwContents, int x, int y);
     private native void nativeSmoothScroll(
             long nativeAwContents, int targetX, int targetY, long durationMs);
     private native void nativeSetViewVisibility(long nativeAwContents, boolean visible);

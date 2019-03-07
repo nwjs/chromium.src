@@ -17,6 +17,7 @@ class Window;
 }
 
 namespace ash {
+class AutoclickTray;
 class FlagWarningTray;
 class ImeMenuTray;
 class LogoutButtonTray;
@@ -79,6 +80,7 @@ class ASH_EXPORT StatusAreaWidget : public views::Widget,
   SelectToSpeakTray* select_to_speak_tray() {
     return select_to_speak_tray_.get();
   }
+  AutoclickTray* autoclick_tray() { return autoclick_tray_.get(); }
 
   Shelf* shelf() { return shelf_; }
 
@@ -99,9 +101,6 @@ class ASH_EXPORT StatusAreaWidget : public views::Widget,
   // Overridden from views::Widget:
   const ui::NativeTheme* GetNativeTheme() const override;
   bool OnNativeWidgetActivationChanged(bool active) override;
-
-  // ShelfBackgroundAnimatorObserver:
-  void UpdateShelfItemBackground(SkColor color) override;
 
   // TODO(jamescook): Introduce a test API instead of these methods.
   LogoutButtonTray* logout_button_tray_for_testing() {
@@ -131,6 +130,7 @@ class ASH_EXPORT StatusAreaWidget : public views::Widget,
   std::unique_ptr<VirtualKeyboardTray> virtual_keyboard_tray_;
   std::unique_ptr<ImeMenuTray> ime_menu_tray_;
   std::unique_ptr<SelectToSpeakTray> select_to_speak_tray_;
+  std::unique_ptr<AutoclickTray> autoclick_tray_;
   std::unique_ptr<FlagWarningTray> flag_warning_tray_;
 
   LoginStatus login_status_ = LoginStatus::NOT_LOGGED_IN;

@@ -59,8 +59,7 @@ class CONTENT_EXPORT SignedExchangeHandler {
   // validated against a verified certificate, or on failure.
   // On success:
   // - |result| is kSuccess.
-  // - |request_url| and |request_method| are the exchange's request's URL and
-  //   method.
+  // - |request_url| is the exchange's request's URL.
   // - |resource_response| contains inner response's headers.
   // - The payload stream can be read from |payload_stream|.
   // On failure:
@@ -71,7 +70,6 @@ class CONTENT_EXPORT SignedExchangeHandler {
       SignedExchangeLoadResult result,
       net::Error error,
       const GURL& request_url,
-      const std::string& request_method,
       const network::ResourceResponseHead& resource_response,
       std::unique_ptr<net::SourceStream> payload_stream)>;
 
@@ -86,6 +84,8 @@ class CONTENT_EXPORT SignedExchangeHandler {
   // from |payload_stream| passed to |headers_callback|. |cert_fetcher_factory|
   // is used to create a SignedExchangeCertFetcher that fetches the certificate.
   SignedExchangeHandler(
+      bool is_secure_transport,
+      bool has_nosniff,
       std::string content_type,
       std::unique_ptr<net::SourceStream> body,
       ExchangeHeadersCallback headers_callback,
@@ -127,6 +127,8 @@ class CONTENT_EXPORT SignedExchangeHandler {
                     const net::CertVerifyResult& cv_result,
                     const net::ct::CTVerifyResult& ct_result);
 
+  const bool is_secure_transport_;
+  const bool has_nosniff_;
   ExchangeHeadersCallback headers_callback_;
   base::Optional<SignedExchangeVersion> version_;
   std::unique_ptr<net::SourceStream> source_;

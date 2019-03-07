@@ -5,9 +5,13 @@
 #ifndef MEDIA_LEARNING_IMPL_TARGET_DISTRIBUTION_H_
 #define MEDIA_LEARNING_IMPL_TARGET_DISTRIBUTION_H_
 
+#include <ostream>
+#include <string>
+
 #include "base/component_export.h"
 #include "base/containers/flat_map.h"
 #include "base/macros.h"
+#include "media/learning/common/labelled_example.h"
 #include "media/learning/common/value.h"
 
 namespace media {
@@ -15,6 +19,11 @@ namespace learning {
 
 // TargetDistribution of target values.
 class COMPONENT_EXPORT(LEARNING_IMPL) TargetDistribution {
+ private:
+  // We use a flat_map since this will often have only one or two TargetValues,
+  // such as "true" or "false".
+  using DistributionMap = base::flat_map<TargetValue, size_t>;
+
  public:
   TargetDistribution();
   TargetDistribution(const TargetDistribution& rhs);
@@ -32,17 +41,24 @@ class COMPONENT_EXPORT(LEARNING_IMPL) TargetDistribution {
   // Increment |rhs| by one.
   TargetDistribution& operator+=(const TargetValue& rhs);
 
+  // Increment the distribution by |example|'s target value and weight.
+  TargetDistribution& operator+=(const LabelledExample& example);
+
   // Return the number of counts for |value|.
-  int operator[](const TargetValue& value) const;
-  int& operator[](const TargetValue& value);
+  size_t operator[](const TargetValue& value) const;
+  size_t& operator[](const TargetValue& value);
 
   // Return the total counts in the map.
-  int total_counts() const {
-    size_t total = 0u;
+  size_t total_counts() const {
+    size_t total = 0.;
     for (auto& entry : counts_)
       total += entry.second;
     return total;
   }
+
+  DistributionMap::const_iterator begin() const { return counts_.begin(); }
+
+  DistributionMap::const_iterator end() const { return counts_.end(); }
 
   // Return the number of buckets in the distribution.
   // TODO(liberato): Do we want this?
@@ -51,20 +67,26 @@ class COMPONENT_EXPORT(LEARNING_IMPL) TargetDistribution {
   // Find the singular value with the highest counts, and copy it into
   // |value_out| and (optionally) |counts_out|.  Returns true if there is a
   // singular maximum, else returns false with the out params undefined.
-  bool FindSingularMax(TargetValue* value_out, int* counts_out = nullptr) const;
+  bool FindSingularMax(TargetValue* value_out,
+                       size_t* counts_out = nullptr) const;
+
+  // Return the average value of the entries in this distribution.  Of course,
+  // this only makes sense if the TargetValues can be interpreted as numeric.
+  double Average() const;
+
+  std::string ToString() const;
 
  private:
-  // We use a flat_map since this will often have only one or two TargetValues,
-  // such as "true" or "false".
-  using distribution_map_t = base::flat_map<TargetValue, int>;
-
-  const distribution_map_t& counts() const { return counts_; }
+  const DistributionMap& counts() const { return counts_; }
 
   // [value] == counts
-  distribution_map_t counts_;
+  DistributionMap counts_;
 
   // Allow copy and assign.
 };
+
+COMPONENT_EXPORT(LEARNING_IMPL)
+std::ostream& operator<<(std::ostream& out, const TargetDistribution& dist);
 
 }  // namespace learning
 }  // namespace media

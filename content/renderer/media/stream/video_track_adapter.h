@@ -14,6 +14,7 @@
 #include "base/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "content/common/content_export.h"
+#include "content/renderer/media/stream/media_stream_types.h"
 #include "content/renderer/media/stream/media_stream_video_track.h"
 #include "media/base/video_frame.h"
 #include "ui/gfx/geometry/size.h"
@@ -62,7 +63,7 @@ class CONTENT_EXPORT VideoTrackAdapterSettings {
   double max_aspect_ratio_;
   // A |max_frame_rate| of zero is used to signal that no frame-rate
   // adjustment is necessary.
-  // TODO(guidou): Change this to base::Optional. http://crbug.com/734528
+  // TODO(guidou): Change this to base::Optional. https://crbug.com/734528
   double max_frame_rate_;
 };
 
@@ -78,19 +79,21 @@ class CONTENT_EXPORT VideoTrackAdapterSettings {
 class VideoTrackAdapter
     : public base::RefCountedThreadSafe<VideoTrackAdapter> {
  public:
-  typedef base::Callback<void(bool mute_state)> OnMutedCallback;
+  using OnMutedCallback = base::Callback<void(bool mute_state)>;
 
   explicit VideoTrackAdapter(
       scoped_refptr<base::SingleThreadTaskRunner> io_task_runner);
 
   // Register |track| to receive video frames in |frame_callback| with
-  // a resolution within the boundaries of the arguments.
-  // Must be called on the main render thread. |frame_callback| is guaranteed to
-  // be released on the main render thread.
+  // a resolution within the boundaries of the arguments, and settings
+  // updates in |settings_callback|.
+  // Must be called on the main render thread.
   // |source_frame_rate| is used to calculate a prudent interval to check for
   // passing frames and inform of the result via |on_muted_state_callback|.
   void AddTrack(const MediaStreamVideoTrack* track,
                 VideoCaptureDeliverFrameCB frame_callback,
+                VideoTrackSettingsCallback settings_callback,
+                VideoTrackFormatCallback track_callback,
                 const VideoTrackAdapterSettings& settings);
   void RemoveTrack(const MediaStreamVideoTrack* track);
   void ReconfigureTrack(const MediaStreamVideoTrack* track,
@@ -102,7 +105,7 @@ class VideoTrackAdapter
                         base::TimeTicks estimated_capture_time);
 
   base::SingleThreadTaskRunner* io_task_runner() const {
-    DCHECK(thread_checker_.CalledOnValidThread());
+    DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
     return io_task_runner_.get();
   }
 
@@ -131,6 +134,8 @@ class VideoTrackAdapter
 
   void AddTrackOnIO(const MediaStreamVideoTrack* track,
                     VideoCaptureDeliverFrameCB frame_callback,
+                    VideoTrackSettingsCallback settings_callback,
+                    VideoTrackFormatCallback track_callback,
                     const VideoTrackAdapterSettings& settings);
   void RemoveTrackOnIO(const MediaStreamVideoTrack* track);
   void ReconfigureTrackOnIO(const MediaStreamVideoTrack* track,
@@ -148,7 +153,7 @@ class VideoTrackAdapter
                                uint64_t old_frame_counter_snapshot);
 
   // |thread_checker_| is bound to the main render thread.
-  base::ThreadChecker thread_checker_;
+  THREAD_CHECKER(thread_checker_);
 
   const scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_;
 
@@ -156,12 +161,11 @@ class VideoTrackAdapter
   // VideoCaptureDeliverFrameCB is released on the main render thread.
   const scoped_refptr<base::SingleThreadTaskRunner> renderer_task_runner_;
 
-  // VideoFrameResolutionAdapter is an inner class that is created on the main
-  // render thread but operates on the IO-thread. It does the resolution
-  // adaptation and delivers frames to all registered tracks on the IO-thread.
+  // VideoFrameResolutionAdapter is an inner class that lives on the IO-thread.
+  // It does the resolution adaptation and delivers frames to all registered
+  // tracks.
   class VideoFrameResolutionAdapter;
-  typedef std::vector<scoped_refptr<VideoFrameResolutionAdapter> >
-      FrameAdapters;
+  using FrameAdapters = std::vector<scoped_refptr<VideoFrameResolutionAdapter>>;
   FrameAdapters adapters_;
 
   // Set to true if frame monitoring has been started. It is only accessed on

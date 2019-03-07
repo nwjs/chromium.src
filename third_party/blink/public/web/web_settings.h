@@ -61,12 +61,6 @@ class WebSettings {
     kFullCodeWithoutHeatCheck
   };
 
-  enum class SavePreviousDocumentResources {
-    kNever,
-    kUntilOnDOMContentLoaded,
-    kUntilOnLoad
-  };
-
   // Selection strategy defines how the selection granularity changes when the
   // selection extent is moved.
   enum class SelectionStrategyType {
@@ -158,6 +152,7 @@ class WebSettings {
   virtual void SetDownloadableBinaryFontsEnabled(bool) = 0;
   virtual void SetEditingBehavior(EditingBehavior) = 0;
   virtual void SetEnableScrollAnimator(bool) = 0;
+  virtual void SetPrefersReducedMotion(bool) = 0;
   virtual void SetEnableTouchAdjustment(bool) = 0;
   virtual void SetSmoothScrollForFindEnabled(bool) = 0;
   virtual void SetWebGL1Enabled(bool) = 0;
@@ -172,6 +167,7 @@ class WebSettings {
   virtual void SetForceZeroLayoutHeight(bool) = 0;
   virtual void SetFullscreenSupported(bool) = 0;
   virtual void SetHideDownloadUI(bool) = 0;
+  virtual void SetHighlightAds(bool) = 0;
   virtual void SetHistoryEntryRequiresUserGesture(bool) = 0;
   virtual void SetHyperlinkAuditingEnabled(bool) = 0;
   virtual void SetIgnoreMainFrameOverflowHiddenQuirk(bool) = 0;
@@ -183,16 +179,13 @@ class WebSettings {
   virtual void SetLoadsImagesAutomatically(bool) = 0;
   virtual void SetLoadWithOverviewMode(bool) = 0;
   virtual void SetShouldReuseGlobalForUnownedMainFrame(bool) = 0;
-  virtual void SetSavePreviousDocumentResources(
-      SavePreviousDocumentResources) = 0;
   virtual void SetLocalStorageEnabled(bool) = 0;
   virtual void SetMainFrameClipsContent(bool) = 0;
   virtual void SetMainFrameResizesAreOrientationChanges(bool) = 0;
   virtual void SetMaxTouchPoints(int) = 0;
   virtual void SetPictureInPictureEnabled(bool) = 0;
   virtual void SetDataSaverHoldbackWebApi(bool) = 0;
-  virtual void SetDataSaverHoldbackMediaApi(bool) = 0;
-  virtual void SetMediaPlaybackGestureWhitelistScope(const WebString&) = 0;
+  virtual void SetWebAppScope(const WebString&) = 0;
   virtual void SetPresentationRequiresUserGesture(bool) = 0;
   virtual void SetEmbeddedMediaExperienceEnabled(bool) = 0;
   virtual void SetImmersiveModeEnabled(bool) = 0;
@@ -205,7 +198,6 @@ class WebSettings {
   virtual void SetPassiveEventListenerDefault(PassiveEventListenerDefault) = 0;
   virtual void SetPasswordEchoDurationInSeconds(double) = 0;
   virtual void SetPasswordEchoEnabled(bool) = 0;
-  virtual void SetPerTilePaintingEnabled(bool) = 0;
   virtual void SetPictographFontFamily(const WebString&,
                                        UScriptCode = USCRIPT_COMMON) = 0;
   virtual void SetPluginsEnabled(bool) = 0;
@@ -230,8 +222,6 @@ class WebSettings {
   virtual void SetShouldClearDocumentBackground(bool) = 0;
   virtual void SetShouldRespectImageOrientation(bool) = 0;
   virtual void SetShowContextMenuOnMouseUp(bool) = 0;
-  virtual void SetShowFPSCounter(bool) = 0;
-  virtual void SetShowPaintRects(bool) = 0;
   virtual void SetShrinksViewportContentToFit(bool) = 0;
   virtual void SetSmartInsertDeleteEnabled(bool) = 0;
   // Spatial navigation feature, when enabled, improves the experience

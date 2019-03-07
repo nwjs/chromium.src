@@ -47,9 +47,6 @@ class ApplicationDragAndDropHost;
 class AppListItemView;
 class AppsGridViewFolderDelegate;
 class ContentsView;
-class ExpandArrowView;
-class IndicatorChipView;
-class SuggestionsContainerView;
 class PaginationController;
 class PulsingBlockView;
 
@@ -107,10 +104,10 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   gfx::Size GetTileGridSizeWithoutPadding() const;
 
   // Returns the minimum size of the entire tile grid.
-  gfx::Size GetMinimumTileGridSize() const;
+  gfx::Size GetMinimumTileGridSize(int cols, int rows_per_page) const;
 
   // Returns the maximum size of the entire tile grid.
-  gfx::Size GetMaximumTileGridSize() const;
+  gfx::Size GetMaximumTileGridSize(int cols, int rows_per_page) const;
 
   // This resets the grid view to a fresh state for showing the app list.
   void ResetForShowApps();
@@ -181,9 +178,8 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   bool OnKeyPressed(const ui::KeyEvent& event) override;
   void ViewHierarchyChanged(
       const ViewHierarchyChangedDetails& details) override;
-  bool GetDropFormats(
-      int* formats,
-      std::set<ui::Clipboard::FormatType>* format_types) override;
+  bool GetDropFormats(int* formats,
+                      std::set<ui::ClipboardFormatType>* format_types) override;
   bool CanDrop(const OSExchangeData& data) override;
   int OnDragUpdated(const ui::DropTargetEvent& event) override;
   const char* GetClassName() const override;
@@ -290,16 +286,8 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
 
   const AppListModel* model() const { return model_; }
 
-  SuggestionsContainerView* suggestions_container_for_test() const {
-    return suggestions_container_;
-  }
-
   void set_page_flip_delay_in_ms_for_testing(int page_flip_delay_in_ms) {
     page_flip_delay_in_ms_ = page_flip_delay_in_ms;
-  }
-
-  ExpandArrowView* expand_arrow_view_for_test() const {
-    return expand_arrow_view_;
   }
 
  private:
@@ -313,9 +301,6 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
     NEAR_ITEM,
     BETWEEN_ITEMS,
   };
-
-  // Updates suggestions from app list model.
-  void UpdateSuggestions();
 
   // Returns all apps tiles per page based on |page|.
   int TilesPerPage(int page) const;
@@ -487,9 +472,6 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // slot if |point| is outside the page's bounds.
   GridIndex GetNearestTileIndexForPoint(const gfx::Point& point) const;
 
-  // Gets height on top of the all apps tiles for |page|.
-  int GetHeightOnTopOfAllAppsTiles(int page) const;
-
   // Gets the bounds of the tile located at |index|, where |index| contains the
   // page/slot info.
   gfx::Rect GetExpectedTileBounds(const GridIndex& index) const;
@@ -535,24 +517,11 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // Returns true if the grid view is under an OEM folder.
   bool IsUnderOEMFolder();
 
-  // Handle focus movement triggered by arrow up and down in PEEKING state.
-  bool HandleFocusMovementInPeekingState(bool arrow_up);
-
-  // Handle focus movement triggered by arrow up and down in FULLSCREEN_ALL_APPS
-  // state.
-  bool HandleFocusMovementInFullscreenAllAppsState(bool arrow_up);
-
   // Handle vertical focus movement triggered by arrow up and down.
   bool HandleVerticalFocusMovement(bool arrow_up);
 
   // Update number of columns and rows for apps within a folder.
   void UpdateColsAndRowsForFolder();
-
-  // Gets the index offset of an AppLitItemView as a child in this view. This is
-  // used to correct the order of the item views after moving the items into the
-  // new positions. As a result, a focus movement bug is resolved. (See
-  // https://crbug.com/791758)
-  size_t GetAppListItemViewIndexOffset() const;
 
   // Returns true if apps grid gap is enabled. If it is enabled, the user can
   // drag an app to the next page without having to fill up the current
@@ -637,11 +606,6 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
 
   // Created by AppListMainView, owned by views hierarchy.
   ContentsView* contents_view_ = nullptr;
-
-  // Views below are owned by views hierarchy.
-  SuggestionsContainerView* suggestions_container_ = nullptr;
-  IndicatorChipView* all_apps_indicator_ = nullptr;
-  ExpandArrowView* expand_arrow_view_ = nullptr;
 
   int cols_ = 0;
   int rows_per_page_ = 0;
@@ -746,9 +710,6 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
 
   // True if the apps grid gap feature is enabled.
   const bool is_apps_grid_gap_feature_enabled_;
-
-  // True if new style launcher feature is enabled.
-  const bool is_new_style_launcher_enabled_;
 
   // Tile spacing between the tile views.
   int horizontal_tile_padding_ = 0;

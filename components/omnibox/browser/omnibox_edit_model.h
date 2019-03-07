@@ -68,6 +68,8 @@ class OmniboxEditModel {
     OmniboxFocusState focus_state;
     FocusSource focus_source;
     const AutocompleteInput autocomplete_input;
+   private:
+    DISALLOW_ASSIGN(State);
   };
 
   // This is a mirror of content::kMaxURLDisplayChars because ios cannot depend
@@ -140,6 +142,11 @@ class OmniboxEditModel {
 
   bool user_input_in_progress() const { return user_input_in_progress_; }
 
+  // Encapsulates all the varied conditions for whether to override the
+  // permanent page icon (associated with the currently displayed page),
+  // with a temporary icon (associated with the current match or user text).
+  bool ShouldShowCurrentPageIcon() const;
+
   // Sets the state of user_input_in_progress_, and notifies the observer if
   // that state has changed.
   void SetInputInProgress(bool in_progress);
@@ -165,11 +172,13 @@ class OmniboxEditModel {
   // Sets the user_text_ to |text|.
   void SetUserText(const base::string16& text);
 
-  // Unapplies any Steady State Elisions by setting the user text to be
-  // url_for_editing_. This also selects all and enters user-input-in-progress
-  // mode. If |exit_query_in_omnibox| is set to true, this will alse exit
-  // Query in Omnibox mode if the omnibox is showing a query.
-  void Unelide(bool exit_query_in_omnibox);
+  // If the omnibox is currently displaying elided text, this method will
+  // restore the full URL into the user text. After unelision, this selects-all,
+  // enters user-input-in-progress mode, and then returns true.
+  //
+  // If the omnibox is not currently displaying elided text, this method will
+  // no-op and return false.
+  bool Unelide(bool exit_query_in_omnibox);
 
   // Invoked any time the text may have changed in the edit. Notifies the
   // controller.
@@ -359,10 +368,6 @@ class OmniboxEditModel {
 
   // Called when the current match has changed in the OmniboxController.
   void OnCurrentMatchChanged();
-
-  // Convenience method for QueryInOmnibox::GetDisplaySearchTerms.
-  // Returns true if Query in Omnibox is active. |search_terms| may be nullptr.
-  bool GetQueryInOmniboxSearchTerms(base::string16* search_terms) const;
 
   // Used for testing purposes only.
   base::string16 GetUserTextForTesting() const { return user_text_; }

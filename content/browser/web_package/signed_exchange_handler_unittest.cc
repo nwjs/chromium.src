@@ -92,13 +92,12 @@ class MockSignedExchangeCertFetcherFactory
   std::unique_ptr<SignedExchangeCertFetcher> CreateFetcherAndStart(
       const GURL& cert_url,
       bool force_fetch,
-      SignedExchangeVersion version,
       SignedExchangeCertFetcher::CertificateCallback callback,
       SignedExchangeDevToolsProxy* devtools_proxy) override {
     EXPECT_EQ(cert_url, expected_cert_url_);
 
     auto cert_chain = SignedExchangeCertificateChain::Parse(
-        version, base::as_bytes(base::make_span(cert_str_)), devtools_proxy);
+        base::as_bytes(base::make_span(cert_str_)), devtools_proxy);
     EXPECT_TRUE(cert_chain);
 
     base::SequencedTaskRunnerHandle::Get()->PostTask(
@@ -169,7 +168,7 @@ class SignedExchangeHandlerTest
             url::Origin::Create(GURL("https://sxg.example.com/test.sxg"))) {}
 
   virtual std::string ContentType() {
-    return "application/signed-exchange;v=b2";
+    return "application/signed-exchange;v=b3";
   }
 
   void SetUp() override {
@@ -266,7 +265,8 @@ class SignedExchangeHandlerTest
     SignedExchangeHandler::SetNetworkContextForTesting(network_context_.get());
 
     handler_ = std::make_unique<SignedExchangeHandler>(
-        ContentType(), std::move(source_stream_),
+        true /* is_secure_transport */, true /* has_nosniff */, ContentType(),
+        std::move(source_stream_),
         base::BindOnce(&SignedExchangeHandlerTest::OnHeaderFound,
                        base::Unretained(this)),
         std::move(cert_fetcher_factory_), net::LOAD_NORMAL,
@@ -316,7 +316,6 @@ class SignedExchangeHandlerTest
   void OnHeaderFound(SignedExchangeLoadResult result,
                      net::Error error,
                      const GURL& url,
-                     const std::string&,
                      const network::ResourceResponseHead& resource_response,
                      std::unique_ptr<net::SourceStream> payload_stream) {
     read_header_ = true;

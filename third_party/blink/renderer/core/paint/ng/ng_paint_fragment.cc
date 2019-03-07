@@ -14,12 +14,14 @@
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_logical_rect.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_physical_offset_rect.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_caret_position.h"
+#include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_offset_mapping.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_physical_line_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_physical_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_block_flow.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_item.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_marker.h"
+#include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_outline_type.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_outline_utils.h"
@@ -286,15 +288,21 @@ scoped_refptr<NGPaintFragment> NGPaintFragment::CreateOrReuse(
 scoped_refptr<NGPaintFragment> NGPaintFragment::Create(
     scoped_refptr<const NGPhysicalFragment> fragment,
     NGPhysicalOffset offset,
+    const NGBlockBreakToken* block_break_token,
     scoped_refptr<NGPaintFragment> previous_instance) {
   DCHECK(fragment);
 
   bool populate_children = fragment->IsContainer();
+  bool has_previous_instance = previous_instance.get();
   scoped_refptr<NGPaintFragment> paint_fragment =
       CreateOrReuse(std::move(fragment), offset, nullptr,
                     std::move(previous_instance), &populate_children);
 
   if (populate_children) {
+    if (has_previous_instance) {
+      NGInlineNode::ClearAssociatedFragments(paint_fragment->PhysicalFragment(),
+                                             block_break_token);
+    }
     HashMap<const LayoutObject*, NGPaintFragment*> last_fragment_map;
     paint_fragment->PopulateDescendants(NGPhysicalOffset(), &last_fragment_map);
   }
@@ -359,7 +367,7 @@ NGPaintFragment* NGPaintFragment::Last() {
 
 scoped_refptr<NGPaintFragment>* NGPaintFragment::Find(
     scoped_refptr<NGPaintFragment>* fragment,
-    const NGBreakToken* break_token) {
+    const NGBlockBreakToken* break_token) {
   DCHECK(fragment);
 
   if (!break_token)
@@ -459,8 +467,7 @@ void NGPaintFragment::PopulateDescendants(
                       std::move(previous_child), &populate_children);
 
     if (children_are_inline) {
-      if (!child_fragment->IsFloating() &&
-          !child_fragment->IsOutOfFlowPositioned() &&
+      if (!child_fragment->IsOutOfFlowPositioned() &&
           !child_fragment->IsListMarker()) {
         if (LayoutObject* layout_object = child_fragment->GetLayoutObject())
           child->AssociateWithLayoutObject(layout_object, last_fragment_map);
@@ -487,17 +494,23 @@ void NGPaintFragment::AssociateWithLayoutObject(
     HashMap<const LayoutObject*, NGPaintFragment*>* last_fragment_map) {
   DCHECK(layout_object);
   DCHECK(!next_for_same_layout_object_);
-  DCHECK(layout_object->IsInline());
+  DCHECK(layout_object->IsInline() || layout_object->IsFloating());
 
   auto add_result = last_fragment_map->insert(layout_object, this);
   if (add_result.is_new_entry) {
-    DCHECK(!layout_object->FirstInlineFragment());
-    layout_object->SetFirstInlineFragment(this);
-  } else {
-    DCHECK(add_result.stored_value->value);
-    add_result.stored_value->value->next_for_same_layout_object_ = this;
-    add_result.stored_value->value = this;
+    NGPaintFragment* first_fragment = layout_object->FirstInlineFragment();
+    if (!first_fragment) {
+      layout_object->SetFirstInlineFragment(this);
+      return;
+    }
+    // This |layout_object| was fragmented across multiple blocks.
+    NGPaintFragment* last_fragment = first_fragment->LastForSameLayoutObject();
+    last_fragment->next_for_same_layout_object_ = this;
+    return;
   }
+  DCHECK(add_result.stored_value->value);
+  add_result.stored_value->value->next_for_same_layout_object_ = this;
+  add_result.stored_value->value = this;
 }
 
 NGPaintFragment* NGPaintFragment::GetForInlineContainer(
@@ -537,11 +550,6 @@ NGPaintFragment* NGPaintFragment::LastForSameLayoutObject() {
   while (fragment->next_for_same_layout_object_)
     fragment = fragment->next_for_same_layout_object_;
   return fragment;
-}
-
-void NGPaintFragment::DirtyLinesFromChangedChild(LayoutObject* child) {
-  if (child->IsInline())
-    MarkLineBoxesDirtyFor(*child);
 }
 
 bool NGPaintFragment::FlippedLocalVisualRectFor(
@@ -629,8 +637,22 @@ NGPaintFragment* NGPaintFragment::FirstLineBox() const {
   return nullptr;
 }
 
+void NGPaintFragment::DirtyLinesFromChangedChild(LayoutObject* child) {
+  // This function should be called on every child that has
+  // |IsInLayoutNGInlineFormattingContext()|, meaning it was once collected into
+  // |NGInlineNode|.
+  //
+  // New LayoutObjects will be handled in the next |CollectInline()|.
+  DCHECK(child && child->IsInLayoutNGInlineFormattingContext());
+
+  if (child->IsInline() || child->IsFloatingOrOutOfFlowPositioned())
+    MarkLineBoxesDirtyFor(*child);
+}
+
 void NGPaintFragment::MarkLineBoxesDirtyFor(const LayoutObject& layout_object) {
-  DCHECK(layout_object.IsInline()) << layout_object;
+  DCHECK(layout_object.IsInline() ||
+         layout_object.IsFloatingOrOutOfFlowPositioned())
+      << layout_object;
 
   // Since |layout_object| isn't in fragment tree, check preceding siblings.
   // Note: Once we reuse lines below dirty lines, we should check next siblings.
@@ -774,6 +796,8 @@ PositionWithAffinity NGPaintFragment::PositionForPointInText(
   const unsigned text_offset = text_fragment.TextOffsetForPoint(point);
   const NGCaretPosition unadjusted_position{
       this, NGCaretPositionType::kAtTextOffset, text_offset};
+  if (RuntimeEnabledFeatures::BidiCaretAffinityEnabled())
+    return unadjusted_position.ToPositionInDOMTreeWithAffinity();
   if (text_offset > text_fragment.StartOffset() &&
       text_offset < text_fragment.EndOffset()) {
     return unadjusted_position.ToPositionInDOMTreeWithAffinity();
@@ -804,6 +828,9 @@ PositionWithAffinity NGPaintFragment::PositionForPointInInlineLevelBox(
   LayoutUnit closest_child_after_inline_offset = LayoutUnit::Max();
 
   for (const NGPaintFragment* child : Children()) {
+    if (child->PhysicalFragment().IsFloating())
+      continue;
+
     const LayoutUnit child_inline_min =
         ChildLogicalOffsetInParent(*child).inline_offset;
     const LayoutUnit child_inline_max =

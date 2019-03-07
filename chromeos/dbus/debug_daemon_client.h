@@ -13,20 +13,27 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "base/component_export.h"
 #include "base/files/file.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/task_runner.h"
 #include "base/trace_event/tracing_agent.h"
-#include "chromeos/chromeos_export.h"
 #include "chromeos/dbus/dbus_client.h"
 #include "chromeos/dbus/dbus_method_call_status.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
 namespace chromeos {
 
+// A DbusLibraryError represents an error response received from D-Bus.
+enum DbusLibraryError {
+  kGenericError = -1,  // Catch-all generic error
+  kNoReply = -2,       // debugd did not respond before timeout
+  kTimeout = -3        // Unspecified D-Bus timeout (e.g. socket error)
+};
+
 // DebugDaemonClient is used to communicate with the debug daemon.
-class CHROMEOS_EXPORT DebugDaemonClient
+class COMPONENT_EXPORT(CHROMEOS_DBUS) DebugDaemonClient
     : public DBusClient,
       public base::trace_event::TracingAgent {
  public:
@@ -178,9 +185,9 @@ class CHROMEOS_EXPORT DebugDaemonClient
       const SetOomScoreAdjCallback& callback) = 0;
 
   // A callback to handle the result of CupsAdd[Auto|Manually]ConfiguredPrinter.
-  // A zero status means success, non-zero statuses are used to convey different
-  // errors.
-  using CupsAddPrinterCallback = DBusMethodCallback<int32_t>;
+  // A negative value denotes a D-Bus library error while non-negative values
+  // denote a response from debugd.
+  using CupsAddPrinterCallback = base::OnceCallback<void(int32_t)>;
 
   // Calls CupsAddManuallyConfiguredPrinter.  |name| is the printer
   // name. |uri| is the device.  |ppd_contents| is the contents of the

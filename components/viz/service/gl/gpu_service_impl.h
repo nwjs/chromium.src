@@ -9,6 +9,7 @@
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/single_thread_task_runner.h"
+#include "base/synchronization/atomic_flag.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/threading/thread.h"
@@ -51,9 +52,7 @@ class MediaGpuChannelManager;
 }
 
 namespace gpu {
-namespace raster {
-struct RasterDecoderContextState;
-}  // namespace raster
+class SharedContextState;
 }  // namespace gpu
 
 namespace viz {
@@ -89,10 +88,9 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
       base::WaitableEvent* shutdown_event = nullptr);
   void Bind(mojom::GpuServiceRequest request);
 
-  scoped_refptr<gpu::raster::RasterDecoderContextState>
-  GetContextStateForGLSurface(gl::GLSurface* surface);
-  scoped_refptr<gpu::raster::RasterDecoderContextState>
-  GetContextStateForVulkan();
+  scoped_refptr<gpu::SharedContextState> GetContextStateForGLSurface(
+      gl::GLSurface* surface);
+  scoped_refptr<gpu::SharedContextState> GetContextStateForVulkan();
 
   // Notifies the GpuHost to stop using GPU compositing. This should be called
   // in response to an error in the GPU process that occurred after
@@ -183,7 +181,8 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   void StoreShaderToDisk(int client_id,
                          const std::string& key,
                          const std::string& shader) override;
-  void ExitProcess() override;
+  void MaybeExitOnContextLost() override;
+  bool IsExiting() const override;
 #if defined(OS_WIN)
   void SendCreatedChildWindow(gpu::SurfaceHandle parent_window,
                               gpu::SurfaceHandle child_window) override;
@@ -265,6 +264,10 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
 
   void OnBackgroundedOnMainThread();
 
+  // Attempts to cleanly exit the process but only if not running in host
+  // process. If |for_context_loss| is true an error message will be logged.
+  void MaybeExit(bool for_context_loss);
+
   scoped_refptr<base::SingleThreadTaskRunner> main_runner_;
   scoped_refptr<base::SingleThreadTaskRunner> io_runner_;
 
@@ -311,6 +314,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
 
   // Callback that safely exits GPU process.
   base::OnceClosure exit_callback_;
+  base::AtomicFlag is_exiting_;
 
   base::Time start_time_;
 

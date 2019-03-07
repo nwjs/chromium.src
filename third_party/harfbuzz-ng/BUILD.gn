@@ -24,20 +24,9 @@ if (use_system_harfbuzz) {
   }
 
   config("harfbuzz_warnings") {
-    cflags = []
-    if (is_clang) {
-      cflags += [
-        "-Wno-unused-value",
-
-        # Harfbuzz uses unused typedefs for its static asserts (and its
-        # static asserts are strange enough that they can't be replaced
-        # by static_assert).
-        "-Wno-unused-local-typedef",
-      ]
-    }
     if (is_win) {
       # Result of 32-bit shift implicitly converted to 64 bits.
-      cflags += [ "/wd4334" ]
+      cflags = [ "/wd4334" ]
     }
   }
 
@@ -45,6 +34,7 @@ if (use_system_harfbuzz) {
     visibility = [ "//third_party:freetype_harfbuzz" ]
 
     sources = [
+      "src/src/hb-aat-fdsc-table.hh",
       "src/src/hb-aat-layout-ankr-table.hh",
       "src/src/hb-aat-layout-bsln-table.hh",
       "src/src/hb-aat-layout-feat-table.hh",
@@ -55,6 +45,7 @@ if (use_system_harfbuzz) {
       "src/src/hb-aat-ltag-table.hh",
       "src/src/hb-aat-map.cc",
       "src/src/hb-aat-map.hh",
+      "src/src/hb-array.hh",
       "src/src/hb-atomic.hh",
       "src/src/hb-blob.cc",
       "src/src/hb-blob.h",
@@ -66,6 +57,11 @@ if (use_system_harfbuzz) {
       "src/src/hb-buffer.h",
       "src/src/hb-buffer.hh",
       "src/src/hb-cache.hh",
+      "src/src/hb-cff-interp-common.hh",
+      "src/src/hb-cff-interp-cs-common.hh",
+      "src/src/hb-cff-interp-dict-common.hh",
+      "src/src/hb-cff1-interp-cs.hh",
+      "src/src/hb-cff2-interp-cs.hh",
       "src/src/hb-common.cc",
       "src/src/hb-common.h",
       "src/src/hb-debug.hh",
@@ -85,13 +81,20 @@ if (use_system_harfbuzz) {
       "src/src/hb-object.hh",
       "src/src/hb-open-file.hh",
       "src/src/hb-open-type.hh",
+      "src/src/hb-ot-cff-common.hh",
+      "src/src/hb-ot-cff1-table.cc",
+      "src/src/hb-ot-cff1-table.hh",
+      "src/src/hb-ot-cff2-table.cc",
+      "src/src/hb-ot-cff2-table.hh",
       "src/src/hb-ot-color-cbdt-table.hh",
       "src/src/hb-ot-color-colr-table.hh",
       "src/src/hb-ot-color-cpal-table.hh",
+      "src/src/hb-ot-deprecated.h",
       "src/src/hb-ot-face.cc",
       "src/src/hb-ot-face.hh",
       "src/src/hb-ot-font.cc",
       "src/src/hb-ot-font.h",
+      "src/src/hb-ot-gasp-table.hh",
       "src/src/hb-ot-hdmx-table.hh",
       "src/src/hb-ot-head-table.hh",
       "src/src/hb-ot-hhea-table.hh",
@@ -174,6 +177,10 @@ if (use_system_harfbuzz) {
       "src/src/hb-shaper.hh",
       "src/src/hb-static.cc",
       "src/src/hb-string-array.hh",
+      "src/src/hb-subset-cff-common.cc",
+      "src/src/hb-subset-cff-common.hh",
+      "src/src/hb-subset-cff1.cc",
+      "src/src/hb-subset-cff2.cc",
       "src/src/hb-subset-glyf.hh",
       "src/src/hb-subset-plan.hh",
       "src/src/hb-subset.h",

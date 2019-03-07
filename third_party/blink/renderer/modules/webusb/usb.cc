@@ -292,15 +292,18 @@ void USB::EnsureServiceConnection() {
 
   DCHECK(IsContextSupported());
   DCHECK(GetFeatureEnabledState() != FeatureEnabledState::kDisabled);
+  // See https://bit.ly/2S0zRAS for task types.
+  auto task_runner =
+      GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI);
   GetExecutionContext()->GetInterfaceProvider()->GetInterface(
-      mojo::MakeRequest(&service_));
+      mojo::MakeRequest(&service_, task_runner));
   service_.set_connection_error_handler(
       WTF::Bind(&USB::OnServiceConnectionError, WrapWeakPersistent(this)));
 
   DCHECK(!client_binding_.is_bound());
 
   device::mojom::blink::UsbDeviceManagerClientAssociatedPtrInfo client;
-  client_binding_.Bind(mojo::MakeRequest(&client));
+  client_binding_.Bind(mojo::MakeRequest(&client), task_runner);
   service_->SetClient(std::move(client));
 }
 

@@ -12,14 +12,17 @@
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/ui/views/overlay/back_to_tab_image_button.h"
 #include "chrome/browser/ui/views/overlay/close_image_button.h"
 #include "chrome/browser/ui/views/overlay/control_image_button.h"
 #include "chrome/browser/ui/views/overlay/playback_image_button.h"
 #include "chrome/browser/ui/views/overlay/resize_handle_button.h"
+#include "chrome/browser/ui/views/overlay/skip_ad_label_button.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/picture_in_picture_window_controller.h"
 #include "content/public/browser/web_contents.h"
+#include "media/base/media_switches.h"
 #include "media/base/video_util.h"
 #include "third_party/blink/public/common/picture_in_picture/picture_in_picture_control_info.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -38,7 +41,9 @@
 #if defined(OS_CHROMEOS)
 #include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/window_properties.h"  // nogncheck
+#include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window.h"
+#include "ui/base/ui_base_features.h"
 #endif
 
 // static
@@ -113,7 +118,9 @@ class OverlayWindowFrameView : public views::NonClientFrameView {
     // The media controls should take and handle user interaction.
     OverlayWindowViews* window = static_cast<OverlayWindowViews*>(widget_);
     if (window->AreControlsVisible() &&
-        (window->GetCloseControlsBounds().Contains(point) ||
+        (window->GetBackToTabControlsBounds().Contains(point) ||
+         window->GetSkipAdControlsBounds().Contains(point) ||
+         window->GetCloseControlsBounds().Contains(point) ||
          window->GetFirstCustomControlsBounds().Contains(point) ||
          window->GetSecondCustomControlsBounds().Contains(point) ||
          window->GetPlayPauseControlsBounds().Contains(point))) {
@@ -131,7 +138,7 @@ class OverlayWindowFrameView : public views::NonClientFrameView {
     // Allows for dragging and resizing the window.
     return (window_component == HTNOWHERE) ? HTCAPTION : window_component;
   }
-  void GetWindowMask(const gfx::Size& size, gfx::Path* window_mask) override {}
+  void GetWindowMask(const gfx::Size& size, SkPath* window_mask) override {}
   void ResetWindowControls() override {}
   void UpdateWindowIcon() override {}
   void UpdateWindowTitle() override {}
@@ -183,6 +190,8 @@ OverlayWindowViews::OverlayWindowViews(
       video_view_(new views::View()),
       controls_scrim_view_(new views::View()),
       controls_parent_view_(new views::View()),
+      back_to_tab_controls_view_(new views::BackToTabImageButton(this)),
+      skip_ad_controls_view_(new views::SkipAdLabelButton(this)),
       close_controls_view_(new views::CloseImageButton(this)),
 #if defined(OS_CHROMEOS)
       resize_handle_view_(new views::ResizeHandleButton(this)),
@@ -202,6 +211,15 @@ OverlayWindowViews::OverlayWindowViews(
   params.remove_standard_frame = true;
   params.name = "PictureInPictureWindow";
   params.layer_type = ui::LAYER_NOT_DRAWN;
+#if defined(OS_CHROMEOS)
+  // PIP windows are not activatable by default in ChromeOS. Although this can
+  // be configured in ash/wm/window_state.cc, this is still meaningful when
+  // window service is used, since the activatability isn't shared between
+  // the window server and the client (here). crbug.com/923049 will happen
+  // without this.
+  // TODO(mukai): allow synchronizing activatability and remove this.
+  params.activatable = views::Widget::InitParams::ACTIVATABLE_NO;
+#endif
 
   // Set WidgetDelegate for more control over |widget_|.
   params.delegate = new OverlayWindowWidgetDelegate(this);
@@ -211,6 +229,12 @@ OverlayWindowViews::OverlayWindowViews(
 
 #if defined(OS_CHROMEOS)
   GetNativeWindow()->SetProperty(ash::kWindowPipTypeKey, true);
+  if (features::IsUsingWindowService()) {
+    aura::Window* window = GetNativeWindow()->GetRootWindow();
+    window->SetProperty(aura::client::kMinimumSize,
+                        new gfx::Size(kMinWindowSize));
+    window->SetProperty(aura::client::kMaximumSize, new gfx::Size(max_size_));
+  }
 #endif  // defined(OS_CHROMEOS)
 
   is_initialized_ = true;
@@ -231,6 +255,12 @@ gfx::Rect OverlayWindowViews::CalculateAndUpdateWindowBounds() {
   // Lower bound size of the window is a fixed value to allow for minimal sizes
   // on UI affordances, such as buttons.
   min_size_ = kMinWindowSize;
+#if defined(OS_CHROMEOS)
+  if (features::IsUsingWindowService() && is_initialized_) {
+    GetNativeWindow()->GetRootWindow()->SetProperty(aura::client::kMaximumSize,
+                                                    new gfx::Size(max_size_));
+  }
+#endif
 
   gfx::Size window_size = window_bounds_.size();
   if (!has_been_shown_) {
@@ -247,11 +277,32 @@ gfx::Rect OverlayWindowViews::CalculateAndUpdateWindowBounds() {
   if (!window_size.IsEmpty() && !natural_size_.IsEmpty()) {
     float aspect_ratio = (float)natural_size_.width() / natural_size_.height();
 
+    WindowQuadrant quadrant =
+        GetCurrentWindowQuadrant(GetBounds(), controller_);
+    views::HitTest hit_test;
+    switch (quadrant) {
+      case OverlayWindowViews::WindowQuadrant::kBottomRight:
+        hit_test = views::HitTest::kTopLeft;
+        break;
+      case OverlayWindowViews::WindowQuadrant::kBottomLeft:
+        hit_test = views::HitTest::kTopRight;
+        break;
+      case OverlayWindowViews::WindowQuadrant::kTopLeft:
+        hit_test = views::HitTest::kBottomRight;
+        break;
+      case OverlayWindowViews::WindowQuadrant::kTopRight:
+        hit_test = views::HitTest::kBottomLeft;
+        break;
+    }
+
     // Update the window size to adhere to the aspect ratio.
+    gfx::Size min_size = min_size_;
+    gfx::Size max_size = max_size_;
+    views::WindowResizeUtils::SizeMinMaxToAspectRatio(aspect_ratio, &min_size,
+                                                      &max_size);
     gfx::Rect window_rect(GetBounds().origin(), window_size);
     views::WindowResizeUtils::SizeRectToAspectRatio(
-        views::HitTest::kBottomRight, aspect_ratio, min_size_, max_size_,
-        &window_rect);
+        hit_test, aspect_ratio, min_size, max_size, &window_rect);
     window_size.SetSize(window_rect.width(), window_rect.height());
 
     UpdateLayerBoundsWithLetterboxing(window_size);
@@ -309,6 +360,18 @@ void OverlayWindowViews::SetUpViews() {
   controls_parent_view_->layer()->set_name("ControlsParentView");
   controls_parent_view_->set_owned_by_client();
 
+  // views::View that closes the window and focuses initiator tab. ------------
+  back_to_tab_controls_view_->SetPaintToLayer(ui::LAYER_TEXTURED);
+  back_to_tab_controls_view_->layer()->SetFillsBoundsOpaquely(false);
+  back_to_tab_controls_view_->layer()->set_name("BackToTabControlsView");
+  back_to_tab_controls_view_->set_owned_by_client();
+
+  // views::View that holds the skip-ad label button. -------------------------
+  skip_ad_controls_view_->SetPaintToLayer(ui::LAYER_TEXTURED);
+  skip_ad_controls_view_->layer()->SetFillsBoundsOpaquely(true);
+  skip_ad_controls_view_->layer()->set_name("SkipAdControlsView");
+  skip_ad_controls_view_->set_owned_by_client();
+
   // views::View that closes the window. --------------------------------------
   close_controls_view_->SetPaintToLayer(ui::LAYER_TEXTURED);
   close_controls_view_->layer()->SetFillsBoundsOpaquely(false);
@@ -332,10 +395,12 @@ void OverlayWindowViews::SetUpViews() {
   resize_handle_view_->set_owned_by_client();
 #endif
 
-  // Set up view::Views heirarchy. --------------------------------------------
+  // Set up view::Views hierarchy. --------------------------------------------
   controls_parent_view_->AddChildView(play_pause_controls_view_.get());
   GetContentsView()->AddChildView(controls_scrim_view_.get());
   GetContentsView()->AddChildView(controls_parent_view_.get());
+  GetContentsView()->AddChildView(skip_ad_controls_view_.get());
+  GetContentsView()->AddChildView(back_to_tab_controls_view_.get());
   GetContentsView()->AddChildView(close_controls_view_.get());
 #if defined(OS_CHROMEOS)
   GetContentsView()->AddChildView(resize_handle_view_.get());
@@ -373,12 +438,16 @@ void OverlayWindowViews::UpdateLayerBoundsWithLetterboxing(
 }
 
 void OverlayWindowViews::UpdateControlsVisibility(bool is_visible) {
-  if (always_hide_play_pause_button_ && is_visible)
-    play_pause_controls_view_->SetVisible(false);
-
+  play_pause_controls_view_->SetVisible(is_visible &&
+                                        !always_hide_play_pause_button_);
   GetControlsScrimLayer()->SetVisible(is_visible);
   GetControlsParentLayer()->SetVisible(is_visible);
+  GetBackToTabControlsLayer()->SetVisible(is_visible);
   GetCloseControlsLayer()->SetVisible(is_visible);
+
+  // We need to do more than usual visibility change because otherwise control
+  // is accessible via accessibility tools.
+  skip_ad_controls_view_->ToggleVisibility(is_visible && show_skip_ad_button_);
 
 #if defined(OS_CHROMEOS)
   GetResizeHandleLayer()->SetVisible(is_visible);
@@ -394,6 +463,8 @@ void OverlayWindowViews::UpdateControlsBounds() {
       gfx::Rect(gfx::Point(0, 0), larger_window_bounds.size()));
 
   WindowQuadrant quadrant = GetCurrentWindowQuadrant(GetBounds(), controller_);
+  back_to_tab_controls_view_->SetPosition(GetBounds().size(), quadrant);
+  skip_ad_controls_view_->SetPosition(GetBounds().size());
   close_controls_view_->SetPosition(GetBounds().size(), quadrant);
 #if defined(OS_CHROMEOS)
   resize_handle_view_->SetPosition(GetBounds().size(), quadrant);
@@ -586,6 +657,10 @@ void OverlayWindowViews::SetAlwaysHidePlayPauseButton(bool is_visible) {
   always_hide_play_pause_button_ = !is_visible;
 }
 
+void OverlayWindowViews::SetSkipAdButtonVisibility(bool is_visible) {
+  show_skip_ad_button_ = is_visible;
+}
+
 void OverlayWindowViews::SetPictureInPictureCustomControls(
     const std::vector<blink::PictureInPictureControlInfo>& controls) {
   // Clear any existing controls.
@@ -648,6 +723,7 @@ void OverlayWindowViews::OnNativeWidgetMove() {
 #if defined(OS_CHROMEOS)
   // Update the positioning of some icons when the window is moved.
   WindowQuadrant quadrant = GetCurrentWindowQuadrant(GetBounds(), controller_);
+  back_to_tab_controls_view_->SetPosition(GetBounds().size(), quadrant);
   close_controls_view_->SetPosition(GetBounds().size(), quadrant);
   resize_handle_view_->SetPosition(GetBounds().size(), quadrant);
 #endif
@@ -757,7 +833,13 @@ void OverlayWindowViews::OnGestureEvent(ui::GestureEvent* event) {
     return;
   }
 
-  if (GetCloseControlsBounds().Contains(event->location())) {
+  if (GetBackToTabControlsBounds().Contains(event->location())) {
+    controller_->CloseAndFocusInitiator();
+    event->SetHandled();
+  } else if (GetSkipAdControlsBounds().Contains(event->location())) {
+    controller_->SkipAd();
+    event->SetHandled();
+  } else if (GetCloseControlsBounds().Contains(event->location())) {
     controller_->Close(true /* should_pause_video */,
                        true /* should_reset_pip_player */);
     event->SetHandled();
@@ -769,6 +851,12 @@ void OverlayWindowViews::OnGestureEvent(ui::GestureEvent* event) {
 
 void OverlayWindowViews::ButtonPressed(views::Button* sender,
                                        const ui::Event& event) {
+  if (sender == back_to_tab_controls_view_.get())
+    controller_->CloseAndFocusInitiator();
+
+  if (sender == skip_ad_controls_view_.get())
+    controller_->SkipAd();
+
   if (sender == close_controls_view_.get())
     controller_->Close(true /* should_pause_video */,
                        true /* should_reset_pip_player */);
@@ -781,6 +869,14 @@ void OverlayWindowViews::ButtonPressed(views::Button* sender,
 
   if (sender == second_custom_controls_view_.get())
     controller_->CustomControlPressed(second_custom_controls_view_->id());
+}
+
+gfx::Rect OverlayWindowViews::GetBackToTabControlsBounds() {
+  return back_to_tab_controls_view_->GetMirroredBounds();
+}
+
+gfx::Rect OverlayWindowViews::GetSkipAdControlsBounds() {
+  return skip_ad_controls_view_->GetMirroredBounds();
 }
 
 gfx::Rect OverlayWindowViews::GetCloseControlsBounds() {
@@ -819,6 +915,14 @@ ui::Layer* OverlayWindowViews::GetControlsScrimLayer() {
   return controls_scrim_view_->layer();
 }
 
+ui::Layer* OverlayWindowViews::GetBackToTabControlsLayer() {
+  return back_to_tab_controls_view_->layer();
+}
+
+ui::Layer* OverlayWindowViews::GetSkipAdControlsLayer() {
+  return skip_ad_controls_view_->layer();
+}
+
 ui::Layer* OverlayWindowViews::GetCloseControlsLayer() {
   return close_controls_view_->layer();
 }
@@ -842,6 +946,15 @@ void OverlayWindowViews::TogglePlayPause() {
 views::PlaybackImageButton*
 OverlayWindowViews::play_pause_controls_view_for_testing() const {
   return play_pause_controls_view_.get();
+}
+
+gfx::Point OverlayWindowViews::back_to_tab_image_position_for_testing() const {
+  return back_to_tab_controls_view_->origin();
+}
+
+views::SkipAdLabelButton*
+OverlayWindowViews::skip_ad_controls_view_for_testing() const {
+  return skip_ad_controls_view_.get();
 }
 
 gfx::Point OverlayWindowViews::close_image_position_for_testing() const {

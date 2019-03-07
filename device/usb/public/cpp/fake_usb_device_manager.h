@@ -23,6 +23,9 @@ namespace device {
 // tests for device::mojom::UsbDeviceManager's users.
 class FakeUsbDeviceManager : public mojom::UsbDeviceManager {
  public:
+  using DeviceMap =
+      std::unordered_map<std::string, scoped_refptr<FakeUsbDeviceInfo>>;
+
   FakeUsbDeviceManager();
   ~FakeUsbDeviceManager() override;
 
@@ -46,6 +49,9 @@ class FakeUsbDeviceManager : public mojom::UsbDeviceManager {
 
   void CloseAllBindings() { bindings_.CloseAllBindings(); }
 
+ protected:
+  DeviceMap& devices() { return devices_; }
+
  private:
   // mojom::UsbDeviceManager implementation:
   void EnumerateDevicesAndSetClient(
@@ -56,13 +62,22 @@ class FakeUsbDeviceManager : public mojom::UsbDeviceManager {
   void GetDevice(const std::string& guid,
                  mojom::UsbDeviceRequest device_request,
                  mojom::UsbDeviceClientPtr device_client) override;
+
+#if defined(OS_CHROMEOS)
+  void CheckAccess(const std::string& guid,
+                   CheckAccessCallback callback) override;
+
+  void OpenFileDescriptor(const std::string& guid,
+                          OpenFileDescriptorCallback callback) override;
+#endif  // defined(OS_CHROMEOS)
+
   void SetClient(
       mojom::UsbDeviceManagerClientAssociatedPtrInfo client) override;
 
   mojo::BindingSet<mojom::UsbDeviceManager> bindings_;
   mojo::AssociatedInterfacePtrSet<mojom::UsbDeviceManagerClient> clients_;
 
-  std::unordered_map<std::string, scoped_refptr<FakeUsbDeviceInfo>> devices_;
+  DeviceMap devices_;
 
   base::WeakPtrFactory<FakeUsbDeviceManager> weak_factory_;
 

@@ -15,7 +15,7 @@ _EXCLUDED_PATHS = (
     r"^native_client_sdk[\\/]src[\\/]tools[\\/].*.mk",
     r"^net[\\/]tools[\\/]spdyshark[\\/].*",
     r"^skia[\\/].*",
-    r"^third_party[\\/](WebKit|blink)[\\/].*",
+    r"^third_party[\\/]blink[\\/].*",
     r"^third_party[\\/]breakpad[\\/].*",
     r"^v8[\\/].*",
     r".*MakeFile$",
@@ -343,6 +343,7 @@ _BANNED_CPP_FUNCTIONS = (
       ),
       True,
       (
+          r'^base[\\/]third_party[\\/]symbolize[\\/].*',
           r'^third_party[\\/]abseil-cpp[\\/].*',
       ),
     ),
@@ -565,15 +566,6 @@ _BANNED_CPP_FUNCTIONS = (
       ),
     ),
     (
-      r'/\barraysize\b',
-      (
-          "arraysize is deprecated, please use base::size(array) instead ",
-          "(https://crbug.com/837308). ",
-      ),
-      False,
-      (),
-    ),
-    (
       r'std::random_shuffle',
       (
         'std::random_shuffle is deprecated in C++14, and removed in C++17. Use',
@@ -588,6 +580,15 @@ _BANNED_CPP_FUNCTIONS = (
         'web::HTTPserver is deprecated use net::EmbeddedTestServer instead.',
       ),
       False,
+      (),
+    ),
+    (
+      'GetAddressOf',
+      (
+        'Improper use of Microsoft::WRL::ComPtr<T>::GetAddressOf() has been ',
+        'implicated in a few leaks. Use operator& instead.'
+      ),
+      True,
       (),
     ),
 )
@@ -654,15 +655,16 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
     'build/android/gyp/aar.pydeps',
     'build/android/gyp/aidl.pydeps',
     'build/android/gyp/apkbuilder.pydeps',
-    'build/android/gyp/app_bundle_to_apks.pydeps',
+    'build/android/gyp/assert_static_initializers.pydeps',
     'build/android/gyp/bytecode_processor.pydeps',
     'build/android/gyp/compile_resources.pydeps',
+    'build/android/gyp/create_app_bundle_minimal_apks.pydeps',
     'build/android/gyp/create_bundle_wrapper_script.pydeps',
     'build/android/gyp/copy_ex.pydeps',
     'build/android/gyp/create_app_bundle.pydeps',
     'build/android/gyp/create_apk_operations_script.pydeps',
-    'build/android/gyp/create_dist_jar.pydeps',
     'build/android/gyp/create_java_binary_script.pydeps',
+    'build/android/gyp/create_size_info_files.pydeps',
     'build/android/gyp/create_stack_script.pydeps',
     'build/android/gyp/create_test_runner_script.pydeps',
     'build/android/gyp/create_tool_wrapper.pydeps',
@@ -680,12 +682,12 @@ _ANDROID_SPECIFIC_PYDEPS_FILES = [
     'build/android/gyp/jinja_template.pydeps',
     'build/android/gyp/lint.pydeps',
     'build/android/gyp/main_dex_list.pydeps',
-    'build/android/gyp/merge_jar_info_files.pydeps',
     'build/android/gyp/merge_manifest.pydeps',
     'build/android/gyp/prepare_resources.pydeps',
     'build/android/gyp/proguard.pydeps',
     'build/android/gyp/write_build_config.pydeps',
     'build/android/gyp/write_ordered_libraries.pydeps',
+    'build/android/gyp/zip.pydeps',
     'build/android/incremental_install/generate_android_manifest.pydeps',
     'build/android/incremental_install/write_installer_json.pydeps',
     'build/android/resource_sizes.pydeps',
@@ -1551,7 +1553,7 @@ def _CheckAddedDepsHaveTargetApprovals(input_api, output_api):
   virtual_depended_on_files = set()
 
   file_filter = lambda f: not input_api.re.match(
-      r"^third_party[\\/](WebKit|blink)[\\/].*", f.LocalPath())
+      r"^third_party[\\/]blink[\\/].*", f.LocalPath())
   for f in input_api.AffectedFiles(include_deletes=False,
                                    file_filter=file_filter):
     filename = input_api.os_path.basename(f.LocalPath())
@@ -1652,19 +1654,19 @@ def _CheckSpamLogging(input_api, output_api):
                  r"^courgette[\\/]courgette_minimal_tool\.cc$",
                  r"^courgette[\\/]courgette_tool\.cc$",
                  r"^extensions[\\/]renderer[\\/]logging_native_handler\.cc$",
+                 r"^fuchsia[\\/]browser[\\/]frame_impl.cc$",
+                 r"^headless[\\/]app[\\/]headless_shell\.cc$",
                  r"^ipc[\\/]ipc_logging\.cc$",
                  r"^native_client_sdk[\\/]",
                  r"^remoting[\\/]base[\\/]logging\.h$",
                  r"^remoting[\\/]host[\\/].*",
                  r"^sandbox[\\/]linux[\\/].*",
+                 r"^storage[\\/]browser[\\/]fileapi[\\/]" +
+                     r"dump_file_system.cc$",
                  r"^tools[\\/]",
                  r"^ui[\\/]base[\\/]resource[\\/]data_pack.cc$",
                  r"^ui[\\/]aura[\\/]bench[\\/]bench_main\.cc$",
-                 r"^ui[\\/]ozone[\\/]platform[\\/]cast[\\/]",
-                 r"^webrunner[\\/]browser[\\/]frame_impl.cc$",
-                 r"^storage[\\/]browser[\\/]fileapi[\\/]" +
-                     r"dump_file_system.cc$",
-                 r"^headless[\\/]app[\\/]headless_shell\.cc$"))
+                 r"^ui[\\/]ozone[\\/]platform[\\/]cast[\\/]"))
   source_file_filter = lambda x: input_api.FilterSourceFile(
       x, white_list=file_inclusion_pattern, black_list=black_list)
 
@@ -2082,7 +2084,8 @@ def _GetOwnersFilesToCheckForIpcOwners(input_api):
   # *.mojom files.
   for f in input_api.AffectedFiles(include_deletes=False):
     # Manifest files don't have a strong naming convention. Instead, scan
-    # affected files for .json files and see if they look like a manifest.
+    # affected files for .json, .cc, and .h files which look like they contain
+    # a manifest definition.
     if (f.LocalPath().endswith('.json') and
         not _MatchesFile(input_api, _KNOWN_INVALID_JSON_FILE_PATTERNS,
                          f.LocalPath())):
@@ -2098,6 +2101,15 @@ def _GetOwnersFilesToCheckForIpcOwners(input_api):
         continue
       if 'interface_provider_specs' in json_content:
         AddPatternToCheck(f, input_api.os_path.basename(f.LocalPath()))
+    else:
+      manifest_pattern = input_api.re.compile('manifests?\.(cc|h)$')
+      test_manifest_pattern = input_api.re.compile('test_manifests?\.(cc|h)')
+      if (manifest_pattern.search(f.LocalPath()) and not
+          test_manifest_pattern.search(f.LocalPath())):
+        # We expect all actual service manifest files to contain at least one
+        # qualified reference to service_manager::Manifest.
+        if 'service_manager::Manifest' in '\n'.join(f.NewContents()):
+          AddPatternToCheck(f, input_api.os_path.basename(f.LocalPath()))
     for pattern in file_patterns:
       if input_api.fnmatch.fnmatch(
           input_api.os_path.basename(f.LocalPath()), pattern):
@@ -2178,9 +2190,7 @@ def _CheckUselessForwardDeclarations(input_api, output_api):
   for f in input_api.AffectedFiles(include_deletes=False):
     if (f.LocalPath().startswith('third_party') and
         not f.LocalPath().startswith('third_party/blink') and
-        not f.LocalPath().startswith('third_party\\blink') and
-        not f.LocalPath().startswith('third_party/WebKit') and
-        not f.LocalPath().startswith('third_party\\WebKit')):
+        not f.LocalPath().startswith('third_party\\blink')):
       continue
 
     if not f.LocalPath().endswith('.h'):
@@ -2492,6 +2502,24 @@ def _CheckAndroidWebkitImports(input_api, output_api):
   return results
 
 
+def _CheckAndroidXmlStyle(input_api, output_api, is_check_on_upload):
+  """Checks Android XML styles """
+  import sys
+  original_sys_path = sys.path
+  try:
+    sys.path = sys.path + [input_api.os_path.join(
+        input_api.PresubmitLocalPath(), 'tools', 'android', 'checkxmlstyle')]
+    import checkxmlstyle
+  finally:
+    # Restore sys.path to what it was before.
+    sys.path = original_sys_path
+
+  if is_check_on_upload:
+    return checkxmlstyle.CheckStyleOnUpload(input_api, output_api)
+  else:
+    return checkxmlstyle.CheckStyleOnCommit(input_api, output_api)
+
+
 class PydepsChecker(object):
   def __init__(self, input_api, pydeps_files):
     self._file_cache = {}
@@ -2734,8 +2762,8 @@ def _CheckForRelativeIncludes(input_api, output_api):
   bad_files = {}
   for f in input_api.AffectedFiles(include_deletes=False):
     if (f.LocalPath().startswith('third_party') and
-      not f.LocalPath().startswith('third_party/WebKit') and
-      not f.LocalPath().startswith('third_party\\WebKit')):
+      not f.LocalPath().startswith('third_party/blink') and
+      not f.LocalPath().startswith('third_party\\blink')):
       continue
 
     if not CppChecker.IsCppFile(f.LocalPath()):
@@ -2987,7 +3015,7 @@ def _CheckCorrectProductNameInMessages(input_api, output_api):
 
 
 def _AndroidSpecificOnUploadChecks(input_api, output_api):
-  """Groups checks that target android code."""
+  """Groups upload checks that target android code."""
   results = []
   results.extend(_CheckAndroidCrLogUsage(input_api, output_api))
   results.extend(_CheckAndroidNewMdpiAssetLocation(input_api, output_api))
@@ -2996,6 +3024,13 @@ def _AndroidSpecificOnUploadChecks(input_api, output_api):
   results.extend(_CheckAndroidTestJUnitFrameworkImport(input_api, output_api))
   results.extend(_CheckAndroidTestAnnotationUsage(input_api, output_api))
   results.extend(_CheckAndroidWebkitImports(input_api, output_api))
+  results.extend(_CheckAndroidXmlStyle(input_api, output_api, True))
+  return results
+
+def _AndroidSpecificOnCommitChecks(input_api, output_api):
+  """Groups commit checks that target android code."""
+  results = []
+  results.extend(_CheckAndroidXmlStyle(input_api, output_api, False))
   return results
 
 
@@ -3173,7 +3208,7 @@ def _CheckForInvalidOSMacrosInFile(input_api, f):
 def _CheckForInvalidOSMacros(input_api, output_api):
   """Check all affected files for invalid OS macros."""
   bad_macros = []
-  for f in input_api.AffectedFiles():
+  for f in input_api.AffectedSourceFiles(None):
     if not f.LocalPath().endswith(('.py', '.js', '.html', '.css', '.md')):
       bad_macros.extend(_CheckForInvalidOSMacrosInFile(input_api, f))
 
@@ -3474,6 +3509,7 @@ def GetTryServerMasterForBot(bot):
 def CheckChangeOnCommit(input_api, output_api):
   results = []
   results.extend(_CommonChecks(input_api, output_api))
+  results.extend(_AndroidSpecificOnCommitChecks(input_api, output_api))
   # Make sure the tree is 'open'.
   results.extend(input_api.canned_checks.CheckTreeIsOpen(
       input_api,

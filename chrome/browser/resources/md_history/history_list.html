@@ -6,10 +6,10 @@
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-a11y-announcer/iron-a11y-announcer.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-list/iron-list.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-scroll-threshold/iron-scroll-threshold.html">
-<link rel="import" href="chrome://history/browser_service.html">
-<link rel="import" href="chrome://history/constants.html">
-<link rel="import" href="chrome://history/history_item.html">
-<link rel="import" href="chrome://history/shared_style.html">
+<link rel="import" href="browser_service.html">
+<link rel="import" href="constants.html">
+<link rel="import" href="history_item.html">
+<link rel="import" href="shared_style.html">
 
 <!-- Lazy loaded: cr-dialog, cr-action-menu, paper-button. -->
 
@@ -79,13 +79,13 @@
     <cr-lazy-render id="sharedMenu">
       <template>
         <cr-action-menu aria-label="$i18n{actionMenuDescription}">
-          <button id="menuMoreButton" slot="item" class="dropdown-item"
+          <button id="menuMoreButton" class="dropdown-item"
               hidden="[[!canSearchMoreFromSite_(
                   searchedTerm, actionMenuModel_.item.domain)]]"
               on-click="onMoreFromSiteTap_">
             $i18n{moreFromSite}
           </button>
-          <button id="menuRemoveButton" slot="item" class="dropdown-item"
+          <button id="menuRemoveButton" class="dropdown-item"
               hidden="[[!canDeleteHistory_]]"
               on-click="onRemoveFromHistoryTap_">
             $i18n{removeFromHistory}
@@ -94,5 +94,5 @@
       </template>
     </cr-lazy-render>
   </template>
-  <script src="chrome://history/history_list.js"></script>
+  <script src="history_list.js"></script>
 </dom-module>

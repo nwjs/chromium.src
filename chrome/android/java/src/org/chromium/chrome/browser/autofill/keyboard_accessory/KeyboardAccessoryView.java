@@ -8,11 +8,6 @@ import static org.chromium.ui.base.LocalizationUtils.isLayoutRtl;
 
 import android.content.Context;
 import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
-import android.support.annotation.StringRes;
-import android.support.design.widget.TabLayout;
-import android.support.v4.graphics.drawable.DrawableCompat;
-import android.support.v4.view.ViewPager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
@@ -28,9 +23,8 @@ import org.chromium.chrome.R;
  * suggestions and manual entry points assisting the user in filling forms.
  */
 class KeyboardAccessoryView extends LinearLayout {
-    protected RecyclerView mActionsView;
-    private TabLayout mTabLayout;
-    private TabLayout.TabLayoutOnPageChangeListener mPageChangeListener;
+    protected RecyclerView mBarItemsView;
+    private KeyboardAccessoryTabLayoutView mTabLayout;
 
     private static class HorizontalDividerItemDecoration extends RecyclerView.ItemDecoration {
         private final int mHorizontalMargin;
@@ -56,15 +50,15 @@ class KeyboardAccessoryView extends LinearLayout {
         super.onFinishInflate();
         sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
 
-        mActionsView = findViewById(R.id.actions_view);
-        initializeHorizontalRecyclerView(mActionsView);
+        mBarItemsView = findViewById(R.id.bar_items_view);
+        initializeHorizontalRecyclerView(mBarItemsView);
 
         mTabLayout = findViewById(R.id.tabs);
 
         // Apply RTL layout changes to the view's children:
         ApiCompatibilityUtils.setLayoutDirection(findViewById(R.id.accessory_bar_contents),
                 isLayoutRtl() ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
-        ApiCompatibilityUtils.setLayoutDirection(mActionsView,
+        ApiCompatibilityUtils.setLayoutDirection(mBarItemsView,
                 isLayoutRtl() ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
 
         // Set listener's to touch/click events so they are not propagated to the page below.
@@ -75,6 +69,10 @@ class KeyboardAccessoryView extends LinearLayout {
         setOnClickListener(view -> {});
         setClickable(false); // Disables the "Double-tap to activate" Talkback reading.
         setSoundEffectsEnabled(false);
+    }
+
+    KeyboardAccessoryTabLayoutView getTabLayout() {
+        return mTabLayout;
     }
 
     void setVisible(boolean visible) {
@@ -91,70 +89,8 @@ class KeyboardAccessoryView extends LinearLayout {
         setLayoutParams(params);
     }
 
-    void setActionsAdapter(RecyclerView.Adapter adapter) {
-        mActionsView.setAdapter(adapter);
-    }
-
-    /**
-     * Creates a new tab and appends it to the end of the tab layout at the start of the bar.
-     * @param icon The icon to be displayed in the tab bar.
-     * @param contentDescription The contentDescription to be used for the tab icon.
-     */
-    void addTabAt(int position, Drawable icon, CharSequence contentDescription) {
-        if (mTabLayout == null) return; // Inflation not done yet. Will be invoked again afterwards.
-        TabLayout.Tab tab = mTabLayout.newTab();
-        tab.setIcon(icon.mutate()); // mutate() needed to change the active tint.
-        DrawableCompat.setTint(tab.getIcon(), getResources().getColor(R.color.default_icon_color));
-        tab.setContentDescription(contentDescription);
-        mTabLayout.addTab(tab, position, false);
-    }
-
-    void removeTabAt(int position) {
-        if (mTabLayout == null) return; // Inflation not done yet. Will be invoked again afterwards.
-        TabLayout.Tab tab = mTabLayout.getTabAt(position);
-        if (tab == null) return; // The tab was already removed.
-        mTabLayout.removeTab(tab);
-    }
-
-    /**
-     * Removes all tabs.
-     */
-    void clearTabs() {
-        if (mTabLayout == null) return; // Inflation not done yet. Will be invoked again afterwards.
-        mTabLayout.removeAllTabs();
-    }
-
-    ViewPager.OnPageChangeListener getPageChangeListener() {
-        if (mPageChangeListener == null) {
-            mPageChangeListener = new TabLayout.TabLayoutOnPageChangeListener(mTabLayout);
-        }
-        return mPageChangeListener;
-    }
-
-    void setTabSelectionAdapter(TabLayout.OnTabSelectedListener tabSelectionCallbacks) {
-        mTabLayout.clearOnTabSelectedListeners();
-        mTabLayout.addOnTabSelectedListener(tabSelectionCallbacks);
-    }
-
-    void setActiveTabColor(Integer activeTab) {
-        for (int i = mTabLayout.getTabCount() - 1; i >= 0; i--) {
-            TabLayout.Tab t = mTabLayout.getTabAt(i);
-            if (t == null || t.getIcon() == null) continue;
-            int activeStateColor = (activeTab == null || i != activeTab)
-                    ? R.color.default_icon_color
-                    : R.color.default_icon_color_blue;
-            DrawableCompat.setTint(t.getIcon(), getResources().getColor(activeStateColor));
-        }
-    }
-
-    public void setTabDescription(int i, String description) {
-        TabLayout.Tab tab = mTabLayout.getTabAt(i);
-        if (tab != null) tab.setContentDescription(description);
-    }
-
-    public void setTabDescription(int i, @StringRes int messageId) {
-        TabLayout.Tab tab = mTabLayout.getTabAt(i);
-        if (tab != null) tab.setContentDescription(messageId);
+    void setBarItemsAdapter(RecyclerView.Adapter adapter) {
+        mBarItemsView.setAdapter(adapter);
     }
 
     private void show() {

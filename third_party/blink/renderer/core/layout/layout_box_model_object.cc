@@ -242,7 +242,7 @@ void LayoutBoxModelObject::StyleWillChange(StyleDifference diff,
        StyleRef().IsStackingContext() != new_style.IsStackingContext()) &&
       // ObjectPaintInvalidator requires this.
       IsRooted()) {
-    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
       ObjectPaintInvalidator(*this).SlowSetPaintingLayerNeedsRepaint();
     } else {
       // We need to invalidate based on the current compositing status.
@@ -404,7 +404,7 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
         if (Layer())
           Layer()->SetNeedsCompositingInputsUpdate();
 
-        // TODO(pdr): When slimming paint v2 is enabled, we will need to
+        // TODO(pdr): When CompositeAfterPaint is enabled, we will need to
         // invalidate the scroll paint property subtree for this so main thread
         // scroll reasons are recomputed.
       } else {
@@ -423,7 +423,7 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
           }
         }
 
-        // TODO(pdr): When slimming paint v2 is enabled, we will need to
+        // TODO(pdr): When CompositeAfterPaint is enabled, we will need to
         // invalidate the scroll paint property subtree for this so main thread
         // scroll reasons are recomputed.
       }
@@ -443,7 +443,7 @@ void LayoutBoxModelObject::StyleDidChange(StyleDifference diff,
       // the paint chunk.
       Layer()->SetNeedsRepaint();
     } else if (diff.TransformChanged() &&
-               (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+               (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
                 !Layer()->HasStyleDeterminedDirectCompositingReasons())) {
       // PaintLayerPainter::PaintLayerWithAdjustedRoot skips painting of a layer
       // whose transform is not invertible, so we need to repaint the layer when
@@ -663,7 +663,7 @@ void LayoutBoxModelObject::UpdateFromStyle() {
 }
 
 LayoutBlock* LayoutBoxModelObject::ContainingBlockForAutoHeightDetection(
-    Length logical_height) const {
+    const Length& logical_height) const {
   // For percentage heights: The percentage is calculated with respect to the
   // height of the generated box's containing block. If the height of the
   // containing block is not specified explicitly (i.e., it depends on content
@@ -696,16 +696,18 @@ LayoutBlock* LayoutBoxModelObject::ContainingBlockForAutoHeightDetection(
   return cb;
 }
 
-bool LayoutBoxModelObject::HasAutoHeightOrContainingBlockWithAutoHeight()
-    const {
+bool LayoutBoxModelObject::HasAutoHeightOrContainingBlockWithAutoHeight(
+    RegisterPercentageDescendant register_percentage_descendant) const {
   // TODO(rego): Check if we can somehow reuse LayoutBlock::
   // availableLogicalHeightForPercentageComputation() (see crbug.com/635655).
   const LayoutBox* this_box = IsBox() ? ToLayoutBox(this) : nullptr;
-  Length logical_height_length = StyleRef().LogicalHeight();
+  const Length& logical_height_length = StyleRef().LogicalHeight();
   LayoutBlock* cb =
       ContainingBlockForAutoHeightDetection(logical_height_length);
-  if (logical_height_length.IsPercentOrCalc() && cb && IsBox())
+  if (register_percentage_descendant == kRegisterPercentageDescendant &&
+      logical_height_length.IsPercentOrCalc() && cb && IsBox()) {
     cb->AddPercentHeightDescendant(const_cast<LayoutBox*>(ToLayoutBox(this)));
+  }
   if (this_box && this_box->IsFlexItem()) {
     const LayoutFlexibleBox& flex_box = ToLayoutFlexibleBox(*Parent());
     if (flex_box.UseOverrideLogicalHeightForPerentageResolution(*this_box))

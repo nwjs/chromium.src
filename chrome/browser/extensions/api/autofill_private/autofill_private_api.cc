@@ -370,7 +370,6 @@ ExtensionFunction::ResponseAction AutofillPrivateGetAddressListFunction::Run() {
 
   autofill_util::AddressEntryList address_list =
       autofill_util::GenerateAddressList(*personal_data);
-  base::RecordAction(base::UserMetricsAction("AutofillAddressesViewed"));
   return RespondNow(ArgumentList(
       api::autofill_private::GetAddressList::Results::Create(address_list)));
 }
@@ -539,10 +538,59 @@ AutofillPrivateGetCreditCardListFunction::Run() {
 
   autofill_util::CreditCardEntryList credit_card_list =
       autofill_util::GenerateCreditCardList(*personal_data);
-  base::RecordAction(base::UserMetricsAction("AutofillCreditCardsViewed"));
   return RespondNow(
       ArgumentList(api::autofill_private::GetCreditCardList::Results::Create(
           credit_card_list)));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateGetLocalCreditCardListFunction
+
+AutofillPrivateGetLocalCreditCardListFunction::
+    AutofillPrivateGetLocalCreditCardListFunction()
+    : chrome_details_(this) {}
+
+AutofillPrivateGetLocalCreditCardListFunction::
+    ~AutofillPrivateGetLocalCreditCardListFunction() {}
+
+ExtensionFunction::ResponseAction
+AutofillPrivateGetLocalCreditCardListFunction::Run() {
+  autofill::PersonalDataManager* personal_data =
+      autofill::PersonalDataManagerFactory::GetForProfile(
+          chrome_details_.GetProfile());
+
+  DCHECK(personal_data && personal_data->IsDataLoaded());
+
+  autofill_util::CreditCardEntryList local_credit_card_list =
+      autofill_util::GenerateLocalCreditCardList(*personal_data);
+  return RespondNow(ArgumentList(
+      api::autofill_private::GetLocalCreditCardList::Results::Create(
+          local_credit_card_list)));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateGetServerCreditCardListFunction
+
+AutofillPrivateGetServerCreditCardListFunction::
+    AutofillPrivateGetServerCreditCardListFunction()
+    : chrome_details_(this) {}
+
+AutofillPrivateGetServerCreditCardListFunction::
+    ~AutofillPrivateGetServerCreditCardListFunction() {}
+
+ExtensionFunction::ResponseAction
+AutofillPrivateGetServerCreditCardListFunction::Run() {
+  autofill::PersonalDataManager* personal_data =
+      autofill::PersonalDataManagerFactory::GetForProfile(
+          chrome_details_.GetProfile());
+
+  DCHECK(personal_data && personal_data->IsDataLoaded());
+
+  autofill_util::CreditCardEntryList server_credit_card_list =
+      autofill_util::GenerateServerCreditCardList(*personal_data);
+  return RespondNow(ArgumentList(
+      api::autofill_private::GetServerCreditCardList::Results::Create(
+          server_credit_card_list)));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -57,6 +57,15 @@ function FileListModel(metadataModel) {
    * @private {boolean}
    */
   this.useModificationByMeTime_ = false;
+
+  /** @private {VolumeManager} The volume manager. */
+  this.volumeManager_ = null;
+
+  /**
+   * @private {EntryLocation} Used to get the label for entries when sorting by
+   * label.
+   */
+  this.locationInfo_ = null;
 }
 
 /**
@@ -64,10 +73,11 @@ function FileListModel(metadataModel) {
  * @return {string} Localized string representation of file type.
  */
 FileListModel.getFileTypeString = function(fileType) {
-  if (fileType.subtype)
+  if (fileType.subtype) {
     return strf(fileType.name, fileType.subtype);
-  else
+  } else {
     return str(fileType.name);
+  }
 };
 
 FileListModel.prototype = {
@@ -143,10 +153,12 @@ FileListModel.prototype.splice = function(index, deleteCount, var_args) {
   // Store the given new items in |newItems| and sort it before marge them to
   // the existing list.
   var newItems = [];
-  for (var i = 0; i < arguments.length - 2; i++)
+  for (var i = 0; i < arguments.length - 2; i++) {
     newItems.push(arguments[i + 2]);
-  if (comp)
+  }
+  if (comp) {
     newItems.sort(comp);
+  }
 
   // Creating a list of existing items.
   // This doesn't include items which should be deleted by this splice() call.
@@ -164,8 +176,9 @@ FileListModel.prototype.splice = function(index, deleteCount, var_args) {
   // Initialize splice permutation with -1s.
   // Values of undeleted items will be filled in following merge step.
   var permutation = new Array(this.indexes_.length);
-  for (var i = 0; i < permutation.length; i++)
+  for (var i = 0; i < permutation.length; i++) {
     permutation[i] = -1;
+  }
 
   // Merge the list of existing item and the list of new items.
   this.indexes_ = [];
@@ -284,15 +297,17 @@ FileListModel.prototype.setUseModificationByMeTime = function(
  * @private
  */
 FileListModel.prototype.onAddEntryToList_ = function(entry) {
-  if (entry.isDirectory)
+  if (entry.isDirectory) {
     this.numFolders_++;
-  else
+  } else {
     this.numFiles_++;
+  }
 
   var mimeType = this.metadataModel_.getCache([entry],
       ['contentMimeType'])[0].contentMimeType;
-  if (FileType.isImage(entry, mimeType) || FileType.isRaw(entry, mimeType))
+  if (FileType.isImage(entry, mimeType) || FileType.isRaw(entry, mimeType)) {
     this.numImageFiles_++;
+  }
 };
 
 /**
@@ -301,15 +316,17 @@ FileListModel.prototype.onAddEntryToList_ = function(entry) {
  * @private
  */
 FileListModel.prototype.onRemoveEntryFromList_ = function(entry) {
-  if (entry.isDirectory)
+  if (entry.isDirectory) {
     this.numFolders_--;
-  else
+  } else {
     this.numFiles_--;
+  }
 
   var mimeType = this.metadataModel_.getCache([entry],
       ['contentMimeType'])[0].contentMimeType;
-  if (FileType.isImage(entry, mimeType) || FileType.isRaw(entry, mimeType))
+  if (FileType.isImage(entry, mimeType) || FileType.isRaw(entry, mimeType)) {
     this.numImageFiles_--;
+  }
 };
 
 /**
@@ -321,10 +338,32 @@ FileListModel.prototype.onRemoveEntryFromList_ = function(entry) {
  */
 FileListModel.prototype.compareName_ = function(a, b) {
   // Directories always precede files.
-  if (a.isDirectory !== b.isDirectory)
+  if (a.isDirectory !== b.isDirectory) {
     return a.isDirectory === this.isDescendingOrder_ ? 1 : -1;
+  }
 
   return util.compareName(a, b);
+};
+
+/**
+ * Compares entries by label (i18n name).
+ * @param {!Entry} a First entry.
+ * @param {!Entry} b Second entry.
+ * @return {number} Compare result.
+ * @private
+ */
+FileListModel.prototype.compareLabel_ = function(a, b) {
+  // Set locationInfo once because we only compare within the same volume.
+  if (!this.locationInfo_ && this.volumeManager_) {
+    this.locationInfo_ = this.volumeManager_.getLocationInfo(a);
+  }
+
+  // Directories always precede files.
+  if (a.isDirectory !== b.isDirectory) {
+    return a.isDirectory === this.isDescendingOrder_ ? 1 : -1;
+  }
+
+  return util.compareLabel(this.locationInfo_, a, b);
 };
 
 /**
@@ -336,19 +375,22 @@ FileListModel.prototype.compareName_ = function(a, b) {
  */
 FileListModel.prototype.compareMtime_ = function(a, b) {
   // Directories always precede files.
-  if (a.isDirectory !== b.isDirectory)
+  if (a.isDirectory !== b.isDirectory) {
     return a.isDirectory === this.isDescendingOrder_ ? 1 : -1;
+  }
 
   var properties = this.metadataModel_.getCache(
       [a, b], ['modificationTime', 'modificationByMeTime']);
   var aTime = this.getMtime_(properties[0]);
   var bTime = this.getMtime_(properties[1]);
 
-  if (aTime > bTime)
+  if (aTime > bTime) {
     return 1;
+  }
 
-  if (aTime < bTime)
+  if (aTime < bTime) {
     return -1;
+  }
 
   return util.compareName(a, b);
 };
@@ -362,8 +404,9 @@ FileListModel.prototype.compareMtime_ = function(a, b) {
  * @private
  */
 FileListModel.prototype.getMtime_ = function(properties) {
-  if (this.useModificationByMeTime_)
+  if (this.useModificationByMeTime_) {
     return properties.modificationByMeTime || properties.modificationTime || 0;
+  }
   return properties.modificationTime || 0;
 };
 
@@ -376,8 +419,9 @@ FileListModel.prototype.getMtime_ = function(properties) {
  */
 FileListModel.prototype.compareSize_ = function(a, b) {
   // Directories always precede files.
-  if (a.isDirectory !== b.isDirectory)
+  if (a.isDirectory !== b.isDirectory) {
     return a.isDirectory === this.isDescendingOrder_ ? 1 : -1;
+  }
 
   var properties = this.metadataModel_.getCache([a, b], ['size']);
   var aSize = properties[0].size || 0;
@@ -395,8 +439,9 @@ FileListModel.prototype.compareSize_ = function(a, b) {
  */
 FileListModel.prototype.compareType_ = function(a, b) {
   // Directories always precede files.
-  if (a.isDirectory !== b.isDirectory)
+  if (a.isDirectory !== b.isDirectory) {
     return a.isDirectory === this.isDescendingOrder_ ? 1 : -1;
+  }
 
   var properties = this.metadataModel_.getCache([a, b], ['contentMimeType']);
   var aType = FileListModel.getFileTypeString(
@@ -406,4 +451,17 @@ FileListModel.prototype.compareType_ = function(a, b) {
 
   var result = util.collator.compare(aType, bType);
   return result !== 0 ? result : util.compareName(a, b);
+};
+
+/**
+ * @param {!VolumeManager} volumeManager The volume manager.
+ */
+FileListModel.prototype.InitNewDirContents = function(volumeManager) {
+  this.volumeManager_ = volumeManager;
+  // Clear the location info, it's reset by compareLabel_ when needed.
+  this.locationInfo_ = null;
+  // Initialize compare function based on Labels.
+  this.setCompareFunction(
+      'name',
+      /** @type {function(*, *): number} */ (this.compareLabel_.bind(this)));
 };

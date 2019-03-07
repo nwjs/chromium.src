@@ -296,6 +296,11 @@ class PageLoadMetricsObserver {
 
   static bool IsStandardWebPageMimeType(const std::string& mime_type);
 
+  static void AssignTimeAndSizeForLargestContentfulPaint(
+      base::Optional<base::TimeDelta>& largest_content_paint_time,
+      uint64_t& largest_content_paint_size,
+      const page_load_metrics::mojom::PaintTimingPtr& paint_timing);
+
   // The page load started, with the given navigation handle.
   // currently_committed_url contains the URL of the committed page load at the
   // time the navigation for navigation_handle was initiated, or the empty URL
@@ -381,8 +386,10 @@ class PageLoadMetricsObserver {
                               const PageLoadExtraInfo& extra_info) {}
 
   // OnUserInput is triggered when a new user input is passed in to
-  // web_contents. Contains a TimeDelta from navigation start.
-  virtual void OnUserInput(const blink::WebInputEvent& event) {}
+  // web_contents.
+  virtual void OnUserInput(const blink::WebInputEvent& event,
+                           const mojom::PageLoadTiming& timing,
+                           const PageLoadExtraInfo& extra_info) {}
 
   // The following methods are invoked at most once, when the timing for the
   // associated event first becomes available.
@@ -402,8 +409,6 @@ class PageLoadMetricsObserver {
   // across all frames, is observed.
   virtual void OnFirstPaintInPage(const mojom::PageLoadTiming& timing,
                                   const PageLoadExtraInfo& extra_info) {}
-  virtual void OnFirstTextPaintInPage(const mojom::PageLoadTiming& timing,
-                                      const PageLoadExtraInfo& extra_info) {}
   virtual void OnFirstImagePaintInPage(const mojom::PageLoadTiming& timing,
                                        const PageLoadExtraInfo& extra_info) {}
   virtual void OnFirstContentfulPaintInPage(
@@ -416,22 +421,6 @@ class PageLoadMetricsObserver {
       const mojom::PageLoadTiming& timing,
       const PageLoadExtraInfo& extra_info) {}
 
-  // These signatures are used to report the last candidate for each of FCP++
-  // metrics. They will be invoked at the end of page load's life time, around
-  // the time of the OnComplete callback.
-  virtual void OnLargestImagePaintInMainFrameDocument(
-      const mojom::PageLoadTiming& last_candidate,
-      const page_load_metrics::PageLoadExtraInfo& info) {}
-  virtual void OnLastImagePaintInMainFrameDocument(
-      const mojom::PageLoadTiming& last_candidate,
-      const page_load_metrics::PageLoadExtraInfo& info) {}
-  virtual void OnLargestTextPaintInMainFrameDocument(
-      const mojom::PageLoadTiming& last_candidate,
-      const page_load_metrics::PageLoadExtraInfo& info) {}
-  virtual void OnLastTextPaintInMainFrameDocument(
-      const mojom::PageLoadTiming& last_candidate,
-      const page_load_metrics::PageLoadExtraInfo& info) {}
-
   virtual void OnPageInteractive(const mojom::PageLoadTiming& timing,
                                  const PageLoadExtraInfo& extra_info) {}
 
@@ -443,13 +432,15 @@ class PageLoadMetricsObserver {
   virtual void OnLoadingBehaviorObserved(const PageLoadExtraInfo& extra_info) {}
 
   // Invoked when new use counter features are observed across all frames.
-  virtual void OnFeaturesUsageObserved(const mojom::PageLoadFeatures& features,
+  virtual void OnFeaturesUsageObserved(content::RenderFrameHost* rfh,
+                                       const mojom::PageLoadFeatures& features,
                                        const PageLoadExtraInfo& extra_info) {}
 
   // Invoked when there is data use for loading a resource on the page
-  // across all frames. This only contains resources that have had new
-  // data use since the last callback.
+  // for a given render frame host. This only contains resources that have had
+  // new data use since the last callback.
   virtual void OnResourceDataUseObserved(
+      FrameTreeNodeId frame_tree_node_id,
       const std::vector<mojom::ResourceDataUpdatePtr>& resources) {}
 
   // Invoked when a media element starts playing.
@@ -501,6 +492,9 @@ class PageLoadMetricsObserver {
   // to requests with HTTP or HTTPS only schemes.
   virtual void OnLoadedResource(
       const ExtraRequestCompleteInfo& extra_request_complete_info) {}
+
+  virtual void FrameReceivedFirstUserActivation(
+      content::RenderFrameHost* render_frame_host) {}
 
   // Called when the event corresponding to |event_key| occurs in this page
   // load.

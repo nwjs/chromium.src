@@ -21,6 +21,18 @@ namespace media {
 class GpuVideoAcceleratorFactories;
 
 // The default factory class for creating MojoRenderer.
+//
+// The MojoRenderer should be thought of as a pure communication layer between
+// media::Pipeline and a media::Renderer in a different process.
+//
+// Implementors of new media::Renderer types are encouraged to create small
+// wrapper factories that use MRF, rather than creating derived MojoRenderer
+// types, or extending MRF. See DecryptingRendererFactory and
+// MediaPlayerRendererClientFactory for examples of small wrappers around MRF.
+//
+// NOTE: MediaPlayerRendererClientFactory uses MojoRenderer specific methods,
+//       and uses a static_cast<MojoRenderer*> internally. |this| should
+//       never return anything but a MojoRenderer. See crbug.com/919494.
 class MojoRendererFactory : public RendererFactory {
  public:
   using GetGpuFactoriesCB = base::Callback<GpuVideoAcceleratorFactories*()>;

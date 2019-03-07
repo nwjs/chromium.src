@@ -113,7 +113,8 @@ void CreateTestAddressFormData(FormData* form,
                                const char* unique_id) {
   form->name =
       ASCIIToUTF16("MyForm") + ASCIIToUTF16(unique_id ? unique_id : "");
-  form->button_title = ASCIIToUTF16("Submit");
+  form->button_titles = {std::make_pair(
+      ASCIIToUTF16("Submit"), ButtonTitleType::BUTTON_ELEMENT_SUBMIT_TYPE)};
   form->origin = GURL("http://myform.com/form.html");
   form->action = GURL("http://myform.com/submit.html");
   form->main_frame_origin =
@@ -714,15 +715,20 @@ std::string ObfuscatedCardDigitsAsUTF8(const std::string& str) {
       internal::GetObfuscatedStringForCardDigits(base::ASCIIToUTF16(str)));
 }
 
+std::string LastYear() {
+  base::Time::Exploded now;
+  base::Time::Now().LocalExplode(&now);
+  return std::to_string(now.year - 1);
+}
 std::string NextYear() {
   base::Time::Exploded now;
   base::Time::Now().LocalExplode(&now);
   return std::to_string(now.year + 1);
 }
-std::string LastYear() {
+std::string TenYearsFromNow() {
   base::Time::Exploded now;
   base::Time::Now().LocalExplode(&now);
-  return std::to_string(now.year - 1);
+  return std::to_string(now.year + 10);
 }
 
 }  // namespace test

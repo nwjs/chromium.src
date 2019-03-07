@@ -59,6 +59,7 @@ class BrowserTabStripController : public TabStripController,
   void ExtendSelectionTo(int model_index) override;
   void ToggleSelected(int model_index) override;
   void AddSelectionFromAnchorTo(int model_index) override;
+  bool BeforeCloseTab(int model_index, CloseTabSource source) override;
   void CloseTab(int model_index, CloseTabSource source) override;
   void ShowContextMenuForTab(Tab* tab,
                              const gfx::Point& p,
@@ -124,13 +125,6 @@ class BrowserTabStripController : public TabStripController,
 
   // Invokes tabstrip_->SetTabData.
   void SetTabDataAt(content::WebContents* web_contents, int model_index);
-
-  void StartHighlightTabsForCommand(
-      TabStripModel::ContextMenuCommand command_id,
-      Tab* tab);
-  void StopHighlightTabsForCommand(
-      TabStripModel::ContextMenuCommand command_id,
-      Tab* tab);
 
   // Adds a tab.
   void AddTab(content::WebContents* contents, int index, bool is_active);

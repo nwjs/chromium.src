@@ -46,6 +46,7 @@ source_set("unit_tests") {
     "//chrome/browser/web_applications/extensions",
     "//chrome/common:constants",
     "//chrome/test:test_support",
+    "//components/account_id",
     "//components/crx_file:crx_file",
     "//components/sync_preferences:test_support",
     "//content/test:test_support",
@@ -65,6 +66,8 @@ source_set("browser_tests") {
   sources = [
     "system_web_app_manager_browsertest.cc",
     "system_web_app_manager_browsertest.h",
+    "test_web_app_provider.cc",
+    "test_web_app_provider.h",
   ]
 
   deps = [

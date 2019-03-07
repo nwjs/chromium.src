@@ -116,6 +116,10 @@ bool LitePagePreviewsOverridePageHints();
 // a blacklist.
 int LitePageRedirectPreviewMaxServerBlacklistByteSize();
 
+// The maximum number of times that a Lite Page Redirect preview should restart
+// a navigation.
+size_t LitePageRedirectPreviewMaxNavigationRestarts();
+
 // The maximum number of seconds to loadshed the Previews server for.
 int PreviewServerLoadshedMaxSeconds();
 
@@ -163,10 +167,6 @@ size_t GetMaxPageHintsInMemoryThreshhold();
 // Whether server optimization hints are enabled.
 bool IsOptimizationHintsEnabled();
 
-// The threshold of EffectiveConnectionType above which Client Lo-Fi previews
-// should not be served.
-net::EffectiveConnectionType EffectiveConnectionTypeThresholdForClientLoFi();
-
 // For estimating NoScript data savings, this is the percentage factor to
 // multiple by the network bytes for inflating the original_bytes count.
 int NoScriptPreviewsInflationPercent();
@@ -174,11 +174,6 @@ int NoScriptPreviewsInflationPercent();
 // For estimating NoScript data savings, this is the number of bytes to
 // for inflating the original_bytes count.
 int NoScriptPreviewsInflationBytes();
-
-// Whether to use top level optimization hints for NoScript instead of
-// page hints. This is to allow for reverting to original behavior until
-// page hints for NoScript is successfully launched.
-bool NoScriptPreviewsUsesTopLevelHints();
 
 // For estimating ResourceLoadingHints data savings, this is the percentage
 // factor to multiple by the network bytes for inflating the original_bytes

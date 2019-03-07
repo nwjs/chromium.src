@@ -4,12 +4,12 @@
 
 source_set("legacy") {
   sources = [
-    "legacy_autofill_data_item.h",
-    "legacy_autofill_data_item.mm",
+    "legacy_account_signin_item.h",
+    "legacy_account_signin_item.mm",
     "legacy_settings_detail_item.h",
     "legacy_settings_detail_item.mm",
-    "legacy_settings_switch_item.h",
-    "legacy_settings_switch_item.mm",
+    "legacy_sync_switch_item.h",
+    "legacy_sync_switch_item.mm",
   ]
 
   deps = [
@@ -29,7 +29,8 @@ source_set("legacy") {
 source_set("unit_tests") {
   testonly = true
   sources = [
-    "legacy_autofill_data_item_unittest.mm",
+    "legacy_account_signin_item_unittest.mm",
+    "legacy_sync_switch_item_unittest.mm",
   ]
 
   deps = [

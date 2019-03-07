@@ -410,10 +410,11 @@ MIMETypeRegistry::SupportsType HTMLMediaElement::GetSupportsType(
   return result;
 }
 
-const HashSet<AtomicString>& HTMLMediaElement::GetCheckedAttributeNames()
+const AttrNameToTrustedType& HTMLMediaElement::GetCheckedAttributeTypes()
     const {
-  DEFINE_STATIC_LOCAL(HashSet<AtomicString>, attribute_set, ({"src"}));
-  return attribute_set;
+  DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
+                      ({{"src", SpecificTrustedType::kTrustedURL}}));
+  return attribute_map;
 }
 
 bool HTMLMediaElement::IsHLSURL(const KURL& url) {
@@ -500,6 +501,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tag_name,
       muted_(false),
       paused_(true),
       seeking_(false),
+      paused_by_context_paused_(false),
       sent_stalled_event_(false),
       ignore_preload_none_(false),
       text_tracks_visible_(false),
@@ -512,7 +514,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tag_name,
       audio_tracks_(AudioTrackList::Create(*this)),
       video_tracks_(VideoTrackList::Create(*this)),
       audio_source_node_(nullptr),
-      autoplay_policy_(new AutoplayPolicy(this)),
+      autoplay_policy_(MakeGarbageCollected<AutoplayPolicy>(this)),
       remote_playback_client_(nullptr),
       media_controls_(nullptr),
       controls_list_(HTMLMediaElementControlsList::Create(this)),
@@ -607,6 +609,7 @@ void HTMLMediaElement::DidMoveToNewDocument(Document& old_document) {
 }
 
 bool HTMLMediaElement::SupportsFocus() const {
+  // TODO(https://crbug.com/911882): Depending on result of discussion, remove.
   if (ownerDocument()->IsMediaDocument())
     return false;
 
@@ -616,7 +619,7 @@ bool HTMLMediaElement::SupportsFocus() const {
 }
 
 bool HTMLMediaElement::IsMouseFocusable() const {
-  return false;
+  return !IsFullscreen();
 }
 
 void HTMLMediaElement::ParseAttribute(
@@ -1401,6 +1404,11 @@ WebMediaPlayer::LoadType HTMLMediaElement::GetLoadType() const {
     return WebMediaPlayer::kLoadTypeMediaStream;
 
   return WebMediaPlayer::kLoadTypeURL;
+}
+
+bool HTMLMediaElement::PausedWhenVisible() const {
+  return paused_ && GetWebMediaPlayer() &&
+         !GetWebMediaPlayer()->PausedWhenHidden();
 }
 
 bool HTMLMediaElement::TextTracksAreReady() const {
@@ -2345,12 +2353,10 @@ WebMediaPlayer::Preload HTMLMediaElement::PreloadType() const {
     return WebMediaPlayer::kPreloadNone;
   }
 
-  // If the source scheme is requires network, force preload to 'none' on Data
-  // Saver and for low end devices.
+  // If the source scheme is requires network, force preload to 'none' for low
+  // end devices.
   if (GetDocument().GetSettings() &&
-      ((GetNetworkStateNotifier().SaveDataEnabled() &&
-        !GetDocument().GetSettings()->GetDataSaverHoldbackMediaApi()) ||
-       GetDocument().GetSettings()->GetForcePreloadNoneForMediaElements()) &&
+      GetDocument().GetSettings()->GetForcePreloadNoneForMediaElements() &&
       (current_src_.Protocol() != "blob" && current_src_.Protocol() != "data" &&
        current_src_.Protocol() != "file")) {
     UseCounter::Count(GetDocument(),
@@ -3455,7 +3461,9 @@ bool HTMLMediaElement::CouldPlayIfEnoughData() const {
 
 bool HTMLMediaElement::EndedPlayback(LoopCondition loop_condition) const {
   double dur = duration();
-  if (std::isnan(dur))
+  // If we have infinite duration, we'll never have played for long enough to
+  // have ended playback.
+  if (std::isnan(dur) || dur == std::numeric_limits<double>::infinity())
     return false;
 
   // 4.8.12.8 Playing the media resource
@@ -3469,16 +3477,6 @@ bool HTMLMediaElement::EndedPlayback(LoopCondition loop_condition) const {
   // direction of playback is forwards, Either the media element does not have a
   // loop attribute specified,
   double now = CurrentPlaybackPosition();
-
-  // Log whether we get a playback position of infinity().
-  // TODO(ossu): Once this stat expires, the duration check, below, can be moved
-  //             up to the top of the function.
-  UMA_HISTOGRAM_BOOLEAN("Media.MediaElement.PlaybackPositionIsInfinity",
-                        now == std::numeric_limits<double>::infinity());
-  // If we have infinite duration, we'll never have played for long enough to
-  // have ended playback.
-  if (dur == std::numeric_limits<double>::infinity())
-    return false;
 
   if (GetDirectionOfPlayback() == kForward) {
     return dur > 0 && now >= dur &&
@@ -3586,6 +3584,20 @@ void HTMLMediaElement::ClearMediaPlayer() {
     GetLayoutObject()->SetShouldDoFullPaintInvalidation();
 }
 
+void HTMLMediaElement::ContextPaused(PauseState pause_state) {
+  if (pause_state == PauseState::kFrozen && playing_) {
+    paused_by_context_paused_ = true;
+    pause();
+  }
+}
+
+void HTMLMediaElement::ContextUnpaused() {
+  if (paused_by_context_paused_) {
+    paused_by_context_paused_ = false;
+    Play();
+  }
+}
+
 void HTMLMediaElement::ContextDestroyed(ExecutionContext*) {
   BLINK_MEDIA_LOG << "contextDestroyed(" << (void*)this << ")";
 
@@ -3622,7 +3634,15 @@ bool HTMLMediaElement::HasPendingActivity() const {
 
   // When networkState is kNetworkLoading, progress and stalled events may be
   // fired.
-  if (network_state_ == kNetworkLoading)
+  //
+  // When connected to a MediaSource, ignore |network_state_|. The rest
+  // of this method's logic and the HasPendingActivity() of the various
+  // MediaSource API objects more precisely indicate whether or not any pending
+  // activity is expected on the group of connected HTMLMediaElement +
+  // MediaSource API objects. This lets the group of objects be garbage
+  // collected if there is no pending activity nor reachability from a GC root,
+  // even while in kNetworkLoading.
+  if (!media_source_ && network_state_ == kNetworkLoading)
     return true;
 
   {
@@ -3639,11 +3659,6 @@ bool HTMLMediaElement::HasPendingActivity() const {
 
   // When the seek finishes timeupdate and seeked events will be fired.
   if (seeking_)
-    return true;
-
-  // When connected to a MediaSource, e.g. setting MediaSource.duration will
-  // cause a durationchange event to be fired.
-  if (media_source_)
     return true;
 
   // Wait for any pending events to be fired.
@@ -3882,7 +3897,7 @@ void HTMLMediaElement::UpdateControlsVisibility() {
 
 CueTimeline& HTMLMediaElement::GetCueTimeline() {
   if (!cue_timeline_)
-    cue_timeline_ = new CueTimeline(*this);
+    cue_timeline_ = MakeGarbageCollected<CueTimeline>(*this);
   return *cue_timeline_;
 }
 
@@ -3971,7 +3986,7 @@ bool HTMLMediaElement::IsInteractiveContent() const {
   return FastHasAttribute(kControlsAttr);
 }
 
-void HTMLMediaElement::Trace(blink::Visitor* visitor) {
+void HTMLMediaElement::Trace(Visitor* visitor) {
   visitor->Trace(viewport_intersection_observer_);
   visitor->Trace(played_time_ranges_);
   visitor->Trace(async_event_queue_);
@@ -4212,11 +4227,11 @@ void HTMLMediaElement::AudioClientImpl::SetFormat(uint32_t number_of_channels,
     client_->SetFormat(number_of_channels, sample_rate);
 }
 
-void HTMLMediaElement::AudioClientImpl::Trace(blink::Visitor* visitor) {
+void HTMLMediaElement::AudioClientImpl::Trace(Visitor* visitor) {
   visitor->Trace(client_);
 }
 
-void HTMLMediaElement::AudioSourceProviderImpl::Trace(blink::Visitor* visitor) {
+void HTMLMediaElement::AudioSourceProviderImpl::Trace(Visitor* visitor) {
   visitor->Trace(client_);
 }
 

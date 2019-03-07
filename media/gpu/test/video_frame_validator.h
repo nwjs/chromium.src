@@ -10,18 +10,24 @@
 #include <utility>
 #include <vector>
 
-#include "base/files/file_util.h"
+#include "base/files/file.h"
+#include "base/files/file_path.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/synchronization/condition_variable.h"
+#include "base/synchronization/lock.h"
+#include "base/threading/thread.h"
 #include "base/threading/thread_checker.h"
-#include "media/base/video_frame.h"
 #include "media/base/video_types.h"
-#include "media/gpu/test/video_decode_accelerator_unittest_helpers.h"
-#include "media/gpu/test/video_frame_mapper.h"
-#include "media/gpu/test/video_frame_mapper_factory.h"
+#include "media/gpu/test/video_frame_helpers.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace media {
+
+class VideoFrame;
+
 namespace test {
+
+class VideoFrameMapper;
 
 // VideoFrameValidator validates the pixel content of each video frame.
 // It maps a video frame by using VideoFrameMapper, and converts the mapped
@@ -32,7 +38,7 @@ namespace test {
 // identical on all platforms.
 // Mapping and verification of a frame is a costly operation and will influence
 // performance measurements.
-class VideoFrameValidator {
+class VideoFrameValidator : public VideoFrameProcessor {
  public:
   enum Flags : uint32_t {
     // Checks soundness of video frames.
@@ -48,6 +54,12 @@ class VideoFrameValidator {
     std::string computed_md5;
     std::string expected_md5;
   };
+
+  // Creates an instance of the video frame validator in 'CHECK' mode.
+  // |frame_checksums| should contain the ordered list of md5 frame checksums to
+  // be used by the validator
+  static std::unique_ptr<VideoFrameValidator> Create(
+      const std::vector<std::string>& frame_checksums);
 
   // |flags| decides the behavior of created video frame validator. See the
   // detail in Flags.
@@ -65,18 +77,25 @@ class VideoFrameValidator {
       const base::FilePath& md5_file_path,
       bool linear);
 
-  ~VideoFrameValidator();
-
-  // This checks if |video_frame|'s pixel content is as expected.
-  // A client of VideoFrameValidator would call this function on each frame in
-  // PictureReady().
-  // |frame_index| is the index of video frame in display order.
-  void EvaluateVideoFrame(scoped_refptr<VideoFrame> video_frame,
-                          size_t frame_index);
+  ~VideoFrameValidator() override;
 
   // Returns information of frames that don't match golden md5 values.
-  // If there is no mismatched frame, returns an empty vector.
+  // If there is no mismatched frame, returns an empty vector. This function is
+  // thread-safe.
   std::vector<MismatchedFrameInfo> GetMismatchedFramesInfo() const;
+
+  // Returns the number of frames that didn't match the golden md5 values. This
+  // function is thread-safe.
+  size_t GetMismatchedFramesCount() const;
+
+  // Wait until all currently scheduled frame validations are done. Returns true
+  // if no corrupt frames were found. This function might take a long time to
+  // complete, depending on the platform.
+  bool WaitUntilValidated() const;
+
+  // Interface VideoFrameProcessor
+  void ProcessVideoFrame(scoped_refptr<const VideoFrame> video_frame,
+                         size_t frame_index) override;
 
  private:
   VideoFrameValidator(uint32_t flags,
@@ -85,11 +104,21 @@ class VideoFrameValidator {
                       base::File md5_file,
                       std::unique_ptr<VideoFrameMapper> video_frame_mapper);
 
+  // Start the frame validation thread.
+  bool Initialize();
+  // Stop the frame validation thread.
+  void Destroy();
+
+  // Validate the |video_frame|'s content on the |frame_validator_thread_|.
+  void ProcessVideoFrameTask(const scoped_refptr<const VideoFrame> video_frame,
+                             size_t frame_index);
+
   // This maps |video_frame|, converts it to I420 format.
   // Returns the resulted I420 frame on success, and otherwise return nullptr.
   // |video_frame| is unchanged in this method.
+  // TODO(dstaessens@) Move frame helper functions to video_frame_helpers.h.
   scoped_refptr<VideoFrame> CreateStandardizedFrame(
-      scoped_refptr<VideoFrame> video_frame) const;
+      scoped_refptr<const VideoFrame> video_frame) const;
 
   // Returns md5 values of video frame represented by |video_frame|.
   std::string ComputeMD5FromVideoFrame(
@@ -104,7 +133,8 @@ class VideoFrameValidator {
                        const VideoFrame* const video_frame) const;
 
   // The results of invalid frame data.
-  std::vector<MismatchedFrameInfo> mismatched_frames_;
+  std::vector<MismatchedFrameInfo> mismatched_frames_
+      GUARDED_BY(frame_validator_lock_);
 
   const uint32_t flags_;
 
@@ -112,14 +142,24 @@ class VideoFrameValidator {
   const base::FilePath prefix_output_yuv_;
 
   // Golden MD5 values.
-  const std::vector<std::string> md5_of_frames_;
+  std::vector<std::string> md5_of_frames_;
 
   // File to write md5 values if flags includes GENMD5.
   base::File md5_file_;
 
   const std::unique_ptr<VideoFrameMapper> video_frame_mapper_;
 
-  THREAD_CHECKER(thread_checker_);
+  // The number of frames currently queued for validation.
+  size_t num_frames_validating_ GUARDED_BY(frame_validator_lock_);
+
+  // Thread on which video frame validation is done.
+  base::Thread frame_validator_thread_;
+  mutable base::Lock frame_validator_lock_;
+  mutable base::ConditionVariable frame_validator_cv_;
+
+  SEQUENCE_CHECKER(validator_sequence_checker_);
+  SEQUENCE_CHECKER(validator_thread_sequence_checker_);
+
   DISALLOW_COPY_AND_ASSIGN(VideoFrameValidator);
 };
 }  // namespace test

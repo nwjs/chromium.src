@@ -14,6 +14,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/apps/app_service/built_in_chromeos_apps.h"
+#include "chrome/browser/apps/app_service/extension_apps.h"
 #endif  // OS_CHROMEOS
 
 class Profile;
@@ -34,6 +35,7 @@ class AppServiceProxy : public KeyedService, public apps::mojom::Subscriber {
 
   ~AppServiceProxy() override;
 
+  apps::mojom::AppServicePtr& AppService();
   AppRegistryCache& Cache();
 
   void LoadIcon(const std::string& app_id,
@@ -41,7 +43,17 @@ class AppServiceProxy : public KeyedService, public apps::mojom::Subscriber {
                 int32_t size_hint_in_dip,
                 apps::mojom::Publisher::LoadIconCallback callback);
 
-  void Launch(const std::string& app_id, int32_t event_flags);
+  void Launch(const std::string& app_id,
+              int32_t event_flags,
+              apps::mojom::LaunchSource launch_source,
+              int64_t display_id);
+
+  void SetPermission(const std::string& app_id,
+                     apps::mojom::PermissionPtr permission);
+
+  void Uninstall(const std::string& app_id);
+
+  void OpenNativeSettings(const std::string& app_id);
 
  private:
   // apps::mojom::Subscriber overrides.
@@ -54,6 +66,7 @@ class AppServiceProxy : public KeyedService, public apps::mojom::Subscriber {
 
 #if defined(OS_CHROMEOS)
   BuiltInChromeOsApps built_in_chrome_os_apps_;
+  ExtensionApps extension_apps_;
 #endif  // OS_CHROMEOS
 
   DISALLOW_COPY_AND_ASSIGN(AppServiceProxy);

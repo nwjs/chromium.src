@@ -312,7 +312,7 @@ void DOMWebSocket::Connect(const String& url,
 
   if ((upgrade_insecure_requests_set ||
        MixedContentChecker::ShouldAutoupgrade(
-           GetExecutionContext()->Url(),
+           GetExecutionContext()->GetHttpsState(),
            WebMixedContentContextType::kBlockable)) &&
       url_.Protocol() == "ws" &&
       !SecurityOrigin::Create(url_)->IsPotentiallyTrustworthy()) {
@@ -690,11 +690,11 @@ bool DOMWebSocket::HasPendingActivity() const {
   return channel_ || !event_queue_->IsEmpty();
 }
 
-void DOMWebSocket::Pause() {
+void DOMWebSocket::ContextPaused(PauseState) {
   event_queue_->Pause();
 }
 
-void DOMWebSocket::Unpause() {
+void DOMWebSocket::ContextUnpaused() {
   event_queue_->Unpause();
 
   // If |consumed_buffered_amount_| was updated while the object was paused then

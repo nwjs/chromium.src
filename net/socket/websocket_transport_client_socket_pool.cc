@@ -11,277 +11,19 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/single_thread_task_runner.h"
 #include "base/strings/string_util.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "base/time/time.h"
-#include "base/trace_event/trace_event.h"
 #include "base/values.h"
 #include "net/base/net_errors.h"
-#include "net/base/trace_constants.h"
 #include "net/log/net_log_event_type.h"
 #include "net/log/net_log_source.h"
 #include "net/log/net_log_source_type.h"
 #include "net/socket/client_socket_handle.h"
 #include "net/socket/client_socket_pool_base.h"
 #include "net/socket/websocket_endpoint_lock_manager.h"
-#include "net/socket/websocket_transport_connect_sub_job.h"
+#include "net/socket/websocket_transport_connect_job.h"
 
 namespace net {
-
-WebSocketTransportConnectJob::WebSocketTransportConnectJob(
-    const std::string& group_name,
-    RequestPriority priority,
-    ClientSocketPool::RespectLimits respect_limits,
-    const scoped_refptr<TransportSocketParams>& params,
-    base::TimeDelta timeout_duration,
-    CompletionOnceCallback callback,
-    ClientSocketFactory* client_socket_factory,
-    HostResolver* host_resolver,
-    ClientSocketHandle* handle,
-    Delegate* delegate,
-    WebSocketEndpointLockManager* websocket_endpoint_lock_manager,
-    NetLog* pool_net_log,
-    const NetLogWithSource& request_net_log)
-    : ConnectJob(group_name,
-                 timeout_duration,
-                 priority,
-                 SocketTag(),
-                 respect_limits,
-                 delegate,
-                 NetLogWithSource::Make(
-                     pool_net_log,
-                     NetLogSourceType::WEB_SOCKET_TRANSPORT_CONNECT_JOB)),
-      params_(params),
-      resolver_(host_resolver),
-      client_socket_factory_(client_socket_factory),
-      next_state_(STATE_NONE),
-      race_result_(TransportConnectJob::RACE_UNKNOWN),
-      handle_(handle),
-      websocket_endpoint_lock_manager_(websocket_endpoint_lock_manager),
-      callback_(std::move(callback)),
-      request_net_log_(request_net_log),
-      had_ipv4_(false),
-      had_ipv6_(false) {}
-
-WebSocketTransportConnectJob::~WebSocketTransportConnectJob() = default;
-
-LoadState WebSocketTransportConnectJob::GetLoadState() const {
-  LoadState load_state = LOAD_STATE_RESOLVING_HOST;
-  if (ipv6_job_)
-    load_state = ipv6_job_->GetLoadState();
-  // This method should return LOAD_STATE_CONNECTING in preference to
-  // LOAD_STATE_WAITING_FOR_AVAILABLE_SOCKET when possible because "waiting for
-  // available socket" implies that nothing is happening.
-  if (ipv4_job_ && load_state != LOAD_STATE_CONNECTING)
-    load_state = ipv4_job_->GetLoadState();
-  return load_state;
-}
-
-void WebSocketTransportConnectJob::OnIOComplete(int result) {
-  result = DoLoop(result);
-  if (result != ERR_IO_PENDING)
-    NotifyDelegateOfCompletion(result);  // Deletes |this|
-}
-
-int WebSocketTransportConnectJob::DoLoop(int result) {
-  DCHECK_NE(next_state_, STATE_NONE);
-
-  int rv = result;
-  do {
-    State state = next_state_;
-    next_state_ = STATE_NONE;
-    switch (state) {
-      case STATE_RESOLVE_HOST:
-        DCHECK_EQ(OK, rv);
-        rv = DoResolveHost();
-        break;
-      case STATE_RESOLVE_HOST_COMPLETE:
-        rv = DoResolveHostComplete(rv);
-        break;
-      case STATE_TRANSPORT_CONNECT:
-        DCHECK_EQ(OK, rv);
-        rv = DoTransportConnect();
-        break;
-      case STATE_TRANSPORT_CONNECT_COMPLETE:
-        rv = DoTransportConnectComplete(rv);
-        break;
-      default:
-        NOTREACHED();
-        rv = ERR_FAILED;
-        break;
-    }
-  } while (rv != ERR_IO_PENDING && next_state_ != STATE_NONE);
-
-  return rv;
-}
-
-int WebSocketTransportConnectJob::DoResolveHost() {
-  next_state_ = STATE_RESOLVE_HOST_COMPLETE;
-  connect_timing_.dns_start = base::TimeTicks::Now();
-
-  return resolver_->Resolve(
-      params_->destination(), priority(), &addresses_,
-      base::Bind(&WebSocketTransportConnectJob::OnIOComplete,
-                 base::Unretained(this)),
-      &request_, net_log());
-}
-
-int WebSocketTransportConnectJob::DoResolveHostComplete(int result) {
-  TRACE_EVENT0(NetTracingCategory(),
-               "WebSocketTransportConnectJob::DoResolveHostComplete");
-  connect_timing_.dns_end = base::TimeTicks::Now();
-  // Overwrite connection start time, since for connections that do not go
-  // through proxies, |connect_start| should not include dns lookup time.
-  connect_timing_.connect_start = connect_timing_.dns_end;
-
-  if (result != OK)
-    return result;
-
-  // Invoke callback, and abort if it fails.
-  if (!params_->host_resolution_callback().is_null()) {
-    result = params_->host_resolution_callback().Run(addresses_, net_log());
-    if (result != OK)
-      return result;
-  }
-
-  next_state_ = STATE_TRANSPORT_CONNECT;
-  return result;
-}
-
-int WebSocketTransportConnectJob::DoTransportConnect() {
-  AddressList ipv4_addresses;
-  AddressList ipv6_addresses;
-  int result = ERR_UNEXPECTED;
-  next_state_ = STATE_TRANSPORT_CONNECT_COMPLETE;
-
-  for (AddressList::const_iterator it = addresses_.begin();
-       it != addresses_.end(); ++it) {
-    switch (it->GetFamily()) {
-      case ADDRESS_FAMILY_IPV4:
-        ipv4_addresses.push_back(*it);
-        break;
-
-      case ADDRESS_FAMILY_IPV6:
-        ipv6_addresses.push_back(*it);
-        break;
-
-      default:
-        DVLOG(1) << "Unexpected ADDRESS_FAMILY: " << it->GetFamily();
-        break;
-    }
-  }
-
-  if (!ipv4_addresses.empty()) {
-    had_ipv4_ = true;
-    ipv4_job_.reset(new WebSocketTransportConnectSubJob(
-        ipv4_addresses, this, SUB_JOB_IPV4, websocket_endpoint_lock_manager_));
-  }
-
-  if (!ipv6_addresses.empty()) {
-    had_ipv6_ = true;
-    ipv6_job_.reset(new WebSocketTransportConnectSubJob(
-        ipv6_addresses, this, SUB_JOB_IPV6, websocket_endpoint_lock_manager_));
-    result = ipv6_job_->Start();
-    switch (result) {
-      case OK:
-        SetSocket(ipv6_job_->PassSocket());
-        race_result_ = had_ipv4_ ? TransportConnectJob::RACE_IPV6_WINS
-                                 : TransportConnectJob::RACE_IPV6_SOLO;
-        return result;
-
-      case ERR_IO_PENDING:
-        if (ipv4_job_) {
-          // This use of base::Unretained is safe because |fallback_timer_| is
-          // owned by this object.
-          fallback_timer_.Start(
-              FROM_HERE, base::TimeDelta::FromMilliseconds(
-                             TransportConnectJob::kIPv6FallbackTimerInMs),
-              base::Bind(&WebSocketTransportConnectJob::StartIPv4JobAsync,
-                         base::Unretained(this)));
-        }
-        return result;
-
-      default:
-        ipv6_job_.reset();
-    }
-  }
-
-  DCHECK(!ipv6_job_);
-  if (ipv4_job_) {
-    result = ipv4_job_->Start();
-    if (result == OK) {
-      SetSocket(ipv4_job_->PassSocket());
-      race_result_ = had_ipv6_ ? TransportConnectJob::RACE_IPV4_WINS
-                               : TransportConnectJob::RACE_IPV4_SOLO;
-    }
-  }
-
-  return result;
-}
-
-int WebSocketTransportConnectJob::DoTransportConnectComplete(int result) {
-  if (result == OK)
-    TransportConnectJob::HistogramDuration(connect_timing_, race_result_);
-  return result;
-}
-
-void WebSocketTransportConnectJob::OnSubJobComplete(
-    int result,
-    WebSocketTransportConnectSubJob* job) {
-  if (result == OK) {
-    switch (job->type()) {
-      case SUB_JOB_IPV4:
-        race_result_ = had_ipv6_ ? TransportConnectJob::RACE_IPV4_WINS
-                                 : TransportConnectJob::RACE_IPV4_SOLO;
-        break;
-
-      case SUB_JOB_IPV6:
-        race_result_ = had_ipv4_ ? TransportConnectJob::RACE_IPV6_WINS
-                                 : TransportConnectJob::RACE_IPV6_SOLO;
-        break;
-    }
-    SetSocket(job->PassSocket());
-
-    // Make sure all connections are cancelled even if this object fails to be
-    // deleted.
-    ipv4_job_.reset();
-    ipv6_job_.reset();
-  } else {
-    switch (job->type()) {
-      case SUB_JOB_IPV4:
-        ipv4_job_.reset();
-        break;
-
-      case SUB_JOB_IPV6:
-        ipv6_job_.reset();
-        if (ipv4_job_ && !ipv4_job_->started()) {
-          fallback_timer_.Stop();
-          result = ipv4_job_->Start();
-          if (result != ERR_IO_PENDING) {
-            OnSubJobComplete(result, ipv4_job_.get());
-            return;
-          }
-        }
-        break;
-    }
-    if (ipv4_job_ || ipv6_job_)
-      return;
-  }
-  OnIOComplete(result);
-}
-
-void WebSocketTransportConnectJob::StartIPv4JobAsync() {
-  DCHECK(ipv4_job_);
-  int result = ipv4_job_->Start();
-  if (result != ERR_IO_PENDING)
-    OnSubJobComplete(result, ipv4_job_.get());
-}
-
-int WebSocketTransportConnectJob::ConnectInternal() {
-  next_state_ = STATE_RESOLVE_HOST;
-  return DoLoop(OK);
-}
 
 WebSocketTransportClientSocketPool::WebSocketTransportClientSocketPool(
     int max_sockets,
@@ -296,7 +38,6 @@ WebSocketTransportClientSocketPool::WebSocketTransportClientSocketPool(
                                 client_socket_factory,
                                 nullptr,
                                 net_log),
-      connect_job_delegate_(this),
       pool_net_log_(net_log),
       client_socket_factory_(client_socket_factory),
       host_resolver_(host_resolver),
@@ -336,17 +77,15 @@ int WebSocketTransportClientSocketPool::RequestSocket(
     CompletionOnceCallback callback,
     const NetLogWithSource& request_net_log) {
   DCHECK(params);
-  const scoped_refptr<TransportSocketParams>& casted_params =
-      *static_cast<const scoped_refptr<TransportSocketParams>*>(params);
-
-  NetLogTcpClientSocketPoolRequestedSocket(request_net_log, &casted_params);
-
   CHECK(!callback.is_null());
   CHECK(handle);
+  DCHECK(socket_tag == SocketTag());
 
+  NetLogTcpClientSocketPoolRequestedSocket(request_net_log, group_name);
   request_net_log.BeginEvent(NetLogEventType::SOCKET_POOL);
 
-  DCHECK(socket_tag == SocketTag());
+  const scoped_refptr<SocketParams>& casted_params =
+      *static_cast<const scoped_refptr<SocketParams>*>(params);
 
   if (ReachedMaxSocketsLimit() &&
       respect_limits == ClientSocketPool::RespectLimits::ENABLED) {
@@ -366,27 +105,35 @@ int WebSocketTransportClientSocketPool::RequestSocket(
     return ERR_IO_PENDING;
   }
 
-  std::unique_ptr<WebSocketTransportConnectJob> connect_job(
-      new WebSocketTransportConnectJob(
-          group_name, priority, respect_limits, casted_params,
-          ConnectionTimeout(), std::move(callback), client_socket_factory_,
-          host_resolver_, handle, &connect_job_delegate_,
-          websocket_endpoint_lock_manager_, pool_net_log_, request_net_log));
+  std::unique_ptr<ConnectJobDelegate> connect_job_delegate =
+      std::make_unique<ConnectJobDelegate>(this, std::move(callback), handle,
+                                           request_net_log);
 
-  int result = connect_job->Connect();
+  std::unique_ptr<ConnectJob> connect_job =
+      casted_params->create_connect_job_callback().Run(
+          priority,
+          CommonConnectJobParams(
+              group_name, SocketTag(), respect_limits == RespectLimits::ENABLED,
+              client_socket_factory_,
+              nullptr /* SocketPerformanceWatcherFactory */, host_resolver_,
+              pool_net_log_, websocket_endpoint_lock_manager_),
+          connect_job_delegate.get());
+
+  int result = connect_job_delegate->Connect(std::move(connect_job));
 
   // Regardless of the outcome of |connect_job|, it will always be bound to
   // |handle|, since this pool uses early-binding. So the binding is logged
   // here, without waiting for the result.
-  request_net_log.AddEvent(
-      NetLogEventType::SOCKET_POOL_BOUND_TO_CONNECT_JOB,
-      connect_job->net_log().source().ToEventParametersCallback());
+  request_net_log.AddEvent(NetLogEventType::SOCKET_POOL_BOUND_TO_CONNECT_JOB,
+                           connect_job_delegate->connect_job_net_log()
+                               .source()
+                               .ToEventParametersCallback());
 
   if (result == ERR_IO_PENDING) {
     // TODO(ricea): Implement backup job timer?
-    AddJob(handle, std::move(connect_job));
+    AddJob(handle, std::move(connect_job_delegate));
   } else {
-    TryHandOutSocket(result, connect_job.get());
+    TryHandOutSocket(result, connect_job_delegate.get());
   }
 
   return result;
@@ -406,11 +153,11 @@ void WebSocketTransportClientSocketPool::SetPriority(
     RequestPriority priority) {
   // Since sockets requested by RequestSocket are bound early and
   // stalled_request_{queue,map} don't take priorities into account, there's
-  // nothing to do within the pool to change priority or the request.
+  // nothing to do within the pool to change priority of the request.
   // TODO(rdsmith, ricea): Make stalled_request_{queue,map} take priorities
   // into account.
-  // TODO(rdsmith): Investigate plumbing the reprioritization request to the
-  // connect job.
+  // TODO(rdsmith, chlily): Investigate plumbing the reprioritization request to
+  // the connect job.
 }
 
 void WebSocketTransportClientSocketPool::CancelRequest(
@@ -450,7 +197,7 @@ void WebSocketTransportClientSocketPool::FlushWithError(int error) {
   // anyway.
   flushing_ = true;
   for (auto it = pending_connects_.begin(); it != pending_connects_.end();) {
-    InvokeUserCallbackLater(it->second->handle(),
+    InvokeUserCallbackLater(it->second->socket_handle(),
                             it->second->release_callback(), error);
     it = pending_connects_.erase(it);
   }
@@ -508,26 +255,21 @@ WebSocketTransportClientSocketPool::GetInfoAsValue(
   return dict;
 }
 
-base::TimeDelta WebSocketTransportClientSocketPool::ConnectionTimeout() const {
-  // TODO(ricea): For now, we implement a global timeout for compatibility with
-  // TransportConnectJob. Since WebSocketTransportConnectJob controls the
-  // address selection process more tightly, it could do something smarter here.
-  return base::TimeDelta::FromSeconds(TransportConnectJob::kTimeoutInSeconds);
-}
-
 bool WebSocketTransportClientSocketPool::IsStalled() const {
   return !stalled_request_queue_.empty();
 }
 
 bool WebSocketTransportClientSocketPool::TryHandOutSocket(
     int result,
-    WebSocketTransportConnectJob* job) {
+    ConnectJobDelegate* connect_job_delegate) {
   DCHECK_NE(result, ERR_IO_PENDING);
 
-  std::unique_ptr<StreamSocket> socket = job->PassSocket();
-  ClientSocketHandle* const handle = job->handle();
-  NetLogWithSource request_net_log = job->request_net_log();
-  LoadTimingInfo::ConnectTiming connect_timing = job->connect_timing();
+  std::unique_ptr<StreamSocket> socket =
+      connect_job_delegate->connect_job()->PassSocket();
+  LoadTimingInfo::ConnectTiming connect_timing =
+      connect_job_delegate->connect_job()->connect_timing();
+  ClientSocketHandle* const handle = connect_job_delegate->socket_handle();
+  NetLogWithSource request_net_log = connect_job_delegate->request_net_log();
 
   if (result == OK) {
     DCHECK(socket);
@@ -543,7 +285,7 @@ bool WebSocketTransportClientSocketPool::TryHandOutSocket(
 
   // If we got a socket, it must contain error information so pass that
   // up so that the caller can retrieve it.
-  job->GetAdditionalErrorState(handle);
+  connect_job_delegate->connect_job()->GetAdditionalErrorState(handle);
   if (socket) {
     HandOutSocket(std::move(socket), connect_timing, handle, request_net_log);
     handed_out_socket = true;
@@ -557,26 +299,27 @@ bool WebSocketTransportClientSocketPool::TryHandOutSocket(
 
 void WebSocketTransportClientSocketPool::OnConnectJobComplete(
     int result,
-    WebSocketTransportConnectJob* job) {
+    ConnectJobDelegate* connect_job_delegate) {
   DCHECK_NE(ERR_IO_PENDING, result);
 
   // See comment in FlushWithError.
   if (flushing_) {
-    std::unique_ptr<StreamSocket> socket = job->PassSocket();
+    std::unique_ptr<StreamSocket> socket =
+        connect_job_delegate->connect_job()->PassSocket();
     websocket_endpoint_lock_manager_->UnlockSocket(socket.get());
     return;
   }
 
-  bool handed_out_socket = TryHandOutSocket(result, job);
+  bool handed_out_socket = TryHandOutSocket(result, connect_job_delegate);
 
-  CompletionOnceCallback callback = job->release_callback();
+  CompletionOnceCallback callback = connect_job_delegate->release_callback();
 
-  ClientSocketHandle* const handle = job->handle();
+  ClientSocketHandle* const handle = connect_job_delegate->socket_handle();
 
   bool delete_succeeded = DeleteJob(handle);
   DCHECK(delete_succeeded);
 
-  job = nullptr;
+  connect_job_delegate = nullptr;
 
   if (!handed_out_socket)
     ActivateStalledRequest();
@@ -633,11 +376,11 @@ void WebSocketTransportClientSocketPool::HandOutSocket(
 
 void WebSocketTransportClientSocketPool::AddJob(
     ClientSocketHandle* handle,
-    std::unique_ptr<WebSocketTransportConnectJob> connect_job) {
-  bool inserted = pending_connects_
-                      .insert(PendingConnectsMap::value_type(
-                          handle, std::move(connect_job)))
-                      .second;
+    std::unique_ptr<ConnectJobDelegate> delegate) {
+  bool inserted =
+      pending_connects_
+          .insert(PendingConnectsMap::value_type(handle, std::move(delegate)))
+          .second;
   DCHECK(inserted);
 }
 
@@ -653,12 +396,11 @@ bool WebSocketTransportClientSocketPool::DeleteJob(ClientSocketHandle* handle) {
   return true;
 }
 
-const WebSocketTransportConnectJob*
-WebSocketTransportClientSocketPool::LookupConnectJob(
+const ConnectJob* WebSocketTransportClientSocketPool::LookupConnectJob(
     const ClientSocketHandle* handle) const {
   auto it = pending_connects_.find(handle);
   CHECK(it != pending_connects_.end());
-  return it->second.get();
+  return it->second->connect_job();
 }
 
 void WebSocketTransportClientSocketPool::ActivateStalledRequest() {
@@ -701,8 +443,14 @@ bool WebSocketTransportClientSocketPool::DeleteStalledRequest(
 }
 
 WebSocketTransportClientSocketPool::ConnectJobDelegate::ConnectJobDelegate(
-    WebSocketTransportClientSocketPool* owner)
-    : owner_(owner) {}
+    WebSocketTransportClientSocketPool* owner,
+    CompletionOnceCallback callback,
+    ClientSocketHandle* socket_handle,
+    const NetLogWithSource& request_net_log)
+    : owner_(owner),
+      callback_(std::move(callback)),
+      socket_handle_(socket_handle),
+      request_net_log_(request_net_log) {}
 
 WebSocketTransportClientSocketPool::ConnectJobDelegate::~ConnectJobDelegate() =
     default;
@@ -711,12 +459,23 @@ void
 WebSocketTransportClientSocketPool::ConnectJobDelegate::OnConnectJobComplete(
     int result,
     ConnectJob* job) {
-  owner_->OnConnectJobComplete(result,
-                               static_cast<WebSocketTransportConnectJob*>(job));
+  DCHECK_EQ(job, connect_job_.get());
+  owner_->OnConnectJobComplete(result, this);
+}
+
+int WebSocketTransportClientSocketPool::ConnectJobDelegate::Connect(
+    std::unique_ptr<ConnectJob> connect_job) {
+  connect_job_ = std::move(connect_job);
+  return connect_job_->Connect();
+}
+
+const NetLogWithSource&
+WebSocketTransportClientSocketPool::ConnectJobDelegate::connect_job_net_log() {
+  return connect_job_->net_log();
 }
 
 WebSocketTransportClientSocketPool::StalledRequest::StalledRequest(
-    const scoped_refptr<TransportSocketParams>& params,
+    const scoped_refptr<SocketParams>& params,
     RequestPriority priority,
     ClientSocketHandle* handle,
     CompletionOnceCallback callback,

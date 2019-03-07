@@ -5,8 +5,8 @@
 #ifndef BASE_TASK_SEQUENCE_MANAGER_WORK_QUEUE_SETS_H_
 #define BASE_TASK_SEQUENCE_MANAGER_WORK_QUEUE_SETS_H_
 
+#include <array>
 #include <map>
-#include <vector>
 
 #include "base/base_export.h"
 #include "base/logging.h"
@@ -28,7 +28,16 @@ namespace internal {
 // values are kept in sorted order.
 class BASE_EXPORT WorkQueueSets {
  public:
-  WorkQueueSets(size_t num_sets, const char* name);
+  class Observer {
+   public:
+    virtual ~Observer() {}
+
+    virtual void WorkQueueSetBecameEmpty(size_t set_index) = 0;
+
+    virtual void WorkQueueSetBecameNonEmpty(size_t set_index) = 0;
+  };
+
+  WorkQueueSets(const char* name, Observer* observer);
   ~WorkQueueSets();
 
   // O(log num queues)
@@ -54,12 +63,11 @@ class BASE_EXPORT WorkQueueSets {
   void OnQueueBlocked(WorkQueue* work_queue);
 
   // O(1)
-  bool GetOldestQueueInSet(size_t set_index, WorkQueue** out_work_queue) const;
+  WorkQueue* GetOldestQueueInSet(size_t set_index) const;
 
   // O(1)
-  bool GetOldestQueueAndEnqueueOrderInSet(
+  WorkQueue* GetOldestQueueAndEnqueueOrderInSet(
       size_t set_index,
-      WorkQueue** out_work_queue,
       EnqueueOrder* out_enqueue_order) const;
 
   // O(1)
@@ -91,11 +99,14 @@ class BASE_EXPORT WorkQueueSets {
     }
   };
 
+  const char* const name_;
+  Observer* const observer_;
+
   // For each set |work_queue_heaps_| has a queue of WorkQueue ordered by the
   // oldest task in each WorkQueue.
-  std::vector<base::internal::IntrusiveHeap<OldestTaskEnqueueOrder>>
+  std::array<base::internal::IntrusiveHeap<OldestTaskEnqueueOrder>,
+             TaskQueue::kQueuePriorityCount>
       work_queue_heaps_;
-  const char* const name_;
 
   DISALLOW_COPY_AND_ASSIGN(WorkQueueSets);
 };

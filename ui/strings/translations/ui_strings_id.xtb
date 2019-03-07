@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{1 hari yang lalu}other{# hari yang lalu}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{1 menit yang lalu}other{# menit yang lalu}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1 m}other{# m}}</translation>
+<translation id="1181037720776840403">Hapus</translation>
 <translation id="1243314992276662751">Upload</translation>
 <translation id="1269641567813814718">Win</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">Panah Bawah</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 hari}other{# hari}}</translation>
 <translation id="335581015389089642">Ucapan</translation>
+<translation id="3462241349431650993">Jika disembunyikan, saran ini tidak akan ditampilkan lagi dari akun Anda di semua perangkat.</translation>
 <translation id="3479552764303398839">Jangan sekarang</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{1 hari lagi}other{# hari lagi}}</translation>
+<translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">Cari "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="364720409959344976">Pilih Folder untuk Diunggah</translation>
 <translation id="3660179305079774227">Panah Atas</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{1 detik yang lalu}other{# detik yang lalu}}</translation>
 <translation id="654149438358937226">Blokir semua notifikasi</translation>
 <translation id="6567071839949112727">klik ancestor</translation>
+<translation id="6578407462441924264">Tanpa Nama</translation>
 <translation id="6612467943526193239">Untuk keluar dari kalibrasi, tekan Esc.</translation>
 <translation id="6620110761915583480">Simpan File</translation>
 <translation id="6699343763173986273">Lacak Media Berikutnya</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 jam yang lalu}other{# jam yang lalu}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 dtk lagi}other{# dtk lagi}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />, Dilengkapi otomatis</translation>
 <translation id="815598010540052116">Gulir ke Bawah</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Page Down</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">centangi</translation>
 <translation id="8393700583063109961">Kirim pesan</translation>
 <translation id="8394908167088220973">Putar/Jeda Media</translation>
+<translation id="8420205633584771378">Hapus saran ini?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1t}other{#t}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> File (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> KB/dtk</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">Tombol kembali</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> KB</translation>
 <translation id="9002566407876343676">buka</translation>
-<translation id="9038489124413477075">Folder Tanpa Nama</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 dtk}other{# dtk}}</translation>
 <translation id="9059834730836941392">Ciutkan notifikasi</translation>
 <translation id="9150735707954472829">Tab</translation>

@@ -20,11 +20,12 @@
 
 class Browser;
 
-namespace browser_sync {
-class ProfileSyncService;
-}  // namespace browser_sync
+namespace identity {
+class PrimaryAccountMutator;
+}
 
 namespace syncer {
+class SyncService;
 class SyncSetupInProgressHandle;
 }  // namespace syncer
 
@@ -44,40 +45,6 @@ class OneClickSigninSyncStarter : public SigninTracker::Observer,
 
     // Creates a new profile and signs the user in this new profile.
     NEW_PROFILE
-  };
-
-  enum StartSyncMode {
-    // Starts the process of signing the user in with the SigninManager, and
-    // once completed automatically starts sync with all data types enabled.
-    SYNC_WITH_DEFAULT_SETTINGS,
-
-    // Starts the process of signing the user in with the SigninManager, and
-    // once completed shows an inline confirmation UI for sync settings. If the
-    // user dismisses the confirmation UI, sync will start immediately. If the
-    // user clicks the settings link, Chrome will reidrect to the sync settings
-    // page.
-    CONFIRM_SYNC_SETTINGS_FIRST,
-
-    // Starts the process of signing the user in with the SigninManager, and
-    // once completed redirects the user to the settings page to allow them
-    // to configure which data types to sync before sync is enabled.
-    CONFIGURE_SYNC_FIRST,
-
-    // The process should be aborted because the undo button has been pressed.
-    UNDO_SYNC
-  };
-
-  enum ConfirmationRequired {
-    // No need to display a "post-signin" confirmation bubble (for example, if
-    // the user was doing a re-auth flow).
-    NO_CONFIRMATION,
-
-    // Signin flow redirected outside of trusted domains, so ask the user to
-    // confirm before signing in.
-    CONFIRM_UNTRUSTED_SIGNIN,
-
-    // Display a confirmation after signing in.
-    CONFIRM_AFTER_SIGNIN
   };
 
   // Result of the sync setup.
@@ -103,8 +70,6 @@ class OneClickSigninSyncStarter : public SigninTracker::Observer,
                             signin_metrics::AccessPoint signin_access_point,
                             signin_metrics::Reason signin_reason,
                             ProfileMode profile_mode,
-                            StartSyncMode start_mode,
-                            ConfirmationRequired display_confirmation,
                             Callback callback);
 
   // BrowserListObserver override.
@@ -188,24 +153,11 @@ class OneClickSigninSyncStarter : public SigninTracker::Observer,
   // confirmation is required (in which case we have to prompt the user first).
   void ConfirmSignin(ProfileMode profile_mode, const std::string& oauth_token);
 
-  // Displays confirmation UI to the user if confirmation_required_ ==
-  // CONFIRM_UNTRUSTED_SIGNIN, otherwise completes the pending signin process.
-  void ConfirmAndSignin();
-
-  // Callback invoked once the user has responded to the signin confirmation UI.
-  // If response == UNDO_SYNC, the signin is cancelled, otherwise the pending
-  // signin is completed.
-  void UntrustedSigninConfirmed(StartSyncMode response);
-
-  // GetProfileSyncService returns non-NULL pointer if sync is enabled.
-  // There is a scenario when when ProfileSyncService discovers that sync is
-  // disabled during setup. In this case GetProfileSyncService will return NULL,
-  // but we still need to call PSS::SetSetupInProgress(false). For this purpose
-  // call FinishProfileSyncServiceSetup() function.
-  browser_sync::ProfileSyncService* GetProfileSyncService();
+  // GetSyncService returns non-NULL pointer if sync is enabled.
+  syncer::SyncService* GetSyncService();
 
   // Finishes the setup of the profile sync service.
-  void FinishProfileSyncServiceSetup();
+  void FinishSyncServiceSetup();
 
   // Shows the post-signin confirmation bubble. If |custom_message| is empty,
   // the default "You are signed in" message is displayed.
@@ -218,9 +170,8 @@ class OneClickSigninSyncStarter : public SigninTracker::Observer,
   Browser* browser_;
   signin_metrics::AccessPoint signin_access_point_;
   signin_metrics::Reason signin_reason_;
+  identity::PrimaryAccountMutator* primary_account_mutator_;
   std::unique_ptr<SigninTracker> signin_tracker_;
-  StartSyncMode start_mode_;
-  ConfirmationRequired confirmation_required_;
 
   // Callback executed when sync setup succeeds or fails.
   Callback sync_setup_completed_callback_;

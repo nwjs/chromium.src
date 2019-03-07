@@ -49,91 +49,14 @@ using chrome_test_util::SettingsDoneButton;
   chrome_test_util::VerifyAccessibilityForCurrentScreen();
 
   // Close settings.
-  [[EarlGrey selectElementWithMatcher:SettingsMenuBackButton()]
-      performAction:grey_tap()];
   [[EarlGrey selectElementWithMatcher:SettingsDoneButton()]
       performAction:grey_tap()];
 }
 
-// Tests the Google Services settings, when the user is not logged in.
-// The personalized section is expect to be collapsed and the non-personalized
-// section is expected to be expanded.
-- (void)testOpeningServicesWhileSignedOut {
+// Tests the Google Services settings.
+- (void)testOpeningServices {
   [self openGoogleServicesSettings];
-  [self assertPersonalizedServicesCollapsed:YES];
-  [self assertNonPersonalizedServicesCollapsed:NO];
-}
-
-// Tests the Google Services settings, when the user is logged in without user
-// consent.
-// The "Sync Everything" section is expected to be visible.
-// The personalized section and the non-personalized section are expected to be
-// expanded.
-- (void)testOpeningServicesWhileSignedIn {
-  [SigninEarlGreyUI signinWithIdentity:[SigninEarlGreyUtils fakeIdentity1]];
-  [self openGoogleServicesSettings];
-  [self assertSyncEverythingSection];
-  [self assertPersonalizedServicesCollapsed:NO];
-  [self assertNonPersonalizedServicesCollapsed:NO];
-}
-
-// Tests the Google Services settings, when the user is logged in with user
-// consent.
-// The "Sync Everything" section is expected to be visible.
-// The personalized section and the non-personalized section are expected to be
-// collapsed.
-- (void)testOpeningServicesWhileSignedInAndConsentGiven {
-  [SigninEarlGreyUI signinWithIdentity:[SigninEarlGreyUtils fakeIdentity1]];
-  [self openGoogleServicesSettings];
-  [self assertSyncEverythingSection];
-  [self assertPersonalizedServicesCollapsed:YES];
-  [self assertNonPersonalizedServicesCollapsed:YES];
-}
-
-// Tests to expand/collapse the personalized section.
-- (void)testTogglePersonalizedServices {
-  [self openGoogleServicesSettings];
-  [self assertPersonalizedServicesCollapsed:YES];
-  [self togglePersonalizedServicesSection];
-  [self assertPersonalizedServicesCollapsed:NO];
-  [self scrollUp];
-  [self togglePersonalizedServicesSection];
-  [self assertPersonalizedServicesCollapsed:YES];
-}
-
-// Tests to expand/collapse the non-personalized section.
-- (void)testToggleNonPersonalizedServices {
-  [self openGoogleServicesSettings];
-  [self assertNonPersonalizedServicesCollapsed:NO];
-  [self scrollUp];
-  [self toggleNonPersonalizedServicesSection];
-  [self assertNonPersonalizedServicesCollapsed:YES];
-  [self toggleNonPersonalizedServicesSection];
-  [self assertNonPersonalizedServicesCollapsed:NO];
-}
-
-// Tests the "Manage synced data" cell does nothing when the user is not signed
-// in.
-- (void)testOpenManageSyncedDataWebPage {
-  [self openGoogleServicesSettings];
-  [self togglePersonalizedServicesSection];
-  [[self cellElementInteractionWithTitleID:
-             IDS_IOS_GOOGLE_SERVICES_SETTINGS_MANAGED_SYNC_DATA_TEXT
-                              detailTextID:0] performAction:grey_tap()];
-  [[EarlGrey selectElementWithMatcher:self.scrollViewMatcher]
-      assertWithMatcher:grey_notNil()];
-}
-
-// Tests the "Manage synced data" cell closes the settings, and opens the web
-// page, while the user is signed in without user consent.
-- (void)testOpenManageSyncedDataWebPageWhileSignedIn {
-  [SigninEarlGreyUI signinWithIdentity:[SigninEarlGreyUtils fakeIdentity1]];
-  [self openGoogleServicesSettings];
-  [[self cellElementInteractionWithTitleID:
-             IDS_IOS_GOOGLE_SERVICES_SETTINGS_MANAGED_SYNC_DATA_TEXT
-                              detailTextID:0] performAction:grey_tap()];
-  [[EarlGrey selectElementWithMatcher:self.scrollViewMatcher]
-      assertWithMatcher:grey_nil()];
+  [self assertNonPersonalizedServices];
 }
 
 #pragma mark - Helpers
@@ -155,24 +78,6 @@ using chrome_test_util::SettingsDoneButton;
                                                            0.1f, 0.1f)];
 }
 
-// Toggles personalized services section.
-- (void)togglePersonalizedServicesSection {
-  [[EarlGrey
-      selectElementWithMatcher:
-          grey_accessibilityLabel(GetNSString(
-              IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_PERSONALIZATION_TEXT))]
-      performAction:grey_tap()];
-}
-
-// Toggles non personalized services section.
-- (void)toggleNonPersonalizedServicesSection {
-  [[EarlGrey
-      selectElementWithMatcher:
-          grey_accessibilityLabel(GetNSString(
-              IDS_IOS_GOOGLE_SERVICES_SETTINGS_NON_PERSONALIZED_SERVICES_TEXT))]
-      performAction:grey_tap()];
-}
-
 // Returns grey matcher for a cell with |titleID| and |detailTextID|.
 - (id<GREYMatcher>)cellMatcherWithTitleID:(int)titleID
                              detailTextID:(int)detailTextID {
@@ -183,7 +88,7 @@ using chrome_test_util::SettingsDoneButton;
                                    GetNSString(detailTextID)];
   }
   return grey_allOf(grey_accessibilityLabel(accessibilityLabel),
-                    grey_kindOfClass([UICollectionViewCell class]),
+                    grey_kindOfClass([UITableViewCell class]),
                     grey_sufficientlyVisible(), nil);
 }
 
@@ -218,96 +123,26 @@ using chrome_test_util::SettingsDoneButton;
       assertWithMatcher:grey_notNil()];
 }
 
-// Asserts that the switch is enabled/disabled inside a cell with |titleID| and
-// |detailTextID|.
-- (void)assertSwitchCellWithTitleID:(int)titleID
-                       detailTextID:(int)detailTextID
-                            enabled:(BOOL)enabled {
-  id<GREYMatcher> cellMatcher =
-      [self cellMatcherWithTitleID:titleID detailTextID:detailTextID];
-  id<GREYMatcher> enabledMatcher = grey_enabled();
-  if (!enabled) {
-    enabledMatcher = grey_not(grey_enabled());
-  }
-  id<GREYMatcher> switchMatcher =
-      grey_allOf(enabledMatcher, grey_kindOfClass([UISwitch class]),
-                 grey_ancestor(cellMatcher), nil);
-  GREYElementInteraction* element =
-      [self elementInteractionWithGreyMatcher:switchMatcher];
-  [element assertWithMatcher:grey_notNil()];
-}
-
-// Asserts that the sync everthing section cell is visible.
-- (void)assertSyncEverythingSection {
-  [self assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_EVERYTHING
-                 detailTextID:0];
-}
-
-// Asserts that the personalized service section is visible and collapsed or
-// expended.
-- (void)assertPersonalizedServicesCollapsed:(BOOL)collapsed {
+// Asserts that the non-personalized service section is visible.
+- (void)assertNonPersonalizedServices {
   [self
       assertCellWithTitleID:
-          IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_PERSONALIZATION_TEXT
+          IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOCOMPLETE_SEARCHES_AND_URLS_TEXT
                detailTextID:
-                   IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_PERSONALIZATION_DETAIL];
-  if (!collapsed) {
-    [self assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_BOOKMARKS_TEXT
-                   detailTextID:0];
-    [self assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_HISTORY_TEXT
-                   detailTextID:0];
-    [self assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_PASSWORD_TEXT
-                   detailTextID:0];
-    [self assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_OPENTABS_TEXT
-                   detailTextID:0];
-    [self assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOFILL_TEXT
-                   detailTextID:0];
-    [self assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_SETTINGS_TEXT
-                   detailTextID:0];
-    [self
-        assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_READING_LIST_TEXT
-                 detailTextID:0];
-    [self
-        assertCellWithTitleID:
-            IDS_IOS_GOOGLE_SERVICES_SETTINGS_GOOGLE_ACTIVITY_CONTROL_TEXT
-                 detailTextID:
-                     IDS_IOS_GOOGLE_SERVICES_SETTINGS_GOOGLE_ACTIVITY_CONTROL_DETAIL];
-    [self assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_ENCRYPTION_TEXT
-                   detailTextID:0];
-    [self assertCellWithTitleID:
-              IDS_IOS_GOOGLE_SERVICES_SETTINGS_MANAGED_SYNC_DATA_TEXT
-                   detailTextID:0];
-  }
-}
-
-// Asserts that the non-personalized service section is visible and collapsed or
-// expended.
-- (void)assertNonPersonalizedServicesCollapsed:(BOOL)collapsed {
+                   IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOCOMPLETE_SEARCHES_AND_URLS_DETAIL];
+  [self
+      assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_PRELOAD_PAGES_TEXT
+               detailTextID:
+                   IDS_IOS_GOOGLE_SERVICES_SETTINGS_PRELOAD_PAGES_DETAIL];
+  [self
+      assertCellWithTitleID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_IMPROVE_CHROME_TEXT
+               detailTextID:
+                   IDS_IOS_GOOGLE_SERVICES_SETTINGS_IMPROVE_CHROME_DETAIL];
   [self
       assertCellWithTitleID:
-          IDS_IOS_GOOGLE_SERVICES_SETTINGS_NON_PERSONALIZED_SERVICES_TEXT
+          IDS_IOS_GOOGLE_SERVICES_SETTINGS_BETTER_SEARCH_AND_BROWSING_TEXT
                detailTextID:
-                   IDS_IOS_GOOGLE_SERVICES_SETTINGS_NON_PERSONALIZED_SERVICES_DETAIL];
-  if (!collapsed) {
-    [self
-        assertCellWithTitleID:
-            IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOCOMPLETE_SEARCHES_AND_URLS_TEXT
-                 detailTextID:
-                     IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOCOMPLETE_SEARCHES_AND_URLS_DETAIL];
-    [self assertCellWithTitleID:
-              IDS_IOS_GOOGLE_SERVICES_SETTINGS_PRELOAD_PAGES_TEXT
-                   detailTextID:
-                       IDS_IOS_GOOGLE_SERVICES_SETTINGS_PRELOAD_PAGES_DETAIL];
-    [self assertCellWithTitleID:
-              IDS_IOS_GOOGLE_SERVICES_SETTINGS_IMPROVE_CHROME_TEXT
-                   detailTextID:
-                       IDS_IOS_GOOGLE_SERVICES_SETTINGS_IMPROVE_CHROME_DETAIL];
-    [self
-        assertCellWithTitleID:
-            IDS_IOS_GOOGLE_SERVICES_SETTINGS_BETTER_SEARCH_AND_BROWSING_TEXT
-                 detailTextID:
-                     IDS_IOS_GOOGLE_SERVICES_SETTINGS_BETTER_SEARCH_AND_BROWSING_DETAIL];
-  }
+                   IDS_IOS_GOOGLE_SERVICES_SETTINGS_BETTER_SEARCH_AND_BROWSING_DETAIL];
 }
 
 @end

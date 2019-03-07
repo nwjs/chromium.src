@@ -9,6 +9,7 @@
 #include "services/viz/privileged/interfaces/compositing/renderer_settings.mojom.h"
 #include "services/viz/privileged/interfaces/compositing/renderer_settings_struct_traits.h"
 #include "ui/gfx/geometry/mojo/geometry_struct_traits.h"
+#include "ui/gfx/ipc/color/gfx_param_traits.h"
 
 namespace mojo {
 template <>
@@ -73,11 +74,6 @@ struct StructTraits<viz::mojom::RendererSettingsDataView,
     return input.record_sk_picture;
   }
 
-  static bool use_skia_deferred_display_list(
-      const viz::RendererSettings& input) {
-    return input.use_skia_deferred_display_list;
-  }
-
   static bool allow_overlays(const viz::RendererSettings& input) {
     return input.allow_overlays;
   }
@@ -89,6 +85,10 @@ struct StructTraits<viz::mojom::RendererSettingsDataView,
 #if defined(OS_ANDROID)
   static gfx::Size initial_screen_size(const viz::RendererSettings& input) {
     return input.initial_screen_size;
+  }
+
+  static gfx::ColorSpace color_space(const viz::RendererSettings& input) {
+    return input.color_space;
   }
 #endif
 

@@ -25,6 +25,7 @@
 #include "ash/shell.h"
 #include "ash/wallpaper/wallpaper_controller.h"
 #include "base/optional.h"
+#include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/base/ime/chromeos/ime_keyboard.h"
 #include "ui/views/controls/button/md_text_button.h"
@@ -54,6 +55,7 @@ enum {
   kGlobalCycleDetachableBaseId,
   kGlobalCycleAuthErrorMessage,
   kGlobalToggleWarningBanner,
+  kGlobalToggleManagedSessionDisclosure,
   kPerUserTogglePin,
   kPerUserToggleTap,
   kPerUserCycleEasyUnlockState,
@@ -146,6 +148,7 @@ mojom::LoginUserInfoPtr PopulateUserData(const mojom::LoginUserInfoPtr& user,
     result->public_account_info = mojom::PublicAccountInfo::New();
     result->public_account_info->enterprise_domain = kDebugEnterpriseDomain;
     result->public_account_info->default_locale = kDebugDefaultLocaleCode;
+    result->public_account_info->show_expanded_view = true;
 
     std::vector<mojom::LocaleItemPtr> locales;
     mojom::LocaleItemPtr locale_item = mojom::LocaleItem::New();
@@ -469,6 +472,12 @@ class LockDebugView::DebugDataDispatcherTransformer
                                                       keyboard_layouts);
   }
 
+  void OnPublicSessionShowFullManagementDisclosureChanged(
+      bool show_full_management_disclosure) override {
+    debug_dispatcher_.SetPublicSessionShowFullManagementDisclosure(
+        show_full_management_disclosure);
+  }
+
  private:
   // The debug overlay UI takes ground-truth data from |root_dispatcher_|,
   // applies a series of transformations to it, and exposes it to the UI via
@@ -531,7 +540,7 @@ class LockDebugView::DebugLoginDetachableBaseModel
   // Calculates the debugging detachable base ID that should become the paired
   // base in the model when the button for cycling paired bases is clicked.
   int NextBaseId() const {
-    return (base_id_ + 1) % arraysize(kDebugDetachableBases);
+    return (base_id_ + 1) % base::size(kDebugDetachableBases);
   }
 
   // Gets the descripting text for currently paired base, if any.
@@ -550,7 +559,7 @@ class LockDebugView::DebugLoginDetachableBaseModel
     pairing_status_ = pairing_status;
     if (pairing_status == DetachableBasePairingStatus::kAuthenticated) {
       CHECK_GE(base_id, 0);
-      CHECK_LT(base_id, static_cast<int>(arraysize(kDebugDetachableBases)));
+      CHECK_LT(base_id, static_cast<int>(base::size(kDebugDetachableBases)));
       base_id_ = base_id;
     } else {
       base_id_ = kNullBaseId;
@@ -687,6 +696,11 @@ LockDebugView::LockDebugView(mojom::TrayActionState initial_note_action_state,
             kiosk_container);
   AddButton("Show kiosk error", ButtonId::kGlobalShowKioskError,
             kiosk_container);
+
+  auto* managed_sessions_container = add_horizontal_container();
+  AddButton("Toggle managed session disclosure",
+            ButtonId::kGlobalToggleManagedSessionDisclosure,
+            managed_sessions_container);
 
   global_action_detachable_base_group_ = add_horizontal_container();
   UpdateDetachableBaseColumn();
@@ -955,6 +969,13 @@ void LockDebugView::ButtonPressed(views::Button* sender,
   if (sender->id() == ButtonId::kPerUserAuthFingerprintFailState) {
     debug_data_dispatcher_->AuthenticateFingerprintForUserIndex(sender->tag(),
                                                                 false);
+  }
+
+  if (sender->id() == ButtonId::kGlobalToggleManagedSessionDisclosure) {
+    is_managed_session_disclosure_shown_ =
+        !is_managed_session_disclosure_shown_;
+    debug_data_dispatcher_->OnPublicSessionShowFullManagementDisclosureChanged(
+        is_managed_session_disclosure_shown_);
   }
 
   // Force online sign-in.

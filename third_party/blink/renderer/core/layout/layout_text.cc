@@ -59,6 +59,7 @@
 #include "third_party/blink/renderer/core/layout/ng/ng_physical_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/paint/ng/ng_paint_fragment.h"
+#include "third_party/blink/renderer/core/paint/ng/ng_paint_fragment_traversal.h"
 #include "third_party/blink/renderer/platform/fonts/character_range.h"
 #include "third_party/blink/renderer/platform/geometry/float_quad.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -217,10 +218,7 @@ void LayoutText::RemoveAndDestroyTextBoxes() {
       for (InlineTextBox* box : TextBoxes())
         box->Remove();
     } else if (Parent()) {
-      if (NGPaintFragment* first_fragment = FirstInlineFragment())
-        first_fragment->MarkContainingLineBoxDirty();
-      else
-        Parent()->DirtyLinesFromChangedChild(this);
+      Parent()->DirtyLinesFromChangedChild(this);
     }
   }
   DeleteTextBoxes();
@@ -802,11 +800,17 @@ PositionWithAffinity LayoutText::PositionForPoint(
         ShouldAffinityBeDownstream should_affinity_be_downstream;
         if (LineDirectionPointFitsInBox(point_line_direction.ToInt(), box,
                                         should_affinity_be_downstream)) {
+          const int offset = box->OffsetForPosition(
+              point_line_direction, IncludePartialGlyphs, BreakGlyphs);
+          if (RuntimeEnabledFeatures::BidiCaretAffinityEnabled()) {
+            return CreatePositionWithAffinityForBox(
+                box, offset + box->Start(),
+                static_cast<unsigned>(offset) == box->Len()
+                    ? kAlwaysUpstream
+                    : kAlwaysDownstream);
+          }
           return CreatePositionWithAffinityForBoxAfterAdjustingOffsetForBiDi(
-              box,
-              box->OffsetForPosition(point_line_direction, IncludePartialGlyphs,
-                                     BreakGlyphs),
-              should_affinity_be_downstream);
+              box, offset, should_affinity_be_downstream);
         }
       }
     }
@@ -814,14 +818,20 @@ PositionWithAffinity LayoutText::PositionForPoint(
   }
 
   if (last_box) {
+    const int offset = last_box->OffsetForPosition(
+        point_line_direction, IncludePartialGlyphs, BreakGlyphs);
+    if (RuntimeEnabledFeatures::BidiCaretAffinityEnabled()) {
+      return CreatePositionWithAffinityForBox(
+          last_box, offset + last_box->Start(),
+          static_cast<unsigned>(offset) == last_box->Len() ? kAlwaysUpstream
+                                                           : kAlwaysDownstream);
+    }
+
     ShouldAffinityBeDownstream should_affinity_be_downstream;
     LineDirectionPointFitsInBox(point_line_direction.ToInt(), last_box,
                                 should_affinity_be_downstream);
     return CreatePositionWithAffinityForBoxAfterAdjustingOffsetForBiDi(
-        last_box,
-        last_box->OffsetForPosition(point_line_direction, IncludePartialGlyphs,
-                                    BreakGlyphs),
-        should_affinity_be_downstream);
+        last_box, offset, should_affinity_be_downstream);
   }
   return CreatePositionWithAffinity(0);
 }
@@ -1606,17 +1616,20 @@ bool LayoutText::CanOptimizeSetText() const {
   // If we have only one line of text and "contain: layout size" we can avoid
   // doing a layout and only paint in the SetText() operation.
   return Parent()->IsLayoutBlockFlow() &&
-         (Parent()->ShouldApplyLayoutContainment() &&
-          Parent()->ShouldApplySizeContainment()) &&
-         FirstTextBox() &&
-         (FirstTextBox() == LastTextBox() &&
-          // If "line-height" is "normal" we might need to recompute the
-          // baseline which is not straight forward.
-          !StyleRef().LineHeight().IsNegative() &&
-          // We would need to recompute the position if "direction" is "rtl".
-          StyleRef().IsLeftToRightDirection() &&
-          // We would need to layout the text if it is justified.
-          (StyleRef().GetTextAlign(true) != ETextAlign::kJustify));
+         Parent()->ShouldApplyLayoutContainment() &&
+         Parent()->ShouldApplySizeContainment() &&
+         // If we have "text-overflow: ellipsis" we need to check if we need or
+         // not ellipsis in the new text and recompute its position.
+         !ToLayoutBlockFlow(Parent())->ShouldTruncateOverflowingText() &&
+         !PreviousSibling() && !NextSibling() && FirstTextBox() &&
+         FirstTextBox() == LastTextBox() &&
+         // If "line-height" is "normal" we might need to recompute the
+         // baseline which is not straight forward.
+         !StyleRef().LineHeight().IsNegative() &&
+         // We would need to recompute the position if "direction" is "rtl".
+         StyleRef().IsLeftToRightDirection() &&
+         // We would need to layout the text if it is justified.
+         (StyleRef().GetTextAlign(true) != ETextAlign::kJustify);
 }
 
 void LayoutText::SetFirstTextBoxLogicalLeft(float text_width) const {
@@ -2050,6 +2063,18 @@ LayoutRect LayoutText::LinesBoundingBox() const {
 }
 
 LayoutRect LayoutText::VisualOverflowRect() const {
+  if (IsInLayoutNGInlineFormattingContext()) {
+    LayoutRect rect;
+    auto fragments = NGPaintFragment::InlineFragmentsFor(this);
+    for (const NGPaintFragment* fragment : fragments) {
+      LayoutRect child_rect = fragment->VisualRect();
+      child_rect.MoveBy(fragment->InlineOffsetToContainerBox().ToLayoutPoint());
+      rect.Unite(child_rect);
+    }
+    ContainingBlock()->FlipForWritingMode(rect);
+    return rect;
+  }
+
   if (!FirstTextBox())
     return LayoutRect();
 

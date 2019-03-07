@@ -21,10 +21,10 @@
 #include "base/compiler_specific.h"
 #include "base/format_macros.h"
 #include "base/location.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"  // For HexEncode.
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"  // For LowerCaseEqualsASCII.
@@ -202,7 +202,7 @@ HttpCache::Transaction::Transaction(RequestPriority priority, HttpCache* cache)
       weak_factory_(this) {
   TRACE_EVENT0("io", "HttpCacheTransaction::Transaction");
   static_assert(HttpCache::Transaction::kNumValidationHeaders ==
-                    arraysize(kValidationHeaders),
+                    base::size(kValidationHeaders),
                 "invalid number of validation headers");
 
   io_callback_ = base::BindRepeating(&Transaction::OnIOComplete,
@@ -554,6 +554,8 @@ bool HttpCache::Transaction::GetLoadTimingInfo(
   // This time doesn't make much sense when reading from the cache, so just use
   // the same time as send_start.
   load_timing_info->send_end = first_cache_access_since_;
+  // Provide the time immediately before parsing a cached entry.
+  load_timing_info->receive_headers_start = read_headers_since_;
   return true;
 }
 
@@ -1461,6 +1463,9 @@ int HttpCache::Transaction::DoCacheReadResponseComplete(int result) {
   TRACE_EVENT0("io", "HttpCacheTransaction::DoCacheReadResponseComplete");
   net_log_.EndEventWithNetErrorCode(NetLogEventType::HTTP_CACHE_READ_INFO,
                                     result);
+
+  // Record the time immediately before the cached response is parsed.
+  read_headers_since_ = TimeTicks::Now();
   if (result != io_buf_len_ ||
       !HttpCache::ParseResponseInfo(read_buf_->data(), io_buf_len_, &response_,
                                     &truncated_)) {
@@ -1789,7 +1794,7 @@ int HttpCache::Transaction::DoSuccessfulSendRequest() {
   // Invalidate any cached GET with a successful POST.
   if (!(effective_load_flags_ & LOAD_DISABLE_CACHE) && method_ == "POST" &&
       NonErrorResponse(new_response->headers->response_code())) {
-    cache_->DoomMainEntryForUrl(request_->url);
+    cache_->DoomMainEntryForUrl(request_->url, request_->top_frame_origin);
   }
 
   RecordNoStoreHeaderHistogram(request_->load_flags, new_response);
@@ -2349,7 +2354,7 @@ void HttpCache::Transaction::SetRequest(const NetLogWithSource& net_log) {
   if (request_->extra_headers.HasHeader(HttpRequestHeaders::kRange))
     range_found = true;
 
-  for (size_t i = 0; i < arraysize(kSpecialHeaders); ++i) {
+  for (size_t i = 0; i < base::size(kSpecialHeaders); ++i) {
     if (HeaderMatches(request_->extra_headers, kSpecialHeaders[i].search)) {
       effective_load_flags_ |= kSpecialHeaders[i].load_flag;
       special_headers = true;
@@ -2359,7 +2364,7 @@ void HttpCache::Transaction::SetRequest(const NetLogWithSource& net_log) {
 
   // Check for conditionalization headers which may correspond with a
   // cache validation request.
-  for (size_t i = 0; i < arraysize(kValidationHeaders); ++i) {
+  for (size_t i = 0; i < base::size(kValidationHeaders); ++i) {
     const ValidationHeaderInfo& info = kValidationHeaders[i];
     std::string validation_value;
     if (request_->extra_headers.GetHeader(
@@ -2615,7 +2620,7 @@ int HttpCache::Transaction::BeginExternallyConditionalizedRequest() {
   DCHECK_EQ(UPDATE, mode_);
   DCHECK(external_validation_.initialized);
 
-  for (size_t i = 0;  i < arraysize(kValidationHeaders); i++) {
+  for (size_t i = 0; i < base::size(kValidationHeaders); i++) {
     if (external_validation_.values[i].empty())
       continue;
     // Retrieve either the cached response's "etag" or "last-modified" header.

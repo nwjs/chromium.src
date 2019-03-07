@@ -68,7 +68,7 @@ class FormDataIterationSource final
     return true;
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(form_data_);
     PairIterable<String, FormDataEntryValue>::IterationSource::Trace(visitor);
   }
@@ -96,21 +96,24 @@ FormData::FormData() : encoding_(UTF8Encoding()) {}
 
 FormData* FormData::Create(HTMLFormElement* form,
                            ExceptionState& exception_state) {
-  auto* form_data = MakeGarbageCollected<FormData>();
   // TODO(tkent): Null check should be unnecessary.  We should remove
   // LegacyInterfaceTypeChecking from form_data.idl.  crbug.com/561338
   if (!form)
-    return form_data;
-  if (!form->ConstructEntryList(nullptr, *form_data)) {
+    return MakeGarbageCollected<FormData>();
+  FormData* form_data = form->ConstructEntryList(nullptr, UTF8Encoding());
+  if (!form_data) {
     DCHECK(RuntimeEnabledFeatures::FormDataEventEnabled());
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
                                       "The form is constructing entry list.");
     return nullptr;
   }
-  return form_data;
+  // Return a shallow copy of |form_data| because |form_data| is visible in
+  // "formdata" event, and the specification says it should be different from
+  // the FormData object to be returned.
+  return MakeGarbageCollected<FormData>(*form_data);
 }
 
-void FormData::Trace(blink::Visitor* visitor) {
+void FormData::Trace(Visitor* visitor) {
   visitor->Trace(entries_);
   ScriptWrappable::Trace(visitor);
 }
@@ -322,7 +325,7 @@ scoped_refptr<EncodedFormData> FormData::EncodeMultiPartFormData() {
 
 PairIterable<String, FormDataEntryValue>::IterationSource*
 FormData::StartIteration(ScriptState*, ExceptionState&) {
-  return new FormDataIterationSource(this);
+  return MakeGarbageCollected<FormDataIterationSource>(this);
 }
 
 // ----------------------------------------------------------------
@@ -341,7 +344,7 @@ FormData::Entry::Entry(const String& name, Blob* blob, const String& filename)
       << "'name' should be a USVString.";
 }
 
-void FormData::Entry::Trace(blink::Visitor* visitor) {
+void FormData::Entry::Trace(Visitor* visitor) {
   visitor->Trace(blob_);
 }
 

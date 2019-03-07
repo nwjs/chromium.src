@@ -53,7 +53,6 @@ class MODULES_EXPORT MIDIAccessInitializer : public ScriptPromiseResolver,
     MIDIAccessInitializer* resolver =
         MakeGarbageCollected<MIDIAccessInitializer>(script_state, options);
     resolver->KeepAliveWhilePending();
-    resolver->PauseIfNeeded();
     return resolver->Start();
   }
 
@@ -82,7 +81,7 @@ class MODULES_EXPORT MIDIAccessInitializer : public ScriptPromiseResolver,
   void DidStartSession(midi::mojom::Result) override;
   void DidReceiveMIDIData(unsigned port_index,
                           const unsigned char* data,
-                          size_t length,
+                          wtf_size_t length,
                           TimeTicks time_stamp) override {}
 
   void Trace(Visitor*) override;

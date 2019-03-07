@@ -8,14 +8,11 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "components/keyed_service/ios/browser_state_keyed_service_factory.h"
 
-namespace base {
-template <typename T>
-struct DefaultSingletonTraits;
-}  // namespace base
-
+class PrefRegistrySimple;
 class SigninManager;
 
 namespace ios_web_view {
@@ -39,8 +36,11 @@ class WebViewSigninManagerFactory : public BrowserStateKeyedServiceFactory {
   void RegisterBrowserStatePrefs(
       user_prefs::PrefRegistrySyncable* registry) override;
 
+  // Registers the browser-global prefs used by SigninManager.
+  static void RegisterPrefs(PrefRegistrySimple* registry);
+
  private:
-  friend struct base::DefaultSingletonTraits<WebViewSigninManagerFactory>;
+  friend class base::NoDestructor<WebViewSigninManagerFactory>;
 
   WebViewSigninManagerFactory();
   ~WebViewSigninManagerFactory() override = default;

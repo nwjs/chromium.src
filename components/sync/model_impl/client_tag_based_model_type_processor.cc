@@ -16,6 +16,7 @@
 #include "base/trace_event/memory_usage_estimator.h"
 #include "components/sync/base/data_type_histogram.h"
 #include "components/sync/base/hash_util.h"
+#include "components/sync/base/model_type.h"
 #include "components/sync/base/time.h"
 #include "components/sync/engine/commit_queue.h"
 #include "components/sync/engine/data_type_activation_response.h"
@@ -57,6 +58,19 @@ int CountNonTombstoneEntries(
     }
   }
   return count;
+}
+
+void LogNonReflectionUpdateFreshnessToUma(ModelType type,
+                                          base::Time remote_modification_time) {
+  const base::TimeDelta latency = base::Time::Now() - remote_modification_time;
+
+  UMA_HISTOGRAM_LONG_TIMES("Sync.NonReflectionUpdateFreshnessPossiblySkewed",
+                           latency);
+
+  base::UmaHistogramLongTimes(
+      std::string("Sync.NonReflectionUpdateFreshnessPossiblySkewed.") +
+          ModelTypeToHistogramSuffix(type),
+      latency);
 }
 
 }  // namespace
@@ -423,6 +437,9 @@ void ClientTagBasedModelTypeProcessor::Put(
     entity = CreateEntity(storage_key, *data);
   } else if (entity->MatchesData(*data)) {
     // Ignore changes that don't actually change anything.
+    UMA_HISTOGRAM_ENUMERATION("Sync.ModelTypeRedundantPut",
+                              ModelTypeToHistogramInt(type_),
+                              static_cast<int>(MODEL_TYPE_COUNT));
     return;
   }
 
@@ -1052,6 +1069,12 @@ ClientTagBasedModelTypeProcessor::OnIncrementalUpdateReceived(
       // have server tags instead).
       continue;
     }
+
+    LogNonReflectionUpdateFreshnessToUma(
+        type_,
+        /*remote_modification_time=*/
+        ProtoTimeToTime(entity->metadata().modification_time()));
+
     if (entity->storage_key().empty()) {
       // Storage key of this entity is not known yet. Don't update metadata, it
       // will be done from UpdateStorageKey.
@@ -1254,6 +1277,11 @@ size_t ClientTagBasedModelTypeProcessor::EstimateMemoryUsage() const {
 
 bool ClientTagBasedModelTypeProcessor::HasLocalChangesForTest() const {
   return HasLocalChanges();
+}
+
+bool ClientTagBasedModelTypeProcessor::IsTrackingEntityForTest(
+    const std::string& storage_key) const {
+  return storage_key_to_tag_hash_.count(storage_key) != 0;
 }
 
 bool ClientTagBasedModelTypeProcessor::IsModelReadyToSyncForTest() const {

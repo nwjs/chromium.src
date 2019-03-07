@@ -8,7 +8,7 @@
 
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/host/ash_window_tree_host.h"
-#include "ash/magnifier/magnifier_scale_utils.h"
+#include "ash/magnifier/magnifier_utils.h"
 #include "ash/public/cpp/ash_pref_names.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/root_window_controller.h"
@@ -16,7 +16,7 @@
 #include "ash/shelf/shelf.h"
 #include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shell.h"
-#include "ash/wm/overview/window_selector_controller.h"
+#include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "base/numerics/ranges.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -25,6 +25,7 @@
 #include "ui/aura/client/drag_drop_client.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window_tree_host.h"
+#include "ui/base/ime/ime_bridge.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/compositor/layer.h"
@@ -50,21 +51,12 @@ constexpr char kDockedMagnifierViewportWindowName[] =
 
 // Returns true if High Contrast mode is enabled.
 bool IsHighContrastEnabled() {
-  return Shell::Get()->accessibility_controller()->IsHighContrastEnabled();
+  return Shell::Get()->accessibility_controller()->high_contrast_enabled();
 }
 
 // Returns the current cursor location in screen coordinates.
 inline gfx::Point GetCursorScreenPoint() {
   return display::Screen::GetScreen()->GetCursorScreenPoint();
-}
-
-// Returns the InputMethod associated with the WindowTreeHost of the given
-// window.
-ui::InputMethod* GetInputMethodForWindow(aura::Window* window) {
-  DCHECK(window);
-  aura::WindowTreeHost* host = window->GetHost();
-  DCHECK(host);
-  return host->GetInputMethod();
 }
 
 // Updates the workarea of the display associated with |window| such that the
@@ -133,9 +125,17 @@ aura::Window* GetViewportParentContainerForRoot(aura::Window* root) {
 
 DockedMagnifierController::DockedMagnifierController() : binding_(this) {
   Shell::Get()->session_controller()->AddObserver(this);
+  if (ui::IMEBridge::Get())
+    ui::IMEBridge::Get()->AddObserver(this);
 }
 
 DockedMagnifierController::~DockedMagnifierController() {
+  if (input_method_)
+    input_method_->RemoveObserver(this);
+  input_method_ = nullptr;
+  if (ui::IMEBridge::Get())
+    ui::IMEBridge::Get()->RemoveObserver(this);
+
   Shell* shell = Shell::Get();
   shell->session_controller()->RemoveObserver(this);
 
@@ -194,7 +194,7 @@ void DockedMagnifierController::SetScale(float scale) {
 }
 
 void DockedMagnifierController::StepToNextScaleValue(int delta_index) {
-  SetScale(magnifier_scale_utils::GetNextMagnifierScaleValue(
+  SetScale(magnifier_utils::GetNextMagnifierScaleValue(
       delta_index, GetScale(), kMinMagnifierScale, kMaxMagnifierScale));
 }
 
@@ -314,7 +314,7 @@ void DockedMagnifierController::OnScrollEvent(ui::ScrollEvent* event) {
     // Notes: - Clamping of the new scale value happens inside SetScale().
     //        - Refreshing the viewport happens in the handler of the scale pref
     //          changes.
-    SetScale(magnifier_scale_utils::GetScaleFromScroll(
+    SetScale(magnifier_utils::GetScaleFromScroll(
         event->y_offset() * kScrollScaleFactor, GetScale(), kMaxMagnifierScale,
         kMinMagnifierScale));
     event->StopPropagation();
@@ -329,6 +329,29 @@ void DockedMagnifierController::OnTouchEvent(ui::TouchEvent* event) {
   gfx::Point event_screen_point = event->root_location();
   ::wm::ConvertPointToScreen(event_root, &event_screen_point);
   CenterOnPoint(event_screen_point);
+}
+
+void DockedMagnifierController::OnInputContextHandlerChanged() {
+  if (!GetEnabled())
+    return;
+
+  auto* new_input_method =
+      magnifier_utils::GetInputMethod(current_source_root_window_);
+  if (new_input_method == input_method_)
+    return;
+
+  if (input_method_)
+    input_method_->RemoveObserver(this);
+  input_method_ = new_input_method;
+  if (input_method_)
+    input_method_->AddObserver(this);
+}
+
+void DockedMagnifierController::OnInputMethodDestroyed(
+    const ui::InputMethod* input_method) {
+  DCHECK_EQ(input_method, input_method_);
+  input_method_->RemoveObserver(this);
+  input_method_ = nullptr;
 }
 
 void DockedMagnifierController::OnCaretBoundsChanged(
@@ -449,10 +472,10 @@ void DockedMagnifierController::SwitchCurrentSourceRootWindowIfNeeded(
     }
     if (update_old_root_workarea)
       SetViewportHeightInWorkArea(old_root_window, 0);
-    ui::InputMethod* old_input_method =
-        GetInputMethodForWindow(old_root_window);
-    if (old_input_method)
-      old_input_method->RemoveObserver(this);
+
+    if (input_method_)
+      input_method_->RemoveObserver(this);
+    input_method_ = nullptr;
 
     // Reset mouse cursor confinement to default.
     RootWindowController::ForWindow(old_root_window)
@@ -487,10 +510,9 @@ void DockedMagnifierController::SwitchCurrentSourceRootWindowIfNeeded(
 
   CreateMagnifierViewport();
 
-  ui::InputMethod* new_input_method =
-      GetInputMethodForWindow(current_source_root_window_);
-  if (new_input_method)
-    new_input_method->AddObserver(this);
+  input_method_ = magnifier_utils::GetInputMethod(current_source_root_window_);
+  if (input_method_)
+    input_method_->AddObserver(this);
 
   DCHECK(Shell::Get()->aura_env()->context_factory_private());
   DCHECK(viewport_widget_);
@@ -545,8 +567,8 @@ void DockedMagnifierController::OnEnabledPrefChanged() {
   // overview mode, before we actually update the state of docked magnifier
   // below. https://crbug.com/894256.
   Shell* shell = Shell::Get();
-  auto* window_selector_controller = shell->window_selector_controller();
-  if (window_selector_controller->IsSelecting()) {
+  auto* overview_controller = shell->overview_controller();
+  if (overview_controller->IsSelecting()) {
     auto* split_view_controller = shell->split_view_controller();
     if (split_view_controller->IsSplitViewModeActive()) {
       // In this case, we're in a single-split-view mode, i.e. a window is
@@ -558,7 +580,7 @@ void DockedMagnifierController::OnEnabledPrefChanged() {
           SplitViewController::EndReason::kNormal);
     }
 
-    window_selector_controller->ToggleOverview();
+    overview_controller->ToggleOverview();
   }
 
   if (new_enabled) {

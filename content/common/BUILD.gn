@@ -42,8 +42,6 @@ source_set("common") {
     "android/gin_java_bridge_value.h",
     "android/hash_set.cc",
     "android/hash_set.h",
-    "android/media_metadata_android.cc",
-    "android/media_metadata_android.h",
     "android/sync_compositor_statics.cc",
     "android/sync_compositor_statics.h",
     "android/use_zoom_for_dsf_policy_android.cc",
@@ -51,8 +49,6 @@ source_set("common") {
     "appcache_interfaces.h",
     "ax_content_node_data.cc",
     "ax_content_node_data.h",
-    "background_fetch/background_fetch_struct_traits.cc",
-    "background_fetch/background_fetch_struct_traits.h",
     "background_fetch/background_fetch_types.cc",
     "background_fetch/background_fetch_types.h",
     "bluetooth/web_bluetooth_device_id.cc",
@@ -107,6 +103,8 @@ source_set("common") {
     "drag_messages.h",
     "drag_traits.h",
     "edit_command.h",
+    "fetch/fetch_request_type_converters.cc",
+    "fetch/fetch_request_type_converters.h",
     "fileapi/webblob_messages.h",
     "font_cache_dispatcher_win.cc",
     "font_list.cc",
@@ -183,12 +181,8 @@ source_set("common") {
     "mac/font_loader.mm",
     "media/aec_dump_messages.h",
     "media/cdm_info.cc",
-    "media/media_devices.cc",
-    "media/media_devices.h",
     "media/media_player_delegate_messages.h",
     "media/media_player_messages_android.h",
-    "media/media_stream_controls.cc",
-    "media/media_stream_controls.h",
     "media/peer_connection_tracker_messages.h",
     "media/video_capture.h",
     "mime_sniffing_throttle.cc",
@@ -236,8 +230,6 @@ source_set("common") {
     "service_manager/service_manager_connection_impl.h",
     "service_worker/service_worker_loader_helpers.cc",
     "service_worker/service_worker_loader_helpers.h",
-    "service_worker/service_worker_type_converter.cc",
-    "service_worker/service_worker_type_converter.h",
     "service_worker/service_worker_types.cc",
     "service_worker/service_worker_types.h",
     "service_worker/service_worker_utils.cc",
@@ -259,8 +251,6 @@ source_set("common") {
     "throttling_url_loader.h",
     "unique_name_helper.cc",
     "unique_name_helper.h",
-    "url_loader_factory_bundle.cc",
-    "url_loader_factory_bundle.h",
     "url_schemes.cc",
     "url_schemes.h",
     "user_agent.cc",
@@ -456,18 +446,8 @@ source_set("common") {
   }
 
   if (is_fuchsia) {
-    sources += [
-      "font_list_fuchsia.cc",
-      "sandbox_policy_fuchsia.cc",
-      "sandbox_policy_fuchsia.h",
-    ]
-
-    deps += [
-      "//third_party/fuchsia-sdk/sdk:fdio",
-      "//third_party/fuchsia-sdk/sdk:fonts",
-      "//third_party/fuchsia-sdk/sdk:mediacodec",
-      "//third_party/fuchsia-sdk/sdk:scenic",
-    ]
+    sources += [ "font_list_fuchsia.cc" ]
+    deps += [ "//third_party/fuchsia-sdk/sdk:fdio" ]
   }
 }
 
@@ -493,12 +473,13 @@ mojom("mojo_bindings") {
   disable_variants = true
 
   sources = [
-    "appcache.mojom",
     "associated_interfaces.mojom",
     "child.mojom",
     "child_control.mojom",
+    "document_scoped_interface_bundle.mojom",
     "field_trial_recorder.mojom",
     "frame.mojom",
+    "frame_messages.mojom",
     "frame_sink_provider.mojom",
     "histogram_fetcher.mojom",
     "host_zoom.mojom",
@@ -507,7 +488,6 @@ mojom("mojo_bindings") {
     "input/input_injector.mojom",
     "input/synchronous_compositor.mojom",
     "manifest_observer.mojom",
-    "media/media_stream.mojom",
     "media/peer_connection_tracker.mojom",
     "media/renderer_audio_input_stream_factory.mojom",
     "media/renderer_audio_output_stream_factory.mojom",
@@ -522,24 +502,10 @@ mojom("mojo_bindings") {
     "render_widget_window_tree_client_factory.mojom",
     "renderer.mojom",
     "renderer_host.mojom",
-    "service_worker/controller_service_worker.mojom",
     "service_worker/embedded_worker.mojom",
-    "service_worker/service_worker.mojom",
-    "service_worker/service_worker_container.mojom",
-    "service_worker/service_worker_provider.mojom",
-    "shared_worker/shared_worker.mojom",
-    "shared_worker/shared_worker_client.mojom",
-    "shared_worker/shared_worker_connector.mojom",
     "shared_worker/shared_worker_factory.mojom",
-    "shared_worker/shared_worker_host.mojom",
-    "shared_worker/shared_worker_info.mojom",
-    "url_loader_factory_bundle.mojom",
     "widget.mojom",
   ]
-
-  if (is_win) {
-    sources += [ "dwrite_font_proxy.mojom" ]
-  }
 
   if (is_mac) {
     sources += [
@@ -559,10 +525,6 @@ mojom("mojo_bindings") {
   import_dirs = [ "//mojo/services" ]
 
   public_deps = [
-    # Due to component_deps below, we're depending on blink_common, but
-    # blink_common does not export generated types of components/payments/mojom,
-    # so we need to specifically add this dependency here.
-    "//components/payments/mojom",
     "//components/services/leveldb/public/interfaces",
     "//content/public/common:interfaces",
     "//content/public/common:resource_type_bindings",

@@ -31,8 +31,8 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_SERVICE_WORKER_SERVICE_WORKER_GLOBAL_SCOPE_H_
 
 #include <memory>
+#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker.mojom-blink.h"
-#include "third_party/blink/public/platform/modules/cache_storage/cache_storage.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/request_or_usv_string.h"
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
@@ -42,6 +42,7 @@
 
 namespace blink {
 
+class ExceptionState;
 class RespondWithObserver;
 class RequestInit;
 class ScriptPromise;
@@ -50,6 +51,7 @@ class ServiceWorker;
 class ServiceWorkerClients;
 class ServiceWorkerRegistration;
 class ServiceWorkerThread;
+class StringOrTrustedScriptURL;
 class WaitUntilObserver;
 struct GlobalScopeCreationParams;
 struct WebServiceWorkerObjectInfo;
@@ -78,10 +80,6 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final : public WorkerGlobalScope {
   bool ShouldInstallV8Extensions() const final;
 
   // Implements WorkerGlobalScope.
-  void EvaluateClassicScript(
-      const KURL& script_url,
-      String source_code,
-      std::unique_ptr<Vector<char>> cached_meta_data) override;
   void ImportModuleScript(
       const KURL& module_url_record,
       FetchClientSettingsObjectSnapshot* outside_settings_object,
@@ -138,6 +136,10 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final : public WorkerGlobalScope {
 
   mojom::blink::CacheStoragePtrInfo TakeCacheStorage();
 
+  // See the functions of the same name in WebServiceWorkerContextClient.
+  int WillStartTask();
+  void DidEndTask(int task_id);
+
   DEFINE_ATTRIBUTE_EVENT_LISTENER(install, kInstall);
   DEFINE_ATTRIBUTE_EVENT_LISTENER(activate, kActivate);
   DEFINE_ATTRIBUTE_EVENT_LISTENER(fetch, kFetch);
@@ -152,12 +154,20 @@ class MODULES_EXPORT ServiceWorkerGlobalScope final : public WorkerGlobalScope {
       EventListener*,
       const AddEventListenerOptionsResolved*) override;
 
+  // WorkerGlobalScope
+  void EvaluateClassicScriptInternal(
+      const KURL& script_url,
+      String source_code,
+      std::unique_ptr<Vector<uint8_t>> cached_meta_data) override;
+
  private:
-  void importScripts(const Vector<String>& urls, ExceptionState&) override;
+  void importScripts(const HeapVector<StringOrTrustedScriptURL>& urls,
+                     ExceptionState&) override;
   SingleCachedMetadataHandler* CreateWorkerScriptCachedMetadataHandler(
       const KURL& script_url,
-      const Vector<char>* meta_data) override;
+      const Vector<uint8_t>* meta_data) override;
   void ExceptionThrown(ErrorEvent*) override;
+  mojom::RequestContextType GetDestinationForMainScript() override;
 
   // Counts the |script_size| and |cached_metadata_size| for UMA to measure the
   // number of scripts and the total bytes of scripts.

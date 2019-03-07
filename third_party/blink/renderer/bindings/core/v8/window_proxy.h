@@ -31,7 +31,6 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_BINDINGS_CORE_V8_WINDOW_PROXY_H_
 #define THIRD_PARTY_BLINK_RENDERER_BINDINGS_CORE_V8_WINDOW_PROXY_H_
 
-#include "base/debug/stack_trace.h"
 #include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
@@ -153,6 +152,7 @@ class WindowProxy : public GarbageCollectedFinalized<WindowProxy> {
   void ClearForClose();
   void ClearForNavigation();
   void ClearForSwap();
+  void ClearForV8MemoryPurge();
 
   CORE_EXPORT v8::Local<v8::Object> GlobalProxyIfNotDetached();
   v8::Local<v8::Object> ReleaseGlobalProxy();
@@ -176,18 +176,28 @@ class WindowProxy : public GarbageCollectedFinalized<WindowProxy> {
   // - Possible next states: kContextIsInitialized
   // It's possible to detach the context's frame from the DOM or navigate to a
   // new page without initializing the WindowProxy, however, there is no
-  // transition to |kFrameIsDetached| or |kGlobalObjectIsDetached|
-  // because |DisposeContext| does not change the state if the state is
-  // |kContextIsUninitialized|. In either case of a) the browsing context
-  // container is detached from the DOM or b) the page is navigated away, there
-  // must be no way for author script to access the context of
-  // |kContextIsUninitialized| because |kContextIsUninitialized| means that
-  // author script has never accessed the context, hence there must exist no
-  // reference to the context.
+  // transition to |kFrameIsDetached| or |kGlobalObjectIsDetached| or
+  // |kForciblyPurgeV8Memory| because |DisposeContext| does not change the state
+  // if the state is |kContextIsUninitialized|. In either case of a) the
+  // browsing context container is detached from the DOM or b) the page is
+  // navigated away, there must be no way for author script to access the
+  // context of |kContextIsUninitialized| because |kContextIsUninitialized|
+  // means that author script has never accessed the context, hence there must
+  // exist no reference to the context.
   //
   // * kContextIsInitialized
   // The context is initialized and its frame is still attached to the DOM.
-  // - Possible next states: kFrameIsDetached, kGlobalObjectIsDetached
+  // - Possible next states: kFrameIsDetached, kGlobalObjectIsDetached,
+  // kForciblyPurgeV8Memory
+  //
+  // * kForciblyPurgeV8Memory
+  // The context is initialized and its frame is still attached to the DOM, but
+  // the global object is detached from the global proxy in order to drop all
+  // references to v8, hopefully causing all JS objects to be collected for
+  // memory reduction.
+  // - Possible next states: kGlobalObjectIsDetached
+  // Navigation can occur after V8 memory purge, and the state will transition
+  // to kGlobalObjectIsDetached in that case.
   //
   // * kGlobalObjectIsDetached
   // The context is initialized and its frame is still attached to the DOM, but
@@ -220,6 +230,9 @@ class WindowProxy : public GarbageCollectedFinalized<WindowProxy> {
     kContextIsUninitialized,
     // v8::Context is initialized.
     kContextIsInitialized,
+    // The global object (inner global) is detached from the global proxy (outer
+    // global). Could transition to kGlobalObjectIsDetached.
+    kForciblyPurgeV8Memory,
     // The global object (inner global) is detached from the global proxy (outer
     // global).
     kGlobalObjectIsDetached,
@@ -262,10 +275,6 @@ class WindowProxy : public GarbageCollectedFinalized<WindowProxy> {
   // to be destroyed.
   ScopedPersistent<v8::Object> global_proxy_;
   Lifecycle lifecycle_;
-
-  // TODO(dcheng): Remove this temporary code for debugging
-  // https://crbug.com/728693.
-  base::debug::StackTrace initialization_stack_;
 };
 
 }  // namespace blink

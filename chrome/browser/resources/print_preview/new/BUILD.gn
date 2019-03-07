@@ -76,7 +76,7 @@ js_library("app") {
     "//ui/webui/resources/cr_elements:cr_container_shadow_behavior",
     "//ui/webui/resources/js:event_tracker",
     "//ui/webui/resources/js:util",
-    "//ui/webui/resources/js:webui_listener_tracker",
+    "//ui/webui/resources/js:web_ui_listener_behavior",
     "//ui/webui/resources/js/cr/ui:focus_outline_manager",
   ]
 }
@@ -95,6 +95,7 @@ js_library("header") {
 js_library("destination_settings") {
   deps = [
     ":destination_dialog",
+    ":destination_select",
     ":state",
     "../data:destination",
     "../data:destination_store",
@@ -105,11 +106,21 @@ js_library("destination_settings") {
   ]
 }
 
+js_library("destination_select") {
+  deps = [
+    ":select_behavior",
+    "../data:destination",
+    "../data:user_info",
+    "//ui/webui/resources/js:i18n_behavior",
+  ]
+  externs_list = [ "$externs_path/pending.js" ]
+}
+
 js_library("pages_settings") {
   deps = [
     ":input_behavior",
     ":settings_behavior",
-    "../data:document_info",
+    "..:print_preview_utils",
     "//ui/webui/resources/cr_elements/cr_input:cr_input",
     "//ui/webui/resources/js:load_time_data",
   ]
@@ -170,7 +181,6 @@ js_library("scaling_settings") {
   deps = [
     ":number_settings_section",
     ":settings_behavior",
-    "../data:document_info",
   ]
 }
 
@@ -244,11 +254,9 @@ js_library("preview_area") {
     ":settings_behavior",
     ":state",
     "..:native_layer",
-    "..:print_preview_utils",
     "../../pdf:pdf_scripting_api",
     "../data:coordinate2d",
     "../data:destination",
-    "../data:document_info",
     "../data:margins",
     "../data:printable_area",
     "../data:size",
@@ -279,6 +287,7 @@ js_library("margin_control") {
     "../data:coordinate2d",
     "../data:margins",
     "../data:size",
+    "//ui/webui/resources/js:i18n_behavior",
   ]
 }
 
@@ -294,6 +303,7 @@ js_library("destination_dialog") {
     ":print_preview_search_box",
     ":provisional_destination_resolver",
     "..:metrics",
+    "..:native_layer",
     "../data:destination",
     "../data:destination_store",
     "../data:invitation",

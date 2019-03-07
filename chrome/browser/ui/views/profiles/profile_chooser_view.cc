@@ -23,13 +23,8 @@
 #include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/chrome_signin_helper.h"
-#include "chrome/browser/signin/gaia_cookie_manager_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/signin/signin_error_controller_factory.h"
-#include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
@@ -59,19 +54,15 @@
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/gaia_cookie_manager_service.h"
-#include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_error_controller.h"
-#include "components/signin/core/browser/signin_header_helper.h"
-#include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_metrics.h"
 #include "components/signin/core/browser/signin_pref_names.h"
+#include "components/sync/driver/sync_service_utils.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/render_widget_host_view.h"
-#include "services/identity/public/cpp/identity_manager.h"
+#include "services/identity/public/cpp/accounts_mutator.h"
+#include "services/identity/public/cpp/primary_account_mutator.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -86,7 +77,6 @@
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/paint_vector_icon.h"
-#include "ui/gfx/path.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/native_theme/common_theme.h"
@@ -204,16 +194,12 @@ BadgedProfilePhoto::BadgeType GetProfileBadgeType(Profile* profile) {
   return BadgedProfilePhoto::BADGE_TYPE_NONE;
 }
 
-std::vector<gfx::Image> GetImagesForAccounts(
-    const std::vector<AccountInfo>& accounts,
-    Profile* profile) {
-  AccountTrackerService* tracker_service =
-      AccountTrackerServiceFactory::GetForProfile(profile);
-  std::vector<gfx::Image> images;
-  for (auto account : accounts) {
-    images.push_back(tracker_service->GetAccountImage(account.account_id));
-  }
-  return images;
+gfx::ImageSkia CreateVectorIcon(const gfx::VectorIcon& icon) {
+  return gfx::CreateVectorIcon(
+      icon, kIconSize,
+      ui::NativeTheme::GetInstanceForNativeUi()->SystemDarkModeEnabled()
+          ? gfx::kGoogleGrey500
+          : gfx::kChromeIconGrey);
 }
 
 }  // namespace
@@ -421,10 +407,11 @@ void ProfileChooserView::Init() {
   avatar_menu_->RebuildMenu();
 
   Profile* profile = browser_->profile();
-  ProfileOAuth2TokenService* oauth2_token_service =
-      ProfileOAuth2TokenServiceFactory::GetForProfile(profile);
-  if (oauth2_token_service)
-    oauth2_token_service->AddObserver(this);
+  identity::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+
+  if (identity_manager)
+    identity_manager->AddObserver(this);
 
   // If view mode is PROFILE_CHOOSER but there is an auth error, force
   // ACCOUNT_MANAGEMENT mode.
@@ -460,8 +447,8 @@ void ProfileChooserView::OnAvatarMenuChanged(
   }
 }
 
-void ProfileChooserView::OnRefreshTokenAvailable(
-    const std::string& account_id) {
+void ProfileChooserView::OnRefreshTokenUpdatedForAccount(
+    const AccountInfo& account_info) {
   if (view_mode_ == profiles::BUBBLE_VIEW_MODE_ACCOUNT_MANAGEMENT ||
       view_mode_ == profiles::BUBBLE_VIEW_MODE_GAIA_ADD_ACCOUNT ||
       view_mode_ == profiles::BUBBLE_VIEW_MODE_GAIA_REAUTH) {
@@ -474,7 +461,8 @@ void ProfileChooserView::OnRefreshTokenAvailable(
   }
 }
 
-void ProfileChooserView::OnRefreshTokenRevoked(const std::string& account_id) {
+void ProfileChooserView::OnRefreshTokenRemovedForAccount(
+    const std::string& account_id) {
   // Refresh the account management view when an account is removed from the
   // profile.
   if (view_mode_ == profiles::BUBBLE_VIEW_MODE_ACCOUNT_MANAGEMENT)
@@ -578,10 +566,10 @@ void ProfileChooserView::OnWidgetClosing(views::Widget* widget) {
   // Unsubscribe from everything early so that the updates do not reach the
   // bubble and change its state.
   avatar_menu_.reset();
-  ProfileOAuth2TokenService* oauth2_token_service =
-      ProfileOAuth2TokenServiceFactory::GetForProfile(browser_->profile());
-  if (oauth2_token_service)
-    oauth2_token_service->RemoveObserver(this);
+  identity::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(browser_->profile());
+  if (identity_manager)
+    identity_manager->RemoveObserver(this);
 }
 
 bool ProfileChooserView::AcceleratorPressed(
@@ -610,6 +598,11 @@ views::View* ProfileChooserView::GetInitiallyFocusedView() {
 
 int ProfileChooserView::GetDialogButtons() const {
   return ui::DIALOG_BUTTON_NONE;
+}
+
+base::string16 ProfileChooserView::GetAccessibleWindowTitle() const {
+  return l10n_util::GetStringUTF16(
+      IDS_PROFILES_PROFILE_BUBBLE_ACCESSIBLE_TITLE);
 }
 
 bool ProfileChooserView::HandleContextMenu(
@@ -671,15 +664,19 @@ void ProfileChooserView::ButtonPressed(views::Button* sender,
         break;
       case sync_ui_util::UNRECOVERABLE_ERROR:
         if (ProfileSyncServiceFactory::GetForProfile(browser_->profile())) {
-          browser_sync::ProfileSyncService::SyncEvent(
-              browser_sync::ProfileSyncService::STOP_FROM_OPTIONS);
+          syncer::RecordSyncEvent(syncer::STOP_FROM_OPTIONS);
         }
-        IdentityManagerFactory::GetForProfile(browser_->profile())
-            ->ClearPrimaryAccount(
-                identity::IdentityManager::ClearAccountTokensAction::kDefault,
-                signin_metrics::USER_CLICKED_SIGNOUT_SETTINGS,
-                signin_metrics::SignoutDelete::IGNORE_METRIC);
-        ShowViewFromMode(profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN);
+
+        // GetPrimaryAccountMutator() might return nullptr on some platforms.
+        if (auto* account_mutator =
+                IdentityManagerFactory::GetForProfile(browser_->profile())
+                    ->GetPrimaryAccountMutator()) {
+          account_mutator->ClearPrimaryAccount(
+              identity::PrimaryAccountMutator::ClearAccountsAction::kDefault,
+              signin_metrics::USER_CLICKED_SIGNOUT_SETTINGS,
+              signin_metrics::SignoutDelete::IGNORE_METRIC);
+          ShowViewFromMode(profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN);
+        }
         break;
       case sync_ui_util::SUPERVISED_USER_AUTH_ERROR:
         NOTREACHED();
@@ -750,9 +747,8 @@ void ProfileChooserView::ButtonPressed(views::Button* sender,
     // Using base::Unretained(this) is safe here because |dice_accounts_menu_|
     // is owned by |ProfileChooserView|, i.e. |this|.
     dice_accounts_menu_ = std::make_unique<DiceAccountsMenu>(
-        accounts, GetImagesForAccounts(accounts, browser_->profile()),
-        base::BindOnce(&ProfileChooserView::EnableSync,
-                       base::Unretained(this)));
+        accounts, base::BindOnce(&ProfileChooserView::EnableSync,
+                                 base::Unretained(this)));
     // Add sign-out button.
     dice_accounts_menu_->SetSignOutButtonCallback(base::BindOnce(
         &ProfileChooserView::SignOutAllWebAccounts, base::Unretained(this)));
@@ -791,10 +787,10 @@ void ProfileChooserView::ButtonPressed(views::Button* sender,
 
 void ProfileChooserView::RemoveAccount() {
   DCHECK(!account_id_to_remove_.empty());
-  ProfileOAuth2TokenService* oauth2_token_service =
-      ProfileOAuth2TokenServiceFactory::GetForProfile(browser_->profile());
-  if (oauth2_token_service) {
-    oauth2_token_service->RevokeCredentials(
+  identity::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(browser_->profile());
+  if (identity_manager) {
+    identity_manager->GetAccountsMutator()->RemoveAccount(
         account_id_to_remove_, signin_metrics::SourceForRefreshTokenOperation::
                                    kUserMenu_RemoveAccount);
     PostActionPerformed(ProfileMetrics::PROFILE_DESKTOP_MENU_REMOVE_ACCT);
@@ -918,7 +914,7 @@ views::View* ProfileChooserView::CreateSyncErrorViewIfNeeded(
       IdentityManagerFactory::GetForProfile(browser_->profile());
   sync_ui_util::AvatarSyncErrorType error =
       sync_ui_util::GetMessagesForAvatarSyncError(
-          browser_->profile(), *identity_manager, &content_string_id,
+          browser_->profile(), identity_manager, &content_string_id,
           &button_string_id);
   if (error == sync_ui_util::NO_SYNC_ERROR)
     return nullptr;
@@ -1228,9 +1224,7 @@ views::View* ProfileChooserView::CreateDiceSigninView() {
   // Create a button to sign in the first account of
   // |dice_sync_promo_accounts_|.
   AccountInfo dice_promo_default_account = dice_sync_promo_accounts_[0];
-  gfx::Image account_icon =
-      AccountTrackerServiceFactory::GetForProfile(browser_->profile())
-          ->GetAccountImage(dice_promo_default_account.account_id);
+  gfx::Image account_icon = dice_promo_default_account.account_image;
   if (account_icon.IsEmpty()) {
     account_icon = ui::ResourceBundle::GetSharedInstance().GetImageNamed(
         profiles::GetPlaceholderAvatarIconResourceID());
@@ -1254,8 +1248,7 @@ views::View* ProfileChooserView::CreateDiceSigninView() {
 
   // Add sign out button.
   signout_button_ = views::MdTextButton::Create(
-      this, l10n_util::GetStringUTF16(IDS_SCREEN_LOCK_SIGN_OUT),
-      views::style::CONTEXT_BUTTON);
+      this, l10n_util::GetStringUTF16(IDS_SCREEN_LOCK_SIGN_OUT));
   promo_button_container->AddChildView(signout_button_);
 
   view->AddChildView(promo_button_container);
@@ -1323,9 +1316,7 @@ views::View* ProfileChooserView::CreateOptionsView(bool display_lock,
     DCHECK(service);
     if (service->GetBoolean(prefs::kBrowserGuestModeEnabled)) {
       guest_profile_button_ = new HoverButton(
-          this,
-          gfx::CreateVectorIcon(kUserMenuGuestIcon, kIconSize,
-                                gfx::kChromeIconGrey),
+          this, CreateVectorIcon(kUserMenuGuestIcon),
           l10n_util::GetStringUTF16(IDS_PROFILES_OPEN_GUEST_PROFILE_BUTTON));
       layout->StartRow(1.0, 0);
       layout->AddView(guest_profile_button_);
@@ -1336,10 +1327,7 @@ views::View* ProfileChooserView::CreateOptionsView(bool display_lock,
       is_guest ? IDS_PROFILES_EXIT_GUEST : IDS_PROFILES_MANAGE_USERS_BUTTON);
   const gfx::VectorIcon& settings_icon =
       is_guest ? kCloseAllIcon : kSettingsIcon;
-  users_button_ = new HoverButton(
-      this,
-      gfx::CreateVectorIcon(settings_icon, kIconSize, gfx::kChromeIconGrey),
-      text);
+  users_button_ = new HoverButton(this, CreateVectorIcon(settings_icon), text);
 
   layout->StartRow(1.0, 0);
   layout->AddView(users_button_);
@@ -1356,8 +1344,7 @@ views::View* ProfileChooserView::CreateOptionsView(bool display_lock,
     AvatarMenu::Item active_avatar_item =
         avatar_menu->GetItemAt(ordered_item_indices[0]);
     close_all_windows_button_ = new HoverButton(
-        this,
-        gfx::CreateVectorIcon(kCloseAllIcon, kIconSize, gfx::kChromeIconGrey),
+        this, CreateVectorIcon(kCloseAllIcon),
         avatar_menu->GetNumberOfItems() >= 2
             ? l10n_util::GetStringFUTF16(IDS_PROFILES_EXIT_PROFILE_BUTTON,
                                          active_avatar_item.name)
@@ -1399,23 +1386,20 @@ views::View* ProfileChooserView::CreateAutofillHomeView() {
       std::make_unique<views::BoxLayout>(views::BoxLayout::kVertical));
 
   // Passwords.
-  passwords_button_ = new HoverButton(
-      this, gfx::CreateVectorIcon(kKeyIcon, kIconSize, gfx::kChromeIconGrey),
-      l10n_util::GetStringUTF16(IDS_PROFILES_PASSWORDS_LINK));
+  passwords_button_ =
+      new HoverButton(this, CreateVectorIcon(kKeyIcon),
+                      l10n_util::GetStringUTF16(IDS_PROFILES_PASSWORDS_LINK));
   view->AddChildView(passwords_button_);
 
   // Credit cards.
   credit_cards_button_ = new HoverButton(
-      this,
-      gfx::CreateVectorIcon(kCreditCardIcon, kIconSize, gfx::kChromeIconGrey),
+      this, CreateVectorIcon(kCreditCardIcon),
       l10n_util::GetStringUTF16(IDS_PROFILES_CREDIT_CARDS_LINK));
   view->AddChildView(credit_cards_button_);
 
   // Addresses.
   addresses_button_ =
-      new HoverButton(this,
-                      gfx::CreateVectorIcon(vector_icons::kLocationOnIcon,
-                                            kIconSize, gfx::kChromeIconGrey),
+      new HoverButton(this, CreateVectorIcon(vector_icons::kLocationOnIcon),
                       l10n_util::GetStringUTF16(IDS_PROFILES_ADDRESSES_LINK));
   view->AddChildView(addresses_button_);
   return view;
@@ -1483,8 +1467,7 @@ void ProfileChooserView::CreateAccountButton(views::GridLayout* layout,
   int warning_button_width = 0;
   if (reauth_required) {
     const int kIconSize = 18;
-    warning_default_image = gfx::CreateVectorIcon(
-        vector_icons::kWarningIcon, kIconSize, gfx::kChromeIconGrey);
+    warning_default_image = CreateVectorIcon(vector_icons::kWarningIcon),
     warning_button_width =
         kIconSize +
         provider->GetDistanceMetric(views::DISTANCE_RELATED_BUTTON_HORIZONTAL);
@@ -1646,9 +1629,10 @@ void ProfileChooserView::EnableSync(
 
 void ProfileChooserView::SignOutAllWebAccounts() {
   Hide();
-  ProfileOAuth2TokenServiceFactory::GetForProfile(browser_->profile())
-      ->RevokeAllCredentials(signin_metrics::SourceForRefreshTokenOperation::
-                                 kUserMenu_SignOutAllAccounts);
+  IdentityManagerFactory::GetForProfile(browser_->profile())
+      ->GetAccountsMutator()
+      ->RemoveAllAccounts(signin_metrics::SourceForRefreshTokenOperation::
+                              kUserMenu_SignOutAllAccounts);
 }
 
 int ProfileChooserView::GetDiceSigninPromoShowCount() const {

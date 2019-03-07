@@ -33,6 +33,7 @@ class HttpAuthHandlerFactory;
 class HttpProxyClientSocketWrapper;
 class NetLog;
 class NetworkQualityEstimator;
+class ProxyDelegate;
 class QuicStreamFactory;
 class SSLClientSocketPool;
 class SSLSocketParams;
@@ -81,7 +82,6 @@ class NET_EXPORT_PRIVATE HttpProxySocketParams
   QuicStreamFactory* quic_stream_factory() const {
     return quic_stream_factory_;
   }
-  const HostResolver::RequestInfo& destination() const;
   bool is_trusted_proxy() const { return is_trusted_proxy_; }
   bool tunnel() const { return tunnel_; }
   const NetworkTrafficAnnotationTag traffic_annotation() const {
@@ -117,9 +117,10 @@ class HttpProxyConnectJob : public ConnectJob {
                       const SocketTag& socket_tag,
                       ClientSocketPool::RespectLimits respect_limits,
                       const scoped_refptr<HttpProxySocketParams>& params,
-                      const base::TimeDelta& timeout_duration,
+                      ProxyDelegate* proxy_delegate,
                       TransportClientSocketPool* transport_pool,
                       SSLClientSocketPool* ssl_pool,
+                      NetworkQualityEstimator* network_quality_estimator,
                       Delegate* delegate,
                       NetLog* net_log);
   ~HttpProxyConnectJob() override;
@@ -128,6 +129,15 @@ class HttpProxyConnectJob : public ConnectJob {
   LoadState GetLoadState() const override;
 
   void GetAdditionalErrorState(ClientSocketHandle* handle) override;
+
+  // Returns the connection timeout that will be used by a HttpProxyConnectJob
+  // created with the specified parameters, given current network conditions.
+  NET_EXPORT_PRIVATE static base::TimeDelta ConnectionTimeout(
+      const HttpProxySocketParams& params,
+      const NetworkQualityEstimator* network_quality_estimator);
+
+  // Updates the field trial parameters used in calculating timeouts.
+  NET_EXPORT_PRIVATE static void UpdateFieldTrialParametersForTesting();
 
  private:
   // Begins the tcp connection and the optional Http proxy tunnel.  If the
@@ -162,6 +172,7 @@ class NET_EXPORT_PRIVATE HttpProxyClientSocketPool
                             int max_sockets_per_group,
                             TransportClientSocketPool* transport_pool,
                             SSLClientSocketPool* ssl_pool,
+                            ProxyDelegate* proxy_delegate,
                             NetworkQualityEstimator* network_quality_estimator,
                             NetLog* net_log);
 
@@ -211,8 +222,6 @@ class NET_EXPORT_PRIVATE HttpProxyClientSocketPool
       const std::string& type,
       bool include_nested_pools) const override;
 
-  base::TimeDelta ConnectionTimeout() const override;
-
   // LowerLayeredPool implementation.
   bool IsStalled() const override;
 
@@ -235,6 +244,7 @@ class NET_EXPORT_PRIVATE HttpProxyClientSocketPool
     HttpProxyConnectJobFactory(
         TransportClientSocketPool* transport_pool,
         SSLClientSocketPool* ssl_pool,
+        ProxyDelegate* proxy_delegate,
         NetworkQualityEstimator* network_quality_estimator,
         NetLog* net_log);
 
@@ -244,32 +254,14 @@ class NET_EXPORT_PRIVATE HttpProxyClientSocketPool
         const PoolBase::Request& request,
         ConnectJob::Delegate* delegate) const override;
 
-    base::TimeDelta ConnectionTimeout() const override;
-
    private:
     FRIEND_TEST_ALL_PREFIXES(HttpProxyClientSocketPoolTest,
                              ProxyPoolTimeoutWithConnectionProperty);
 
-    // Returns proxy connection timeout for secure proxies if
-    // |is_secure_connection| is true. Otherwise, returns timeout for insecure
-    // proxies.
-    base::TimeDelta ConnectionTimeoutWithConnectionProperty(
-        bool is_secure_connection) const;
-
     TransportClientSocketPool* const transport_pool_;
     SSLClientSocketPool* const ssl_pool_;
+    ProxyDelegate* const proxy_delegate_;
     NetworkQualityEstimator* const network_quality_estimator_;
-
-    // For secure proxies, the connection timeout is set to
-    // |ssl_http_rtt_multiplier_| times the HTTP RTT estimate. For insecure
-    // proxies, the connection timeout is set to |non_ssl_http_rtt_multiplier_|
-    // times the HTTP RTT estimate. In either case, the connection timeout
-    // is clamped to be between |min_proxy_connection_timeout_| and
-    // |max_proxy_connection_timeout_|.
-    const int32_t ssl_http_rtt_multiplier_;
-    const int32_t non_ssl_http_rtt_multiplier_;
-    const base::TimeDelta min_proxy_connection_timeout_;
-    const base::TimeDelta max_proxy_connection_timeout_;
 
     NetLog* net_log_;
 

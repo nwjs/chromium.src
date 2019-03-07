@@ -92,13 +92,11 @@ void SoftwareRenderer::FinishDrawingFrame() {
   output_device_->EndPaint();
 }
 
-void SoftwareRenderer::SwapBuffers(std::vector<ui::LatencyInfo> latency_info,
-                                   bool need_presentation_feedback) {
+void SoftwareRenderer::SwapBuffers(std::vector<ui::LatencyInfo> latency_info) {
   DCHECK(visible_);
   TRACE_EVENT0("viz", "SoftwareRenderer::SwapBuffers");
   OutputSurfaceFrame output_frame;
   output_frame.latency_info = std::move(latency_info);
-  output_frame.need_presentation_feedback = need_presentation_feedback;
   output_surface_->SwapBuffers(std::move(output_frame));
 }
 
@@ -563,6 +561,10 @@ void SoftwareRenderer::CopyDrawnRenderPass(
   if (result_rect.IsEmpty())
     return;
 
+  sk_sp<SkColorSpace> color_space =
+      current_frame()->current_render_pass->color_space.ToSkColorSpace();
+  DCHECK(color_space);
+
   SkBitmap bitmap;
   if (request->is_scaled()) {
     // Resolve the source for the scaling input: Initialize a SkPixmap that
@@ -573,10 +575,12 @@ void SoftwareRenderer::CopyDrawnRenderPass(
       return;
     {
       const gfx::Rect subrect = MoveFromDrawToWindowSpace(output_rect);
-      render_pass_output = SkPixmap(
-          render_pass_output.info().makeWH(subrect.width(), subrect.height()),
-          render_pass_output.addr(subrect.x(), subrect.y()),
-          render_pass_output.rowBytes());
+      render_pass_output =
+          SkPixmap(render_pass_output.info()
+                       .makeWH(subrect.width(), subrect.height())
+                       .makeColorSpace(std::move(color_space)),
+                   render_pass_output.addr(subrect.x(), subrect.y()),
+                   render_pass_output.rowBytes());
     }
 
     // Execute the scaling: For downscaling, use the RESIZE_BETTER strategy
@@ -598,9 +602,9 @@ void SoftwareRenderer::CopyDrawnRenderPass(
   } else /* if (!request->is_scaled()) */ {
     const gfx::Rect window_copy_rect =
         MoveFromDrawToWindowSpace(result_rect + output_rect.OffsetFromOrigin());
-    bitmap.allocPixels(SkImageInfo::MakeN32Premul(
-        window_copy_rect.width(), window_copy_rect.height(),
-        current_canvas_->imageInfo().refColorSpace()));
+    bitmap.allocPixels(SkImageInfo::MakeN32Premul(window_copy_rect.width(),
+                                                  window_copy_rect.height(),
+                                                  std::move(color_space)));
     if (!current_canvas_->readPixels(bitmap, window_copy_rect.x(),
                                      window_copy_rect.y()))
       return;
@@ -643,10 +647,6 @@ bool SoftwareRenderer::ShouldApplyBackgroundFilters(
   if (!backdrop_filters)
     return false;
   DCHECK(!backdrop_filters->IsEmpty());
-
-  // TODO(hendrikw): Look into allowing background filters to see pixels from
-  // other render targets.  See crbug.com/314867.
-
   return true;
 }
 
@@ -709,6 +709,8 @@ gfx::Rect SoftwareRenderer::GetBackdropBoundingBoxForRenderPassQuad(
     const gfx::Transform& contents_device_transform,
     const cc::FilterOperations* backdrop_filters,
     gfx::Rect* unclipped_rect) const {
+  // TODO(916318): This function needs to compute the backdrop
+  // filter clip rect and return it.
   DCHECK(ShouldApplyBackgroundFilters(quad, backdrop_filters));
   gfx::Rect backdrop_rect = gfx::ToEnclosingRect(cc::MathUtil::MapClippedRect(
       contents_device_transform, QuadVertexRect()));
@@ -729,6 +731,8 @@ sk_sp<SkShader> SoftwareRenderer::GetBackgroundFilterShader(
     SkShader::TileMode content_tile_mode) const {
   const cc::FilterOperations* backdrop_filters =
       BackgroundFiltersForPass(quad->render_pass_id);
+  const cc::FilterOperations* regular_filters =
+      FiltersForPass(quad->render_pass_id);
   if (!ShouldApplyBackgroundFilters(quad, backdrop_filters))
     return nullptr;
 
@@ -760,9 +764,24 @@ sk_sp<SkShader> SoftwareRenderer::GetBackgroundFilterShader(
   gfx::Vector2dF clipping_offset =
       (unclipped_rect.top_right() - backdrop_rect.top_right()) +
       (backdrop_rect.bottom_left() - unclipped_rect.bottom_left());
+
+  // Update the backdrop filter to include "regular" filters and opacity.
+  cc::FilterOperations backdrop_filters_plus_effects = *backdrop_filters;
+  if (regular_filters) {
+    for (const auto& filter_op : regular_filters->operations())
+      backdrop_filters_plus_effects.Append(filter_op);
+  }
+  if (quad->shared_quad_state->opacity < 1.0) {
+    backdrop_filters_plus_effects.Append(
+        cc::FilterOperation::CreateOpacityFilter(
+            quad->shared_quad_state->opacity));
+  }
+
+  // TODO(916318): This function needs to apply the backdrop filter
+  // clip rect to the image.
   sk_sp<SkImageFilter> filter =
       cc::RenderSurfaceFilters::BuildImageFilter(
-          *backdrop_filters,
+          backdrop_filters_plus_effects,
           gfx::SizeF(backdrop_bitmap.width(), backdrop_bitmap.height()),
           clipping_offset)
           ->cached_sk_filter_;

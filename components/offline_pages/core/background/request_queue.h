@@ -74,6 +74,13 @@ class RequestQueue : public TaskQueue::Delegate {
   void RemoveRequests(const std::vector<int64_t>& request_ids,
                       UpdateCallback callback);
 
+  // Invokes |remove_predicate| for all requests in the queue, and removes each
+  // request where |remove_predicate| returns true. Note: |remove_predicate| is
+  // called from a background thread.
+  void RemoveRequestsIf(const base::RepeatingCallback<
+                            bool(const SavePageRequest&)>& remove_predicate,
+                        UpdateCallback done_callback);
+
   // Changes the state to |new_state| for requests matching the
   // |request_ids|. Results are returned through |callback|.
   void ChangeRequestsState(const std::vector<int64_t>& request_ids,
@@ -98,6 +105,12 @@ class RequestQueue : public TaskQueue::Delegate {
   void MarkAttemptCompleted(int64_t request_id,
                             FailState fail_state,
                             UpdateCallback callback);
+
+  // Sets the auto fetch notification state on the request with |request_id|.
+  void SetAutoFetchNotificationState(
+      int64_t request_id,
+      SavePageRequest::AutoFetchNotificationState state,
+      base::OnceCallback<void(bool updated)> callback);
 
   // Make a task to pick the next request, and report our choice to the
   // callbacks.

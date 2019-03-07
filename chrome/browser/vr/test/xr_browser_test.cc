@@ -4,6 +4,7 @@
 
 #include <cstring>
 
+#include "base/base_paths.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
@@ -11,9 +12,9 @@
 #include "base/environment.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/path_service.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/threading/platform_thread.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser.h"
@@ -38,30 +39,55 @@ constexpr char XrBrowserTestBase::kVrConfigPathEnvVar[];
 constexpr char XrBrowserTestBase::kVrConfigPathVal[];
 constexpr char XrBrowserTestBase::kVrLogPathEnvVar[];
 constexpr char XrBrowserTestBase::kVrLogPathVal[];
+constexpr char XrBrowserTestBase::kTestFileDir[];
 
 XrBrowserTestBase::XrBrowserTestBase() : env_(base::Environment::Create()) {}
 
 XrBrowserTestBase::~XrBrowserTestBase() = default;
 
-// We need an std::string that is an absolute file path, which requires
-// platform-specific logic since Windows uses std::wstring instead of
-// std::string for FilePaths, but SetVar only accepts std::string.
+base::FilePath::StringType UTF8ToWideIfNecessary(std::string input) {
 #ifdef OS_WIN
-#define MAKE_ABSOLUTE(x) \
-  base::WideToUTF8(      \
-      base::MakeAbsoluteFilePath(base::FilePath(base::UTF8ToWide(x))).value())
+  return base::UTF8ToWide(input);
 #else
-#define MAKE_ABSOLUTE(x) base::MakeAbsoluteFilePath(base::FilePath(x)).value()
-#endif
+  return input;
+#endif  // OS_WIN
+}
+
+std::string WideToUTF8IfNecessary(base::FilePath::StringType input) {
+#ifdef OS_WIN
+  return base::WideToUTF8(input);
+#else
+  return input;
+#endif  // OS_Win
+}
+
+// Returns an std::string consisting of the given path relative to the test
+// executable's path, e.g. if the executable is in out/Debug and the given path
+// is "test", the returned string should be out/Debug/test.
+std::string MakeExecutableRelative(const char* path) {
+  base::FilePath executable_path;
+  EXPECT_TRUE(
+      base::PathService::Get(base::BasePathKey::FILE_EXE, &executable_path));
+  executable_path = executable_path.DirName();
+  // We need an std::string that is an absolute file path, which requires
+  // platform-specific logic since Windows uses std::wstring instead of
+  // std::string for FilePaths, but SetVar only accepts std::string.
+  return WideToUTF8IfNecessary(
+      base::MakeAbsoluteFilePath(
+          executable_path.Append(base::FilePath(UTF8ToWideIfNecessary(path))))
+          .value());
+}
 
 void XrBrowserTestBase::SetUp() {
   // Set the environment variable to use the mock OpenVR client.
-  EXPECT_TRUE(env_->SetVar(kVrOverrideEnvVar, MAKE_ABSOLUTE(kVrOverrideVal)))
-      << "Failed to set OpenVR mock client location environment variable";
   EXPECT_TRUE(
-      env_->SetVar(kVrConfigPathEnvVar, MAKE_ABSOLUTE(kVrConfigPathVal)))
+      env_->SetVar(kVrOverrideEnvVar, MakeExecutableRelative(kVrOverrideVal)))
+      << "Failed to set OpenVR mock client location environment variable";
+  EXPECT_TRUE(env_->SetVar(kVrConfigPathEnvVar,
+                           MakeExecutableRelative(kVrConfigPathVal)))
       << "Failed to set OpenVR config location environment variable";
-  EXPECT_TRUE(env_->SetVar(kVrLogPathEnvVar, MAKE_ABSOLUTE(kVrLogPathVal)))
+  EXPECT_TRUE(
+      env_->SetVar(kVrLogPathEnvVar, MakeExecutableRelative(kVrLogPathVal)))
       << "Failed to set OpenVR log location environment variable";
 
   // Set any command line flags that subclasses have set, e.g. enabling WebVR
@@ -74,15 +100,30 @@ void XrBrowserTestBase::SetUp() {
   InProcessBrowserTest::SetUp();
 }
 
-GURL XrBrowserTestBase::GetHtmlTestFile(const std::string& test_name) {
+GURL XrBrowserTestBase::GetFileUrlForHtmlTestFile(
+    const std::string& test_name) {
   return ui_test_utils::GetTestUrl(
       base::FilePath(FILE_PATH_LITERAL("xr/e2e_test_files/html")),
-#ifdef OS_WIN
-      base::FilePath(base::UTF8ToWide(test_name + ".html"))
-#else
-      base::FilePath(test_name + ".html")
-#endif
-          );
+      base::FilePath(UTF8ToWideIfNecessary(test_name + ".html")));
+}
+
+GURL XrBrowserTestBase::GetEmbeddedServerUrlForHtmlTestFile(
+    const std::string& test_name) {
+  // GetURL requires that the path start with /.
+  return GetEmbeddedServer()->GetURL(std::string("/") + kTestFileDir +
+                                     test_name + ".html");
+}
+
+net::EmbeddedTestServer* XrBrowserTestBase::GetEmbeddedServer() {
+  if (server_ == nullptr) {
+    server_ = std::make_unique<net::EmbeddedTestServer>(
+        net::EmbeddedTestServer::Type::TYPE_HTTPS);
+    // We need to serve from the root in order for the inclusion of the
+    // test harness from //third_party to work.
+    server_->ServeFilesFromSourceDirectory(".");
+    EXPECT_TRUE(server_->Start()) << "Failed to start embedded test server";
+  }
+  return server_.get();
 }
 
 content::WebContents* XrBrowserTestBase::GetFirstTabWebContents() {
@@ -131,17 +172,20 @@ bool XrBrowserTestBase::PollJavaScriptBoolean(
     const std::string& bool_expression,
     const base::TimeDelta& timeout,
     content::WebContents* web_contents) {
+  bool result = false;
+  base::RunLoop wait_loop(base::RunLoop::Type::kNestableTasksAllowed);
   // Lambda used because otherwise BindRepeating gets confused about which
   // version of RunJavaScriptAndExtractBoolOrFail to use.
-  return BlockOnConditionUnsafe(
-      base::BindRepeating(
-          [](XrBrowserTestBase* base, std::string expression,
-             content::WebContents* contents) {
-            return base->RunJavaScriptAndExtractBoolOrFail(expression,
-                                                           contents);
-          },
-          this, bool_expression, web_contents),
-      timeout);
+  BlockOnCondition(base::BindRepeating(
+                       [](XrBrowserTestBase* base, std::string expression,
+                          content::WebContents* contents) {
+                         return base->RunJavaScriptAndExtractBoolOrFail(
+                             expression, contents);
+                       },
+                       this, bool_expression, web_contents),
+                   &result, &wait_loop, base::Time::Now(), timeout);
+  wait_loop.Run();
+  return result;
 }
 
 void XrBrowserTestBase::PollJavaScriptBooleanOrFail(
@@ -152,24 +196,46 @@ void XrBrowserTestBase::PollJavaScriptBooleanOrFail(
       << "Timed out polling JavaScript boolean expression: " << bool_expression;
 }
 
-bool XrBrowserTestBase::BlockOnConditionUnsafe(
+void XrBrowserTestBase::BlockOnCondition(
     base::RepeatingCallback<bool()> condition,
+    bool* result,
+    base::RunLoop* wait_loop,
+    const base::Time& start_time,
     const base::TimeDelta& timeout,
     const base::TimeDelta& period) {
-  base::Time start = base::Time::Now();
-  bool successful = false;
-
-  // Poll until the timeout has elapsed, or never if a debugger is attached
-  // because that allows code to be slowly stepped through without breaking
-  // tests.
-  while (base::Time::Now() - start < timeout || base::debug::BeingDebugged()) {
-    successful = condition.Run();
-    if (successful) {
-      break;
-    }
-    base::PlatformThread::Sleep(period);
+  if (!*result) {
+    *result = condition.Run();
   }
-  return successful;
+
+  if (*result) {
+    if (wait_loop->running()) {
+      wait_loop->Quit();
+      return;
+    }
+    // In the case where the condition is met fast enough that the given
+    // RunLoop hasn't started yet, spin until it's available.
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&XrBrowserTestBase::BlockOnCondition,
+                       base::Unretained(this), std::move(condition),
+                       base::Unretained(result), base::Unretained(wait_loop),
+                       start_time, timeout, period));
+    return;
+  }
+
+  if (base::Time::Now() - start_time > timeout &&
+      !base::debug::BeingDebugged()) {
+    wait_loop->Quit();
+    return;
+  }
+
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&XrBrowserTestBase::BlockOnCondition,
+                     base::Unretained(this), std::move(condition),
+                     base::Unretained(result), base::Unretained(wait_loop),
+                     start_time, timeout, period),
+      period);
 }
 
 void XrBrowserTestBase::WaitOnJavaScriptStep(

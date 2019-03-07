@@ -164,6 +164,9 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
           this.screenMode_ != ScreenMode.SAML_INTERSTITIAL;
 
       $('login-header-bar').updateUI_();
+
+      let showGuestInOobe = !this.closable && this.isAtTheBeginning();
+      chrome.send('showGuestInOobe', [showGuestInOobe]);
     },
 
     /**
@@ -571,7 +574,7 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
       this.screenMode = ScreenMode.DEFAULT;
       this.loading = true;
       chrome.send('loginUIStateChanged', ['gaia-signin', true]);
-      $('login-header-bar').signinUIState = SIGNIN_UI_STATE.GAIA_SIGNIN;
+      Oobe.getInstance().setSigninUIState(SIGNIN_UI_STATE.GAIA_SIGNIN);
 
       // Ensure that GAIA signin (or loading UI) is actually visible.
       window.requestAnimationFrame(function() {
@@ -635,6 +638,7 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
      */
     onBeforeHide: function() {
       chrome.send('loginUIStateChanged', ['gaia-signin', false]);
+      Oobe.getInstance().setSigninUIState(SIGNIN_UI_STATE.HIDDEN);
       $('offline-gaia').switchToEmailCard(false /* animated */);
     },
 
@@ -710,11 +714,6 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
       $('login-header-bar').showCreateSupervisedButton =
           data.supervisedUsersCanCreate;
       $('login-header-bar').showGuestButton = data.guestSignin;
-      if (Oobe.getInstance().showingViewsLogin) {
-        chrome.send(
-            'showGuestForGaia',
-            [data.guestSignin, !this.closable && this.isAtTheBeginning()]);
-      }
 
       // Reset SAML
       this.classList.toggle('full-width', false);
@@ -1164,7 +1163,7 @@ login.createScreen('GaiaSigninScreen', 'gaia-signin', function() {
           // Show 'Cancel' button to allow user to return to the main screen
           // (e.g. this makes sense when connection is back).
           Oobe.getInstance().headerHidden = false;
-          $('login-header-bar').signinUIState = SIGNIN_UI_STATE.GAIA_SIGNIN;
+          Oobe.getInstance().setSigninUIState(SIGNIN_UI_STATE.GAIA_SIGNIN);
           // Do nothing, since offline version is reloaded after an error comes.
         } else {
           Oobe.showSigninUI();

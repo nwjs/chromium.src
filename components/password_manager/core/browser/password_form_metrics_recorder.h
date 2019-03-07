@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 
+#include <map>
 #include <memory>
 #include <set>
 #include <vector>
@@ -22,9 +23,14 @@
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "url/gurl.h"
 
+namespace autofill {
+struct FormData;
+}
+
 namespace password_manager {
 
 class FormFetcher;
+struct InteractionsStats;
 
 // The pupose of this class is to record various types of metrics about the
 // behavior of the PasswordFormManager and its interaction with the user and
@@ -216,6 +222,60 @@ class PasswordFormMetricsRecorder
     kMaxFormDifferencesValue = 1 << 4,
   };
 
+  // Used in UMA histogram, please do NOT reorder.
+  // Metric: "PasswordManager.FirstWaitForUsernameReason"
+  // This metric records why the browser instructs the renderer not to fill the
+  // credentials on page load but to wait for the user to confirm the credential
+  // to be filled. This decision is only recorded for the first time, the
+  // browser informs the renderer about credentials for a given form.
+  enum class WaitForUsernameReason {
+    // Credentials may be filled on page load.
+    kDontWait = 0,
+    // User is browsing in incognito mode.
+    kIncognitoMode = 1,
+    // A credential exists for a PSL matched site but not for the current
+    // security origin.
+    kPublicSuffixMatch = 2,
+    // Form is suspected to be a password change form. (Only recorded for old
+    // form parser)
+    kFormNotGoodForFilling = 3,
+    // User is on an HTTP site where passwords are filled on account selection
+    // (FOAS).
+    kFoasOnHTTP = 4,
+    kMaxValue = kFoasOnHTTP,
+  };
+
+  // This metric records the user experience with the passwords filling. The
+  // first 4 buckets are ranging from the best (automatic) to the worst (the
+  // user has to type already saved password). Next 2 buckets showed the cases
+  // when it was impossible to help because the unknown credentials were
+  // submitted. The last bucket are strange cases, that the submitted form has
+  // nor user input, nor autofilled data in password fields.
+  enum class FillingAssistance {
+    // Credential fields were filled automatically.
+    kAutomatic = 0,
+    // Credential fields were filled with involving manual filling (but none
+    // required typing).
+    kManual = 1,
+    // Password was filled (automatically or manually), known username was
+    // typed.
+    kUsernameTypedPasswordFilled = 2,
+    // Known password was typed.
+    kKnownPasswordTyped = 3,
+    // Unknown password was typed while some credentials were stored.
+    kNewPasswordTypedWhileCredentialsExisted = 4,
+    // No saved credentials.
+    kNoSavedCredentials = 5,
+    // Neither user input nor filling.
+    kNoUserInputNoFillingInPasswordFields = 6,
+    // Domain is blacklisted and no other credentials exist.
+    kNoSavedCredentialsAndBlacklisted = 7,
+    // No credentials exist and the user has ignored the save bubble too often,
+    // meaning that they won't be asked to save credentials anymore.
+    kNoSavedCredentialsAndBlacklistedBySmartBubble = 8,
+    kMaxValue = kNoSavedCredentialsAndBlacklistedBySmartBubble,
+  };
+
   // The maximum number of combinations of the ManagerAction, UserAction and
   // SubmitResult enums.
   // This is used when recording the actions taken by the form in UMA.
@@ -248,9 +308,23 @@ class PasswordFormMetricsRecorder
   // is was overridden for the form.
   void ReportSpecPriorityForGeneratedPassword(uint32_t spec_priority);
 
-  // Stores the password manager and user actions and logs them.
+  // Stores the password manager action. During destruction the last
+  // set value will be logged.
   void SetManagerAction(ManagerAction manager_action);
-  void SetUserAction(UserAction user_action);
+
+  // Calculates the user's action depending on the submitted form and existing
+  // matches. Also inspects |manager_action_| to correctly detect if the
+  // user chose a credential.
+  void CalculateUserAction(
+      const std::map<base::string16, const autofill::PasswordForm*>&
+          best_matches,
+      const autofill::PasswordForm& submitted_form);
+
+  // Allow tests to explicitly set a value for |user_action_|.
+  void SetUserActionForTesting(UserAction user_action);
+
+  // Gets the current value of |user_action_|.
+  UserAction GetUserAction() const;
 
   // Call these if/when we know the form submission worked or failed.
   // These routines are used to update internal statistics ("ActionsTaken").
@@ -331,6 +405,18 @@ class PasswordFormMetricsRecorder
                                          bool is_update);
 
   void RecordFormChangeBitmask(uint32_t bitmask);
+
+  void RecordFirstFillingResult(int32_t result);
+  void RecordFirstWaitForUsernameReason(WaitForUsernameReason reason);
+
+  // Calculates FillingAssistance metric for |submitted_form|. The result is
+  // stored in |filling_assistance_| and recorded in the destructor in case when
+  // the successful submission is detected.
+  void CalculateFillingAssistanceMetric(
+      const autofill::FormData& submitted_form,
+      const std::set<base::string16>& saved_usernames,
+      const std::set<base::string16>& saved_passwords,
+      const std::vector<InteractionsStats>& interactions_stats);
 
  private:
   friend class base::RefCounted<PasswordFormMetricsRecorder>;
@@ -433,6 +519,12 @@ class PasswordFormMetricsRecorder
   base::Optional<uint32_t> showed_manual_fallback_for_saving_;
 
   base::Optional<uint32_t> form_changes_bitmask_;
+
+  bool recorded_first_filling_result_ = false;
+
+  bool recorded_wait_for_username_reason_ = false;
+
+  base::Optional<FillingAssistance> filling_assistance_;
 
   DISALLOW_COPY_AND_ASSIGN(PasswordFormMetricsRecorder);
 };

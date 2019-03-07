@@ -152,27 +152,37 @@ void ScrollingCoordinator::NotifyTransformChanged(LocalFrame* frame,
   }
 }
 
-void ScrollingCoordinator::DidScroll(const gfx::ScrollOffset& offset,
-                                     const CompositorElementId& element_id) {
+ScrollableArea*
+ScrollingCoordinator::ScrollableAreaWithElementIdInAllLocalFrames(
+    const CompositorElementId& id) {
   for (auto* frame = page_->MainFrame(); frame;
        frame = frame->Tree().TraverseNext()) {
-    // Remote frames will receive DidScroll callbacks from their own compositor.
     if (!frame->IsLocalFrame())
       continue;
 
-    // Find the associated scrollable area using the element id and notify it
-    // of the compositor-side scroll. We explicitly do not check the
-    // VisualViewport which handles scroll offset differently (see:
-    // VisualViewport::didScroll).
+    // Find the associated scrollable area using the element id.
     if (LocalFrameView* view = ToLocalFrame(frame)->View()) {
-      if (auto* scrollable = view->ScrollableAreaWithElementId(element_id)) {
-        scrollable->DidScroll(FloatPoint(offset.x(), offset.y()));
-        return;
+      if (auto* scrollable = view->ScrollableAreaWithElementId(id)) {
+        return scrollable;
       }
     }
   }
+  // The ScrollableArea with matching ElementId does not exist in local frames.
+  return nullptr;
+}
+
+void ScrollingCoordinator::DidScroll(const gfx::ScrollOffset& offset,
+                                     const CompositorElementId& element_id) {
+  // Find the associated scrollable area using the element id and notify it of
+  // the compositor-side scroll. We explicitly do not check the VisualViewport
+  // which handles scroll offset differently (see: VisualViewport::didScroll).
+  // Remote frames will receive DidScroll callbacks from their own compositor.
   // The ScrollableArea with matching ElementId may have been deleted and we can
   // safely ignore the DidScroll callback.
+  if (auto* scrollable =
+          ScrollableAreaWithElementIdInAllLocalFrames(element_id)) {
+    scrollable->DidScroll(FloatPoint(offset.x(), offset.y()));
+  }
 }
 
 void ScrollingCoordinator::UpdateAfterPaint(LocalFrameView* frame_view) {
@@ -225,24 +235,31 @@ void ScrollingCoordinator::UpdateAfterPaint(LocalFrameView* frame_view) {
     frame_view->GetScrollingContext()->SetTouchEventTargetRectsAreDirty(false);
   }
 
-  // TODO(pdr): Move the should_scroll_on_main_thread logic to use touch action
-  // rects. These features are similar and do not need independent
-  // implementations.
   if (should_scroll_on_main_thread_dirty ||
       frame_view->FrameIsScrollableDidChange()) {
-    SetShouldUpdateScrollLayerPositionOnMainThread(
-        frame, frame_view->GetMainThreadScrollingReasons());
+    // When blink generates property trees, main thread scrolling reasons are
+    // stored on scroll nodes.
+    if (!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
+      // TODO(pdr): This also takes over scroll animations if main thread
+      // reasons are present. This needs to be implemented for
+      // BlinkGenPropertyTrees.
+      SetShouldUpdateScrollLayerPositionOnMainThread(
+          frame, frame_view->GetMainThreadScrollingReasons());
 
-    // Need to update scroll on main thread reasons for subframe because
-    // subframe (e.g. iframe with background-attachment:fixed) should
-    // scroll on main thread while the main frame scrolls on impl.
-    frame_view->UpdateSubFrameScrollOnMainReason(*frame, 0);
+      // Need to update scroll on main thread reasons for subframe because
+      // subframe (e.g. iframe with background-attachment:fixed) should
+      // scroll on main thread while the main frame scrolls on impl.
+      frame_view->UpdateSubFrameScrollOnMainReason(*frame, 0);
+    }
     frame_view->GetScrollingContext()->SetShouldScrollOnMainThreadIsDirty(
         false);
   }
   frame_view->ClearFrameIsScrollableDidChange();
 
-  UpdateUserInputScrollable(&page_->GetVisualViewport());
+  // When blink generates property trees, the user input scrollable bits are
+  // stored on scroll nodes instead of layers.
+  if (!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
+    UpdateUserInputScrollable(&page_->GetVisualViewport());
 }
 
 template <typename Function>
@@ -257,7 +274,7 @@ static void ForAllGraphicsLayers(GraphicsLayer& layer,
 // on the GraphicsLayer's paint chunks.
 static void UpdateLayerTouchActionRects(GraphicsLayer& layer) {
   DCHECK(RuntimeEnabledFeatures::PaintTouchActionRectsEnabled());
-  if (!layer.DrawsContent())
+  if (!layer.PaintsContentOrHitTest())
     return;
 
   if (layer.Client().ShouldThrottleRendering()) {
@@ -522,7 +539,8 @@ void ScrollingCoordinator::ScrollableAreaScrollLayerDidChange(
   if (!page_ || !page_->MainFrame())
     return;
 
-  UpdateUserInputScrollable(scrollable_area);
+  if (!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
+    UpdateUserInputScrollable(scrollable_area);
 
   cc::Layer* cc_layer =
       GraphicsLayerToCcLayer(scrollable_area->LayerForScrolling());
@@ -788,8 +806,8 @@ void ScrollingCoordinator::UpdateTouchEventTargetRectsIfNeeded(
   TRACE_EVENT0("input",
                "ScrollingCoordinator::updateTouchEventTargetRectsIfNeeded");
 
-  // TODO(chrishtr): implement touch event target rects for SPv2.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // TODO(chrishtr): implement touch event target rects for CAP.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   if (RuntimeEnabledFeatures::PaintTouchActionRectsEnabled()) {
@@ -805,6 +823,9 @@ void ScrollingCoordinator::UpdateTouchEventTargetRectsIfNeeded(
 
 void ScrollingCoordinator::UpdateUserInputScrollable(
     ScrollableArea* scrollable_area) {
+  // When blink generates property trees, the user input scrollable bits are
+  // stored on scroll nodes instead of layers so this is not needed.
+  DCHECK(!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled());
   cc::Layer* cc_layer =
       GraphicsLayerToCcLayer(scrollable_area->LayerForScrolling());
   if (cc_layer) {
@@ -959,7 +980,7 @@ void ScrollingCoordinator::SetShouldUpdateScrollLayerPositionOnMainThread(
     if (main_thread_scrolling_reasons) {
       if (ScrollAnimatorBase* scroll_animator =
               scrollable_area->ExistingScrollAnimator()) {
-        DCHECK(RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+        DCHECK(RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
                frame->GetDocument()->Lifecycle().GetState() >=
                    DocumentLifecycle::kCompositingClean);
         scroll_animator->TakeOverCompositorAnimation();
@@ -969,7 +990,7 @@ void ScrollingCoordinator::SetShouldUpdateScrollLayerPositionOnMainThread(
       if (visual_viewport_scroll_layer) {
         if (ScrollAnimatorBase* scroll_animator =
                 visual_viewport.ExistingScrollAnimator()) {
-          DCHECK(RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+          DCHECK(RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
                  frame->GetDocument()->Lifecycle().GetState() >=
                      DocumentLifecycle::kCompositingClean);
           scroll_animator->TakeOverCompositorAnimation();

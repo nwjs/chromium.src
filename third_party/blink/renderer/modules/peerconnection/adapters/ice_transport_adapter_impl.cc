@@ -4,84 +4,18 @@
 
 #include "third_party/blink/renderer/modules/peerconnection/adapters/ice_transport_adapter_impl.h"
 
-#include "third_party/blink/renderer/modules/peerconnection/adapters/p2p_quic_packet_transport.h"
+#include "third_party/blink/renderer/modules/peerconnection/adapters/quic_packet_transport_adapter.h"
 
 namespace blink {
-namespace {
-
-// Implementation of P2PQuicPacketTransport backed by a P2PTransportChannel.
-class QuicPacketTransportAdapter : public P2PQuicPacketTransport,
-                                   public sigslot::has_slots<> {
- public:
-  QuicPacketTransportAdapter(
-      cricket::P2PTransportChannel* p2p_transport_channel)
-      : p2p_transport_channel_(p2p_transport_channel) {
-    DCHECK(p2p_transport_channel_);
-    p2p_transport_channel_->SignalReadPacket.connect(
-        this, &QuicPacketTransportAdapter::OnReadPacket);
-    p2p_transport_channel_->SignalReadyToSend.connect(
-        this, &QuicPacketTransportAdapter::OnReadyToSend);
-  }
-
-  ~QuicPacketTransportAdapter() override {
-    // Caller is responsible for unsetting the write observer and receive
-    // delegate before destroying this.
-    DCHECK(!write_observer_);
-    DCHECK(!receive_delegate_);
-  }
-
-  int WritePacket(const QuicPacket& packet) override {
-    rtc::PacketOptions options;
-    options.packet_id = packet.packet_number;
-    int flags = 0;
-    return p2p_transport_channel_->SendPacket(packet.buffer, packet.buf_len,
-                                              options, flags);
-  }
-
-  void SetReceiveDelegate(ReceiveDelegate* receive_delegate) override {
-    receive_delegate_ = receive_delegate;
-  }
-
-  void SetWriteObserver(WriteObserver* write_observer) override {
-    write_observer_ = write_observer;
-  }
-
-  bool Writable() override { return p2p_transport_channel_->writable(); }
-
- private:
-  // P2PTransportChannel callbacks.
-  void OnReadPacket(rtc::PacketTransportInternal* packet_transport,
-                    const char* buffer,
-                    size_t buffer_length,
-                    const rtc::PacketTime& packet_time,
-                    int flags) {
-    DCHECK_EQ(packet_transport, p2p_transport_channel_);
-    if (!receive_delegate_) {
-      // TODO(crbug.com/874296): Consider providing a small buffer.
-      return;
-    }
-    receive_delegate_->OnPacketDataReceived(buffer, buffer_length);
-  }
-  void OnReadyToSend(rtc::PacketTransportInternal* packet_transport) {
-    DCHECK_EQ(packet_transport, p2p_transport_channel_);
-    if (!write_observer_) {
-      return;
-    }
-    write_observer_->OnCanWrite();
-  }
-
-  cricket::P2PTransportChannel* p2p_transport_channel_;
-  ReceiveDelegate* receive_delegate_ = nullptr;
-  WriteObserver* write_observer_ = nullptr;
-};
-
-}  // namespace
 
 IceTransportAdapterImpl::IceTransportAdapterImpl(
     Delegate* delegate,
     std::unique_ptr<cricket::PortAllocator> port_allocator,
+    std::unique_ptr<webrtc::AsyncResolverFactory> async_resolver_factory,
     rtc::Thread* thread)
-    : delegate_(delegate), port_allocator_(std::move(port_allocator)) {
+    : delegate_(delegate),
+      port_allocator_(std::move(port_allocator)),
+      async_resolver_factory_(std::move(async_resolver_factory)) {
   // TODO(bugs.webrtc.org/9419): Remove once WebRTC can be built as a component.
   if (!rtc::ThreadManager::Instance()->CurrentThread()) {
     rtc::ThreadManager::Instance()->SetCurrentThread(thread);
@@ -97,7 +31,7 @@ IceTransportAdapterImpl::IceTransportAdapterImpl(
   port_allocator_->Initialize();
 
   p2p_transport_channel_ = std::make_unique<cricket::P2PTransportChannel>(
-      "", 0, port_allocator_.get());
+      "", 0, port_allocator_.get(), async_resolver_factory.get());
   p2p_transport_channel_->SignalGatheringState.connect(
       this, &IceTransportAdapterImpl::OnGatheringStateChanged);
   p2p_transport_channel_->SignalCandidateGathered.connect(
@@ -106,6 +40,8 @@ IceTransportAdapterImpl::IceTransportAdapterImpl(
       this, &IceTransportAdapterImpl::OnStateChanged);
   p2p_transport_channel_->SignalNetworkRouteChanged.connect(
       this, &IceTransportAdapterImpl::OnNetworkRouteChanged);
+  p2p_transport_channel_->SignalRoleConflict.connect(
+      this, &IceTransportAdapterImpl::OnRoleConflict);
   // We need to set the ICE role even before Start is called since the Port
   // assumes that the role has been set before receiving incoming connectivity
   // checks. These checks can race with the information signaled for Start.
@@ -161,10 +97,7 @@ void IceTransportAdapterImpl::Start(
 
 void IceTransportAdapterImpl::HandleRemoteRestart(
     const cricket::IceParameters& new_remote_parameters) {
-  auto remote_candidates = p2p_transport_channel_->remote_candidates();
-  for (const auto& remote_candidate : remote_candidates) {
-    p2p_transport_channel_->RemoveRemoteCandidate(remote_candidate);
-  }
+  p2p_transport_channel_->RemoveAllRemoteCandidates();
   p2p_transport_channel_->SetRemoteIceParameters(new_remote_parameters);
 }
 
@@ -211,6 +144,39 @@ void IceTransportAdapterImpl::OnNetworkRouteChanged(
   delegate_->OnSelectedCandidatePairChanged(
       std::make_pair(selected_connection->local_candidate(),
                      selected_connection->remote_candidate()));
+}
+
+static const char* IceRoleToString(cricket::IceRole role) {
+  switch (role) {
+    case cricket::ICEROLE_CONTROLLING:
+      return "controlling";
+    case cricket::ICEROLE_CONTROLLED:
+      return "controlled";
+    default:
+      return "unknown";
+  }
+}
+
+static cricket::IceRole IceRoleReversed(cricket::IceRole role) {
+  switch (role) {
+    case cricket::ICEROLE_CONTROLLING:
+      return cricket::ICEROLE_CONTROLLED;
+    case cricket::ICEROLE_CONTROLLED:
+      return cricket::ICEROLE_CONTROLLING;
+    default:
+      return cricket::ICEROLE_UNKNOWN;
+  }
+}
+
+void IceTransportAdapterImpl::OnRoleConflict(
+    cricket::IceTransportInternal* transport) {
+  DCHECK_EQ(transport, p2p_transport_channel_.get());
+  // This logic is copied from JsepTransportController.
+  cricket::IceRole reversed_role =
+      IceRoleReversed(p2p_transport_channel_->GetIceRole());
+  LOG(INFO) << "Got role conflict; switching to "
+            << IceRoleToString(reversed_role) << " role.";
+  p2p_transport_channel_->SetIceRole(reversed_role);
 }
 
 }  // namespace blink

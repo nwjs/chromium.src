@@ -4,7 +4,7 @@
 
 #include "remoting/protocol/mouse_input_filter.h"
 
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "remoting/proto/event.pb.h"
 #include "remoting/protocol/protocol_mock_objects.h"
 #include "remoting/protocol/test_event_matchers.h"
@@ -35,11 +35,11 @@ static void InjectTestSequence(InputStub* input_stub) {
   static const Point input_sequence[] = {
     {-5, 10}, {0, 10}, {-1, 10}, {15, 40}, {15, 45}, {15, 39}, {15, 25}
   };
-  for (unsigned int i = 0; i < arraysize(input_sequence); ++i) {
+  for (unsigned int i = 0; i < base::size(input_sequence); ++i) {
     const Point& point = input_sequence[i];
     input_stub->InjectMouseEvent(MouseMoveEvent(point.x, point.y));
   }
-  for (unsigned int i = 0; i < arraysize(input_sequence); ++i) {
+  for (unsigned int i = 0; i < base::size(input_sequence); ++i) {
     const Point& point = input_sequence[i];
     input_stub->InjectMouseEvent(MouseMoveEvent(point.y, point.x));
   }
@@ -60,7 +60,7 @@ TEST(MouseInputFilterTest, BothDimensionsZero) {
 TEST(MouseInputFilterTest, InputDimensionsZero) {
   MockInputStub mock_stub;
   MouseInputFilter mouse_filter(&mock_stub);
-  mouse_filter.set_output_size(webrtc::DesktopSize(50, 50));
+  mouse_filter.set_output_size(webrtc::DesktopRect::MakeWH(50, 50));
 
   EXPECT_CALL(mock_stub, InjectMouseEvent(_))
       .Times(0);
@@ -72,7 +72,7 @@ TEST(MouseInputFilterTest, InputDimensionsZero) {
 TEST(MouseInputFilterTest, OutputDimensionsZero) {
   MockInputStub mock_stub;
   MouseInputFilter mouse_filter(&mock_stub);
-  mouse_filter.set_input_size(webrtc::DesktopSize(50, 50));
+  mouse_filter.set_input_size(webrtc::DesktopRect::MakeWH(50, 50));
 
   EXPECT_CALL(mock_stub, InjectMouseEvent(_))
       .Times(0);
@@ -84,8 +84,8 @@ TEST(MouseInputFilterTest, OutputDimensionsZero) {
 TEST(MouseInputFilterTest, NoScalingOrClipping) {
   MockInputStub mock_stub;
   MouseInputFilter mouse_filter(&mock_stub);
-  mouse_filter.set_output_size(webrtc::DesktopSize(40,40));
-  mouse_filter.set_input_size(webrtc::DesktopSize(40,40));
+  mouse_filter.set_output_size(webrtc::DesktopRect::MakeWH(40, 40));
+  mouse_filter.set_input_size(webrtc::DesktopRect::MakeWH(40, 40));
 
   {
     InSequence s;
@@ -112,8 +112,8 @@ TEST(MouseInputFilterTest, NoScalingOrClipping) {
 TEST(MouseInputFilterTest, UpScalingAndClamping) {
   MockInputStub mock_stub;
   MouseInputFilter mouse_filter(&mock_stub);
-  mouse_filter.set_output_size(webrtc::DesktopSize(80, 80));
-  mouse_filter.set_input_size(webrtc::DesktopSize(40, 40));
+  mouse_filter.set_output_size(webrtc::DesktopRect::MakeWH(80, 80));
+  mouse_filter.set_input_size(webrtc::DesktopRect::MakeWH(40, 40));
 
   {
     InSequence s;
@@ -140,8 +140,8 @@ TEST(MouseInputFilterTest, UpScalingAndClamping) {
 TEST(MouseInputFilterTest, DownScalingAndClamping) {
   MockInputStub mock_stub;
   MouseInputFilter mouse_filter(&mock_stub);
-  mouse_filter.set_output_size(webrtc::DesktopSize(30, 30));
-  mouse_filter.set_input_size(webrtc::DesktopSize(40, 40));
+  mouse_filter.set_output_size(webrtc::DesktopRect::MakeWH(30, 30));
+  mouse_filter.set_input_size(webrtc::DesktopRect::MakeWH(40, 40));
 
   {
     InSequence s;

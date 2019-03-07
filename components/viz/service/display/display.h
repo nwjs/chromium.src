@@ -99,7 +99,7 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
 
   // DisplaySchedulerClient implementation.
   bool DrawAndSwap() override;
-  bool SurfaceHasUndrawnFrame(const SurfaceId& surface_id) const override;
+  bool SurfaceHasUnackedFrame(const SurfaceId& surface_id) const override;
   bool SurfaceDamaged(const SurfaceId& surface_id,
                       const BeginFrameAck& ack) override;
   void SurfaceDiscarded(const SurfaceId& surface_id) override;
@@ -136,6 +136,7 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
  private:
   void InitializeRenderer();
   void UpdateRootFrameMissing();
+  void RunDrawCallbacks();
 
   // ContextLostObserver implementation.
   void OnContextLost() override;
@@ -174,6 +175,7 @@ class VIZ_SERVICE_EXPORT Display : public DisplaySchedulerClient,
 
   int64_t swapped_trace_id_ = 0;
   int64_t last_acked_trace_id_ = 0;
+  int64_t last_presented_trace_id_ = 0;
 
   DISALLOW_COPY_AND_ASSIGN(Display);
 };

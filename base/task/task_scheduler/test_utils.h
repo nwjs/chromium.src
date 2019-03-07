@@ -6,6 +6,7 @@
 #define BASE_TASK_TASK_SCHEDULER_TEST_UTILS_H_
 
 #include "base/task/task_scheduler/delayed_task_manager.h"
+#include "base/task/task_scheduler/scheduler_lock.h"
 #include "base/task/task_scheduler/scheduler_task_runner_delegate.h"
 #include "base/task/task_scheduler/scheduler_worker_observer.h"
 #include "base/task/task_scheduler/scheduler_worker_pool.h"
@@ -13,6 +14,7 @@
 #include "base/task/task_scheduler/task_tracker.h"
 #include "base/task/task_traits.h"
 #include "base/task_runner.h"
+#include "base/thread_annotations.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace base {
@@ -27,10 +29,20 @@ class MockSchedulerWorkerObserver : public SchedulerWorkerObserver {
   MockSchedulerWorkerObserver();
   ~MockSchedulerWorkerObserver();
 
+  void AllowCallsOnMainExit(int num_calls);
+  void WaitCallsOnMainExit();
+
+  // SchedulerWorkerObserver:
   MOCK_METHOD0(OnSchedulerWorkerMainEntry, void());
-  MOCK_METHOD0(OnSchedulerWorkerMainExit, void());
+  // This doesn't use MOCK_METHOD0 because some tests need to wait for all calls
+  // to happen, which isn't possible with gmock.
+  void OnSchedulerWorkerMainExit() override;
 
  private:
+  SchedulerLock lock_;
+  std::unique_ptr<ConditionVariable> on_main_exit_cv_ GUARDED_BY(lock_);
+  int allowed_calls_on_main_exit_ GUARDED_BY(lock_) = 0;
+
   DISALLOW_COPY_AND_ASSIGN(MockSchedulerWorkerObserver);
 };
 
@@ -79,6 +91,8 @@ scoped_refptr<TaskRunner> CreateTaskRunnerWithTraits(
 scoped_refptr<SequencedTaskRunner> CreateSequencedTaskRunnerWithTraits(
     const TaskTraits& traits,
     MockSchedulerTaskRunnerDelegate* mock_scheduler_task_runner_delegate);
+
+void WaitWithoutBlockingObserver(WaitableEvent* event);
 
 }  // namespace test
 }  // namespace internal

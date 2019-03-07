@@ -272,16 +272,40 @@ bool CheckIfRequestCanSkipPreflight(
       *CreateNetHttpRequestHeaders(request_header_map), is_revalidating);
 }
 
+// Keep this in sync with the identical function
+// network::cors::CorsURLLoader::CalculateResponseTainting.
+//
+// This is the same as that function except using KURL and SecurityOrigin
+// instead of GURL and url::Origin. We can't combine them because converting
+// SecurityOrigin to url::Origin loses information about origins that are
+// whitelisted by SecurityPolicy.
+//
+// This function also doesn't use a |tainted_origin| flag because Blink loaders
+// mutate the origin instead of using such a flag.
 network::mojom::FetchResponseType CalculateResponseTainting(
     const KURL& url,
     network::mojom::FetchRequestMode request_mode,
     const SecurityOrigin* origin,
     CorsFlag cors_flag) {
-  base::Optional<url::Origin> origin_to_pass;
-  if (origin)
-    origin_to_pass = AsUrlOrigin(*origin);
-  return network::cors::CalculateResponseTainting(
-      url, request_mode, origin_to_pass, cors_flag == CorsFlag::Set);
+  if (url.ProtocolIsData())
+    return network::mojom::FetchResponseType::kBasic;
+
+  if (cors_flag == CorsFlag::Set) {
+    DCHECK(IsCorsEnabledRequestMode(request_mode));
+    return network::mojom::FetchResponseType::kCors;
+  }
+
+  if (!origin) {
+    // This is actually not defined in the fetch spec, but in this case CORS
+    // is disabled so no one should care this value.
+    return network::mojom::FetchResponseType::kBasic;
+  }
+
+  if (request_mode == network::mojom::FetchRequestMode::kNoCors &&
+      !origin->CanRequest(url)) {
+    return network::mojom::FetchResponseType::kOpaque;
+  }
+  return network::mojom::FetchResponseType::kBasic;
 }
 
 bool CalculateCredentialsFlag(
@@ -299,6 +323,16 @@ bool IsCorsSafelistedMethod(const String& method) {
 bool IsCorsSafelistedContentType(const String& media_type) {
   return network::cors::IsCorsSafelistedContentType(
       WebString(media_type).Latin1());
+}
+
+bool IsNoCorsSafelistedHeaderName(const String& name) {
+  DCHECK(!name.IsNull());
+  return network::cors::IsNoCorsSafelistedHeaderName(WebString(name).Latin1());
+}
+
+bool IsPrivilegedNoCorsHeaderName(const String& name) {
+  DCHECK(!name.IsNull());
+  return network::cors::IsPrivilegedNoCorsHeaderName(WebString(name).Latin1());
 }
 
 bool IsNoCorsSafelistedHeader(const String& name, const String& value) {

@@ -9,8 +9,6 @@
 
 #include "base/strings/stringprintf.h"
 #include "base/task/sequence_manager/sequence_manager_impl.h"
-#include "base/task/sequence_manager/task_queue_proxy.h"
-#include "base/task/sequence_manager/task_queue_task_runner.h"
 #include "base/task/sequence_manager/time_domain.h"
 #include "base/task/sequence_manager/work_queue.h"
 #include "base/time/time.h"
@@ -43,6 +41,49 @@ const char* TaskQueue::PriorityToString(TaskQueue::QueuePriority priority) {
 
 namespace internal {
 
+TaskQueueImpl::GuardedTaskPoster::GuardedTaskPoster(TaskQueueImpl* outer)
+    : outer_(outer) {}
+
+TaskQueueImpl::GuardedTaskPoster::~GuardedTaskPoster() {}
+
+bool TaskQueueImpl::GuardedTaskPoster::PostTask(PostedTask task) {
+  auto token = operations_controller_.TryBeginOperation();
+  if (!token)
+    return false;
+
+  outer_->PostTask(std::move(task));
+  return true;
+}
+
+TaskQueueImpl::TaskRunner::TaskRunner(
+    scoped_refptr<GuardedTaskPoster> task_poster,
+    scoped_refptr<AssociatedThreadId> associated_thread,
+    int task_type)
+    : task_poster_(std::move(task_poster)),
+      associated_thread_(std::move(associated_thread)),
+      task_type_(task_type) {}
+
+TaskQueueImpl::TaskRunner::~TaskRunner() {}
+
+bool TaskQueueImpl::TaskRunner::PostDelayedTask(const Location& location,
+                                                OnceClosure callback,
+                                                TimeDelta delay) {
+  return task_poster_->PostTask(PostedTask(std::move(callback), location, delay,
+                                           Nestable::kNestable, task_type_));
+}
+
+bool TaskQueueImpl::TaskRunner::PostNonNestableDelayedTask(
+    const Location& location,
+    OnceClosure callback,
+    TimeDelta delay) {
+  return task_poster_->PostTask(PostedTask(std::move(callback), location, delay,
+                                           Nestable::kNonNestable, task_type_));
+}
+
+bool TaskQueueImpl::TaskRunner::RunsTasksInCurrentSequence() const {
+  return associated_thread_->IsBoundToCurrentThread();
+}
+
 TaskQueueImpl::TaskQueueImpl(SequenceManagerImpl* sequence_manager,
                              TimeDomain* time_domain,
                              const TaskQueue::Spec& spec)
@@ -51,17 +92,17 @@ TaskQueueImpl::TaskQueueImpl(SequenceManagerImpl* sequence_manager,
       associated_thread_(sequence_manager
                              ? sequence_manager->associated_thread()
                              : AssociatedThreadId::CreateBound()),
+      task_poster_(MakeRefCounted<GuardedTaskPoster>(this)),
       any_thread_(time_domain),
       main_thread_only_(this, time_domain),
-      proxy_(MakeRefCounted<TaskQueueProxy>(this, associated_thread_)),
       should_monitor_quiescence_(spec.should_monitor_quiescence),
       should_notify_observers_(spec.should_notify_observers),
       delayed_fence_allowed_(spec.delayed_fence_allowed) {
   DCHECK(time_domain);
   // SequenceManager can't be set later, so we need to prevent task runners
   // from posting any tasks.
-  if (!sequence_manager)
-    proxy_->DetachFromTaskQueueImpl();
+  if (sequence_manager_)
+    task_poster_->StartAcceptingOperations();
 }
 
 TaskQueueImpl::~TaskQueueImpl() {
@@ -89,7 +130,6 @@ TaskQueueImpl::MainThreadOnly::MainThreadOnly(TaskQueueImpl* task_queue,
       immediate_work_queue(new WorkQueue(task_queue,
                                          "immediate",
                                          WorkQueue::QueueType::kImmediate)),
-      set_index(0),
       is_enabled_refcount(0),
       voter_refcount(0),
       blame_context(nullptr),
@@ -99,13 +139,13 @@ TaskQueueImpl::MainThreadOnly::~MainThreadOnly() = default;
 
 scoped_refptr<SingleThreadTaskRunner> TaskQueueImpl::CreateTaskRunner(
     int task_type) const {
-  // |proxy_| pointer is const, hence no need for lock.
-  return MakeRefCounted<TaskQueueTaskRunner>(proxy_, task_type);
+  return MakeRefCounted<TaskRunner>(task_poster_, associated_thread_,
+                                    task_type);
 }
 
 void TaskQueueImpl::UnregisterTaskQueue() {
   // Detach task runners.
-  proxy_->DetachFromTaskQueueImpl();
+  task_poster_->ShutdownAndWaitForZeroOperations();
 
   TaskDeque immediate_incoming_queue;
 
@@ -139,9 +179,8 @@ void TaskQueueImpl::UnregisterTaskQueue() {
   // order inversion for tasks that are posted from within a lock, with a
   // destructor that acquires the same lock.
 
-  std::priority_queue<Task> delayed_incoming_queue =
-      main_thread_only().delayed_incoming_queue.TakeTasks();
-
+  DelayedIncomingQueue delayed_incoming_queue;
+  delayed_incoming_queue.swap(&main_thread_only().delayed_incoming_queue);
   std::unique_ptr<WorkQueue> immediate_work_queue =
       std::move(main_thread_only().immediate_work_queue);
   std::unique_ptr<WorkQueue> delayed_work_queue =
@@ -152,16 +191,12 @@ const char* TaskQueueImpl::GetName() const {
   return name_;
 }
 
-bool TaskQueueImpl::RunsTasksInCurrentSequence() const {
-  return PlatformThread::CurrentId() == associated_thread_->thread_id;
-}
+void TaskQueueImpl::PostTask(PostedTask task) {
+  CurrentThread current_thread =
+      associated_thread_->IsBoundToCurrentThread()
+          ? TaskQueueImpl::CurrentThread::kMainThread
+          : TaskQueueImpl::CurrentThread::kNotMainThread;
 
-void TaskQueueImpl::PostTask(PostedTask task, CurrentThread current_thread) {
-  DCHECK_EQ(current_thread == CurrentThread::kMainThread,
-            RunsTasksInCurrentSequence());
-  // This method can only be called if task queue is able to accept tasks,
-  // i.e. has a sequence manager and not being unregistered. This is enforced
-  // by |proxy_| which is detached if this condition not met.
   if (task.delay.is_zero()) {
     PostImmediateTaskImpl(std::move(task), current_thread);
   } else {
@@ -469,7 +504,7 @@ void TaskQueueImpl::TraceQueueSize() const {
 
   // It's only safe to access the work queues from the main thread.
   // TODO(alexclarke): We should find another way of tracing this
-  if (PlatformThread::CurrentId() != associated_thread_->thread_id)
+  if (!associated_thread_->IsBoundToCurrentThread())
     return;
 
   AutoLock lock(immediate_incoming_queue_lock_);
@@ -494,7 +529,8 @@ TaskQueue::QueuePriority TaskQueueImpl::GetQueuePriority() const {
 }
 
 void TaskQueueImpl::AsValueInto(TimeTicks now,
-                                trace_event::TracedValue* state) const {
+                                trace_event::TracedValue* state,
+                                bool force_verbose) const {
   AutoLock lock(any_thread_lock_);
   AutoLock immediate_incoming_queue_lock(immediate_incoming_queue_lock_);
   state->BeginDictionary();
@@ -551,7 +587,7 @@ void TaskQueueImpl::AsValueInto(TimeTicks now,
       TRACE_DISABLED_BY_DEFAULT("sequence_manager.verbose_snapshots"),
       &verbose);
 
-  if (verbose) {
+  if (verbose || force_verbose) {
     state->BeginArray("immediate_incoming_queue");
     QueueAsValueInto(immediate_incoming_queue(), now, state);
     state->EndArray();
@@ -621,12 +657,9 @@ void TaskQueueImpl::SetTimeDomain(TimeDomain* time_domain) {
 }
 
 TimeDomain* TaskQueueImpl::GetTimeDomain() const {
-  if (associated_thread_->thread_id == kInvalidThreadId ||
-      PlatformThread::CurrentId() == associated_thread_->thread_id)
-    return main_thread_only().time_domain;
-
-  AutoLock lock(any_thread_lock_);
-  return any_thread().time_domain;
+  DCHECK(associated_thread_->IsBoundToCurrentThread() ||
+         !associated_thread_->IsBound());
+  return main_thread_only().time_domain;
 }
 
 void TaskQueueImpl::SetBlameContext(trace_event::BlameContext* blame_context) {
@@ -739,23 +772,6 @@ void TaskQueueImpl::QueueAsValueInto(const TaskDeque& queue,
 }
 
 // static
-void TaskQueueImpl::QueueAsValueInto(const std::priority_queue<Task>& queue,
-                                     TimeTicks now,
-                                     trace_event::TracedValue* state) {
-  // Remove const to search |queue| in the destructive manner. Restore the
-  // content from |visited| later.
-  std::priority_queue<Task>* mutable_queue =
-      const_cast<std::priority_queue<Task>*>(&queue);
-  std::priority_queue<Task> visited;
-  while (!mutable_queue->empty()) {
-    TaskAsValueInto(mutable_queue->top(), now, state);
-    visited.push(std::move(const_cast<Task&>(mutable_queue->top())));
-    mutable_queue->pop();
-  }
-  *mutable_queue = std::move(visited);
-}
-
-// static
 void TaskQueueImpl::TaskAsValueInto(const Task& task,
                                     TimeTicks now,
                                     trace_event::TracedValue* state) {
@@ -865,13 +881,19 @@ TaskQueueImpl::CreateQueueEnabledVoter(scoped_refptr<TaskQueue> task_queue) {
   return std::make_unique<QueueEnabledVoterImpl>(task_queue);
 }
 
-void TaskQueueImpl::SweepCanceledDelayedTasks(TimeTicks now) {
+void TaskQueueImpl::ReclaimMemory(TimeTicks now) {
   if (main_thread_only().delayed_incoming_queue.empty())
     return;
   main_thread_only().delayed_incoming_queue.SweepCancelledTasks();
 
   // Also consider shrinking the work queue if it's wasting memory.
   main_thread_only().delayed_work_queue->MaybeShrinkQueue();
+  main_thread_only().immediate_work_queue->MaybeShrinkQueue();
+
+  {
+    AutoLock lock(immediate_incoming_queue_lock_);
+    immediate_incoming_queue().MaybeShrinkQueue();
+  }
 
   LazyNow lazy_now(now);
   UpdateDelayedWakeUp(&lazy_now);
@@ -1008,7 +1030,7 @@ void TaskQueueImpl::DeletePendingTasks() {
   main_thread_only().immediate_work_queue->DeletePendingTasks();
   // TODO(altimin): Add clear() method to DelayedIncomingQueue.
   DelayedIncomingQueue queue_to_delete;
-  main_thread_only().delayed_incoming_queue.swap(queue_to_delete);
+  main_thread_only().delayed_incoming_queue.swap(&queue_to_delete);
 
   TaskDeque deque;
   {
@@ -1055,28 +1077,40 @@ void TaskQueueImpl::DelayedIncomingQueue::pop() {
   queue_.pop();
 }
 
-void TaskQueueImpl::DelayedIncomingQueue::SweepCancelledTasks() {
-  std::priority_queue<Task> remaining_tasks;
-  while (!empty()) {
-    if (!top().task.IsCancelled()) {
-      if (top().is_high_res)
-        pending_high_res_tasks_++;
-      remaining_tasks.push(std::move(const_cast<Task&>(top())));
-    }
-    pop();
-  }
-  queue_ = std::move(remaining_tasks);
+void TaskQueueImpl::DelayedIncomingQueue::swap(DelayedIncomingQueue* rhs) {
+  std::swap(pending_high_res_tasks_, rhs->pending_high_res_tasks_);
+  std::swap(queue_, rhs->queue_);
 }
 
-void TaskQueueImpl::DelayedIncomingQueue::swap(DelayedIncomingQueue& other) {
-  queue_.swap(other.queue_);
-  std::swap(pending_high_res_tasks_, other.pending_high_res_tasks_);
+void TaskQueueImpl::DelayedIncomingQueue::SweepCancelledTasks() {
+  // Under the hood a std::priority_queue is a heap and usually it's built on
+  // top of a std::vector. We poke at that vector directly here to filter out
+  // canceled tasks in place.
+  bool task_deleted = false;
+  auto it = queue_.c.begin();
+  while (it != queue_.c.end()) {
+    if (it->task.IsCancelled()) {
+      if (it->is_high_res)
+        pending_high_res_tasks_--;
+      *it = std::move(queue_.c.back());
+      queue_.c.pop_back();
+      task_deleted = true;
+    } else {
+      it++;
+    }
+  }
+
+  // If we deleted something, re-enforce the heap property.
+  if (task_deleted)
+    std::make_heap(queue_.c.begin(), queue_.c.end(), queue_.comp);
 }
 
 void TaskQueueImpl::DelayedIncomingQueue::AsValueInto(
     TimeTicks now,
     trace_event::TracedValue* state) const {
-  QueueAsValueInto(queue_, now, state);
+  for (const Task& task : queue_.c) {
+    TaskAsValueInto(task, now, state);
+  }
 }
 
 }  // namespace internal

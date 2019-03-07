@@ -33,7 +33,7 @@
 #include <memory>
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_loader_mock_factory.h"
@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/unique_identifier.h"
 #include "third_party/blink/renderer/platform/loader/testing/mock_fetch_context.h"
 #include "third_party/blink/renderer/platform/loader/testing/mock_resource_client.h"
+#include "third_party/blink/renderer/platform/loader/testing/test_resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/network/http_names.h"
 #include "third_party/blink/renderer/platform/scheduler/test/fake_task_runner.h"
 #include "third_party/blink/renderer/platform/shared_buffer.h"
@@ -352,8 +353,10 @@ void TestThatIsNotPlaceholderRequestAndServeResponse(
 }
 
 ResourceFetcher* CreateFetcher() {
-  return ResourceFetcher::Create(
-      MockFetchContext::Create(MockFetchContext::kShouldLoadNewResource));
+  auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>();
+  return MakeGarbageCollected<ResourceFetcher>(
+      ResourceFetcherInit(*properties, MakeGarbageCollected<MockFetchContext>(),
+                          base::MakeRefCounted<scheduler::FakeTaskRunner>()));
 }
 
 TEST(ImageResourceTest, MultipartImage) {
@@ -376,7 +379,8 @@ TEST(ImageResourceTest, MultipartImage) {
   // flagged as multipart.
   ResourceResponse multipart_response(NullURL());
   multipart_response.SetMimeType("multipart/x-mixed-replace");
-  multipart_response.SetMultipartBoundary("boundary", strlen("boundary"));
+  multipart_response.SetHTTPHeaderField(
+      http_names::kContentType, "multipart/x-mixed-replace; boundary=boundary");
   image_resource->Loader()->DidReceiveResponse(
       WrappedResourceResponse(multipart_response), nullptr);
   EXPECT_FALSE(image_resource->ResourceBuffer());
@@ -456,7 +460,8 @@ TEST(ImageResourceTest, BitmapMultipartImage) {
 
   ResourceResponse multipart_response(NullURL());
   multipart_response.SetMimeType("multipart/x-mixed-replace");
-  multipart_response.SetMultipartBoundary("boundary", strlen("boundary"));
+  multipart_response.SetHTTPHeaderField(
+      http_names::kContentType, "multipart/x-mixed-replace; boundary=boundary");
   image_resource->Loader()->DidReceiveResponse(
       WrappedResourceResponse(multipart_response), nullptr);
   EXPECT_FALSE(image_resource->GetContent()->HasImage());
@@ -485,8 +490,7 @@ TEST(ImageResourceTest, CancelOnRemoveObserver) {
 
   ResourceFetcher* fetcher = CreateFetcher();
   scheduler::FakeTaskRunner* task_runner =
-      static_cast<scheduler::FakeTaskRunner*>(
-          fetcher->Context().GetLoadingTaskRunner().get());
+      static_cast<scheduler::FakeTaskRunner*>(fetcher->GetTaskRunner().get());
   task_runner->SetTime(1);
 
   // Emulate starting a real load.
@@ -521,7 +525,7 @@ class MockFinishObserver : public GarbageCollectedFinalized<MockFinishObserver>,
   static MockFinishObserver* Create() {
     return
 
-        new testing::StrictMock<MockFinishObserver>;
+        MakeGarbageCollected<testing::StrictMock<MockFinishObserver>>();
   }
   MOCK_METHOD0(NotifyFinished, void());
   String DebugName() const override { return "MockFinishObserver"; }
@@ -548,8 +552,8 @@ TEST(ImageResourceTest, CancelWithImageAndFinishObserver) {
   GetMemoryCache()->Add(image_resource);
 
   Persistent<MockFinishObserver> finish_observer = MockFinishObserver::Create();
-  image_resource->AddFinishObserver(
-      finish_observer, fetcher->Context().GetLoadingTaskRunner().get());
+  image_resource->AddFinishObserver(finish_observer,
+                                    fetcher->GetTaskRunner().get());
 
   // Send the image response.
   ResourceResponse resource_response(NullURL());
@@ -1861,11 +1865,15 @@ TEST(ImageResourceTest, PeriodicFlushTest) {
   KURL test_url(kTestURL);
   ScopedMockedURLLoad scoped_mocked_url_load(test_url, GetTestFilePath());
 
-  MockFetchContext* context = MockFetchContext::Create(
-      MockFetchContext::LoadPolicy::kShouldLoadNewResource,
-      page_holder->GetFrame().GetTaskRunner(TaskType::kInternalTest));
-  ResourceFetcher* fetcher = ResourceFetcher::Create(context);
-  ResourceLoadScheduler* scheduler = ResourceLoadScheduler::Create();
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      page_holder->GetFrame().GetTaskRunner(TaskType::kInternalTest);
+  MockFetchContext* context =
+      MakeGarbageCollected<MockFetchContext>(task_runner);
+  auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>();
+  auto* fetcher = MakeGarbageCollected<ResourceFetcher>(
+      ResourceFetcherInit(*properties, context, task_runner));
+  auto* scheduler = MakeGarbageCollected<ResourceLoadScheduler>(
+      ResourceLoadScheduler::ThrottlingPolicy::kNormal, context);
   ImageResource* image_resource = ImageResource::CreateForTest(test_url);
 
   // Ensure that |image_resource| has a loader.
@@ -1986,8 +1994,7 @@ class ImageResourceCounterTest : public testing::Test {
     ResourceRequest request = ResourceRequest(test_url);
     FetchParameters fetch_params(request);
     scheduler::FakeTaskRunner* task_runner =
-        static_cast<scheduler::FakeTaskRunner*>(
-            fetcher->Context().GetLoadingTaskRunner().get());
+        static_cast<scheduler::FakeTaskRunner*>(fetcher->GetTaskRunner().get());
     task_runner->SetTime(1);
 
     // Mark it as coming from a UA stylesheet (if needed).

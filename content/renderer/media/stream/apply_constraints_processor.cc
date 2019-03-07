@@ -17,7 +17,6 @@
 #include "content/renderer/media/stream/media_stream_constraints_util_audio.h"
 #include "content/renderer/media/stream/media_stream_constraints_util_video_content.h"
 #include "content/renderer/media/stream/media_stream_constraints_util_video_device.h"
-#include "content/renderer/media/stream/media_stream_source.h"
 #include "content/renderer/media/stream/media_stream_video_source.h"
 #include "content/renderer/media/stream/media_stream_video_track.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
@@ -107,16 +106,11 @@ void ApplyConstraintsProcessor::ProcessVideoRequest() {
     return;
   }
 
-  const MediaStreamDevice& device_info = video_source_->device();
-  if (device_info.type == MEDIA_DEVICE_VIDEO_CAPTURE) {
+  const blink::MediaStreamDevice& device_info = video_source_->device();
+  if (device_info.type == blink::MEDIA_DEVICE_VIDEO_CAPTURE) {
     ProcessVideoDeviceRequest();
-  } else if (video_source_->GetCurrentFormat()) {
-    // Non-device capture just requires adjusting track settings.
-    FinalizeVideoRequest();
   } else {
-    // It is impossible to enforce minimum constraints for sources that do not
-    // provide the video format, so reject applyConstraints() in this case.
-    CannotApplyConstraints("applyConstraints not supported for this track");
+    FinalizeVideoRequest();
   }
 }
 
@@ -126,7 +120,7 @@ void ApplyConstraintsProcessor::ProcessVideoDeviceRequest() {
     return;
 
   // TODO(guidou): Support restarting the source even if there is more than
-  // one track in the source. http://crbug.com/768205
+  // one track in the source. https://crbug.com/768205
   if (video_source_->NumTracks() > 1U) {
     FinalizeVideoRequest();
     return;
@@ -222,9 +216,14 @@ void ApplyConstraintsProcessor::FinalizeVideoRequest() {
   if (AbortIfVideoRequestStateInvalid())
     return;
 
-  DCHECK(video_source_->GetCurrentFormat());
-  VideoCaptureSettings settings =
-      SelectVideoSettings({*video_source_->GetCurrentFormat()});
+  media::VideoCaptureFormat format;
+  if (video_source_->GetCurrentFormat()) {
+    format = *video_source_->GetCurrentFormat();
+  } else {
+    format = GetCurrentVideoTrack()->GetComputedSourceFormat();
+  }
+  VideoCaptureSettings settings = SelectVideoSettings({format});
+
   if (settings.HasValue()) {
     video_source_->ReconfigureTrack(GetCurrentVideoTrack(),
                                     settings.track_adapter_settings());
@@ -254,7 +253,6 @@ VideoCaptureSettings ApplyConstraintsProcessor::SelectVideoSettings(
                               : media::MEDIA_VIDEO_FACING_NONE;
   device_capabilities->formats = std::move(formats);
 
-  DCHECK(video_source_->GetCurrentCaptureParams());
   VideoDeviceCaptureCapabilities video_capabilities;
   video_capabilities.noise_reduction_capabilities.push_back(
       GetCurrentVideoTrack()->noise_reduction());

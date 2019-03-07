@@ -41,14 +41,12 @@
 #include "components/dom_distiller/core/url_constants.h"
 #include "components/net_log/chrome_net_log.h"
 #include "components/services/heap_profiling/public/cpp/client.h"
-#include "components/version_info/version_info.h"
 #include "content/public/common/cdm_info.h"
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/service_manager_connection.h"
 #include "content/public/common/simple_connection_filter.h"
 #include "content/public/common/url_constants.h"
-#include "content/public/common/user_agent.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "gpu/config/gpu_info.h"
@@ -130,11 +128,11 @@ const char kPDFPluginOutOfProcessMimeType[] =
     "application/x-google-chrome-pdf";
 const uint32_t kPDFPluginPermissions = ppapi::PERMISSION_PDF |
                                        ppapi::PERMISSION_DEV;
-#endif  // BUILDFLAG(ENABLE_PDF)
 
 content::PepperPluginInfo::GetInterfaceFunc g_pdf_get_interface;
 content::PepperPluginInfo::PPP_InitializeModuleFunc g_pdf_initialize_module;
 content::PepperPluginInfo::PPP_ShutdownModuleFunc g_pdf_shutdown_module;
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 #if BUILDFLAG(ENABLE_NACL)
 content::PepperPluginInfo::GetInterfaceFunc g_nacl_get_interface;
@@ -444,32 +442,7 @@ bool IsWidevineAvailable(base::FilePath* cdm_path,
 }
 #endif  // defined(REGISTER_BUNDLED_WIDEVINE_CDM)
 
-std::string GetProduct() {
-  return version_info::GetProductNameAndVersionForUserAgent();
-}
-
 }  // namespace
-
-std::string GetUserAgent() {
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kUserAgent)) {
-    std::string ua = command_line->GetSwitchValueASCII(switches::kUserAgent);
-    if (net::HttpUtil::IsValidHeaderValue(ua))
-      return ua;
-    LOG(WARNING) << "Ignored invalid value for flag --" << switches::kUserAgent;
-  }
-
-  std::string user_agent;
-  if (nw::GetUserAgentFromManifest(&user_agent)) {
-    return user_agent;
-  }
-  std::string product = GetProduct();
-#if defined(OS_ANDROID)
-  if (command_line->HasSwitch(switches::kUseMobileUserAgent))
-    product += " Mobile";
-#endif
-  return content::BuildUserAgentFromProduct(product);
-}
 
 ChromeContentClient::ChromeContentClient() {
 }
@@ -488,7 +461,7 @@ void ChromeContentClient::SetNaClEntryFunctions(
 }
 #endif
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PLUGINS) && BUILDFLAG(ENABLE_PDF)
 void ChromeContentClient::SetPDFEntryFunctions(
     content::PepperPluginInfo::GetInterfaceFunc get_interface,
     content::PepperPluginInfo::PPP_InitializeModuleFunc initialize_module,
@@ -740,14 +713,6 @@ void ChromeContentClient::AddAdditionalSchemes(Schemes* schemes) {
 #if defined(OS_ANDROID)
   schemes->local_schemes.push_back(url::kContentScheme);
 #endif
-}
-
-std::string ChromeContentClient::GetProduct() const {
-  return ::GetProduct();
-}
-
-std::string ChromeContentClient::GetUserAgent() const {
-  return ::GetUserAgent();
 }
 
 base::string16 ChromeContentClient::GetLocalizedString(int message_id) const {

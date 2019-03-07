@@ -19,6 +19,7 @@
 #include "content/public/common/url_constants.h"
 #include "extensions/common/constants.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/base/clipboard/clipboard.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/controls/label.h"
 
@@ -31,6 +32,9 @@ LocationIconView::LocationIconView(const gfx::FontList& font_list,
   set_id(VIEW_ID_LOCATION_ICON);
   Update(true);
   SetUpForInOutAnimation();
+
+  // Readability is guaranteed by the omnibox theme.
+  label()->SetAutoColorReadabilityEnabled(false);
 }
 
 LocationIconView::~LocationIconView() {

@@ -38,10 +38,6 @@ constexpr char kCrostiniAppLaunchHistogram[] = "Crostini.AppLaunch";
 constexpr char kCrostiniAppNamePrefix[] = "_crostini_";
 constexpr int64_t kDelayBeforeSpinnerMs = 400;
 
-// If true then override IsCrostiniUIAllowedForProfile and related methods to
-// turn on Crostini.
-bool g_crostini_ui_allowed_for_testing = false;
-
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 enum class CrostiniAppLaunchAppType {
@@ -207,52 +203,50 @@ class IconLoadWaiter : public CrostiniAppIcon::Observer {
   base::OnceCallback<void(const std::vector<gfx::ImageSkia>&)> callback_;
 };
 
-}  // namespace
-
-namespace crostini {
-
-void SetCrostiniUIAllowedForTesting(bool enabled) {
-  g_crostini_ui_allowed_for_testing = enabled;
-}
-
-bool IsCrostiniAllowedForProfile(Profile* profile) {
-  if (g_crostini_ui_allowed_for_testing) {
-    return true;
-  }
+bool IsCrostiniAllowedForProfileImpl(Profile* profile) {
   if (!profile || profile->IsChild() || profile->IsLegacySupervised() ||
       profile->IsOffTheRecord() ||
       chromeos::ProfileHelper::IsEphemeralUserProfile(profile) ||
       chromeos::ProfileHelper::IsLockScreenAppProfile(profile)) {
     return false;
   }
-  if (!profile->GetPrefs()->GetBoolean(
-          crostini::prefs::kUserCrostiniAllowedByPolicy)) {
-    return false;
-  }
-  const user_manager::User* user =
-      chromeos::ProfileHelper::Get()->GetUserByProfile(profile);
-  if (!user->IsAffiliated() && !IsUnaffiliatedCrostiniAllowedByPolicy()) {
-    return false;
-  }
   if (!crostini::CrostiniManager::IsDevKvmPresent()) {
     // Hardware is physically incapable, no matter what the user wants.
     return false;
   }
+
   return virtual_machines::AreVirtualMachinesAllowedByVersionAndChannel() &&
-         virtual_machines::AreVirtualMachinesAllowedByPolicy() &&
          base::FeatureList::IsEnabled(features::kCrostini);
 }
 
-bool IsCrostiniUIAllowedForProfile(Profile* profile) {
-  if (g_crostini_ui_allowed_for_testing) {
-    return true;
+}  // namespace
+
+namespace crostini {
+
+bool IsCrostiniAllowedForProfile(Profile* profile) {
+  const user_manager::User* user =
+      chromeos::ProfileHelper::Get()->GetUserByProfile(profile);
+  if (!IsUnaffiliatedCrostiniAllowedByPolicy() && !user->IsAffiliated()) {
+    return false;
   }
+  if (!profile->GetPrefs()->GetBoolean(
+          crostini::prefs::kUserCrostiniAllowedByPolicy)) {
+    return false;
+  }
+  if (!virtual_machines::AreVirtualMachinesAllowedByPolicy()) {
+    return false;
+  }
+  return IsCrostiniAllowedForProfileImpl(profile);
+}
+
+bool IsCrostiniUIAllowedForProfile(Profile* profile, bool check_policy) {
   if (!chromeos::ProfileHelper::IsPrimaryProfile(profile)) {
     return false;
   }
-
-  return IsCrostiniAllowedForProfile(profile) &&
-         base::FeatureList::IsEnabled(features::kExperimentalCrostiniUI);
+  if (check_policy) {
+    return IsCrostiniAllowedForProfile(profile);
+  }
+  return IsCrostiniAllowedForProfileImpl(profile);
 }
 
 bool IsCrostiniEnabled(Profile* profile) {
@@ -373,7 +367,7 @@ std::string CryptohomeIdForProfile(Profile* profile) {
   return id.empty() ? "test" : id;
 }
 
-std::string ContainerUserNameForProfile(Profile* profile) {
+std::string DefaultContainerUserNameForProfile(Profile* profile) {
   // Get rid of the @domain.name in the profile user name (an email address).
   std::string container_username = profile->GetProfileUserName();
   if (container_username.find('@') != std::string::npos) {
@@ -383,10 +377,6 @@ std::string ContainerUserNameForProfile(Profile* profile) {
     return container_username.substr(0, container_username.find('@'));
   }
   return container_username;
-}
-
-base::FilePath ContainerHomeDirectoryForProfile(Profile* profile) {
-  return base::FilePath("/home/" + ContainerUserNameForProfile(profile));
 }
 
 base::FilePath ContainerChromeOSBaseDirectory() {

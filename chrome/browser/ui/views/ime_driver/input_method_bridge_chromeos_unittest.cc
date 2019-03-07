@@ -7,8 +7,8 @@
 #include <memory>
 
 #include "base/bind.h"
-#include "base/macros.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ui/views/ime_driver/input_method_bridge_chromeos.h"
 #include "content/public/test/test_browser_thread_bundle.h"
@@ -91,6 +91,7 @@ class TestTextInputClient : public ws::mojom::TextInputClient {
       DispatchKeyEventPostIMECallback callback) override {
     std::move(callback).Run(false);
   }
+  void EnsureCaretNotInRect(const gfx::Rect& rect) override {}
 
   mojo::Binding<ws::mojom::TextInputClient> binding_;
   std::unique_ptr<base::RunLoop> run_loop_;
@@ -110,11 +111,13 @@ class InputMethodBridgeChromeOSTest : public testing::Test {
 
     ws::mojom::TextInputClientPtr client_ptr;
     client_ = std::make_unique<TestTextInputClient>(MakeRequest(&client_ptr));
+    ws::mojom::SessionDetailsPtr details = ws::mojom::SessionDetails::New();
+    details->state = ws::mojom::TextInputState::New(
+        ui::TEXT_INPUT_TYPE_TEXT, ui::TEXT_INPUT_MODE_DEFAULT,
+        base::i18n::LEFT_TO_RIGHT, 0);
     input_method_ = std::make_unique<InputMethodBridge>(
-        std::make_unique<RemoteTextInputClient>(
-            std::move(client_ptr), ui::TEXT_INPUT_TYPE_TEXT,
-            ui::TEXT_INPUT_MODE_DEFAULT, base::i18n::LEFT_TO_RIGHT, 0,
-            gfx::Rect()));
+        std::make_unique<RemoteTextInputClient>(std::move(client_ptr),
+                                                std::move(details)));
   }
 
   bool ProcessKeyEvent(std::unique_ptr<ui::Event> event) {
@@ -179,7 +182,7 @@ TEST_F(InputMethodBridgeChromeOSTest, HexadecimalComposition) {
   };
 
   // Send the Ctrl-Shift-U,3,4,0,2 sequence.
-  for (size_t i = 0; i < arraysize(kTestSequence); i++) {
+  for (size_t i = 0; i < base::size(kTestSequence); i++) {
     EXPECT_TRUE(ProcessKeyEvent(
         UnicodeKeyPress(kTestSequence[i].vkey, kTestSequence[i].code,
                         kTestSequence[i].flags, kTestSequence[i].character)));

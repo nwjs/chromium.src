@@ -32,6 +32,7 @@ class CTVerifier;
 class HostPortPair;
 class HttpProxyClientSocketPool;
 class HttpProxySocketParams;
+class NetworkQualityEstimator;
 class SOCKSClientSocketPool;
 class SOCKSSocketParams;
 class SSLClientSocket;
@@ -51,15 +52,13 @@ class NET_EXPORT_PRIVATE SSLSocketParams
                   const scoped_refptr<HttpProxySocketParams>& http_proxy_params,
                   const HostPortPair& host_and_port,
                   const SSLConfig& ssl_config,
-                  PrivacyMode privacy_mode,
-                  bool ignore_certificate_errors);
+                  PrivacyMode privacy_mode);
 
   // Returns the type of the underlying connection.
   ConnectionType GetConnectionType() const;
 
   // Must be called only when GetConnectionType() returns DIRECT.
-  const scoped_refptr<TransportSocketParams>&
-      GetDirectConnectionParams() const;
+  const scoped_refptr<TransportSocketParams>& GetDirectConnectionParams() const;
 
   // Must be called only when GetConnectionType() returns SOCKS_PROXY.
   const scoped_refptr<SOCKSSocketParams>&
@@ -72,7 +71,6 @@ class NET_EXPORT_PRIVATE SSLSocketParams
   const HostPortPair& host_and_port() const { return host_and_port_; }
   const SSLConfig& ssl_config() const { return ssl_config_; }
   PrivacyMode privacy_mode() const { return privacy_mode_; }
-  bool ignore_certificate_errors() const { return ignore_certificate_errors_; }
 
  private:
   friend class base::RefCounted<SSLSocketParams>;
@@ -84,7 +82,6 @@ class NET_EXPORT_PRIVATE SSLSocketParams
   const HostPortPair host_and_port_;
   const SSLConfig ssl_config_;
   const PrivacyMode privacy_mode_;
-  const bool ignore_certificate_errors_;
 
   DISALLOW_COPY_AND_ASSIGN(SSLSocketParams);
 };
@@ -100,12 +97,12 @@ class SSLConnectJob : public ConnectJob {
                 const SocketTag& socket_tag,
                 ClientSocketPool::RespectLimits respect_limits,
                 const scoped_refptr<SSLSocketParams>& params,
-                const base::TimeDelta& timeout_duration,
                 TransportClientSocketPool* transport_pool,
                 SOCKSClientSocketPool* socks_pool,
                 HttpProxyClientSocketPool* http_proxy_pool,
                 ClientSocketFactory* client_socket_factory,
                 const SSLClientSocketContext& context,
+                NetworkQualityEstimator* network_quality_estimator,
                 Delegate* delegate,
                 NetLog* net_log);
   ~SSLConnectJob() override;
@@ -114,6 +111,12 @@ class SSLConnectJob : public ConnectJob {
   LoadState GetLoadState() const override;
 
   void GetAdditionalErrorState(ClientSocketHandle* handle) override;
+
+  // Returns the connection timeout that will be used by a HttpProxyConnectJob
+  // created with the specified parameters, given current network conditions.
+  static base::TimeDelta ConnectionTimeout(
+      const SSLSocketParams& params,
+      const NetworkQualityEstimator* network_quality_estimator);
 
  private:
   enum State {
@@ -199,6 +202,7 @@ class NET_EXPORT_PRIVATE SSLClientSocketPool
                       SOCKSClientSocketPool* socks_pool,
                       HttpProxyClientSocketPool* http_proxy_pool,
                       SSLConfigService* ssl_config_service,
+                      NetworkQualityEstimator* network_quality_estimator,
                       NetLog* net_log);
 
   ~SSLClientSocketPool() override;
@@ -252,8 +256,6 @@ class NET_EXPORT_PRIVATE SSLClientSocketPool
       const std::string& type,
       bool include_nested_pools) const override;
 
-  base::TimeDelta ConnectionTimeout() const override;
-
   // LowerLayeredPool implementation.
   bool IsStalled() const override;
 
@@ -275,13 +277,13 @@ class NET_EXPORT_PRIVATE SSLClientSocketPool
 
   class SSLConnectJobFactory : public PoolBase::ConnectJobFactory {
    public:
-    SSLConnectJobFactory(
-        TransportClientSocketPool* transport_pool,
-        SOCKSClientSocketPool* socks_pool,
-        HttpProxyClientSocketPool* http_proxy_pool,
-        ClientSocketFactory* client_socket_factory,
-        const SSLClientSocketContext& context,
-        NetLog* net_log);
+    SSLConnectJobFactory(TransportClientSocketPool* transport_pool,
+                         SOCKSClientSocketPool* socks_pool,
+                         HttpProxyClientSocketPool* http_proxy_pool,
+                         ClientSocketFactory* client_socket_factory,
+                         const SSLClientSocketContext& context,
+                         NetworkQualityEstimator* network_quality_estimator,
+                         NetLog* net_log);
 
     ~SSLConnectJobFactory() override;
 
@@ -291,15 +293,13 @@ class NET_EXPORT_PRIVATE SSLClientSocketPool
         const PoolBase::Request& request,
         ConnectJob::Delegate* delegate) const override;
 
-    base::TimeDelta ConnectionTimeout() const override;
-
    private:
     TransportClientSocketPool* const transport_pool_;
     SOCKSClientSocketPool* const socks_pool_;
     HttpProxyClientSocketPool* const http_proxy_pool_;
     ClientSocketFactory* const client_socket_factory_;
     const SSLClientSocketContext context_;
-    base::TimeDelta timeout_;
+    NetworkQualityEstimator* const network_quality_estimator_;
     NetLog* net_log_;
 
     DISALLOW_COPY_AND_ASSIGN(SSLConnectJobFactory);

@@ -47,19 +47,17 @@ typedef (HTMLImageElement or
     [RaisesException] DOMString btoa(DOMString btoa);
     [RaisesException] DOMString atob(DOMString atob);
 
-    // TODO(yukishiino): Use TimerHandler (or Function at least) to implement
-    // setTimeout and setInterval.
     // https://html.spec.whatwg.org/C/webappapis.html#windoworworkerglobalscope-mixin
-    [CallWith=ScriptState, RuntimeCallStatsCounter=WindowSetTimeout] long setTimeout(CallbackFunctionTreatedAsScriptValue handler, optional long timeout = 0, any... arguments);
+    [CallWith=ScriptState, RuntimeCallStatsCounter=WindowSetTimeout] long setTimeout(Function handler, optional long timeout = 0, any... arguments);
     [CallWith=ScriptState, RaisesException] long setTimeout(ScriptString handler, optional long timeout = 0, any... arguments);
     void clearTimeout(optional long handle = 0);
-    [CallWith=ScriptState] long setInterval(CallbackFunctionTreatedAsScriptValue handler, optional long timeout = 0, any... arguments);
+    [CallWith=ScriptState] long setInterval(Function handler, optional long timeout = 0, any... arguments);
     [CallWith=ScriptState, RaisesException] long setInterval(ScriptString handler, optional long timeout = 0, any... arguments);
     void clearInterval(optional long handle = 0);
 
     // ImageBitmap
-    [CallWith=ScriptState] Promise createImageBitmap(
+    [CallWith=ScriptState] Promise<ImageBitmap> createImageBitmap(
         ImageBitmapSource imageBitmap, optional ImageBitmapOptions options);
-    [CallWith=ScriptState] Promise createImageBitmap(
+    [CallWith=ScriptState] Promise<ImageBitmap> createImageBitmap(
         ImageBitmapSource imageBitmap, long sx, long sy, long sw, long sh, optional ImageBitmapOptions options);
 };

@@ -3,12 +3,12 @@
 // found in the LICENSE file.
 
 #include "content/browser/background_fetch/background_fetch_job_controller.h"
+#include "content/browser/background_fetch/background_fetch_cross_origin_filter.h"
 #include "content/browser/background_fetch/background_fetch_data_manager.h"
 #include "content/browser/background_fetch/background_fetch_request_match_params.h"
 #include "content/public/common/origin_util.h"
 #include "services/network/public/cpp/cors/cors.h"
-#include "services/network/public/cpp/resource_request_body.h"
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
 
 #include <utility>
 
@@ -25,10 +25,10 @@ namespace {
 // request is also secure.
 bool IsMixedContent(const BackgroundFetchRequestInfo& request) {
   // Empty request is valid, it shouldn't fail the mixed content check.
-  if (request.fetch_request().url.is_empty())
+  if (request.fetch_request()->url.is_empty())
     return false;
 
-  return !IsOriginSecure(request.fetch_request().url);
+  return !IsOriginSecure(request.fetch_request()->url);
 }
 
 // Whether the |request| needs CORS preflight.
@@ -37,24 +37,25 @@ bool IsMixedContent(const BackgroundFetchRequestInfo& request) {
 // checks. TODO(crbug.com/711354): Remove this temporary block.
 bool RequiresCorsPreflight(const BackgroundFetchRequestInfo& request,
                            const url::Origin& origin) {
-  const blink::mojom::FetchAPIRequest& fetch_request = request.fetch_request();
+  const blink::mojom::FetchAPIRequestPtr& fetch_request =
+      request.fetch_request();
 
   // Same origin requests don't require a CORS preflight.
   // https://fetch.spec.whatwg.org/#main-fetch
   // TODO(crbug.com/711354): Make sure that cross-origin redirects are disabled.
-  if (url::IsSameOriginWith(origin.GetURL(), fetch_request.url))
+  if (url::IsSameOriginWith(origin.GetURL(), fetch_request->url))
     return false;
 
   // Requests that are more involved than what is possible with HTML's form
   // element require a CORS-preflight request.
   // https://fetch.spec.whatwg.org/#main-fetch
-  if (!fetch_request.method.empty() &&
-      !network::cors::IsCorsSafelistedMethod(fetch_request.method)) {
+  if (!fetch_request->method.empty() &&
+      !network::cors::IsCorsSafelistedMethod(fetch_request->method)) {
     return true;
   }
 
   net::HttpRequestHeaders::HeaderVector headers;
-  for (const auto& header : fetch_request.headers)
+  for (const auto& header : fetch_request->headers)
     headers.emplace_back(header.first, header.second);
 
   return !network::cors::CorsUnsafeRequestHeaderNames(headers).empty();
@@ -69,17 +70,21 @@ BackgroundFetchJobController::BackgroundFetchJobController(
     BackgroundFetchDataManager* data_manager,
     BackgroundFetchDelegateProxy* delegate_proxy,
     const BackgroundFetchRegistrationId& registration_id,
-    const BackgroundFetchOptions& options,
+    blink::mojom::BackgroundFetchOptionsPtr options,
     const SkBitmap& icon,
     uint64_t bytes_downloaded,
+    uint64_t bytes_uploaded,
+    uint64_t upload_total,
     ProgressCallback progress_callback,
     FinishedCallback finished_callback)
     : data_manager_(data_manager),
       delegate_proxy_(delegate_proxy),
       registration_id_(registration_id),
-      options_(options),
+      options_(std::move(options)),
       icon_(icon),
       complete_requests_downloaded_bytes_cache_(bytes_downloaded),
+      complete_requests_uploaded_bytes_cache_(bytes_uploaded),
+      upload_total_(upload_total),
       progress_callback_(std::move(progress_callback)),
       finished_callback_(std::move(finished_callback)),
       weak_ptr_factory_(this) {
@@ -101,19 +106,17 @@ void BackgroundFetchJobController::InitializeRequestStatus(
   completed_downloads_ = completed_downloads;
   total_downloads_ = total_downloads;
 
-  // TODO(nator): Update this when we support uploads.
-  total_downloads_size_ = options_.download_total;
-
   std::vector<std::string> active_guids;
   active_guids.reserve(active_fetch_requests.size());
   for (const auto& request_info : active_fetch_requests)
     active_guids.push_back(request_info->download_guid());
 
   auto fetch_description = std::make_unique<BackgroundFetchDescription>(
-      registration_id().unique_id(), options_.title, registration_id().origin(),
-      icon_, completed_downloads, total_downloads,
-      complete_requests_downloaded_bytes_cache_, total_downloads_size_,
-      std::move(active_guids), start_paused);
+      registration_id().unique_id(), registration_id().origin(),
+      options_->title, icon_, completed_downloads_, total_downloads_,
+      complete_requests_downloaded_bytes_cache_,
+      complete_requests_uploaded_bytes_cache_, options_->download_total,
+      upload_total_, std::move(active_guids), start_paused);
 
   delegate_proxy_->CreateDownloadJob(GetWeakPtr(), std::move(fetch_description),
                                      std::move(active_fetch_requests));
@@ -155,24 +158,33 @@ void BackgroundFetchJobController::StartRequest(
 void BackgroundFetchJobController::DidStartRequest(
     const scoped_refptr<BackgroundFetchRequestInfo>& request) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  // TODO(crbug.com/884672): Either add CORS check here or remove this function
-  // and do the CORS check in BackgroundFetchDelegateImpl (since
-  // download::Client::OnDownloadStarted returns a value that can abort the
-  // download).
+  // TODO(crbug.com/884672): Stop the fetch if the cross origin filter fails.
+  BackgroundFetchCrossOriginFilter filter(registration_id_.origin(), *request);
+  request->set_can_populate_body(filter.CanPopulateBody());
 }
 
 void BackgroundFetchJobController::DidUpdateRequest(
     const scoped_refptr<BackgroundFetchRequestInfo>& request,
+    uint64_t bytes_uploaded,
     uint64_t bytes_downloaded) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  if (active_request_downloaded_bytes_ == bytes_downloaded)
+  // Don't send download updates so the size is not leaked.
+  // Upload updates are fine since that information is already available.
+  if (!request->can_populate_body() && bytes_downloaded > 0u)
     return;
 
+  if (active_request_downloaded_bytes_ == bytes_downloaded &&
+      active_request_uploaded_bytes_ == bytes_uploaded) {
+    return;
+  }
+
   active_request_downloaded_bytes_ = bytes_downloaded;
+  active_request_uploaded_bytes_ = bytes_uploaded;
 
   auto registration = NewRegistration();
-  registration->downloaded += GetInProgressDownloadedBytes();
+  registration->downloaded += active_request_downloaded_bytes_;
+  registration->uploaded += active_request_uploaded_bytes_;
   progress_callback_.Run(*registration);
 }
 
@@ -186,25 +198,33 @@ void BackgroundFetchJobController::DidCompleteRequest(
   if (!active_request_finished_callback_)
     return;
 
-  active_request_downloaded_bytes_ = 0;
-
-  complete_requests_downloaded_bytes_cache_ += request->GetFileSize();
   ++completed_downloads_;
+
+  if (request->can_populate_body())
+    complete_requests_downloaded_bytes_cache_ += request->GetFileSize();
+  complete_requests_uploaded_bytes_cache_ += active_request_uploaded_bytes_;
+
+  active_request_downloaded_bytes_ = 0u;
+  active_request_uploaded_bytes_ = 0u;
 
   std::move(active_request_finished_callback_).Run(request);
 }
 
-std::unique_ptr<BackgroundFetchRegistration>
+blink::mojom::BackgroundFetchRegistrationPtr
 BackgroundFetchJobController::NewRegistration() const {
-  return std::make_unique<BackgroundFetchRegistration>(
+  return blink::mojom::BackgroundFetchRegistration::New(
       registration_id().developer_id(), registration_id().unique_id(),
-      0 /* upload_total */, 0 /* uploaded */, total_downloads_size_,
-      complete_requests_downloaded_bytes_cache_,
+      upload_total_, complete_requests_uploaded_bytes_cache_,
+      options_->download_total, complete_requests_downloaded_bytes_cache_,
       blink::mojom::BackgroundFetchResult::UNSET, failure_reason_);
 }
 
 uint64_t BackgroundFetchJobController::GetInProgressDownloadedBytes() {
   return active_request_downloaded_bytes_;
+}
+
+uint64_t BackgroundFetchJobController::GetInProgressUploadedBytes() {
+  return active_request_uploaded_bytes_;
 }
 
 void BackgroundFetchJobController::AbortFromDelegate(
@@ -298,13 +318,10 @@ void BackgroundFetchJobController::DidMarkRequestAsComplete(
 }
 
 void BackgroundFetchJobController::GetUploadData(
-    blink::mojom::FetchAPIRequestPtr request,
+    const scoped_refptr<BackgroundFetchRequestInfo>& request,
     BackgroundFetchDelegate::GetUploadDataCallback callback) {
-  data_manager_->MatchRequests(
-      registration_id(),
-      std::make_unique<BackgroundFetchRequestMatchParams>(
-          std::move(request), /* match_params= */ nullptr,
-          /* match_all= */ false),
+  data_manager_->GetRequestBlob(
+      registration_id(), request,
       base::BindOnce(&BackgroundFetchJobController::DidGetUploadData,
                      GetWeakPtr(), std::move(callback)));
 }
@@ -312,24 +329,15 @@ void BackgroundFetchJobController::GetUploadData(
 void BackgroundFetchJobController::DidGetUploadData(
     BackgroundFetchDelegate::GetUploadDataCallback callback,
     BackgroundFetchError error,
-    std::vector<BackgroundFetchSettledFetch> fetches) {
+    blink::mojom::SerializedBlobPtr blob) {
   if (error != BackgroundFetchError::NONE) {
     Abort(BackgroundFetchFailureReason::SERVICE_WORKER_UNAVAILABLE,
           base::DoNothing());
-    std::move(callback).Run(/* request_body= */ nullptr);
-    return;
+    std::move(callback).Run(nullptr);
   }
 
-  DCHECK_EQ(fetches.size(), 1u);
-  DCHECK(fetches[0].request->blob);
-
-  network::mojom::DataPipeGetterPtr data_pipe_getter_ptr;
-  blink::mojom::BlobPtr blob_ptr(std::move(fetches[0].request->blob->blob));
-  blob_ptr->AsDataPipeGetter(MakeRequest(&data_pipe_getter_ptr));
-
-  auto request_body = base::MakeRefCounted<network::ResourceRequestBody>();
-  request_body->AppendDataPipe(std::move(data_pipe_getter_ptr));
-  std::move(callback).Run(std::move(request_body));
+  DCHECK(blob);
+  std::move(callback).Run(std::move(blob));
 }
 
 }  // namespace content

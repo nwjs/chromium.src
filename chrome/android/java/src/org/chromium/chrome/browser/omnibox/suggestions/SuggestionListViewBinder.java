@@ -7,9 +7,10 @@ package org.chromium.chrome.browser.omnibox.suggestions;
 import android.view.View;
 import android.view.ViewGroup;
 
-import org.chromium.chrome.browser.modelutil.PropertyKey;
-import org.chromium.chrome.browser.modelutil.PropertyModel;
 import org.chromium.ui.UiUtils;
+import org.chromium.ui.modelutil.ModelListAdapter;
+import org.chromium.ui.modelutil.PropertyKey;
+import org.chromium.ui.modelutil.PropertyModel;
 
 /**
  * Handles property updates to the suggestion list component.
@@ -21,10 +22,10 @@ class SuggestionListViewBinder {
     public static class SuggestionListViewHolder {
         public final ViewGroup container;
         public final OmniboxSuggestionsList listView;
-        public final OmniboxResultsAdapter adapter;
+        public final ModelListAdapter adapter;
 
         public SuggestionListViewHolder(
-                ViewGroup container, OmniboxSuggestionsList list, OmniboxResultsAdapter adapter) {
+                ViewGroup container, OmniboxSuggestionsList list, ModelListAdapter adapter) {
             this.container = container;
             this.listView = list;
             this.adapter = adapter;
@@ -33,7 +34,7 @@ class SuggestionListViewBinder {
 
     /**
      * @see
-     * org.chromium.chrome.browser.modelutil.PropertyModelChangeProcessor.ViewBinder#bind(Object,
+     * PropertyModelChangeProcessor.ViewBinder#bind(Object,
      * Object, Object)
      */
     public static void bind(

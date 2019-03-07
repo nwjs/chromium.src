@@ -4,6 +4,7 @@
 
 import("//build/config/jumbo.gni")
 import("//build/config/ui.gni")
+import("//third_party/webrtc/webrtc.gni")
 
 # See //content/BUILD.gn for how this works.
 group("browser") {
@@ -96,7 +97,9 @@ jumbo_source_set("browser_sources") {
     "child_process_launcher_utils.h",
     "child_process_security_policy.h",
     "child_process_termination_info.h",
+    "clear_site_data_utils.h",
     "client_certificate_delegate.h",
+    "client_hints_controller_delegate.h",
     "color_chooser.h",
     "content_browser_client.cc",
     "content_browser_client.h",
@@ -165,10 +168,14 @@ jumbo_source_set("browser_sources") {
     "media_capture_devices.h",
     "media_device_id.cc",
     "media_device_id.h",
+    "media_keys_listener_manager.cc",
+    "media_keys_listener_manager.h",
     "media_request_state.h",
     "media_session.h",
     "media_session_observer.cc",
     "media_session_observer.h",
+    "media_stream_request.cc",
+    "media_stream_request.h",
     "message_port_provider.h",
     "mhtml_extra_parts.h",
     "native_event_processor_mac.h",
@@ -204,6 +211,7 @@ jumbo_source_set("browser_sources") {
     "overscroll_configuration.h",
     "page_navigator.cc",
     "page_navigator.h",
+    "page_visibility_state.h",
     "payment_app_provider.h",
     "pepper_flash_settings_helper.h",
     "pepper_vpn_provider_resource_host_proxy.h",
@@ -253,6 +261,8 @@ jumbo_source_set("browser_sources") {
     "security_style_explanation.h",
     "security_style_explanations.cc",
     "security_style_explanations.h",
+    "serial_chooser.cc",
+    "serial_chooser.h",
     "service_worker_context.h",
     "service_worker_context_observer.h",
     "session_storage_namespace.h",
@@ -290,6 +300,8 @@ jumbo_source_set("browser_sources") {
     "tracing_delegate.h",
     "tts_controller.h",
     "tts_controller_delegate.h",
+    "tts_platform.h",
+    "tts_utterance.h",
     "url_data_source.cc",
     "url_data_source.h",
     "url_loader_request_interceptor.h",
@@ -331,6 +343,11 @@ jumbo_source_set("browser_sources") {
     "//build/config/compiler:wexit_time_destructors",
     "//content:content_implementation",
   ]
+
+  if (rtc_use_pipewire) {
+    configs +=
+        [ "//third_party/webrtc/modules/desktop_capture:pipewire_config" ]
+  }
 
   public_deps = [
     "//components/download/public/common:public",

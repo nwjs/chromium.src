@@ -113,10 +113,6 @@ VideoCaptureDeviceClient::VideoCaptureDeviceClient(
 }
 
 VideoCaptureDeviceClient::~VideoCaptureDeviceClient() {
-  // This should be on the platform auxiliary thread since
-  // |external_jpeg_decoder_| need to be destructed on the same thread as
-  // OnIncomingCapturedData.
-
   for (int buffer_id : buffer_ids_known_by_receiver_)
     receiver_->OnBufferRetired(buffer_id);
 }
@@ -142,7 +138,8 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
     base::TimeDelta timestamp,
     int frame_feedback_id) {
   DFAKE_SCOPED_RECURSIVE_LOCK(call_from_producer_);
-  TRACE_EVENT0("media", "VideoCaptureDeviceClient::OnIncomingCapturedData");
+  TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("video_and_image_capture"),
+               "VideoCaptureDeviceClient::OnIncomingCapturedData");
 
   if (last_captured_pixel_format_ != format.pixel_format) {
     OnLog("Pixel format: " + VideoPixelFormatToString(format.pixel_format));

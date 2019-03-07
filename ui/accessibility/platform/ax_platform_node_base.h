@@ -13,7 +13,7 @@
 #include "build/build_config.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
-#include "ui/base/ui_features.h"
+#include "ui/base/buildflags.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_widget_types.h"
 
@@ -199,6 +199,12 @@ class AX_EXPORT AXPlatformNodeBase : public AXPlatformNode {
   // child object appears.
   static const base::char16 kEmbeddedCharacter;
 
+  // Get a node given its unique id or null in the case that the id is unknown.
+  static AXPlatformNode* GetFromUniqueId(int32_t unique_id);
+
+  // Return the number of instances of AXPlatformNodeBase, for leak testing.
+  static size_t GetInstanceCountForTesting();
+
   //
   // Delegate.  This is a weak reference which owns |this|.
   //
@@ -283,6 +289,9 @@ class AX_EXPORT AXPlatformNodeBase : public AXPlatformNode {
   // method is responsible for properly embedding children using the special
   // embedded element character.
   AXHypertext ComputeHypertext();
+
+  int32_t GetPosInSet() const;
+  int32_t GetSetSize() const;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AXPlatformNodeBase);

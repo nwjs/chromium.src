@@ -78,7 +78,9 @@
 #include "third_party/blink/renderer/modules/service_worker/service_worker_thread.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
-#include "third_party/blink/renderer/platform/loader/fetch/substitute_data.h"
+#include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/network/network_utils.h"
 #include "third_party/blink/renderer/platform/shared_buffer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
@@ -191,11 +193,15 @@ void WebEmbeddedWorkerImpl::StartWorkerContext(
     pause_after_download_state_ = kDoPauseAfterDownload;
 
   devtools_worker_token_ = data.devtools_worker_token;
-  // |loader_factory| is null since all loads for new scripts go through
-  // ServiceWorkerNetworkProvider::script_loader_factory() rather than the
-  // shadow page's loader. This is different to shared workers, which use the
-  // script loader factory for the main script only, and the shadow page loader
-  // for importScripts().
+  // S13nServiceWorker: |loader_factory| is null since all loads for new scripts
+  // go through ServiceWorkerNetworkProvider::script_loader_factory() rather
+  // than the shadow page's loader. This is different to shared workers, which
+  // use script_loader_factory() for the main script only, and the shadow page
+  // loader for importScripts().
+  //
+  // Non-S13nServiceWorker: |loader_factory| is null since the main script load
+  // goes through the shadow page loader which uses the default loader that goes
+  // to ResourceDispatcherHost.
   shadow_page_ = std::make_unique<WorkerShadowPage>(
       this, nullptr /* loader_factory */,
       std::move(worker_start_data_.privacy_preferences));
@@ -259,16 +265,16 @@ void WebEmbeddedWorkerImpl::AddMessageToConsole(
     const WebConsoleMessage& message) {
   MessageLevel web_core_message_level;
   switch (message.level) {
-    case WebConsoleMessage::kLevelVerbose:
+    case mojom::ConsoleMessageLevel::kVerbose:
       web_core_message_level = kVerboseMessageLevel;
       break;
-    case WebConsoleMessage::kLevelInfo:
+    case mojom::ConsoleMessageLevel::kInfo:
       web_core_message_level = kInfoMessageLevel;
       break;
-    case WebConsoleMessage::kLevelWarning:
+    case mojom::ConsoleMessageLevel::kWarning:
       web_core_message_level = kWarningMessageLevel;
       break;
-    case WebConsoleMessage::kLevelError:
+    case mojom::ConsoleMessageLevel::kError:
       web_core_message_level = kErrorMessageLevel;
       break;
     default:
@@ -330,12 +336,11 @@ void WebEmbeddedWorkerImpl::OnShadowPageInitialized() {
   DCHECK(!main_script_loader_);
   main_script_loader_ = MakeGarbageCollected<WorkerClassicScriptLoader>();
   main_script_loader_->LoadTopLevelScriptAsynchronously(
-      *shadow_page_->GetDocument(), worker_start_data_.script_url,
-      mojom::RequestContextType::SERVICE_WORKER,
+      *shadow_page_->GetDocument(), shadow_page_->GetDocument()->Fetcher(),
+      worker_start_data_.script_url, mojom::RequestContextType::SERVICE_WORKER,
       network::mojom::FetchRequestMode::kSameOrigin,
       network::mojom::FetchCredentialsMode::kSameOrigin,
-      worker_start_data_.address_space, false /* is_nested_worker */,
-      base::OnceClosure(),
+      worker_start_data_.address_space, base::OnceClosure(),
       Bind(&WebEmbeddedWorkerImpl::OnScriptLoaderFinished,
            WTF::Unretained(this)));
   // Do nothing here since OnScriptLoaderFinished() might have been already
@@ -410,7 +415,14 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
   }
   std::unique_ptr<GlobalScopeCreationParams> global_scope_creation_params;
   String source_code;
-  std::unique_ptr<Vector<char>> cached_meta_data;
+  std::unique_ptr<Vector<uint8_t>> cached_meta_data;
+
+  // TODO(nhiroki): Implement off-the-main-thread worker script fetch for
+  // service workers (https://crbug.com/835717).
+  const OffMainThreadWorkerScriptFetchOption off_main_thread_fetch_option =
+      worker_start_data_.script_type == mojom::ScriptType::kModule
+          ? OffMainThreadWorkerScriptFetchOption::kEnabled
+          : OffMainThreadWorkerScriptFetchOption::kDisabled;
 
   // |main_script_loader_| isn't created if the InstalledScriptsManager had the
   // script.
@@ -427,7 +439,8 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
     global_scope_creation_params = std::make_unique<GlobalScopeCreationParams>(
         isNodeJS, main_script,
         worker_start_data_.script_url, worker_start_data_.script_type,
-        worker_start_data_.user_agent, std::move(web_worker_fetch_context),
+        off_main_thread_fetch_option, worker_start_data_.user_agent,
+        std::move(web_worker_fetch_context),
         content_security_policy ? content_security_policy->Headers()
                                 : Vector<CSPHeaderAndType>(),
         referrer_policy, starter_origin, starter_secure_context,
@@ -447,12 +460,12 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
     global_scope_creation_params = std::make_unique<GlobalScopeCreationParams>(
         isNodeJS, main_script,
         worker_start_data_.script_url, worker_start_data_.script_type,
-        worker_start_data_.user_agent, std::move(web_worker_fetch_context),
-        Vector<CSPHeaderAndType>(), network::mojom::ReferrerPolicy::kDefault,
-        starter_origin, starter_secure_context, starter_https_state,
-        worker_clients, worker_start_data_.address_space,
-        nullptr /* OriginTrialTokens */, devtools_worker_token_,
-        std::move(worker_settings),
+        off_main_thread_fetch_option, worker_start_data_.user_agent,
+        std::move(web_worker_fetch_context), Vector<CSPHeaderAndType>(),
+        network::mojom::ReferrerPolicy::kDefault, starter_origin,
+        starter_secure_context, starter_https_state, worker_clients,
+        worker_start_data_.address_space, nullptr /* OriginTrialTokens */,
+        devtools_worker_token_, std::move(worker_settings),
         static_cast<V8CacheOptions>(worker_start_data_.v8_cache_options),
         nullptr /* worklet_module_respones_map */,
         std::move(interface_provider_info_));
@@ -497,7 +510,10 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
     // called navigator.ServiceWorker.register(). To do it, we need to make a
     // way to pass the settings object over mojo IPCs.
     auto* outside_settings_object =
-        document->CreateFetchClientSettingsObjectSnapshot();
+        MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
+            document->Fetcher()
+                ->GetProperties()
+                .GetFetchClientSettingsObject());
     network::mojom::FetchCredentialsMode credentials_mode =
         network::mojom::FetchCredentialsMode::kOmit;
     worker_thread_->ImportModuleScript(worker_start_data_.script_url,

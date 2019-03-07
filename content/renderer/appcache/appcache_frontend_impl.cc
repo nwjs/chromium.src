@@ -4,8 +4,13 @@
 
 #include "content/renderer/appcache/appcache_frontend_impl.h"
 
-#include "base/logging.h"
+#include "content/public/common/service_names.mojom.h"
+#include "content/public/renderer/render_thread.h"
 #include "content/renderer/appcache/web_application_cache_host_impl.h"
+#include "mojo/public/cpp/bindings/interface_request.h"
+#include "services/service_manager/public/cpp/connector.h"
+#include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
+#include "third_party/blink/public/mojom/appcache/appcache_info.mojom.h"
 #include "third_party/blink/public/web/web_console_message.h"
 
 using blink::WebApplicationCacheHost;
@@ -18,15 +23,30 @@ inline WebApplicationCacheHostImpl* GetHost(int id) {
   return WebApplicationCacheHostImpl::FromId(id);
 }
 
-void AppCacheFrontendImpl::OnCacheSelected(int host_id,
-                                           const AppCacheInfo& info) {
-  WebApplicationCacheHostImpl* host = GetHost(host_id);
-  if (host)
-    host->OnCacheSelected(info);
+AppCacheFrontendImpl::AppCacheFrontendImpl() : binding_(this) {}
+AppCacheFrontendImpl::~AppCacheFrontendImpl() = default;
+
+void AppCacheFrontendImpl::Bind(blink::mojom::AppCacheFrontendRequest request) {
+  binding_.Bind(std::move(request));
 }
 
-void AppCacheFrontendImpl::OnStatusChanged(const std::vector<int>& host_ids,
-                                           AppCacheStatus status) {
+blink::mojom::AppCacheBackend* AppCacheFrontendImpl::backend_proxy() {
+  if (!backend_ptr_) {
+    RenderThread::Get()->GetConnector()->BindInterface(
+        mojom::kBrowserServiceName, mojo::MakeRequest(&backend_ptr_));
+  }
+  return backend_ptr_.get();
+}
+
+void AppCacheFrontendImpl::CacheSelected(int32_t host_id,
+                                         blink::mojom::AppCacheInfoPtr info) {
+  WebApplicationCacheHostImpl* host = GetHost(host_id);
+  if (host)
+    host->OnCacheSelected(*info);
+}
+
+void AppCacheFrontendImpl::StatusChanged(const std::vector<int32_t>& host_ids,
+                                         blink::mojom::AppCacheStatus status) {
   for (auto i = host_ids.begin(); i != host_ids.end(); ++i) {
     WebApplicationCacheHostImpl* host = GetHost(*i);
     if (host)
@@ -34,13 +54,14 @@ void AppCacheFrontendImpl::OnStatusChanged(const std::vector<int>& host_ids,
   }
 }
 
-void AppCacheFrontendImpl::OnEventRaised(const std::vector<int>& host_ids,
-                                         AppCacheEventID event_id) {
-  DCHECK_NE(
-      event_id,
-      AppCacheEventID::APPCACHE_PROGRESS_EVENT);  // See OnProgressEventRaised.
+void AppCacheFrontendImpl::EventRaised(const std::vector<int32_t>& host_ids,
+                                       blink::mojom::AppCacheEventID event_id) {
   DCHECK_NE(event_id,
-            AppCacheEventID::APPCACHE_ERROR_EVENT);  // See OnErrorEventRaised.
+            blink::mojom::AppCacheEventID::
+                APPCACHE_PROGRESS_EVENT);  // See OnProgressEventRaised.
+  DCHECK_NE(event_id,
+            blink::mojom::AppCacheEventID::
+                APPCACHE_ERROR_EVENT);  // See OnErrorEventRaised.
   for (auto i = host_ids.begin(); i != host_ids.end(); ++i) {
     WebApplicationCacheHostImpl* host = GetHost(*i);
     if (host)
@@ -48,11 +69,11 @@ void AppCacheFrontendImpl::OnEventRaised(const std::vector<int>& host_ids,
   }
 }
 
-void AppCacheFrontendImpl::OnProgressEventRaised(
-    const std::vector<int>& host_ids,
+void AppCacheFrontendImpl::ProgressEventRaised(
+    const std::vector<int32_t>& host_ids,
     const GURL& url,
-    int num_total,
-    int num_complete) {
+    int32_t num_total,
+    int32_t num_complete) {
   for (auto i = host_ids.begin(); i != host_ids.end(); ++i) {
     WebApplicationCacheHostImpl* host = GetHost(*i);
     if (host)
@@ -60,33 +81,33 @@ void AppCacheFrontendImpl::OnProgressEventRaised(
   }
 }
 
-void AppCacheFrontendImpl::OnErrorEventRaised(
-    const std::vector<int>& host_ids,
-    const AppCacheErrorDetails& details) {
+void AppCacheFrontendImpl::ErrorEventRaised(
+    const std::vector<int32_t>& host_ids,
+    blink::mojom::AppCacheErrorDetailsPtr details) {
   for (auto i = host_ids.begin(); i != host_ids.end(); ++i) {
     WebApplicationCacheHostImpl* host = GetHost(*i);
     if (host)
-      host->OnErrorEventRaised(details);
+      host->OnErrorEventRaised(*details);
   }
 }
 
-void AppCacheFrontendImpl::OnLogMessage(int host_id,
-                                        AppCacheLogLevel log_level,
-                                        const std::string& message) {
+void AppCacheFrontendImpl::LogMessage(int32_t host_id,
+                                      int32_t log_level,
+                                      const std::string& message) {
   WebApplicationCacheHostImpl* host = GetHost(host_id);
   if (host)
-    host->OnLogMessage(log_level, message);
+    host->OnLogMessage(static_cast<AppCacheLogLevel>(log_level), message);
 }
 
-void AppCacheFrontendImpl::OnContentBlocked(int host_id,
-                                            const GURL& manifest_url) {
+void AppCacheFrontendImpl::ContentBlocked(int32_t host_id,
+                                          const GURL& manifest_url) {
   WebApplicationCacheHostImpl* host = GetHost(host_id);
   if (host)
     host->OnContentBlocked(manifest_url);
 }
 
-void AppCacheFrontendImpl::OnSetSubresourceFactory(
-    int host_id,
+void AppCacheFrontendImpl::SetSubresourceFactory(
+    int32_t host_id,
     network::mojom::URLLoaderFactoryPtr url_loader_factory) {
   WebApplicationCacheHostImpl* host = GetHost(host_id);
   if (host)
@@ -100,57 +121,13 @@ void AppCacheFrontendImpl::OnSetSubresourceFactory(
   static_assert(static_cast<int>(a) == static_cast<int>(b), \
                 "mismatched enum: " #a)
 
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kUncached,
-                   AppCacheStatus::APPCACHE_STATUS_UNCACHED);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kIdle,
-                   AppCacheStatus::APPCACHE_STATUS_IDLE);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kChecking,
-                   AppCacheStatus::APPCACHE_STATUS_CHECKING);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kDownloading,
-                   AppCacheStatus::APPCACHE_STATUS_DOWNLOADING);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kUpdateReady,
-                   AppCacheStatus::APPCACHE_STATUS_UPDATE_READY);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kObsolete,
-                   AppCacheStatus::APPCACHE_STATUS_OBSOLETE);
-
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kCheckingEvent,
-                   AppCacheEventID::APPCACHE_CHECKING_EVENT);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kErrorEvent,
-                   AppCacheEventID::APPCACHE_ERROR_EVENT);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kNoUpdateEvent,
-                   AppCacheEventID::APPCACHE_NO_UPDATE_EVENT);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kDownloadingEvent,
-                   AppCacheEventID::APPCACHE_DOWNLOADING_EVENT);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kProgressEvent,
-                   AppCacheEventID::APPCACHE_PROGRESS_EVENT);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kUpdateReadyEvent,
-                   AppCacheEventID::APPCACHE_UPDATE_READY_EVENT);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kCachedEvent,
-                   AppCacheEventID::APPCACHE_CACHED_EVENT);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kObsoleteEvent,
-                   AppCacheEventID::APPCACHE_OBSOLETE_EVENT);
-
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kManifestError,
-                   AppCacheErrorReason::APPCACHE_MANIFEST_ERROR);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kSignatureError,
-                   AppCacheErrorReason::APPCACHE_SIGNATURE_ERROR);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kResourceError,
-                   AppCacheErrorReason::APPCACHE_RESOURCE_ERROR);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kChangedError,
-                   AppCacheErrorReason::APPCACHE_CHANGED_ERROR);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kAbortError,
-                   AppCacheErrorReason::APPCACHE_ABORT_ERROR);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kQuotaError,
-                   AppCacheErrorReason::APPCACHE_QUOTA_ERROR);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kPolicyError,
-                   AppCacheErrorReason::APPCACHE_POLICY_ERROR);
-STATIC_ASSERT_ENUM(WebApplicationCacheHost::kUnknownError,
-                   AppCacheErrorReason::APPCACHE_UNKNOWN_ERROR);
-
-STATIC_ASSERT_ENUM(WebConsoleMessage::kLevelVerbose, APPCACHE_LOG_VERBOSE);
-STATIC_ASSERT_ENUM(WebConsoleMessage::kLevelInfo, APPCACHE_LOG_INFO);
-STATIC_ASSERT_ENUM(WebConsoleMessage::kLevelWarning, APPCACHE_LOG_WARNING);
-STATIC_ASSERT_ENUM(WebConsoleMessage::kLevelError, APPCACHE_LOG_ERROR);
+STATIC_ASSERT_ENUM(blink::mojom::ConsoleMessageLevel::kVerbose,
+                   APPCACHE_LOG_VERBOSE);
+STATIC_ASSERT_ENUM(blink::mojom::ConsoleMessageLevel::kInfo, APPCACHE_LOG_INFO);
+STATIC_ASSERT_ENUM(blink::mojom::ConsoleMessageLevel::kWarning,
+                   APPCACHE_LOG_WARNING);
+STATIC_ASSERT_ENUM(blink::mojom::ConsoleMessageLevel::kError,
+                   APPCACHE_LOG_ERROR);
 
 #undef STATIC_ASSERT_ENUM
 

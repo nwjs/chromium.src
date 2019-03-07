@@ -2,11 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("features.gni")
+import("//build/buildflag_header.gni")
+import("//build/config/dcheck_always_on.gni")
 import("//build/config/jumbo.gni")
 import("//build/config/ui.gni")
-import("//build/buildflag_header.gni")
 import("//testing/test.gni")
+import("features.gni")
 
 # Generate a buildflag header for compile-time checking of Vulkan support.
 buildflag_header("buildflags") {
@@ -40,6 +41,9 @@ if (enable_vulkan) {
     configs += [ "//build/config:precompiled_headers" ]
 
     defines = [ "VULKAN_IMPLEMENTATION" ]
+    if (is_android) {
+      defines += [ "VK_USE_PLATFORM_ANDROID_KHR" ]
+    }
 
     all_dependent_configs = [ "//third_party/vulkan:vulkan_config" ]
 
@@ -50,7 +54,15 @@ if (enable_vulkan) {
 
     data_deps = []
     if (is_fuchsia) {
-      data_deps += [ "//third_party/fuchsia-sdk:vulkan_layers" ]
+      data_deps += [ "//third_party/fuchsia-sdk:vulkan_base" ]
+
+      # VulkanInstance enables validation layer in Debug builds and when DCHECKs
+      # are enabled in Release builds. In these cases the validation layer
+      # libraries and configs need to be included in the generated Fuchsia
+      # package.
+      if (is_debug || dcheck_always_on) {
+        data_deps += [ "//third_party/fuchsia-sdk:vulkan_validation" ]
+      }
     }
   }
 

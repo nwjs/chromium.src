@@ -18,40 +18,55 @@ namespace quic {
   (session_->perspective() == Perspective::IS_SERVER ? " Server: " \
                                                      : " Client: ")
 
-QuicStreamIdManager::QuicStreamIdManager(QuicSession* session,
-                                         size_t max_allowed_outgoing_streams,
-                                         size_t max_allowed_incoming_streams)
+QuicStreamIdManager::QuicStreamIdManager(
+    QuicSession* session,
+    QuicStreamId next_outgoing_stream_id,
+    QuicStreamId largest_peer_created_stream_id,
+    QuicStreamId first_incoming_dynamic_stream_id,
+    size_t max_allowed_outgoing_streams,
+    size_t max_allowed_incoming_streams)
     : session_(session),
+      next_outgoing_stream_id_(next_outgoing_stream_id),
+      largest_peer_created_stream_id_(largest_peer_created_stream_id),
       max_allowed_outgoing_stream_id_(0),
       actual_max_allowed_incoming_stream_id_(0),
       advertised_max_allowed_incoming_stream_id_(0),
       max_stream_id_window_(max_allowed_incoming_streams /
                             kMaxStreamIdWindowDivisor),
       max_allowed_incoming_streams_(max_allowed_incoming_streams),
-      // Initialize to the peer's perspective.
-      first_incoming_dynamic_stream_id_(
-          QuicUtils::GetCryptoStreamId(
-              session_->connection()->transport_version()) +
-          (session_->perspective() == Perspective::IS_SERVER ? 2 : 1)),
-      // Initialize to this node's perspective.
-      first_outgoing_dynamic_stream_id_(
-          QuicUtils::GetCryptoStreamId(
-              session_->connection()->transport_version()) +
-          (session_->perspective() == Perspective::IS_SERVER ? 1 : 2)) {
+      first_incoming_dynamic_stream_id_(first_incoming_dynamic_stream_id),
+      first_outgoing_dynamic_stream_id_(next_outgoing_stream_id) {
   available_incoming_streams_ = max_allowed_incoming_streams_;
   SetMaxOpenOutgoingStreams(max_allowed_outgoing_streams);
   SetMaxOpenIncomingStreams(max_allowed_incoming_streams);
 }
 
+QuicStreamIdManager::~QuicStreamIdManager() {
+  QUIC_LOG_IF(WARNING,
+              session_->num_locally_closed_incoming_streams_highest_offset() >
+                  max_allowed_incoming_streams_)
+      << "Surprisingly high number of locally closed peer initiated streams"
+         "still waiting for final byte offset: "
+      << session_->num_locally_closed_incoming_streams_highest_offset();
+  QUIC_LOG_IF(WARNING,
+              session_->GetNumLocallyClosedOutgoingStreamsHighestOffset() >
+                  max_allowed_outgoing_streams_)
+      << "Surprisingly high number of locally closed self initiated streams"
+         "still waiting for final byte offset: "
+      << session_->GetNumLocallyClosedOutgoingStreamsHighestOffset();
+}
+
 bool QuicStreamIdManager::OnMaxStreamIdFrame(
     const QuicMaxStreamIdFrame& frame) {
+  DCHECK_EQ(QuicUtils::IsBidirectionalStreamId(frame.max_stream_id),
+            QuicUtils::IsBidirectionalStreamId(next_outgoing_stream_id_));
   // Need to determine whether the stream id matches our client/server
   // perspective or not. If not, it's an error. If so, update appropriate
   // maxima.
   QUIC_CODE_COUNT_N(max_stream_id_received, 2, 2);
   // TODO(fkastenholz): this test needs to be broader to handle uni- and bi-
   // directional stream ids when that functionality is supported.
-  if (session_->IsIncomingStream(frame.max_stream_id)) {
+  if (IsIncomingStream(frame.max_stream_id)) {
     // TODO(fkastenholz): This, and following, closeConnection may
     // need modification when proper support for IETF CONNECTION
     // CLOSE is done.
@@ -79,9 +94,11 @@ bool QuicStreamIdManager::OnMaxStreamIdFrame(
 
 bool QuicStreamIdManager::OnStreamIdBlockedFrame(
     const QuicStreamIdBlockedFrame& frame) {
+  DCHECK_EQ(QuicUtils::IsBidirectionalStreamId(frame.stream_id),
+            QuicUtils::IsBidirectionalStreamId(next_outgoing_stream_id_));
   QUIC_CODE_COUNT_N(stream_id_blocked_received, 2, 2);
   QuicStreamId id = frame.stream_id;
-  if (!session_->IsIncomingStream(frame.stream_id)) {
+  if (!IsIncomingStream(frame.stream_id)) {
     // Client/server mismatch, close the connection
     // TODO(fkastenholz): revise when proper IETF Connection Close support is
     // done.
@@ -123,8 +140,8 @@ bool QuicStreamIdManager::OnStreamIdBlockedFrame(
 //     been done.
 void QuicStreamIdManager::SetMaxOpenOutgoingStreams(size_t max_streams) {
   max_allowed_outgoing_streams_ = max_streams;
-  max_allowed_outgoing_stream_id_ = session_->next_outgoing_stream_id() +
-                                    (max_streams - 1) * kV99StreamIdIncrement;
+  max_allowed_outgoing_stream_id_ =
+      next_outgoing_stream_id_ + (max_streams - 1) * kV99StreamIdIncrement;
 }
 
 // TODO(fkastenholz): Many changes will be needed here:
@@ -178,7 +195,9 @@ void QuicStreamIdManager::SendMaxStreamIdFrame() {
 }
 
 void QuicStreamIdManager::OnStreamClosed(QuicStreamId stream_id) {
-  if (!session_->IsIncomingStream(stream_id)) {
+  DCHECK_EQ(QuicUtils::IsBidirectionalStreamId(stream_id),
+            QuicUtils::IsBidirectionalStreamId(next_outgoing_stream_id_));
+  if (!IsIncomingStream(stream_id)) {
     // Nothing to do for outbound streams with respect to the
     // stream ID space management.
     return;
@@ -196,17 +215,16 @@ void QuicStreamIdManager::OnStreamClosed(QuicStreamId stream_id) {
 }
 
 QuicStreamId QuicStreamIdManager::GetNextOutgoingStreamId() {
-  QUIC_BUG_IF(session_->next_outgoing_stream_id() >
-              max_allowed_outgoing_stream_id_)
+  QUIC_BUG_IF(next_outgoing_stream_id_ > max_allowed_outgoing_stream_id_)
       << "Attempt allocate a new outgoing stream ID would exceed the limit";
-  QuicStreamId id = session_->next_outgoing_stream_id();
-  session_->increment_next_outgoing_stream_id(kV99StreamIdIncrement);
+  QuicStreamId id = next_outgoing_stream_id_;
+  next_outgoing_stream_id_ += kV99StreamIdIncrement;
   return id;
 }
 
 bool QuicStreamIdManager::CanOpenNextOutgoingStream() {
   DCHECK_EQ(QUIC_VERSION_99, session_->connection()->transport_version());
-  if (session_->next_outgoing_stream_id() > max_allowed_outgoing_stream_id_) {
+  if (next_outgoing_stream_id_ > max_allowed_outgoing_stream_id_) {
     // Next stream ID would exceed the limit, need to inform the peer.
     session_->SendStreamIdBlocked(max_allowed_outgoing_stream_id_);
     QUIC_CODE_COUNT(reached_outgoing_stream_id_limit);
@@ -215,29 +233,12 @@ bool QuicStreamIdManager::CanOpenNextOutgoingStream() {
   return true;
 }
 
-bool QuicStreamIdManager::OnIncomingStreamOpened(QuicStreamId stream_id) {
-  // NOTE WELL: the protocol specifies that the peer must not send stream IDs
-  // larger than what has been advertised in a MAX_STREAM_ID. The following test
-  // will accept streams with IDs larger than the advertised maximum.  The limit
-  // is the actual maximum, which increases as streams are closed. This
-  // preserves the Google QUIC semantic that it is the number of streams (and
-  // stream ids) that is important.
-  if (stream_id <= actual_max_allowed_incoming_stream_id_) {
-    available_incoming_streams_--;
-    return true;
-  }
-  QUIC_CODE_COUNT(incoming_streamid_exceeds_limit);
-  session_->connection()->CloseConnection(
-      QUIC_INVALID_STREAM_ID,
-      QuicStrCat(stream_id, " above ", actual_max_allowed_incoming_stream_id_),
-      ConnectionCloseBehavior::SEND_CONNECTION_CLOSE_PACKET);
-  return false;
-}
-
 void QuicStreamIdManager::RegisterStaticStream(QuicStreamId stream_id) {
+  DCHECK_EQ(QuicUtils::IsBidirectionalStreamId(stream_id),
+            QuicUtils::IsBidirectionalStreamId(next_outgoing_stream_id_));
   QuicStreamId first_dynamic_stream_id = stream_id + kV99StreamIdIncrement;
 
-  if (session_->IsIncomingStream(first_dynamic_stream_id)) {
+  if (IsIncomingStream(first_dynamic_stream_id)) {
     // This code is predicated on static stream ids being allocated densely, in
     // order, and starting with the first stream allowed. QUIC_BUG if this is
     // not so.
@@ -268,6 +269,81 @@ void QuicStreamIdManager::RegisterStaticStream(QuicStreamId stream_id) {
     max_allowed_outgoing_stream_id_ += kV99StreamIdIncrement;
     first_outgoing_dynamic_stream_id_ = first_dynamic_stream_id;
   }
+}
+
+bool QuicStreamIdManager::MaybeIncreaseLargestPeerStreamId(
+    const QuicStreamId stream_id) {
+  DCHECK_EQ(QuicUtils::IsBidirectionalStreamId(stream_id),
+            QuicUtils::IsBidirectionalStreamId(next_outgoing_stream_id_));
+  available_streams_.erase(stream_id);
+
+  if (largest_peer_created_stream_id_ !=
+          QuicUtils::GetInvalidStreamId(
+              session_->connection()->transport_version()) &&
+      stream_id <= largest_peer_created_stream_id_) {
+    return true;
+  }
+
+  if (stream_id > actual_max_allowed_incoming_stream_id_) {
+    // Desired stream ID is larger than the limit, do not increase.
+    QUIC_DLOG(INFO) << ENDPOINT
+                    << "Failed to create a new incoming stream with id:"
+                    << stream_id << ".  Maximum allowed stream id is "
+                    << actual_max_allowed_incoming_stream_id_ << ".";
+    session_->connection()->CloseConnection(
+        QUIC_INVALID_STREAM_ID,
+        QuicStrCat("Stream id ", stream_id, " above ",
+                   actual_max_allowed_incoming_stream_id_),
+        ConnectionCloseBehavior::SEND_CONNECTION_CLOSE_PACKET);
+    return false;
+  }
+
+  available_incoming_streams_--;
+
+  QuicStreamId id = largest_peer_created_stream_id_ + kV99StreamIdIncrement;
+  if (largest_peer_created_stream_id_ ==
+      QuicUtils::GetInvalidStreamId(
+          session_->connection()->transport_version())) {
+    // Adjust id based on perspective and whether stream_id is bidirectional or
+    // unidirectional.
+    if (QuicUtils::IsBidirectionalStreamId(stream_id)) {
+      // This should only happen on client side because server bidirectional
+      // stream ID manager's largest_peer_created_stream_id_ is initialized to
+      // the crypto stream ID.
+      DCHECK_EQ(Perspective::IS_CLIENT, session_->perspective());
+      id = 1;
+    } else {
+      id = session_->perspective() == Perspective::IS_SERVER ? 2 : 3;
+    }
+  }
+  for (; id < stream_id; id += kV99StreamIdIncrement) {
+    available_streams_.insert(id);
+  }
+  largest_peer_created_stream_id_ = stream_id;
+  return true;
+}
+
+bool QuicStreamIdManager::IsAvailableStream(QuicStreamId id) const {
+  DCHECK_EQ(QuicUtils::IsBidirectionalStreamId(id),
+            QuicUtils::IsBidirectionalStreamId(next_outgoing_stream_id_));
+  if (!IsIncomingStream(id)) {
+    // Stream IDs under next_ougoing_stream_id_ are either open or previously
+    // open but now closed.
+    return id >= next_outgoing_stream_id_;
+  }
+  // For peer created streams, we also need to consider available streams.
+  return largest_peer_created_stream_id_ ==
+             QuicUtils::GetInvalidStreamId(
+                 session_->connection()->transport_version()) ||
+         id > largest_peer_created_stream_id_ ||
+         QuicContainsKey(available_streams_, id);
+}
+
+bool QuicStreamIdManager::IsIncomingStream(QuicStreamId id) const {
+  DCHECK_EQ(QuicUtils::IsBidirectionalStreamId(id),
+            QuicUtils::IsBidirectionalStreamId(next_outgoing_stream_id_));
+  return id % kV99StreamIdIncrement !=
+         next_outgoing_stream_id_ % kV99StreamIdIncrement;
 }
 
 }  // namespace quic

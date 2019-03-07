@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.signin;
 import android.accounts.Account;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.support.annotation.Nullable;
 
 import com.google.android.gms.auth.AccountChangeEvent;
 import com.google.android.gms.auth.GoogleAuthException;
@@ -21,14 +23,14 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.SigninManager.SignInCallback;
 import org.chromium.chrome.browser.sync.ProfileSyncService;
 import org.chromium.components.signin.AccountManagerFacade;
+import org.chromium.components.signin.AccountTrackerService;
 import org.chromium.components.signin.ChromeSigninController;
+import org.chromium.components.signin.OAuth2TokenService;
 import org.chromium.components.sync.AndroidSyncSettings;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.annotation.Nullable;
 
 /**
  * A helper for tasks like re-signin.
@@ -114,8 +116,8 @@ public class SigninHelper {
     private SigninHelper() {
         mProfileSyncService = ProfileSyncService.get();
         mSigninManager = SigninManager.get();
-        mAccountTrackerService = AccountTrackerService.get();
-        mOAuth2TokenService = OAuth2TokenService.getForProfile(Profile.getLastUsedProfile());
+        mAccountTrackerService = IdentityServicesProvider.getAccountTrackerService();
+        mOAuth2TokenService = IdentityServicesProvider.getOAuth2TokenService();
         mChromeSigninController = ChromeSigninController.get();
     }
 
@@ -229,9 +231,6 @@ public class SigninHelper {
         mSigninManager.signIn(account, null, new SignInCallback() {
             @Override
             public void onSignInComplete() {
-                if (mProfileSyncService != null) {
-                    mProfileSyncService.setSetupInProgress(false);
-                }
                 validateAccountsInternal(true);
             }
 
@@ -347,12 +346,6 @@ public class SigninHelper {
         }
     }
 
-    @VisibleForTesting
-    public static void resetAccountRenameEventIndex() {
-        ContextUtils.getAppSharedPreferences()
-                .edit().putInt(ACCOUNT_RENAME_EVENT_INDEX_PREFS_KEY, 0).apply();
-    }
-
     public static boolean checkAndClearAccountsChangedPref() {
         if (ContextUtils.getAppSharedPreferences()
                 .getBoolean(ACCOUNTS_CHANGED_PREFS_KEY, false)) {
@@ -363,5 +356,14 @@ public class SigninHelper {
         } else {
             return false;
         }
+    }
+
+    @VisibleForTesting
+    public static void resetSharedPrefs() {
+        SharedPreferences.Editor editor = ContextUtils.getAppSharedPreferences().edit();
+        editor.remove(ACCOUNT_RENAME_EVENT_INDEX_PREFS_KEY);
+        editor.remove(ACCOUNT_RENAMED_PREFS_KEY);
+        editor.remove(ACCOUNTS_CHANGED_PREFS_KEY);
+        editor.apply();
     }
 }

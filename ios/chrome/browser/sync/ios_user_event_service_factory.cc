@@ -7,11 +7,11 @@
 #include <memory>
 #include <utility>
 
-#include "base/memory/singleton.h"
-#include "components/browser_sync/profile_sync_service.h"
+#include "base/no_destructor.h"
 #include "components/keyed_service/ios/browser_state_dependency_manager.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/report_unrecoverable_error.h"
+#include "components/sync/driver/sync_service.h"
 #include "components/sync/model/model_type_store_service.h"
 #include "components/sync/model_impl/client_tag_based_model_type_processor.h"
 #include "components/sync/user_events/no_op_user_event_service.h"
@@ -35,7 +35,8 @@ syncer::UserEventService* IOSUserEventServiceFactory::GetForBrowserState(
 
 // static
 IOSUserEventServiceFactory* IOSUserEventServiceFactory::GetInstance() {
-  return base::Singleton<IOSUserEventServiceFactory>::get();
+  static base::NoDestructor<IOSUserEventServiceFactory> instance;
+  return instance.get();
 }
 
 IOSUserEventServiceFactory::IOSUserEventServiceFactory()

@@ -29,6 +29,8 @@ namespace subresource_filter {
 
 namespace {
 
+using AdFrameType = blink::mojom::AdFrameType;
+
 // The SubresourceFilterAgent with its dependencies on Blink mocked out.
 //
 // This approach is somewhat rudimentary, but appears to be the best compromise
@@ -64,7 +66,10 @@ class SubresourceFilterAgentUnderTest : public SubresourceFilterAgent {
   }
 
   bool IsAdSubframe() override { return is_ad_subframe_; }
-  void SetIsAdSubframe() override { is_ad_subframe_ = true; }
+  void SetIsAdSubframe(
+      AdFrameType ad_frame_type = AdFrameType::kNonAd) override {
+    is_ad_subframe_ = true;
+  }
 
   blink::WebDocumentSubresourceFilter* filter() {
     return last_injected_filter_.get();
@@ -134,30 +139,30 @@ class SubresourceFilterAgentTest : public ::testing::Test {
 
   void StartLoadWithoutSettingActivationState() {
     agent_as_rfo()->DidStartProvisionalLoad(nullptr, true);
-    agent_as_rfo()->DidCommitProvisionalLoad(
-        false /* is_same_document_navigation */, ui::PAGE_TRANSITION_LINK);
+    agent_as_rfo()->DidCreateNewDocument();
   }
 
   void PerformSameDocumentNavigationWithoutSettingActivationLevel() {
     agent_as_rfo()->DidStartProvisionalLoad(nullptr, true);
-    agent_as_rfo()->DidCommitProvisionalLoad(
-        true /* is_same_document_navigation */, ui::PAGE_TRANSITION_LINK);
+    // No DidCreateNewDocument, since same document navigations by definition
+    // don't create a new document.
     // No DidFinishLoad is called in this case.
   }
 
-  void StartLoadAndSetActivationState(mojom::ActivationLevel level,
-                                      bool is_ad_subframe = false) {
+  void StartLoadAndSetActivationState(
+      mojom::ActivationLevel level,
+      AdFrameType ad_type = AdFrameType::kNonAd) {
     mojom::ActivationState state;
     state.activation_level = level;
-    StartLoadAndSetActivationState(state, is_ad_subframe);
+    StartLoadAndSetActivationState(state, ad_type);
   }
 
-  void StartLoadAndSetActivationState(mojom::ActivationState state,
-                                      bool is_ad_subframe = false) {
+  void StartLoadAndSetActivationState(
+      mojom::ActivationState state,
+      AdFrameType ad_type = AdFrameType::kNonAd) {
     agent_as_rfo()->DidStartProvisionalLoad(nullptr, true);
-    agent()->ActivateForNextCommittedLoad(state.Clone(), is_ad_subframe);
-    agent_as_rfo()->DidCommitProvisionalLoad(
-        false /* is_same_document_navigation */, ui::PAGE_TRANSITION_LINK);
+    agent()->ActivateForNextCommittedLoad(state.Clone(), ad_type);
+    agent_as_rfo()->DidCreateNewDocument();
   }
 
   void FinishLoad() { agent_as_rfo()->DidFinishLoad(); }
@@ -252,14 +257,16 @@ TEST_F(SubresourceFilterAgentTest, MmapFailure_FailsToInjectSubresourceFilter) {
       SetTestRulesetToDisallowURLsWithPathSuffix(kTestFirstURLPathSuffix));
   MemoryMappedRuleset::SetMemoryMapFailuresForTesting(true);
   ExpectNoSubresourceFilterGetsInjected();
-  StartLoadAndSetActivationState(mojom::ActivationLevel::kEnabled,
-                                 false /* is_associated_with_ad_subframe */);
+  StartLoadAndSetActivationState(
+      mojom::ActivationLevel::kEnabled,
+      AdFrameType::kNonAd /* is_associated_with_ad_subframe */);
   ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(agent()));
 
   MemoryMappedRuleset::SetMemoryMapFailuresForTesting(false);
   ExpectSubresourceFilterGetsInjected();
-  StartLoadAndSetActivationState(mojom::ActivationLevel::kEnabled,
-                                 false /* is_associated_with_ad_subframe */);
+  StartLoadAndSetActivationState(
+      mojom::ActivationLevel::kEnabled,
+      AdFrameType::kNonAd /* is_associated_with_ad_subframe */);
 }
 
 TEST_F(SubresourceFilterAgentTest, Disabled_NoFilterIsInjected) {
@@ -462,7 +469,7 @@ TEST_F(SubresourceFilterAgentTest,
   state->activation_level = mojom::ActivationLevel::kEnabled;
   state->measure_performance = true;
   agent()->ActivateForNextCommittedLoad(std::move(state),
-                                        false /* is_ad_subframe */);
+                                        AdFrameType::kNonAd /* ad_type */);
   agent_as_rfo()->DidFailProvisionalLoad(
       blink::WebURLError(net::ERR_FAILED, blink::WebURL()));
   agent_as_rfo()->DidStartProvisionalLoad(nullptr, true);
@@ -562,8 +569,9 @@ TEST_F(SubresourceFilterAgentTest,
       SetTestRulesetToDisallowURLsWithPathSuffix(kTestFirstURLPathSuffix));
 
   ExpectSubresourceFilterGetsInjected();
-  StartLoadAndSetActivationState(mojom::ActivationLevel::kDryRun,
-                                 true /* is_associated_with_ad_subframe */);
+  StartLoadAndSetActivationState(
+      mojom::ActivationLevel::kDryRun,
+      AdFrameType::kRootAd /* is_associated_with_ad_subframe */);
   ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(agent()));
 
   // Test the ad subframe value that is set at the filter.
@@ -579,8 +587,9 @@ TEST_F(SubresourceFilterAgentTest, DryRun_FrameAlreadyTaggedAsAd) {
   ASSERT_NO_FATAL_FAILURE(
       SetTestRulesetToDisallowURLsWithPathSuffix("somethingNotMatched"));
   ExpectSubresourceFilterGetsInjected();
-  StartLoadAndSetActivationState(mojom::ActivationLevel::kDryRun,
-                                 false /* is_associated_with_ad_subframe */);
+  StartLoadAndSetActivationState(
+      mojom::ActivationLevel::kDryRun,
+      AdFrameType::kNonAd /* is_associated_with_ad_subframe */);
   ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(agent()));
 
   EXPECT_TRUE(agent()->IsAdSubframe());
@@ -595,11 +604,15 @@ TEST_F(SubresourceFilterAgentTest, DryRun_SendsFrameIsAdSubframe) {
   EXPECT_CALL(*agent(), GetDocumentURL())
       .WillOnce(::testing::Return(GURL("about:blank")));
   agent_as_rfo()->DidCreateNewDocument();
+  EXPECT_CALL(*agent(), GetDocumentURL())
+      .WillOnce(::testing::Return(GURL("about:blank")));
   agent_as_rfo()->DidCreateNewDocument();
 }
 
 TEST_F(SubresourceFilterAgentTest, DryRun_DoesNotSendFrameIsAdSubframe) {
   ExpectNoSendFrameIsAdSubframe();
+  EXPECT_CALL(*agent(), GetDocumentURL())
+      .WillOnce(::testing::Return(GURL("about:blank")));
   agent_as_rfo()->DidCreateNewDocument();
 }
 

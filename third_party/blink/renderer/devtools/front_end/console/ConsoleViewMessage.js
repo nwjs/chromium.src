@@ -37,16 +37,18 @@ Console.ConsoleViewMessage = class {
    * @param {!Components.Linkifier} linkifier
    * @param {!ProductRegistry.BadgePool} badgePool
    * @param {number} nestingLevel
+   * @param {function(!Common.Event)} onResize
    */
-  constructor(consoleMessage, linkifier, badgePool, nestingLevel) {
+  constructor(consoleMessage, linkifier, badgePool, nestingLevel, onResize) {
     this._message = consoleMessage;
     this._linkifier = linkifier;
     this._badgePool = badgePool;
     this._repeatCount = 1;
     this._closeGroupDecorationCount = 0;
     this._nestingLevel = nestingLevel;
-    /** @type {!Array<{element: !Element, selectFirst: function()}>} */
+    /** @type {!Array<{element: !Element, forceSelect: function()}>} */
     this._selectableChildren = [];
+    this._messageResized = onResize;
 
     /** @type {?DataGrid.DataGrid} */
     this._dataGrid = null;
@@ -214,13 +216,6 @@ Console.ConsoleViewMessage = class {
           messageElement.title =
               Common.UIString('Clear all messages with ' + UI.shortcutRegistry.shortcutTitleForAction('console.clear'));
           break;
-        case SDK.ConsoleMessage.MessageType.Assert: {
-          let args = [Common.UIString('Assertion failed:')];
-          if (this._message.parameters)
-            args = args.concat(this._message.parameters);
-          messageElement = this._format(args);
-          break;
-        }
         case SDK.ConsoleMessage.MessageType.Dir: {
           const obj = this._message.parameters ? this._message.parameters[0] : undefined;
           const args = ['%O', obj];
@@ -231,6 +226,9 @@ Console.ConsoleViewMessage = class {
         case SDK.ConsoleMessage.MessageType.ProfileEnd:
           messageElement = this._format([messageText]);
           break;
+        case SDK.ConsoleMessage.MessageType.Assert:
+          this._messagePrefix = ls`Assertion failed: `;
+          // Fall through.
         default: {
           if (this._message.parameters && this._message.parameters.length === 1 &&
               this._message.parameters[0].type === 'string')
@@ -283,7 +281,7 @@ Console.ConsoleViewMessage = class {
       const linkElement = Components.Linkifier.linkifyRevealable(request, request.url(), request.url());
       // Focus is handled by the viewport.
       linkElement.tabIndex = -1;
-      this._selectableChildren.push({element: linkElement, selectFirst: () => linkElement.focus()});
+      this._selectableChildren.push({element: linkElement, forceSelect: () => linkElement.focus()});
       messageElement.appendChild(linkElement);
       if (request.failed)
         messageElement.createTextChildren(' ', request.localizedFailDescription);
@@ -296,7 +294,7 @@ Console.ConsoleViewMessage = class {
         const linkElement = Components.Linkifier.linkifyRevealable(
             /** @type {!SDK.NetworkRequest} */ (request), title, request.url());
         linkElement.tabIndex = -1;
-        this._selectableChildren.push({element: linkElement, selectFirst: () => linkElement.focus()});
+        this._selectableChildren.push({element: linkElement, forceSelect: () => linkElement.focus()});
         return linkElement;
       });
       messageElement.appendChild(fragment);
@@ -393,7 +391,7 @@ Console.ConsoleViewMessage = class {
     stackTraceElement.appendChild(stackTracePreview.element);
     for (const linkElement of stackTracePreview.links) {
       linkElement.tabIndex = -1;
-      this._selectableChildren.push({element: linkElement, selectFirst: () => linkElement.focus()});
+      this._selectableChildren.push({element: linkElement, forceSelect: () => linkElement.focus()});
     }
     stackTraceElement.classList.add('hidden');
     this._expandTrace = expand => {
@@ -480,6 +478,8 @@ Console.ConsoleViewMessage = class {
   _format(rawParameters) {
     // This node is used like a Builder. Values are continually appended onto it.
     const formattedResult = createElement('span');
+    if (this._messagePrefix)
+      formattedResult.createChild('span').textContent = this._messagePrefix;
     if (!rawParameters.length)
       return formattedResult;
 
@@ -626,6 +626,9 @@ Console.ConsoleViewMessage = class {
     section.enableContextMenu();
     section.setShowSelectionOnKeyboardFocus(true, true);
     this._selectableChildren.push(section);
+    section.addEventListener(UI.TreeOutline.Events.ElementAttached, this._messageResized);
+    section.addEventListener(UI.TreeOutline.Events.ElementExpanded, this._messageResized);
+    section.addEventListener(UI.TreeOutline.Events.ElementCollapsed, this._messageResized);
     return section.element;
   }
 
@@ -645,14 +648,19 @@ Console.ConsoleViewMessage = class {
      */
     function formatTargetFunction(targetFunction) {
       const functionElement = createElement('span');
-      ObjectUI.ObjectPropertiesSection.formatObjectAsFunction(targetFunction, functionElement, true, includePreview);
+      const promise = ObjectUI.ObjectPropertiesSection.formatObjectAsFunction(
+          targetFunction, functionElement, true, includePreview);
       result.appendChild(functionElement);
       if (targetFunction !== func) {
         const note = result.createChild('span', 'object-info-state-note');
         note.title = Common.UIString('Function was resolved from bound function.');
       }
       result.addEventListener('contextmenu', this._contextMenuEventFired.bind(this, targetFunction), false);
+      promise.then(() => this._formattedParameterAsFunctionForTest());
     }
+  }
+
+  _formattedParameterAsFunctionForTest() {
   }
 
   /**
@@ -695,8 +703,12 @@ Console.ConsoleViewMessage = class {
       }
       const renderResult = await UI.Renderer.render(/** @type {!Object} */ (node));
       if (renderResult) {
-        if (renderResult.tree)
+        if (renderResult.tree) {
           this._selectableChildren.push(renderResult.tree);
+          renderResult.tree.addEventListener(UI.TreeOutline.Events.ElementAttached, this._messageResized);
+          renderResult.tree.addEventListener(UI.TreeOutline.Events.ElementExpanded, this._messageResized);
+          renderResult.tree.addEventListener(UI.TreeOutline.Events.ElementCollapsed, this._messageResized);
+        }
         result.appendChild(renderResult.node);
       } else {
         result.appendChild(this._formatParameterAsObject(remoteObject, false));
@@ -1123,7 +1135,7 @@ Console.ConsoleViewMessage = class {
   _selectNearestVisibleChild(fromIndex, backwards) {
     const nearestChild = this._nearestVisibleChild(fromIndex, backwards);
     if (nearestChild) {
-      nearestChild.selectFirst();
+      nearestChild.forceSelect();
       return true;
     }
     return false;
@@ -1132,7 +1144,7 @@ Console.ConsoleViewMessage = class {
   /**
    * @param {number} fromIndex
    * @param {boolean=} backwards
-   * @return {?{element: !Element, selectFirst: function()}}
+   * @return {?{element: !Element, forceSelect: function()}}
    */
   _nearestVisibleChild(fromIndex, backwards) {
     const childCount = this._selectableChildren.length;
@@ -1316,7 +1328,7 @@ Console.ConsoleViewMessage = class {
       return;
 
     if (!this._repeatCountElement) {
-      this._repeatCountElement = createElementWithClass('label', 'console-message-repeat-count', 'dt-small-bubble');
+      this._repeatCountElement = createElementWithClass('span', 'console-message-repeat-count', 'dt-small-bubble');
       switch (this._message.level) {
         case SDK.ConsoleMessage.MessageLevel.Warning:
           this._repeatCountElement.type = 'warning';
@@ -1480,7 +1492,7 @@ Console.ConsoleViewMessage = class {
       const scriptLocationLink = this._linkifier.linkifyScriptLocation(
           debuggerModel.target(), null, links[i].url, links[i].lineNumber, links[i].columnNumber);
       scriptLocationLink.tabIndex = -1;
-      this._selectableChildren.push({element: scriptLocationLink, selectFirst: () => scriptLocationLink.focus()});
+      this._selectableChildren.push({element: scriptLocationLink, forceSelect: () => scriptLocationLink.focus()});
       formattedResult.appendChild(scriptLocationLink);
       start = links[i].positionRight;
     }
@@ -1547,7 +1559,7 @@ Console.ConsoleViewMessage = class {
     return this._linkifyWithCustomLinkifier(string, (text, url, lineNumber, columnNumber) => {
       const linkElement = Components.Linkifier.linkifyURL(url, {text, lineNumber, columnNumber});
       linkElement.tabIndex = -1;
-      this._selectableChildren.push({element: linkElement, selectFirst: () => linkElement.focus()});
+      this._selectableChildren.push({element: linkElement, forceSelect: () => linkElement.focus()});
       return linkElement;
     });
   }
@@ -1627,10 +1639,11 @@ Console.ConsoleGroupViewMessage = class extends Console.ConsoleViewMessage {
    * @param {!ProductRegistry.BadgePool} badgePool
    * @param {number} nestingLevel
    * @param {function()} onToggle
+   * @param {function(!Common.Event)} onResize
    */
-  constructor(consoleMessage, linkifier, badgePool, nestingLevel, onToggle) {
+  constructor(consoleMessage, linkifier, badgePool, nestingLevel, onToggle, onResize) {
     console.assert(consoleMessage.isGroupStartMessage());
-    super(consoleMessage, linkifier, badgePool, nestingLevel);
+    super(consoleMessage, linkifier, badgePool, nestingLevel, onResize);
     this._collapsed = consoleMessage.type === SDK.ConsoleMessage.MessageType.StartGroupCollapsed;
     /** @type {?UI.Icon} */
     this._expandGroupIcon = null;

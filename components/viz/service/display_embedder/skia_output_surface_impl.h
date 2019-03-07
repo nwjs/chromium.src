@@ -74,7 +74,6 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
 
   // SkiaOutputSurface implementation:
   SkCanvas* BeginPaintCurrentFrame() override;
-  sk_sp<SkImage> MakePromiseSkImage(ResourceMetadata metadata) override;
   sk_sp<SkImage> MakePromiseSkImageFromYUV(
       std::vector<ResourceMetadata> metadatas,
       SkYUVColorSpace yuv_color_space,
@@ -85,19 +84,24 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
                                  ResourceFormat format,
                                  bool mipmap) override;
   gpu::SyncToken SubmitPaint() override;
+  sk_sp<SkImage> MakePromiseSkImage(ResourceMetadata metadata) override;
   sk_sp<SkImage> MakePromiseSkImageFromRenderPass(const RenderPassId& id,
                                                   const gfx::Size& size,
                                                   ResourceFormat format,
                                                   bool mipmap) override;
+  gpu::SyncToken QueueReleasePromiseSkImage(sk_sp<SkImage>&& image) override;
+  void FlushQueuedReleases() override;
+
   void RemoveRenderPassResource(std::vector<RenderPassId> ids) override;
   void CopyOutput(RenderPassId id,
                   const gfx::Rect& copy_rect,
+                  const gfx::ColorSpace& color_space,
+                  const gfx::Rect& result_rect,
                   std::unique_ptr<CopyOutputRequest> request) override;
   void AddContextLostObserver(ContextLostObserver* observer) override;
   void RemoveContextLostObserver(ContextLostObserver* observer) override;
 
  private:
-  template <class T>
   class PromiseTextureHelper;
   class YUVAPromiseTextureHelper;
   void InitializeOnGpuThread(base::WaitableEvent* event);
@@ -149,7 +153,10 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurfaceImpl : public SkiaOutputSurface {
   // Whether to send OutputSurfaceClient::DidSwapWithSize notifications.
   bool needs_swap_size_notifications_ = false;
 
+  // Observers for context lost.
   base::ObserverList<ContextLostObserver>::Unchecked observers_;
+
+  std::vector<sk_sp<SkImage>> images_pending_release_;
 
   THREAD_CHECKER(thread_checker_);
 

@@ -185,7 +185,8 @@ class ContextMenuShownObserver {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, base::BindOnce(&RenderViewContextMenuBase::Cancel,
                                   base::Unretained(context_menu)));
-    run_loop_.Quit();
+    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
+                                                  run_loop_.QuitClosure());
   }
 
   void Wait() { run_loop_.Run(); }
@@ -393,7 +394,7 @@ class MockWebContentsDelegate : public content::WebContentsDelegate {
 
   bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
                                   const GURL& security_origin,
-                                  content::MediaStreamType type) override {
+                                  blink::MediaStreamType type) override {
     checked_ = true;
     if (check_message_loop_runner_.get())
       check_message_loop_runner_->Quit();
@@ -2485,8 +2486,8 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, TestContextMenu) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, base::BindOnce(&RenderViewContextMenuBase::Cancel,
                                   base::Unretained(context_menu)));
-
-    std::move(closure).Run();
+    base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
+                                                  std::move(closure));
   };
 
   base::RunLoop run_loop;
@@ -2974,7 +2975,7 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, DownloadCookieIsolation) {
     ASSERT_TRUE(download->CanResume());
     EXPECT_EQ(download::DOWNLOAD_INTERRUPT_REASON_SERVER_FAILED,
               download->GetLastReason());
-    download->Resume();
+    download->Resume(false);
   }
 
   completion_observer->WaitForFinished();
@@ -3104,7 +3105,7 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, DownloadCookieIsolation_CrossSession) {
     ASSERT_TRUE(download->GetFullPath().empty());
     EXPECT_EQ(download::DOWNLOAD_INTERRUPT_REASON_SERVER_FAILED,
               download->GetLastReason());
-    download->Resume();
+    download->Resume(false);
   }
 
   completion_observer->WaitForFinished();
@@ -3342,14 +3343,7 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, MAYBE_Shim_TestFindAPI_findupdate) {
   TestHelper("testFindAPI_findupdate", "web_view/shim", NO_TEST_SERVER);
 }
 
-// TODO(crbug.com/892085): Disabled on Windows due to flakiness. Re-enable.
-#if defined(OS_WIN)
-#define MAYBE_Shim_testFindInMultipleWebViews \
-  DISABLED_Shim_testFindInMultipleWebViews
-#else
-#define MAYBE_Shim_testFindInMultipleWebViews Shim_testFindInMultipleWebViews
-#endif
-IN_PROC_BROWSER_TEST_F(WebViewTest, MAYBE_Shim_testFindInMultipleWebViews) {
+IN_PROC_BROWSER_TEST_F(WebViewTest, Shim_testFindInMultipleWebViews) {
   TestHelper("testFindInMultipleWebViews", "web_view/shim", NO_TEST_SERVER);
 }
 
@@ -4280,8 +4274,15 @@ IN_PROC_BROWSER_TEST_F(ChromeSignInWebViewTest,
 // page with both an attached and an unattached <webview> and verifies that,
 // unlike the attached guest, no find requests are sent for the unattached
 // guest. For more context see https://crbug.com/897465.
+// TODO(crbug.com/914098): Address flakiness and reenable.
+#if defined(OS_LINUX) || defined(OS_MACOSX)
+#define MAYBE_NoFindInPageForUnattachedGuest \
+  DISABLED_NoFindInPageForUnattachedGuest
+#else
+#define MAYBE_NoFindInPageForUnattachedGuest NoFindInPageForUnattachedGuest
+#endif
 IN_PROC_BROWSER_TEST_F(ChromeSignInWebViewTest,
-                       NoFindInPageForUnattachedGuest) {
+                       MAYBE_NoFindInPageForUnattachedGuest) {
   GURL signin_url{"chrome://chrome-signin"};
   ui_test_utils::NavigateToURL(browser(), signin_url);
   auto* embedder_web_contents =

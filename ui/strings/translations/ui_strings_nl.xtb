@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{1 dag geleden}other{# dagen geleden}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{1 minuut geleden}other{# minuten geleden}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1 m}other{# m}}</translation>
+<translation id="1181037720776840403">Verwijderen</translation>
 <translation id="1243314992276662751">Uploaden</translation>
 <translation id="1269641567813814718">Win</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">Pijl-omlaag</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 dag}other{# dagen}}</translation>
 <translation id="335581015389089642">Spraak</translation>
+<translation id="3462241349431650993">Als je de suggestie verbergt, wordt deze niet meer weergegeven via je account op al je apparaten.</translation>
 <translation id="3479552764303398839">Niet nu</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{1 dag resterend}other{# dagen resterend}}</translation>
+<translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">'<ph name="LOOKUP_STRING" />' opzoeken</translation>
 <translation id="364720409959344976">Map voor uploaden selecteren</translation>
 <translation id="3660179305079774227">Pijl-omhoog</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{1 seconde geleden}other{# seconden geleden}}</translation>
 <translation id="654149438358937226">Alle meldingen blokkeren</translation>
 <translation id="6567071839949112727">klik via bovenliggende entiteit</translation>
+<translation id="6578407462441924264">Naamloos</translation>
 <translation id="6612467943526193239">Druk op Esc om de kalibratie af te sluiten.</translation>
 <translation id="6620110761915583480">Bestand opslaan</translation>
 <translation id="6699343763173986273">Volgende track voor media</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" /> + <ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 uur geleden}other{# uur geleden}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 sec. resterend}other{# sec. resterend}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />, automatisch aanvullen</translation>
 <translation id="815598010540052116">Omlaag bladeren</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Pagina omlaag</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">Selecteren</translation>
 <translation id="8393700583063109961">Bericht verzenden</translation>
 <translation id="8394908167088220973">Media afspelen/onderbreken</translation>
+<translation id="8420205633584771378">Deze suggestie verwijderen?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 j}other{# j}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" />-bestand (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" />  KB/s</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">Knop Terug</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" />  KB</translation>
 <translation id="9002566407876343676">openen</translation>
-<translation id="9038489124413477075">Naamloze map</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 sec.}other{# sec.}}</translation>
 <translation id="9059834730836941392">Melding samenvouwen</translation>
 <translation id="9150735707954472829">Tabblad</translation>

@@ -85,6 +85,7 @@ class AURA_EXPORT WindowTreeHost : public ui::internal::InputMethodDelegate,
   Window* window() { return window_; }
   const Window* window() const { return window_; }
 
+  // TODO(msw): Remove this, callers should use GetEventSink().
   ui::EventSink* event_sink();
 
   WindowEventDispatcher* dispatcher() {
@@ -94,6 +95,8 @@ class AURA_EXPORT WindowTreeHost : public ui::internal::InputMethodDelegate,
   const WindowEventDispatcher* dispatcher() const { return dispatcher_.get(); }
 
   ui::Compositor* compositor() { return compositor_.get(); }
+
+  base::WeakPtr<WindowTreeHost> GetWeakPtr();
 
   // Gets/Sets the root window's transform.
   virtual gfx::Transform GetRootTransform() const;
@@ -176,6 +179,9 @@ class AURA_EXPORT WindowTreeHost : public ui::internal::InputMethodDelegate,
   ui::EventDispatchDetails DispatchKeyEventPostIME(
       ui::KeyEvent* event,
       base::OnceCallback<void(bool)> ack_callback) final;
+
+  // Overridden from ui::EventSource:
+  ui::EventSink* GetEventSink() override;
 
   // Returns the id of the display. Default implementation queries Screen.
   virtual int64_t GetDisplayId();
@@ -262,7 +268,7 @@ class AURA_EXPORT WindowTreeHost : public ui::internal::InputMethodDelegate,
   void CreateCompositor(
       const viz::FrameSinkId& frame_sink_id = viz::FrameSinkId(),
       bool force_software_compositor = false,
-      bool external_begin_frames_enabled = false,
+      ui::ExternalBeginFrameClient* external_begin_frame_client = nullptr,
       bool are_events_in_pixels = true,
       const char* trace_environment_name = nullptr);
 
@@ -298,9 +304,6 @@ class AURA_EXPORT WindowTreeHost : public ui::internal::InputMethodDelegate,
   // Hides the WindowTreeHost.
   virtual void HideImpl() = 0;
 
-  // Overridden from ui::EventSource:
-  ui::EventSink* GetEventSink() override;
-
   // display::DisplayObserver implementation.
   void OnDisplayMetricsChanged(const display::Display& display,
                                uint32_t metrics) override;
@@ -333,9 +336,6 @@ class AURA_EXPORT WindowTreeHost : public ui::internal::InputMethodDelegate,
 
   // Overrided from CompositorObserver:
   void OnCompositingDidCommit(ui::Compositor* compositor) override;
-  void OnCompositingStarted(ui::Compositor* compositor,
-                            base::TimeTicks start_time) override;
-  void OnCompositingEnded(ui::Compositor* compositor) override;
   void OnCompositingChildResizing(ui::Compositor* compositor) override;
   void OnCompositingShuttingDown(ui::Compositor* compositor) override;
 

@@ -33,14 +33,12 @@
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
 #include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/local_auth.h"
-#include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
-#include "chrome/browser/signin/signin_error_controller_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/signin/signin_util.h"
-#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
@@ -59,8 +57,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/about_signin_internals.h"
 #include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/profile_oauth2_token_service.h"
-#include "components/signin/core/browser/signin_error_controller.h"
 #include "components/signin/core/browser/signin_header_helper.h"
 #include "components/signin/core/browser/signin_investigator.h"
 #include "components/signin/core/browser/signin_metrics.h"
@@ -72,15 +68,63 @@
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
+#include "services/identity/public/cpp/accounts_mutator.h"
+#include "services/identity/public/cpp/identity_manager.h"
+#include "services/identity/public/cpp/primary_account_mutator.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_WIN)
 
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
 
 #endif  // defined(OS_WIN)
 
 namespace {
+
+#if defined(OS_WIN)
+
+// Returns a list of valid signin domains that were passed in
+// |email_domains_parameter| as an argument to the gcpw signin dialog.
+
+std::vector<std::string> GetEmailDomainsFromParameter(
+    const std::string& email_domains_parameter) {
+  return base::SplitString(base::ToLowerASCII(email_domains_parameter),
+                           credential_provider::kEmailDomainsSeparator,
+                           base::WhitespaceHandling::TRIM_WHITESPACE,
+                           base::SplitResult::SPLIT_WANT_NONEMPTY);
+}
+
+// Validates that the |signin_gaia_id| that the user signed in with matches
+// the |gaia_id_parameter| passed to the gcpw signin dialog. Also ensures
+// that the |signin_email| is in a domain listed in |email_domains_parameter|.
+// Returns kUiecSuccess on success.
+// Returns the appropriate error code on failure.
+credential_provider::UiExitCodes ValidateSigninEmail(
+    const std::string& gaia_id_parameter,
+    const std::string& email_domains_parameter,
+    const std::string& signin_email,
+    const std::string& signin_gaia_id) {
+  if (!gaia_id_parameter.empty() &&
+      !base::LowerCaseEqualsASCII(gaia_id_parameter, signin_gaia_id)) {
+    return credential_provider::kUiecEMailMissmatch;
+  }
+
+  if (email_domains_parameter.empty())
+    return credential_provider::kUiecSuccess;
+
+  std::vector<std::string> all_email_domains =
+      GetEmailDomainsFromParameter(email_domains_parameter);
+  std::string email_domain = gaia::ExtractDomainName(signin_email);
+
+  return std::find(all_email_domains.begin(), all_email_domains.end(),
+                   email_domain) != all_email_domains.end()
+             ? credential_provider::kUiecSuccess
+             : credential_provider::kUiecInvalidEmailDomain;
+}
+
+#endif
 
 void LogHistogramValue(signin_metrics::AccessPointAction action) {
   UMA_HISTOGRAM_ENUMERATION("Signin.AllAccessPointActions", action,
@@ -127,22 +171,34 @@ void CloseModalSigninIfNeeded(InlineLoginHandlerImpl* handler) {
   }
 }
 
-void UnlockProfileAndHideLoginUI(const base::FilePath profile_path,
-                                 InlineLoginHandlerImpl* handler) {
+void SetProfileLocked(const base::FilePath profile_path, bool locked) {
   if (!profile_path.empty()) {
     ProfileManager* profile_manager = g_browser_process->profile_manager();
     if (profile_manager) {
       ProfileAttributesEntry* entry;
       if (profile_manager->GetProfileAttributesStorage()
               .GetProfileAttributesWithPath(profile_path, &entry)) {
-        entry->SetIsSigninRequired(false);
+        if (locked)
+          entry->LockForceSigninProfile(true);
+        else
+          entry->SetIsSigninRequired(false);
       }
     }
   }
+}
+
+void UnlockProfileAndHideLoginUI(const base::FilePath profile_path,
+                                 InlineLoginHandlerImpl* handler) {
+  SetProfileLocked(profile_path, false);
   if (handler)
     handler->CloseDialogFromJavascript();
-
   UserManager::Hide();
+}
+
+void LockProfileAndShowUserManager(const base::FilePath& profile_path) {
+  SetProfileLocked(profile_path, true);
+  UserManager::Show(profile_path,
+                    profiles::USER_MANAGER_SELECT_PROFILE_NO_ACTION);
 }
 
 // Returns true if the showAccountManagement parameter in the given url is set
@@ -174,7 +230,6 @@ InlineSigninHelper::InlineSigninHelper(
     const std::string& password,
     const std::string& auth_code,
     const std::string& signin_scoped_device_id,
-    bool choose_what_to_sync,
     bool confirm_untrusted_signin,
     bool is_force_sign_in_with_usermanager)
     : gaia_auth_fetcher_(this, gaia::GaiaSource::kChrome, url_loader_factory),
@@ -186,7 +241,6 @@ InlineSigninHelper::InlineSigninHelper(
       gaia_id_(gaia_id),
       password_(password),
       auth_code_(auth_code),
-      choose_what_to_sync_(choose_what_to_sync),
       confirm_untrusted_signin_(confirm_untrusted_signin),
       is_force_sign_in_with_usermanager_(is_force_sign_in_with_usermanager) {
   DCHECK(profile_);
@@ -217,15 +271,12 @@ void InlineSigninHelper::OnClientOAuthSuccessAndBrowserOpened(
     const ClientOAuthResult& result,
     Profile* profile,
     Profile::CreateStatus status) {
-  Browser* browser = NULL;
-  if (handler_) {
+  Browser* browser = nullptr;
+  if (handler_)
     browser = handler_->GetDesktopBrowser();
-  }
 
-  signin_metrics::AccessPoint access_point =
-      signin::GetAccessPointForPromoURL(current_url_);
   signin_metrics::Reason reason =
-      signin::GetSigninReasonForPromoURL(current_url_);
+      signin::GetSigninReasonForEmbeddedPromoURL(current_url_);
   if (reason == signin_metrics::Reason::REASON_FETCH_LST_ONLY) {
 // Constants are only available on Windows for the Google Credential
 // Provider for Windows. Other platforms will just close the dialog here.
@@ -254,13 +305,16 @@ void InlineSigninHelper::OnClientOAuthSuccessAndBrowserOpened(
   about_signin_internals->OnRefreshTokenReceived("Successful");
 
   // Prime the account tracker with this combination of gaia id/display email.
+  // TODO(crbug.com/922026): Migrate to AccountsMutator, figuring out how to
+  // integrate with the call to AddOrUpdateAccount() below.
+  AccountTrackerService* account_tracker_service =
+      AccountTrackerServiceFactory::GetForProfile(profile_);
   std::string account_id =
-      AccountTrackerServiceFactory::GetForProfile(profile_)->SeedAccountInfo(
-          gaia_id_, email_);
+      account_tracker_service->SeedAccountInfo(gaia_id_, email_);
 
-  SigninManager* signin_manager = SigninManagerFactory::GetForProfile(profile_);
-  std::string primary_email =
-      signin_manager->GetAuthenticatedAccountInfo().email;
+  identity::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile_);
+  std::string primary_email = identity_manager->GetPrimaryAccountInfo().email;
   if (gaia::AreEmailsSame(email_, primary_email) &&
       (reason == signin_metrics::Reason::REASON_REAUTHENTICATION ||
        reason == signin_metrics::Reason::REASON_UNLOCK) &&
@@ -285,12 +339,13 @@ void InlineSigninHelper::OnClientOAuthSuccessAndBrowserOpened(
   if (reason == signin_metrics::Reason::REASON_REAUTHENTICATION ||
       reason == signin_metrics::Reason::REASON_UNLOCK ||
       reason == signin_metrics::Reason::REASON_ADD_SECONDARY_ACCOUNT) {
-    ProfileOAuth2TokenServiceFactory::GetForProfile(profile_)
-        ->UpdateCredentials(account_id, result.refresh_token,
-                            signin_metrics::SourceForRefreshTokenOperation::
-                                kInlineLoginHandler_Signin);
+    identity_manager->GetAccountsMutator()->AddOrUpdateAccount(
+        gaia_id_, email_, result.refresh_token,
+        result.is_under_advanced_protection,
+        signin_metrics::SourceForRefreshTokenOperation::
+            kInlineLoginHandler_Signin);
 
-    if (signin::IsAutoCloseEnabledInURL(current_url_)) {
+    if (signin::IsAutoCloseEnabledInEmbeddedURL(current_url_)) {
       // Close the gaia sign in tab via a task to make sure we aren't in the
       // middle of any webui handler code.
       bool show_account_management = ShouldShowAccountManagement(
@@ -303,39 +358,51 @@ void InlineSigninHelper::OnClientOAuthSuccessAndBrowserOpened(
 
     if (reason == signin_metrics::Reason::REASON_REAUTHENTICATION ||
         reason == signin_metrics::Reason::REASON_UNLOCK) {
-      signin_manager->MergeSigninCredentialIntoCookieJar();
+      identity_manager->GetPrimaryAccountMutator()
+          ->LegacyMergeSigninCredentialIntoCookieJar();
     }
     LogSigninReason(reason);
   } else {
-    browser_sync::ProfileSyncService* sync_service =
-        ProfileSyncServiceFactory::GetForProfile(profile_);
-    SigninErrorController* error_controller =
-        SigninErrorControllerFactory::GetForProfile(profile_);
-
-    OneClickSigninSyncStarter::StartSyncMode start_mode =
-        OneClickSigninSyncStarter::CONFIRM_SYNC_SETTINGS_FIRST;
-    if (access_point == signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS ||
-        choose_what_to_sync_) {
-      bool show_settings_without_configure =
-          error_controller->HasError() && sync_service &&
-          sync_service->IsFirstSetupComplete();
-      if (!show_settings_without_configure)
-        start_mode = OneClickSigninSyncStarter::CONFIGURE_SYNC_FIRST;
+    if (HandleCrossAccountError(result.refresh_token))
+      return;
+    if (confirm_untrusted_signin_) {
+      // Display a confirmation dialog to the user.
+      base::RecordAction(
+          base::UserMetricsAction("Signin_Show_UntrustedSigninPrompt"));
+      if (!browser)
+        browser = chrome::FindLastActiveWithProfile(profile_);
+      browser->window()->ShowOneClickSigninConfirmation(
+          base::UTF8ToUTF16(email_),
+          base::BindOnce(&InlineSigninHelper::UntrustedSigninConfirmed,
+                         base::Unretained(this), result.refresh_token));
+      return;
     }
+    CreateSyncStarter(browser, current_url_, result.refresh_token,
+                      OneClickSigninSyncStarter::CURRENT_PROFILE);
+    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, this);
+  }
+}
 
-    OneClickSigninSyncStarter::ConfirmationRequired confirmation_required =
-        confirm_untrusted_signin_
-            ? OneClickSigninSyncStarter::CONFIRM_UNTRUSTED_SIGNIN
-            : OneClickSigninSyncStarter::CONFIRM_AFTER_SIGNIN;
+void InlineSigninHelper::UntrustedSigninConfirmed(
+    const std::string& refresh_token,
+    bool confirmed) {
+  base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, this);
+  if (confirmed) {
+    CreateSyncStarter(nullptr, current_url_, refresh_token,
+                      OneClickSigninSyncStarter::CURRENT_PROFILE);
+    return;
+  }
 
-    bool start_signin = !HandleCrossAccountError(
-        result.refresh_token, confirmation_required, start_mode);
-    if (start_signin) {
-      CreateSyncStarter(browser, current_url_, result.refresh_token,
-                        OneClickSigninSyncStarter::CURRENT_PROFILE, start_mode,
-                        confirmation_required);
-      base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, this);
-    }
+  base::RecordAction(base::UserMetricsAction("Signin_Undo_Signin"));
+  if (handler_) {
+    handler_->SyncStarterCallback(
+        OneClickSigninSyncStarter::SYNC_SETUP_FAILURE);
+  } else if (signin_util::IsForceSigninEnabled()) {
+    BrowserList::CloseAllBrowsersWithProfile(
+        profile_, base::Bind(&LockProfileAndShowUserManager),
+        // Cannot be called because  skip_beforeunload is true.
+        BrowserList::CloseCallback(),
+        /*skip_beforeunload=*/true);
   }
 }
 
@@ -343,22 +410,17 @@ void InlineSigninHelper::CreateSyncStarter(
     Browser* browser,
     const GURL& current_url,
     const std::string& refresh_token,
-    OneClickSigninSyncStarter::ProfileMode profile_mode,
-    OneClickSigninSyncStarter::StartSyncMode start_mode,
-    OneClickSigninSyncStarter::ConfirmationRequired confirmation_required) {
+    OneClickSigninSyncStarter::ProfileMode profile_mode) {
   // OneClickSigninSyncStarter will delete itself once the job is done.
   new OneClickSigninSyncStarter(
       profile_, browser, gaia_id_, email_, password_, refresh_token,
-      signin::GetAccessPointForPromoURL(current_url),
-      signin::GetSigninReasonForPromoURL(current_url), profile_mode, start_mode,
-      confirmation_required,
+      signin::GetAccessPointForEmbeddedPromoURL(current_url),
+      signin::GetSigninReasonForEmbeddedPromoURL(current_url), profile_mode,
       base::Bind(&InlineLoginHandlerImpl::SyncStarterCallback, handler_));
 }
 
 bool InlineSigninHelper::HandleCrossAccountError(
-    const std::string& refresh_token,
-    OneClickSigninSyncStarter::ConfirmationRequired confirmation_required,
-    OneClickSigninSyncStarter::StartSyncMode start_mode) {
+    const std::string& refresh_token) {
   // With force sign in enabled, cross account
   // sign in will be rejected in the early stage so there is no need to show the
   // warning page here.
@@ -379,32 +441,30 @@ bool InlineSigninHelper::HandleCrossAccountError(
   SigninEmailConfirmationDialog::AskForConfirmation(
       web_contents, profile_, last_email, email_,
       base::Bind(&InlineSigninHelper::ConfirmEmailAction,
-                 base::Unretained(this), web_contents, refresh_token,
-                 confirmation_required, start_mode));
+                 base::Unretained(this), web_contents, refresh_token));
   return true;
 }
 
 void InlineSigninHelper::ConfirmEmailAction(
     content::WebContents* web_contents,
     const std::string& refresh_token,
-    OneClickSigninSyncStarter::ConfirmationRequired confirmation_required,
-    OneClickSigninSyncStarter::StartSyncMode start_mode,
     SigninEmailConfirmationDialog::Action action) {
+  // There is no need to show the untrusted signin prompt, because the
+  // SigninEmailConfirmationDialog already displays the account that is being
+  // signed in.
   Browser* browser = chrome::FindLastActiveWithProfile(profile_);
   switch (action) {
     case SigninEmailConfirmationDialog::CREATE_NEW_USER:
       base::RecordAction(
           base::UserMetricsAction("Signin_ImportDataPrompt_DontImport"));
       CreateSyncStarter(browser, current_url_, refresh_token,
-                        OneClickSigninSyncStarter::NEW_PROFILE, start_mode,
-                        confirmation_required);
+                        OneClickSigninSyncStarter::NEW_PROFILE);
       break;
     case SigninEmailConfirmationDialog::START_SYNC:
       base::RecordAction(
           base::UserMetricsAction("Signin_ImportDataPrompt_ImportData"));
       CreateSyncStarter(browser, current_url_, refresh_token,
-                        OneClickSigninSyncStarter::CURRENT_PROFILE, start_mode,
-                        confirmation_required);
+                        OneClickSigninSyncStarter::CURRENT_PROFILE);
       break;
     case SigninEmailConfirmationDialog::CLOSE:
       base::RecordAction(
@@ -414,8 +474,6 @@ void InlineSigninHelper::ConfirmEmailAction(
             OneClickSigninSyncStarter::SYNC_SETUP_FAILURE);
       }
       break;
-    default:
-      DCHECK(false) << "Invalid action";
   }
   base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, this);
 }
@@ -426,7 +484,7 @@ void InlineSigninHelper::OnClientOAuthFailure(
     handler_->HandleLoginError(error.ToString(), base::string16());
 
   signin_metrics::Reason reason =
-      signin::GetSigninReasonForPromoURL(current_url_);
+      signin::GetSigninReasonForEmbeddedPromoURL(current_url_);
   if (reason != signin_metrics::Reason::REASON_FETCH_LST_ONLY) {
     AboutSigninInternals* about_signin_internals =
         AboutSigninInternalsFactory::GetForProfile(profile_);
@@ -481,24 +539,44 @@ void InlineLoginHandlerImpl::SetExtraInitParams(base::DictionaryValue& params) {
   content::WebContents* contents = web_ui()->GetWebContents();
   const GURL& current_url = contents->GetURL();
   signin_metrics::Reason reason =
-      signin::GetSigninReasonForPromoURL(current_url);
-
-#if defined(OS_WIN)
-  if (reason == signin_metrics::Reason::REASON_FETCH_LST_ONLY) {
-    std::string email_domain;
-    if (net::GetValueForKeyInQuery(
-            current_url, credential_provider::kEmailDomainSigninPromoParameter,
-            &email_domain)) {
-      params.SetString("emailDomain", email_domain);
-    }
-  }
-#endif
+      signin::GetSigninReasonForEmbeddedPromoURL(current_url);
 
   const GURL& url = GaiaUrls::GetInstance()->embedded_signin_url();
   params.SetBoolean("isNewGaiaFlow", true);
   params.SetString("clientId",
                    GaiaUrls::GetInstance()->oauth2_chrome_client_id());
   params.SetString("gaiaPath", url.path().substr(1));
+
+#if defined(OS_WIN)
+  if (reason == signin_metrics::Reason::REASON_FETCH_LST_ONLY) {
+    std::string email_domains;
+    if (net::GetValueForKeyInQuery(
+            current_url, credential_provider::kEmailDomainsSigninPromoParameter,
+            &email_domains)) {
+      std::vector<std::string> all_email_domains =
+          GetEmailDomainsFromParameter(email_domains);
+      if (all_email_domains.size() == 1)
+        params.SetString("emailDomain", all_email_domains[0]);
+    }
+
+    // Prevent opening a new window if the embedded page fails to load.
+    // This will keep the user from being able to access a fully functional
+    // Chrome window in incognito mode.
+    params.SetBoolean("dontResizeNonEmbeddedPages", true);
+
+    GURL windows_url = GaiaUrls::GetInstance()->embedded_setup_windows_url();
+    // Redirect to specified gaia endpoint path for GCPW:
+    std::string windows_endpoint_path = windows_url.path().substr(1);
+    // Redirect to specified gaia endpoint path for GCPW:
+    std::string gcpw_endpoint_path;
+    if (net::GetValueForKeyInQuery(
+            current_url, credential_provider::kGcpwEndpointPathPromoParameter,
+            &gcpw_endpoint_path)) {
+      windows_endpoint_path = gcpw_endpoint_path;
+    }
+    params.SetString("gaiaPath", windows_endpoint_path);
+  }
+#endif
 
   std::string flow;
   switch (reason) {
@@ -556,7 +634,7 @@ void InlineLoginHandlerImpl::CompleteLogin(const std::string& email,
   // find the right profile to reauthenticate.  Otherwise the profile can be
   // taken from web_ui().
   signin_metrics::Reason reason =
-      signin::GetSigninReasonForPromoURL(current_url);
+      signin::GetSigninReasonForEmbeddedPromoURL(current_url);
 
   Profile* profile = Profile::FromWebUI(web_ui());
   if (reason != signin_metrics::Reason::REASON_FETCH_LST_ONLY &&
@@ -644,16 +722,47 @@ void InlineLoginHandlerImpl::FinishCompleteLogin(
     const FinishCompleteLoginParams& params,
     Profile* profile,
     Profile::CreateStatus status) {
+  signin_metrics::Reason reason =
+      signin::GetSigninReasonForEmbeddedPromoURL(params.url);
+
+  std::string default_email;
+  net::GetValueForKeyInQuery(params.url, "email", &default_email);
+  std::string validate_email;
+  net::GetValueForKeyInQuery(params.url, "validateEmail", &validate_email);
+
+#if defined(OS_WIN)
+  if (reason == signin_metrics::Reason::REASON_FETCH_LST_ONLY) {
+    std::string validate_gaia_id;
+    net::GetValueForKeyInQuery(
+        params.url, credential_provider::kValidateGaiaIdSigninPromoParameter,
+        &validate_gaia_id);
+    std::string email_domains;
+    net::GetValueForKeyInQuery(
+        params.url, credential_provider::kEmailDomainsSigninPromoParameter,
+        &email_domains);
+    credential_provider::UiExitCodes exit_code = ValidateSigninEmail(
+        validate_gaia_id, email_domains, params.email, params.gaia_id);
+    if (exit_code != credential_provider::kUiecSuccess) {
+      if (params.handler) {
+        params.handler->HandleLoginError(base::NumberToString((int)exit_code),
+                                         base::UTF8ToUTF16(params.email));
+      }
+      return;
+    } else {
+      // Validation has already been done for GCPW, so clear the validate
+      // argument so it doesn't validate again. GCPW validation allows the
+      // signin email to not match the email given in the request url if the
+      // gaia id of the signin email matches the one given in the request url.
+      validate_email.clear();
+    }
+  }
+#endif
+
   // When doing a SAML sign in, this email check may result in a false
   // positive.  This happens when the user types one email address in the
   // gaia sign in page, but signs in to a different account in the SAML sign in
   // page.
-  std::string default_email;
-  std::string validate_email;
-  if (net::GetValueForKeyInQuery(params.url, "email", &default_email) &&
-      net::GetValueForKeyInQuery(params.url, "validateEmail",
-                                 &validate_email) &&
-      validate_email == "1" && !default_email.empty()) {
+  if (validate_email == "1" && !default_email.empty()) {
     if (!gaia::AreEmailsSame(params.email, default_email)) {
       if (params.handler) {
         params.handler->HandleLoginError(
@@ -666,9 +775,7 @@ void InlineLoginHandlerImpl::FinishCompleteLogin(
   }
 
   signin_metrics::AccessPoint access_point =
-      signin::GetAccessPointForPromoURL(params.url);
-  signin_metrics::Reason reason =
-      signin::GetSigninReasonForPromoURL(params.url);
+      signin::GetAccessPointForEmbeddedPromoURL(params.url);
   LogHistogramValue(signin_metrics::HISTOGRAM_ACCEPTED);
   bool switch_to_advanced =
       params.choose_what_to_sync &&
@@ -685,8 +792,8 @@ void InlineLoginHandlerImpl::FinishCompleteLogin(
     case signin_metrics::Reason::REASON_REAUTHENTICATION:
     case signin_metrics::Reason::REASON_UNLOCK: {
       std::string primary_username =
-          SigninManagerFactory::GetForProfile(profile)
-              ->GetAuthenticatedAccountInfo()
+          IdentityManagerFactory::GetForProfile(profile)
+              ->GetPrimaryAccountInfo()
               .email;
       if (!gaia::AreEmailsSame(default_email, primary_username))
         can_offer_for = CAN_OFFER_SIGNIN_FOR_SECONDARY_ACCOUNT;
@@ -725,7 +832,7 @@ void InlineLoginHandlerImpl::FinishCompleteLogin(
       handler_weak_ptr,
       params.partition->GetURLLoaderFactoryForBrowserProcess(), profile, status,
       params.url, params.email, params.gaia_id, params.password,
-      params.auth_code, signin_scoped_device_id, params.choose_what_to_sync,
+      params.auth_code, signin_scoped_device_id,
       params.confirm_untrusted_signin,
       params.is_force_sign_in_with_usermanager);
 
@@ -742,10 +849,20 @@ void InlineLoginHandlerImpl::HandleLoginError(const std::string& error_msg,
   content::WebContents* contents = web_ui()->GetWebContents();
   const GURL& current_url = contents->GetURL();
   signin_metrics::Reason reason =
-      signin::GetSigninReasonForPromoURL(current_url);
+      signin::GetSigninReasonForEmbeddedPromoURL(current_url);
 
   if (reason == signin_metrics::Reason::REASON_FETCH_LST_ONLY) {
-    SendLSTFetchResultsMessage(base::Value(base::Value::Type::DICTIONARY));
+    base::Value error_value(base::Value::Type::DICTIONARY);
+#if defined(OS_WIN)
+    // If the message is an integer error code, send it as part
+    // of the result.
+    int exit_code = 0;
+    if (base::StringToInt(error_msg, &exit_code)) {
+      error_value.SetKey(credential_provider::kKeyExitCode,
+                         base::Value(exit_code));
+    }
+#endif
+    SendLSTFetchResultsMessage(error_value);
     return;
   }
   SyncStarterCallback(OneClickSigninSyncStarter::SYNC_SETUP_FAILURE);
@@ -789,8 +906,8 @@ void InlineLoginHandlerImpl::SyncStarterCallback(
 
   const GURL& current_url = contents->GetLastCommittedURL();
   signin_metrics::AccessPoint access_point =
-      signin::GetAccessPointForPromoURL(current_url);
-  bool auto_close = signin::IsAutoCloseEnabledInURL(current_url);
+      signin::GetAccessPointForEmbeddedPromoURL(current_url);
+  bool auto_close = signin::IsAutoCloseEnabledInEmbeddedURL(current_url);
 
   if (result == OneClickSigninSyncStarter::SYNC_SETUP_FAILURE) {
     RedirectToNtpOrAppsPage(contents, access_point);

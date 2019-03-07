@@ -14,6 +14,7 @@
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/trace_event.h"
+#include "build/build_config.h"
 #include "services/tracing/public/mojom/perfetto_service.mojom.h"
 #include "third_party/perfetto/include/perfetto/tracing/core/trace_config.h"
 #include "third_party/perfetto/include/perfetto/tracing/core/trace_packet.h"
@@ -27,7 +28,6 @@ namespace tracing {
 namespace {
 
 const size_t kTraceEventBufferSizeInBytes = 100 * 1024;
-const size_t kPerfettoRingbufferSizeInKBs = 1024 * 300;
 
 void AppendProtoArrayAsJSON(std::string* out,
                             const perfetto::protos::ChromeTracedValue& array);
@@ -285,11 +285,11 @@ void AppendProtoDictAsJSON(std::string* out,
 JSONTraceExporter::JSONTraceExporter(const std::string& config,
                                      perfetto::TracingService* service)
     : config_(config), metadata_(std::make_unique<base::DictionaryValue>()) {
-  consumer_endpoint_ = service->ConnectConsumer(this);
+  consumer_endpoint_ = service->ConnectConsumer(this, /*uid=*/0);
 
   // Start tracing.
   perfetto::TraceConfig trace_config;
-  trace_config.add_buffers()->set_size_kb(kPerfettoRingbufferSizeInKBs);
+  trace_config.add_buffers()->set_size_kb(4096 * 100);
 
   auto* trace_event_config = trace_config.add_data_sources()->mutable_config();
   trace_event_config->set_name(mojom::kTraceEventDataSourceName);
@@ -297,11 +297,22 @@ JSONTraceExporter::JSONTraceExporter(const std::string& config,
   auto* chrome_config = trace_event_config->mutable_chrome_config();
   chrome_config->set_trace_config(config_);
 
+// Only CrOS and Cast support system tracing.
+#if defined(OS_CHROMEOS) || (defined(IS_CHROMECAST) && defined(OS_LINUX))
   auto* system_trace_config = trace_config.add_data_sources()->mutable_config();
   system_trace_config->set_name(mojom::kSystemTraceDataSourceName);
   system_trace_config->set_target_buffer(0);
   auto* system_chrome_config = system_trace_config->mutable_chrome_config();
   system_chrome_config->set_trace_config(config_);
+#endif
+
+#if defined(OS_CHROMEOS)
+  auto* arc_trace_config = trace_config.add_data_sources()->mutable_config();
+  arc_trace_config->set_name(mojom::kArcTraceDataSourceName);
+  arc_trace_config->set_target_buffer(0);
+  auto* arc_chrome_config = arc_trace_config->mutable_chrome_config();
+  arc_chrome_config->set_trace_config(config_);
+#endif
 
   auto* trace_metadata_config =
       trace_config.add_data_sources()->mutable_config();
@@ -455,6 +466,20 @@ void JSONTraceExporter::OnTraceData(std::vector<perfetto::TracePacket> packets,
   }
 
   json_callback_.Run(out, metadata_.get(), has_more);
+}
+
+// Consumer Detach / Attach is not used in Chrome.
+void JSONTraceExporter::OnDetach(bool) {
+  NOTREACHED();
+}
+
+void JSONTraceExporter::OnAttach(bool, const perfetto::TraceConfig&) {
+  NOTREACHED();
+}
+
+void JSONTraceExporter::OnTraceStats(bool, const perfetto::TraceStats&) {
+  // We don't currently use GetTraceStats().
+  NOTREACHED();
 }
 
 }  // namespace tracing

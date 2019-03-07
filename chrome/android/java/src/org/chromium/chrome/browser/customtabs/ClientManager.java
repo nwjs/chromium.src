@@ -184,6 +184,7 @@ class ClientManager {
         private boolean mAllowParallelRequest;
         private boolean mAllowResourcePrefetch;
         private boolean mShouldGetPageLoadMetrics;
+        private boolean mShouldHideTopBar;
 
         public SessionParams(Context context, int uid, CustomTabsCallback customTabsCallback,
                 DisconnectCallback callback, PostMessageHandler postMessageHandler,
@@ -476,8 +477,8 @@ class ClientManager {
             }
         };
 
-        params.originVerifier = new OriginVerifier(listener, params.getPackageName(), relation);
-        ThreadUtils.runOnUiThread(() -> { params.originVerifier.start(origin); });
+        params.originVerifier = new OriginVerifier(params.getPackageName(), relation);
+        ThreadUtils.runOnUiThread(() -> { params.originVerifier.start(listener, origin); });
         if (relation == CustomTabsService.RELATION_HANDLE_ALL_URLS
                 && InstalledAppProviderImpl.isAppInstalledAndAssociatedWithOrigin(
                            params.getPackageName(), URI.create(origin.toString()),
@@ -621,6 +622,26 @@ class ClientManager {
     }
 
     /**
+     * @return Whether the CCT TopBar should be hidden on dynamic module managed URLs
+     * for a given session.
+     */
+    public synchronized boolean shouldHideTopBarOnModuleManagedUrlsForSession(
+            CustomTabsSessionToken session) {
+        SessionParams params = mSessionParams.get(session);
+        return params != null && params.mShouldHideTopBar;
+    }
+
+    /**
+     * Sets whether the CCT TopBar should be hidden on dynamic module managed URLs
+     * for a given session.
+     */
+    public synchronized void setHideCCTTopBarOnModuleManagedUrls(
+            CustomTabsSessionToken session, boolean hide) {
+        SessionParams params = mSessionParams.get(session);
+        if (params != null) params.mShouldHideTopBar = hide;
+    }
+
+    /**
      * @return Whether the session is using the default parameters (that is, don't ignore
      *         fragments and don't speculate loads on cellular connections).
      */
@@ -704,7 +725,7 @@ class ClientManager {
      */
     public synchronized boolean isFirstPartyOriginForSession(
             CustomTabsSessionToken session, Origin origin) {
-        return OriginVerifier.isValidOrigin(getClientPackageNameForSession(session), origin,
+        return OriginVerifier.wasPreviouslyVerified(getClientPackageNameForSession(session), origin,
                 CustomTabsService.RELATION_USE_AS_ORIGIN);
     }
 

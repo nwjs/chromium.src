@@ -111,11 +111,14 @@ base::UnguessableToken RemoteFrameClientImpl::GetDevToolsFrameToken() const {
 void RemoteFrameClientImpl::Navigate(
     const ResourceRequest& request,
     bool should_replace_current_entry,
+    bool is_opener_navigation,
+    bool prevent_sandboxed_download,
     mojom::blink::BlobURLTokenPtr blob_url_token) {
   if (web_frame_->Client()) {
-    web_frame_->Client()->Navigate(WrappedResourceRequest(request),
-                                   should_replace_current_entry,
-                                   blob_url_token.PassInterface().PassHandle());
+    web_frame_->Client()->Navigate(
+        WrappedResourceRequest(request), should_replace_current_entry,
+        is_opener_navigation, prevent_sandboxed_download,
+        blob_url_token.PassInterface().PassHandle());
   }
 }
 

@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_writable_stream.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_operations.h"
 #include "third_party/blink/renderer/core/streams/retain_wrapper_during_construction.h"
+#include "third_party/blink/renderer/core/streams/writable_stream_wrapper.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_binding.h"
 
@@ -240,6 +241,7 @@ ScriptValue ReadableStream::pipeThrough(ScriptState* script_state,
       exception_state);
 }
 
+// https://streams.spec.whatwg.org/#rs-pipe-through
 ScriptValue ReadableStream::pipeThrough(ScriptState* script_state,
                                         ScriptValue transform_stream,
                                         ScriptValue options,
@@ -247,57 +249,100 @@ ScriptValue ReadableStream::pipeThrough(ScriptState* script_state,
   v8::Local<v8::Value> pair_value = transform_stream.V8Value();
   v8::Local<v8::Context> context = script_state->GetContext();
 
-  constexpr char kWritableIsUndefined[] =
-      "Failed to execute 'pipeThrough' on 'ReadableStream': "
-      "parameter 1's 'writable' property is undefined.";
-  constexpr char kReadableIsUndefined[] =
-      "Failed to execute 'pipeThrough' on 'ReadableStream': "
-      "parameter 1's 'readable' property is undefined.";
+  constexpr char kWritableIsNotWritableStream[] =
+      "parameter 1's 'writable' property is not a WritableStream.";
+  constexpr char kReadableIsNotReadableStream[] =
+      "parameter 1's 'readable' property is not a ReadableStream.";
+  constexpr char kWritableIsLocked[] = "parameter 1's 'writable' is locked.";
 
   v8::Local<v8::Object> pair;
   if (!pair_value->ToObject(context).ToLocal(&pair)) {
-    exception_state.ThrowTypeError(kWritableIsUndefined);
+    exception_state.ThrowTypeError(kWritableIsNotWritableStream);
     return ScriptValue();
   }
 
-  v8::TryCatch block(script_state->GetIsolate());
+  v8::Isolate* isolate = script_state->GetIsolate();
   v8::Local<v8::Value> writable, readable;
-  if (!pair->Get(context, V8String(script_state->GetIsolate(), "writable"))
-           .ToLocal(&writable)) {
-    exception_state.RethrowV8Exception(block.Exception());
-    return ScriptValue();
-  }
-  DCHECK(!block.HasCaught());
+  {
+    v8::TryCatch block(isolate);
+    if (!pair->Get(context, V8String(isolate, "writable")).ToLocal(&writable)) {
+      exception_state.RethrowV8Exception(block.Exception());
+      return ScriptValue();
+    }
+    DCHECK(!block.HasCaught());
 
-  if (writable->IsUndefined()) {
-    exception_state.ThrowTypeError(kWritableIsUndefined);
-    return ScriptValue();
-  }
-
-  if (!pair->Get(context, V8String(script_state->GetIsolate(), "readable"))
-           .ToLocal(&readable)) {
-    exception_state.RethrowV8Exception(block.Exception());
-    return ScriptValue();
-  }
-  DCHECK(!block.HasCaught());
-
-  if (readable->IsUndefined()) {
-    exception_state.ThrowTypeError(kReadableIsUndefined);
-    return ScriptValue();
+    if (!pair->Get(context, V8String(isolate, "readable")).ToLocal(&readable)) {
+      exception_state.RethrowV8Exception(block.Exception());
+      return ScriptValue();
+    }
+    DCHECK(!block.HasCaught());
   }
 
-  ScriptPromise promise =
-      pipeTo(script_state, ScriptValue(script_state, writable), options,
-             exception_state);
-  if (!exception_state.HadException()) {
-    // set promise.[[PromiseIsHandled]] to true.
-    // We don't have a primitive to do this, so let's attach a catch handler.
-    //
-    // ScriptPromise::Then(f, g) is a confusing interface, it is actually
-    // |promise.then(f).catch(g)|.
-    promise.Then(v8::Local<v8::Function>(),
-                 NoopFunction::CreateFunction(script_state));
+  // 2. If ! IsWritableStream(_writable_) is *false*, throw a *TypeError*
+  //    exception.
+  WritableStream* dom_writable =
+      V8WritableStream::ToImplWithTypeCheck(isolate, writable);
+  if (!dom_writable) {
+    exception_state.ThrowTypeError(kWritableIsNotWritableStream);
+    return ScriptValue();
   }
+
+  // 3. If ! IsReadableStream(_readable_) is *false*, throw a *TypeError*
+  //    exception.
+  if (!V8ReadableStream::HasInstance(readable, isolate)) {
+    exception_state.ThrowTypeError(kReadableIsNotReadableStream);
+    return ScriptValue();
+  }
+
+  // TODO(ricea): When aborting pipes is supported, implement step 5:
+  // 5. If _signal_ is not *undefined*, and _signal_ is not an instance of the
+  //    `AbortSignal` interface, throw a *TypeError* exception.
+
+  // 6. If ! IsReadableStreamLocked(*this*) is *true*, throw a *TypeError*
+  //    exception.
+  if (IsLocked(script_state, exception_state).value_or(false)) {
+    exception_state.ThrowTypeError("Cannot pipe a locked stream");
+    return ScriptValue();
+  }
+  if (exception_state.HadException()) {
+    return ScriptValue();
+  }
+
+  // 7. If ! IsWritableStreamLocked(_writable_) is *true*, throw a *TypeError*
+  //    exception.
+  if (dom_writable->IsLocked(script_state, exception_state).value_or(false)) {
+    exception_state.ThrowTypeError(kWritableIsLocked);
+    return ScriptValue();
+  }
+  if (exception_state.HadException()) {
+    return ScriptValue();
+  }
+
+  // This cast is safe because the following code will only be run when the
+  // native version of WritableStream is not in use.
+  // TODO(ricea): Add a CHECK() for the feature flag here.
+  WritableStreamWrapper* writable_wrapper =
+      static_cast<WritableStreamWrapper*>(dom_writable);
+
+  // 8. Let _promise_ be ! ReadableStreamPipeTo(*this*, _writable_,
+  //    _preventClose_, _preventAbort_, _preventCancel_,
+  //   _signal_).
+
+  // TODO(ricea): Maybe change the parameters to
+  // ReadableStreamOperations::PipeTo to match ReadableStreamPipeTo() in the
+  // standard?
+  ScriptPromise promise = ReadableStreamOperations::PipeTo(
+      script_state, GetInternalStream(script_state),
+      writable_wrapper->GetInternalStream(script_state), options,
+      exception_state);
+  if (exception_state.HadException()) {
+    return ScriptValue();
+  }
+
+  // 9. Set _promise_.[[PromiseIsHandled]] to *true*.
+  promise.MarkAsHandled();
+
+  // 10. Return _readable_.
   return ScriptValue(script_state, readable);
 }
 
@@ -336,9 +381,16 @@ ScriptPromise ReadableStream::pipeTo(ScriptState* script_state,
   if (exception_state.HadException())
     return ScriptPromise();
 
+  // This cast is safe because the following code will only be run when the
+  // native version of WritableStream is not in use.
+  // TODO(ricea): Add a CHECK() for the feature flag here.
+  WritableStreamWrapper* destination_wrapper =
+      static_cast<WritableStreamWrapper*>(destination);
+
   return ReadableStreamOperations::PipeTo(
       script_state, GetInternalStream(script_state),
-      destination->GetInternalStream(script_state), options, exception_state);
+      destination_wrapper->GetInternalStream(script_state), options,
+      exception_state);
 }
 
 ScriptValue ReadableStream::tee(ScriptState* script_state,

@@ -33,8 +33,11 @@ using web::WebThread;
 
 namespace {
 
-// Updates DownloadTaskImpl properties.
-using PropertiesBlock = void (^)(NSURLSessionTask*, NSError*);
+// Updates DownloadTaskImpl properties. |terminal_callback| is true if this is
+// the last update for this DownloadTaskImpl.
+using PropertiesBlock = void (^)(NSURLSessionTask*,
+                                 NSError*,
+                                 bool terminal_callback);
 // Writes buffer and calls |completionHandler| when done.
 using DataBlock = void (^)(scoped_refptr<net::IOBufferWithSize> buffer,
                            void (^completionHandler)());
@@ -114,7 +117,8 @@ int GetTaskPercentComplete(NSURLSessionTask* task) {
   base::PostTaskWithTraits(FROM_HERE, {WebThread::UI}, base::BindOnce(^{
                              CRWURLSessionDelegate* strongSelf = weakSelf;
                              if (strongSelf.propertiesBlock)
-                               strongSelf.propertiesBlock(task, error);
+                               strongSelf.propertiesBlock(
+                                   task, error, /*terminal_callback=*/true);
                            }));
 }
 
@@ -144,7 +148,8 @@ int GetTaskPercentComplete(NSURLSessionTask* task) {
   base::PostTaskWithTraits(FROM_HERE, {WebThread::UI}, base::BindOnce(^{
                              CRWURLSessionDelegate* strongSelf = weakSelf;
                              if (strongSelf.propertiesBlock)
-                               weakSelf.propertiesBlock(task, nil);
+                               weakSelf.propertiesBlock(
+                                   task, nil, /*terminal_callback=*/false);
                            }));
 }
 
@@ -333,12 +338,14 @@ void DownloadTaskImpl::RemoveObserver(DownloadTaskObserver* observer) {
   observers_.RemoveObserver(observer);
 }
 
-NSURLSession* DownloadTaskImpl::CreateSession(NSString* identifier) {
+NSURLSession* DownloadTaskImpl::CreateSession(NSString* identifier,
+                                              NSArray<NSHTTPCookie*>* cookies) {
   DCHECK_CURRENTLY_ON(web::WebThread::UI);
   DCHECK(identifier.length);
   base::WeakPtr<DownloadTaskImpl> weak_this = weak_factory_.GetWeakPtr();
   id<NSURLSessionDataDelegate> session_delegate = [[CRWURLSessionDelegate alloc]
-      initWithPropertiesBlock:^(NSURLSessionTask* task, NSError* error) {
+      initWithPropertiesBlock:^(NSURLSessionTask* task, NSError* error,
+                                bool terminal_callback) {
         if (!weak_this.get()) {
           return;
         }
@@ -361,7 +368,7 @@ NSURLSession* DownloadTaskImpl::CreateSession(NSString* identifier) {
               static_cast<NSHTTPURLResponse*>(task.response).statusCode;
         }
 
-        if (task.state != NSURLSessionTaskStateCompleted) {
+        if (!terminal_callback) {
           OnDownloadUpdated();
           // Download is still in progress, nothing to do here.
           return;
@@ -387,7 +394,8 @@ NSURLSession* DownloadTaskImpl::CreateSession(NSString* identifier) {
         }
         completion_handler();
       }];
-  return delegate_->CreateSession(identifier, session_delegate, /*queue=*/nil);
+  return delegate_->CreateSession(identifier, cookies, session_delegate,
+                                  /*queue=*/nil);
 }
 
 void DownloadTaskImpl::GetCookies(
@@ -419,7 +427,7 @@ void DownloadTaskImpl::StartWithCookies(NSArray<NSHTTPCookie*>* cookies) {
   DCHECK(writer_);
 
   if (!session_) {
-    session_ = CreateSession(identifier_);
+    session_ = CreateSession(identifier_, cookies);
     DCHECK(session_);
   }
 
@@ -429,8 +437,6 @@ void DownloadTaskImpl::StartWithCookies(NSArray<NSHTTPCookie*>* cookies) {
 
   NSURL* url = net::NSURLWithGURL(GetOriginalUrl());
   session_task_ = [session_ dataTaskWithURL:url];
-  [session_.configuration.HTTPCookieStorage storeCookies:cookies
-                                                 forTask:session_task_];
   [session_task_ resume];
   OnDownloadUpdated();
 }

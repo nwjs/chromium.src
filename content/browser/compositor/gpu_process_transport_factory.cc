@@ -96,6 +96,7 @@
 #include "ui/ozone/public/overlay_manager_ozone.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/ozone/public/ozone_switches.h"
+#include "ui/ozone/public/platform_window_surface.h"
 #include "ui/ozone/public/surface_factory_ozone.h"
 #include "ui/ozone/public/surface_ozone_canvas.h"
 #elif defined(USE_X11)
@@ -236,11 +237,13 @@ GpuProcessTransportFactory::CreateSoftwareOutputDevice(
 #elif defined(USE_OZONE)
   ui::SurfaceFactoryOzone* factory =
       ui::OzonePlatform::GetInstance()->GetSurfaceFactoryOzone();
+  std::unique_ptr<ui::PlatformWindowSurface> platform_window_surface =
+      factory->CreatePlatformWindowSurface(widget);
   std::unique_ptr<ui::SurfaceOzoneCanvas> surface_ozone =
       factory->CreateCanvasForWidget(widget);
   CHECK(surface_ozone);
   return std::make_unique<viz::SoftwareOutputDeviceOzone>(
-      std::move(surface_ozone));
+      std::move(platform_window_surface), std::move(surface_ozone));
 #elif defined(USE_X11)
   return std::make_unique<viz::SoftwareOutputDeviceX11>(widget);
 #elif defined(OS_MACOSX)
@@ -550,10 +553,10 @@ void GpuProcessTransportFactory::EstablishedGpuChannel(
       external_begin_frame_controller_client;
 
   viz::BeginFrameSource* begin_frame_source = nullptr;
-  if (compositor->external_begin_frames_enabled()) {
+  if (compositor->external_begin_frame_client()) {
     external_begin_frame_controller_client =
         std::make_unique<ui::ExternalBeginFrameControllerClientImpl>(
-            compositor.get());
+            compositor->external_begin_frame_client());
     // We don't bind the controller mojo interface, since we only use the
     // ExternalBeginFrameSourceMojo directly and not via mojo (plus, as it
     // is an associated interface, binding it would require a separate pipe).
@@ -571,12 +574,12 @@ void GpuProcessTransportFactory::EstablishedGpuChannel(
                 compositor->task_runner().get()));
     begin_frame_source = synthetic_begin_frame_source.get();
   } else {
-      synthetic_begin_frame_source =
-          std::make_unique<viz::DelayBasedBeginFrameSource>(
-              std::make_unique<viz::DelayBasedTimeSource>(
-                  compositor->task_runner().get()),
-              viz::BeginFrameSource::kNotRestartableId);
-      begin_frame_source = synthetic_begin_frame_source.get();
+    synthetic_begin_frame_source =
+        std::make_unique<viz::DelayBasedBeginFrameSource>(
+            std::make_unique<viz::DelayBasedTimeSource>(
+                compositor->task_runner().get()),
+            viz::BeginFrameSource::kNotRestartableId);
+    begin_frame_source = synthetic_begin_frame_source.get();
   }
 
   if (data->synthetic_begin_frame_source) {

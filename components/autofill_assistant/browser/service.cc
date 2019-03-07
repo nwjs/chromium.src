@@ -12,6 +12,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
+#include "components/autofill_assistant/browser/client.h"
 #include "components/autofill_assistant/browser/protocol_utils.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_context.h"
@@ -54,6 +55,17 @@ net::NetworkTrafficAnnotationTag traffic_annotation =
 
 namespace autofill_assistant {
 
+// static
+std::unique_ptr<Service> Service::Create(content::BrowserContext* context,
+                                         Client* client) {
+  GURL server_url(client->GetServerUrl());
+  DCHECK(server_url.is_valid());
+
+  return std::make_unique<Service>(
+      client->GetApiKey(), server_url, context, client->GetAccessTokenFetcher(),
+      client->GetLocale(), client->GetCountryCode());
+}
+
 Service::Service(const std::string& api_key,
                  const GURL& server_url,
                  content::BrowserContext* context,
@@ -78,6 +90,7 @@ Service::Service(const std::string& api_key,
   url::StringPieceReplacements<std::string> action_replacements;
   action_replacements.SetPathStr(kActionEndpoint);
   script_action_server_url_ = server_url.ReplaceComponents(action_replacements);
+  VLOG(1) << "Using script domain " << script_action_server_url_.host();
 }
 
 Service::~Service() {}
@@ -216,6 +229,8 @@ void Service::OnURLLoaderComplete(Loader* loader,
                << loader_instance->loader->NetError()
                << " response_code=" << response_code << " message="
                << (response_body == nullptr ? "" : *response_body);
+    // TODO(crbug.com/806868): Pass an enum to be able to distinguish errors
+    // downstream. Also introduce a metric for this.
     std::move(loader_instance->callback).Run(false, response_body_str);
     return;
   }

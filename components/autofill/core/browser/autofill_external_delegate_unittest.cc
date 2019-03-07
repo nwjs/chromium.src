@@ -8,12 +8,12 @@
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/macros.h"
-#include "base/message_loop/message_loop.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/scoped_task_environment.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_external_delegate.h"
@@ -95,7 +95,10 @@ class MockAutofillManager : public AutofillManager {
  public:
   MockAutofillManager(AutofillDriver* driver, MockAutofillClient* client)
       // Force to use the constructor designated for unit test.
-      : AutofillManager(driver, client, client->GetPersonalDataManager()) {}
+      : AutofillManager(driver,
+                        client,
+                        client->GetPersonalDataManager(),
+                        client->GetAutocompleteHistoryManager()) {}
   ~MockAutofillManager() override {}
 
   PopupType GetPopupType(const FormData& form,
@@ -176,7 +179,7 @@ class AutofillExternalDelegateUnitTest : public testing::Test {
         kQueryId, suggestions, /*autoselect_first_suggestion=*/false);
   }
 
-  base::MessageLoop message_loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
 
   testing::NiceMock<MockAutofillClient> autofill_client_;
   std::unique_ptr<testing::NiceMock<MockAutofillDriver>> autofill_driver_;
@@ -736,6 +739,9 @@ TEST_F(AutofillExternalDelegateUnitTest, ExternalDelegateFillFieldWithValue) {
   base::string16 dummy_string(ASCIIToUTF16("baz foo"));
   EXPECT_CALL(*autofill_driver_,
               RendererShouldFillFieldWithValue(dummy_string));
+  EXPECT_CALL(*autofill_client_.GetMockAutocompleteHistoryManager(),
+              OnAutocompleteEntrySelected(dummy_string))
+      .Times(1);
   base::HistogramTester histogram_tester;
   external_delegate_->DidAcceptSuggestion(dummy_string,
                                           POPUP_ITEM_ID_AUTOCOMPLETE_ENTRY,
@@ -889,47 +895,5 @@ TEST_F(AutofillExternalDelegateCardsFromAccountTest,
       kQueryId, std::vector<Suggestion>(),
       /*autoselect_first_suggestion=*/false);
 }
-
-#if !defined(OS_ANDROID)
-// Test that the delegate includes a separator between the content rows and the
-// footer, if and only if the kAutofillExpandedPopupViews feature is disabled.
-TEST_F(AutofillExternalDelegateUnitTest, IncludeFooterSeparatorForOldUIOnly) {
-  // The guts of the test. This will be run once with the feature enabled,
-  // expecting not to find a separator, and a second time with the feature
-  // disabled, expecting to find a separator.
-  auto tester = [this](bool enabled, auto element_ids) {
-    base::test::ScopedFeatureList scoped_feature_list;
-
-    if (enabled) {
-      scoped_feature_list.InitAndEnableFeature(
-          features::kAutofillExpandedPopupViews);
-    } else {
-      scoped_feature_list.InitAndDisableFeature(
-          features::kAutofillExpandedPopupViews);
-    }
-
-    IssueOnQuery(kQueryId);
-
-    EXPECT_CALL(
-        autofill_client_,
-        ShowAutofillPopup(_, _, SuggestionVectorIdsAre(element_ids), false, _));
-
-    std::vector<Suggestion> autofill_item;
-    autofill_item.push_back(Suggestion());
-    autofill_item[0].frontend_id = kAutofillProfileId;
-    external_delegate_->OnSuggestionsReturned(
-        kQueryId, autofill_item, /*autoselect_first_suggestion=*/false);
-  };
-
-  tester(false,
-         testing::ElementsAre(
-             kAutofillProfileId, static_cast<int>(POPUP_ITEM_ID_SEPARATOR),
-             static_cast<int>(POPUP_ITEM_ID_AUTOFILL_OPTIONS)));
-
-  tester(true, testing::ElementsAre(
-                   kAutofillProfileId,
-                   static_cast<int>(POPUP_ITEM_ID_AUTOFILL_OPTIONS)));
-}
-#endif  // !defined(OS_ANDROID)
 
 }  // namespace autofill

@@ -184,11 +184,12 @@ void ChromotingClient::SetVideoLayout(const protocol::VideoLayout& layout) {
   user_interface_->SetDesktopSize(size_pixels,
                                   webrtc::DesktopVector(x_dpi, y_dpi));
 
-  mouse_input_scaler_.set_input_size(size_pixels);
+  mouse_input_scaler_.set_input_size(
+      webrtc::DesktopRect::MakeSize(size_pixels));
   mouse_input_scaler_.set_output_size(
       connection_->config().protocol() == protocol::SessionConfig::Protocol::ICE
-          ? size_pixels
-          : size_dips);
+          ? webrtc::DesktopRect::MakeSize(size_pixels)
+          : webrtc::DesktopRect::MakeSize(size_dips));
 }
 
 void ChromotingClient::InjectClipboardEvent(
@@ -250,7 +251,7 @@ void ChromotingClient::OnSignalStrategyStateChange(
 }
 
 bool ChromotingClient::OnSignalStrategyIncomingStanza(
-    const buzz::XmlElement* stanza) {
+    const jingle_xmpp::XmlElement* stanza) {
   return false;
 }
 

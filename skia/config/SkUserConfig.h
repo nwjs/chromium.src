@@ -131,8 +131,6 @@ SK_API void SkDebugf_FileLine(const char* file, int line, bool fatal,
 //
 // Remove these as we update our sites.
 
-#define SK_LEGACY_PLATFORM_MATRIX_PROCS
-
 // Workaround for poor anisotropic mipmap quality,
 // pending Skia ripmap support.
 // (https://bugs.chromium.org/p/skia/issues/detail?id=4863)
@@ -144,11 +142,6 @@ SK_API void SkDebugf_FileLine(const char* file, int line, bool fatal,
 // (https://codereview.chromium.org/1643143002)
 #ifndef SK_USE_LEGACY_DISTANCE_FIELDS
 #define SK_USE_LEGACY_DISTANCE_FIELDS
-#endif
-
-// To stage layout result changes (minor) related to convexity calculations
-#ifndef SK_SUPPORT_LEGACY_CACHE_CONVEXITY
-#define SK_SUPPORT_LEGACY_CACHE_CONVEXITY
 #endif
 
 // Skia is enabling this feature soon. Chrome probably does

@@ -5,7 +5,6 @@
 #include "chrome/browser/password_manager/password_store_signin_notifier_impl.h"
 
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "services/identity/public/cpp/identity_manager.h"
 
@@ -23,11 +22,9 @@ void PasswordStoreSigninNotifierImpl::SubscribeToSigninEvents(
     PasswordStore* store) {
   set_store(store);
   IdentityManagerFactory::GetForProfile(profile_)->AddObserver(this);
-  AccountTrackerServiceFactory::GetForProfile(profile_)->AddObserver(this);
 }
 
 void PasswordStoreSigninNotifierImpl::UnsubscribeFromSigninEvents() {
-  AccountTrackerServiceFactory::GetForProfile(profile_)->RemoveObserver(this);
   IdentityManagerFactory::GetForProfile(profile_)->RemoveObserver(this);
 }
 
@@ -42,8 +39,8 @@ void PasswordStoreSigninNotifierImpl::OnPrimaryAccountCleared(
   NotifySignedOut(account_info.email, /* primary_account= */ true);
 }
 
-// AccountTrackerService::Observer implementations.
-void PasswordStoreSigninNotifierImpl::OnAccountRemoved(
+// IdentityManager::Observer implementations.
+void PasswordStoreSigninNotifierImpl::OnAccountRemovedWithInfo(
     const AccountInfo& info) {
   // Only reacts to content area (non-primary) Gaia account sign-out event.
   if (info.account_id !=

@@ -128,18 +128,7 @@ source_set("blink_headers") {
     "platform/mac/web_sandbox_support.h",
     "platform/mac/web_scrollbar_theme.h",
     "platform/modules/background_fetch/web_background_fetch_registration.h",
-    "platform/modules/indexeddb/indexed_db_key_builder.h",
-    "platform/modules/indexeddb/web_idb_callbacks.h",
-    "platform/modules/indexeddb/web_idb_database_callbacks.h",
-    "platform/modules/indexeddb/web_idb_database_error.h",
     "platform/modules/indexeddb/web_idb_database_exception.h",
-    "platform/modules/indexeddb/web_idb_key.h",
-    "platform/modules/indexeddb/web_idb_key_path.h",
-    "platform/modules/indexeddb/web_idb_key_range.h",
-    "platform/modules/indexeddb/web_idb_metadata.h",
-    "platform/modules/indexeddb/web_idb_name_and_version.h",
-    "platform/modules/indexeddb/web_idb_observation.h",
-    "platform/modules/indexeddb/web_idb_value.h",
     "platform/modules/installedapp/web_related_application.h",
     "platform/modules/installedapp/web_related_apps_fetcher.h",
     "platform/modules/media_capabilities/web_audio_configuration.h",
@@ -151,6 +140,9 @@ source_set("blink_headers") {
     "platform/modules/media_capabilities/web_media_configuration.h",
     "platform/modules/media_capabilities/web_media_decoding_configuration.h",
     "platform/modules/media_capabilities/web_video_configuration.h",
+    "platform/modules/mediastream/platform_media_stream_source.h",
+    "platform/modules/mediastream/web_media_stream_sink.h",
+    "platform/modules/mediastream/web_platform_media_stream_track.h",
     "platform/modules/notifications/web_notification_action.h",
     "platform/modules/notifications/web_notification_constants.h",
     "platform/modules/notifications/web_notification_data.h",
@@ -178,8 +170,6 @@ source_set("blink_headers") {
     "platform/modules/service_worker/web_service_worker_request.h",
     "platform/modules/service_worker/web_service_worker_response.h",
     "platform/modules/service_worker/web_service_worker_stream_handle.h",
-    "platform/modules/webmidi/web_midi_accessor.h",
-    "platform/modules/webmidi/web_midi_accessor_client.h",
     "platform/platform.h",
     "platform/pointer_properties.h",
     "platform/scheduler/web_rail_mode_observer.h",
@@ -208,6 +198,7 @@ source_set("blink_headers") {
     "platform/web_canvas_capture_handler.h",
     "platform/web_client_hints_type.h",
     "platform/web_coalesced_input_event.h",
+    "platform/web_color_scheme.h",
     "platform/web_common.h",
     "platform/web_computed_ax_tree.h",
     "platform/web_connection_type.h",
@@ -272,6 +263,7 @@ source_set("blink_headers") {
     "platform/web_insecure_request_policy.h",
     "platform/web_intrinsic_sizing_info.h",
     "platform/web_isolated_world_ids.h",
+    "platform/web_isolated_world_info.h",
     "platform/web_keyboard_event.h",
     "platform/web_layer_tree_view.h",
     "platform/web_loading_behavior_flag.h",
@@ -299,6 +291,7 @@ source_set("blink_headers") {
     "platform/web_mouse_event.h",
     "platform/web_mouse_wheel_event.h",
     "platform/web_native_scroll_behavior.h",
+    "platform/web_navigation_body_loader.h",
     "platform/web_network_state_notifier.h",
     "platform/web_platform_event_listener.h",
     "platform/web_point.h",
@@ -324,9 +317,9 @@ source_set("blink_headers") {
     "platform/web_rtc_offer_options.h",
     "platform/web_rtc_peer_connection_handler.h",
     "platform/web_rtc_peer_connection_handler_client.h",
-    "platform/web_rtc_rtp_contributing_source.h",
     "platform/web_rtc_rtp_receiver.h",
     "platform/web_rtc_rtp_sender.h",
+    "platform/web_rtc_rtp_source.h",
     "platform/web_rtc_rtp_transceiver.h",
     "platform/web_rtc_session_description.h",
     "platform/web_rtc_session_description_request.h",
@@ -499,8 +492,6 @@ source_set("blink_headers") {
     "web/web_settings.h",
     "web/web_shared_worker.h",
     "web/web_shared_worker_client.h",
-    "web/web_shared_worker_connect_listener.h",
-    "web/web_shared_worker_repository_client.h",
     "web/web_storage_event_dispatcher.h",
     "web/web_surrounding_text.h",
     "web/web_testing_support.h",
@@ -550,7 +541,6 @@ source_set("blink_headers") {
     "//cc:cc",
     "//cc/paint:paint",
     "//components/viz/common",
-    "//media/midi:mojo_shared_cpp_sources",
     "//mojo/public/cpp/bindings:bindings",
     "//mojo/public/cpp/system:system",
     "//services/device/public/mojom:mojom_shared_cpp_sources",
@@ -646,42 +636,35 @@ mojom("mojo_bindings") {
       [ "//third_party/blink/renderer/platform:blink_platform_public_deps" ]
   sources = [
     "platform/autoplay.mojom",
-    "platform/content_security_policy.mojom",
-    "platform/dedicated_worker_factory.mojom",
     "platform/media_download_in_product_help.mojom",
     "platform/mime_registry.mojom",
     "platform/modules/app_banner/app_banner.mojom",
-    "platform/modules/background_fetch/background_fetch.mojom",
     "platform/modules/background_sync/background_sync.mojom",
     "platform/modules/badging/badging.mojom",
     "platform/modules/bluetooth/web_bluetooth.mojom",
-    "platform/modules/cache_storage/cache_storage.mojom",
     "platform/modules/credentialmanager/credential_manager.mojom",
-    "platform/modules/fetch/fetch_api_request.mojom",
     "platform/modules/geolocation/geolocation_service.mojom",
     "platform/modules/hyphenation/hyphenation.mojom",
+    "platform/modules/idle/idle_manager.mojom",
     "platform/modules/insecure_input/insecure_input_service.mojom",
     "platform/modules/keyboard_lock/keyboard_lock.mojom",
     "platform/modules/locks/lock_manager.mojom",
     "platform/modules/notifications/notification_service.mojom",
     "platform/modules/permissions/permission.mojom",
     "platform/modules/permissions/permission_status.mojom",
-    "platform/modules/webauthn/virtual_authenticator.mojom",
     "platform/modules/webdatabase/web_database.mojom",
     "platform/oom_intervention.mojom",
     "platform/reporting.mojom",
     "platform/site_engagement.mojom",
     "platform/ukm.mojom",
     "web/commit_result.mojom",
-    "web/console_message.mojom",
-    "web/devtools_agent.mojom",
     "web/devtools_frontend.mojom",
     "web/selection_menu_behavior.mojom",
     "web/window_features.mojom",
-    "web/worker_content_settings_proxy.mojom",
   ]
   public_deps = [
     ":android_mojo_bindings",
+    ":authenticator_test_mojo_bindings",
     ":web_client_hints_types_mojo_bindings",
     ":web_feature_mojo_bindings",
     "//components/services/font/public/interfaces",
@@ -717,8 +700,14 @@ mojom("mojo_bindings") {
 }
 
 mojom("android_mojo_bindings") {
-  visibility = [ ":mojo_bindings" ]
-  visibility_blink = [ ":mojo_bindings_blink" ]
+  visibility = [
+    ":mojo_bindings",
+    ":authenticator_test_mojo_bindings",
+  ]
+  visibility_blink = [
+    ":mojo_bindings_blink",
+    ":authenticator_test_mojo_bindings_blink",
+  ]
   sources = [
     "platform/input_host.mojom",
     "platform/input_messages.mojom",
@@ -753,22 +742,9 @@ mojom("android_mojo_bindings") {
   export_class_attribute_blink = "BLINK_PLATFORM_EXPORT"
   export_define_blink = "BLINK_PLATFORM_IMPLEMENTATION=1"
   export_header_blink = "third_party/blink/public/platform/web_common.h"
-}
 
-mojom("media_devices_mojo_bindings") {
-  sources = [
-    "platform/modules/mediastream/media_devices.mojom",
-  ]
-
-  public_deps = [
-    "//media/capture/mojom:video_capture",
-    "//media/mojo/interfaces",
-    "//ui/gfx/geometry/mojo",
-  ]
-
-  export_class_attribute = "CONTENT_EXPORT"
-  export_define = "CONTENT_IMPLEMENTATION=1"
-  export_header = "content/common/content_export.h"
+  # Don't scramble message IDs so they are redistributable to external tests.
+  scramble_message_ids = false
 }
 
 # The embedded_frame_sink_mojo_bindings is separated from the rest of mojom
@@ -837,8 +813,6 @@ group("generate_mojo_bindings") {
     ":core_mojo_bindings_blink_headers",
     ":core_mojo_bindings_headers",
     ":embedded_frame_sink_mojo_bindings_blink_headers",
-    ":media_devices_mojo_bindings_blink_headers",
-    ":media_devices_mojo_bindings_headers",
     ":mojo_bindings_blink_headers",
     ":mojo_bindings_headers",
   ]
@@ -847,10 +821,13 @@ group("generate_mojo_bindings") {
 # The web_feature_mojo_bindings is separated from the rest of the mojom files
 # because the chromium typemap for blink mojo_bindings has private content
 # dependencies.
-mojom("web_feature_mojo_bindings") {
+mojom_component("web_feature_mojo_bindings") {
   sources = [
     "platform/web_feature.mojom",
   ]
+
+  macro_prefix = "WEB_FEATURE_MOJO_BINDINGS_MOJOM"
+  output_prefix = "web_feature_mojo_bindings_mojom"
 }
 
 # The web_feature_mojo_bindings is separated from the rest of the mojom files
@@ -862,18 +839,17 @@ mojom("web_client_hints_types_mojo_bindings") {
   ]
 }
 
-# Some mojom typemaps are shared between Chromium and Blink variants and
-# therefore require some shared traits implementation. These definitions are
-# relegated to a separate target to avoid duplication between the variants.
-source_set("shared_typemap_traits") {
-  visibility = [ ":*" ]
+# This is a separate target because it needs unscrambled message IDs.
+mojom("authenticator_test_mojo_bindings") {
   sources = [
-    "web/console_message_struct_traits.cc",
-    "web/console_message_struct_traits.h",
+    "platform/modules/webauthn/virtual_authenticator.mojom",
   ]
-  deps = [
-    ":blink_headers",
-    ":mojo_bindings_headers",
-    "//mojo/public/cpp/bindings:struct_traits",
+
+  public_deps = [
+    ":android_mojo_bindings",
+    "//url/mojom:url_mojom_gurl",
   ]
+
+  # Don't scramble message IDs so they are redistributable to external tests.
+  scramble_message_ids = false
 }

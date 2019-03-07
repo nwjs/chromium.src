@@ -14,6 +14,8 @@ make_names("make_platform_loader_generated_fetch_initiator_type_names") {
 
 blink_platform_sources("loader") {
   sources = [
+    "allowed_by_nosniff.cc",
+    "allowed_by_nosniff.h",
     "cors/cors.cc",
     "cors/cors.h",
     "cors/cors_error_string.cc",
@@ -22,9 +24,11 @@ blink_platform_sources("loader") {
     "fetch/buffering_data_pipe_writer.h",
     "fetch/cached_metadata.cc",
     "fetch/cached_metadata.h",
+    "fetch/cached_metadata_handler.cc",
     "fetch/cached_metadata_handler.h",
     "fetch/client_hints_preferences.cc",
     "fetch/client_hints_preferences.h",
+    "fetch/console_logger.h",
     "fetch/fetch_client_settings_object.h",
     "fetch/fetch_client_settings_object_snapshot.cc",
     "fetch/fetch_client_settings_object_snapshot.h",
@@ -41,6 +45,8 @@ blink_platform_sources("loader") {
     "fetch/integrity_metadata.h",
     "fetch/memory_cache.cc",
     "fetch/memory_cache.h",
+    "fetch/null_resource_fetcher_properties.cc",
+    "fetch/null_resource_fetcher_properties.h",
     "fetch/preload_key.h",
     "fetch/raw_resource.cc",
     "fetch/raw_resource.h",
@@ -53,6 +59,7 @@ blink_platform_sources("loader") {
     "fetch/resource_error.h",
     "fetch/resource_fetcher.cc",
     "fetch/resource_fetcher.h",
+    "fetch/resource_fetcher_properties.h",
     "fetch/resource_finish_observer.h",
     "fetch/resource_load_info.h",
     "fetch/resource_load_priority.h",
@@ -85,9 +92,13 @@ blink_platform_sources("loader") {
     "fetch/text_resource_decoder_options.h",
     "fetch/unique_identifier.cc",
     "fetch/unique_identifier.h",
+    "ftp_directory_listing.cc",
+    "ftp_directory_listing.h",
     "link_header.cc",
     "link_header.h",
     "mixed_content_autoupgrade_status.h",
+    "static_data_navigation_body_loader.cc",
+    "static_data_navigation_body_loader.h",
     "subresource_integrity.cc",
     "subresource_integrity.h",
   ]
@@ -125,7 +136,9 @@ jumbo_source_set("unit_tests") {
     "fetch/resource_response_test.cc",
     "fetch/resource_test.cc",
     "fetch/source_keyed_cached_metadata_handler_test.cc",
+    "ftp_directory_listing_test.cc",
     "link_header_test.cc",
+    "static_data_navigation_body_loader_test.cc",
     "subresource_integrity_test.cc",
   ]
 
@@ -154,6 +167,8 @@ jumbo_source_set("test_support") {
     "testing/mock_resource.cc",
     "testing/mock_resource.h",
     "testing/mock_resource_client.h",
+    "testing/test_resource_fetcher_properties.cc",
+    "testing/test_resource_fetcher_properties.h",
     "testing/web_url_loader_factory_with_mock.cc",
     "testing/web_url_loader_factory_with_mock.h",
   ]

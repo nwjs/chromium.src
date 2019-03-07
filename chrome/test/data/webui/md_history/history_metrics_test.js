@@ -27,19 +27,22 @@ suite('Metrics', function() {
       recordHistogram: function(histogram, value, max) {
         assertTrue(value < max);
 
-        if (!(histogram in this.histogramMap))
+        if (!(histogram in this.histogramMap)) {
           this.histogramMap[histogram] = {};
+        }
 
-        if (!(value in this.histogramMap[histogram]))
+        if (!(value in this.histogramMap[histogram])) {
           this.histogramMap[histogram][value] = 0;
+        }
 
         this.histogramMap[histogram][value]++;
       },
 
       /** @override */
       recordAction: function(action) {
-        if (!(action in this.actionMap))
+        if (!(action in this.actionMap)) {
           this.actionMap[action] = 0;
+        }
 
         this.actionMap[action]++;
       },
@@ -92,7 +95,7 @@ suite('Metrics', function() {
           const items = polymerSelectAll(app.$.history, 'history-item');
           MockInteractions.tap(items[1].$$('#bookmark-star'));
           assertEquals(1, actionMap['BookmarkStarClicked']);
-          MockInteractions.tap(items[1].$.title);
+          MockInteractions.tap(items[1].$.link);
           assertEquals(1, actionMap['EntryLinkClick']);
           assertEquals(1, histogramMap['HistoryPage.ClickPosition'][1]);
           assertEquals(1, histogramMap['HistoryPage.ClickPositionSubset'][1]);
@@ -109,7 +112,7 @@ suite('Metrics', function() {
         })
         .then(() => {
           items = polymerSelectAll(app.$.history, 'history-item');
-          MockInteractions.tap(items[0].$.title);
+          MockInteractions.tap(items[0].$.link);
           assertEquals(1, actionMap['SearchResultClick']);
           assertEquals(1, histogramMap['HistoryPage.ClickPosition'][0]);
           assertEquals(1, histogramMap['HistoryPage.ClickPositionSubset'][0]);
@@ -183,7 +186,7 @@ suite('Metrics', function() {
           assertEquals(1, histogram[SyncedTabsHistogram.COLLAPSE_SESSION]);
           MockInteractions.tap(cards[0].$['card-heading']);
           assertEquals(1, histogram[SyncedTabsHistogram.EXPAND_SESSION]);
-          MockInteractions.tap(polymerSelectAll(cards[0], '.website-title')[0]);
+          MockInteractions.tap(polymerSelectAll(cards[0], '.website-link')[0]);
           assertEquals(1, histogram[SyncedTabsHistogram.LINK_CLICKED]);
 
           menuButton = cards[0].$['menu-button'];

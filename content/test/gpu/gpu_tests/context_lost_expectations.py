@@ -42,10 +42,6 @@ class ContextLostExpectations(GpuTestExpectations):
     self.Skip('ContextLost_WebGLContextLostFromSelectElement',
               ['lion', 'debug'], bug=498149)
 
-    # Flaking on Mac.
-    self.Flaky('GpuCrash_GPUProcessCrashesExactlyOncePerVisitToAboutGpuCrash',
-              ['mac'], bug=878258)
-
     # 'Browser must support tab control' raised on Android
     self.Skip('GpuCrash_GPUProcessCrashesExactlyOncePerVisitToAboutGpuCrash',
               ['android'], bug=609629)
@@ -56,7 +52,7 @@ class ContextLostExpectations(GpuTestExpectations):
 
     # Flaking on Nexus 5X
     self.Flaky('ContextLost_WebGLUnblockedAfterUserInitiatedReload',
-              ['android'], bug=879423)
+              ['android', ('qualcomm', 'Adreno (TM) 418')], bug=879423)
     self.Fail('ContextLost_WorkerRAFAfterGPUCrash',
               ['android'], bug=880078)
     self.Fail('ContextLost_WorkerRAFAfterGPUCrash_OOPD',

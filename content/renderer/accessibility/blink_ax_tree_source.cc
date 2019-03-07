@@ -115,14 +115,15 @@ class AXContentNodeDataSparseAttributeAdapter
       case WebAXObjectAttribute::kAriaActiveDescendant:
         // TODO(dmazzoni): WebAXObject::ActiveDescendant currently returns
         // more information than the sparse interface does.
+        // ******** Why is this a TODO? ********
         break;
       case WebAXObjectAttribute::kAriaDetails:
         dst_->AddIntAttribute(ax::mojom::IntAttribute::kDetailsId,
                               value.AxID());
         break;
       case WebAXObjectAttribute::kAriaErrorMessage:
-        dst_->AddIntAttribute(ax::mojom::IntAttribute::kErrormessageId,
-                              value.AxID());
+        // Use WebAXObject::ErrorMessage(), which provides both ARIA error
+        // messages as well as built-in HTML form validation messages.
         break;
       default:
         NOTREACHED();
@@ -483,8 +484,11 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
   blink::WebString web_name = src.GetName(nameFrom, nameObjects);
   if ((!web_name.IsEmpty() && !web_name.IsNull()) ||
       nameFrom == ax::mojom::NameFrom::kAttributeExplicitlyEmpty) {
+    int max_length = dst->role == ax::mojom::Role::kStaticText
+                         ? kMaxStaticTextLength
+                         : kMaxStringAttributeLength;
     TruncateAndAddStringAttribute(dst, ax::mojom::StringAttribute::kName,
-                                  web_name.Utf8());
+                                  web_name.Utf8(), max_length);
     dst->SetNameFrom(nameFrom);
     AddIntListAttributeFromWebObjects(
         ax::mojom::IntListAttribute::kLabelledbyIds, nameObjects, dst);
@@ -690,6 +694,11 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
                            src.AriaActiveDescendant().AxID());
     }
 
+    if (!src.ErrorMessage().IsDetached()) {
+      dst->AddIntAttribute(ax::mojom::IntAttribute::kErrormessageId,
+                           src.ErrorMessage().AxID());
+    }
+
     if (ui::IsHeading(dst->role) && src.HeadingLevel()) {
       dst->AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel,
                            src.HeadingLevel());
@@ -846,20 +855,21 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
                            src.CellRowIndex());
       dst->AddIntAttribute(ax::mojom::IntAttribute::kTableCellRowSpan,
                            src.CellRowSpan());
+    }
+
+    if (ui::IsCellOrTableHeader(dst->role) || ui::IsTableRow(dst->role)) {
+      // aria-rowindex and aria-colindex are supported on cells, headers and
+      // rows.
+      int aria_rowindex = src.AriaRowIndex();
+      if (aria_rowindex)
+        dst->AddIntAttribute(ax::mojom::IntAttribute::kAriaCellRowIndex,
+                             aria_rowindex);
 
       int aria_colindex = src.AriaColumnIndex();
       if (aria_colindex) {
         dst->AddIntAttribute(ax::mojom::IntAttribute::kAriaCellColumnIndex,
                              aria_colindex);
       }
-    }
-
-    if (ui::IsCellOrTableHeader(dst->role) || ui::IsTableRow(dst->role)) {
-      // aria-rowindex is supported on cells, headers and rows.
-      int aria_rowindex = src.AriaRowIndex();
-      if (aria_rowindex)
-        dst->AddIntAttribute(ax::mojom::IntAttribute::kAriaCellRowIndex,
-                             aria_rowindex);
     }
 
     if (ui::IsTableHeader(dst->role) &&
@@ -962,6 +972,7 @@ void BlinkAXTreeSource::SerializeNode(WebAXObject src,
   }
 
   if (src.IsScrollableContainer()) {
+    dst->AddBoolAttribute(ax::mojom::BoolAttribute::kScrollable, true);
     const gfx::Point& scroll_offset = src.GetScrollOffset();
     dst->AddIntAttribute(ax::mojom::IntAttribute::kScrollX, scroll_offset.x());
     dst->AddIntAttribute(ax::mojom::IntAttribute::kScrollY, scroll_offset.y());
@@ -1010,11 +1021,11 @@ WebAXObject BlinkAXTreeSource::ComputeRoot() const {
 void BlinkAXTreeSource::TruncateAndAddStringAttribute(
     AXContentNodeData* dst,
     ax::mojom::StringAttribute attribute,
-    const std::string& value) const {
-  if (value.size() > BlinkAXTreeSource::kMaxStringAttributeLength) {
+    const std::string& value,
+    uint32_t max_len) const {
+  if (value.size() > max_len) {
     std::string truncated;
-    base::TruncateUTF8ToByteSize(
-        value, BlinkAXTreeSource::kMaxStringAttributeLength, &truncated);
+    base::TruncateUTF8ToByteSize(value, max_len, &truncated);
     dst->AddStringAttribute(attribute, truncated);
   } else {
     dst->AddStringAttribute(attribute, value);

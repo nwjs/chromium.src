@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#import "ios/chrome/browser/ui/browser_view_controller.h"
+#import "ios/chrome/browser/ui/browser_view_controller+private.h"
+
 #import <Foundation/Foundation.h>
 #import <PassKit/PassKit.h>
 
@@ -31,7 +34,7 @@
 #import "ios/chrome/browser/ui/activity_services/share_protocol.h"
 #import "ios/chrome/browser/ui/activity_services/share_to_data.h"
 #import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
-#import "ios/chrome/browser/ui/browser_view_controller.h"
+#import "ios/chrome/browser/ui/browser_container/browser_container_view_controller.h"
 #import "ios/chrome/browser/ui/browser_view_controller_dependency_factory.h"
 #import "ios/chrome/browser/ui/browser_view_controller_helper.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
@@ -43,6 +46,7 @@
 #import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
+#import "ios/chrome/browser/web/sad_tab_tab_helper.h"
 #include "ios/chrome/browser/web_state_list/fake_web_state_list_delegate.h"
 #include "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_opener.h"
@@ -176,8 +180,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     // Set up mock TabModel, Tab, and CRWWebController.
     id tabModel = [[BVCTestTabModel alloc] init];
     [tabModel setBrowserState:chrome_browser_state_.get()];
-    id currentTab = [[BVCTestTabMock alloc]
-        initWithRepresentedObject:[OCMockObject niceMockForClass:[Tab class]]];
 
     // Enable web usage for the mock TabModel's WebStateList.
     WebStateListWebUsageEnabler* enabler =
@@ -185,25 +187,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
             chrome_browser_state_.get());
     enabler->SetWebStateList([tabModel webStateList]);
     enabler->SetWebUsageEnabled(true);
-
-    // Stub methods for TabModel.
-    NSUInteger tabCount = 1;
-    [[[tabModel stub] andReturnValue:OCMOCK_VALUE(tabCount)] count];
-    [[[tabModel stub] andReturn:currentTab] currentTab];
-    [[[tabModel stub] andReturn:currentTab] tabAtIndex:0];
-    [[tabModel stub] addObserver:[OCMArg any]];
-    [[tabModel stub] removeObserver:[OCMArg any]];
-    [[tabModel stub] saveSessionImmediately:NO];
-    [[tabModel stub] setCurrentTab:[OCMArg any]];
-    [[tabModel stub] closeAllTabs];
-
-    web::WebState::CreateParams params(chrome_browser_state_.get());
-    std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
-    webStateImpl_.reset(static_cast<web::WebStateImpl*>(webState.release()));
-    [currentTab setWebState:webStateImpl_.get()];
-
-    SnapshotTabHelper::CreateForWebState(webStateImpl_.get(),
-                                         [[NSUUID UUID] UUIDString]);
 
     id passKitController =
         [OCMockObject niceMockForClass:[PKAddPassesViewController class]];
@@ -217,7 +200,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     [[[factory stub] andReturn:bvcHelper_] newBrowserViewControllerHelper];
 
     tabModel_ = tabModel;
-    tab_ = currentTab;
     dependencyFactory_ = factory;
     command_dispatcher_ = [[CommandDispatcher alloc] init];
     id mockPageInfoCommandHandler =
@@ -227,11 +209,36 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     id mockApplicationCommandHandler =
         OCMProtocolMock(@protocol(ApplicationCommands));
     bvc_ = [[BrowserViewController alloc]
-                  initWithTabModel:tabModel_
-                      browserState:chrome_browser_state_.get()
-                 dependencyFactory:factory
-        applicationCommandEndpoint:mockApplicationCommandHandler
-                 commandDispatcher:command_dispatcher_];
+                      initWithTabModel:tabModel_
+                          browserState:chrome_browser_state_.get()
+                     dependencyFactory:factory
+            applicationCommandEndpoint:mockApplicationCommandHandler
+                     commandDispatcher:command_dispatcher_
+        browserContainerViewController:[[BrowserContainerViewController alloc]
+                                           init]];
+
+    // Stub methods for TabModel.
+    NSUInteger tabCount = 1;
+    [[[tabModel stub] andReturnValue:OCMOCK_VALUE(tabCount)] count];
+    id currentTab = [[BVCTestTabMock alloc]
+        initWithRepresentedObject:[OCMockObject niceMockForClass:[Tab class]]];
+    [[[tabModel stub] andReturn:currentTab] currentTab];
+    [[[tabModel stub] andReturn:currentTab] tabAtIndex:0];
+    [[tabModel stub] addObserver:[OCMArg any]];
+    [[tabModel stub] removeObserver:[OCMArg any]];
+    [[tabModel stub] saveSessionImmediately:NO];
+    [[tabModel stub] setCurrentTab:[OCMArg any]];
+    [[tabModel stub] closeAllTabs];
+    tab_ = currentTab;
+
+    web::WebState::CreateParams params(chrome_browser_state_.get());
+    std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
+    webStateImpl_.reset(static_cast<web::WebStateImpl*>(webState.release()));
+    [currentTab setWebState:webStateImpl_.get()];
+
+    SnapshotTabHelper::CreateForWebState(webStateImpl_.get(),
+                                         [[NSUUID UUID] UUIDString]);
+    SadTabTabHelper::CreateForWebState(webStateImpl_.get(), nil);
 
     // Load TemplateURLService.
     TemplateURLService* template_url_service =
@@ -379,11 +386,6 @@ TEST_F(BrowserViewControllerTest, TestTabSelectedIsNewTab) {
   [bvc_ tabSelected:tab_ notifyToolbar:YES];
   EXPECT_EQ([tab_.webState->GetView() superview], [bvc_ contentArea]);
   EXPECT_TRUE(webStateImpl_->IsVisible());
-}
-
-TEST_F(BrowserViewControllerTest, TestTabDeselected) {
-  [bvc_ tabModel:nil didDeselectTab:tab_];
-  EXPECT_FALSE(webStateImpl_->IsVisible());
 }
 
 TEST_F(BrowserViewControllerTest, TestNativeContentController) {

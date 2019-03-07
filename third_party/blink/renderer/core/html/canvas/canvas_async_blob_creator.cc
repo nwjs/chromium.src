@@ -298,14 +298,14 @@ void CanvasAsyncBlobCreator::ScheduleAsyncBlobCreation(const double& quality) {
     return;
   }
   // Webp encoder does not support progressive encoding. We also don't use idle
-  // encoding for layout tests, since the idle task start and completition
-  // deadlines (6.7s or 13s) bypass the layout test running deadline (6s)
+  // encoding for web tests, since the idle task start and completition
+  // deadlines (6.7s or 13s) bypass the web test running deadline (6s)
   // and result in timeouts on different tests. We use
   // enforce_idle_encoding_for_test_ to test idle encoding in unit tests.
   bool use_idle_encoding =
       (mime_type_ != kMimeTypeWebp) &&
       (enforce_idle_encoding_for_test_ ||
-       !RuntimeEnabledFeatures::NoIdleEncodingForLayoutTestsEnabled());
+       !RuntimeEnabledFeatures::NoIdleEncodingForWebTestsEnabled());
 
   if (!use_idle_encoding) {
     if (!IsMainThread()) {
@@ -588,7 +588,7 @@ void CanvasAsyncBlobCreator::PostDelayedTaskToCurrentThread(
                         TimeDelta::FromMillisecondsD(delay_ms));
 }
 
-void CanvasAsyncBlobCreator::Trace(blink::Visitor* visitor) {
+void CanvasAsyncBlobCreator::Trace(Visitor* visitor) {
   visitor->Trace(context_);
   visitor->Trace(encode_options_);
   visitor->Trace(callback_);
@@ -597,12 +597,12 @@ void CanvasAsyncBlobCreator::Trace(blink::Visitor* visitor) {
 
 sk_sp<SkColorSpace> CanvasAsyncBlobCreator::BlobColorSpaceToSkColorSpace(
     String blob_color_space) {
-  SkColorSpace::Gamut gamut = SkColorSpace::kSRGB_Gamut;
+  skcms_Matrix3x3 gamut = SkNamedGamut::kSRGB;
   if (blob_color_space == kDisplayP3ImageColorSpaceName)
-    gamut = SkColorSpace::kDCIP3_D65_Gamut;
+    gamut = SkNamedGamut::kDCIP3;
   else if (blob_color_space == kRec2020ImageColorSpaceName)
-    gamut = SkColorSpace::kRec2020_Gamut;
-  return SkColorSpace::MakeRGB(SkColorSpace::kSRGB_RenderTargetGamma, gamut);
+    gamut = SkNamedGamut::kRec2020;
+  return SkColorSpace::MakeRGB(SkNamedTransferFn::kSRGB, gamut);
 }
 
 bool CanvasAsyncBlobCreator::EncodeImageForConvertToBlobTest() {

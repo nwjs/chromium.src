@@ -181,6 +181,8 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   }
 
  private:
+  friend class CompositorFrameSinkSupportTest;
+  friend class DisplayTest;
   friend class FrameSinkManagerTest;
 
   SubmitResult MaybeSubmitCompositorFrameInternal(
@@ -198,7 +200,6 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
                                  const gfx::PresentationFeedback& feedback);
   void DidRejectCompositorFrame(
       uint32_t presentation_token,
-      bool request_presentation_feedback,
       std::vector<TransferableResource> frame_resource_list);
 
   // Update the display root reference with |surface|.
@@ -222,6 +223,7 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
 
   void MaybeEvictSurfaces();
   void EvictLastActiveSurface();
+  bool ShouldSendBeginFrame(base::TimeTicks timestamp);
 
   mojom::CompositorFrameSinkClient* const client_;
 
@@ -304,6 +306,8 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
 
   base::flat_map<uint32_t, gfx::PresentationFeedback> presentation_feedbacks_;
   uint32_t last_evicted_parent_sequence_number_ = 0;
+
+  base::TimeTicks last_frame_time_;
 
   base::WeakPtrFactory<CompositorFrameSinkSupport> weak_factory_;
 

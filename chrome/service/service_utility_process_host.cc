@@ -17,20 +17,21 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/process/launch.h"
 #include "base/process/process_handle.h"
 #include "base/rand_util.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task_runner_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/win/win_util.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/chrome_utility_printing_messages.h"
-#include "chrome/service/service_process_catalog_source.h"
 #include "chrome/services/printing/public/mojom/pdf_to_emf_converter.mojom.h"
+#include "content/public/app/content_browser_manifest.h"
+#include "content/public/app/content_utility_manifest.h"
 #include "content/public/common/child_process_host.h"
 #include "content/public/common/connection_filter.h"
 #include "content/public/common/content_switches.h"
@@ -276,7 +277,7 @@ ServiceUtilityProcessHost::ServiceUtilityProcessHost(
       client_task_runner_(client_task_runner),
       waiting_for_reply_(false),
       weak_ptr_factory_(this) {
-  child_process_host_.reset(ChildProcessHost::Create(this));
+  child_process_host_ = ChildProcessHost::Create(this);
 }
 
 ServiceUtilityProcessHost::~ServiceUtilityProcessHost() {
@@ -359,9 +360,11 @@ bool ServiceUtilityProcessHost::StartProcess(bool sandbox) {
   // instances: this process, which masquerades as "content_browser"; and the
   // child process, which exists ostensibly as the only instance of
   // "content_utility". This is all set up here.
+  std::vector<service_manager::Manifest> manifests{
+      content::GetContentBrowserManifest(),
+      content::GetContentUtilityManifest()};
   service_manager_ = std::make_unique<service_manager::ServiceManager>(
-      std::make_unique<NullServiceProcessLauncherFactory>(),
-      CreateServiceProcessCatalog(), nullptr);
+      std::make_unique<NullServiceProcessLauncherFactory>(), manifests);
 
   service_manager::mojom::ServicePtr browser_proxy;
   service_manager_connection_ = content::ServiceManagerConnection::Create(
@@ -428,7 +431,7 @@ bool ServiceUtilityProcessHost::Launch(base::CommandLine* cmd_line,
       switches::kVModule,
   };
   cmd_line->CopySwitchesFrom(service_command_line, kForwardSwitches,
-                             arraysize(kForwardSwitches));
+                             base::size(kForwardSwitches));
 
   if (sandbox) {
     mojo::PlatformChannel channel;

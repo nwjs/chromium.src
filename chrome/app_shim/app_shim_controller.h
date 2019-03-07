@@ -57,7 +57,9 @@ class AppShimController : public chrome::mojom::AppShim {
       views_bridge_mac::mojom::BridgeFactoryAssociatedRequest request) override;
   void CreateContentNSViewBridgeFactory(
       content::mojom::NSViewBridgeFactoryAssociatedRequest request) override;
+  void CreateCommandDispatcherForWidget(uint64_t widget_id) override;
   void Hide() override;
+  void SetBadgeLabel(const std::string& badge_label) override;
   void UnhideWithoutActivation() override;
   void SetUserAttention(apps::AppShimAttentionType attention_type) override;
 

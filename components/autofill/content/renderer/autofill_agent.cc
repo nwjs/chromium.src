@@ -87,12 +87,6 @@ namespace {
 // upon, instead of multiple in close succession (debounce time).
 size_t kWaitTimeForSelectOptionsChangesMs = 50;
 
-// Whether the "single click" autofill feature is enabled, through command-line
-// or field trial.
-bool IsSingleClickEnabled() {
-  return base::FeatureList::IsEnabled(features::kSingleClickAutofill);
-}
-
 // Gets all the data list values (with corresponding label) for the given
 // element.
 void GetDataListSuggestions(const WebInputElement& element,
@@ -301,8 +295,7 @@ void AutofillAgent::FireHostSubmitEvents(const FormData& form_data,
   if (!submitted_forms_.insert(form_data).second)
     return;
 
-  GetAutofillDriver()->FormSubmitted(form_data, known_success, source,
-                                     base::TimeTicks::Now());
+  GetAutofillDriver()->FormSubmitted(form_data, known_success, source);
 }
 
 void AutofillAgent::Shutdown() {
@@ -660,7 +653,14 @@ void AutofillAgent::ShowSuggestions(const WebFormControlElement& element,
 
   // Password field elements should only have suggestions shown by the password
   // autofill agent.
-  if (input_element && input_element->IsPasswordFieldForAutofill() &&
+  // The /*disable presubmit*/ comment below is used to disable a presubmit
+  // script that ensures that only IsPasswordFieldForAutofill() is used in this
+  // code (it has to appear between the function name and the parentesis to not
+  // match a regex). In this specific case we are actually interested in whether
+  // the field is currently a password field, not whether it has ever been a
+  // password field.
+  if (input_element &&
+      input_element->IsPasswordField /*disable presubmit*/ () &&
       !query_password_suggestion_) {
     return;
   }
@@ -926,10 +926,6 @@ void AutofillAgent::FormControlElementClicked(
   // Show full suggestions when clicking on an already-focused form field.
   options.show_full_suggestion_list = element.IsAutofilled() || was_focused;
 
-  if (!IsSingleClickEnabled()) {
-    // On  the initial click (not focused yet), only show password suggestions.
-    options.show_password_suggestions_only = !was_focused;
-  }
   ShowSuggestions(element, options);
 }
 

@@ -37,14 +37,6 @@ STATIC_ASSERT_ENUM(V8_CACHE_OPTIONS_FULLCODE_WITHOUT_HEAT_CHECK,
 STATIC_ASSERT_ENUM(V8_CACHE_OPTIONS_LAST,
                    WebSettings::V8CacheOptions::kFullCodeWithoutHeatCheck);
 
-STATIC_ASSERT_ENUM(SavePreviousDocumentResources::NEVER,
-                   WebSettings::SavePreviousDocumentResources::kNever);
-STATIC_ASSERT_ENUM(
-    SavePreviousDocumentResources::UNTIL_ON_DOM_CONTENT_LOADED,
-    WebSettings::SavePreviousDocumentResources::kUntilOnDOMContentLoaded);
-STATIC_ASSERT_ENUM(SavePreviousDocumentResources::UNTIL_ON_LOAD,
-                   WebSettings::SavePreviousDocumentResources::kUntilOnLoad);
-
 STATIC_ASSERT_ENUM(IMAGE_ANIMATION_POLICY_ALLOWED,
                    WebSettings::ImageAnimationPolicy::kAllowed);
 STATIC_ASSERT_ENUM(IMAGE_ANIMATION_POLICY_ANIMATION_ONCE,
@@ -91,7 +83,6 @@ WebPreferences::WebPreferences()
       dns_prefetching_enabled(true),
       data_saver_enabled(false),
       data_saver_holdback_web_api_enabled(false),
-      data_saver_holdback_media_api_enabled(false),
       local_storage_enabled(false),
       databases_enabled(false),
       application_cache_enabled(false),
@@ -130,6 +121,7 @@ WebPreferences::WebPreferences()
       should_print_backgrounds(false),
       should_clear_document_background(true),
       enable_scroll_animator(false),
+      prefers_reduced_motion(false),
       touch_event_feature_detection_enabled(false),
       touch_adjustment_enabled(true),
       pointer_events_max_touch_points(0),
@@ -158,9 +150,7 @@ WebPreferences::WebPreferences()
       shrinks_viewport_contents_to_fit(true),
       viewport_style(ViewportStyle::MOBILE),
       always_show_context_menu_on_touch(false),
-      // TODO(sunyunjia): Re-enable smooth scroll for find on Android.
-      // https://crbug.com/845500
-      smooth_scroll_for_find_enabled(false),
+      smooth_scroll_for_find_enabled(true),
 #else
       viewport_meta_enabled(false),
       shrinks_viewport_contents_to_fit(false),
@@ -180,7 +170,6 @@ WebPreferences::WebPreferences()
       navigate_on_drag_drop(true),
       v8_cache_options(V8_CACHE_OPTIONS_DEFAULT),
       record_whole_document(false),
-      save_previous_document_resources(SavePreviousDocumentResources::NEVER),
       cookie_enabled(true),
       accelerated_video_decode_enabled(false),
       animation_policy(IMAGE_ANIMATION_POLICY_ALLOWED),

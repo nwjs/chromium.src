@@ -33,13 +33,13 @@
 #include "base/optional.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/mojom/cors.mojom-blink.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "services/network/public/mojom/request_context_frame_type.mojom-shared.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/mojom/net/ip_address_space.mojom-blink.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/platform/resource_request_blocked_reason.h"
-#include "third_party/blink/public/platform/web_content_security_policy_struct.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_load_priority.h"
 #include "third_party/blink/renderer/platform/network/http_header_map.h"
@@ -84,6 +84,7 @@ class PLATFORM_EXPORT ResourceRequest final {
       const KURL& new_url,
       const AtomicString& new_method,
       const KURL& new_site_for_cookies,
+      scoped_refptr<const SecurityOrigin> new_top_frame_origin,
       const String& new_referrer,
       network::mojom::ReferrerPolicy new_referrer_policy,
       bool skip_service_worker) const;
@@ -92,6 +93,14 @@ class PLATFORM_EXPORT ResourceRequest final {
 
   const KURL& Url() const;
   void SetURL(const KURL&);
+
+  // ThreadableLoader sometimes breaks redirect chains into separate Resource
+  // and ResourceRequests. The ResourceTiming API needs the initial URL for the
+  // name attribute of PerformanceResourceTiming entries. This property
+  // remembers the initial URL for that purpose. Note that it can return a null
+  // URL. In that case, use Url() instead.
+  const KURL& GetInitialUrlForResourceTiming() const;
+  void SetInitialUrlForResourceTiming(const KURL&);
 
   void RemoveUserAndPassFromURL();
 
@@ -103,6 +112,9 @@ class PLATFORM_EXPORT ResourceRequest final {
 
   const KURL& SiteForCookies() const;
   void SetSiteForCookies(const KURL&);
+
+  const SecurityOrigin* TopFrameOrigin() const;
+  void SetTopFrameOrigin(scoped_refptr<const SecurityOrigin>);
 
   // The origin of the request, specified at
   // https://fetch.spec.whatwg.org/#concept-request-origin. This origin can be
@@ -358,18 +370,8 @@ class PLATFORM_EXPORT ResourceRequest final {
     return suggested_filename_;
   }
 
-  void SetNavigationStartTime(TimeTicks);
-  TimeTicks NavigationStartTime() const { return navigation_start_; }
-
   void SetIsAdResource() { is_ad_resource_ = true; }
   bool IsAdResource() const { return is_ad_resource_; }
-
-  void SetInitiatorCSP(const WebContentSecurityPolicyList& initiator_csp) {
-    initiator_csp_ = initiator_csp;
-  }
-  const WebContentSecurityPolicyList& GetInitiatorCSP() const {
-    return initiator_csp_;
-  }
 
   void SetUpgradeIfInsecure(bool upgrade_if_insecure) {
     upgrade_if_insecure_ = upgrade_if_insecure;
@@ -414,8 +416,10 @@ class PLATFORM_EXPORT ResourceRequest final {
   void SetClientDataHeader(const String& value) { client_data_header_ = value; }
   const String& GetClientDataHeader() const { return client_data_header_; }
 
-  void SetUkmSourceId(int64_t ukm_source_id) { ukm_source_id_ = ukm_source_id; }
-  int64_t GetUkmSourceId() const { return ukm_source_id_; }
+  void SetUkmSourceId(ukm::SourceId ukm_source_id) {
+    ukm_source_id_ = ukm_source_id;
+  }
+  ukm::SourceId GetUkmSourceId() const { return ukm_source_id_; }
 
   // https://fetch.spec.whatwg.org/#concept-request-window
   // See network::ResourceRequest::fetch_window_id for details.
@@ -435,9 +439,13 @@ class PLATFORM_EXPORT ResourceRequest final {
   bool NeedsHTTPOrigin() const;
 
   KURL url_;
+  // TODO(yoav): initial_url_for_resource_timing_ is a stop-gap only needed
+  // until Out-of-Blink CORS lands: https://crbug.com/736308
+  KURL initial_url_for_resource_timing_;
   // TimeDelta::Max() represents the default timeout on platforms that have one.
   base::TimeDelta timeout_interval_;
   KURL site_for_cookies_;
+  scoped_refptr<const SecurityOrigin> top_frame_origin_;
 
   scoped_refptr<const SecurityOrigin> requestor_origin_;
 
@@ -487,10 +495,7 @@ class PLATFORM_EXPORT ResourceRequest final {
 
   static base::TimeDelta default_timeout_interval_;
 
-  TimeTicks navigation_start_;
-
   bool is_ad_resource_ = false;
-  WebContentSecurityPolicyList initiator_csp_;
 
   bool upgrade_if_insecure_ = false;
   bool is_revalidating_ = false;
@@ -502,7 +507,7 @@ class PLATFORM_EXPORT ResourceRequest final {
   String requested_with_header_;
   String client_data_header_;
 
-  int64_t ukm_source_id_;
+  ukm::SourceId ukm_source_id_ = ukm::kInvalidSourceId;
 
   base::UnguessableToken fetch_window_id_;
 };

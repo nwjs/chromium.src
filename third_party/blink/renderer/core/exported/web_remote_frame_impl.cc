@@ -144,13 +144,15 @@ WebLocalFrame* WebRemoteFrameImpl::CreateLocalChild(
     WebSandboxFlags sandbox_flags,
     WebLocalFrameClient* client,
     blink::InterfaceRegistry* interface_registry,
+    mojo::ScopedMessagePipeHandle document_interface_broker_handle,
     WebFrame* previous_sibling,
     const ParsedFeaturePolicy& container_policy,
     const WebFrameOwnerProperties& frame_owner_properties,
     FrameOwnerElementType frame_owner_element_type,
     WebFrame* opener) {
-  WebLocalFrameImpl* child =
-      WebLocalFrameImpl::Create(scope, client, interface_registry, opener);
+  WebLocalFrameImpl* child = WebLocalFrameImpl::Create(
+      scope, client, interface_registry,
+      std::move(document_interface_broker_handle), opener);
   InsertAfter(child, previous_sibling);
   RemoteFrameOwner* owner = RemoteFrameOwner::Create(
       static_cast<SandboxFlags>(sandbox_flags), container_policy,
@@ -264,7 +266,7 @@ void WebRemoteFrameImpl::ApplyReplicatedFeaturePolicyHeader() {
 
 void WebRemoteFrameImpl::AddReplicatedContentSecurityPolicyHeader(
     const WebString& header_value,
-    WebContentSecurityPolicyType type,
+    mojom::ContentSecurityPolicyType type,
     WebContentSecurityPolicySource source) {
   GetFrame()
       ->GetSecurityContext()
@@ -297,6 +299,7 @@ void WebRemoteFrameImpl::ForwardResourceTimingToParent(
       ToWebLocalFrameImpl(Parent()->ToWebLocalFrame());
   HTMLFrameOwnerElement* owner_element =
       ToHTMLFrameOwnerElement(frame_->Owner());
+  DCHECK(owner_element);
   DOMWindowPerformance::performance(*parent_frame->GetFrame()->DomWindow())
       ->AddResourceTiming(info, owner_element->localName());
 }

@@ -356,9 +356,6 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   // Returns true if the Window can be focused.
   bool CanFocus() const;
 
-  // Returns true if the Window can receive events.
-  bool CanReceiveEvents() const;
-
   // Does a capture on the window. This does nothing if the window isn't showing
   // (VISIBILITY_SHOWN) or isn't contained in a valid window hierarchy.
   void SetCapture();
@@ -479,10 +476,10 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
                            int64_t old_value,
                            std::unique_ptr<ui::PropertyData> data) override;
  private:
+  friend class DefaultWindowOcclusionChangeBuilder;
   friend class HitTestDataProviderAura;
   friend class LayoutManager;
   friend class PropertyConverter;
-  friend class WindowOcclusionTracker;
   friend class WindowPort;
   friend class WindowPortForShutdown;
   friend class WindowPortMus;
@@ -663,7 +660,7 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   // Makes the window pass all events through to any windows behind it.
   ws::mojom::EventTargetingPolicy event_targeting_policy_;
 
-  base::ObserverList<WindowObserver, true> observers_;
+  base::ReentrantObserverList<WindowObserver, true> observers_;
 
   DISALLOW_COPY_AND_ASSIGN(Window);
 };

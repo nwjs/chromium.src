@@ -570,9 +570,6 @@ void ChildThreadImpl::InitTracing() {
 
   channel_->AddFilter(new tracing::ChildTraceMessageFilter(
       ChildProcess::current()->io_task_runner()));
-
-  trace_event_agent_ = tracing::TraceEventAgent::Create(
-      GetConnector(), false /* request_clock_sync_marker_on_android */);
 }
 
 ChildThreadImpl::~ChildThreadImpl() {

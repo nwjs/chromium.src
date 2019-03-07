@@ -77,6 +77,9 @@ class AutofillProfile : public AutofillDataModel {
   // AutofillDataModel:
   AutofillMetadata GetMetadata() const override;
   bool SetMetadata(const AutofillMetadata metadata) override;
+  // Returns whether the profile is deletable: if it is not verified and has not
+  // been used for longer than |kDisusedAddressDeletionTimeDelta|.
+  bool IsDeletable() const override;
 
   // FormGroup:
   void GetMatchingTypes(const base::string16& text,
@@ -122,6 +125,11 @@ class AutofillProfile : public AutofillDataModel {
   // Same as operator==, but ignores differences in guid and cares about
   // differences in usage stats.
   bool EqualsForSyncPurposes(const AutofillProfile& profile) const;
+
+  bool EqualsForUpdatePurposes(const AutofillProfile& profile) const;
+
+  // Compares the values of kSupportedTypesByClientForValidation fields.
+  bool EqualsForClientValidationPurpose(const AutofillProfile& profile) const;
 
   // Same as operator==, but cares about differences in usage stats.
   bool EqualsIncludingUsageStatsForTesting(

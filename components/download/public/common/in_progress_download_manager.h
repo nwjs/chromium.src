@@ -122,6 +122,9 @@ class COMPONENTS_DOWNLOAD_EXPORT InProgressDownloadManager
   // Called to remove an in-progress download.
   void RemoveInProgressDownload(const std::string& guid);
 
+  // Called to get all in-progress downloads.
+  void GetAllDownloads(std::vector<download::DownloadItem*>* downloads) const;
+
   // Called to retrieve an in-progress download.
   DownloadItemImpl* GetInProgressDownload(const std::string& guid);
 
@@ -159,6 +162,10 @@ class COMPONENTS_DOWNLOAD_EXPORT InProgressDownloadManager
       const IsOriginSecureCallback& is_origin_secure_cb) {
     is_origin_secure_cb_ = is_origin_secure_cb;
   }
+
+  // Called to insert an in-progress download for testing purpose.
+  void AddInProgressDownloadForTest(
+      std::unique_ptr<download::DownloadItemImpl> download);
 
  private:
   void Initialize(const base::FilePath& in_progress_db_dir);

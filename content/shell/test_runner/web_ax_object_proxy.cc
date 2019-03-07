@@ -6,7 +6,7 @@
 
 #include <stddef.h>
 
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "gin/handle.h"
 #include "third_party/blink/public/platform/web_float_rect.h"
@@ -25,7 +25,7 @@ namespace test_runner {
 namespace {
 
 // Map role value to string, matching Safari/Mac platform implementation to
-// avoid rebaselining layout tests.
+// avoid rebaselining web tests.
 std::string RoleToString(ax::mojom::Role role) {
   std::string result = "AXRole: AX";
   switch (role) {
@@ -851,7 +851,7 @@ void WebAXObjectProxy::NotificationReceived(
   };
   frame->CallFunctionEvenIfScriptDisabled(
       v8::Local<v8::Function>::New(isolate, notification_callback_),
-      context->Global(), arraysize(argv), argv);
+      context->Global(), base::size(argv), argv);
 }
 
 void WebAXObjectProxy::Reset() {
@@ -2054,9 +2054,11 @@ v8::Local<v8::Object> WebAXObjectProxyList::GetOrCreate(
 
   v8::Local<v8::Value> value_handle =
       gin::CreateHandle(isolate, new WebAXObjectProxy(object, this)).ToV8();
-  if (value_handle.IsEmpty())
+  v8::Local<v8::Object> handle;
+  if (value_handle.IsEmpty() ||
+      !value_handle->ToObject(isolate->GetCurrentContext()).ToLocal(&handle)) {
     return v8::Local<v8::Object>();
-  v8::Local<v8::Object> handle = value_handle->ToObject(isolate);
+  }
   elements_.Append(handle);
   return handle;
 }

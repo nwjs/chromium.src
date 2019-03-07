@@ -234,7 +234,7 @@ bool RenderWidgetHostViewChildFrame::IsSurfaceAvailableForCopy() const {
   return GetLocalSurfaceIdAllocation().IsValid();
 }
 
-void RenderWidgetHostViewChildFrame::EnsureSurfaceSynchronizedForLayoutTest() {
+void RenderWidgetHostViewChildFrame::EnsureSurfaceSynchronizedForWebTest() {
   // The capture sequence number which would normally be updated here is
   // actually retrieved from the frame connector.
 }
@@ -370,7 +370,10 @@ void RenderWidgetHostViewChildFrame::UpdateBackgroundColor() {
   SkColor color = *GetBackgroundColor();
   DCHECK(SkColorGetA(color) == SK_AlphaOPAQUE ||
          SkColorGetA(color) == SK_AlphaTRANSPARENT);
-  host()->SetBackgroundOpaque(SkColorGetA(color) == SK_AlphaOPAQUE);
+  if (host()->owner_delegate()) {
+    host()->owner_delegate()->SetBackgroundOpaque(SkColorGetA(color) ==
+                                                  SK_AlphaOPAQUE);
+  }
 }
 
 gfx::Size RenderWidgetHostViewChildFrame::GetCompositorViewportPixelSize()
@@ -539,28 +542,25 @@ void RenderWidgetHostViewChildFrame::GestureEventAck(
   if (event.IsTouchpadZoomEvent())
     ProcessTouchpadZoomEventAckInRoot(event, ack_result);
 
-  const bool should_bubble =
-      ack_result == INPUT_EVENT_ACK_STATE_NOT_CONSUMED ||
-      ack_result == INPUT_EVENT_ACK_STATE_NO_CONSUMER_EXISTS ||
-      ack_result == INPUT_EVENT_ACK_STATE_CONSUMED_SHOULD_BUBBLE;
-
-  if ((event.GetType() == blink::WebInputEvent::kGestureScrollBegin) &&
-      should_bubble) {
-    DCHECK(!is_scroll_sequence_bubbling_);
-    is_scroll_sequence_bubbling_ = true;
-  } else if (event.GetType() == blink::WebInputEvent::kGestureScrollEnd) {
-    is_scroll_sequence_bubbling_ = false;
-  }
-
   // GestureScrollBegin is a blocking event; It is forwarded for bubbling if
   // its ack is not consumed. For the rest of the scroll events
-  // (GestureScrollUpdate, GestureScrollEnd) the frame_connector_ decides to
-  // forward them for bubbling if the GestureScrollBegin event is forwarded.
-  if ((event.GetType() == blink::WebInputEvent::kGestureScrollBegin &&
-       should_bubble) ||
-      event.GetType() == blink::WebInputEvent::kGestureScrollUpdate ||
-      event.GetType() == blink::WebInputEvent::kGestureScrollEnd) {
+  // (GestureScrollUpdate, GestureScrollEnd) are bubbled if the
+  // GestureScrollBegin was bubbled.
+  if (event.GetType() == blink::WebInputEvent::kGestureScrollBegin) {
+    DCHECK(!is_scroll_sequence_bubbling_);
+    is_scroll_sequence_bubbling_ =
+        ack_result == INPUT_EVENT_ACK_STATE_NOT_CONSUMED ||
+        ack_result == INPUT_EVENT_ACK_STATE_NO_CONSUMER_EXISTS ||
+        ack_result == INPUT_EVENT_ACK_STATE_CONSUMED_SHOULD_BUBBLE;
+  }
+
+  if (is_scroll_sequence_bubbling_ &&
+      (event.GetType() == blink::WebInputEvent::kGestureScrollBegin ||
+       event.GetType() == blink::WebInputEvent::kGestureScrollUpdate ||
+       event.GetType() == blink::WebInputEvent::kGestureScrollEnd)) {
     frame_connector_->BubbleScrollEvent(event);
+    if (event.GetType() == blink::WebInputEvent::kGestureScrollEnd)
+      is_scroll_sequence_bubbling_ = false;
   }
 }
 
@@ -921,6 +921,8 @@ void RenderWidgetHostViewChildFrame::SetNeedsBeginFrames(
 
 TouchSelectionControllerClientManager*
 RenderWidgetHostViewChildFrame::GetTouchSelectionControllerClientManager() {
+  if (!frame_connector_)
+    return nullptr;
   auto* root_view = frame_connector_->GetRootRenderWidgetHostView();
   if (!root_view)
     return nullptr;
@@ -1083,22 +1085,6 @@ void RenderWidgetHostViewChildFrame::ResetCompositorFrameSinkSupport() {
         parent_frame_sink_id_, frame_sink_id_);
   }
   support_.reset();
-}
-
-bool RenderWidgetHostViewChildFrame::GetSelectionRange(
-    gfx::Range* range) const {
-  if (!text_input_manager_ || !GetFocusedWidget())
-    return false;
-
-  const TextInputManager::TextSelection* selection =
-      text_input_manager_->GetTextSelection(GetFocusedWidget()->GetView());
-  if (!selection)
-    return false;
-
-  range->set_start(selection->range().start());
-  range->set_end(selection->range().end());
-
-  return true;
 }
 
 ui::TextInputType RenderWidgetHostViewChildFrame::GetTextInputType() const {

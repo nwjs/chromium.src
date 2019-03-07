@@ -26,8 +26,13 @@ class CORE_EXPORT ComputedStylePropertyMap
     : public StylePropertyMapReadOnlyMainThread {
  public:
   static ComputedStylePropertyMap* Create(Node* node) {
-    return new ComputedStylePropertyMap(node);
+    return MakeGarbageCollected<ComputedStylePropertyMap>(node);
   }
+
+  ComputedStylePropertyMap(Node* node, const String& pseudo_element = String())
+      : StylePropertyMapReadOnlyMainThread(),
+        pseudo_id_(CSSSelector::ParsePseudoId(pseudo_element)),
+        node_(node) {}
 
   void Trace(blink::Visitor* visitor) override {
     visitor->Trace(node_);
@@ -39,14 +44,10 @@ class CORE_EXPORT ComputedStylePropertyMap
   // ComputedStylePropertyMap needs to be sorted. This puts CSS properties
   // first, then prefixed properties, then custom properties. Everything is
   // sorted by code point within each category.
-  static bool ComparePropertyNames(const String&, const String&);
+  static bool ComparePropertyNames(const CSSPropertyName&,
+                                   const CSSPropertyName&);
 
  protected:
-  ComputedStylePropertyMap(Node* node, const String& pseudo_element = String())
-      : StylePropertyMapReadOnlyMainThread(),
-        pseudo_id_(CSSSelector::ParsePseudoId(pseudo_element)),
-        node_(node) {}
-
   const CSSValue* GetProperty(CSSPropertyID) override;
   const CSSValue* GetCustomProperty(AtomicString) override;
   void ForEachProperty(const IterationCallback&) override;

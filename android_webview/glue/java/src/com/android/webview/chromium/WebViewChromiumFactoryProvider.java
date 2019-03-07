@@ -32,6 +32,7 @@ import com.android.webview.chromium.WebViewDelegateFactory.WebViewDelegate;
 import org.chromium.android_webview.AwAutofillProvider;
 import org.chromium.android_webview.AwBrowserContext;
 import org.chromium.android_webview.AwBrowserProcess;
+import org.chromium.android_webview.AwSettings;
 import org.chromium.android_webview.ResourcesContextWrapperFactory;
 import org.chromium.android_webview.ScopedSysTraceEvent;
 import org.chromium.android_webview.WebViewChromiumRunQueue;
@@ -126,7 +127,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     private SharedPreferences mWebViewPrefs;
     private WebViewDelegate mWebViewDelegate;
 
-    private boolean mShouldDisableThreadChecking;
+    protected boolean mShouldDisableThreadChecking;
 
     // Initialization guarded by mAwInit.getLock()
     private Statics mStaticsAdapter;
@@ -198,6 +199,11 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                         ScopedSysTraceEvent.scoped("WebViewChromiumFactoryProvider.createAwInit")) {
             return new WebViewChromiumAwInit(this);
         }
+    }
+
+    // Protected to allow downstream to override.
+    protected ContentSettingsAdapter createContentSettingsAdapter(AwSettings settings) {
+        return new ContentSettingsAdapter(settings);
     }
 
     private void deleteContentsOnPackageDowngrade(PackageInfo packageInfo) {
@@ -522,7 +528,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
     @Override
     public TokenBindingService getTokenBindingService() {
-        return mAwInit.getTokenBindingService();
+        return null;
     }
 
     @Override

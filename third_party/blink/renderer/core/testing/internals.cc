@@ -120,6 +120,7 @@
 #include "third_party/blink/renderer/core/page/scrolling/root_scroller_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/scroll_state.h"
 #include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator_context.h"
+#include "third_party/blink/renderer/core/page/spatial_navigation_controller.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
 #include "third_party/blink/renderer/core/paint/compositing/composited_layer_mapping.h"
 #include "third_party/blink/renderer/core/paint/compositing/graphics_layer_tree_as_text.h"
@@ -267,6 +268,15 @@ void Internals::ResetToConsistentState(Page* page) {
   // call.
   page->SetDefaultPageScaleLimits(1, 4);
   page->SetPageScaleFactor(1);
+
+  // Ensure timers are reset so timers such as EventHandler's |hover_timer_| do
+  // not cause additional lifecycle updates.
+  for (Frame* frame = page->MainFrame(); frame;
+       frame = frame->Tree().TraverseNext()) {
+    if (frame->IsLocalFrame())
+      ToLocalFrame(frame)->GetEventHandler().Clear();
+  }
+
   LocalFrame* frame = page->DeprecatedLocalMainFrame();
   frame->View()->LayoutViewport()->SetScrollOffset(ScrollOffset(),
                                                    kProgrammaticScroll);
@@ -363,6 +373,9 @@ unsigned Internals::hitTestCount(Document* doc,
     return 0;
   }
 
+  if (!doc->GetLayoutView())
+    return 0;
+
   return doc->GetLayoutView()->HitTestCount();
 }
 
@@ -373,6 +386,9 @@ unsigned Internals::hitTestCacheHits(Document* doc,
                                       "Must supply document to check");
     return 0;
   }
+
+  if (!doc->GetLayoutView())
+    return 0;
 
   return doc->GetLayoutView()->HitTestCacheHits();
 }
@@ -469,6 +485,15 @@ int Internals::getResourcePriority(const String& url, Document* document) {
     return static_cast<int>(ResourceLoadPriority::kUnresolved);
 
   return static_cast<int>(resource->GetResourceRequest().Priority());
+}
+
+bool Internals::doesWindowHaveUrlFragment(DOMWindow* window) {
+  if (window->IsRemoteDOMWindow())
+    return false;
+  return ToLocalFrame(window->GetFrame())
+      ->GetDocument()
+      ->Url()
+      .HasFragmentIdentifier();
 }
 
 String Internals::getResourceHeader(const String& url,
@@ -847,7 +872,7 @@ DOMWindow* Internals::pagePopupWindow() const {
     LocalDOMWindow* popup =
         ToLocalDOMWindow(page->GetChromeClient().PagePopupWindowForTesting());
     if (popup) {
-      // We need to make the popup same origin so layout tests can access it.
+      // We need to make the popup same origin so web tests can access it.
       popup->document()->UpdateSecurityOrigin(
           document_->GetMutableSecurityOrigin());
     }
@@ -1674,7 +1699,8 @@ static unsigned EventHandlerCount(
 unsigned Internals::wheelEventHandlerCount(Document* document) const {
   DCHECK(document);
   return EventHandlerCount(*document,
-                           EventHandlerRegistry::kWheelEventBlocking);
+                           EventHandlerRegistry::kWheelEventBlocking) +
+         EventHandlerCount(*document, EventHandlerRegistry::kWheelEventPassive);
 }
 
 unsigned Internals::scrollEventHandlerCount(Document* document) const {
@@ -1904,7 +1930,7 @@ HitTestLayerRectList* Internals::touchEventTargetLayerRects(
     return nullptr;
   }
 
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     auto* pac = document->View()->GetPaintArtifactCompositorForTesting();
     pac->EnableExtraDataForTesting();
     document->View()->UpdateAllLifecyclePhases(
@@ -1917,7 +1943,8 @@ HitTestLayerRectList* Internals::touchEventTargetLayerRects(
       const cc::TouchActionRegion& touch_action_region =
           layer->touch_action_region();
       if (!touch_action_region.region().IsEmpty()) {
-        IntRect layer_rect(RoundedIntPoint(FloatPoint(layer->position())),
+        const auto& offset = layer->offset_to_transform_parent();
+        IntRect layer_rect(RoundedIntPoint(FloatPoint(offset.x(), offset.y())),
                            IntSize(layer->bounds()));
 
         Vector<IntRect> layer_hit_test_rects;
@@ -3067,14 +3094,14 @@ namespace {
 class AddOneFunction : public ScriptFunction {
  public:
   static v8::Local<v8::Function> CreateFunction(ScriptState* script_state) {
-    AddOneFunction* self = new AddOneFunction(script_state);
+    AddOneFunction* self = MakeGarbageCollected<AddOneFunction>(script_state);
     return self->BindToV8Function();
   }
 
- private:
   explicit AddOneFunction(ScriptState* script_state)
       : ScriptFunction(script_state) {}
 
+ private:
   ScriptValue Call(ScriptValue value) override {
     v8::Local<v8::Value> v8_value = value.V8Value();
     DCHECK(v8_value->IsNumber());
@@ -3189,6 +3216,23 @@ void Internals::setInitialFocus(bool reverse) {
 bool Internals::ignoreLayoutWithPendingStylesheets(Document* document) {
   DCHECK(document);
   return document->IgnoreLayoutWithPendingStylesheets();
+}
+
+Element* Internals::interestedElement() {
+  if (!GetFrame() || !GetFrame()->GetPage())
+    return nullptr;
+
+  if (!RuntimeEnabledFeatures::FocuslessSpatialNavigationEnabled()) {
+    return ToLocalFrame(
+               GetFrame()->GetPage()->GetFocusController().FocusedOrMainFrame())
+        ->GetDocument()
+        ->ActiveElement();
+  }
+
+  return GetFrame()
+      ->GetPage()
+      ->GetSpatialNavigationController()
+      .GetInterestedElement();
 }
 
 void Internals::setNetworkConnectionInfoOverride(
@@ -3389,8 +3433,9 @@ ScriptPromise Internals::observeUseCounter(ScriptState* script_state,
     return promise;
   }
 
-  loader->GetUseCounter().AddObserver(new UseCounterObserverImpl(
-      resolver, static_cast<WebFeature>(use_counter_feature)));
+  loader->GetUseCounter().AddObserver(
+      MakeGarbageCollected<UseCounterObserverImpl>(
+          resolver, static_cast<WebFeature>(use_counter_feature)));
   return promise;
 }
 
@@ -3400,24 +3445,6 @@ String Internals::unscopableAttribute() {
 
 String Internals::unscopableMethod() {
   return "unscopableMethod";
-}
-
-DOMRectList* Internals::focusRingRects(Element* element) {
-  Vector<LayoutRect> rects;
-  if (element && element->GetLayoutObject()) {
-    element->GetLayoutObject()->AddOutlineRects(
-        rects, LayoutPoint(), NGOutlineType::kIncludeBlockVisualOverflow);
-  }
-  return DOMRectList::Create(rects);
-}
-
-DOMRectList* Internals::outlineRects(Element* element) {
-  Vector<LayoutRect> rects;
-  if (element && element->GetLayoutObject()) {
-    element->GetLayoutObject()->AddOutlineRects(
-        rects, LayoutPoint(), NGOutlineType::kDontIncludeBlockVisualOverflow);
-  }
-  return DOMRectList::Create(rects);
 }
 
 void Internals::setCapsLockState(bool enabled) {
@@ -3443,6 +3470,10 @@ double Internals::monotonicTimeToZeroBasedDocumentTime(
       ->GetTiming()
       .MonotonicTimeToZeroBasedDocumentTime(TimeTicksFromSeconds(platform_time))
       .InSecondsF();
+}
+
+int64_t Internals::currentTimeTicks() {
+  return base::TimeTicks::Now().since_origin().InMicroseconds();
 }
 
 String Internals::getScrollAnimationState(Node* node) const {

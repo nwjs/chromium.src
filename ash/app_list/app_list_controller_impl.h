@@ -19,12 +19,14 @@
 #include "ash/display/window_tree_host_manager.h"
 #include "ash/public/cpp/app_list/app_list_constants.h"
 #include "ash/public/cpp/assistant/default_voice_interaction_observer.h"
+#include "ash/public/cpp/shelf_types.h"
 #include "ash/public/interfaces/app_list.mojom.h"
 #include "ash/public/interfaces/voice_interaction_controller.mojom.h"
 #include "ash/session/session_observer.h"
 #include "ash/shell_observer.h"
 #include "ash/wallpaper/wallpaper_controller_observer.h"
 #include "ash/wm/tablet_mode/tablet_mode_observer.h"
+#include "base/observer_list.h"
 #include "components/sync/model/string_ordinal.h"
 #include "mojo/public/cpp/bindings/binding_set.h"
 #include "mojo/public/cpp/bindings/interface_ptr_set.h"
@@ -36,6 +38,7 @@ class MouseWheelEvent;
 
 namespace ash {
 
+class AppListControllerObserver;
 class HomeLauncherGestureHandler;
 
 // Ash's AppListController owns the AppListModel and implements interface
@@ -132,9 +135,9 @@ class ASH_EXPORT AppListControllerImpl
                                  float background_opacity);
   void EndDragFromShelf(app_list::AppListViewState app_list_state);
   void ProcessMouseWheelEvent(const ui::MouseWheelEvent& event);
-  void ToggleAppList(int64_t display_id,
-                     app_list::AppListShowSource show_source,
-                     base::TimeTicks event_time_stamp);
+  ash::ShelfAction ToggleAppList(int64_t display_id,
+                                 app_list::AppListShowSource show_source,
+                                 base::TimeTicks event_time_stamp);
   app_list::AppListViewState GetAppListViewState();
   HomeLauncherGestureHandler* home_launcher_gesture_handler() {
     return home_launcher_gesture_handler_.get();
@@ -182,16 +185,23 @@ class ASH_EXPORT AppListControllerImpl
   void GetNavigableContentsFactory(
       content::mojom::NavigableContentsFactoryRequest request) override;
 
-  void OnVisibilityChanged(bool visible);
-  void OnTargetVisibilityChanged(bool visible);
-  void StartVoiceInteractionSession();
-  void ToggleVoiceInteractionSession();
+  void AddObserver(AppListControllerObserver* observer);
+  void RemoveObserver(AppListControllerObserver* obsever);
+
+  // AppList visibility announcements are for clamshell mode AppList.
+  void NotifyAppListVisibilityChanged(bool visible, int64_t display_id);
+  void NotifyAppListTargetVisibilityChanged(bool visible);
+
+  // HomeLauncher visibility announcements are for tablet mode AppList.
+  void NotifyHomeLauncherTargetPositionChanged(bool showing,
+                                               int64_t display_id);
+  void NotifyHomeLauncherAnimationComplete(bool shown, int64_t display_id);
 
   void FlushForTesting();
 
   // ShellObserver:
   void OnOverviewModeStarting() override;
-  void OnOverviewModeEnding() override;
+  void OnOverviewModeEnding(OverviewSession* overview_session) override;
   void OnOverviewModeEndingAnimationComplete(bool canceled) override;
 
   // TabletModeObserver:
@@ -224,9 +234,10 @@ class ASH_EXPORT AppListControllerImpl
   // |display_id| is the id of display where app list should toggle.
   // |show_source| is the source of the event. |event_time_stamp| records the
   // event timestamp.
-  void OnAppListButtonPressed(int64_t display_id,
-                              app_list::AppListShowSource show_source,
-                              base::TimeTicks event_time_stamp);
+  ash::ShelfAction OnAppListButtonPressed(
+      int64_t display_id,
+      app_list::AppListShowSource show_source,
+      base::TimeTicks event_time_stamp);
 
  private:
   syncer::StringOrdinal GetOemFolderPos();
@@ -270,7 +281,7 @@ class ASH_EXPORT AppListControllerImpl
   // Each time overview mode is exited, set this variable based on whether
   // overview mode is sliding out, so the home launcher knows what to do when
   // overview mode exit animations are finished.
-  bool use_slide_to_exit_overview_mode_ = false;
+  bool use_slide_to_exit_overview_ = false;
 
   // Whether the wallpaper is being previewed. The home launcher (if enabled)
   // should be hidden during wallpaper preview.
@@ -278,6 +289,8 @@ class ASH_EXPORT AppListControllerImpl
 
   // Whether we're currently in a window dragging process.
   bool in_window_dragging_ = false;
+
+  base::ObserverList<AppListControllerObserver> observers_;
 
   DISALLOW_COPY_AND_ASSIGN(AppListControllerImpl);
 };

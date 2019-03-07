@@ -62,6 +62,7 @@
 #include "third_party/blink/renderer/core/input_type_names.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
+#include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/platform/histogram.h"
@@ -402,14 +403,10 @@ std::pair<Node*, Element*> MHTMLFrameSerializerDelegate::GetAuxiliaryDOMTree(
 
 bool CacheControlNoStoreHeaderPresent(
     const WebLocalFrameImpl& web_local_frame) {
-  const ResourceResponse& response =
-      web_local_frame.GetDocumentLoader()->GetResponse().ToResourceResponse();
-  if (response.CacheControlContainsNoStore())
-    return true;
-
-  const ResourceRequest& request =
-      web_local_frame.GetDocumentLoader()->GetRequest().ToResourceRequest();
-  return request.CacheControlContainsNoStore();
+  return web_local_frame.GetDocumentLoader()
+      ->GetResponse()
+      .ToResourceResponse()
+      .CacheControlContainsNoStore();
 }
 
 bool FrameShouldBeSerializedAsMHTML(

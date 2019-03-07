@@ -33,7 +33,7 @@ namespace test {
 namespace {
 
 // RecordingProofVerifier accepts any certificate chain and records the common
-// name of the leaf and then delegates the actual verfication to an actual
+// name of the leaf and then delegates the actual verification to an actual
 // verifier. If no optional verifier is provided, then VerifyProof will return
 // success.
 class RecordingProofVerifier : public ProofVerifier {
@@ -204,7 +204,7 @@ MockableQuicClient::MockableQuicClient(
                                                                this),
           QuicWrapUnique(
               new RecordingProofVerifier(std::move(proof_verifier)))),
-      override_connection_id_(0) {}
+      override_connection_id_(EmptyQuicConnectionId()) {}
 
 MockableQuicClient::~MockableQuicClient() {
   if (connected()) {
@@ -225,8 +225,9 @@ MockableQuicClient::mockable_network_helper() const {
 }
 
 QuicConnectionId MockableQuicClient::GenerateNewConnectionId() {
-  return override_connection_id_ ? override_connection_id_
-                                 : QuicClient::GenerateNewConnectionId();
+  return !override_connection_id_.IsEmpty()
+             ? override_connection_id_
+             : QuicClient::GenerateNewConnectionId();
 }
 
 void MockableQuicClient::UseConnectionId(QuicConnectionId connection_id) {
@@ -335,7 +336,8 @@ ssize_t QuicTestClient::SendRequestAndRstTogether(const QuicString& uri) {
   ssize_t ret = SendMessage(headers, "", /*fin=*/true, /*flush=*/false);
 
   QuicStreamId stream_id =
-      QuicSpdySessionPeer::GetNthClientInitiatedStreamId(*session, 0);
+      QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(*session,
+                                                                      0);
   session->SendRstStream(stream_id, QUIC_STREAM_CANCELLED, 0);
   return ret;
 }
@@ -678,8 +680,8 @@ int64_t QuicTestClient::response_size() const {
 
 size_t QuicTestClient::bytes_read() const {
   for (std::pair<QuicStreamId, QuicSpdyClientStream*> stream : open_streams_) {
-    size_t bytes_read =
-        stream.second->stream_bytes_read() + stream.second->header_bytes_read();
+    size_t bytes_read = stream.second->total_body_bytes_read() +
+                        stream.second->header_bytes_read();
     if (bytes_read > 0) {
       return bytes_read;
     }
@@ -725,7 +727,7 @@ void QuicTestClient::OnClose(QuicSpdyStream* stream) {
           (buffer_body() ? client_stream->data() : ""),
           client_stream->received_trailers(),
           // Use NumBytesConsumed to avoid counting retransmitted stream frames.
-          QuicStreamPeer::sequencer(client_stream)->NumBytesConsumed() +
+          client_stream->total_body_bytes_read() +
               client_stream->header_bytes_read(),
           client_stream->stream_bytes_written() +
               client_stream->header_bytes_written(),
@@ -744,7 +746,7 @@ void QuicTestClient::OnRendezvousResult(QuicSpdyStream* stream) {
       std::move(push_promise_data_to_resend_);
   SetLatestCreatedStream(static_cast<QuicSpdyClientStream*>(stream));
   if (stream) {
-    stream->OnDataAvailable();
+    stream->OnBodyAvailable();
   } else if (data_to_resend) {
     data_to_resend->Resend();
   }

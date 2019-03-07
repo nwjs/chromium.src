@@ -18,6 +18,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
+import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 
 /**
  * A class that provides the current {@link Tab} for various states of the browser's activity.
@@ -185,7 +186,7 @@ public class ActivityTabProvider {
         mTabModelSelector = selector;
         mTabModelObserver = new TabModelSelectorTabModelObserver(mTabModelSelector) {
             @Override
-            public void didSelectTab(Tab tab, @TabModel.TabSelectionType int type, int lastId) {
+            public void didSelectTab(Tab tab, @TabSelectionType int type, int lastId) {
                 triggerActivityTabChangeEvent(tab);
             }
 
@@ -212,7 +213,9 @@ public class ActivityTabProvider {
      */
     private void triggerActivityTabChangeEvent(Tab tab) {
         // Allow the event to trigger before native is ready (before the layout manager is set).
-        if (mLayoutManager != null && !(mLayoutManager.getActiveLayout() instanceof StaticLayout)
+        if (mLayoutManager != null
+                && !(mLayoutManager.getActiveLayout() instanceof StaticLayout
+                        || mLayoutManager.getActiveLayout() instanceof SimpleAnimationLayout)
                 && tab != null) {
             return;
         }

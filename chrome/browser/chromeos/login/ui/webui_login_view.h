@@ -8,12 +8,12 @@
 #include <map>
 #include <string>
 
-#include "ash/system/system_tray_focus_observer.h"
+#include "ash/public/cpp/system_tray_focus_observer.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
 #include "chrome/browser/chromeos/lock_screen_apps/focus_cycler_delegate.h"
-#include "chrome/browser/ui/ash/chrome_keyboard_controller_client.h"
+#include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/chrome_web_modal_dialog_manager_delegate.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "content/public/browser/notification_observer.h"
@@ -160,7 +160,7 @@ class WebUILoginView : public views::View,
       content::MediaResponseCallback callback) override;
   bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
                                   const GURL& security_origin,
-                                  content::MediaStreamType type) override;
+                                  blink::MediaStreamType type) override;
   bool PreHandleGestureEvent(content::WebContents* source,
                              const blink::WebGestureEvent& event) override;
 
@@ -221,6 +221,8 @@ class WebUILoginView : public views::View,
   // Whether this was set as lock_screen_apps::StateController's
   // FocusCyclerDelegate.
   bool delegates_lock_screen_app_focus_cycle_ = false;
+
+  bool observing_system_tray_focus_ = false;
 
   base::ObserverList<web_modal::ModalDialogHostObserver>::Unchecked
       observer_list_;

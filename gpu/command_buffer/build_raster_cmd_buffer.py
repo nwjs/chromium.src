@@ -181,39 +181,13 @@ _NAMED_TYPE_INFO = {
 # not_shared:   For GENn types, True if objects can't be shared between contexts
 
 _FUNCTION_INFO = {
-  'CreateAndConsumeTexture': {
-    'type': 'NoCommand',
-    'trace_level': 2,
-  },
-  'CreateAndConsumeTextureINTERNAL': {
-    'decoder_func': 'DoCreateAndConsumeTextureINTERNAL',
+  'CopySubTextureINTERNAL': {
+    'decoder_func': 'DoCopySubTextureINTERNAL',
     'internal': True,
     'type': 'PUT',
-    'count': 16,  # GL_MAILBOX_SIZE_CHROMIUM
+    'count': 32,  # GL_MAILBOX_SIZE_CHROMIUM x2
     'unit_test': False,
     'trace_level': 2,
-  },
-  'CreateImageCHROMIUM': {
-    'type': 'NoCommand',
-    'cmd_args':
-        'ClientBuffer buffer, GLsizei width, GLsizei height, '
-        'GLenum internalformat',
-    'result': ['GLuint'],
-    'trace_level': 1,
-  },
-  'CopySubTexture': {
-    'decoder_func': 'DoCopySubTexture',
-    'unit_test': False,
-    'trace_level': 2,
-  },
-  'DestroyImageCHROMIUM': {
-    'type': 'NoCommand',
-    'trace_level': 1,
-  },
-  'DeleteTextures': {
-    'type': 'DELn',
-    'resource_type': 'Texture',
-    'resource_types': 'Textures',
   },
   'Finish': {
     'impl_func': False,
@@ -235,40 +209,6 @@ _FUNCTION_INFO = {
   },
   'GetGraphicsResetStatusKHR': {
     'type': 'NoCommand',
-    'trace_level': 1,
-  },
-  'GetIntegerv': {
-    'type': 'GETn',
-    'result': ['SizedResult<GLint>'],
-    'decoder_func': 'DoGetIntegerv',
-    'client_test': False,
-  },
-  'ProduceTextureDirect': {
-    'decoder_func': 'DoProduceTextureDirect',
-    'impl_func': False,
-    'type': 'PUT',
-    'count': 16,  # GL_MAILBOX_SIZE_CHROMIUM
-    'unit_test': False,
-    'client_test': False,
-    'trace_level': 1,
-  },
-  'TexParameteri': {
-    'decoder_func': 'DoTexParameteri',
-    'unit_test' : False,
-    'valid_args': {
-      '2': 'GL_NEAREST'
-    },
-  },
-  'TexStorage2D': {
-    'decoder_func': 'DoTexStorage2D',
-    'unit_test': False,
-  },
-  'WaitSync': {
-    'type': 'Custom',
-    'cmd_args': 'GLuint sync, GLbitfieldSyncFlushFlags flags, '
-                'GLuint64 timeout',
-    'impl_func': False,
-    'client_test': False,
     'trace_level': 1,
   },
   'GenQueriesEXT': {
@@ -303,14 +243,6 @@ _FUNCTION_INFO = {
   'GetQueryObjectuivEXT': {
     'type': 'NoCommand',
     'gl_test_func': 'glGetQueryObjectuiv',
-  },
-  'BindTexImage2DCHROMIUM': {
-    'decoder_func': 'DoBindTexImage2DCHROMIUM',
-    'unit_test': False,
-  },
-  'ReleaseTexImage2DCHROMIUM': {
-    'decoder_func': 'DoReleaseTexImage2DCHROMIUM',
-    'unit_test': False,
   },
   'ShallowFlushCHROMIUM': {
     'type': 'NoCommand',
@@ -350,9 +282,6 @@ _FUNCTION_INFO = {
     'unit_test': False,
     'trace_level': 1,
   },
-  'GenSyncTokenCHROMIUM': {
-    'type': 'NoCommand',
-  },
   'GenUnverifiedSyncTokenCHROMIUM': {
     'type': 'NoCommand',
   },
@@ -360,31 +289,7 @@ _FUNCTION_INFO = {
     'type': 'NoCommand',
   },
   'WaitSyncTokenCHROMIUM': {
-    'type': 'Custom',
-    'impl_func': False,
-    'cmd_args': 'GLint namespace_id, '
-                'GLuint64 command_buffer_id, '
-                'GLuint64 release_count',
-    'client_test': False,
-  },
-  'InitializeDiscardableTextureCHROMIUM': {
-    'type': 'Custom',
-    'cmd_args': 'GLuint texture_id, uint32_t shm_id, '
-                'uint32_t shm_offset',
-    'impl_func': False,
-    'client_test': False,
-  },
-  'UnlockDiscardableTextureCHROMIUM': {
-    'type': 'Custom',
-    'cmd_args': 'GLuint texture_id',
-    'impl_func': False,
-    'client_test': False,
-  },
-  'LockDiscardableTextureCHROMIUM': {
-    'type': 'Custom',
-    'cmd_args': 'GLuint texture_id',
-    'impl_func': False,
-    'client_test': False,
+    'type': 'NoCommand',
   },
   'BeginRasterCHROMIUM': {
     'decoder_func': 'DoBeginRasterCHROMIUM',
@@ -450,29 +355,6 @@ _FUNCTION_INFO = {
     'impl_func': True,
     'client_test': False,
     'unit_test': False,
-  },
-  'CreateTexture': {
-    'type': 'Create',
-    'resource_type': 'Texture',
-    'resource_types': 'Textures',
-    'decoder_func': 'DoCreateTexture',
-    'not_shared': 'True',
-    'unit_test': False,
-  },
-  'SetColorSpaceMetadata': {
-    'type': 'Custom',
-    'impl_func': False,
-    'client_test': False,
-    'cmd_args': 'GLuint texture_id, GLuint shm_id, GLuint shm_offset, '
-                'GLsizei color_space_size',
-  },
-  'UnpremultiplyAndDitherCopyCHROMIUM': {
-    'decoder_func': 'DoUnpremultiplyAndDitherCopyCHROMIUM',
-    'cmd_args': 'GLuint source_id, GLuint dest_id, GLint x, GLint y, '
-                'GLsizei width, GLsizei height',
-    'client_test': False,
-    'unit_test': False,
-    'impl_func': True,
   },
 }
 

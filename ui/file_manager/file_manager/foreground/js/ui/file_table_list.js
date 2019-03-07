@@ -50,11 +50,13 @@ FileTableList.prototype.mergeItems = function(beginIndex, endIndex) {
   // from being animated unintentionally by redraw.
   for (var i = beginIndex; i < endIndex; i++) {
     var item = this.getListItemByIndex(i);
-    if (!item)
+    if (!item) {
       continue;
+    }
     var isSelected = this.selectionModel.getIndexSelected(i);
-    if (item.selected != isSelected)
+    if (item.selected != isSelected) {
       item.selected = isSelected;
+    }
   }
 
   if (this.onMergeItems_) {
@@ -105,14 +107,16 @@ FileListSelectionController.prototype.handlePointerDownUp = function(e, index) {
 
 /** @override */
 FileListSelectionController.prototype.handleTouchEvents = function(e, index) {
-  if (!this.enableTouchMode_)
+  if (!this.enableTouchMode_) {
     return;
+  }
   if (this.tapHandler_.handleTouchEvents(
-          e, index, filelist.handleTap.bind(this)))
+          e, index, filelist.handleTap.bind(this))) {
     // If a tap event is processed, FileTapHandler cancels the event to prevent
     // triggering click events. Then it results not moving the focus to the
     // list. So we do that here explicitly.
     filelist.focusParentList(e);
+  }
 };
 
 /** @override */
@@ -123,7 +127,7 @@ FileListSelectionController.prototype.handleKeyDown = function(e) {
 /**
  * Common item decoration for table's and grid's items.
  * @param {cr.ui.ListItem} li List item.
- * @param {Entry} entry The entry.
+ * @param {Entry|FilesAppEntry} entry The entry.
  * @param {!MetadataModel} metadataModel Cache to
  *     retrieve metadada.
  */
@@ -157,10 +161,11 @@ filelist.decorateListItem = function(li, entry, metadataModel) {
      * @this {cr.ui.ListItem}
      */
     set: function(v) {
-      if (v)
+      if (v) {
         this.setAttribute('selected', '');
-      else
+      } else {
         this.removeAttribute('selected');
+      }
     }
   });
 };
@@ -169,30 +174,34 @@ filelist.decorateListItem = function(li, entry, metadataModel) {
  * Render the type column of the detail table.
  * @param {!Document} doc Owner document.
  * @param {!Entry} entry The Entry object to render.
+ * @param {EntryLocation} locationInfo
  * @param {string=} opt_mimeType Optional mime type for the file.
  * @return {!HTMLDivElement} Created element.
  */
-filelist.renderFileTypeIcon = function(doc, entry, opt_mimeType) {
+filelist.renderFileTypeIcon = function(doc, entry, locationInfo, opt_mimeType) {
   var icon = /** @type {!HTMLDivElement} */ (doc.createElement('div'));
   icon.className = 'detail-icon';
-  icon.setAttribute('file-type-icon', FileType.getIcon(entry, opt_mimeType));
+  icon.setAttribute(
+      'file-type-icon',
+      FileType.getIcon(entry, opt_mimeType, locationInfo.rootType));
   return icon;
 };
 
 /**
  * Render filename label for grid and list view.
  * @param {!Document} doc Owner document.
- * @param {!Entry} entry The Entry object to render.
+ * @param {!Entry|!FilesAppEntry} entry The Entry object to render.
+ * @param {EntryLocation} locationInfo
  * @return {!HTMLDivElement} The label.
  */
-filelist.renderFileNameLabel = function(doc, entry) {
+filelist.renderFileNameLabel = function(doc, entry, locationInfo) {
   // Filename need to be in a '.filename-label' container for correct
   // work of inplace renaming.
   var box = /** @type {!HTMLDivElement} */ (doc.createElement('div'));
   box.className = 'filename-label';
   var fileName = doc.createElement('span');
   fileName.className = 'entry-name';
-  fileName.textContent = entry.name;
+  fileName.textContent = util.getEntryLabel(locationInfo, entry);
   box.appendChild(fileName);
 
   return box;
@@ -206,23 +215,32 @@ filelist.renderFileNameLabel = function(doc, entry) {
 filelist.updateListItemExternalProps = function(
     li, externalProps, isTeamDriveRoot) {
   if (li.classList.contains('file')) {
-    if (externalProps.availableOffline === false)
+    if (externalProps.availableOffline === false) {
       li.classList.add('dim-offline');
-    else
+    } else {
       li.classList.remove('dim-offline');
+    }
     // TODO(mtomasz): Consider adding some vidual indication for files which
     // are not cached on LTE. Currently we show them as normal files.
     // crbug.com/246611.
+
+    if (externalProps.hosted === true) {
+      li.classList.add('dim-hosted');
+    } else {
+      li.classList.remove('dim-hosted');
+    }
   }
 
   var iconDiv = li.querySelector('.detail-icon');
-  if (!iconDiv)
+  if (!iconDiv) {
     return;
+  }
 
-  if (externalProps.customIconUrl)
+  if (externalProps.customIconUrl) {
     iconDiv.style.backgroundImage = 'url(' + externalProps.customIconUrl + ')';
-  else
+  } else {
     iconDiv.style.backgroundImage = '';  // Back to the default image.
+  }
 
   if (li.classList.contains('directory')) {
     iconDiv.classList.toggle('shared', !!externalProps.shared);
@@ -370,8 +388,9 @@ filelist.handlePointerDownUp = function(e, index) {
         if (isClickOnCheckmark) {
           // If Files app enters check-select mode by clicking an item's icon,
           // existing selection should be cleared.
-          if (!sm.getCheckSelectMode())
+          if (!sm.getCheckSelectMode()) {
             sm.unselectAll();
+          }
         }
         // Always enables check-select mode when the selection is updated by
         // Ctrl+Click or Click on an item's icon.
@@ -387,10 +406,11 @@ filelist.handlePointerDownUp = function(e, index) {
       if (isDown) {
         sm.unselectAll();
         sm.leadIndex = index;
-        if (sm.multiple)
+        if (sm.multiple) {
           sm.selectRange(anchorIndex, index);
-        else
+        } else {
           sm.setIndexSelected(index, true);
+        }
       }
     } else {
       // Right click for a context menu needs to not clear the selection.
@@ -440,16 +460,18 @@ filelist.handleKeyDown = function(e) {
     var inputType = e.target.type;
     // Just protect space (for toggling) for checkbox and radio.
     if (inputType == 'checkbox' || inputType == 'radio') {
-      if (e.keyCode == SPACE_KEY_CODE)
+      if (e.keyCode == SPACE_KEY_CODE) {
         return;
+      }
     // Protect all but the most basic navigation commands in anything else.
     } else if (e.key != 'ArrowUp' && e.key != 'ArrowDown') {
       return;
     }
   }
   // Similarly, don't interfere with select element handling.
-  if (tagName == 'SELECT')
+  if (tagName == 'SELECT') {
     return;
+  }
 
   var sm = /** @type {!FileListSelectionModel|!FileListSingleSelectionModel} */
            (this.selectionModel);
@@ -519,8 +541,9 @@ filelist.handleKeyDown = function(e) {
     sm.leadIndex = newIndex;
     if (e.shiftKey) {
       var anchorIndex = sm.anchorIndex;
-      if (sm.multiple)
+      if (sm.multiple) {
         sm.unselectAll();
+      }
       if (anchorIndex == -1) {
         sm.setIndexSelected(newIndex, true);
         sm.anchorIndex = newIndex;
@@ -532,16 +555,18 @@ filelist.handleKeyDown = function(e) {
       //    check-select mode should be terminated.
       sm.setCheckSelectMode(false);
 
-      if (sm.multiple)
+      if (sm.multiple) {
         sm.unselectAll();
+      }
       sm.setIndexSelected(newIndex, true);
       sm.anchorIndex = newIndex;
     }
 
     sm.endChange();
 
-    if (prevent)
+    if (prevent) {
       e.preventDefault();
+    }
   }
 };
 

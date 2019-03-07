@@ -57,6 +57,10 @@ void FakeServiceWorkerContext::DeleteForOrigin(const GURL& origin,
                                                ResultCallback callback) {
   NOTREACHED();
 }
+void FakeServiceWorkerContext::PerformStorageCleanup(
+    base::OnceClosure callback) {
+  NOTREACHED();
+}
 void FakeServiceWorkerContext::CheckHasServiceWorker(
     const GURL& url,
     const GURL& other_url,
@@ -77,6 +81,14 @@ void FakeServiceWorkerContext::StartServiceWorkerForNavigationHint(
     const GURL& document_url,
     StartServiceWorkerForNavigationHintCallback callback) {
   start_service_worker_for_navigation_hint_called_ = true;
+}
+
+void FakeServiceWorkerContext::StartServiceWorkerAndDispatchMessage(
+    const GURL& scope,
+    blink::TransferableMessage message,
+    ResultCallback result_callback) {
+  start_service_worker_and_dispatch_message_calls_.push_back(
+      std::make_tuple(scope, std::move(message), std::move(result_callback)));
 }
 
 void FakeServiceWorkerContext::StartServiceWorkerAndDispatchLongRunningMessage(

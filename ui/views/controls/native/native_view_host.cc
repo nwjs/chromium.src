@@ -49,6 +49,10 @@ void NativeViewHost::Detach() {
   Detach(false);
 }
 
+void NativeViewHost::SetParentAccessible(gfx::NativeViewAccessible accessible) {
+  native_wrapper_->SetParentAccessible(accessible);
+}
+
 bool NativeViewHost::SetCornerRadius(int corner_radius) {
   return SetCustomMask(views::Painter::CreatePaintedLayer(
       views::Painter::CreateSolidRoundRectPainter(SK_ColorBLACK,
@@ -58,6 +62,10 @@ bool NativeViewHost::SetCornerRadius(int corner_radius) {
 bool NativeViewHost::SetCustomMask(std::unique_ptr<ui::LayerOwner> mask) {
   DCHECK(native_wrapper_);
   return native_wrapper_->SetCustomMask(std::move(mask));
+}
+
+void NativeViewHost::SetHitTestTopInset(int top_inset) {
+  native_wrapper_->SetHitTestTopInset(top_inset);
 }
 
 void NativeViewHost::SetNativeViewSize(const gfx::Size& size) {

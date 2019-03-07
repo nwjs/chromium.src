@@ -210,7 +210,7 @@ class BASE_EXPORT TaskTracker {
   void SetExecutionFenceEnabled(bool execution_fence_enabled);
 
   // Returns the number of preempted sequences of a given priority.
-  int GetPreemptedSequenceCountForTesting(TaskPriority priority);
+  size_t GetPreemptedSequenceCountForTesting(TaskPriority priority);
 
  protected:
   // Runs and deletes |task| if |can_run_task| is true. Otherwise, just deletes
@@ -339,6 +339,13 @@ class BASE_EXPORT TaskTracker {
                               TimeTicks posted_time) const;
 
   void IncrementNumTasksRun();
+
+  // Dummy frames to allow identification of shutdown behavior in a stack trace.
+  void RunContinueOnShutdown(Task* task);
+  void RunSkipOnShutdown(Task* task);
+  void RunBlockShutdown(Task* task);
+  void RunTaskWithShutdownBehavior(TaskShutdownBehavior shutdown_behavior,
+                                   Task* task);
 
   debug::TaskAnnotator task_annotator_;
 

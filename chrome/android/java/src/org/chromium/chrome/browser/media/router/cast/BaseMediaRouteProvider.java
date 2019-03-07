@@ -4,6 +4,7 @@
 package org.chromium.chrome.browser.media.router.cast;
 
 import android.os.Handler;
+import android.support.annotation.Nullable;
 import android.support.v7.media.MediaRouteSelector;
 import android.support.v7.media.MediaRouter;
 import android.support.v7.media.MediaRouter.RouteInfo;
@@ -25,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 /**
  * A {@link BaseMediaRouteProvider} common implementation for MediaRouteProviders.
@@ -173,17 +173,31 @@ public abstract class BaseMediaRouteProvider
             return;
         }
 
-        MediaSink sink = MediaSink.fromSinkId(sinkId, mAndroidMediaRouter);
-        if (sink == null) {
+        MediaRouter.RouteInfo targetRouteInfo = null;
+        for (MediaRouter.RouteInfo routeInfo : mAndroidMediaRouter.getRoutes()) {
+            if (routeInfo.getId().equals(sinkId)) {
+                targetRouteInfo = routeInfo;
+                break;
+            }
+        }
+
+        if (targetRouteInfo == null) {
             mManager.onRouteRequestError("No sink", nativeRequestId);
             return;
         }
+
+        MediaSink sink = MediaSink.fromRoute(targetRouteInfo);
 
         MediaSource source = getSourceFromId(sourceId);
         if (source == null) {
             mManager.onRouteRequestError("Unsupported source URL", nativeRequestId);
             return;
         }
+
+        // When the user clicks a route on the MediaRouteChooserDialog, we intercept the click event
+        // and do not select the route. Instead the route selection is postponed to here. This will
+        // make sure the MediaRouteControllerDialog show up properly.
+        targetRouteInfo.select();
 
         ChromeCastSessionManager.CastSessionLaunchRequest request = createSessionLaunchRequest(
                 source, sink, presentationId, origin, tabId, isIncognito, nativeRequestId);

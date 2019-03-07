@@ -44,9 +44,9 @@ These builders must pass before a CL may land.
 
 * [ios-simulator](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/ios-simulator) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+ios-simulator)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+ios-simulator))
 
-* [linux-chromeos-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux-chromeos-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux-chromeos-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux-chromeos-rel))
-
 * [linux-chromeos-compile-dbg](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux-chromeos-compile-dbg) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux-chromeos-compile-dbg)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux-chromeos-compile-dbg))
+
+* [linux-chromeos-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux-chromeos-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux-chromeos-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux-chromeos-rel))
 
 * [linux-jumbo-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux-jumbo-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux-jumbo-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux-jumbo-rel))
 
@@ -54,27 +54,27 @@ These builders must pass before a CL may land.
 
 * [linux-ozone-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux-ozone-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux-ozone-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux-ozone-rel))
 
+* [linux-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux-rel))
+
 * [linux_chromium_asan_rel_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_chromium_asan_rel_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_chromium_asan_rel_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_chromium_asan_rel_ng))
 
 * [linux_chromium_compile_dbg_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_chromium_compile_dbg_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_chromium_compile_dbg_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_chromium_compile_dbg_ng))
 
 * [linux_chromium_headless_rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_chromium_headless_rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_chromium_headless_rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_chromium_headless_rel))
 
-* [linux_chromium_rel_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_chromium_rel_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_chromium_rel_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_chromium_rel_ng))
-
 * [linux_chromium_tsan_rel_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_chromium_tsan_rel_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_chromium_tsan_rel_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_chromium_tsan_rel_ng))
+
+* [mac-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/mac-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+mac-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+mac-rel))
 
 * [mac_chromium_compile_dbg_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/mac_chromium_compile_dbg_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+mac_chromium_compile_dbg_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+mac_chromium_compile_dbg_ng))
 
-* [mac_chromium_rel_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/mac_chromium_rel_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+mac_chromium_rel_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+mac_chromium_rel_ng))
+* [win-libfuzzer-asan-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/win-libfuzzer-asan-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+win-libfuzzer-asan-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+win-libfuzzer-asan-rel))
 
 * [win10_chromium_x64_rel_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/win10_chromium_x64_rel_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+win10_chromium_x64_rel_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+win10_chromium_x64_rel_ng))
 
-* [win7_chromium_rel_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/win7_chromium_rel_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+win7_chromium_rel_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+win7_chromium_rel_ng))
+* [win7-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/win7-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+win7-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+win7-rel))
 
 * [win_chromium_compile_dbg_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/win_chromium_compile_dbg_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+win_chromium_compile_dbg_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+win_chromium_compile_dbg_ng))
-
-* [win-libfuzzer-asan-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/win-libfuzzer-asan-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+win-libfuzzer-asan-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+win-libfuzzer-asan-rel))
 
 
 ## Optional builders
@@ -92,7 +92,9 @@ builder.
     * [`//components/viz/.+`](https://cs.chromium.org/chromium/src/components/viz/)
     * [`//content/test/gpu/.+`](https://cs.chromium.org/chromium/src/content/test/gpu/)
     * [`//gpu/.+`](https://cs.chromium.org/chromium/src/gpu/)
-    * [`//media/(audio|filters|gpu)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:media/(audio|filters|gpu)/)
+    * [`//media/audio/.+`](https://cs.chromium.org/chromium/src/media/audio/)
+    * [`//media/filters/.+`](https://cs.chromium.org/chromium/src/media/filters/)
+    * [`//media/gpu/.+`](https://cs.chromium.org/chromium/src/media/gpu/)
     * [`//services/viz/.+`](https://cs.chromium.org/chromium/src/services/viz/)
     * [`//testing/trigger_scripts/.+`](https://cs.chromium.org/chromium/src/testing/trigger_scripts/)
     * [`//third_party/blink/renderer/modules/webgl/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/modules/webgl/)
@@ -101,9 +103,7 @@ builder.
 * [closure_compilation](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/closure_compilation) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+closure_compilation)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+closure_compilation))
 
   Path regular expressions:
-    * [`//components/offline_pages/resources/.+`](https://cs.chromium.org/chromium/src/components/offline_pages/resources/)
     * [`//third_party/closure_compiler/.+`](https://cs.chromium.org/chromium/src/third_party/closure_compiler/)
-    * [`//third_party/polymer/.+`](https://cs.chromium.org/chromium/src/third_party/polymer/)
 
 * [ios-simulator-cronet](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/ios-simulator-cronet) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+ios-simulator-cronet)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+ios-simulator-cronet))
 
@@ -117,44 +117,41 @@ builder.
   Path regular expressions:
     * [`//ios/.+`](https://cs.chromium.org/chromium/src/ios/)
 
-* [linux-blink-gen-property-trees](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux-blink-gen-property-trees) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux-blink-gen-property-trees)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux-blink-gen-property-trees))
-
-  Path regular expressions:
-    * [`//third_party/blink/web_tests/FlagExpectations/enable-blink-gen-property-trees`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/web_tests/FlagExpectations/enable-blink-gen-property-trees)
-    * [`//third_party/blink/web_tests/flag-specific/enable-blink-gen-property-trees/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/flag-specific/enable-blink-gen-property-trees/)
-
 * [linux-blink-rel](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux-blink-rel) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux-blink-rel)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux-blink-rel))
 
   Path regular expressions:
     * [`//cc/.+`](https://cs.chromium.org/chromium/src/cc/)
-    * [`//third_party/blink/renderer/core/(svg|paint)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/renderer/core/(svg|paint)/)
-    * [`//third_party/blink/renderer/core/layout/compositing/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/layout/compositing/)
+    * [`//third_party/blink/renderer/core/paint/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/paint/)
+    * [`//third_party/blink/renderer/core/svg/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/svg/)
     * [`//third_party/blink/renderer/platform/graphics/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/graphics/)
-    * [`//third_party/blink/web_tests/FlagExpectations/(enable-slimming-paint-v2|enable-blink-gen-property-trees)`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/web_tests/FlagExpectations/(enable-slimming-paint-v2|enable-blink-gen-property-trees))
-    * [`//third_party/blink/web_tests/flag-specific/(enable-slimming-paint-v2|enable-blink-gen-property-trees)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/web_tests/flag-specific/(enable-slimming-paint-v2|enable-blink-gen-property-trees)/)
+    * [`//third_party/blink/web_tests/FlagExpectations/enable-blink-features=CompositeAfterPaint`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/web_tests/FlagExpectations/enable-blink-features=CompositeAfterPaint)
+    * [`//third_party/blink/web_tests/flag-specific/enable-blink-features=CompositeAfterPaint/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/flag-specific/enable-blink-features=CompositeAfterPaint/)
 
 * [linux_chromium_dbg_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_chromium_dbg_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_chromium_dbg_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_chromium_dbg_ng))
 
   Path regular expressions:
     * [`//build/.*check_gn_headers.*`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:build/.*check_gn_headers.*)
 
+* [linux_layout_tests_composite_after_paint](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_layout_tests_composite_after_paint) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_layout_tests_composite_after_paint)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_layout_tests_composite_after_paint))
+
+  Path regular expressions:
+    * [`//third_party/blink/renderer/core/paint/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/paint/)
+    * [`//third_party/blink/renderer/core/svg/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/svg/)
+    * [`//third_party/blink/renderer/platform/graphics/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/graphics/)
+    * [`//third_party/blink/web_tests/FlagExpectations/enable-blink-features=CompositeAfterPaint`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/web_tests/FlagExpectations/enable-blink-features=CompositeAfterPaint)
+    * [`//third_party/blink/web_tests/flag-specific/enable-blink-features=CompositeAfterPaint/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/flag-specific/enable-blink-features=CompositeAfterPaint/)
+
 * [linux_layout_tests_layout_ng](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_layout_tests_layout_ng) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_layout_tests_layout_ng)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_layout_tests_layout_ng))
 
   Path regular expressions:
-    * [`//third_party/blink/renderer/core/(layout|paint)/ng/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/renderer/core/(layout|paint)/ng/)
     * [`//third_party/blink/renderer/core/editing/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/editing/)
+    * [`//third_party/blink/renderer/core/layout/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/layout/)
+    * [`//third_party/blink/renderer/core/paint/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/paint/)
+    * [`//third_party/blink/renderer/core/svg/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/svg/)
     * [`//third_party/blink/renderer/platform/fonts/shaping/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/fonts/shaping/)
+    * [`//third_party/blink/renderer/platform/graphics/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/graphics/)
     * [`//third_party/blink/web_tests/FlagExpectations/enable-blink-features=LayoutNG`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/web_tests/FlagExpectations/enable-blink-features=LayoutNG)
     * [`//third_party/blink/web_tests/flag-specific/enable-blink-features=LayoutNG/.+`](https://cs.chromium.org/chromium/src/third_party/blink/web_tests/flag-specific/enable-blink-features=LayoutNG/)
-
-* [linux_layout_tests_slimming_paint_v2](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_layout_tests_slimming_paint_v2) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_layout_tests_slimming_paint_v2)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_layout_tests_slimming_paint_v2))
-
-  Path regular expressions:
-    * [`//third_party/blink/renderer/core/layout/compositing/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/layout/compositing/)
-    * [`//third_party/blink/renderer/core/(svg|paint)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/renderer/core/(svg|paint)/)
-    * [`//third_party/blink/renderer/platform/graphics/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/platform/graphics/)
-    * [`//third_party/blink/web_tests/FlagExpectations/(enable-slimming-paint-v2|enable-blink-gen-property-trees)`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/web_tests/FlagExpectations/(enable-slimming-paint-v2|enable-blink-gen-property-trees))
-    * [`//third_party/blink/web_tests/flag-specific/(enable-slimming-paint-v2|enable-blink-gen-property-trees)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:third_party/blink/web_tests/flag-specific/(enable-slimming-paint-v2|enable-blink-gen-property-trees)/)
 
 * [linux_mojo](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/linux_mojo) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+linux_mojo)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+linux_mojo))
 
@@ -169,7 +166,9 @@ builder.
     * [`//chrome/browser/vr/.+`](https://cs.chromium.org/chromium/src/chrome/browser/vr/)
     * [`//content/test/gpu/.+`](https://cs.chromium.org/chromium/src/content/test/gpu/)
     * [`//gpu/.+`](https://cs.chromium.org/chromium/src/gpu/)
-    * [`//media/(audio|filters|gpu)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:media/(audio|filters|gpu)/)
+    * [`//media/audio/.+`](https://cs.chromium.org/chromium/src/media/audio/)
+    * [`//media/filters/.+`](https://cs.chromium.org/chromium/src/media/filters/)
+    * [`//media/gpu/.+`](https://cs.chromium.org/chromium/src/media/gpu/)
     * [`//testing/trigger_scripts/.+`](https://cs.chromium.org/chromium/src/testing/trigger_scripts/)
     * [`//third_party/blink/renderer/modules/webgl/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/modules/webgl/)
     * [`//ui/gl/.+`](https://cs.chromium.org/chromium/src/ui/gl/)
@@ -185,7 +184,9 @@ builder.
     * [`//chrome/browser/vr/.+`](https://cs.chromium.org/chromium/src/chrome/browser/vr/)
     * [`//content/test/gpu/.+`](https://cs.chromium.org/chromium/src/content/test/gpu/)
     * [`//gpu/.+`](https://cs.chromium.org/chromium/src/gpu/)
-    * [`//media/(audio|filters|gpu)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:media/(audio|filters|gpu)/)
+    * [`//media/audio/.+`](https://cs.chromium.org/chromium/src/media/audio/)
+    * [`//media/filters/.+`](https://cs.chromium.org/chromium/src/media/filters/)
+    * [`//media/gpu/.+`](https://cs.chromium.org/chromium/src/media/gpu/)
     * [`//services/shape_detection/.+`](https://cs.chromium.org/chromium/src/services/shape_detection/)
     * [`//testing/trigger_scripts/.+`](https://cs.chromium.org/chromium/src/testing/trigger_scripts/)
     * [`//third_party/blink/renderer/modules/webgl/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/modules/webgl/)
@@ -198,7 +199,9 @@ builder.
     * [`//content/test/gpu/.+`](https://cs.chromium.org/chromium/src/content/test/gpu/)
     * [`//device/vr/.+`](https://cs.chromium.org/chromium/src/device/vr/)
     * [`//gpu/.+`](https://cs.chromium.org/chromium/src/gpu/)
-    * [`//media/(audio|filters|gpu)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:media/(audio|filters|gpu)/)
+    * [`//media/audio/.+`](https://cs.chromium.org/chromium/src/media/audio/)
+    * [`//media/filters/.+`](https://cs.chromium.org/chromium/src/media/filters/)
+    * [`//media/gpu/.+`](https://cs.chromium.org/chromium/src/media/gpu/)
     * [`//testing/trigger_scripts/.+`](https://cs.chromium.org/chromium/src/testing/trigger_scripts/)
     * [`//third_party/blink/renderer/modules/vr/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/modules/vr/)
     * [`//third_party/blink/renderer/modules/webgl/.+`](https://cs.chromium.org/chromium/src/third_party/blink/renderer/modules/webgl/)
@@ -209,12 +212,18 @@ builder.
 * [android_compile_x64_dbg](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/android_compile_x64_dbg) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+android_compile_x64_dbg)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+android_compile_x64_dbg))
 
   Path regular expressions:
-    * [`//sandbox/linux/(bpd_dsl|seccomp-bpf|secomp-bpf-helpers|system_headers|tests)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:sandbox/linux/(bpd_dsl|seccomp-bpf|secomp-bpf-helpers|system_headers|tests)/)
+    * [`//sandbox/linux/seccomp-bpf/.+`](https://cs.chromium.org/chromium/src/sandbox/linux/seccomp-bpf/)
+    * [`//sandbox/linux/seccomp-bpf-helpers/.+`](https://cs.chromium.org/chromium/src/sandbox/linux/seccomp-bpf-helpers/)
+    * [`//sandbox/linux/system_headers/.+`](https://cs.chromium.org/chromium/src/sandbox/linux/system_headers/)
+    * [`//sandbox/linux/tests/.+`](https://cs.chromium.org/chromium/src/sandbox/linux/tests/)
 
 * [android_compile_x86_dbg](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/android_compile_x86_dbg) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+android_compile_x86_dbg)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+android_compile_x86_dbg))
 
   Path regular expressions:
-    * [`//sandbox/linux/(bpd_dsl|seccomp-bpf|secomp-bpf-helpers|system_headers|tests)/.+`](https://cs.chromium.org/search/?q=package:%5Echromium$+file:sandbox/linux/(bpd_dsl|seccomp-bpf|secomp-bpf-helpers|system_headers|tests)/)
+    * [`//sandbox/linux/seccomp-bpf/.+`](https://cs.chromium.org/chromium/src/sandbox/linux/seccomp-bpf/)
+    * [`//sandbox/linux/seccomp-bpf-helpers/.+`](https://cs.chromium.org/chromium/src/sandbox/linux/seccomp-bpf-helpers/)
+    * [`//sandbox/linux/system_headers/.+`](https://cs.chromium.org/chromium/src/sandbox/linux/system_headers/)
+    * [`//sandbox/linux/tests/.+`](https://cs.chromium.org/chromium/src/sandbox/linux/tests/)
 
 * [android_cronet_tester](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/android_cronet_tester) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+android_cronet_tester)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+android_cronet_tester))
 
@@ -257,7 +266,7 @@ as required builders.
 
   https://crbug.com/855319
 
-  * Experimental percentage: 50
+  * Experimental percentage: 40
 
 * [win7_chromium_rel_loc_exp](https://ci.chromium.org/p/chromium/builders/luci.chromium.try/win7_chromium_rel_loc_exp) ([`cq.cfg` entry](https://cs.chromium.org/search/?q=package:%5Echromium$+file:cq.cfg+win7_chromium_rel_loc_exp)) ([matching builders](https://cs.chromium.org/search/?q=file:trybots.py+win7_chromium_rel_loc_exp))
 

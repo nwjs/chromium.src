@@ -4,9 +4,10 @@
 
 #include "third_party/blink/renderer/modules/background_fetch/background_fetch_registration.h"
 
+#include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/background_fetch/web_background_fetch_registration.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/fetch/request.h"
@@ -67,8 +68,11 @@ void BackgroundFetchRegistration::Initialize(
 
   registration_ = registration;
 
+  auto task_runner =
+      GetExecutionContext()->GetTaskRunner(TaskType::kBackgroundFetch);
   mojom::blink::BackgroundFetchRegistrationObserverPtr observer;
-  observer_binding_.Bind(mojo::MakeRequest(&observer));
+  observer_binding_.Bind(mojo::MakeRequest(&observer, task_runner),
+                         task_runner);
 
   BackgroundFetchBridge::From(registration_)
       ->AddRegistrationObserver(unique_id_, std::move(observer));
@@ -88,8 +92,6 @@ void BackgroundFetchRegistration::OnProgress(
   result_ = result;
   failure_reason_ = failure_reason;
 
-  // TODO(crbug.com/875201): Update records in |records_|.
-
   ExecutionContext* context = GetExecutionContext();
   if (!context || context->IsContextDestroyed())
     return;
@@ -100,6 +102,20 @@ void BackgroundFetchRegistration::OnProgress(
 
 void BackgroundFetchRegistration::OnRecordsUnavailable() {
   records_available_ = false;
+}
+
+void BackgroundFetchRegistration::OnRequestCompleted(
+    mojom::blink::FetchAPIRequestPtr request,
+    mojom::blink::FetchAPIResponsePtr response) {
+  for (auto* it = observers_.begin(); it != observers_.end();) {
+    BackgroundFetchRecord* observer = it->Get();
+    if (observer->ObservedUrl() == request->url) {
+      observer->OnRequestCompleted(response->Clone());
+      it = observers_.erase(it);
+    } else {
+      it++;
+    }
+  }
 }
 
 String BackgroundFetchRegistration::id() const {
@@ -153,9 +169,10 @@ ScriptPromise BackgroundFetchRegistration::match(
     const RequestOrUSVString& request,
     const CacheQueryOptions* options,
     ExceptionState& exception_state) {
-  return MatchImpl(
-      script_state, base::make_optional<RequestOrUSVString>(request),
-      Cache::ToQueryParams(options), exception_state, /* match_all = */ false);
+  return MatchImpl(script_state,
+                   base::make_optional<RequestOrUSVString>(request),
+                   Cache::ToQueryParams(options), exception_state,
+                   /* match_all = */ false);
 }
 
 ScriptPromise BackgroundFetchRegistration::matchAll(
@@ -182,17 +199,11 @@ ScriptPromise BackgroundFetchRegistration::MatchImpl(
     mojom::blink::QueryParamsPtr cache_query_params,
     ExceptionState& exception_state,
     bool match_all) {
-  // TODO(crbug.com/875201): Update this check once we support access to active
-  // fetches.
-  if (result_ == mojom::BackgroundFetchResult::UNSET &&
-      !RuntimeEnabledFeatures::BackgroundFetchAccessActiveFetchesEnabled()) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state,
-        DOMException::Create(
-            DOMExceptionCode::kInvalidStateError,
-            "Access to records for in-progress background fetches is not yet "
-            "implemented. Please see crbug.com/875201 for more details."));
-  }
+  DCHECK(script_state);
+  UMA_HISTOGRAM_BOOLEAN("BackgroundFetch.MatchCalledFromDocumentScope",
+                        ExecutionContext::From(script_state)->IsDocument());
+  UMA_HISTOGRAM_BOOLEAN("BackgroundFetch.MatchCalledWhenFetchIsIncomplete",
+                        result_ == mojom::BackgroundFetchResult::UNSET);
 
   if (!records_available_) {
     return ScriptPromise::RejectWithDOMException(
@@ -242,20 +253,16 @@ void BackgroundFetchRegistration::DidGetMatchingRequests(
   ScriptState::Scope scope(script_state);
   HeapVector<Member<BackgroundFetchRecord>> to_return;
   to_return.ReserveInitialCapacity(settled_fetches.size());
-  for (auto& fetch : settled_fetches) {
-    // If there isn't a record for this fetch in records_ already, create one.
-    auto iter = records_.find(fetch->request->url);
-    BackgroundFetchRecord* record = nullptr;
-    if (iter == records_.end()) {
-      Request* request = Request::Create(script_state, *(fetch->request));
-      auto* new_record = new BackgroundFetchRecord(request, script_state);
-      DCHECK(new_record);
-      records_.Set(request->url(), new_record);
 
-      record = new_record;
-    } else {
-      record = iter->value;
-    }
+  for (auto& fetch : settled_fetches) {
+    Request* request = Request::Create(script_state, *(fetch->request));
+    auto* record =
+        MakeGarbageCollected<BackgroundFetchRecord>(request, script_state);
+
+    // If this request is incomplete, enlist this record to receive updates on
+    // the request.
+    if (fetch->response.is_null() && !IsAborted())
+      observers_.push_back(*record);
 
     UpdateRecord(record, fetch->response);
     to_return.push_back(record);
@@ -267,11 +274,13 @@ void BackgroundFetchRegistration::DidGetMatchingRequests(
       resolver->Resolve();
       return;
     }
+
     DCHECK_EQ(settled_fetches.size(), 1u);
     DCHECK_EQ(to_return.size(), 1u);
     resolver->Resolve(to_return[0]);
     return;
   }
+
   resolver->Resolve(to_return);
 }
 
@@ -360,8 +369,8 @@ const String BackgroundFetchRegistration::failureReason() const {
       return "fetch-error";
     case mojom::BackgroundFetchFailureReason::QUOTA_EXCEEDED:
       return "quota-exceeded";
-    case mojom::BackgroundFetchFailureReason::TOTAL_DOWNLOAD_SIZE_EXCEEDED:
-      return "total-download-exceeded";
+    case mojom::BackgroundFetchFailureReason::DOWNLOAD_TOTAL_EXCEEDED:
+      return "download-total-exceeded";
   }
   NOTREACHED();
 }
@@ -370,10 +379,20 @@ void BackgroundFetchRegistration::Dispose() {
   observer_binding_.Close();
 }
 
+bool BackgroundFetchRegistration::HasPendingActivity() const {
+  if (!GetExecutionContext())
+    return false;
+  if (GetExecutionContext()->IsContextDestroyed())
+    return false;
+
+  return !observers_.IsEmpty();
+}
+
 void BackgroundFetchRegistration::Trace(Visitor* visitor) {
   visitor->Trace(registration_);
-  visitor->Trace(records_);
+  visitor->Trace(observers_);
   EventTargetWithInlineData::Trace(visitor);
+  ActiveScriptWrappable::Trace(visitor);
 }
 
 }  // namespace blink

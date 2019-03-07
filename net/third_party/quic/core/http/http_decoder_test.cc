@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "net/third_party/quic/core/http/http_decoder.h"
+#include "net/third_party/quic/core/http/http_encoder.h"
 #include "net/third_party/quic/platform/api/quic_arraysize.h"
 #include "net/third_party/quic/platform/api/quic_test.h"
 
@@ -22,8 +23,9 @@ class MockVisitor : public HttpDecoder::Visitor {
   MOCK_METHOD1(OnMaxPushIdFrame, void(const MaxPushIdFrame& frame));
   MOCK_METHOD1(OnGoAwayFrame, void(const GoAwayFrame& frame));
   MOCK_METHOD1(OnSettingsFrame, void(const SettingsFrame& frame));
+  MOCK_METHOD1(OnDuplicatePushFrame, void(const DuplicatePushFrame& frame));
 
-  MOCK_METHOD0(OnDataFrameStart, void());
+  MOCK_METHOD1(OnDataFrameStart, void(Http3FrameLengths frame_lengths));
   MOCK_METHOD1(OnDataFramePayload, void(QuicStringPiece payload));
   MOCK_METHOD0(OnDataFrameEnd, void());
 
@@ -181,6 +183,29 @@ TEST_F(HttpDecoderTest, MaxPushId) {
   EXPECT_EQ("", decoder_.error_detail());
 }
 
+TEST_F(HttpDecoderTest, DuplicatePush) {
+  char input[] = {// length
+                  0x1,
+                  // type (DUPLICATE_PUSH)
+                  0x0E,
+                  // Push Id
+                  0x01};
+  // Process the full frame.
+  EXPECT_CALL(visitor_, OnDuplicatePushFrame(DuplicatePushFrame({1})));
+  EXPECT_EQ(QUIC_ARRAYSIZE(input),
+            decoder_.ProcessInput(input, QUIC_ARRAYSIZE(input)));
+  EXPECT_EQ(QUIC_NO_ERROR, decoder_.error());
+  EXPECT_EQ("", decoder_.error_detail());
+
+  // Process the frame incremently.
+  EXPECT_CALL(visitor_, OnDuplicatePushFrame(DuplicatePushFrame({1})));
+  for (char c : input) {
+    EXPECT_EQ(1u, decoder_.ProcessInput(&c, 1));
+  }
+  EXPECT_EQ(QUIC_NO_ERROR, decoder_.error());
+  EXPECT_EQ("", decoder_.error_detail());
+}
+
 TEST_F(HttpDecoderTest, PriorityFrame) {
   char input[] = {// length
                   0x4,
@@ -271,7 +296,7 @@ TEST_F(HttpDecoderTest, DataFrame) {
 
   // Process the full frame.
   InSequence s;
-  EXPECT_CALL(visitor_, OnDataFrameStart());
+  EXPECT_CALL(visitor_, OnDataFrameStart(Http3FrameLengths(2, 5)));
   EXPECT_CALL(visitor_, OnDataFramePayload(QuicStringPiece("Data!")));
   EXPECT_CALL(visitor_, OnDataFrameEnd());
   EXPECT_EQ(QUIC_ARRAYSIZE(input),
@@ -280,7 +305,7 @@ TEST_F(HttpDecoderTest, DataFrame) {
   EXPECT_EQ("", decoder_.error_detail());
 
   // Process the frame incremently.
-  EXPECT_CALL(visitor_, OnDataFrameStart());
+  EXPECT_CALL(visitor_, OnDataFrameStart(Http3FrameLengths(2, 5)));
   EXPECT_CALL(visitor_, OnDataFramePayload(QuicStringPiece("D")));
   EXPECT_CALL(visitor_, OnDataFramePayload(QuicStringPiece("a")));
   EXPECT_CALL(visitor_, OnDataFramePayload(QuicStringPiece("t")));
@@ -290,6 +315,36 @@ TEST_F(HttpDecoderTest, DataFrame) {
   for (char c : input) {
     EXPECT_EQ(1u, decoder_.ProcessInput(&c, 1));
   }
+  EXPECT_EQ(QUIC_NO_ERROR, decoder_.error());
+  EXPECT_EQ("", decoder_.error_detail());
+}
+
+TEST_F(HttpDecoderTest, FrameHeaderPartialDelivery) {
+  // A large input that will occupy more than 1 byte in the length field.
+  QuicString input(2048, 'x');
+  HttpEncoder encoder;
+  std::unique_ptr<char[]> buffer;
+  QuicByteCount header_length =
+      encoder.SerializeDataFrameHeader(input.length(), &buffer);
+  QuicString header = QuicString(buffer.get(), header_length);
+  // Partially send only 1 byte of the header to process.
+  EXPECT_EQ(1u, decoder_.ProcessInput(header.data(), 1));
+  EXPECT_EQ(QUIC_NO_ERROR, decoder_.error());
+  EXPECT_EQ("", decoder_.error_detail());
+
+  // Send the rest of the header.
+  EXPECT_EQ(header_length - 1,
+            decoder_.ProcessInput(header.data() + 1, header_length - 1));
+  EXPECT_EQ(QUIC_NO_ERROR, decoder_.error());
+  EXPECT_EQ("", decoder_.error_detail());
+
+  // Send data.
+  EXPECT_CALL(visitor_, OnDataFrameStart(Http3FrameLengths(3, 2048)));
+  EXPECT_CALL(visitor_, OnDataFramePayload(QuicStringPiece(input)));
+  // EXPECT_CALL(visitor_,
+  //            OnDataFramePayload(QuicStringPiece(QuicString(2048, 'x'))));
+  EXPECT_CALL(visitor_, OnDataFrameEnd());
+  EXPECT_EQ(2048u, decoder_.ProcessInput(input.data(), 2048));
   EXPECT_EQ(QUIC_NO_ERROR, decoder_.error());
   EXPECT_EQ("", decoder_.error_detail());
 }

@@ -15,10 +15,11 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/system/sys_info.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -335,45 +336,51 @@ CastStreamingNativeHandler::~CastStreamingNativeHandler() {
 void CastStreamingNativeHandler::AddRoutes() {
   RouteHandlerFunction(
       "CreateSession", "cast.streaming.session",
-      base::Bind(&CastStreamingNativeHandler::CreateCastSession,
-                 weak_factory_.GetWeakPtr()));
+      base::BindRepeating(&CastStreamingNativeHandler::CreateCastSession,
+                          weak_factory_.GetWeakPtr()));
   RouteHandlerFunction(
       "DestroyCastRtpStream", "cast.streaming.rtpStream",
-      base::Bind(&CastStreamingNativeHandler::DestroyCastRtpStream,
-                 weak_factory_.GetWeakPtr()));
+      base::BindRepeating(&CastStreamingNativeHandler::DestroyCastRtpStream,
+                          weak_factory_.GetWeakPtr()));
   RouteHandlerFunction(
       "GetSupportedParamsCastRtpStream", "cast.streaming.rtpStream",
-      base::Bind(&CastStreamingNativeHandler::GetSupportedParamsCastRtpStream,
-                 weak_factory_.GetWeakPtr()));
+      base::BindRepeating(
+          &CastStreamingNativeHandler::GetSupportedParamsCastRtpStream,
+          weak_factory_.GetWeakPtr()));
   RouteHandlerFunction(
       "StartCastRtpStream", "cast.streaming.rtpStream",
-      base::Bind(&CastStreamingNativeHandler::StartCastRtpStream,
-                 weak_factory_.GetWeakPtr()));
+      base::BindRepeating(&CastStreamingNativeHandler::StartCastRtpStream,
+                          weak_factory_.GetWeakPtr()));
   RouteHandlerFunction(
       "StopCastRtpStream", "cast.streaming.rtpStream",
-      base::Bind(&CastStreamingNativeHandler::StopCastRtpStream,
-                 weak_factory_.GetWeakPtr()));
+      base::BindRepeating(&CastStreamingNativeHandler::StopCastRtpStream,
+                          weak_factory_.GetWeakPtr()));
   RouteHandlerFunction(
       "DestroyCastUdpTransport", "cast.streaming.udpTransport",
-      base::Bind(&CastStreamingNativeHandler::DestroyCastUdpTransport,
-                 weak_factory_.GetWeakPtr()));
+      base::BindRepeating(&CastStreamingNativeHandler::DestroyCastUdpTransport,
+                          weak_factory_.GetWeakPtr()));
   RouteHandlerFunction(
       "SetDestinationCastUdpTransport", "cast.streaming.udpTransport",
-      base::Bind(&CastStreamingNativeHandler::SetDestinationCastUdpTransport,
-                 weak_factory_.GetWeakPtr()));
+      base::BindRepeating(
+          &CastStreamingNativeHandler::SetDestinationCastUdpTransport,
+          weak_factory_.GetWeakPtr()));
   RouteHandlerFunction(
       "SetOptionsCastUdpTransport", "cast.streaming.udpTransport",
-      base::Bind(&CastStreamingNativeHandler::SetOptionsCastUdpTransport,
-                 weak_factory_.GetWeakPtr()));
-  RouteHandlerFunction("ToggleLogging", "cast.streaming.rtpStream",
-                       base::Bind(&CastStreamingNativeHandler::ToggleLogging,
-                                  weak_factory_.GetWeakPtr()));
-  RouteHandlerFunction("GetRawEvents", "cast.streaming.rtpStream",
-                       base::Bind(&CastStreamingNativeHandler::GetRawEvents,
-                                  weak_factory_.GetWeakPtr()));
-  RouteHandlerFunction("GetStats", "cast.streaming.rtpStream",
-                       base::Bind(&CastStreamingNativeHandler::GetStats,
-                                  weak_factory_.GetWeakPtr()));
+      base::BindRepeating(
+          &CastStreamingNativeHandler::SetOptionsCastUdpTransport,
+          weak_factory_.GetWeakPtr()));
+  RouteHandlerFunction(
+      "ToggleLogging", "cast.streaming.rtpStream",
+      base::BindRepeating(&CastStreamingNativeHandler::ToggleLogging,
+                          weak_factory_.GetWeakPtr()));
+  RouteHandlerFunction(
+      "GetRawEvents", "cast.streaming.rtpStream",
+      base::BindRepeating(&CastStreamingNativeHandler::GetRawEvents,
+                          weak_factory_.GetWeakPtr()));
+  RouteHandlerFunction(
+      "GetStats", "cast.streaming.rtpStream",
+      base::BindRepeating(&CastStreamingNativeHandler::GetStats,
+                          weak_factory_.GetWeakPtr()));
 }
 
 void CastStreamingNativeHandler::Invalidate() {
@@ -743,7 +750,7 @@ void CastStreamingNativeHandler::CallGetRawEventsCallback(
   v8::Local<v8::Value> callback_args[] = {V8ValueConverter::Create()->ToV8Value(
       raw_events.get(), context()->v8_context())};
   context()->SafeCallFunction(v8::Local<v8::Function>::New(isolate, it->second),
-                              arraysize(callback_args), callback_args);
+                              base::size(callback_args), callback_args);
   get_raw_events_callbacks_.erase(it);
 }
 
@@ -761,7 +768,7 @@ void CastStreamingNativeHandler::CallGetStatsCallback(
   v8::Local<v8::Value> callback_args[] = {V8ValueConverter::Create()->ToV8Value(
       stats.get(), context()->v8_context())};
   context()->SafeCallFunction(v8::Local<v8::Function>::New(isolate, it->second),
-                              arraysize(callback_args), callback_args);
+                              base::size(callback_args), callback_args);
   get_stats_callbacks_.erase(it);
 }
 

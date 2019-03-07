@@ -161,7 +161,7 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItem : public base::SupportsUserData {
   // Resume a download that has been paused or interrupted. Will have no effect
   // if the download is neither. Only does something if CanResume() returns
   // true.
-  virtual void Resume() = 0;
+  virtual void Resume(bool user_resume) = 0;
 
   // Cancel the download operation.
   //
@@ -205,9 +205,14 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItem : public base::SupportsUserData {
   // reason.
   virtual DownloadInterruptReason GetLastReason() const = 0;
 
-  // The download is currently paused. Calling Resume() will transition out of
-  // this paused state.
+  // Returns whether download is currently paused explicitly by the user. The
+  // download state should be checked in conjunction with this method to
+  // determine whether the download was truly paused. Calling Resume() will
+  // transition out of this paused state.
   virtual bool IsPaused() const = 0;
+
+  // Whether the download should be allowed to proceed in a metered network.
+  virtual bool AllowMetered() const = 0;
 
   // DEPRECATED. True if this is a temporary download and should not be
   // persisted.
@@ -225,6 +230,10 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItem : public base::SupportsUserData {
 
   // Returns the calculated number of bytes wasted (if any).
   virtual int64_t GetBytesWasted() const = 0;
+
+  // Returns the number of times the download has been auto-resumed since last
+  // user triggered resumption.
+  virtual int32_t GetAutoResumeCount() const = 0;
 
   //    Origin State accessors -------------------------------------------------
 

@@ -25,7 +25,6 @@ const CGFloat kCompressionResistanceAdditionalPriority = 1;
 @synthesize text = _text;
 @synthesize leadingDetailText = _leadingDetailText;
 @synthesize trailingDetailText = _trailingDetailText;
-@synthesize accessoryType = _accessoryType;
 
 - (instancetype)initWithType:(NSInteger)type {
   self = [super initWithType:type];
@@ -43,7 +42,6 @@ const CGFloat kCompressionResistanceAdditionalPriority = 1;
   cell.textLabel.text = self.text;
   cell.leadingDetailTextLabel.text = self.leadingDetailText;
   cell.trailingDetailTextLabel.text = self.trailingDetailText;
-  cell.accessoryType = self.accessoryType;
 }
 
 @end
@@ -117,8 +115,8 @@ const CGFloat kCompressionResistanceAdditionalPriority = 1;
         constraintEqualToAnchor:contentView.leadingAnchor
                        constant:kTableViewHorizontalSpacing],
     [_textLabel.trailingAnchor
-        constraintEqualToAnchor:_trailingDetailTextLabel.leadingAnchor
-                       constant:-kTableViewHorizontalSpacing],
+        constraintLessThanOrEqualToAnchor:_trailingDetailTextLabel.leadingAnchor
+                                 constant:-kTableViewHorizontalSpacing],
     [_leadingDetailTextLabel.leadingAnchor
         constraintEqualToAnchor:_textLabel.leadingAnchor],
     [_leadingDetailTextLabel.trailingAnchor
@@ -152,7 +150,6 @@ const CGFloat kCompressionResistanceAdditionalPriority = 1;
   self.textLabel.text = nil;
   self.leadingDetailTextLabel.text = nil;
   self.trailingDetailTextLabel.text = nil;
-  self.accessoryType = UITableViewCellAccessoryNone;
 }
 
 #pragma mark - NSObject(Accessibility)

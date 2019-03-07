@@ -11,8 +11,9 @@
 #include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/synchronization/condition_variable.h"
+#include "base/task/task_scheduler/scheduler_lock.h"
 #include "base/threading/platform_thread.h"
-#include "base/threading/thread_local_storage.h"
+#include "base/threading/thread_local.h"
 
 namespace base {
 namespace internal {
@@ -21,7 +22,7 @@ namespace {
 
 class SafeAcquisitionTracker {
  public:
-  SafeAcquisitionTracker() : tls_acquired_locks_(&OnTLSDestroy) {}
+  SafeAcquisitionTracker() = default;
 
   void RegisterLock(const SchedulerLockImpl* const lock,
                     const SchedulerLockImpl* const predecessor) {
@@ -47,6 +48,10 @@ class SafeAcquisitionTracker {
         std::find(acquired_locks->begin(), acquired_locks->end(), lock);
     DCHECK(iter_at_lock != acquired_locks->end());
     acquired_locks->erase(iter_at_lock);
+  }
+
+  void AssertNoLockHeldOnCurrentThread() {
+    DCHECK(GetAcquiredLocksOnCurrentThread()->empty());
   }
 
  private:
@@ -102,13 +107,9 @@ class SafeAcquisitionTracker {
 
   LockVector* GetAcquiredLocksOnCurrentThread() {
     if (!tls_acquired_locks_.Get())
-      tls_acquired_locks_.Set(new LockVector);
+      tls_acquired_locks_.Set(std::make_unique<LockVector>());
 
-    return reinterpret_cast<LockVector*>(tls_acquired_locks_.Get());
-  }
-
-  static void OnTLSDestroy(void* value) {
-    delete reinterpret_cast<LockVector*>(value);
+    return tls_acquired_locks_.Get();
   }
 
   // Synchronizes access to |allowed_predecessor_map_|.
@@ -119,7 +120,7 @@ class SafeAcquisitionTracker {
 
   // A thread-local slot holding a vector of locks currently acquired on the
   // current thread.
-  ThreadLocalStorage::Slot tls_acquired_locks_;
+  ThreadLocalOwnedPointer<LockVector> tls_acquired_locks_;
 
   DISALLOW_COPY_AND_ASSIGN(SafeAcquisitionTracker);
 };
@@ -141,6 +142,10 @@ SchedulerLockImpl::SchedulerLockImpl(UniversalPredecessor)
 
 SchedulerLockImpl::~SchedulerLockImpl() {
   g_safe_acquisition_tracker.Get().UnregisterLock(this);
+}
+
+void SchedulerLockImpl::AssertNoLockHeldOnCurrentThread() {
+  g_safe_acquisition_tracker.Get().AssertNoLockHeldOnCurrentThread();
 }
 
 void SchedulerLockImpl::Acquire() {

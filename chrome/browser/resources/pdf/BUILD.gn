@@ -14,9 +14,18 @@ group("closure_compile") {
     "elements/viewer-page-selector:closure_compile",
     "elements/viewer-password-screen:closure_compile",
   ]
+  if (is_chromeos) {
+    deps += [
+      "elements/viewer-ink-host:closure_compile",
+      "ink:closure_compile",
+    ]
+  }
 }
 
 js_library("browser_api") {
+  deps = [
+    "//ui/webui/resources/js:assert",
+  ]
   externs_list = [
     "$externs_path/chrome_extensions.js",
     "$externs_path/mime_handler_private.js",

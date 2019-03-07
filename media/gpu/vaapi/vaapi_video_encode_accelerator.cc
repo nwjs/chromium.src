@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 #include <va/va.h>
@@ -446,7 +447,7 @@ void VaapiVideoEncodeAccelerator::ReturnBitstreamBuffer(
   uint8_t* target_data = static_cast<uint8_t*>(buffer->shm->memory());
   size_t data_size = 0;
 
-  if (!vaapi_wrapper_->DownloadAndDestroyCodedBuffer(
+  if (!vaapi_wrapper_->DownloadAndDestroyVABuffer(
           encode_job->coded_buffer_id(), encode_job->input_surface()->id(),
           target_data, buffer->shm->size(), &data_size)) {
     NOTIFY_ERROR(kPlatformFailureError, "Failed downloading coded buffer");
@@ -497,8 +498,8 @@ scoped_refptr<VaapiEncodeJob> VaapiVideoEncodeAccelerator::CreateEncodeJob(
   }
 
   VABufferID coded_buffer_id;
-  if (!vaapi_wrapper_->CreateCodedBuffer(output_buffer_byte_size_,
-                                         &coded_buffer_id)) {
+  if (!vaapi_wrapper_->CreateVABuffer(output_buffer_byte_size_,
+                                      &coded_buffer_id)) {
     NOTIFY_ERROR(kPlatformFailureError, "Failed creating coded buffer");
     return nullptr;
   }
@@ -1090,16 +1091,17 @@ bool VaapiVideoEncodeAccelerator::VP8Accelerator::SubmitFrameParameters(
   if (frame_header->IsKeyframe())
     pic_param.pic_flags.bits.forced_lf_adjustment = true;
 
-  static_assert(
-      arraysize(pic_param.loop_filter_level) ==
-              arraysize(pic_param.ref_lf_delta) &&
-          arraysize(pic_param.ref_lf_delta) ==
-              arraysize(pic_param.mode_lf_delta) &&
-          arraysize(pic_param.ref_lf_delta) ==
-              arraysize(frame_header->loopfilter_hdr.ref_frame_delta) &&
-          arraysize(pic_param.mode_lf_delta) ==
-              arraysize(frame_header->loopfilter_hdr.mb_mode_delta),
-      "Invalid loop filter array sizes");
+  static_assert(std::extent<decltype(pic_param.loop_filter_level)>() ==
+                        std::extent<decltype(pic_param.ref_lf_delta)>() &&
+                    std::extent<decltype(pic_param.ref_lf_delta)>() ==
+                        std::extent<decltype(pic_param.mode_lf_delta)>() &&
+                    std::extent<decltype(pic_param.ref_lf_delta)>() ==
+                        std::extent<decltype(
+                            frame_header->loopfilter_hdr.ref_frame_delta)>() &&
+                    std::extent<decltype(pic_param.mode_lf_delta)>() ==
+                        std::extent<decltype(
+                            frame_header->loopfilter_hdr.mb_mode_delta)>(),
+                "Invalid loop filter array sizes");
 
   for (size_t i = 0; i < base::size(pic_param.loop_filter_level); ++i) {
     pic_param.loop_filter_level[i] = frame_header->loopfilter_hdr.level;

@@ -42,6 +42,7 @@
 #include "content/common/content_export.h"
 #include "content/public/browser/color_chooser.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
 #include "content/public/browser/web_contents.h"
@@ -88,6 +89,7 @@ class LoaderIOThreadNotifier;
 class ManifestManagerHost;
 class MediaWebContentsObserver;
 class PluginContentOriginWhitelist;
+class Portal;
 class RenderFrameHost;
 class RenderViewHost;
 class RenderViewHostDelegateView;
@@ -269,14 +271,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // frame. Otherwise, returns this WebContents.
   WebContentsImpl* GetFocusedWebContents();
 
-  // TODO(paulmeyer): Once GuestViews are no longer implemented as
-  // BrowserPluginGuests, frame traversal across WebContents should be moved to
-  // be handled by FrameTreeNode, and |GetInnerWebContents| and
-  // |GetWebContentsAndAllInner| can be removed.
-
-  // Returns a vector to the inner WebContents within this WebContents.
-  std::vector<WebContentsImpl*> GetInnerWebContents();
-
   // Returns a vector containing this WebContents and all inner WebContents
   // within it (recursively).
   std::vector<WebContentsImpl*> GetWebContentsAndAllInner();
@@ -364,11 +358,15 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   Visibility GetVisibility() override;
   bool NeedToFireBeforeUnload() override;
   void DispatchBeforeUnload(bool auto_cancel) override;
+  bool CanAttachToOuterContentsFrame(
+      RenderFrameHost* outer_contents_frame) final;
   void AttachToOuterWebContentsFrame(
       std::unique_ptr<WebContents> current_web_contents,
       RenderFrameHost* outer_contents_frame) override;
+  RenderFrameHostImpl* GetOuterWebContentsFrame() override;
   WebContentsImpl* GetOuterWebContents() override;
   WebContentsImpl* GetOutermostWebContents() override;
+  std::vector<WebContents*> GetInnerWebContents() override;
   void DidChangeVisibleSecurityState() override;
   void NotifyPreferencesChanged() override;
 
@@ -453,6 +451,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool WasEverAudible() override;
   void GetManifest(GetManifestCallback callback) override;
   bool IsFullscreenForCurrentTab() override;
+  bool ShouldShowStaleContentOnEviction() override;
   void ExitFullscreen(bool will_cause_resize) override;
   void ResumeLoadingCreatedWebContents() override;
   void SetIsOverlayContent(bool is_overlay_content) override;
@@ -513,6 +512,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void DidAccessInitialDocument() override;
   void DidChangeName(RenderFrameHost* render_frame_host,
                      const std::string& name) override;
+  void DidReceiveFirstUserActivation(
+      RenderFrameHost* render_frame_host) override;
   void DocumentOnLoadCompleted(RenderFrameHost* render_frame_host) override;
   void UpdateStateForFrame(RenderFrameHost* render_frame_host,
                            const PageState& page_state) override;
@@ -567,6 +568,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       int32_t main_frame_route_id,
       int32_t main_frame_widget_route_id,
       const mojom::CreateNewWindowParams& params,
+      bool has_user_gesture,
       SessionStorageNamespace* session_storage_namespace) override;
   void ShowCreatedWindow(int process_id,
                          int main_frame_widget_route_id,
@@ -649,8 +651,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                                     MediaResponseCallback callback) override;
   bool CheckMediaAccessPermission(RenderFrameHost* render_frame_host,
                                   const url::Origin& security_origin,
-                                  MediaStreamType type) override;
-  std::string GetDefaultMediaDeviceID(MediaStreamType type) override;
+                                  blink::MediaStreamType type) override;
+  std::string GetDefaultMediaDeviceID(blink::MediaStreamType type) override;
   SessionStorageNamespace* GetSessionStorageNamespace(
       SiteInstance* instance) override;
   SessionStorageNamespaceMap GetSessionStorageNamespaceMap() override;
@@ -815,7 +817,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   NavigationEntry* GetLastCommittedNavigationEntryForRenderManager() override;
   InterstitialPageImpl* GetInterstitialForRenderManager() override;
   bool FocusLocationBarByDefault() override;
-  void SetFocusToLocationBar(bool select_all) override;
+  void SetFocusToLocationBar() override;
   bool IsHidden() override;
   int GetOuterDelegateFrameTreeNodeId() override;
   RenderWidgetHostImpl* GetFullscreenRenderWidgetHost() const override;
@@ -1005,6 +1007,18 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // this won't create one if none exists.
   FindRequestManager* GetFindRequestManagerForTesting();
 
+  // Detaches this WebContents from its outer WebContents.
+  std::unique_ptr<WebContents> DetachFromOuterWebContents();
+
+  // Reattaches this inner WebContents to its outer WebContents.
+  void ReattachToOuterWebContentsFrame();
+
+  // Getter/setter for the Portal associated with this WebContents. If non-null
+  // then this WebContents is embedded in a portal and its outer WebContents can
+  // be found by using GetOuterWebContents().
+  void set_portal(Portal* portal) { portal_ = portal; }
+  Portal* portal() { return portal_; }
+
  private:
   friend class WebContentsObserver;
   friend class WebContents;  // To implement factory methods.
@@ -1096,6 +1110,15 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
         std::unique_ptr<WebContents> current_web_contents,
         RenderFrameHostImpl* outer_contents_frame);
 
+    // Disconnects the current WebContents from its outer WebContents, and
+    // returns ownership to the caller. This is used when activating a portal,
+    // which causes the WebContents to transition from an inner WebContents to
+    // an outer WebContents.
+    // TODO(lfg): Activating a nested portal currently replaces the outermost
+    // WebContents with the portal. We should allow replacing only the inner
+    // WebContents with the nested portal.
+    std::unique_ptr<WebContents> DisconnectFromOuterWebContents();
+
     WebContentsImpl* outer_web_contents() const { return outer_web_contents_; }
     int outer_contents_frame_tree_node_id() const {
       return outer_contents_frame_tree_node_id_;
@@ -1185,11 +1208,13 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   // IPC message handlers.
   void OnThemeColorChanged(RenderFrameHostImpl* source, SkColor theme_color);
-  void OnDidLoadResourceFromMemoryCache(RenderFrameHostImpl* source,
-                                        const GURL& url,
-                                        const std::string& http_request,
-                                        const std::string& mime_type,
-                                        ResourceType resource_type);
+  void OnDidLoadResourceFromMemoryCache(
+      RenderFrameHostImpl* source,
+      const GURL& url,
+      const std::string& http_request,
+      const std::string& mime_type,
+      const base::Optional<url::Origin>& top_frame_origin,
+      ResourceType resource_type);
   void OnDidDisplayInsecureContent(RenderFrameHostImpl* source);
   void OnDidContainInsecureFormAction(RenderFrameHostImpl* source);
   void OnDidRunInsecureContent(RenderFrameHostImpl* source,
@@ -1413,9 +1438,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // is that of the main frame.
   void SetVisibilityForChildViews(bool visible);
 
-  // Reattaches this inner WebContents to its outer WebContents.
-  void ReattachToOuterWebContentsFrame();
-
   // A helper for clearing the link status bubble after navigating away.
   // See also UpdateTargetURL.
   void ClearTargetURL();
@@ -1471,11 +1493,11 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   // Helper classes ------------------------------------------------------------
 
-  // Manages the frame tree of the page and process swaps in each node.
-  FrameTree frame_tree_;
-
   // Contains information about the WebContents tree structure.
   WebContentsTreeNode node_;
+
+  // Manages the frame tree of the page and process swaps in each node.
+  FrameTree frame_tree_;
 
   // SavePackage, lazily created.
   scoped_refptr<SavePackage> save_package_;
@@ -1807,6 +1829,20 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   // Store the frame that is currently fullscreen, nullptr if there is none.
   RenderFrameHostImpl* current_fullscreen_frame_ = nullptr;
+
+  // Whether location bar should be focused by default. This is computed in
+  // DidStartNavigation/DidFinishNavigation and only set for an initial
+  // navigation triggered by the browser going to about:blank.
+  bool should_focus_location_bar_by_default_ = false;
+
+  // Stores the Portal object associated with this WebContents, if there is one.
+  // If non-null then this WebContents is embedded in a portal and its outer
+  // WebContents can be found by using GetOuterWebContents().
+  Portal* portal_ = nullptr;
+
+  // TODO(ericrk): Variable to debug https://crbug.com/758186. Remove when
+  // debugging concluded.
+  WebContentsDelegate* web_contents_created_delegate_ = nullptr;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_;
   base::WeakPtrFactory<WebContentsImpl> weak_factory_;

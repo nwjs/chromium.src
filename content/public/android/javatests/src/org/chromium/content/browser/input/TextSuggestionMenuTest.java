@@ -296,12 +296,14 @@ public class TextSuggestionMenuTest {
         WebContents webContents = mRule.getWebContents();
 
         DOMUtils.focusNode(webContents, "div");
+        mRule.waitAndVerifyUpdateSelection(0, 0, 0, -1, -1);
 
         SpannableString textToCommit = new SpannableString("hello");
         SuggestionSpan suggestionSpan = new SuggestionSpan(
                 mRule.getActivity(), new String[0], SuggestionSpan.FLAG_AUTO_CORRECTION);
         textToCommit.setSpan(suggestionSpan, 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         mRule.commitText(textToCommit, 1);
+        mRule.waitAndVerifyUpdateSelection(1, 5, 5, -1, -1);
 
         Assert.assertEquals("1",
                 JavaScriptUtils.executeJavaScriptAndWaitForResult(webContents,
@@ -320,6 +322,7 @@ public class TextSuggestionMenuTest {
         WebContents webContents = mRule.getWebContents();
 
         DOMUtils.focusNode(webContents, "div");
+        mRule.waitAndVerifyUpdateSelection(0, 0, 0, -1, -1);
 
         SpannableString composingText = new SpannableString("hello");
         SuggestionSpan suggestionSpan = new SuggestionSpan(
@@ -327,6 +330,7 @@ public class TextSuggestionMenuTest {
         composingText.setSpan(
                 suggestionSpan, 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE | Spanned.SPAN_COMPOSING);
         mRule.setComposingText(composingText, 1);
+        mRule.waitAndVerifyUpdateSelection(1, 5, 5, 0, 5);
 
         Assert.assertEquals("1",
                 JavaScriptUtils.executeJavaScriptAndWaitForResult(webContents,
@@ -337,6 +341,7 @@ public class TextSuggestionMenuTest {
         // composing range, so the spans associated with composing range should be removed. If there
         // is no new span attached to the SpannableString, we should get 0 marker.
         mRule.setComposingText(new SpannableString("helloworld"), 1);
+        mRule.waitAndVerifyUpdateSelection(2, 10, 10, 0, 10);
 
         Assert.assertEquals("0",
                 JavaScriptUtils.executeJavaScriptAndWaitForResult(webContents,
@@ -351,6 +356,7 @@ public class TextSuggestionMenuTest {
         WebContents webContents = mRule.getWebContents();
 
         DOMUtils.focusNode(webContents, "div");
+        mRule.waitAndVerifyUpdateSelection(0, 0, 0, -1, -1);
 
         SpannableString composingText = new SpannableString("hello");
         SuggestionSpan suggestionSpan = new SuggestionSpan(
@@ -358,6 +364,7 @@ public class TextSuggestionMenuTest {
         composingText.setSpan(
                 suggestionSpan, 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE | Spanned.SPAN_COMPOSING);
         mRule.setComposingText(composingText, 1);
+        mRule.waitAndVerifyUpdateSelection(1, 5, 5, 0, 5);
 
         Assert.assertEquals("1",
                 JavaScriptUtils.executeJavaScriptAndWaitForResult(webContents,
@@ -368,6 +375,7 @@ public class TextSuggestionMenuTest {
         // composing range. So we done with composing and the SuggestionSpan with SPAN_COMPOSING
         // should be removed.
         mRule.commitText(new SpannableString("helloworld"), 1);
+        mRule.waitAndVerifyUpdateSelection(2, 10, 10, -1, -1);
 
         Assert.assertEquals("0",
                 JavaScriptUtils.executeJavaScriptAndWaitForResult(webContents,
@@ -382,6 +390,7 @@ public class TextSuggestionMenuTest {
         WebContents webContents = mRule.getWebContents();
 
         DOMUtils.focusNode(webContents, "div");
+        mRule.waitAndVerifyUpdateSelection(0, 0, 0, -1, -1);
 
         SpannableString composingText = new SpannableString("hello");
         SuggestionSpan suggestionSpan = new SuggestionSpan(
@@ -389,6 +398,7 @@ public class TextSuggestionMenuTest {
         composingText.setSpan(
                 suggestionSpan, 0, 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE | Spanned.SPAN_COMPOSING);
         mRule.setComposingText(composingText, 1);
+        mRule.waitAndVerifyUpdateSelection(1, 5, 5, 0, 5);
 
         Assert.assertEquals("1",
                 JavaScriptUtils.executeJavaScriptAndWaitForResult(webContents,
@@ -398,6 +408,7 @@ public class TextSuggestionMenuTest {
         // finishComposingText() will remove the composing range, any span has SPAN_COMPOSING flag
         // should be removed since there is no composing range available.
         mRule.finishComposingText();
+        mRule.waitAndVerifyUpdateSelection(2, 5, 5, -1, -1);
 
         Assert.assertEquals("0",
                 JavaScriptUtils.executeJavaScriptAndWaitForResult(webContents,

@@ -30,18 +30,14 @@
 
 #include "third_party/blink/public/common/indexeddb/web_idb_types.h"
 #include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom-blink.h"
-#include "third_party/blink/public/platform/modules/indexeddb/web_idb_metadata.h"
-#include "third_party/blink/public/platform/web_blob_info.h"
 #include "third_party/blink/renderer/modules/indexeddb/web_idb_cursor.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
 
-class WebData;
+class IDBKeyRange;
 class WebIDBCallbacks;
-class WebIDBKeyPath;
-class WebIDBKeyRange;
 
 class MODULES_EXPORT WebIDBDatabase {
  public:
@@ -50,7 +46,7 @@ class MODULES_EXPORT WebIDBDatabase {
   virtual void CreateObjectStore(long long transaction_id,
                                  long long object_store_id,
                                  const String& name,
-                                 const WebIDBKeyPath&,
+                                 const IDBKeyPath&,
                                  bool auto_increment) = 0;
   virtual void DeleteObjectStore(long long transaction_id,
                                  long long object_store_id) = 0;
@@ -64,13 +60,14 @@ class MODULES_EXPORT WebIDBDatabase {
   virtual void VersionChangeIgnored() = 0;
 
   virtual void Abort(long long transaction_id) = 0;
-  virtual void Commit(long long transaction_id) = 0;
+  virtual void Commit(long long transaction_id,
+                      long long num_errors_handled) = 0;
 
   virtual void CreateIndex(long long transaction_id,
                            long long object_store_id,
                            long long index_id,
                            const String& name,
-                           const WebIDBKeyPath&,
+                           const IDBKeyPath&,
                            bool unique,
                            bool multi_entry) = 0;
   virtual void DeleteIndex(long long transaction_id,
@@ -95,35 +92,34 @@ class MODULES_EXPORT WebIDBDatabase {
   virtual void Get(long long transaction_id,
                    long long object_store_id,
                    long long index_id,
-                   const WebIDBKeyRange&,
+                   const IDBKeyRange*,
                    bool key_only,
                    WebIDBCallbacks*) = 0;
   virtual void GetAll(long long transaction_id,
                       long long object_store_id,
                       long long index_id,
-                      const WebIDBKeyRange&,
+                      const IDBKeyRange*,
                       long long max_count,
                       bool key_only,
                       WebIDBCallbacks*) = 0;
   virtual void Put(long long transaction_id,
                    long long object_store_id,
-                   const WebData& value,
-                   const Vector<WebBlobInfo>&,
-                   WebIDBKeyView primary_key,
+                   std::unique_ptr<IDBValue> value,
+                   std::unique_ptr<IDBKey> primary_key,
                    mojom::IDBPutMode,
                    WebIDBCallbacks*,
-                   const Vector<WebIDBIndexKeys>&) = 0;
+                   Vector<IDBIndexKeys>) = 0;
   virtual void SetIndexKeys(long long transaction_id,
                             long long object_store_id,
-                            WebIDBKeyView primary_key,
-                            const Vector<WebIDBIndexKeys>&) = 0;
+                            std::unique_ptr<IDBKey> primary_key,
+                            Vector<IDBIndexKeys>) = 0;
   virtual void SetIndexesReady(long long transaction_id,
                                long long object_store_id,
                                const Vector<int64_t>& index_ids) = 0;
   virtual void OpenCursor(long long transaction_id,
                           long long object_store_id,
                           long long index_id,
-                          const WebIDBKeyRange&,
+                          const IDBKeyRange*,
                           mojom::IDBCursorDirection,
                           bool key_only,
                           mojom::IDBTaskType,
@@ -131,15 +127,15 @@ class MODULES_EXPORT WebIDBDatabase {
   virtual void Count(long long transaction_id,
                      long long object_store_id,
                      long long index_id,
-                     const WebIDBKeyRange&,
+                     const IDBKeyRange*,
                      WebIDBCallbacks*) = 0;
   virtual void Delete(long long transaction_id,
                       long long object_store_id,
-                      WebIDBKeyView primary_key,
+                      const IDBKey* primary_key,
                       WebIDBCallbacks*) = 0;
   virtual void DeleteRange(long long transaction_id,
                            long long object_store_id,
-                           const WebIDBKeyRange&,
+                           const IDBKeyRange*,
                            WebIDBCallbacks*) = 0;
   virtual void Clear(long long transaction_id,
                      long long object_store_id,

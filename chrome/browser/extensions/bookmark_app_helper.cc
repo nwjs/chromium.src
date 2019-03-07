@@ -289,8 +289,15 @@ BookmarkAppHelper::~BookmarkAppHelper() {}
 void BookmarkAppHelper::Create(const CreateBookmarkAppCallback& callback) {
   callback_ = callback;
 
-  // Do not fetch the manifest for extension URLs.
-  if (contents_ && !contents_->GetVisibleURL().SchemeIs(kExtensionScheme)) {
+  if (is_no_network_install_) {
+    // |for_installable_site_| is determined by fetching a manifest and running
+    // the eligibility check on it. If we don't hit the network, assume that the
+    // app represetned by |web_app_info_| is installable.
+    for_installable_site_ = web_app::ForInstallableSite::kYes;
+    OnIconsDownloaded(true, std::map<GURL, std::vector<SkBitmap>>());
+    // Do not fetch the manifest for extension URLs.
+  } else if (contents_ &&
+             !contents_->GetVisibleURL().SchemeIs(kExtensionScheme)) {
     // Null in tests. OnDidPerformInstallableCheck is called via a testing API.
     // TODO(crbug.com/829232) ensure this is consistent with other calls to
     // GetData.
@@ -433,6 +440,13 @@ void BookmarkAppHelper::OnBubbleCompleted(
       crx_installer_->set_creation_flags(Extension::WAS_INSTALLED_BY_DEFAULT);
     }
 
+    if (is_no_network_install_) {
+      // Ensure that this app is not synced. A no-network install means we have
+      // all data locally, so assume that there is some mechanism to propagate
+      // the local source of data in place of usual extension sync.
+      crx_installer_->set_install_source(Manifest::EXTERNAL_PREF_DOWNLOAD);
+    }
+
     crx_installer_->InstallWebApp(web_app_info_);
 
     if (InstallableMetrics::IsReportableInstallSource(install_source_) &&
@@ -486,14 +500,6 @@ void BookmarkAppHelper::FinishInstallation(const Extension* extension) {
   const bool silent_install =
       (chrome::FindBrowserWithWebContents(contents_) == nullptr);
 
-// On Mac, shortcuts are automatically created for hosted apps when they are
-// installed, so there is no need to create them again.
-#if defined(OS_MACOSX)
-  if (!silent_install && !base::CommandLine::ForCurrentProcess()->HasSwitch(
-                             ::switches::kDisableHostedAppShimCreation)) {
-    web_app::RevealAppShimInFinderForApp(current_profile, extension);
-  }
-#else
   if (create_shortcuts_) {
 #if !defined(OS_CHROMEOS)
     web_app::ShortcutLocations creation_locations;
@@ -517,13 +523,22 @@ void BookmarkAppHelper::FinishInstallation(const Extension* extension) {
 #endif  // !defined(OS_CHROMEOS)
   }
 
-  // Reparent the tab into an app window immediately when opening as a window.
-  if (!silent_install &&
-      base::FeatureList::IsEnabled(::features::kDesktopPWAWindowing) &&
-      launch_type == LAUNCH_TYPE_WINDOW && !profile_->IsOffTheRecord()) {
-    ReparentWebContentsIntoAppBrowser(contents_, extension);
-  }
+  if (!silent_install) {
+#if defined(OS_MACOSX)
+    // TODO(https://crbug.com/915571): Reparent the tab on Mac just like the
+    // other platforms.
+    if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+            ::switches::kDisableHostedAppShimCreation)) {
+      web_app::RevealAppShimInFinderForApp(current_profile, extension);
+    }
+#else
+    // Reparent the tab into an app window immediately when opening as a window.
+    if (base::FeatureList::IsEnabled(::features::kDesktopPWAWindowing) &&
+        launch_type == LAUNCH_TYPE_WINDOW && !profile_->IsOffTheRecord()) {
+      ReparentWebContentsIntoAppBrowser(contents_, extension);
+    }
 #endif  // !defined(OS_MACOSX)
+  }
 
   callback_.Run(extension, web_app_info_);
 }

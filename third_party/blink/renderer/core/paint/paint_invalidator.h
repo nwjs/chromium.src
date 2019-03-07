@@ -138,10 +138,8 @@ struct CORE_EXPORT PaintInvalidatorContext {
 
 class PaintInvalidator {
  public:
-  void InvalidatePaint(LocalFrameView&,
-                       const PaintPropertyTreeBuilderContext*,
-                       PaintInvalidatorContext&);
-  void InvalidatePaint(const LayoutObject&,
+  // Returns true if the object is invalidated.
+  bool InvalidatePaint(const LayoutObject&,
                        const PaintPropertyTreeBuilderContext*,
                        PaintInvalidatorContext&);
 

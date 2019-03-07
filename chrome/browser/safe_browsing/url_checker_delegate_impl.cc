@@ -5,7 +5,9 @@
 #include "chrome/browser/safe_browsing/url_checker_delegate_impl.h"
 
 #include "base/bind.h"
+#include "base/feature_list.h"
 #include "base/task/post_task.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/data_reduction_proxy_util.h"
 #include "chrome/browser/prerender/prerender_contents.h"
 #include "chrome/browser/prerender/prerender_final_status.h"
@@ -96,9 +98,19 @@ void UrlCheckerDelegateImpl::StartDisplayingBlockingPageHelper(
     const net::HttpRequestHeaders& headers,
     bool is_main_frame,
     bool has_user_gesture) {
-  base::PostTaskWithTraits(
-      FROM_HERE, {content::BrowserThread::UI},
-      base::BindOnce(&StartDisplayingBlockingPage, ui_manager_, resource));
+  if (base::FeatureList::IsEnabled(kCommittedSBInterstitials) &&
+      is_main_frame) {
+    ui_manager_->AddUnsafeResource(resource.url, resource);
+    // With committed interstitials we just cancel the load from here, the
+    // actual interstitial will be shown from the
+    // SafeBrowsingNavigationThrottle.
+    base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::IO},
+                             base::BindOnce(resource.callback, false));
+  } else {
+    base::PostTaskWithTraits(
+        FROM_HERE, {content::BrowserThread::UI},
+        base::BindOnce(&StartDisplayingBlockingPage, ui_manager_, resource));
+  }
 }
 
 bool UrlCheckerDelegateImpl::IsUrlWhitelisted(const GURL& url) {

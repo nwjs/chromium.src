@@ -41,6 +41,9 @@ class CORE_EXPORT Attr final : public Node {
   static Attr* Create(Document&,
                       const QualifiedName&,
                       const AtomicString& value);
+
+  Attr(Element&, const QualifiedName&);
+  Attr(Document&, const QualifiedName&, const AtomicString& value);
   ~Attr() override;
 
   String name() const { return name_.ToString(); }
@@ -59,12 +62,9 @@ class CORE_EXPORT Attr final : public Node {
   const AtomicString& namespaceURI() const { return name_.NamespaceURI(); }
   const AtomicString& prefix() const { return name_.Prefix(); }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
-  Attr(Element&, const QualifiedName&);
-  Attr(Document&, const QualifiedName&, const AtomicString& value);
-
   bool IsElementNode() const =
       delete;  // This will catch anyone doing an unnecessary check.
 

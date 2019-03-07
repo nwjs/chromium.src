@@ -65,6 +65,10 @@ class FakeWorkerGlobalScope : public WorkerGlobalScope {
   }
 
   void ExceptionThrown(ErrorEvent*) override {}
+
+  mojom::RequestContextType GetDestinationForMainScript() override {
+    return mojom::RequestContextType::WORKER;
+  }
 };
 
 class WorkerThreadForTest : public WorkerThread {
@@ -91,7 +95,8 @@ class WorkerThreadForTest : public WorkerThread {
     Vector<CSPHeaderAndType> headers{
         {"contentSecurityPolicy", kContentSecurityPolicyHeaderTypeReport}};
     auto creation_params = std::make_unique<GlobalScopeCreationParams>(
-        script_url, mojom::ScriptType::kClassic, "fake user agent",
+        script_url, mojom::ScriptType::kClassic,
+        OffMainThreadWorkerScriptFetchOption::kDisabled, "fake user agent",
         nullptr /* web_worker_fetch_context */, headers,
         network::mojom::ReferrerPolicy::kDefault, security_origin,
         false /* starter_secure_context */,
@@ -130,6 +135,32 @@ class WorkerThreadForTest : public WorkerThread {
   }
 
   std::unique_ptr<WorkerBackingThread> worker_backing_thread_;
+};
+
+class MockWorkerReportingProxy final : public WorkerReportingProxy {
+ public:
+  MockWorkerReportingProxy() = default;
+  ~MockWorkerReportingProxy() override = default;
+
+  MOCK_METHOD1(DidCreateWorkerGlobalScope, void(WorkerOrWorkletGlobalScope*));
+  MOCK_METHOD0(DidInitializeWorkerContext, void());
+  MOCK_METHOD2(WillEvaluateClassicScriptMock,
+               void(size_t scriptSize, size_t cachedMetadataSize));
+  MOCK_METHOD1(DidEvaluateClassicScript, void(bool success));
+  MOCK_METHOD0(DidCloseWorkerGlobalScope, void());
+  MOCK_METHOD0(WillDestroyWorkerGlobalScope, void());
+  MOCK_METHOD0(DidTerminateWorkerThread, void());
+
+  void WillEvaluateClassicScript(size_t script_size,
+                                 size_t cached_metadata_size) override {
+    script_evaluation_event_.Signal();
+    WillEvaluateClassicScriptMock(script_size, cached_metadata_size);
+  }
+
+  void WaitUntilScriptEvaluation() { script_evaluation_event_.Wait(); }
+
+ private:
+  WaitableEvent script_evaluation_event_;
 };
 
 }  // namespace blink

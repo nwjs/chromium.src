@@ -42,7 +42,7 @@ namespace blink {
 
 class SharedWorkerThread;
 
-class SharedWorkerGlobalScope final : public WorkerGlobalScope {
+class CORE_EXPORT SharedWorkerGlobalScope final : public WorkerGlobalScope {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
@@ -67,12 +67,13 @@ class SharedWorkerGlobalScope final : public WorkerGlobalScope {
   DEFINE_ATTRIBUTE_EVENT_LISTENER(connect, kConnect);
   String name() const { return name_; }
 
-  void ConnectPausable(MessagePortChannel channel);
+  void Connect(MessagePortChannel channel);
 
   void Trace(blink::Visitor*) override;
 
  private:
   void ExceptionThrown(ErrorEvent*) override;
+  mojom::RequestContextType GetDestinationForMainScript() override;
 
   const String name_;
 };

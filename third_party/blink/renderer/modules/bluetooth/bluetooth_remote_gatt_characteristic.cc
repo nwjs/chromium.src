@@ -43,7 +43,7 @@ BluetoothRemoteGATTCharacteristic* BluetoothRemoteGATTCharacteristic::Create(
     mojom::blink::WebBluetoothRemoteGATTCharacteristicPtr characteristic,
     BluetoothRemoteGATTService* service,
     BluetoothDevice* device) {
-  return new BluetoothRemoteGATTCharacteristic(
+  return MakeGarbageCollected<BluetoothRemoteGATTCharacteristic>(
       context, std::move(characteristic), service, device);
 }
 
@@ -259,7 +259,10 @@ ScriptPromise BluetoothRemoteGATTCharacteristic::startNotifications(
       device_->GetBluetooth()->Service();
   mojom::blink::WebBluetoothCharacteristicClientAssociatedPtrInfo ptr_info;
   auto request = mojo::MakeRequest(&ptr_info);
-  client_bindings_.AddBinding(this, std::move(request));
+  // See https://bit.ly/2S0zRAS for task types.
+  client_bindings_.AddBinding(
+      this, std::move(request),
+      GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI));
 
   service->RemoteCharacteristicStartNotifications(
       characteristic_->instance_id, std::move(ptr_info),

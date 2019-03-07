@@ -12,7 +12,6 @@ import android.view.ViewGroup;
 
 import org.chromium.base.Callback;
 import org.chromium.base.VisibleForTesting;
-import org.chromium.chrome.browser.modelutil.ListObservable;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.ntp.cards.NewTabPageViewHolder.PartialBindCallback;
 import org.chromium.chrome.browser.ntp.snippets.CategoryInt;
@@ -28,6 +27,7 @@ import org.chromium.chrome.browser.suggestions.SuggestionsConfig;
 import org.chromium.chrome.browser.suggestions.SuggestionsRecyclerView;
 import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegate;
 import org.chromium.chrome.browser.widget.displaystyle.UiConfig;
+import org.chromium.ui.modelutil.ListObservable;
 
 import java.util.List;
 import java.util.Set;
@@ -51,7 +51,6 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder>
     private final InnerNode<NewTabPageViewHolder, PartialBindCallback> mRoot;
 
     private final SectionList mSections;
-    private final @Nullable SignInPromo mSigninPromo;
     private final AllDismissedItem mAllDismissed;
     private final Footer mFooter;
 
@@ -79,18 +78,7 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder>
         mSections = new SectionList(mUiDelegate, offlinePageBridge);
         mAllDismissed = new AllDismissedItem();
 
-        if (SignInPromo.shouldCreatePromo()) {
-            mSigninPromo = new SignInPromo();
-            mSigninPromo.setCanShowPersonalizedSuggestions(
-                    mUiDelegate.getSuggestionsSource().areRemoteSuggestionsEnabled());
-        } else {
-            mSigninPromo = null;
-        }
-
         if (mAboveTheFoldView != null) mRoot.addChildren(new AboveTheFoldItem());
-
-        // Show the sign-in promo above suggested content.
-        if (mSigninPromo != null) mRoot.addChildren(mSigninPromo);
         mRoot.addChildren(mAllDismissed, mSections);
 
         mFooter = new Footer();
@@ -285,8 +273,6 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder>
     }
 
     private boolean hasAllBeenDismissed() {
-        if (mSigninPromo != null && mSigninPromo.isVisible()) return false;
-
         return mSections.isEmpty();
     }
 
@@ -312,11 +298,6 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder>
         return mRemoteSuggestionsStatusObserver;
     }
 
-    @VisibleForTesting
-    SignInPromo getSignInPromoForTesting() {
-        return mSigninPromo;
-    }
-
     private class RemoteSuggestionsStatusObserver
             extends SuggestionsSource.EmptyObserver implements DestructionObserver {
         public RemoteSuggestionsStatusObserver() {
@@ -329,20 +310,11 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder>
             if (!SnippetsBridge.isCategoryRemote(category)) return;
 
             updateAllDismissedVisibility();
-
-            // Checks whether the category is enabled first to avoid unnecessary
-            // calls across JNI.
-            if (mSigninPromo != null) {
-                mSigninPromo.setCanShowPersonalizedSuggestions(
-                        SnippetsBridge.isCategoryEnabled(newStatus)
-                        || mUiDelegate.getSuggestionsSource().areRemoteSuggestionsEnabled());
-            }
         }
 
         @Override
         public void onDestroy() {
             mUiDelegate.getSuggestionsSource().removeObserver(this);
-            if (mSigninPromo != null) mSigninPromo.destroy();
         }
     }
 }

@@ -163,9 +163,6 @@ IPC_MESSAGE_ROUTED2(WidgetMsg_WasShown,
 // accordingly, etc.).
 IPC_MESSAGE_ROUTED1(WidgetMsg_SetActive, bool /* active */)
 
-// Make the RenderWidget background transparent or opaque.
-IPC_MESSAGE_ROUTED1(WidgetMsg_SetBackgroundOpaque, bool /* opaque */)
-
 // Changes the text direction of the currently selected input field (if any).
 IPC_MESSAGE_ROUTED1(WidgetMsg_SetTextDirection,
                     blink::WebTextDirection /* direction */)
@@ -340,6 +337,11 @@ IPC_MESSAGE_ROUTED1(WidgetHostMsg_HasTouchEventHandlers,
 // main-frame's widget.
 IPC_MESSAGE_ROUTED2(WidgetHostMsg_AnimateDoubleTapZoomInMainFrame,
                     gfx::Point /* tap point */,
+                    gfx::Rect /* rect_to_zoom */)
+
+// Sent by a widget to the browser to request a page scale animation in the
+// main-frame's widget for find-in-page zoom.
+IPC_MESSAGE_ROUTED1(WidgetHostMsg_ZoomToFindInPageRectInMainFrame,
                     gfx::Rect /* rect_to_zoom */)
 
 #endif  //  CONTENT_COMMON_WIDGET_MESSAGES_H_

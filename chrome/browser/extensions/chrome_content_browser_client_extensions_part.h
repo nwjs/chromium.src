@@ -29,8 +29,6 @@ class Origin;
 
 namespace extensions {
 
-class URLPatternSet;
-
 // Implements the extensions portion of ChromeContentBrowserClient.
 class ChromeContentBrowserClientExtensionsPart
     : public ChromeContentBrowserClientParts {
@@ -102,6 +100,9 @@ class ChromeContentBrowserClientExtensionsPart
       network::mojom::TrustedURLLoaderHeaderClientPtrInfo* header_client,
       const url::Origin& request_initiator);
 
+  static bool IsBuiltinComponent(content::BrowserContext* browser_context,
+                                 const url::Origin& origin);
+
  private:
   FRIEND_TEST_ALL_PREFIXES(ChromeContentBrowserClientExtensionsPartTest,
                            ShouldAllowOpenURLMetricsForEmptySiteURL);
@@ -129,15 +130,6 @@ class ChromeContentBrowserClientExtensionsPart
   static void RecordShouldAllowOpenURLFailure(
       ShouldAllowOpenURLFailureReason reason,
       const GURL& site_url);
-
-  // Returns true if all URLs matched by |web_extent| have the same origin as
-  // |origin|, or have an origin which is a subdomain of |origin|.
-  //
-  // When |origin| requires a dedicated process, this helps determine whether
-  // all URLs in |web_extent| are ok to go into |origin|'s process.
-  static bool DoesOriginMatchAllURLsInWebExtent(
-      const url::Origin& origin,
-      const URLPatternSet& web_extent);
 
   // ChromeContentBrowserClientParts:
   void RenderProcessWillLaunch(content::RenderProcessHost* host) override;
@@ -167,4 +159,3 @@ class ChromeContentBrowserClientExtensionsPart
 }  // namespace extensions
 
 #endif  // CHROME_BROWSER_EXTENSIONS_CHROME_CONTENT_BROWSER_CLIENT_EXTENSIONS_PART_H_
-

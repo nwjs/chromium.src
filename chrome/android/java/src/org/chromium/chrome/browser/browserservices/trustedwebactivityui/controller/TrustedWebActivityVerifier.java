@@ -29,6 +29,8 @@ import java.lang.annotation.RetentionPolicy;
 
 import javax.inject.Inject;
 
+import dagger.Lazy;
+
 /**
  * Checks whether the currently seen web page belongs to a verified origin and updates the
  * {@link TrustedWebActivityModel} accordingly.
@@ -38,11 +40,13 @@ public class TrustedWebActivityVerifier implements NativeInitObserver {
     /** The Digital Asset Link relationship used for Trusted Web Activities. */
     private final static int RELATIONSHIP = CustomTabsService.RELATION_HANDLE_ALL_URLS;
 
-    private final ClientAppDataRecorder mClientAppDataRecorder;
+    private final Lazy<ClientAppDataRecorder> mClientAppDataRecorder;
     private final CustomTabsConnection mCustomTabsConnection;
     private final CustomTabIntentDataProvider mIntentDataProvider;
     private final ActivityTabProvider mActivityTabProvider;
+    private final TabObserverRegistrar mTabObserverRegistrar;
     private final String mClientPackageName;
+    private final OriginVerifier mOriginVerifier;
 
     @Nullable private VerificationState mState;
 
@@ -76,18 +80,19 @@ public class TrustedWebActivityVerifier implements NativeInitObserver {
                 boolean isFragmentNavigation, Integer pageTransition, int errorCode,
                 int httpStatusCode) {
             if (!hasCommitted || !isInMainFrame) return;
+            if (!ChromeFeatureList.isEnabled(ChromeFeatureList.TRUSTED_WEB_ACTIVITY)) {
+                assert false : "Shouldn't observe navigation when TWAs are disabled";
+                return;
+            }
 
             // This doesn't perform a network request or attempt new verification - it checks to
             // see if a verification already exists for the given inputs.
-            Origin origin = new Origin(url);
-            boolean verified = OriginVerifier.isValidOrigin(mClientPackageName, origin,
-                    RELATIONSHIP);
-            handleVerificationResult(verified, origin);
+            handleVerificationResult(isPageOnVerifiedOrigin(url), new Origin(url));
         }
     };
 
     @Inject
-    public TrustedWebActivityVerifier(ClientAppDataRecorder clientAppDataRecorder,
+    public TrustedWebActivityVerifier(Lazy<ClientAppDataRecorder> clientAppDataRecorder,
             CustomTabIntentDataProvider intentDataProvider,
             CustomTabsConnection customTabsConnection,
             ActivityLifecycleDispatcher lifecycleDispatcher,
@@ -97,9 +102,12 @@ public class TrustedWebActivityVerifier implements NativeInitObserver {
         mCustomTabsConnection = customTabsConnection;
         mIntentDataProvider = intentDataProvider;
         mActivityTabProvider = activityTabProvider;
+        mTabObserverRegistrar =  tabObserverRegistrar;
         mClientPackageName = customTabsConnection.getClientPackageNameForSession(
                 intentDataProvider.getSession());
         assert mClientPackageName != null;
+
+        mOriginVerifier = new OriginVerifier(mClientPackageName, RELATIONSHIP);
 
         tabObserverRegistrar.registerTabObserver(mVerifyOnPageLoadObserver);
         lifecycleDispatcher.register(this);
@@ -144,7 +152,7 @@ public class TrustedWebActivityVerifier implements NativeInitObserver {
 
     /** Returns whether the given |url| is on an Origin that the package has been verified for. */
     public boolean isPageOnVerifiedOrigin(String url) {
-        return OriginVerifier.isValidOrigin(mClientPackageName, new Origin(url), RELATIONSHIP);
+        return mOriginVerifier.wasPreviouslyVerified(new Origin(url));
     }
 
     /**
@@ -152,25 +160,29 @@ public class TrustedWebActivityVerifier implements NativeInitObserver {
      */
     private void attemptVerificationForInitialUrl(String url, Tab tab) {
         Origin origin = new Origin(url);
-
-        mState = new VerificationState(origin, VERIFICATION_PENDING);
-        for (Runnable observer : mObservers) {
-            observer.run();
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.TRUSTED_WEB_ACTIVITY)) {
+            mTabObserverRegistrar.unregisterTabObserver(mVerifyOnPageLoadObserver);
+            updateState(origin, VERIFICATION_FAILURE);
+            return;
         }
 
-        new OriginVerifier((packageName2, origin2, verified, online) -> {
+        updateState(origin, VERIFICATION_PENDING);
+        mOriginVerifier.start((packageName2, origin2, verified, online) -> {
             if (!origin.equals(new Origin(tab.getUrl()))) return;
 
             handleVerificationResult(verified, origin);
-        }, mClientPackageName, RELATIONSHIP).start(origin);
+        }, origin);
     }
 
     private void handleVerificationResult(boolean verified, Origin origin) {
         if (verified) {
             registerClientAppData(origin);
         }
-        mState = new VerificationState(origin,
-                verified ? VERIFICATION_SUCCESS : VERIFICATION_FAILURE);
+        updateState(origin, verified ? VERIFICATION_SUCCESS : VERIFICATION_FAILURE);
+    }
+
+    private void updateState(Origin origin, @VerificationStatus int status) {
+        mState = new VerificationState(origin, status);
         for (Runnable observer : mObservers) {
             observer.run();
         }
@@ -196,6 +208,6 @@ public class TrustedWebActivityVerifier implements NativeInitObserver {
      * for that origin with that app.
      */
     private void registerClientAppData(Origin origin) {
-        mClientAppDataRecorder.register(mClientPackageName, origin);
+        mClientAppDataRecorder.get().register(mClientPackageName, origin);
     }
 }

@@ -29,7 +29,8 @@ class CoordinatorTest : public testing::Test,
   // testing::Test
   void SetUp() override {
     agent_registry_ = std::make_unique<AgentRegistry>();
-    coordinator_ = std::make_unique<Coordinator>(agent_registry_.get());
+    coordinator_ = std::make_unique<Coordinator>(agent_registry_.get(),
+                                                 base::RepeatingClosure());
     output_ = "";
   }
 
@@ -51,7 +52,7 @@ class CoordinatorTest : public testing::Test,
   MockAgent* AddArrayAgent(base::ProcessId pid) {
     auto agent = std::make_unique<MockAgent>();
     agent_registry_->RegisterAgent(agent->CreateAgentPtr(), "traceEvents",
-                                   mojom::TraceDataType::ARRAY, false, pid);
+                                   mojom::TraceDataType::ARRAY, pid);
     agents_.push_back(std::move(agent));
     return agents_.back().get();
   }
@@ -61,7 +62,7 @@ class CoordinatorTest : public testing::Test,
   MockAgent* AddObjectAgent() {
     auto agent = std::make_unique<MockAgent>();
     agent_registry_->RegisterAgent(agent->CreateAgentPtr(), "systemTraceEvents",
-                                   mojom::TraceDataType::OBJECT, false,
+                                   mojom::TraceDataType::OBJECT,
                                    base::kNullProcessId);
     agents_.push_back(std::move(agent));
     return agents_.back().get();
@@ -70,35 +71,13 @@ class CoordinatorTest : public testing::Test,
   MockAgent* AddStringAgent() {
     auto agent = std::make_unique<MockAgent>();
     agent_registry_->RegisterAgent(agent->CreateAgentPtr(), "power",
-                                   mojom::TraceDataType::STRING, false,
+                                   mojom::TraceDataType::STRING,
                                    base::kNullProcessId);
     agents_.push_back(std::move(agent));
     return agents_.back().get();
   }
 
-  void StartTracing(std::string config,
-                    bool expected_response,
-                    bool stop_and_flush) {
-    base::RepeatingClosure closure;
-    if (stop_and_flush) {
-      closure = base::BindRepeating(&CoordinatorTest::StopAndFlush,
-                                    base::Unretained(this));
-    }
-
-    coordinator_->StartTracing(
-        config,
-        base::BindRepeating(
-            [](bool expected, base::RepeatingClosure closure, bool actual) {
-              EXPECT_EQ(expected, actual);
-              if (!closure.is_null())
-                closure.Run();
-            },
-            expected_response, closure));
-  }
-
-  void StartTracing(std::string config, bool expected_response) {
-    StartTracing(config, expected_response, false);
-  }
+  void StartTracing(std::string config) { coordinator_->StartTracing(config); }
 
   void StopAndFlush() {
     mojo::DataPipe data_pipe;
@@ -138,25 +117,6 @@ class CoordinatorTest : public testing::Test,
     EXPECT_EQ(num_agents, count);
   }
 
-  void GetCategories(bool expected_success,
-                     std::set<std::string> expected_categories) {
-    coordinator_->GetCategories(base::BindRepeating(
-        [](bool expected_success, std::set<std::string> expected_categories,
-           bool success, const std::string& categories) {
-          EXPECT_EQ(expected_success, success);
-          if (!success)
-            return;
-          std::vector<std::string> category_vector = base::SplitString(
-              categories, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-          EXPECT_EQ(expected_categories.size(), category_vector.size());
-          for (const auto& expected_category : expected_categories) {
-            EXPECT_EQ(1, std::count(category_vector.begin(),
-                                    category_vector.end(), expected_category));
-          }
-        },
-        expected_success, expected_categories));
-  }
-
   base::test::ScopedTaskEnvironment scoped_task_environment_;
   std::unique_ptr<AgentRegistry> agent_registry_;
   std::unique_ptr<Coordinator> coordinator_;
@@ -169,7 +129,7 @@ class CoordinatorTest : public testing::Test,
 TEST_F(CoordinatorTest, StartTracingSimple) {
   base::RunLoop run_loop;
   auto* agent = AddArrayAgent();
-  StartTracing("*", true);
+  StartTracing("*");
   run_loop.RunUntilIdle();
 
   // The agent should have received exactly one call from the coordinator.
@@ -180,7 +140,7 @@ TEST_F(CoordinatorTest, StartTracingSimple) {
 TEST_F(CoordinatorTest, StartTracingTwoAgents) {
   base::RunLoop run_loop;
   auto* agent1 = AddArrayAgent();
-  StartTracing("*", true);
+  StartTracing("*");
   auto* agent2 = AddStringAgent();
   run_loop.RunUntilIdle();
 
@@ -195,13 +155,13 @@ TEST_F(CoordinatorTest, StartTracingWithProcessFilter) {
   base::RunLoop run_loop1;
   auto* agent1 = AddArrayAgent(static_cast<base::ProcessId>(1));
   auto* agent2 = AddArrayAgent(static_cast<base::ProcessId>(2));
-  StartTracing("{\"included_process_ids\":[2,4]}", true);
+  StartTracing("{\"included_process_ids\":[2,4]}");
   run_loop1.RunUntilIdle();
 
   base::RunLoop run_loop2;
   auto* agent3 = AddArrayAgent(static_cast<base::ProcessId>(3));
   auto* agent4 = AddArrayAgent(static_cast<base::ProcessId>(4));
-  StartTracing("{\"included_process_ids\":[4,6]}", true);
+  StartTracing("{\"included_process_ids\":[4,6]}");
   run_loop2.RunUntilIdle();
 
   base::RunLoop run_loop3;
@@ -210,38 +170,27 @@ TEST_F(CoordinatorTest, StartTracingWithProcessFilter) {
   run_loop3.RunUntilIdle();
 
   // StartTracing should only be received by agents 2, 4, and 6.
+  // Agent 4 should receive StartTracing twice, as it's
+  // included in both configs.
   EXPECT_EQ(0u, agent1->call_stat().size());
   EXPECT_EQ(1u, agent2->call_stat().size());
   EXPECT_EQ("StartTracing", agent2->call_stat()[0]);
   EXPECT_EQ(0u, agent3->call_stat().size());
-  EXPECT_EQ(1u, agent4->call_stat().size());
+  EXPECT_EQ(2u, agent4->call_stat().size());
   EXPECT_EQ("StartTracing", agent4->call_stat()[0]);
+  EXPECT_EQ("StartTracing", agent4->call_stat()[1]);
   EXPECT_EQ(0u, agent5->call_stat().size());
   EXPECT_EQ(1u, agent6->call_stat().size());
   EXPECT_EQ("StartTracing", agent6->call_stat()[0]);
 }
 
-TEST_F(CoordinatorTest, StartTracingWithDifferentConfigs) {
-  base::RunLoop run_loop;
-  auto* agent = AddArrayAgent();
-  StartTracing("config 1", true);
-  // The 2nd |StartTracing| should return false.
-  StartTracing("config 2", false);
-  run_loop.RunUntilIdle();
-
-  // The agent should have received exactly one call from the coordinator
-  // because the 2nd |StartTracing| was aborted.
-  EXPECT_EQ(1u, agent->call_stat().size());
-  EXPECT_EQ("StartTracing", agent->call_stat()[0]);
-}
-
 TEST_F(CoordinatorTest, StartTracingWithSameConfigs) {
   base::RunLoop run_loop;
   auto* agent = AddArrayAgent();
-  StartTracing("config", true);
-  // The 2nd |StartTracing| should return true when we are not trying to change
+  StartTracing("config");
+  // The 2nd |StartTracing| should succeed when we are not trying to change
   // the config.
-  StartTracing("config", true);
+  StartTracing("config");
   run_loop.RunUntilIdle();
 
   // The agent should have received exactly one call from the coordinator
@@ -258,7 +207,8 @@ TEST_F(CoordinatorTest, StopAndFlushObjectAgent) {
   agent->data_.push_back("\"content\":{\"a\":1}");
   agent->data_.push_back("\"name\":\"etw\"");
 
-  StartTracing("config", true, true);
+  StartTracing("config");
+  StopAndFlush();
   if (!quit_closure_.is_null())
     run_loop.Run();
 
@@ -283,7 +233,8 @@ TEST_F(CoordinatorTest, StopAndFlushTwoArrayAgents) {
   agent2->data_.push_back("e3");
   agent2->data_.push_back("e4");
 
-  StartTracing("config", true, true);
+  StartTracing("config");
+  StopAndFlush();
   if (!quit_closure_.is_null())
     run_loop.Run();
 
@@ -321,7 +272,8 @@ TEST_F(CoordinatorTest, StopAndFlushDifferentTypeAgents) {
   agent2->data_.push_back("e3");
   agent2->data_.push_back("e4");
 
-  StartTracing("config", true, true);
+  StartTracing("config");
+  StopAndFlush();
   if (!quit_closure_.is_null())
     run_loop.Run();
 
@@ -346,7 +298,8 @@ TEST_F(CoordinatorTest, StopAndFlushWithMetadata) {
   agent->data_.push_back("event");
   agent->metadata_.SetString("key", "value");
 
-  StartTracing("config", true, true);
+  StartTracing("config");
+  StopAndFlush();
   if (!quit_closure_.is_null())
     run_loop.Run();
 
@@ -360,7 +313,8 @@ TEST_F(CoordinatorTest, StopAndFlushWithMetadata) {
 
 TEST_F(CoordinatorTest, IsTracing) {
   base::RunLoop run_loop;
-  StartTracing("config", true);
+  AddArrayAgent();
+  StartTracing("config");
   IsTracing(true);
   run_loop.RunUntilIdle();
 }
@@ -405,37 +359,28 @@ TEST_F(CoordinatorTest, RequestBufferUsage) {
   EXPECT_EQ(1u, agent3->call_stat().size());
 }
 
-TEST_F(CoordinatorTest, GetCategoriesFail) {
-  base::RunLoop run_loop;
-  StartTracing("config", true);
-  std::set<std::string> expected_categories;
-  GetCategories(false, expected_categories);
-  run_loop.RunUntilIdle();
-}
-
-TEST_F(CoordinatorTest, GetCategoriesSimple) {
-  base::RunLoop run_loop;
-  auto* agent = AddArrayAgent();
-  agent->categories_ = "cat2,cat1";
-  std::set<std::string> expected_categories;
-  expected_categories.insert("cat1");
-  expected_categories.insert("cat2");
-  GetCategories(true, expected_categories);
-  run_loop.RunUntilIdle();
-}
-
-TEST_F(CoordinatorTest, GetCategoriesFromTwoAgents) {
-  base::RunLoop run_loop;
+TEST_F(CoordinatorTest, LateAgents) {
+  base::RunLoop run_loop1;
+  quit_closure_ = run_loop1.QuitClosure();
   auto* agent1 = AddArrayAgent();
-  agent1->categories_ = "cat2,cat1";
+  StartTracing("config");
+  StopAndFlush();
+  if (!quit_closure_.is_null())
+    run_loop1.Run();
+
+  base::RunLoop run_loop2;
   auto* agent2 = AddArrayAgent();
-  agent2->categories_ = "cat3,cat2";
-  std::set<std::string> expected_categories;
-  expected_categories.insert("cat1");
-  expected_categories.insert("cat2");
-  expected_categories.insert("cat3");
-  GetCategories(true, expected_categories);
-  run_loop.RunUntilIdle();
+  agent2->data_.push_back("discarded data");
+  run_loop2.RunUntilIdle();
+
+  EXPECT_EQ(2u, agent1->call_stat().size());
+  EXPECT_EQ("StartTracing", agent1->call_stat()[0]);
+  EXPECT_EQ("StopAndFlush", agent1->call_stat()[1]);
+
+  // The second agent that registers after the end of a tracing session should
+  // receive a StopAndFlush message.
+  EXPECT_EQ(1u, agent2->call_stat().size());
+  EXPECT_EQ("StopAndFlush", agent2->call_stat()[0]);
 }
 
 }  // namespace tracing

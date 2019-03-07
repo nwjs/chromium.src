@@ -81,6 +81,48 @@ IN_PROC_BROWSER_TEST_F(URLLoaderInterceptorTest, InterceptFrame) {
   EXPECT_FALSE(NavigateToURL(shell(), GetPageURL()));
 }
 
+IN_PROC_BROWSER_TEST_F(URLLoaderInterceptorTest,
+                       AsynchronousInitializationInterceptFrame) {
+  GURL url = GetPageURL();
+  base::RunLoop run_loop;
+  URLLoaderInterceptor interceptor(
+      base::BindLambdaForTesting(
+          [&](URLLoaderInterceptor::RequestParams* params) {
+            EXPECT_EQ(params->url_request.url, url);
+            EXPECT_EQ(params->process_id, 0);
+            network::URLLoaderCompletionStatus status;
+            status.error_code = net::ERR_FAILED;
+            params->client->OnComplete(status);
+            return true;
+          }),
+      run_loop.QuitClosure());
+  run_loop.Run();
+  EXPECT_FALSE(NavigateToURL(shell(), GetPageURL()));
+}
+
+IN_PROC_BROWSER_TEST_F(URLLoaderInterceptorTest,
+                       AsynchronousDestructionIsAppliedImmediately) {
+  const GURL url = GetPageURL();
+  {
+    base::RunLoop run_loop;
+    URLLoaderInterceptor interceptor(
+        base::BindLambdaForTesting(
+            [&](URLLoaderInterceptor::RequestParams* params) {
+              EXPECT_EQ(params->url_request.url, url);
+              EXPECT_EQ(params->process_id, 0);
+              network::URLLoaderCompletionStatus status;
+              status.error_code = net::ERR_FAILED;
+              params->client->OnComplete(status);
+              return true;
+            }),
+        run_loop.QuitClosure());
+    run_loop.Run();
+
+    ASSERT_FALSE(NavigateToURL(shell(), url));
+  }
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+}
+
 class TestBrowserClientWithHeaderClient
     : public ContentBrowserClient,
       public network::mojom::TrustedURLLoaderHeaderClient {
@@ -91,6 +133,7 @@ class TestBrowserClientWithHeaderClient
       content::RenderFrameHost* frame,
       int render_process_id,
       bool is_navigation,
+      bool is_download,
       const url::Origin& request_initiator,
       network::mojom::URLLoaderFactoryRequest* factory_request,
       network::mojom::TrustedURLLoaderHeaderClientPtrInfo* header_client,
@@ -101,12 +144,9 @@ class TestBrowserClientWithHeaderClient
   }
 
   // network::mojom::TrustedURLLoaderHeaderClient:
-  void OnBeforeSendHeaders(int32_t request_id,
-                           const net::HttpRequestHeaders& headers,
-                           OnBeforeSendHeadersCallback callback) override {}
-  void OnHeadersReceived(int32_t request_id,
-                         const std::string& headers,
-                         OnHeadersReceivedCallback callback) override {}
+  void OnLoaderCreated(
+      int32_t request_id,
+      network::mojom::TrustedHeaderClientRequest request) override {}
 
   mojo::BindingSet<network::mojom::TrustedURLLoaderHeaderClient> bindings_;
 };

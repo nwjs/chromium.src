@@ -4,7 +4,6 @@
 
 #include "content/browser/accessibility/browser_accessibility_android.h"
 
-#include "base/containers/hash_tables.h"
 #include "base/i18n/break_iterator.h"
 #include "base/lazy_instance.h"
 #include "base/strings/string_number_conversions.h"
@@ -107,7 +106,7 @@ BrowserAccessibility* BrowserAccessibility::Create() {
   return new BrowserAccessibilityAndroid();
 }
 
-using UniqueIdMap = base::hash_map<int32_t, BrowserAccessibilityAndroid*>;
+using UniqueIdMap = std::unordered_map<int32_t, BrowserAccessibilityAndroid*>;
 // Map from each AXPlatformNode's unique id to its instance.
 base::LazyInstance<UniqueIdMap>::Leaky g_unique_id_map =
     LAZY_INSTANCE_INITIALIZER;
@@ -222,6 +221,10 @@ bool BrowserAccessibilityAndroid::IsChecked() const {
 }
 
 bool BrowserAccessibilityAndroid::IsClickable() const {
+  // Explicitly disabled form controls shouldn't be clickable.
+  if (!IsEnabled())
+    return false;
+
   // If it has a custom default action verb except for
   // ax::mojom::DefaultActionVerb::kClickAncestor, it's definitely clickable.
   // ax::mojom::DefaultActionVerb::kClickAncestor is used when an element with a
@@ -423,8 +426,14 @@ bool BrowserAccessibilityAndroid::CanOpenPopup() const {
 }
 
 const char* BrowserAccessibilityAndroid::GetClassName() const {
-  return ui::AXRoleToAndroidClassName(GetRole(),
-                                      PlatformGetParent() != nullptr);
+  ax::mojom::Role role = GetRole();
+
+  // On Android, contenteditable needs to be handled the same as any
+  // other text field.
+  if (IsPlainTextField() || IsRichTextField())
+    role = ax::mojom::Role::kTextField;
+
+  return ui::AXRoleToAndroidClassName(role, PlatformGetParent() != nullptr);
 }
 
 base::string16 BrowserAccessibilityAndroid::GetText() const {
@@ -481,21 +490,32 @@ base::string16 BrowserAccessibilityAndroid::GetText() const {
 }
 
 base::string16 BrowserAccessibilityAndroid::GetHint() const {
-  base::string16 description =
-      GetString16Attribute(ax::mojom::StringAttribute::kDescription);
+  std::vector<base::string16> strings;
 
-  // If we're returning the value as the main text, then return both the
-  // accessible name and description as the hint.
+  // If we're returning the value as the main text, the name needs to be
+  // part of the hint.
   if (ShouldExposeValueAsName()) {
     base::string16 name =
         GetString16Attribute(ax::mojom::StringAttribute::kName);
-    if (!name.empty() && !description.empty())
-      return name + base::ASCIIToUTF16(" ") + description;
-    else if (!name.empty())
-      return name;
+    if (!name.empty())
+      strings.push_back(name);
   }
 
-  return description;
+  if (GetData().GetNameFrom() != ax::mojom::NameFrom::kPlaceholder &&
+      GetData().GetIntAttribute(ax::mojom::IntAttribute::kDescriptionFrom) !=
+          static_cast<int32_t>(ax::mojom::DescriptionFrom::kPlaceholder)) {
+    base::string16 placeholder =
+        GetString16Attribute(ax::mojom::StringAttribute::kPlaceholder);
+    if (!placeholder.empty())
+      strings.push_back(placeholder);
+  }
+
+  base::string16 description =
+      GetString16Attribute(ax::mojom::StringAttribute::kDescription);
+  if (!description.empty())
+    strings.push_back(description);
+
+  return base::JoinString(strings, base::ASCIIToUTF16(" "));
 }
 
 std::string BrowserAccessibilityAndroid::GetRoleString() const {
@@ -834,19 +854,22 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
     case ax::mojom::Role::kLink:
       message_id = IDS_AX_ROLE_LINK;
       break;
-    case ax::mojom::Role::kListBoxOption:
+    case ax::mojom::Role::kList:
       // No role description.
       break;
     case ax::mojom::Role::kListBox:
       message_id = IDS_AX_ROLE_LIST_BOX;
       break;
+    case ax::mojom::Role::kListBoxOption:
+      // No role description.
+      break;
+    case ax::mojom::Role::kListGrid:
+      message_id = IDS_AX_ROLE_TABLE;
+      break;
     case ax::mojom::Role::kListItem:
       // No role description.
       break;
     case ax::mojom::Role::kListMarker:
-      // No role description.
-      break;
-    case ax::mojom::Role::kList:
       // No role description.
       break;
     case ax::mojom::Role::kLog:
@@ -1064,7 +1087,7 @@ int BrowserAccessibilityAndroid::GetItemIndex() const {
       case ax::mojom::Role::kListItem:
       case ax::mojom::Role::kListBoxOption:
       case ax::mojom::Role::kTreeItem:
-        index = GetIntAttribute(ax::mojom::IntAttribute::kPosInSet) - 1;
+        index = node()->GetPosInSet() - 1;
         break;
       default:
         break;
@@ -1085,7 +1108,7 @@ int BrowserAccessibilityAndroid::GetItemCount() const {
       case ax::mojom::Role::kList:
       case ax::mojom::Role::kListBox:
       case ax::mojom::Role::kDescriptionList:
-        count = PlatformChildCount();
+        count = node()->GetSetSize();
         break;
       default:
         break;
@@ -1385,7 +1408,7 @@ int BrowserAccessibilityAndroid::RowCount() const {
       GetRole() == ax::mojom::Role::kListBox ||
       GetRole() == ax::mojom::Role::kDescriptionList ||
       GetRole() == ax::mojom::Role::kTree) {
-    return PlatformChildCount();
+    return node()->GetSetSize();
   }
 
   return 0;
@@ -1402,7 +1425,7 @@ int BrowserAccessibilityAndroid::RowIndex() const {
   if (GetRole() == ax::mojom::Role::kListItem ||
       GetRole() == ax::mojom::Role::kListBoxOption ||
       GetRole() == ax::mojom::Role::kTreeItem) {
-    return GetIndexInParent();
+    return node()->GetPosInSet() - 1;
   }
 
   return node()->GetTableCellRowIndex();

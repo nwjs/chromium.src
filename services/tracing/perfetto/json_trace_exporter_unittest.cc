@@ -47,8 +47,10 @@ class MockService : public perfetto::TracingService {
       const std::string& name,
       size_t shared_buffer_size_hint_bytes = 0) override;
 
-  std::unique_ptr<ConsumerEndpoint> ConnectConsumer(
-      perfetto::Consumer*) override;
+  std::unique_ptr<ConsumerEndpoint> ConnectConsumer(perfetto::Consumer*,
+                                                    uid_t) override;
+
+  void SetSMBScrapingEnabled(bool enabled) override;
 
  private:
   base::MessageLoop* message_loop_;
@@ -83,6 +85,11 @@ class MockConsumerEndpoint : public perfetto::TracingService::ConsumerEndpoint {
   // Unused in chrome, only meaningful when using TraceConfig.deferred_start.
   void StartTracing() override {}
 
+  // Unused in chrome.
+  void Detach(const std::string& /*key*/) override {}
+  void Attach(const std::string& /*key*/) override {}
+  void GetTraceStats() override {}
+
  private:
   MockService* mock_service_;
 };
@@ -109,6 +116,8 @@ void MockService::WaitForTracingDisabled() {
   wait_for_tracing_disabled_.Run();
 }
 
+void MockService::SetSMBScrapingEnabled(bool enabled) {}
+
 // perfetto::TracingService implementation.
 std::unique_ptr<perfetto::TracingService::ProducerEndpoint>
 MockService::ConnectProducer(perfetto::Producer*,
@@ -120,7 +129,7 @@ MockService::ConnectProducer(perfetto::Producer*,
 }
 
 std::unique_ptr<perfetto::TracingService::ConsumerEndpoint>
-MockService::ConnectConsumer(perfetto::Consumer* consumer) {
+MockService::ConnectConsumer(perfetto::Consumer* consumer, uid_t) {
   message_loop_->task_runner()->PostTask(
       FROM_HERE, base::BindOnce(&perfetto::Consumer::OnConnect,
                                 base::Unretained(consumer)));

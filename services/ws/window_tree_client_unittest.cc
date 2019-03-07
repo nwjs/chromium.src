@@ -249,7 +249,7 @@ class TestWindowTreeClient2 : public TestWindowTreeClient {
     return WaitForChangeCompleted(change_id);
   }
 
-  bool SetCursor(Id window_id, const ui::CursorData& cursor) {
+  bool SetCursor(Id window_id, const ui::Cursor& cursor) {
     const uint32_t change_id = GetAndAdvanceChangeId();
     tree()->SetCursor(change_id, window_id, cursor);
     return WaitForChangeCompleted(change_id);
@@ -391,7 +391,7 @@ class TestWindowTreeClient2 : public TestWindowTreeClient {
   }
   // TODO(sky): add testing coverage.
   void OnWindowFocused(Id focused_window_id) override {}
-  void OnWindowCursorChanged(Id window_id, ui::CursorData cursor) override {
+  void OnWindowCursorChanged(Id window_id, ui::Cursor cursor) override {
     tracker_.OnWindowCursorChanged(window_id, cursor);
   }
   void OnDragDropStart(const base::flat_map<std::string, std::vector<uint8_t>>&
@@ -399,18 +399,21 @@ class TestWindowTreeClient2 : public TestWindowTreeClient {
 
   void OnDragEnter(Id window,
                    uint32_t key_state,
-                   const gfx::Point& position,
+                   const gfx::PointF& location_in_root,
+                   const gfx::PointF& location,
                    uint32_t effect_bitmask,
                    OnDragEnterCallback callback) override {}
   void OnDragOver(Id window,
                   uint32_t key_state,
-                  const gfx::Point& position,
+                  const gfx::PointF& location_in_root,
+                  const gfx::PointF& location,
                   uint32_t effect_bitmask,
                   OnDragOverCallback callback) override {}
   void OnDragLeave(Id window) override {}
   void OnCompleteDrop(Id window,
                       uint32_t key_state,
-                      const gfx::Point& position,
+                      const gfx::PointF& location_in_root,
+                      const gfx::PointF& location,
                       uint32_t effect_bitmask,
                       OnCompleteDropCallback callback) override {}
 
@@ -1081,11 +1084,11 @@ TEST_F(WindowTreeClientTest, DeleteRootWithChildren) {
   ASSERT_TRUE(wt_client2()->AddWindow(window_2_1, window_2_2));
 }
 
-// Verifies DeleteWindow isn't allowed from a separate client.
-TEST_F(WindowTreeClientTest, DeleteWindowFromAnotherClientDisallowed) {
+TEST_F(WindowTreeClientTest, DeleteUnknownWindowSucceeds) {
   ASSERT_NO_FATAL_FAILURE(EstablishSecondClient(true));
-  // This id is unknown, so deletion should fail.
-  EXPECT_FALSE(wt_client2()->DeleteWindow(BuildWindowId(client_id_1(), 2)));
+  // Even though the window is unknown, deletion succeeds to avoid races with
+  // the client (both sides deleting a window at the same time).
+  EXPECT_TRUE(wt_client2()->DeleteWindow(BuildWindowId(client_id_1(), 2)));
 }
 
 // Verifies if a window was deleted and then reused that other clients are
@@ -1526,8 +1529,8 @@ TEST_F(WindowTreeClientTest, DISABLED_SetCursor) {
   Id window_1_1 = BuildWindowId(client_id_1(), 1);
   changes2()->clear();
 
-  ASSERT_TRUE(wt_client1()->SetCursor(window_1_1,
-                                      ui::CursorData(ui::CursorType::kIBeam)));
+  ASSERT_TRUE(
+      wt_client1()->SetCursor(window_1_1, ui::Cursor(ui::CursorType::kIBeam)));
   wt_client2_->WaitForChangeCount(1u);
 
   EXPECT_EQ("CursorChanged id=" + IdToString(window_1_1) + " cursor_type=4",

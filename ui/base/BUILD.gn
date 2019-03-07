@@ -10,6 +10,7 @@ import("//build/config/sanitizers/sanitizers.gni")
 import("//build/config/ui.gni")
 import("//build/util/branding.gni")
 import("//testing/test.gni")
+import("//tools/grit/grit_rule.gni")
 import("//ui/base/ui_features.gni")
 import("//ui/ozone/ozone.gni")
 
@@ -46,15 +47,11 @@ component("ui_data_pack") {
 
   defines = [ "UI_DATA_PACK_IMPLEMENTATION" ]
 
-  configs += [
-    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
-    "//build/config/compiler:no_size_t_to_int_warning",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
-buildflag_header("ui_features") {
-  header = "ui_features.h"
+buildflag_header("buildflags") {
+  header = "buildflags.h"
   flags = [
     "ENABLE_HIDPI=$enable_hidpi",
     "ENABLE_MESSAGE_CENTER=$enable_message_center",
@@ -79,18 +76,6 @@ jumbo_component("base") {
     "accelerators/platform_accelerator_cocoa.mm",
     "class_property.cc",
     "class_property.h",
-    "clipboard/clipboard_android.cc",
-    "clipboard/clipboard_android.h",
-    "clipboard/clipboard_mac.h",
-    "clipboard/clipboard_mac.mm",
-    "clipboard/clipboard_types.h",
-    "clipboard/clipboard_util_mac.h",
-    "clipboard/clipboard_util_mac.mm",
-    "clipboard/clipboard_util_win.cc",
-    "clipboard/clipboard_util_win.h",
-    "clipboard/clipboard_win.cc",
-    "clipboard/clipboard_win.h",
-    "clipboard/custom_data_helper_mac.mm",
     "cocoa/accessibility_focus_overrider.h",
     "cocoa/accessibility_focus_overrider.mm",
     "cocoa/animation_utils.h",
@@ -130,6 +115,8 @@ jumbo_component("base") {
     "cocoa/remote_accessibility_api.mm",
     "cocoa/remote_layer_api.h",
     "cocoa/remote_layer_api.mm",
+    "cocoa/remote_views_window.h",
+    "cocoa/remote_views_window.mm",
     "cocoa/secure_password_input.h",
     "cocoa/secure_password_input.mm",
     "cocoa/text_services_context_menu.cc",
@@ -153,8 +140,6 @@ jumbo_component("base") {
     "cursor/cursor.cc",
     "cursor/cursor.h",
     "cursor/cursor_android.cc",
-    "cursor/cursor_data.cc",
-    "cursor/cursor_data.h",
     "cursor/cursor_loader.h",
     "cursor/cursor_type.h",
     "cursor/cursor_win.cc",
@@ -209,8 +194,6 @@ jumbo_component("base") {
     "models/combobox_model.cc",
     "models/combobox_model.h",
     "models/combobox_model_observer.h",
-    "models/dialog_model.cc",
-    "models/dialog_model.h",
     "models/list_model.h",
     "models/list_model_observer.h",
     "models/list_selection_model.cc",
@@ -324,16 +307,6 @@ jumbo_component("base") {
       "accelerators/accelerator_manager.h",
       "base_window.cc",
       "base_window.h",
-      "clipboard/clipboard.cc",
-      "clipboard/clipboard.h",
-      "clipboard/clipboard_constants.cc",
-      "clipboard/clipboard_monitor.cc",
-      "clipboard/clipboard_monitor.h",
-      "clipboard/clipboard_observer.h",
-      "clipboard/custom_data_helper.cc",
-      "clipboard/custom_data_helper.h",
-      "clipboard/scoped_clipboard_writer.cc",
-      "clipboard/scoped_clipboard_writer.h",
       "cocoa/bubble_closer.h",
       "cocoa/bubble_closer.mm",
       "cursor/cursor_util.cc",
@@ -347,6 +320,7 @@ jumbo_component("base") {
       "emoji/emoji_panel_helper.h",
       "idle/idle.cc",
       "idle/idle.h",
+      "idle/idle_android.cc",
       "idle/idle_chromeos.cc",
       "idle/idle_linux.cc",
       "idle/idle_mac.mm",
@@ -373,6 +347,12 @@ jumbo_component("base") {
 
   if (is_mac) {
     sources += [ "accelerators/media_keys_listener_mac.mm" ]
+  } else if (is_win) {
+    sources += [
+      "accelerators/global_media_keys_listener_win.cc",
+      "accelerators/global_media_keys_listener_win.h",
+      "accelerators/media_keys_listener_win.cc",
+    ]
   } else {
     sources += [ "accelerators/media_keys_listener_stub.cc" ]
   }
@@ -399,17 +379,13 @@ jumbo_component("base") {
     ]
   }
 
-  configs += [
-    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
-    "//build/config/compiler:no_size_t_to_int_warning",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   defines = [ "UI_BASE_IMPLEMENTATION" ]
 
   public_deps = [
+    ":buildflags",
     ":ui_data_pack",
-    ":ui_features",
     "//base",
     "//skia",
     "//ui/gfx",
@@ -422,6 +398,7 @@ jumbo_component("base") {
     "//net",
     "//third_party/icu",
     "//third_party/zlib:zlib",
+    "//ui/base/clipboard:clipboard_types",
     "//ui/display",
     "//ui/events",
     "//ui/events/devices",
@@ -498,11 +475,6 @@ jumbo_component("base") {
   if (use_aura) {
     deps += [ "//ui/events" ]
     sources += [ "window_tracker_template.h" ]
-  } else {
-    sources -= [
-      "cursor/cursor.cc",
-      "cursor/cursor.h",
-    ]
   }
 
   if (!use_aura || !is_linux) {
@@ -523,7 +495,10 @@ jumbo_component("base") {
   }
 
   if (is_chromeos) {
-    deps += [ "//chromeos" ]
+    deps += [
+      "//chromeos",
+      "//chromeos/dbus",
+    ]
     sources -= [ "idle/idle_linux.cc" ]
   }
 
@@ -532,6 +507,10 @@ jumbo_component("base") {
       "dragdrop/os_exchange_data_provider_aura.cc",
       "dragdrop/os_exchange_data_provider_aura.h",
     ]
+  }
+
+  if (is_mac || is_win) {
+    deps += [ "//ui/base/clipboard" ]
   }
 
   libs = []
@@ -624,7 +603,6 @@ jumbo_component("base") {
       "idle/idle.h",
       "l10n/l10n_font_util.cc",
       "models/button_menu_item_model.cc",
-      "models/dialog_model.cc",
       "pointer/touch_editing_controller.cc",
       "theme_provider.cc",
       "ui_base_types.cc",
@@ -632,20 +610,6 @@ jumbo_component("base") {
   }
 
   if (use_aura) {
-    # Aura clipboard.
-    if (use_x11 && is_desktop_linux) {
-      sources += [
-        "clipboard/clipboard_aurax11.cc",
-        "clipboard/clipboard_aurax11.h",
-      ]
-    } else if (!is_win) {
-      # This file is used for all non-X11, non-Windows aura Builds.
-      sources += [
-        "clipboard/clipboard_aura.cc",
-        "clipboard/clipboard_aura.h",
-      ]
-    }
-
     # Cursor
     sources += [
       "cursor/cursors_aura.cc",
@@ -692,8 +656,6 @@ jumbo_static_library("test_support") {
       "test/scoped_fake_nswindow_fullscreen.mm",
       "test/scoped_preferred_scroller_style_mac.h",
       "test/scoped_preferred_scroller_style_mac.mm",
-      "test/test_clipboard.cc",
-      "test/test_clipboard.h",
       "test/view_tree_validator.h",
       "test/view_tree_validator.mm",
       "test/windowed_nsnotification_observer.h",
@@ -789,11 +751,62 @@ bundle_data("ui_base_unittests_bundle_data") {
   ]
 }
 
+# The resource labels below should not end with "_resources" or the Android
+# build rules will look for a nonexistent __build_config label.
+grit("ui_base_test_resources_grit") {
+  testonly = true
+  source = "test/ui_base_test_resources.grd"
+  outputs = [
+    "grit/ui_base_test_resources.h",
+    "ui_base_test_resources.pak",
+  ]
+}
+
+copy("ui_base_test_resources_pak") {
+  testonly = true
+  sources = [
+    "$target_gen_dir/ui_base_test_resources.pak",
+  ]
+  outputs = [
+    "$root_out_dir/ui_base_test_resources.pak",
+  ]
+  public_deps = [
+    ":ui_base_test_resources_grit",
+  ]
+}
+
+if (is_android) {
+  android_assets("ui_base_test_android_assets") {
+    testonly = true
+
+    # Use $target_gen_dir so the associated .pak.info file is available.
+    sources = [
+      "$target_gen_dir/ui_base_test_resources.pak",
+    ]
+    deps = [
+      ":ui_base_test_resources_grit",
+    ]
+  }
+}
+
+if (is_ios) {
+  bundle_data("ui_base_test_bundle_data") {
+    testonly = true
+    public_deps = [
+      ":ui_base_test_resources_grit",
+    ]
+    sources = [
+      "$target_gen_dir/ui_base_test_resources.pak",
+    ]
+    outputs = [
+      "{{bundle_resources_dir}}/{{source_file_part}}",
+    ]
+  }
+}
+
 test("ui_base_unittests") {
   sources = [
     "class_property_unittest.cc",
-    "clipboard/clipboard_mac_unittest.mm",
-    "clipboard/clipboard_util_mac_unittest.mm",
     "l10n/l10n_util_mac_unittest.mm",
     "l10n/l10n_util_unittest.cc",
     "l10n/time_format_unittest.cc",
@@ -815,7 +828,6 @@ test("ui_base_unittests") {
   if (!is_ios) {
     sources += [
       "test/scoped_fake_nswindow_fullscreen_unittest.mm",
-      "test/test_clipboard_unittest.cc",
       "test/view_tree_validator_unittest.mm",
     ]
   }
@@ -843,7 +855,6 @@ test("ui_base_unittests") {
       "accelerators/menu_label_accelerator_util_linux_unittest.cc",
       "accelerators/menu_label_accelerator_util_unittest.cc",
       "accelerators/platform_accelerator_cocoa_unittest.mm",
-      "clipboard/custom_data_helper_unittest.cc",
       "cocoa/base_view_unittest.mm",
       "cocoa/bubble_closer_unittest.mm",
       "cocoa/cocoa_base_utils_unittest.mm",
@@ -853,10 +864,10 @@ test("ui_base_unittests") {
       "cocoa/touch_bar_util_unittest.mm",
       "cocoa/tracking_area_unittest.mm",
       "cocoa/weak_ptr_nsobject_unittest.mm",
+      "cursor/cursor_util_unittest.cc",
       "models/list_model_unittest.cc",
       "models/list_selection_model_unittest.cc",
       "models/tree_node_model_unittest.cc",
-      "test/data/resource.h",
       "text/bytes_formatting_unittest.cc",
       "webui/web_ui_util_unittest.cc",
     ]
@@ -889,10 +900,8 @@ test("ui_base_unittests") {
     }
   }
 
-  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
-  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
-
   deps = [
+    ":ui_base_test_resources_grit",
     ":ui_base_unittests_bundle_data",
     "//base",
     "//base/test:test_support",
@@ -906,6 +915,8 @@ test("ui_base_unittests") {
     "//ui/base",
     "//ui/base:test_support",
     "//ui/base:ui_data_pack",
+    "//ui/base/clipboard:clipboard_test",
+    "//ui/base/clipboard:clipboard_types",
     "//ui/display",
     "//ui/events:events_base",
     "//ui/events:test_support",
@@ -916,6 +927,17 @@ test("ui_base_unittests") {
     "//url",
   ]
 
+  # Include the correct ui_base_test resources per platform.
+  if (is_android) {
+    deps += [ ":ui_base_test_android_assets" ]
+    data_deps += [ ":ui_base_test_resources_pak" ]
+  } else if (is_ios) {
+    deps += [ ":ui_base_test_bundle_data" ]
+  } else {
+    data += [ "$root_out_dir/ui_base_test_resources.pak" ]
+    data_deps += [ ":ui_base_test_resources_pak" ]
+  }
+
   if (build_ime) {
     deps += [ "//ui/base/ime" ]
   }
@@ -923,7 +945,10 @@ test("ui_base_unittests") {
   if (is_ios) {
     deps += [ "//ui/resources:ui_test_pak_bundle_data" ]
   } else {
-    deps += [ "//ui/base/accelerators/mojo:unittests" ]
+    deps += [
+      "//ui/base/accelerators/mojo:unittests",
+      "//ui/base/mojo:unittests",
+    ]
   }
 
   if (is_win) {
@@ -961,8 +986,6 @@ test("ui_base_unittests") {
   }
 
   if (use_x11) {
-    sources += [ "cursor/cursor_loader_x11_unittest.cc" ]
-
     configs += [ "//build/config/linux:x11" ]
 
     deps += [
@@ -1053,6 +1076,25 @@ if (is_win) {
     sources = [
       "fullscreen_win.cc",
       "fullscreen_win.h",
+    ]
+  }
+}
+
+# This target is added as a dependency of browser interactive_ui_tests. It must
+# be source_set, otherwise the linker will drop the tests as dead code.
+source_set("base_interactive_ui_tests") {
+  testonly = true
+  if (is_win) {
+    sources = [
+      "accelerators/global_media_keys_listener_win_interactive_test.cc",
+    ]
+
+    deps = [
+      ":base",
+      ":test_support",
+      "//base/test:test_support",
+      "//testing/gtest",
+      "//ui/events:events",
     ]
   }
 }

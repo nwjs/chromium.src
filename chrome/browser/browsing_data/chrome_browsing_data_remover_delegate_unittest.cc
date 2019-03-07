@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -482,11 +483,40 @@ class RemoveFaviconTester {
   DISALLOW_COPY_AND_ASSIGN(RemoveFaviconTester);
 };
 
+// Custom ProtocolHandlerRegistry delegate that doesn't change any OS settings.
+class FakeProtocolHandlerRegistryDelegate
+    : public ProtocolHandlerRegistry::Delegate {
+ public:
+  ~FakeProtocolHandlerRegistryDelegate() override = default;
+
+  void RegisterExternalHandler(const std::string& protocol) override {
+    registered_protocols_.insert(protocol);
+  }
+
+  void DeregisterExternalHandler(const std::string& protocol) override {
+    registered_protocols_.erase(protocol);
+  }
+
+  bool IsExternalHandlerRegistered(const std::string& protocol) override {
+    return registered_protocols_.count(protocol);
+  }
+
+  void RegisterWithOSAsDefaultClient(
+      const std::string& protocol,
+      ProtocolHandlerRegistry* registry) override {}
+
+  void CheckDefaultClientWithOS(const std::string& protocol,
+                                ProtocolHandlerRegistry* registry) override {}
+
+ private:
+  std::set<std::string> registered_protocols_;
+};
+
 std::unique_ptr<KeyedService> BuildProtocolHandlerRegistry(
     content::BrowserContext* context) {
   Profile* profile = Profile::FromBrowserContext(context);
   return std::make_unique<ProtocolHandlerRegistry>(
-      profile, new ProtocolHandlerRegistry::Delegate());
+      profile, new FakeProtocolHandlerRegistryDelegate());
 }
 
 class ClearDomainReliabilityTester {
@@ -790,19 +820,32 @@ class RemoveDownloadsTester {
 
 }  // namespace
 
+ACTION(QuitMainMessageLoop) {
+  base::RunLoop::QuitCurrentWhenIdleDeprecated();
+}
+
+class PersonalDataLoadedObserverMock
+    : public autofill::PersonalDataManagerObserver {
+ public:
+  PersonalDataLoadedObserverMock() {}
+  ~PersonalDataLoadedObserverMock() override {}
+  MOCK_METHOD0(OnPersonalDataChanged, void());
+  MOCK_METHOD0(OnPersonalDataFinishedProfileTasks, void());
+};
+
 // RemoveAutofillTester is not a part of the anonymous namespace above, as
 // PersonalDataManager declares it a friend in an empty namespace.
-class RemoveAutofillTester : public autofill::PersonalDataManagerObserver {
+class RemoveAutofillTester {
  public:
   explicit RemoveAutofillTester(TestingProfile* profile)
       : personal_data_manager_(
             autofill::PersonalDataManagerFactory::GetForProfile(profile)) {
     autofill::test::DisableSystemServices(profile->GetPrefs());
-    personal_data_manager_->AddObserver(this);
+    personal_data_manager_->AddObserver(&personal_data_observer_);
   }
 
-  ~RemoveAutofillTester() override {
-    personal_data_manager_->RemoveObserver(this);
+  ~RemoveAutofillTester() {
+    personal_data_manager_->RemoveObserver(&personal_data_observer_);
     autofill::test::ReenableSystemServices();
   }
 
@@ -850,7 +893,8 @@ class RemoveAutofillTester : public autofill::PersonalDataManagerObserver {
     profiles.push_back(profile);
 
     personal_data_manager_->SetProfiles(&profiles);
-    base::TaskScheduler::GetInstance()->FlushForTesting();
+
+    WaitForOnPersonalDataFinishedProfileTasks();
 
     std::vector<autofill::CreditCard> cards;
     autofill::CreditCard card;
@@ -865,15 +909,24 @@ class RemoveAutofillTester : public autofill::PersonalDataManagerObserver {
     cards.push_back(card);
 
     personal_data_manager_->SetCreditCards(&cards);
-    base::TaskScheduler::GetInstance()->FlushForTesting();
+    WaitForOnPersonalDataChanged();
   }
 
  private:
-  void OnPersonalDataChanged() override {
-    base::RunLoop::QuitCurrentWhenIdleDeprecated();
+  void WaitForOnPersonalDataChanged() {
+    EXPECT_CALL(personal_data_observer_, OnPersonalDataChanged())
+        .WillRepeatedly(QuitMainMessageLoop());
+    base::RunLoop().Run();
+  }
+
+  void WaitForOnPersonalDataFinishedProfileTasks() {
+    EXPECT_CALL(personal_data_observer_, OnPersonalDataFinishedProfileTasks())
+        .WillRepeatedly(QuitMainMessageLoop());
+    base::RunLoop().Run();
   }
 
   autofill::PersonalDataManager* personal_data_manager_;
+  PersonalDataLoadedObserverMock personal_data_observer_;
   DISALLOW_COPY_AND_ASSIGN(RemoveAutofillTester);
 };
 

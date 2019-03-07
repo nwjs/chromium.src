@@ -11,7 +11,6 @@
 #include <string>
 
 #include "base/callback_forward.h"
-#include "base/containers/hash_tables.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
@@ -201,8 +200,7 @@ class COMPOSITOR_EXPORT ContextFactory {
 // view hierarchy.
 class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
                                      public cc::LayerTreeHostSingleThreadClient,
-                                     public viz::HostFrameSinkClient,
-                                     public ExternalBeginFrameClient {
+                                     public viz::HostFrameSinkClient {
  public:
   // |trace_environment_name| is passed to trace events so that tracing
   // can identify the environment the trace events are from. Examples are,
@@ -211,9 +209,8 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
              ui::ContextFactory* context_factory,
              ui::ContextFactoryPrivate* context_factory_private,
              scoped_refptr<base::SingleThreadTaskRunner> task_runner,
-             bool enable_surface_synchronization,
              bool enable_pixel_canvas,
-             bool external_begin_frames_enabled = false,
+             ExternalBeginFrameClient* external_begin_frame_client = nullptr,
              bool force_software_compositor = false,
              const char* trace_environment_name = nullptr);
   ~Compositor() override;
@@ -323,16 +320,6 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   // Returns the vsync manager for this compositor.
   scoped_refptr<CompositorVSyncManager> vsync_manager() const;
 
-  bool external_begin_frames_enabled() {
-    return external_begin_frames_enabled_;
-  }
-
-  void SetExternalBeginFrameClient(ExternalBeginFrameClient* client);
-
-  // The ExternalBeginFrameClient calls this to issue a BeginFrame with the
-  // given |args|.
-  void IssueExternalBeginFrame(const viz::BeginFrameArgs& args);
-
   // This flag is used to force a compositor into software compositing even tho
   // in general chrome is using gpu compositing. This allows the compositor to
   // be created without a gpu context, and does not go through the gpu path at
@@ -377,10 +364,6 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
       base::OnceCallback<void(const gfx::PresentationFeedback&)>;
   void RequestPresentationTimeForNextFrame(PresentationTimeCallback callback);
 
-  // ExternalBeginFrameClient implementation.
-  void OnDisplayDidFinishFrame(const viz::BeginFrameAck& ack) override;
-  void OnNeedsExternalBeginFrames(bool needs_begin_frames) override;
-
   // LayerTreeHostClient implementation.
   void WillBeginMainFrame() override {}
   void DidBeginMainFrame() override {}
@@ -392,6 +375,11 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   }
   void RecordWheelAndTouchScrollingCount(bool has_scrolled_by_wheel,
                                          bool has_scrolled_by_touch) override {}
+  void SendOverscrollEventFromImplSide(
+      const gfx::Vector2dF& overscroll_delta,
+      cc::ElementId scroll_latched_element_id) override {}
+  void SendScrollEndEventFromImplSide(
+      cc::ElementId scroll_latched_element_id) override {}
   void RequestNewLayerTreeFrameSink() override;
   void DidInitializeLayerTreeFrameSink() override {}
   void DidFailToInitializeLayerTreeFrameSink() override;
@@ -404,6 +392,8 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
       uint32_t frame_token,
       const gfx::PresentationFeedback& feedback) override;
   void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) override {}
+  void DidGenerateLocalSurfaceIdAllocation(
+      const viz::LocalSurfaceIdAllocation& allocation) override;
 
   // cc::LayerTreeHostSingleThreadClient implementation.
   void DidSubmitCompositorFrame() override;
@@ -428,6 +418,10 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   const viz::FrameSinkId& frame_sink_id() const { return frame_sink_id_; }
   int activated_frame_count() const { return activated_frame_count_; }
   float refresh_rate() const { return refresh_rate_; }
+
+  ExternalBeginFrameClient* external_begin_frame_client() {
+    return external_begin_frame_client_;
+  }
 
   void SetAllowLocksToExtendTimeout(bool allowed) {
     lock_manager_.set_allow_locks_to_extend_timeout(allowed);
@@ -480,9 +474,7 @@ class COMPOSITOR_EXPORT Compositor : public cc::LayerTreeHostClient,
   base::TimeTicks vsync_timebase_;
   base::TimeDelta vsync_interval_;
 
-  bool external_begin_frames_enabled_;
-  ExternalBeginFrameClient* external_begin_frame_client_ = nullptr;
-  bool needs_external_begin_frames_ = false;
+  ExternalBeginFrameClient* const external_begin_frame_client_;
 
   const bool force_software_compositor_;
 

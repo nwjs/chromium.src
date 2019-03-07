@@ -23,9 +23,8 @@ void FakeNavigationManagerDelegate::LoadIfNecessary() {}
 void FakeNavigationManagerDelegate::Reload() {}
 void FakeNavigationManagerDelegate::OnNavigationItemsPruned(
     size_t pruned_item_count) {}
-void FakeNavigationManagerDelegate::OnNavigationItemChanged() {}
 void FakeNavigationManagerDelegate::OnNavigationItemCommitted(
-    const LoadCommittedDetails& load_details) {}
+    NavigationItem* item) {}
 WebState* FakeNavigationManagerDelegate::GetWebState() {
   return nullptr;
 }
@@ -33,6 +32,11 @@ id<CRWWebViewNavigationProxy>
 FakeNavigationManagerDelegate::GetWebViewNavigationProxy() const {
   return test_web_view_;
 }
+void FakeNavigationManagerDelegate::GoToBackForwardListItem(
+    WKBackForwardListItem* wk_item,
+    NavigationItem* item,
+    NavigationInitiationType type,
+    bool has_user_gesture) {}
 void FakeNavigationManagerDelegate::RemoveWebView() {}
 
 void FakeNavigationManagerDelegate::SetWebViewNavigationProxy(id web_view) {

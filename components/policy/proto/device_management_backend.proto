@@ -780,6 +780,8 @@ message CPUTempInfo {
   optional string cpu_label = 1;
   // CPU temperature in Celsius.
   optional int32 cpu_temp = 2;
+  // Unix timestamp.
+  optional int64 timestamp = 3;
 }
 
 // Chrome release channel, shared for different reports.
@@ -789,6 +791,84 @@ enum Channel {
   CHANNEL_DEV = 2;
   CHANNEL_BETA = 3;
   CHANNEL_STABLE = 4;
+}
+
+// Frequently changing data for battery.
+message BatterySample {
+  optional int64 timestamp = 1;
+  // Battery voltage
+  optional int64 voltage = 2;
+  // Battery remaining capacity (mA-hours)
+  optional int64 remaining_capacity = 3;
+  // Temperature in Celsius.
+  optional int32 temperature = 4;
+  // The battery discharge rate measured in mW. Positive if the battery is being
+  // discharged, negative if it's being charged.
+  optional int32 discharge_rate = 5;
+  // Battery charge percentage
+  optional int32 charge_rate = 6;
+}
+
+// Status of the single battery
+message BatteryInfo {
+  optional string serial = 1;
+  optional string manufacturer = 2;
+  optional string battery_health = 3;
+  // Design capacity (mA-hours)
+  optional int64 design_capacity = 4;
+  // Full charge capacity (mA-hours)
+  optional int64 full_charge_capacity = 5;
+  optional int32 cycle_count = 6;
+  // Last sampling data.
+  repeated BatterySample sample = 7;
+}
+
+// Status of the power subsystem
+message PowerStatus {
+  enum PowerSource {
+    POWER_UNKNOWN = 0;
+    POWER_AC = 1;
+    POWER_BATTERY = 2;
+  }
+  optional PowerSource power_source = 1;
+  repeated BatteryInfo batteries = 2;
+}
+
+// Status of the single storage device
+message DiskInfo {
+  optional string serial = 1;
+  optional string manufacturer = 2;
+  optional string model = 3;
+  // Size in bytes
+  optional int64 size = 4;
+  // SSD / eMMC / HDD
+  optional string type = 5;
+  optional string health = 6;
+  // volume_id for volumes on this disk.
+  repeated string volumes = 7;
+}
+
+// Status of the storage subsystem.
+message StorageStatus {
+  repeated DiskInfo disks = 1;
+}
+
+// Sampling for single temperature measurements
+message ThermalSample {
+  optional int64 timestamp = 1;
+  optional int32 temperature = 2;
+}
+
+// Temperature measurement series for thermal point.
+message ThermalInfo {
+  reserved 2;
+  optional string label = 1;
+  repeated ThermalSample sample = 3;
+}
+
+// Status for various on-board components
+message BoardStatus {
+  repeated ThermalInfo thermal = 1;
 }
 
 // Report device level status.
@@ -859,6 +939,15 @@ message DeviceStatusReportRequest {
 
   // Whether hardware write protect switch is on.
   optional bool write_protect_switch = 24;
+
+  // Status of the power subsystem.
+  optional PowerStatus power_status = 25;
+
+  // Status of the storage subsystem.
+  optional StorageStatus storage_status = 26;
+
+  // Status of various main board components.
+  optional BoardStatus board_status = 27;
 }
 
 message OsUpdateStatus {
@@ -905,7 +994,7 @@ message AppStatus {
 
 // Chrome user profile level status.
 message ChromeUserProfileReport {
-  // An string to uniquely identify this profile within the browser.
+  // A string to uniquely identify this profile within the browser.
   optional string id = 1;
   // A JSON encoded string containing both the “email” and “id” (obfuscated
   // GaiaID) of the user signed in to the Chrome browser, if any.

@@ -139,7 +139,7 @@ void TranslateInfoBarDelegate::TranslationDeclined() {
   ui_delegate_.TranslationDeclined(true);
 }
 
-bool TranslateInfoBarDelegate::IsTranslatableLanguageByPrefs() {
+bool TranslateInfoBarDelegate::IsTranslatableLanguageByPrefs() const {
   TranslateClient* client = translate_manager_->translate_client();
   std::unique_ptr<TranslatePrefs> translate_prefs(client->GetTranslatePrefs());
   TranslateAcceptLanguages* accept_languages =
@@ -149,28 +149,18 @@ bool TranslateInfoBarDelegate::IsTranslatableLanguageByPrefs() {
 }
 
 void TranslateInfoBarDelegate::ToggleTranslatableLanguageByPrefs() {
-  if (ui_delegate_.IsLanguageBlocked()) {
-    ui_delegate_.SetLanguageBlocked(false);
-  } else {
-    ui_delegate_.SetLanguageBlocked(true);
-    infobar()->RemoveSelf();
-  }
+  ui_delegate_.SetLanguageBlocked(!ui_delegate_.IsLanguageBlocked());
 }
 
-bool TranslateInfoBarDelegate::IsSiteBlacklisted() {
+bool TranslateInfoBarDelegate::IsSiteBlacklisted() const {
   return ui_delegate_.IsSiteBlacklisted();
 }
 
 void TranslateInfoBarDelegate::ToggleSiteBlacklist() {
-  if (ui_delegate_.IsSiteBlacklisted()) {
-    ui_delegate_.SetSiteBlacklist(false);
-  } else {
-    ui_delegate_.SetSiteBlacklist(true);
-    infobar()->RemoveSelf();
-  }
+  ui_delegate_.SetSiteBlacklist(!ui_delegate_.IsSiteBlacklisted());
 }
 
-bool TranslateInfoBarDelegate::ShouldAlwaysTranslate() {
+bool TranslateInfoBarDelegate::ShouldAlwaysTranslate() const {
   return ui_delegate_.ShouldAlwaysTranslate();
 }
 

@@ -17,6 +17,7 @@
  *   CROSTINI: (undefined|!settings.Route),
  *   CROSTINI_DETAILS: (undefined|!settings.Route),
  *   CROSTINI_SHARED_PATHS: (undefined|!settings.Route),
+ *   CROSTINI_SHARED_USB_DEVICES: (undefined|!settings.Route),
  *   APPEARANCE: (undefined|!settings.Route),
  *   AUTOFILL: (undefined|!settings.Route),
  *   BASIC: (undefined|!settings.Route),
@@ -189,8 +190,9 @@ cr.define('settings', function() {
      */
     contains(route) {
       for (let r = route; r != null; r = r.parent) {
-        if (this == r)
+        if (this == r) {
           return true;
+        }
       }
       return false;
     }
@@ -271,6 +273,8 @@ cr.define('settings', function() {
       r.CROSTINI = r.BASIC.createSection('/crostini', 'crostini');
       r.CROSTINI_DETAILS = r.CROSTINI.createChild('/crostini/details');
       r.CROSTINI_SHARED_PATHS = r.CROSTINI.createChild('/crostini/sharedPaths');
+      r.CROSTINI_SHARED_USB_DEVICES =
+          r.CROSTINI.createChild('/crostini/sharedUsbDevices');
     }
     // </if>
 
@@ -537,8 +541,9 @@ cr.define('settings', function() {
     navigateTo(route, opt_dynamicParameters, opt_removeSearch) {
       // The ADVANCED route only serves as a parent of subpages, and should not
       // be possible to navigate to it directly.
-      if (route == this.routes_.ADVANCED)
+      if (route == this.routes_.ADVANCED) {
         route = /** @type {!settings.Route} */ (this.routes_.BASIC);
+      }
 
       const params = opt_dynamicParameters || new URLSearchParams();
       const removeSearch = !!opt_removeSearch;
@@ -546,13 +551,15 @@ cr.define('settings', function() {
       const oldSearchParam = this.getQueryParameters().get('search') || '';
       const newSearchParam = params.get('search') || '';
 
-      if (!removeSearch && oldSearchParam && !newSearchParam)
+      if (!removeSearch && oldSearchParam && !newSearchParam) {
         params.append('search', oldSearchParam);
+      }
 
       let url = route.path;
       const queryString = params.toString();
-      if (queryString)
+      if (queryString) {
         url += '?' + queryString;
+      }
 
       // History serializes the state, so we don't push the actual route object.
       window.history.pushState(this.currentRoute.path, '', url);
@@ -569,12 +576,13 @@ cr.define('settings', function() {
           assert(this.getRouteForPath(
               /** @type {string} */ (window.history.state)));
 
-      if (previousRoute && previousRoute.depth <= this.currentRoute.depth)
+      if (previousRoute && previousRoute.depth <= this.currentRoute.depth) {
         window.history.back();
-      else
+      } else {
         this.navigateTo(
             this.currentRoute.parent ||
             /** @type {!settings.Route} */ (this.routes_.BASIC));
+      }
     }
 
     /**

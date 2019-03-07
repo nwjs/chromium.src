@@ -199,6 +199,19 @@ class CC_EXPORT LayerTreeImpl {
   void SetOpacityMutated(ElementId element_id, float opacity);
   void SetFilterMutated(ElementId element_id, const FilterOperations& filters);
 
+  const std::unordered_map<ElementId, float, ElementIdHash>&
+  element_id_to_opacity_animations_for_testing() const {
+    return element_id_to_opacity_animations_;
+  }
+  const std::unordered_map<ElementId, gfx::Transform, ElementIdHash>&
+  element_id_to_transform_animations_for_testing() const {
+    return element_id_to_transform_animations_;
+  }
+  const std::unordered_map<ElementId, FilterOperations, ElementIdHash>&
+  element_id_to_filter_animations_for_testing() const {
+    return element_id_to_filter_animations_;
+  }
+
   int source_frame_number() const { return source_frame_number_; }
   void set_source_frame_number(int frame_number) {
     source_frame_number_ = frame_number;
@@ -621,6 +634,11 @@ class CC_EXPORT LayerTreeImpl {
   elements_in_property_trees() {
     return elements_in_property_trees_;
   }
+
+  std::string LayerListAsJson() const;
+  // TODO(pdr): This should be removed because there is no longer a tree
+  // of layers, only a list.
+  std::string LayerTreeAsJson() const;
 
  protected:
   float ClampPageScaleFactorToLimits(float page_scale_factor) const;

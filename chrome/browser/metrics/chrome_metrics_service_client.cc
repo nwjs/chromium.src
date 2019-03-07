@@ -24,6 +24,7 @@
 #include "base/metrics/statistics_recorder.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
+#include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece.h"
 #include "base/task/post_task.h"
@@ -47,7 +48,7 @@
 #include "chrome/browser/metrics/subprocess_metrics_provider.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/safe_browsing/certificate_reporting_metrics_provider.h"
-#include "chrome/browser/sync/chrome_sync_client.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/translate/translate_ranker_metrics_provider.h"
 #include "chrome/browser/ui/browser_otr_state.h"
@@ -58,13 +59,13 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/installer/util/util_constants.h"
-#include "chromeos/assistant/buildflags.h"
 #include "components/browser_sync/profile_sync_service.h"
 #include "components/browser_watcher/stability_paths.h"
 #include "components/crash/core/common/crash_keys.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/metrics/call_stack_profile_metrics_provider.h"
 #include "components/metrics/component_metrics_provider.h"
+#include "components/metrics/cpu_metrics_provider.h"
 #include "components/metrics/drive_metrics_provider.h"
 #include "components/metrics/field_trials_provider.h"
 #include "components/metrics/gpu/gpu_metrics_provider.h"
@@ -74,7 +75,6 @@
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/metrics_service_client.h"
 #include "components/metrics/metrics_state_manager.h"
-#include "components/metrics/metrics_switches.h"
 #include "components/metrics/net/cellular_logic_helper.h"
 #include "components/metrics/net/net_metrics_log_uploader.h"
 #include "components/metrics/net/network_metrics_provider.h"
@@ -124,15 +124,17 @@
 #include "chrome/browser/metrics/plugin_metrics_provider.h"
 #endif
 
-#if BUILDFLAG(ENABLE_CROS_ASSISTANT)
-#include "chrome/browser/metrics/assistant_service_metrics_provider.h"
-#endif
-
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/printing/printer_metrics_provider.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/metrics/chromeos_metrics_provider.h"
 #include "chrome/browser/signin/signin_status_metrics_provider_chromeos.h"
+#include "chromeos/assistant/buildflags.h"
+
+#if BUILDFLAG(ENABLE_CROS_ASSISTANT)
+#include "chrome/browser/metrics/assistant_service_metrics_provider.h"
+#endif
+
 #endif
 
 #if defined(OS_WIN)
@@ -342,7 +344,7 @@ void GetExecutableVersionDetails(base::string16* product_name,
   DCHECK_NE(nullptr, channel_name);
 
   wchar_t exe_file[MAX_PATH] = {};
-  CHECK(::GetModuleFileName(nullptr, exe_file, arraysize(exe_file)));
+  CHECK(::GetModuleFileName(nullptr, exe_file, base::size(exe_file)));
 
   base::string16 unused_special_build;
   install_static::GetExecutableVersionDetails(
@@ -561,12 +563,6 @@ ChromeMetricsServiceClient::GetMetricsReportingDefaultState() {
       g_browser_process->local_state());
 }
 
-// static
-bool ChromeMetricsServiceClient::IsMetricsReportingForceEnabled() {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      metrics::switches::kForceEnableMetricsReporting);
-}
-
 void ChromeMetricsServiceClient::Initialize() {
   PrefService* local_state = g_browser_process->local_state();
 
@@ -624,6 +620,9 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
 
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<metrics::GPUMetricsProvider>());
+
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<metrics::CPUMetricsProvider>());
 
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<metrics::ScreenInfoMetricsProvider>());
@@ -688,7 +687,8 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
 
 #if defined(OS_CHROMEOS)
   metrics_service_->RegisterMetricsProvider(
-      std::make_unique<ChromeOSMetricsProvider>());
+      std::make_unique<ChromeOSMetricsProvider>(
+          metrics::MetricsLogUploader::UMA));
 
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<SigninStatusMetricsProviderChromeOS>());
@@ -712,8 +712,8 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
 #endif  // !defined(OS_CHROMEOS)
 
   metrics_service_->RegisterMetricsProvider(
-      std::make_unique<syncer::DeviceCountMetricsProvider>(
-          base::Bind(&browser_sync::ChromeSyncClient::GetDeviceInfoTrackers)));
+      std::make_unique<syncer::DeviceCountMetricsProvider>(base::BindRepeating(
+          &DeviceInfoSyncServiceFactory::GetAllDeviceInfoTrackers)));
 
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<HttpsEngagementMetricsProvider>());
@@ -732,10 +732,12 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
       std::make_unique<PowerMetricsProvider>());
 #endif
 
+#if defined(OS_CHROMEOS)
 #if BUILDFLAG(ENABLE_CROS_ASSISTANT)
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<AssistantServiceMetricsProvider>());
 #endif  // BUILDFLAG(ENABLE_CROS_ASSISTANT)
+#endif  // defined(OS_CHROMEOS)
 
 #endif
 }
@@ -748,8 +750,18 @@ void ChromeMetricsServiceClient::RegisterUKMProviders() {
 
 #if defined(OS_CHROMEOS)
   ukm_service_->RegisterMetricsProvider(
-      std::make_unique<ChromeOSMetricsProvider>());
+      std::make_unique<ChromeOSMetricsProvider>(
+          metrics::MetricsLogUploader::UKM));
 #endif  // !defined(OS_CHROMEOS)
+
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<metrics::GPUMetricsProvider>());
+
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<metrics::CPUMetricsProvider>());
+
+  metrics_service_->RegisterMetricsProvider(
+      std::make_unique<metrics::ScreenInfoMetricsProvider>());
 
   // TODO(rkaplow): Support synthetic trials for UKM.
   ukm_service_->RegisterMetricsProvider(
@@ -931,7 +943,7 @@ bool ChromeMetricsServiceClient::RegisterForProfileEvents(Profile* profile) {
   ObserveServiceForDeletions(history_service);
 
   syncer::SyncService* sync =
-      ProfileSyncServiceFactory::GetSyncServiceForBrowserContext(profile);
+      ProfileSyncServiceFactory::GetSyncServiceForProfile(profile);
   if (!sync) {
     return false;
   }

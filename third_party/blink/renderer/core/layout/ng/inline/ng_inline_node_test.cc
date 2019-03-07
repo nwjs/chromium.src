@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node.h"
 
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_child_layout_context.h"
@@ -20,6 +21,13 @@
 #include "third_party/blink/renderer/core/style/computed_style.h"
 
 namespace blink {
+
+// The spec turned into a discussion that may change. Put this logic on hold
+// until CSSWG resolves the issue.
+// https://github.com/w3c/csswg-drafts/issues/337
+#define SEGMENT_BREAK_TRANSFORMATION_FOR_EAST_ASIAN_WIDTH 0
+
+using ::testing::ElementsAre;
 
 class NGInlineNodeForTest : public NGInlineNode {
  public:
@@ -158,11 +166,33 @@ class NGInlineNodeTest : public NGLayoutTest {
 
   void ForceLayout() { GetDocument().body()->OffsetTop(); }
 
+  Vector<unsigned> ToEndOffsetList(
+      NGInlineItemSegments::const_iterator segments) {
+    Vector<unsigned> end_offsets;
+    for (const NGInlineItemSegment& segment : segments)
+      end_offsets.push_back(segment.EndOffset());
+    return end_offsets;
+  }
+
   scoped_refptr<const ComputedStyle> style_;
   LayoutNGBlockFlow* layout_block_flow_ = nullptr;
   LayoutObject* layout_object_ = nullptr;
   FontCachePurgePreventer purge_preventer_;
 };
+
+class NodeParameterTest : public NGInlineNodeTest,
+                          public testing::WithParamInterface<const char*> {};
+
+INSTANTIATE_TEST_CASE_P(
+    NGInlineNodeTest,
+    NodeParameterTest,
+    testing::Values("text",
+                    "<span>span</span>",
+                    "<span>1234 12345678</span>",
+                    "<span style='display: inline-block'>box</span>",
+                    "<img>",
+                    "<div style='float: left'>float</div>",
+                    "<div style='position: absolute'>abs</div>"));
 
 #define TEST_ITEM_TYPE_OFFSET(item, type, start, end) \
   EXPECT_EQ(NGInlineItem::type, item.Type());         \
@@ -393,7 +423,7 @@ TEST_F(NGInlineNodeTest, SegmentBidiIsolate) {
   NGInlineNodeForTest node = CreateInlineNode();
   node = CreateBidiIsolateNode(node, style_.get(), layout_object_);
   Vector<NGInlineItem>& items = node.Items();
-  ASSERT_EQ(10u, items.size());
+  EXPECT_EQ(9u, items.size());
   TEST_ITEM_OFFSET_DIR(items[0], 0u, 6u, TextDirection::kLtr);
   TEST_ITEM_OFFSET_DIR(items[1], 6u, 7u, TextDirection::kLtr);
   TEST_ITEM_OFFSET_DIR(items[2], 7u, 13u, TextDirection::kRtl);
@@ -402,8 +432,7 @@ TEST_F(NGInlineNodeTest, SegmentBidiIsolate) {
   TEST_ITEM_OFFSET_DIR(items[5], 15u, 16u, TextDirection::kRtl);
   TEST_ITEM_OFFSET_DIR(items[6], 16u, 21u, TextDirection::kRtl);
   TEST_ITEM_OFFSET_DIR(items[7], 21u, 22u, TextDirection::kLtr);
-  TEST_ITEM_OFFSET_DIR(items[8], 22u, 23u, TextDirection::kLtr);
-  TEST_ITEM_OFFSET_DIR(items[9], 23u, 28u, TextDirection::kLtr);
+  TEST_ITEM_OFFSET_DIR(items[8], 22u, 28u, TextDirection::kLtr);
 }
 
 #define TEST_TEXT_FRAGMENT(fragment, start_offset, end_offset) \
@@ -420,13 +449,12 @@ TEST_F(NGInlineNodeTest, CreateLineBidiIsolate) {
   node.ShapeText();
   Vector<scoped_refptr<const NGPhysicalTextFragment>> fragments;
   CreateLine(node, &fragments);
-  ASSERT_EQ(6u, fragments.size());
+  EXPECT_EQ(5u, fragments.size());
   TEST_TEXT_FRAGMENT(fragments[0], 0u, 6u);
   TEST_TEXT_FRAGMENT(fragments[1], 16u, 21u);
   TEST_TEXT_FRAGMENT(fragments[2], 14u, 15u);
   TEST_TEXT_FRAGMENT(fragments[3], 7u, 13u);
-  TEST_TEXT_FRAGMENT(fragments[4], 22u, 23u);
-  TEST_TEXT_FRAGMENT(fragments[5], 23u, 28u);
+  TEST_TEXT_FRAGMENT(fragments[4], 22u, 28u);
 }
 
 TEST_F(NGInlineNodeTest, MinMaxSize) {
@@ -745,15 +773,17 @@ TEST_F(NGInlineNodeTest, MarkLineBoxesDirtyOnRemove) {
 }
 
 // Test marking line boxes when removing a span.
-TEST_F(NGInlineNodeTest, MarkLineBoxesDirtyOnRemoveFirst) {
-  SetupHtml("container", R"HTML(
-    <div id=container style="font-size: 10px; width: 10ch">
-      <span id=t>1234</span>5678
+TEST_P(NodeParameterTest, MarkLineBoxesDirtyOnRemoveFirst) {
+  SetupHtml("container", String(R"HTML(
+    <div id=container style="font-size: 10px; width: 10ch">)HTML") +
+                             GetParam() + R"HTML(<span>after</span>
     </div>
   )HTML");
 
-  Element* span = GetElementById("t");
-  span->remove();
+  Element* container = GetElementById("container");
+  Node* node = container->firstChild();
+  ASSERT_TRUE(node);
+  node->remove();
 
   auto lines = MarkLineBoxesDirty();
   EXPECT_TRUE(lines[0]->IsDirty());
@@ -774,6 +804,27 @@ TEST_F(NGInlineNodeTest, MarkLineBoxesDirtyOnRemove2) {
   auto lines = MarkLineBoxesDirty();
   EXPECT_FALSE(lines[0]->IsDirty());
   EXPECT_TRUE(lines[1]->IsDirty());
+}
+
+// Test marking line boxes when removing a text node on 2nd line.
+TEST_P(NodeParameterTest, MarkLineBoxesDirtyOnRemoveAfterBR) {
+  SetupHtml("container", String(R"HTML(
+    <div id=container style="font-size: 10px; width: 10ch">
+      line 1
+      <br>)HTML") + GetParam() +
+                             "</div>");
+
+  Element* container = GetElementById("container");
+  Node* node = container->lastChild();
+  ASSERT_TRUE(node);
+  node->remove();
+
+  auto lines = MarkLineBoxesDirty();
+  EXPECT_TRUE(lines[0]->IsDirty());
+  // Currently, only the first dirty line is marked.
+  EXPECT_FALSE(lines[1]->IsDirty());
+
+  ForceLayout();  // Ensure running layout does not crash.
 }
 
 // Test marking line boxes when the first span has NeedsLayout. The span is
@@ -862,6 +913,158 @@ TEST_F(NGInlineNodeTest, MarkLineBoxesDirtyOnChildOfWrappedBox) {
 
   auto lines = MarkLineBoxesDirty();
   EXPECT_TRUE(lines[0]->IsDirty());
+}
+
+// Test marking line boxes when a span has NeedsLayout. The span has a box
+// fragment.
+TEST_F(NGInlineNodeTest, MarkLineBoxesDirtyInInlineBlock) {
+  SetupHtml("container", R"HTML(
+    <div id=container style="display: inline-block; font-size: 10px">
+      12345678<br>
+      12345678<br>
+    </div>
+  )HTML");
+
+  Element* container = GetElementById("container");
+  container->appendChild(GetDocument().createTextNode("append"));
+
+  // Inline block with auto-size calls |ComputeMinMaxSize|, which may call
+  // |CollectInlines|. Emulate it to ensure it does not let tests to fail.
+  GetDocument().UpdateStyleAndLayoutTree();
+  NGInlineNode(layout_block_flow_)
+      .ComputeMinMaxSize(layout_block_flow_->StyleRef().GetWritingMode(), {});
+
+  auto lines = MarkLineBoxesDirty();
+  EXPECT_FALSE(lines[0]->IsDirty());
+  EXPECT_TRUE(lines[1]->IsDirty());
+}
+
+TEST_F(NGInlineNodeTest, RemoveInlineNodeDataIfBlockBecomesEmpty1) {
+  SetupHtml("container", "<div id=container><b id=remove><i>foo</i></b></div>");
+  ASSERT_TRUE(layout_block_flow_->HasNGInlineNodeData());
+
+  Element* to_remove = GetElementById("remove");
+  to_remove->remove();
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_FALSE(layout_block_flow_->HasNGInlineNodeData());
+}
+
+TEST_F(NGInlineNodeTest, RemoveInlineNodeDataIfBlockBecomesEmpty2) {
+  SetupHtml("container", "<div id=container><b><i>foo</i></b></div>");
+  ASSERT_TRUE(layout_block_flow_->HasNGInlineNodeData());
+
+  GetElementById("container")->SetInnerHTMLFromString("");
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_FALSE(layout_block_flow_->HasNGInlineNodeData());
+}
+
+TEST_F(NGInlineNodeTest, RemoveInlineNodeDataIfBlockObtainsBlockChild) {
+  SetupHtml("container",
+            "<div id=container><b id=blockify><i>foo</i></b></div>");
+  ASSERT_TRUE(layout_block_flow_->HasNGInlineNodeData());
+
+  GetElementById("blockify")
+      ->SetInlineStyleProperty(CSSPropertyDisplay, CSSValueBlock);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_FALSE(layout_block_flow_->HasNGInlineNodeData());
+}
+
+// https://crbug.com/911220
+TEST_F(NGInlineNodeTest, PreservedNewlineWithBidiAndRelayout) {
+  SetupHtml("container",
+            "<style>span{unicode-bidi:isolate}</style>"
+            "<pre id=container>foo<span>\n</span>bar<br></pre>");
+  EXPECT_EQ(String(u"foo\u2066\u2069\n\u2066\u2069bar\n"), GetText());
+
+  Node* new_text = Text::Create(GetDocument(), "baz");
+  GetElementById("container")->appendChild(new_text);
+  UpdateAllLifecyclePhasesForTest();
+
+  // The bidi context popping and re-entering should be preserved around '\n'.
+  EXPECT_EQ(String(u"foo\u2066\u2069\n\u2066\u2069bar\nbaz"), GetText());
+}
+
+#if SEGMENT_BREAK_TRANSFORMATION_FOR_EAST_ASIAN_WIDTH
+// https://crbug.com/879088
+TEST_F(NGInlineNodeTest, RemoveSegmentBreakFromJapaneseInRelayout) {
+  SetupHtml("container",
+            u"<div id=container>"
+            u"<span>\u30ED\u30B0\u30A4\u30F3</span>"
+            u"\n"
+            u"<span>\u767B\u9332</span>"
+            u"<br></div>");
+  EXPECT_EQ(String(u"\u30ED\u30B0\u30A4\u30F3\u767B\u9332\n"), GetText());
+
+  Node* new_text = Text::Create(GetDocument(), "foo");
+  GetElementById("container")->appendChild(new_text);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ(String(u"\u30ED\u30B0\u30A4\u30F3\u767B\u9332\nfoo"), GetText());
+}
+
+// https://crbug.com/879088
+TEST_F(NGInlineNodeTest, RemoveSegmentBreakFromJapaneseInRelayout2) {
+  SetupHtml("container",
+            u"<div id=container>"
+            u"<span>\u30ED\u30B0\u30A4\u30F3</span>"
+            u"\n"
+            u"<span> \u767B\u9332</span>"
+            u"<br></div>");
+  EXPECT_EQ(String(u"\u30ED\u30B0\u30A4\u30F3\u767B\u9332\n"), GetText());
+
+  Node* new_text = Text::Create(GetDocument(), "foo");
+  GetElementById("container")->appendChild(new_text);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ(String(u"\u30ED\u30B0\u30A4\u30F3\u767B\u9332\nfoo"), GetText());
+}
+#endif
+
+TEST_F(NGInlineNodeTest, SegmentRanges) {
+  SetupHtml("container",
+            "<div id=container>"
+            u"\u306Forange\u304C"
+            "<span>text</span>"
+            "</div>");
+
+  NGInlineItemsData* items_data = layout_block_flow_->GetNGInlineNodeData();
+  ASSERT_TRUE(items_data);
+  NGInlineItemSegments* segments = items_data->segments.get();
+  ASSERT_TRUE(segments);
+
+  // Test EndOffset for the full text. All segment boundaries including the end
+  // of the text content should be returned.
+  Vector<unsigned> expect_0_12 = {1u, 7u, 8u, 12u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(0, 12, 0)), expect_0_12);
+
+  // Test ranges for each segment that start with 1st item.
+  Vector<unsigned> expect_0_1 = {1u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(0, 1, 0)), expect_0_1);
+  Vector<unsigned> expect_2_3 = {3u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(2, 3, 0)), expect_2_3);
+  Vector<unsigned> expect_7_8 = {8u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(7, 8, 0)), expect_7_8);
+
+  // Test ranges that acrosses multiple segments.
+  Vector<unsigned> expect_0_8 = {1u, 7u, 8u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(0, 8, 0)), expect_0_8);
+  Vector<unsigned> expect_2_8 = {7u, 8u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(2, 8, 0)), expect_2_8);
+  Vector<unsigned> expect_2_10 = {7u, 8u, 10u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(2, 10, 0)), expect_2_10);
+  Vector<unsigned> expect_7_10 = {8u, 10u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(7, 10, 0)), expect_7_10);
+
+  // Test ranges that starts with 2nd item.
+  Vector<unsigned> expect_8_9 = {9u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(8, 9, 1)), expect_8_9);
+  Vector<unsigned> expect_8_10 = {10u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(8, 10, 1)), expect_8_10);
+  Vector<unsigned> expect_9_12 = {12u};
+  EXPECT_EQ(ToEndOffsetList(segments->Ranges(9, 12, 1)), expect_9_12);
 }
 
 }  // namespace blink

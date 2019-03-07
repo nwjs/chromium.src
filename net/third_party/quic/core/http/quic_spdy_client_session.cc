@@ -46,14 +46,15 @@ void QuicSpdyClientSession::OnProofValid(
 void QuicSpdyClientSession::OnProofVerifyDetailsAvailable(
     const ProofVerifyDetails& /*verify_details*/) {}
 
-bool QuicSpdyClientSession::ShouldCreateOutgoingStream() {
+bool QuicSpdyClientSession::ShouldCreateOutgoingBidirectionalStream() {
   if (!crypto_stream_->encryption_established()) {
     QUIC_DLOG(INFO) << "Encryption not active so no outgoing stream created.";
     return false;
   }
   if (!GetQuicReloadableFlag(quic_use_common_stream_check) &&
       connection()->transport_version() != QUIC_VERSION_99) {
-    if (GetNumOpenOutgoingStreams() >= max_open_outgoing_streams()) {
+    if (GetNumOpenOutgoingStreams() >=
+        stream_id_manager().max_open_outgoing_streams()) {
       QUIC_DLOG(INFO) << "Failed to create a new outgoing stream. "
                       << "Already " << GetNumOpenOutgoingStreams() << " open.";
       return false;
@@ -70,13 +71,18 @@ bool QuicSpdyClientSession::ShouldCreateOutgoingStream() {
                     << "Already received goaway.";
     return false;
   }
-  QUIC_FLAG_COUNT_N(quic_reloadable_flag_quic_use_common_stream_check, 1, 2);
-  return CanOpenNextOutgoingStream();
+  QUIC_RELOADABLE_FLAG_COUNT_N(quic_use_common_stream_check, 1, 2);
+  return CanOpenNextOutgoingBidirectionalStream();
+}
+
+bool QuicSpdyClientSession::ShouldCreateOutgoingUnidirectionalStream() {
+  QUIC_BUG << "Try to create outgoing unidirectional client data streams";
+  return false;
 }
 
 QuicSpdyClientStream*
 QuicSpdyClientSession::CreateOutgoingBidirectionalStream() {
-  if (!ShouldCreateOutgoingStream()) {
+  if (!ShouldCreateOutgoingBidirectionalStream()) {
     return nullptr;
   }
   std::unique_ptr<QuicSpdyClientStream> stream = CreateClientStream();
@@ -93,8 +99,8 @@ QuicSpdyClientSession::CreateOutgoingUnidirectionalStream() {
 
 std::unique_ptr<QuicSpdyClientStream>
 QuicSpdyClientSession::CreateClientStream() {
-  return QuicMakeUnique<QuicSpdyClientStream>(GetNextOutgoingStreamId(), this,
-                                              BIDIRECTIONAL);
+  return QuicMakeUnique<QuicSpdyClientStream>(
+      GetNextOutgoingBidirectionalStreamId(), this, BIDIRECTIONAL);
 }
 
 QuicCryptoClientStreamBase* QuicSpdyClientSession::GetMutableCryptoStream() {
@@ -130,14 +136,25 @@ bool QuicSpdyClientSession::ShouldCreateIncomingStream(QuicStreamId id) {
     return false;
   }
   if (QuicUtils::IsClientInitiatedStreamId(connection()->transport_version(),
-                                           id)) {
+                                           id) ||
+      (connection()->transport_version() == QUIC_VERSION_99 &&
+       QuicUtils::IsBidirectionalStreamId(id))) {
     QUIC_LOG(WARNING) << "Received invalid push stream id " << id;
     connection()->CloseConnection(
-        QUIC_INVALID_STREAM_ID, "Server created odd numbered stream",
+        QUIC_INVALID_STREAM_ID,
+        "Server created non write unidirectional stream",
         ConnectionCloseBehavior::SEND_CONNECTION_CLOSE_PACKET);
     return false;
   }
   return true;
+}
+
+QuicSpdyStream* QuicSpdyClientSession::CreateIncomingStream(
+    PendingStream pending) {
+  QuicSpdyStream* stream =
+      new QuicSpdyClientStream(std::move(pending), this, READ_UNIDIRECTIONAL);
+  ActivateStream(QuicWrapUnique(stream));
+  return stream;
 }
 
 QuicSpdyStream* QuicSpdyClientSession::CreateIncomingStream(QuicStreamId id) {

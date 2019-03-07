@@ -31,6 +31,8 @@ const uint32_t kDefaultNumConnections = 2;
 const QuicByteCount kDefaultMaxPacketSize = 1350;
 // Default initial maximum size in bytes of a QUIC packet for servers.
 const QuicByteCount kDefaultServerMaxPacketSize = 1000;
+// Maximum transmission unit on Ethernet.
+const QuicByteCount kEthernetMTU = 1500;
 // The maximum packet size of any QUIC packet, based on ethernet's max size,
 // minus the IP and UDP headers. IPv6 has a 40 byte header, UDP adds an
 // additional 8 bytes.  This is a total overhead of 48 bytes.  Ethernet's
@@ -179,7 +181,7 @@ const size_t kDiversificationNonceSize = 32;
 
 // The largest gap in packets we'll accept without closing the connection.
 // This will likely have to be tuned.
-const QuicPacketNumber kMaxPacketGap = 5000;
+const QuicPacketCount kMaxPacketGap = 5000;
 
 // The maximum number of random padding bytes to add.
 const QuicByteCount kMaxNumRandomPaddingBytes = 256;
@@ -213,13 +215,19 @@ const size_t kPacketHeaderTypeSize = 1;
 const size_t kConnectionIdLengthSize = 1;
 
 // Length of an encoded variable length connection ID, in bytes.
+// TODO(dschinazi) b/120240679 - remove kQuicConnectionIdLength
 const size_t kQuicConnectionIdLength = 8;
 
 // Minimum length of random bytes in IETF stateless reset packet.
-const size_t kMinRandomBytesLengthInStatelessReset = 20;
+const size_t kMinRandomBytesLengthInStatelessReset = 24;
 
 // Maximum length allowed for the token in a NEW_TOKEN frame.
 const size_t kMaxNewTokenTokenLength = 0xffff;
+
+// Packet number of first sending packet of a connection. Please note, this
+// cannot be used as first received packet because peer can choose its starting
+// packet number.
+const QuicPacketNumber kFirstSendingPacketNumber = 1;
 
 // Used to represent an invalid packet number.
 const QuicPacketNumber kInvalidPacketNumber = 0;

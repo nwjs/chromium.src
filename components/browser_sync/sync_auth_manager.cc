@@ -257,8 +257,7 @@ void SyncAuthManager::OnPrimaryAccountCleared(
 }
 
 void SyncAuthManager::OnRefreshTokenUpdatedForAccount(
-    const AccountInfo& account_info,
-    bool is_valid) {
+    const AccountInfo& account_info) {
   if (UpdateSyncAccountIfNecessary()) {
     // If the syncing account was updated as a result of this, then all that's
     // necessary has been handled; nothing else to be done here.
@@ -274,35 +273,23 @@ void SyncAuthManager::OnRefreshTokenUpdatedForAccount(
   // CREDENTIALS_REJECTED_BY_CLIENT) if the user signs out of that account on
   // the web.
   // TODO(blundell): Hide this logic inside IdentityManager.
-  // NOTE: We don't use |is_valid| because we will shortly be eliminating that
-  // parameter. TODO(https://crbug.com/908412): Eliminate that parameter and
-  // this comment.
-  bool is_refresh_token_valid = true;
   GoogleServiceAuthError token_error =
       identity_manager_->GetErrorStateOfRefreshTokenForAccount(
           account_info.account_id);
   if (token_error == GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
                          GoogleServiceAuthError::InvalidGaiaCredentialsReason::
                              CREDENTIALS_REJECTED_BY_CLIENT)) {
-    is_refresh_token_valid = false;
-  }
-
-  if (!is_refresh_token_valid) {
     // When the refresh token is replaced by an invalid token, Sync must be
     // stopped immediately, even if the current access token is still valid.
     // This happens e.g. when the user signs out of the web with Dice enabled.
     ClearAccessTokenAndRequest();
 
-    // Set the last auth error to the one that is specified in
-    // google_service_auth_error.h to correspond to this case (token was
-    // invalidated client-side).
+    // Set the last auth error. Usually this happens in AccessTokenFetched(...)
+    // if the fetch failed, but since we just canceled any access token request,
+    // that's not going to happen in this case.
     // TODO(blundell): Long-term, it would be nicer if Sync didn't have to
     // cache signin-level authentication errors.
-    GoogleServiceAuthError invalid_token_error =
-        GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
-            GoogleServiceAuthError::InvalidGaiaCredentialsReason::
-                CREDENTIALS_REJECTED_BY_CLIENT);
-    last_auth_error_ = invalid_token_error;
+    last_auth_error_ = token_error;
 
     credentials_changed_callback_.Run();
     return;
@@ -350,7 +337,8 @@ void SyncAuthManager::OnRefreshTokenRemovedForAccount(
 }
 
 void SyncAuthManager::OnAccountsInCookieUpdated(
-    const std::vector<AccountInfo>& accounts) {
+    const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+    const GoogleServiceAuthError& error) {
   UpdateSyncAccountIfNecessary();
 }
 

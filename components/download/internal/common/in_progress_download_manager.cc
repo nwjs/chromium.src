@@ -22,6 +22,7 @@
 #include "components/download/public/common/download_url_parameters.h"
 #include "components/download/public/common/download_utils.h"
 #include "components/download/public/common/input_stream.h"
+#include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/resource_response.h"
 
@@ -52,9 +53,10 @@ std::unique_ptr<DownloadItemImpl> CreateDownloadItemImpl(
       in_progress_info->original_mime_type, in_progress_info->start_time,
       in_progress_info->end_time, in_progress_info->etag,
       in_progress_info->last_modified, in_progress_info->received_bytes,
-      in_progress_info->total_bytes, in_progress_info->hash,
-      in_progress_info->state, in_progress_info->danger_type,
-      in_progress_info->interrupt_reason, false, base::Time(),
+      in_progress_info->total_bytes, in_progress_info->auto_resume_count,
+      in_progress_info->hash, in_progress_info->state,
+      in_progress_info->danger_type, in_progress_info->interrupt_reason,
+      in_progress_info->paused, in_progress_info->metered, false, base::Time(),
       in_progress_info->transient, in_progress_info->received_slices);
 }
 
@@ -369,10 +371,15 @@ void InProgressDownloadManager::StartDownloadWithItem(
   // so that the DownloadItem can salvage what it can out of a failed
   // resumption attempt.
 
-  download->Start(
-      std::move(download_file), std::move(info->request_handle), *info,
-      std::move(url_loader_factory_getter),
-      delegate_ ? delegate_->GetURLRequestContextGetter(*info) : nullptr);
+  net::URLRequestContextGetter* url_request_context_getter = nullptr;
+  if (delegate_ &&
+      !base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+    url_request_context_getter = delegate_->GetURLRequestContextGetter(*info);
+  }
+
+  download->Start(std::move(download_file), std::move(info->request_handle),
+                  *info, std::move(url_loader_factory_getter),
+                  url_request_context_getter);
 
   if (download_start_observer_)
     download_start_observer_->OnDownloadStarted(download);
@@ -402,6 +409,12 @@ void InProgressDownloadManager::OnInitialized(
   on_initialized_callbacks_.clear();
 }
 
+void InProgressDownloadManager::GetAllDownloads(
+    std::vector<download::DownloadItem*>* downloads) const {
+  for (auto& item : in_progress_downloads_)
+    downloads->push_back(item.get());
+}
+
 DownloadItemImpl* InProgressDownloadManager::GetInProgressDownload(
     const std::string& guid) {
   for (auto& item : in_progress_downloads_) {
@@ -429,6 +442,11 @@ InProgressDownloadManager::TakeInProgressDownloads() {
 
 void InProgressDownloadManager::OnAllInprogressDownloadsLoaded() {
   download_entries_.clear();
+}
+
+void InProgressDownloadManager::AddInProgressDownloadForTest(
+    std::unique_ptr<download::DownloadItemImpl> download) {
+  in_progress_downloads_.push_back(std::move(download));
 }
 
 }  // namespace download

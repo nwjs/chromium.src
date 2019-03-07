@@ -61,9 +61,17 @@ bool FakeSyncService::HasObserver(const SyncServiceObserver* observer) const {
   return false;
 }
 
+void FakeSyncService::StopAndClear() {}
+
 void FakeSyncService::OnDataTypeRequestsSyncStartup(ModelType type) {}
 
-void FakeSyncService::RequestStop(SyncService::SyncStopDataFate data_fate) {}
+ModelTypeSet FakeSyncService::GetRegisteredDataTypes() const {
+  return ModelTypeSet();
+}
+
+ModelTypeSet FakeSyncService::GetForcedDataTypes() const {
+  return ModelTypeSet();
+}
 
 ModelTypeSet FakeSyncService::GetPreferredDataTypes() const {
   return ModelTypeSet();
@@ -86,23 +94,7 @@ bool FakeSyncService::IsPassphraseRequiredForDecryption() const {
   return false;
 }
 
-base::Time FakeSyncService::GetExplicitPassphraseTime() const {
-  return base::Time();
-}
-
 bool FakeSyncService::IsUsingSecondaryPassphrase() const {
-  return false;
-}
-
-void FakeSyncService::EnableEncryptEverything() {}
-
-bool FakeSyncService::IsEncryptEverythingEnabled() const {
-  return false;
-}
-
-void FakeSyncService::SetEncryptionPassphrase(const std::string& passphrase) {}
-
-bool FakeSyncService::SetDecryptionPassphrase(const std::string& passphrase) {
   return false;
 }
 

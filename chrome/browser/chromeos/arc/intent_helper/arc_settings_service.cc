@@ -15,24 +15,25 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/arc/policy/arc_policy_util.h"
-#include "chrome/browser/chromeos/settings/cros_settings.h"
+#include "chrome/browser/chromeos/settings/stats_reporting_controller.h"
 #include "chrome/browser/chromeos/system/timezone_resolver_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/network/network_handler.h"
 #include "chromeos/network/network_state.h"
 #include "chromeos/network/network_state_handler.h"
 #include "chromeos/network/network_state_handler_observer.h"
 #include "chromeos/network/onc/onc_utils.h"
 #include "chromeos/network/proxy/proxy_config_service_impl.h"
-#include "chromeos/settings/cros_settings_names.h"
 #include "chromeos/settings/timezone_settings.h"
 #include "components/arc/arc_bridge_service.h"
 #include "components/arc/arc_browser_context_keyed_service_factory_base.h"
 #include "components/arc/arc_prefs.h"
+#include "components/arc/arc_util.h"
 #include "components/arc/common/backup_settings.mojom.h"
 #include "components/arc/intent_helper/arc_intent_helper_bridge.h"
 #include "components/arc/intent_helper/font_size_util.h"
@@ -46,7 +47,6 @@
 #include "content/public/common/page_zoom.h"
 #include "net/proxy_resolution/proxy_config.h"
 
-using ::chromeos::CrosSettings;
 using ::chromeos::system::TimezoneSettings;
 
 namespace {
@@ -196,7 +196,7 @@ class ArcSettingsServiceImpl
   // Manages pref observation registration.
   PrefChangeRegistrar registrar_;
 
-  std::unique_ptr<chromeos::CrosSettings::ObserverSubscription>
+  std::unique_ptr<chromeos::StatsReportingController::ObserverSubscription>
       reporting_consent_subscription_;
 
   // Subscription for preference change of default zoom level. Subscription
@@ -309,10 +309,10 @@ void ArcSettingsServiceImpl::StartObservingSettingsChanges() {
   // kArcLocationServiceEnabled, are not dynamically updated after initial
   // ARC setup and therefore are not observed here.
 
-  reporting_consent_subscription_ = CrosSettings::Get()->AddSettingsObserver(
-      chromeos::kStatsReportingPref,
-      base::Bind(&ArcSettingsServiceImpl::SyncReportingConsent,
-                 base::Unretained(this), /*initial_sync=*/false));
+  reporting_consent_subscription_ =
+      chromeos::StatsReportingController::Get()->AddObserver(
+          base::Bind(&ArcSettingsServiceImpl::SyncReportingConsent,
+                     base::Unretained(this), /*initial_sync=*/false));
 
   // It's safe to use base::Unretained. This is unregistered when
   // default_zoom_level_subscription_ is destructed which is stored as
@@ -435,25 +435,20 @@ void ArcSettingsServiceImpl::SyncPageZoom() const {
 }
 
 void ArcSettingsServiceImpl::SyncLocale() const {
-  const PrefService::Preference* pref =
-      registrar_.prefs()->FindPreference(::language::prefs::kApplicationLocale);
-  DCHECK(pref);
+  if (IsArcLocaleSyncDisabled()) {
+    VLOG(1) << "Locale sync is disabled.";
+    return;
+  }
+
   std::string locale;
-  bool value_exists = pref->GetValue()->GetAsString(&locale);
-  DCHECK(value_exists);
+  std::string preferred_languages;
   base::DictionaryValue extras;
   // Chrome OS locale may contain only the language part (e.g. fr) but country
   // code (e.g. fr_FR).  Since Android expects locale to contain country code,
-  // ARC will derive a likely locale with country code from such.
+  // ARC will derive a likely locale with country code from such
+  GetLocaleAndPreferredLanguages(profile_, &locale, &preferred_languages);
   extras.SetString("locale", locale);
-  const std::string preferredLanguages =
-      registrar_.prefs()->GetString(::prefs::kLanguagePreferredLanguages);
-  // |preferredLanguages| consists of comma separated locale strings. It may be
-  // empty or contain empty items, but those are ignored on ARC.  If an item
-  // has no country code, it is derived in ARC.  In such a case, it may
-  // conflict with another item in the list, then these will be dedupped (the
-  // first one is taken) in ARC.
-  extras.SetString("preferredLanguages", preferredLanguages);
+  extras.SetString("preferredLanguages", preferred_languages);
   SendSettingsBroadcast("org.chromium.arc.intent_helper.SET_LOCALE", extras);
 }
 

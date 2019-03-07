@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/config/linux/pkg_config.gni")
 import("//build/config/features.gni")
 import("//build/config/jumbo.gni")
+import("//build/config/linux/pkg_config.gni")
 import("//build/config/ui.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 import("//services/service_manager/public/service_manifest.gni")
@@ -17,16 +17,13 @@ if (is_android) {
   import("//build/config/android/rules.gni")
 }
 
-mojom("ax_enums_mojo") {
+mojom_component("ax_enums_mojo") {
   sources = [
     "ax_enums.mojom",
   ]
 
-  public_deps = [
-    "//mojo/public/mojom/base",
-    "//ui/gfx/geometry/mojo",
-    "//ui/gfx/mojo",
-  ]
+  macro_prefix = "UI_ACCESSIBILITY_AX_MOJOM"
+  output_prefix = "ui_accessibility_ax_mojom"
 }
 
 jumbo_component("accessibility") {
@@ -35,15 +32,16 @@ jumbo_component("accessibility") {
     "accessibility_switches.h",
     "ax_action_data.cc",
     "ax_action_data.h",
+    "ax_action_handler.cc",
+    "ax_action_handler.h",
     "ax_enum_util.cc",
     "ax_enum_util.h",
     "ax_event.cc",
     "ax_event.h",
+    "ax_event_bundle_sink.h",
     "ax_event_generator.cc",
     "ax_event_generator.h",
     "ax_export.h",
-    "ax_host_delegate.cc",
-    "ax_host_delegate.h",
     "ax_language_info.h",
     "ax_mode.h",
     "ax_mode_observer.h",
@@ -75,6 +73,8 @@ jumbo_component("accessibility") {
     "ax_tree_id.h",
     "ax_tree_id_registry.cc",
     "ax_tree_id_registry.h",
+    "ax_tree_observer.cc",
+    "ax_tree_observer.h",
     "ax_tree_serializer.cc",
     "ax_tree_serializer.h",
     "ax_tree_source.h",
@@ -92,6 +92,8 @@ jumbo_component("accessibility") {
     "platform/ax_platform_node_test_helper.h",
     "platform/ax_unique_id.cc",
     "platform/ax_unique_id.h",
+    "platform/compute_attributes.cc",
+    "platform/compute_attributes.h",
   ]
 
   if (has_native_accessibility) {
@@ -188,6 +190,7 @@ service_manifest("manifest") {
 static_library("test_support") {
   testonly = true
   sources = [
+    "ax_tree_source_checker.h",
     "tree_generator.cc",
     "tree_generator.h",
   ]

@@ -90,7 +90,7 @@ scoped_refptr<SharedBuffer> ParseDataURLAndPopulateResponse(
       SharedBuffer::Create(data_string.data(), data_string.size());
   response.SetHTTPStatusCode(200);
   response.SetHTTPStatusText("OK");
-  response.SetURL(url);
+  response.SetCurrentRequestUrl(url);
   response.SetMimeType(WebString::FromUTF8(utf8_mime_type));
   response.SetExpectedContentLength(data->size());
   response.SetTextEncodingName(WebString::FromUTF8(utf8_charset));
@@ -131,6 +131,21 @@ String GenerateAcceptLanguageHeader(const String& lang) {
   std::string string(cstring.data(), cstring.length());
   return WebString::FromUTF8(
       net::HttpUtil::GenerateAcceptLanguageHeader(string));
+}
+
+Vector<char> ParseMultipartBoundary(const AtomicString& content_type_header) {
+  CString cstring(content_type_header.Utf8());
+  std::string string(cstring.data(), cstring.length());
+  std::string mime_type;
+  std::string charset;
+  bool had_charset = false;
+  std::string boundary;
+  net::HttpUtil::ParseContentType(string, &mime_type, &charset, &had_charset,
+                                  &boundary);
+  base::TrimString(boundary, " \"", &boundary);
+  Vector<char> result;
+  result.Append(boundary.data(), boundary.size());
+  return result;
 }
 
 }  // namespace network_utils

@@ -63,6 +63,7 @@ class VIEWS_EXPORT ViewAccessibility {
   void OverrideDescription(const base::string16& description);
   void OverrideIsLeaf(bool value);
   void OverrideIsIgnored(bool value);
+  void OverrideBounds(const gfx::RectF& bounds);
 
   virtual gfx::NativeViewAccessible GetNativeObject();
   virtual void NotifyAccessibilityEvent(ax::mojom::Event event_type) {}
@@ -98,6 +99,11 @@ class VIEWS_EXPORT ViewAccessibility {
 
   int virtual_child_count() const {
     return static_cast<int>(virtual_children_.size());
+  }
+
+  AXVirtualView* virtual_child_at(int index) {
+    return const_cast<AXVirtualView*>(
+        const_cast<const ViewAccessibility*>(this)->virtual_child_at(index));
   }
 
   const AXVirtualView* virtual_child_at(int index) const {

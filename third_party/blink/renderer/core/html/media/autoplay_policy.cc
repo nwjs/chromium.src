@@ -43,23 +43,6 @@ bool IsDocumentCrossOrigin(const Document& document) {
   return frame && frame->IsCrossOriginSubframe();
 }
 
-// Returns whether |document| is whitelisted for autoplay. If true, the user
-// gesture lock will be initilized as false, indicating that the element is
-// allowed to autoplay unmuted without user gesture.
-bool IsDocumentWhitelisted(const Document& document) {
-  DCHECK(document.GetSettings());
-
-  if (document.GetFrame()->isNodeJS())
-    return true;
-  const String& whitelist_scope =
-      document.GetSettings()->GetMediaPlaybackGestureWhitelistScope();
-  if (whitelist_scope.IsNull() || whitelist_scope.IsEmpty())
-    return false;
-
-  DCHECK_EQ(KURL(whitelist_scope).GetString(), whitelist_scope);
-  return document.Url().GetString().StartsWith(whitelist_scope);
-}
-
 // Return true if and only if the document settings specifies media playback
 // requires user gesture on the element.
 bool ComputeLockPendingUserGestureRequired(const Document& document) {
@@ -89,7 +72,10 @@ AutoplayPolicy::Type AutoplayPolicy::GetAutoplayPolicyForDocument(
   if (!document.GetSettings())
     return Type::kNoUserGestureRequired;
 
-  if (IsDocumentWhitelisted(document))
+  if (document.IsInWebAppScope())
+    return Type::kNoUserGestureRequired;
+
+  if (document.GetFrame()->isNodeJS())
     return Type::kNoUserGestureRequired;
 
   if (DocumentHasUserExceptionFlag(document))
@@ -395,16 +381,10 @@ bool AutoplayPolicy::IsGestureNeededForPlaybackIfPendingUserGestureIsLocked()
     const {
   // We want to allow muted video to autoplay if:
   // - the flag is enabled;
-  // - Data Saver is not enabled;
   // - Preload was not disabled (low end devices);
   // - Autoplay is enabled in settings;
   if (element_->IsHTMLVideoElement() && element_->muted() &&
       DocumentShouldAutoplayMutedVideos(element_->GetDocument()) &&
-      !(element_->GetDocument().GetSettings() &&
-        GetNetworkStateNotifier().SaveDataEnabled() &&
-        !element_->GetDocument()
-             .GetSettings()
-             ->GetDataSaverHoldbackMediaApi()) &&
       !(element_->GetDocument().GetSettings() &&
         element_->GetDocument()
             .GetSettings()
@@ -484,7 +464,7 @@ bool AutoplayPolicy::ShouldAutoplay() {
   return element_->can_autoplay_ && element_->paused_ && element_->Autoplay();
 }
 
-void AutoplayPolicy::Trace(blink::Visitor* visitor) {
+void AutoplayPolicy::Trace(Visitor* visitor) {
   visitor->Trace(element_);
   visitor->Trace(autoplay_visibility_observer_);
   visitor->Trace(autoplay_uma_helper_);

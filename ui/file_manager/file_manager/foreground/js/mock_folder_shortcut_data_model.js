@@ -2,14 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+'use strict';
+
 /**
- * Mock class for FolderShortcutDataModel.
- * @param {...MockEntry} var_args List of the initial shortcuts.
+ * Mock FolderShortcutDataModel.
+ * @param {!Array<MockEntry>} args Array of shortcuts.
+ *
  * @extends {cr.ui.ArrayDataModel}
  * @constructor
  */
-function MockFolderShortcutDataModel(var_args) {
-  cr.ui.ArrayDataModel.apply(this, arguments);
+function MockFolderShortcutDataModel(...args) {
+  cr.ui.ArrayDataModel.apply(this, args);
 }
 
 MockFolderShortcutDataModel.prototype = {

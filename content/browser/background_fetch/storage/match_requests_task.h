@@ -22,15 +22,15 @@ namespace background_fetch {
 
 class MatchRequestsTask : public DatabaseTask {
  public:
-  using SettledFetchesCallback =
-      base::OnceCallback<void(blink::mojom::BackgroundFetchError,
-                              std::vector<BackgroundFetchSettledFetch>)>;
+  using SettledFetchesCallback = base::OnceCallback<void(
+      blink::mojom::BackgroundFetchError,
+      std::vector<blink::mojom::BackgroundFetchSettledFetchPtr>)>;
 
   // Gets settled fetches from cache storage, filtered according to
   // |match_params|.
   MatchRequestsTask(
       DatabaseTaskHost* host,
-      BackgroundFetchRegistrationId registration_id,
+      const BackgroundFetchRegistrationId& registration_id,
       std::unique_ptr<BackgroundFetchRequestMatchParams> match_params,
       SettledFetchesCallback callback);
 
@@ -47,6 +47,9 @@ class MatchRequestsTask : public DatabaseTask {
       blink::mojom::CacheStorageError error,
       std::vector<CacheStorageCache::CacheEntry> entries);
 
+  // Checks whether |request| shuld be matched given the provided query params.
+  bool ShouldMatchRequest(const blink::mojom::FetchAPIRequestPtr& request);
+
   void FinishWithError(blink::mojom::BackgroundFetchError error) override;
 
   std::string HistogramName() const override;
@@ -56,7 +59,7 @@ class MatchRequestsTask : public DatabaseTask {
   SettledFetchesCallback callback_;
 
   CacheStorageCacheHandle handle_;
-  std::vector<BackgroundFetchSettledFetch> settled_fetches_;
+  std::vector<blink::mojom::BackgroundFetchSettledFetchPtr> settled_fetches_;
 
   base::WeakPtrFactory<MatchRequestsTask> weak_factory_;  // Keep as last.
 

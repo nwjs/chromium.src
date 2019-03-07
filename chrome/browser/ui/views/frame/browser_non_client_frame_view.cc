@@ -134,7 +134,8 @@ bool BrowserNonClientFrameView::EverHasVisibleBackgroundTabShapes() const {
 }
 
 bool BrowserNonClientFrameView::CanDrawStrokes() const {
-  return true;
+  // Hosted apps should not draw strokes, as they don't have a tab strip.
+  return !browser_view_->browser()->hosted_app_controller();
 }
 
 SkColor BrowserNonClientFrameView::GetFrameColor(
@@ -233,11 +234,50 @@ int BrowserNonClientFrameView::NonClientHitTest(const gfx::Point& point) {
 
 void BrowserNonClientFrameView::ResetWindowControls() {
   if (hosted_app_button_container_)
-    hosted_app_button_container_->UpdateContentSettingViewsVisibility();
+    hosted_app_button_container_->UpdateStatusIconsVisibility();
 }
 
 void BrowserNonClientFrameView::OnSingleTabModeChanged() {
   SchedulePaint();
+}
+
+void BrowserNonClientFrameView::UpdateTaskbarDecoration() {
+#if defined(OS_WIN)
+  if (browser_view_->browser()->profile()->IsGuestSession() ||
+      // Browser process and profile manager may be null in tests.
+      (g_browser_process && g_browser_process->profile_manager() &&
+       g_browser_process->profile_manager()
+               ->GetProfileAttributesStorage()
+               .GetNumberOfProfiles() <= 1)) {
+    chrome::DrawTaskbarDecoration(frame_->GetNativeWindow(), nullptr);
+    return;
+  }
+
+  // We need to draw the taskbar decoration. Even though we have an icon on the
+  // window's relaunch details, we draw over it because the user may have
+  // pinned the badge-less Chrome shortcut which will cause Windows to ignore
+  // the relaunch details.
+  // TODO(calamity): ideally this should not be necessary but due to issues
+  // with the default shortcut being pinned, we add the runtime badge for
+  // safety. See crbug.com/313800.
+  gfx::Image decoration;
+  AvatarMenu::ImageLoadStatus status = AvatarMenu::GetImageForMenuButton(
+      browser_view_->browser()->profile()->GetPath(), &decoration);
+
+  UMA_HISTOGRAM_ENUMERATION(
+      "Profile.AvatarLoadStatus", status,
+      static_cast<int>(AvatarMenu::ImageLoadStatus::MAX) + 1);
+
+  // If the user is using a Gaia picture and the picture is still being loaded,
+  // wait until the load finishes. This taskbar decoration will be triggered
+  // again upon the finish of the picture load.
+  if (status == AvatarMenu::ImageLoadStatus::LOADING ||
+      status == AvatarMenu::ImageLoadStatus::PROFILE_DELETED) {
+    return;
+  }
+
+  chrome::DrawTaskbarDecoration(frame_->GetNativeWindow(), &decoration);
+#endif
 }
 
 bool BrowserNonClientFrameView::IsSingleTabModeAvailable() const {
@@ -256,6 +296,11 @@ bool BrowserNonClientFrameView::ShouldPaintAsSingleTabMode() const {
 
 bool BrowserNonClientFrameView::ShouldPaintAsThemed() const {
   return browser_view_->IsBrowserTypeNormal();
+}
+
+SkColor BrowserNonClientFrameView::GetCaptionColor(
+    ActiveState active_state) const {
+  return color_utils::GetColorWithMaxContrast(GetFrameColor(active_state));
 }
 
 bool BrowserNonClientFrameView::ShouldPaintAsActive(
@@ -407,45 +452,6 @@ BrowserNonClientFrameView::GetThemeProviderForProfile() const {
   // Because the frame's accessor reads the ThemeProvider from the profile and
   // not the widget, it can be called even before we're in a view hierarchy.
   return frame_->GetThemeProvider();
-}
-
-void BrowserNonClientFrameView::UpdateTaskbarDecoration() {
-#if defined(OS_WIN)
-  if (browser_view_->browser()->profile()->IsGuestSession() ||
-      // Browser process and profile manager may be null in tests.
-      (g_browser_process && g_browser_process->profile_manager() &&
-       g_browser_process->profile_manager()
-               ->GetProfileAttributesStorage()
-               .GetNumberOfProfiles() <= 1)) {
-    chrome::DrawTaskbarDecoration(frame_->GetNativeWindow(), nullptr);
-    return;
-  }
-
-  // We need to draw the taskbar decoration. Even though we have an icon on the
-  // window's relaunch details, we draw over it because the user may have
-  // pinned the badge-less Chrome shortcut which will cause Windows to ignore
-  // the relaunch details.
-  // TODO(calamity): ideally this should not be necessary but due to issues
-  // with the default shortcut being pinned, we add the runtime badge for
-  // safety. See crbug.com/313800.
-  gfx::Image decoration;
-  AvatarMenu::ImageLoadStatus status = AvatarMenu::GetImageForMenuButton(
-      browser_view_->browser()->profile()->GetPath(), &decoration);
-
-  UMA_HISTOGRAM_ENUMERATION(
-      "Profile.AvatarLoadStatus", status,
-      static_cast<int>(AvatarMenu::ImageLoadStatus::MAX) + 1);
-
-  // If the user is using a Gaia picture and the picture is still being loaded,
-  // wait until the load finishes. This taskbar decoration will be triggered
-  // again upon the finish of the picture load.
-  if (status == AvatarMenu::ImageLoadStatus::LOADING ||
-      status == AvatarMenu::ImageLoadStatus::PROFILE_DELETED) {
-    return;
-  }
-
-  chrome::DrawTaskbarDecoration(frame_->GetNativeWindow(), &decoration);
-#endif
 }
 
 SkColor BrowserNonClientFrameView::GetThemeOrDefaultColor(int color_id) const {

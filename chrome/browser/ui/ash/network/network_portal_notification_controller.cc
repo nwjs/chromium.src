@@ -30,7 +30,7 @@
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/network/network_state.h"
 #include "chromeos/network/network_state_handler.h"
 #include "chromeos/network/network_type_pattern.h"
@@ -52,11 +52,6 @@ namespace chromeos {
 namespace {
 
 const char kNotifierNetworkPortalDetector[] = "ash.network.portal-detector";
-
-bool IsPortalNotificationEnabled() {
-  return !base::CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kDisableNetworkPortalNotification);
-}
 
 Profile* GetProfileForPrimaryUser() {
   const user_manager::User* primary_user =
@@ -258,9 +253,6 @@ void NetworkPortalNotificationController::DefaultNetworkChanged(
 void NetworkPortalNotificationController::OnPortalDetectionCompleted(
     const NetworkState* network,
     const NetworkPortalDetector::CaptivePortalState& state) {
-  if (!IsPortalNotificationEnabled())
-    return;
-
   if (!network ||
       state.status != NetworkPortalDetector::CAPTIVE_PORTAL_STATUS_PORTAL) {
     last_network_guid_.clear();

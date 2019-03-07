@@ -12,8 +12,8 @@
 #include "ash/shell.h"
 #include "ash/wallpaper/wallpaper_controller.h"
 #include "ash/wallpaper/wallpaper_widget_controller.h"
+#include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_utils.h"
-#include "ash/wm/overview/window_selector_controller.h"
 #include "ui/aura/window.h"
 #include "ui/display/display.h"
 #include "ui/display/manager/display_manager.h"
@@ -118,8 +118,7 @@ class PreEventDispatchHandler : public ui::EventHandler {
 
   void HandleClickOrTap(ui::Event* event) {
     CHECK_EQ(ui::EP_PRETARGET, event->phase());
-    WindowSelectorController* controller =
-        Shell::Get()->window_selector_controller();
+    OverviewController* controller = Shell::Get()->overview_controller();
     if (!controller->IsSelecting())
       return;
     // Events that happen while app list is sliding out during overview should
@@ -274,7 +273,8 @@ views::Widget* CreateWallpaperWidget(aura::Window* root_window,
     params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
   params.parent = root_window->GetChildById(container_id);
   wallpaper_widget->Init(params);
-  wallpaper_widget->SetContentsView(new LayerControlView(new WallpaperView()));
+  WallpaperView* wallpaper_view = new WallpaperView();  // Owned by views.
+  wallpaper_widget->SetContentsView(new LayerControlView(wallpaper_view));
   int animation_type =
       controller->ShouldShowInitialAnimation()
           ? wm::WINDOW_VISIBILITY_ANIMATION_TYPE_BRIGHTNESS_GRAYSCALE

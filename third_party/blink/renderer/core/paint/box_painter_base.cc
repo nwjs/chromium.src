@@ -28,8 +28,7 @@ void BoxPainterBase::PaintFillLayers(const PaintInfo& paint_info,
                                      const FillLayer& fill_layer,
                                      const LayoutRect& rect,
                                      BackgroundImageGeometry& geometry,
-                                     BackgroundBleedAvoidance bleed,
-                                     SkBlendMode op) {
+                                     BackgroundBleedAvoidance bleed) {
   FillLayerOcclusionOutputList reversed_paint_list;
   bool should_draw_background_in_separate_buffer =
       CalculateFillLayerOcclusionCulling(reversed_paint_list, fill_layer);
@@ -43,7 +42,7 @@ void BoxPainterBase::PaintFillLayers(const PaintInfo& paint_info,
 
   for (auto it = reversed_paint_list.rbegin(); it != reversed_paint_list.rend();
        ++it) {
-    PaintFillLayer(paint_info, c, **it, rect, bleed, geometry, op);
+    PaintFillLayer(paint_info, c, **it, rect, bleed, geometry);
   }
 
   if (should_draw_background_in_separate_buffer)
@@ -92,10 +91,6 @@ void BoxPainterBase::PaintNormalBoxShadow(const PaintInfo& info,
     if (fill_rect.IsEmpty())
       continue;
 
-    FloatRect shadow_rect(border.Rect());
-    shadow_rect.Inflate(shadow_blur + shadow_spread);
-    shadow_rect.Move(shadow_offset);
-
     // Save the state and clip, if not already done.
     // The clip does not depend on any shadow-specific properties.
     if (!state_saver.Saved()) {
@@ -137,14 +132,6 @@ void BoxPainterBase::PaintNormalBoxShadow(const PaintInfo& info,
                       DrawLooperBuilder::kShadowIgnoresAlpha, kDrawShadowOnly);
 
     if (has_border_radius) {
-      FloatRoundedRect influence_rect(
-          PixelSnappedIntRect(LayoutRect(shadow_rect)), border.GetRadii());
-      float change_amount = 2 * shadow_blur + shadow_spread;
-      if (change_amount >= 0)
-        influence_rect.ExpandRadii(change_amount);
-      else
-        influence_rect.ShrinkRadii(-change_amount);
-
       FloatRoundedRect rounded_fill_rect = border;
       rounded_fill_rect.Inflate(shadow_spread);
 
@@ -347,7 +334,6 @@ inline bool PaintFastBottomLayer(Node* node,
   FloatRoundedRect color_border =
       info.is_rounded_fill ? border_rect
                            : FloatRoundedRect(PixelSnappedIntRect(rect));
-
   // When the layer has an image, figure out whether it is covered by a single
   // tile. The border for painting images may not be the same as the color due
   // to optimizations for the image painting destination that avoid painting
@@ -415,14 +401,18 @@ inline bool PaintFastBottomLayer(Node* node,
 
   // Generated images will be created at the desired tile size, so assume their
   // intrinsic size is the requested tile size.
+  bool is_generated_image = image->HasRelativeSize();
   const FloatSize intrinsic_tile_size =
-      image->HasRelativeSize() ? image_tile.Size() : FloatSize(image->Size());
+      is_generated_image ? image_tile.Size() : FloatSize(image->Size());
   // Subset computation needs the same location as was used with
   // ComputePhaseForBackground above, but needs the unsnapped destination
-  // size to correctly calculate sprite subsets in the presence of zoom.
+  // size to correctly calculate sprite subsets in the presence of zoom. But if
+  // this is a generated image sized according to the tile size (which is a
+  // snapped value), use the snapped dest rect instead.
   FloatRect dest_rect_for_subset(
       FloatPoint(geometry.SnappedDestRect().Location()),
-      FloatSize(geometry.UnsnappedDestRect().Size()));
+      is_generated_image ? FloatSize(geometry.SnappedDestRect().Size())
+                         : FloatSize(geometry.UnsnappedDestRect().Size()));
   // Content providers almost always choose source pixels at integer locations,
   // so snap to integers. This is particuarly important for sprite maps.
   // Calculation up to this point, in LayoutUnits, can lead to small variations
@@ -576,6 +566,12 @@ LayoutRectOutsets AdjustOutsetsForEdgeInclusion(
   return adjusted;
 }
 
+bool ShouldApplyBlendOperation(const BoxPainterBase::FillLayerInfo& info,
+                               const FillLayer& layer) {
+  // For a mask layer, don't use the operator if this is the bottom layer.
+  return !info.is_bottom_layer || layer.GetType() != EFillLayerType::kMask;
+}
+
 }  // anonymous namespace
 
 LayoutRectOutsets BoxPainterBase::AdjustedBorderOutsets(
@@ -589,7 +585,6 @@ void BoxPainterBase::PaintFillLayer(const PaintInfo& paint_info,
                                     const LayoutRect& rect,
                                     BackgroundBleedAvoidance bleed_avoidance,
                                     BackgroundImageGeometry& geometry,
-                                    SkBlendMode op,
                                     bool object_has_multiple_boxes,
                                     const LayoutSize flow_box_size) {
   GraphicsContext& context = paint_info.context;
@@ -608,7 +603,7 @@ void BoxPainterBase::PaintFillLayer(const PaintInfo& paint_info,
   const auto did_adjust_paint_rect = scrolled_paint_rect != rect;
 
   scoped_refptr<Image> image;
-  SkBlendMode composite_op = op;
+  SkBlendMode composite_op = SkBlendMode::kSrcOver;
   base::Optional<ScopedInterpolationQuality> interpolation_quality_context;
   if (info.should_paint_image) {
     geometry.Calculate(paint_info.PaintContainer(), paint_info.phase,
@@ -623,10 +618,10 @@ void BoxPainterBase::PaintFillLayer(const PaintInfo& paint_info,
     if (bg_layer.MaskSourceType() == EMaskSourceType::kLuminance)
       context.SetColorFilter(kColorFilterLuminanceToAlpha);
 
-    // If op != SkBlendMode::kSrcOver, a mask is being painted.
-    SkBlendMode bg_op = WebCoreCompositeToSkiaComposite(
-        bg_layer.Composite(), bg_layer.GetBlendMode());
-    composite_op = (op == SkBlendMode::kSrcOver) ? bg_op : op;
+    if (ShouldApplyBlendOperation(info, bg_layer)) {
+      composite_op = WebCoreCompositeToSkiaComposite(bg_layer.Composite(),
+                                                     bg_layer.GetBlendMode());
+    }
   }
 
   LayoutRectOutsets border = ComputeBorders();
@@ -637,11 +632,16 @@ void BoxPainterBase::PaintFillLayer(const PaintInfo& paint_info,
       bleed_avoidance, border_padding_insets);
 
   // Fast path for drawing simple color backgrounds. Do not use the fast
-  // path if the dest rect has been adjusted for scrolling backgrounds
-  // because correcting the dest rect for this case reduces the accuracy of the
-  // destinations rects.
-  // TODO(schenney): Still use the fast path if not painting any images.
-  if (!did_adjust_paint_rect &&
+  // path with images if the dest rect has been adjusted for scrolling
+  // backgrounds because correcting the dest rect for scrolling reduces the
+  // accuracy of the destination rects. Also disable the fast path for images
+  // if we are shrinking the background for bleed avoidance, because this
+  // adjusts the border rects in a way that breaks the optimization.
+  bool disable_fast_path =
+      info.should_paint_image &&
+      (bleed_avoidance == kBackgroundBleedShrinkBackground ||
+       did_adjust_paint_rect);
+  if (!disable_fast_path &&
       PaintFastBottomLayer(node_, paint_info, info, rect, border_rect, geometry,
                            image.get(), composite_op)) {
     return;

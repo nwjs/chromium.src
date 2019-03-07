@@ -19,11 +19,20 @@
 namespace media {
 
 class GpuVideoDecodeAcceleratorFactory;
+class VideoFrame;
 
 namespace test {
 
 class EncodedDataHelper;
 class FrameRenderer;
+class VideoFrameProcessor;
+
+// Video decoder client configuration.
+struct VideoDecoderClientConfig {
+  // The maximum number of bitstream buffer decodes that can be requested
+  // without waiting for the result of the previous decode requests.
+  size_t max_outstanding_decode_requests = 1;
+};
 
 // The video decoder client is responsible for the communication between the
 // video player and the video decoder. It also communicates with the frame
@@ -39,28 +48,49 @@ class VideoDecoderClient : public VideoDecodeAccelerator::Client {
  public:
   ~VideoDecoderClient() override;
 
-  // Return an instance of the VideoDecoderClient. The |frame_renderer| will not
-  // be owned by the decoder client, the caller should guarantee it exists for
-  // the entire lifetime of the decoder client. The |event_cb| will be called
-  // whenever an event occurs (e.g. frame decoded) and should be thread-safe.
+  // Return an instance of the VideoDecoderClient. The |frame_renderer| and
+  // |frame_processors| will not be owned by the decoder client, the caller
+  // should guarantee they outlive the decoder client. The |event_cb| will be
+  // called whenever an event occurs (e.g. frame decoded) and should be
+  // thread-safe.
   static std::unique_ptr<VideoDecoderClient> Create(
       const VideoPlayer::EventCallback& event_cb,
-      FrameRenderer* frame_renderer);
+      FrameRenderer* frame_renderer,
+      const std::vector<VideoFrameProcessor*>& frame_processors,
+      const VideoDecoderClientConfig& config);
 
-  // Create a decoder with specified |config|, video |stream| and video
-  // |stream_size|. The video stream will not be owned by the decoder client,
-  // the caller should guarantee it exists until DestroyDecoder() is called.
+  // Create a decoder with specified |config| and video |stream|. The video
+  // will not be owned by the decoder client, the caller should guarantee it
+  // exists until DestroyDecoder() is called.
   void CreateDecoder(const VideoDecodeAccelerator::Config& config,
                      const std::vector<uint8_t>& stream);
   // Destroy the currently active decoder.
   void DestroyDecoder();
 
-  // Queue the next video stream fragment to be decoded.
-  void DecodeNextFragment();
+  // Start decoding the video stream, decoder should be idle when this function
+  // is called. This function is non-blocking, for each frame decoded a
+  // 'kFrameDecoded' event will be thrown.
+  void Play();
+  // Queue decoder flush. This function is non-blocking, a kFlushing/kFlushDone
+  // event is thrown upon start/finish.
+  void Flush();
+  // Queue decoder reset. This function is non-blocking, a kResetting/kResetDone
+  // event is thrown upon start/finish.
+  void Reset();
 
  private:
+  enum class VideoDecoderClientState : size_t {
+    kUninitialized = 0,
+    kIdle,
+    kDecoding,
+    kFlushing,
+    kResetting,
+  };
+
   VideoDecoderClient(const VideoPlayer::EventCallback& event_cb,
-                     FrameRenderer* renderer);
+                     FrameRenderer* renderer,
+                     const std::vector<VideoFrameProcessor*>& frame_processors,
+                     const VideoDecoderClientConfig& config);
 
   bool Initialize();
   void Destroy();
@@ -83,24 +113,52 @@ class VideoDecoderClient : public VideoDecodeAccelerator::Client {
                          const std::vector<uint8_t>* stream,
                          base::WaitableEvent* done);
   void DestroyDecoderTask(base::WaitableEvent* done);
-  void DecodeNextFragmentTask();
 
-  // Called by the renderer in response to a CreatePictureBuffers request.
-  void OnPictureBuffersCreatedTask(std::vector<PictureBuffer> buffers);
-  // Called by the renderer in response to a RenderPicture request.
-  void OnPictureRenderedTask(int32_t picture_buffer_id);
+  // Instruct the decoder to decode the next video stream fragment.
+  void DecodeNextFragmentTask();
+  // Start decoding video stream fragments.
+  void PlayTask();
+  // Instruct the decoder to perform a flush.
+  void FlushTask();
+  // Instruct the decoder to perform a Reset.
+  void ResetTask();
+
+  // Fire the specified event.
+  void FireEvent(VideoPlayerEvent event);
+
+  // Called when a picture buffer is ready to be re-used.
+  void ReusePictureBufferTask(int32_t picture_buffer_id);
 
   // Get the next bitstream buffer id to be used.
   int32_t GetNextBitstreamBufferId();
+  // Get the next picture buffer id to be used.
+  int32_t GetNextPictureBufferId();
 
   VideoPlayer::EventCallback event_cb_;
   FrameRenderer* const frame_renderer_;
+  std::vector<VideoFrameProcessor*> const frame_processors_;
 
   std::unique_ptr<GpuVideoDecodeAcceleratorFactory> decoder_factory_;
   std::unique_ptr<VideoDecodeAccelerator> decoder_;
+  VideoDecodeAccelerator::Config decoder_config_;
   base::Thread decoder_client_thread_;
 
+  // Decoder client state, should only be accessed on the decoder client thread.
+  VideoDecoderClientState decoder_client_state_;
+
+  // Map of video frames the decoder uses as output, keyed on picture buffer id.
+  std::map<int32_t, scoped_refptr<VideoFrame>> video_frames_;
+
   int32_t next_bitstream_buffer_id_ = 0;
+  int32_t next_picture_buffer_id_ = 0;
+
+  // Index of the frame that's currently being decoded.
+  size_t current_frame_index_ = 0;
+  // The current number of outgoing bitstream buffers decode requests.
+  size_t num_outstanding_decode_requests_ = 0;
+  // Video decoder client configuration.
+  const VideoDecoderClientConfig decoder_client_config_;
+
   // TODO(dstaessens@) Replace with StreamParser.
   std::unique_ptr<media::test::EncodedDataHelper> encoded_data_helper_;
 

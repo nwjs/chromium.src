@@ -57,6 +57,7 @@ enum PageLoadTimingStatus {
   INVALID_ORDER_DOM_CONTENT_LOADED_LOAD,
   INVALID_ORDER_PARSE_START_FIRST_LAYOUT,
   INVALID_ORDER_FIRST_LAYOUT_FIRST_PAINT,
+  // Deprecated but not removing because it would affect histogram enumeration.
   INVALID_ORDER_FIRST_PAINT_FIRST_TEXT_PAINT,
   INVALID_ORDER_FIRST_PAINT_FIRST_IMAGE_PAINT,
   INVALID_ORDER_FIRST_PAINT_FIRST_CONTENTFUL_PAINT,
@@ -108,8 +109,10 @@ class PageLoadMetricsUpdateDispatcher {
     virtual void OnMainFrameMetadataChanged() = 0;
     virtual void OnSubframeMetadataChanged() = 0;
     virtual void UpdateFeaturesUsage(
+        content::RenderFrameHost* rfh,
         const mojom::PageLoadFeatures& new_features) = 0;
     virtual void UpdateResourceDataUse(
+        int frame_tree_node_id,
         const std::vector<mojom::ResourceDataUpdatePtr>& resources) = 0;
   };
 
@@ -174,15 +177,6 @@ class PageLoadMetricsUpdateDispatcher {
 
   // Time the navigation for this page load was initiated.
   const base::TimeTicks navigation_start_;
-
-  // As FCP++ metrics need to report the last candidate, this attributes are
-  // used as a buffer to store the latest one of the updating candidate. We
-  // buffer them as private members and only merge them back into
-  // current_merged_page_timing_ at the end of the pageload life time.
-  base::Optional<base::TimeDelta> largest_image_paint_;
-  base::Optional<base::TimeDelta> last_image_paint_;
-  base::Optional<base::TimeDelta> largest_text_paint_;
-  base::Optional<base::TimeDelta> last_text_paint_;
 
   // PageLoadTiming for the currently tracked page. The fields in |paint_timing|
   // are merged across all frames in the document. All other fields are from the

@@ -113,7 +113,7 @@ void BrowserProcessPlatformPart::InitializeCrosComponentManager() {
   DCHECK(!cros_component_manager_);
   cros_component_manager_ =
       std::make_unique<component_updater::CrOSComponentInstaller>(
-          component_updater::MetadataTable::Create(
+          std::make_unique<component_updater::MetadataTable>(
               g_browser_process->local_state()),
           g_browser_process->component_updater());
 
@@ -187,12 +187,6 @@ std::unique_ptr<policy::ChromeBrowserPolicyConnector>
 BrowserProcessPlatformPart::CreateBrowserPolicyConnector() {
   return std::unique_ptr<policy::ChromeBrowserPolicyConnector>(
       new policy::BrowserPolicyConnectorChromeOS());
-}
-
-void BrowserProcessPlatformPart::RegisterInProcessServices(
-    content::ContentBrowserClient::StaticServiceMap* services,
-    content::ServiceManagerConnection* connection) {
-  ash_service_registry::RegisterInProcessServices(services, connection);
 }
 
 chromeos::system::SystemClock* BrowserProcessPlatformPart::GetSystemClock() {

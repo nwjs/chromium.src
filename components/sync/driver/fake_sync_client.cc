@@ -8,32 +8,20 @@
 #include "base/bind_helpers.h"
 #include "components/sync/base/extensions_activity.h"
 #include "components/sync/base/sync_prefs.h"
-#include "components/sync/driver/fake_sync_service.h"
-#include "components/sync/model/model_type_sync_bridge.h"
 
 namespace syncer {
 
-FakeSyncClient::FakeSyncClient()
-    : bridge_(nullptr),
-      factory_(nullptr),
-      sync_service_(std::make_unique<FakeSyncService>()) {
+FakeSyncClient::FakeSyncClient() : factory_(nullptr) {
   // Register sync preferences and set them to "Sync everything" state.
   SyncPrefs::RegisterProfilePrefs(pref_service_.registry());
-  SyncPrefs sync_prefs(GetPrefService());
-  sync_prefs.SetFirstSetupComplete();
-  sync_prefs.SetKeepEverythingSynced(true);
 }
 
 FakeSyncClient::FakeSyncClient(SyncApiComponentFactory* factory)
-    : factory_(factory), sync_service_(std::make_unique<FakeSyncService>()) {
+    : factory_(factory) {
   SyncPrefs::RegisterProfilePrefs(pref_service_.registry());
 }
 
 FakeSyncClient::~FakeSyncClient() {}
-
-SyncService* FakeSyncClient::GetSyncService() {
-  return sync_service_.get();
-}
 
 PrefService* FakeSyncClient::GetPrefService() {
   return &pref_service_;
@@ -44,6 +32,10 @@ base::FilePath FakeSyncClient::GetLocalSyncBackendFolder() {
 }
 
 ModelTypeStoreService* FakeSyncClient::GetModelTypeStoreService() {
+  return nullptr;
+}
+
+DeviceInfoSyncService* FakeSyncClient::GetDeviceInfoSyncService() {
   return nullptr;
 }
 
@@ -71,10 +63,11 @@ base::Closure FakeSyncClient::GetPasswordStateChangedCallback() {
   return base::DoNothing();
 }
 
-DataTypeController::TypeVector FakeSyncClient::CreateDataTypeControllers() {
+DataTypeController::TypeVector FakeSyncClient::CreateDataTypeControllers(
+    SyncService* sync_service) {
   DCHECK(factory_);
   return factory_->CreateCommonDataTypeControllers(
-      /*disabled_types=*/ModelTypeSet());
+      /*disabled_types=*/ModelTypeSet(), sync_service);
 }
 
 autofill::PersonalDataManager* FakeSyncClient::GetPersonalDataManager() {
@@ -100,7 +93,7 @@ base::WeakPtr<SyncableService> FakeSyncClient::GetSyncableServiceForType(
 
 base::WeakPtr<ModelTypeControllerDelegate>
 FakeSyncClient::GetControllerDelegateForModelType(ModelType type) {
-  return bridge_->change_processor()->GetControllerDelegate();
+  return nullptr;
 }
 
 scoped_refptr<ModelSafeWorker> FakeSyncClient::CreateModelWorkerForGroup(
@@ -110,10 +103,6 @@ scoped_refptr<ModelSafeWorker> FakeSyncClient::CreateModelWorkerForGroup(
 
 SyncApiComponentFactory* FakeSyncClient::GetSyncApiComponentFactory() {
   return factory_;
-}
-
-void FakeSyncClient::SetModelTypeSyncBridge(ModelTypeSyncBridge* bridge) {
-  bridge_ = bridge;
 }
 
 }  // namespace syncer

@@ -56,11 +56,13 @@
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
+#include "content/public/common/network_service_util.h"
 #include "content/public/common/sandbox_init.h"
 #include "gin/v8_initializer.h"
 #include "media/base/media.h"
 #include "media/media_buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
+#include "services/network/public/cpp/features.h"
 #include "services/service_manager/embedder/switches.h"
 #include "services/service_manager/sandbox/sandbox_type.h"
 #include "services/service_manager/sandbox/switches.h"
@@ -879,6 +881,7 @@ int ContentMainRunnerImpl::RunServiceManager(MainFunctionParams& main_params,
   if (is_browser_main_loop_started_)
     return -1;
 
+  bool should_start_service_manager_only = start_service_manager_only;
   if (!service_manager_context_) {
     if (delegate_->ShouldCreateFeatureList()) {
       DCHECK(!field_trial_list_);
@@ -919,6 +922,17 @@ int ContentMainRunnerImpl::RunServiceManager(MainFunctionParams& main_params,
     // incorrect to post to a BrowserThread before this point.
     BrowserTaskExecutor::Create();
 
+    if (!base::FeatureList::IsEnabled(
+            features::kAllowStartingServiceManagerOnly)) {
+      should_start_service_manager_only = false;
+    }
+
+    if (should_start_service_manager_only &&
+        base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+      // This must be called before creating the ServiceManagerContext.
+      ForceInProcessNetworkService(true);
+    }
+
     // The thread used to start the ServiceManager is handed-off to
     // BrowserMain() which may elect to promote it (e.g. to BrowserThread::IO).
     service_manager_thread_ = BrowserProcessSubThread::CreateIOThread();
@@ -926,16 +940,15 @@ int ContentMainRunnerImpl::RunServiceManager(MainFunctionParams& main_params,
         new ServiceManagerContext(service_manager_thread_->task_runner()));
     download::SetIOTaskRunner(service_manager_thread_->task_runner());
 #if defined(OS_ANDROID)
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(&ServiceManagerStartupComplete));
+    if (start_service_manager_only) {
+      base::ThreadTaskRunnerHandle::Get()->PostTask(
+          FROM_HERE, base::BindOnce(&ServiceManagerStartupComplete));
+    }
 #endif
   }
 
-  if (base::FeatureList::IsEnabled(
-          features::kAllowStartingServiceManagerOnly) &&
-      start_service_manager_only) {
+  if (should_start_service_manager_only)
     return -1;
-  }
 
   is_browser_main_loop_started_ = true;
   startup_data_ = std::make_unique<StartupDataImpl>();

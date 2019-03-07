@@ -15,6 +15,7 @@
 #include "content/browser/web_contents/web_contents_ns_view_bridge.h"
 #include "content/common/render_widget_host_ns_view.mojom.h"
 #include "content/public/browser/native_web_keyboard_event.h"
+#include "mojo/public/cpp/bindings/strong_associated_binding.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
 #include "ui/base/cocoa/remote_accessibility_api.h"
 
@@ -49,17 +50,10 @@ class RenderWidgetHostNSViewBridgeOwner
 
   // RenderWidgetHostNSViewClientHelper implementation.
   id GetRootBrowserAccessibilityElement() override {
-    NSView* view = bridge_->GetRenderWidgetHostViewCocoa();
-    NSWindow* window = [view window];
-    // Send accessibility tokens only once the view has been attached to a
-    // window.
-    if (window && !remote_accessibility_element_) {
+    if (!remote_accessibility_element_) {
       int64_t browser_pid = 0;
       std::vector<uint8_t> element_token;
-      client_->SyncConnectAccessibilityElements(
-          ui::RemoteAccessibility::GetTokenForLocalElement(window),
-          ui::RemoteAccessibility::GetTokenForLocalElement(view), &browser_pid,
-          &element_token);
+      client_->SyncGetRootAccessibilityElement(&browser_pid, &element_token);
       [NSAccessibilityRemoteUIElement
           registerRemoteUIProcessIdentifier:browser_pid];
       remote_accessibility_element_ =
@@ -69,6 +63,10 @@ class RenderWidgetHostNSViewBridgeOwner
   }
   id GetFocusedBrowserAccessibilityElement() override {
     return GetRootBrowserAccessibilityElement();
+  }
+  void SetAccessibilityWindow(NSWindow* window) override {
+    client_->SetRemoteAccessibilityWindowToken(
+        ui::RemoteAccessibility::GetTokenForLocalElement(window));
   }
 
   void ForwardKeyboardEvent(const NativeWebKeyboardEvent& key_event,
@@ -174,9 +172,12 @@ void NSViewBridgeFactoryImpl::CreateWebContentsNSViewBridge(
     mojom::WebContentsNSViewBridgeAssociatedRequest bridge_request) {
   // Note that the resulting object will be destroyed when its underlying pipe
   // is closed.
-  ignore_result(new WebContentsNSViewBridge(
-      view_id, mojom::WebContentsNSViewClientAssociatedPtr(std::move(client)),
-      std::move(bridge_request)));
+  mojo::MakeStrongAssociatedBinding(
+      std::make_unique<WebContentsNSViewBridge>(
+          view_id,
+          mojom::WebContentsNSViewClientAssociatedPtr(std::move(client))),
+      std::move(bridge_request),
+      ui::WindowResizeHelperMac::Get()->task_runner());
 }
 
 NSViewBridgeFactoryImpl::NSViewBridgeFactoryImpl() : binding_(this) {}

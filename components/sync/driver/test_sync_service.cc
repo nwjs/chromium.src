@@ -59,6 +59,10 @@ void TestSyncService::SetAuthenticatedAccountInfo(
   account_info_ = account_info;
 }
 
+void TestSyncService::SetSetupInProgress(bool in_progress) {
+  setup_in_progress_ = in_progress;
+}
+
 void TestSyncService::SetIsAuthenticatedAccountPrimary(bool is_primary) {
   account_is_primary_ = is_primary;
 }
@@ -93,6 +97,20 @@ void TestSyncService::SetEmptyLastCycleSnapshot() {
 
 void TestSyncService::SetNonEmptyLastCycleSnapshot() {
   SetLastCycleSnapshot(MakeDefaultCycleSnapshot());
+}
+
+void TestSyncService::SetDetailedSyncStatus(bool engine_available,
+                                            SyncStatus status) {
+  detailed_sync_status_engine_available_ = engine_available;
+  detailed_sync_status_ = status;
+}
+
+void TestSyncService::SetPassphraseRequired(bool required) {
+  passphrase_required_ = required;
+}
+
+void TestSyncService::SetPassphraseRequiredForDecryption(bool required) {
+  passphrase_required_for_decryption_ = required;
 }
 
 SyncUserSettings* TestSyncService::GetUserSettings() {
@@ -133,7 +151,15 @@ TestSyncService::GetSetupInProgressHandle() {
 }
 
 bool TestSyncService::IsSetupInProgress() const {
-  return false;
+  return setup_in_progress_;
+}
+
+ModelTypeSet TestSyncService::GetRegisteredDataTypes() const {
+  return ModelTypeSet::All();
+}
+
+ModelTypeSet TestSyncService::GetForcedDataTypes() const {
+  return ModelTypeSet();
 }
 
 ModelTypeSet TestSyncService::GetPreferredDataTypes() const {
@@ -144,7 +170,7 @@ ModelTypeSet TestSyncService::GetActiveDataTypes() const {
   return active_data_types_;
 }
 
-void TestSyncService::RequestStop(SyncService::SyncStopDataFate data_fate) {}
+void TestSyncService::StopAndClear() {}
 
 void TestSyncService::OnDataTypeRequestsSyncStartup(ModelType type) {}
 
@@ -163,27 +189,11 @@ bool TestSyncService::HasObserver(const SyncServiceObserver* observer) const {
 }
 
 bool TestSyncService::IsPassphraseRequiredForDecryption() const {
-  return false;
-}
-
-base::Time TestSyncService::GetExplicitPassphraseTime() const {
-  return base::Time();
+  return passphrase_required_for_decryption_;
 }
 
 bool TestSyncService::IsUsingSecondaryPassphrase() const {
   return using_secondary_passphrase_;
-}
-
-void TestSyncService::EnableEncryptEverything() {}
-
-bool TestSyncService::IsEncryptEverythingEnabled() const {
-  return false;
-}
-
-void TestSyncService::SetEncryptionPassphrase(const std::string& passphrase) {}
-
-bool TestSyncService::SetDecryptionPassphrase(const std::string& passphrase) {
-  return false;
 }
 
 UserShare* TestSyncService::GetUserShare() const {
@@ -203,7 +213,8 @@ SyncTokenStatus TestSyncService::GetSyncTokenStatus() const {
 }
 
 bool TestSyncService::QueryDetailedSyncStatus(SyncStatus* result) const {
-  return false;
+  *result = detailed_sync_status_;
+  return detailed_sync_status_engine_available_;
 }
 
 base::Time TestSyncService::GetLastSyncedTime() const {
@@ -252,7 +263,7 @@ void TestSyncService::GetAllNodes(
 void TestSyncService::SetInvalidationsForSessionsEnabled(bool enabled) {}
 
 bool TestSyncService::IsPassphraseRequired() const {
-  return false;
+  return passphrase_required_;
 }
 
 ModelTypeSet TestSyncService::GetEncryptedDataTypes() const {

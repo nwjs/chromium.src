@@ -35,7 +35,7 @@
 #include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/assistant/buildflags.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -472,9 +472,11 @@ void SessionControllerClient::OnSessionStateChanged() {
 
 #if BUILDFLAG(ENABLE_CROS_ASSISTANT)
     // Assistant is initialized only once when primary user logs in.
+    // Initialize Assistant when browser process restarts.
     if (chromeos::switches::IsAssistantEnabled()) {
       AssistantClient::Get()->MaybeInit(
           ProfileManager::GetPrimaryUserProfile());
+      AssistantClient::Get()->MaybeStartAssistantOptInFlow();
     }
 #endif
   }

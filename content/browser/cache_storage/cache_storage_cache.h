@@ -18,11 +18,12 @@
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "content/browser/cache_storage/cache_storage_cache_handle.h"
+#include "content/browser/cache_storage/cache_storage_handle.h"
 #include "content/common/service_worker/service_worker_types.h"
 #include "net/base/io_buffer.h"
 #include "net/disk_cache/disk_cache.h"
+#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom.h"
 #include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
-#include "third_party/blink/public/platform/modules/cache_storage/cache_storage.mojom.h"
 #include "url/origin.h"
 
 namespace crypto {
@@ -59,7 +60,7 @@ class CacheStorageCacheTest;
 // will be called so long as the cache object lives.
 class CONTENT_EXPORT CacheStorageCache {
  public:
-  using CacheEntry = std::pair<std::unique_ptr<ServiceWorkerFetchRequest>,
+  using CacheEntry = std::pair<blink::mojom::FetchAPIRequestPtr,
                                blink::mojom::FetchAPIResponsePtr>;
   using CacheEntriesCallback =
       base::OnceCallback<void(blink::mojom::CacheStorageError,
@@ -75,7 +76,7 @@ class CONTENT_EXPORT CacheStorageCache {
   using ResponsesCallback =
       base::OnceCallback<void(blink::mojom::CacheStorageError,
                               std::vector<blink::mojom::FetchAPIResponsePtr>)>;
-  using Requests = std::vector<ServiceWorkerFetchRequest>;
+  using Requests = std::vector<blink::mojom::FetchAPIRequestPtr>;
   using RequestsCallback =
       base::OnceCallback<void(blink::mojom::CacheStorageError,
                               std::unique_ptr<Requests>)>;
@@ -113,14 +114,14 @@ class CONTENT_EXPORT CacheStorageCache {
   static int32_t GetResponsePaddingVersion();
 
   // Returns ERROR_TYPE_NOT_FOUND if not found.
-  void Match(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void Match(blink::mojom::FetchAPIRequestPtr request,
              blink::mojom::QueryParamsPtr match_params,
              ResponseCallback callback);
 
   // Returns blink::mojom::CacheStorageError::kSuccess and matched
   // responses in this cache. If there are no responses, returns
   // blink::mojom::CacheStorageError::kSuccess and an empty vector.
-  void MatchAll(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void MatchAll(blink::mojom::FetchAPIRequestPtr request,
                 blink::mojom::QueryParamsPtr match_params,
                 ResponsesCallback callback);
 
@@ -177,7 +178,7 @@ class CONTENT_EXPORT CacheStorageCache {
 
   // Returns blink::mojom::CacheStorageError::kSuccess and a vector of
   // requests if there are no errors.
-  void Keys(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void Keys(blink::mojom::FetchAPIRequestPtr request,
             blink::mojom::QueryParamsPtr options,
             RequestsCallback callback);
 
@@ -196,12 +197,12 @@ class CONTENT_EXPORT CacheStorageCache {
   // directly bypass the batch operations and write into the cache. This is used
   // by non-CacheAPI owners. The Cache Storage API uses batch operations defined
   // in the dispatcher.
-  void Put(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void Put(blink::mojom::FetchAPIRequestPtr request,
            blink::mojom::FetchAPIResponsePtr response,
            ErrorCallback callback);
 
   // Similar to MatchAll, but returns the associated requests as well.
-  void GetAllMatchedEntries(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void GetAllMatchedEntries(blink::mojom::FetchAPIRequestPtr request,
                             blink::mojom::QueryParamsPtr match_params,
                             CacheEntriesCallback callback);
 
@@ -229,13 +230,16 @@ class CONTENT_EXPORT CacheStorageCache {
   // or call SetObserver(nullptr) to stop receiving notification of changes.
   void SetObserver(CacheStorageCacheObserver* observer);
 
+  static size_t EstimatedStructSize(
+      const blink::mojom::FetchAPIRequestPtr& request);
+
   base::WeakPtr<CacheStorageCache> AsWeakPtr();
 
   // virtual for testing
   virtual CacheStorageCacheHandle CreateHandle();
   void AddHandleRef();
   void DropHandleRef();
-  void AssertUnreferenced() const;
+  bool IsUnreferenced() const;
 
  private:
   // QueryCache types:
@@ -289,7 +293,7 @@ class CONTENT_EXPORT CacheStorageCache {
   // then only out_requests is valid. If |query_type| is
   // REQUESTS_AND_RESPONSES then only out_requests, out_responses, and
   // out_blob_data_handles are valid.
-  void QueryCache(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void QueryCache(blink::mojom::FetchAPIRequestPtr request,
                   blink::mojom::QueryParamsPtr options,
                   QueryTypes query_types,
                   QueryCacheCallback callback);
@@ -311,7 +315,7 @@ class CONTENT_EXPORT CacheStorageCache {
       const blink::mojom::FetchAPIResponse& response);
 
   // Match callbacks
-  void MatchImpl(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void MatchImpl(blink::mojom::FetchAPIRequestPtr request,
                  blink::mojom::QueryParamsPtr match_params,
                  ResponseCallback callback);
   void MatchDidMatchAll(
@@ -320,7 +324,7 @@ class CONTENT_EXPORT CacheStorageCache {
       std::vector<blink::mojom::FetchAPIResponsePtr> match_all_responses);
 
   // MatchAll callbacks
-  void MatchAllImpl(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void MatchAllImpl(blink::mojom::FetchAPIRequestPtr request,
                     blink::mojom::QueryParamsPtr options,
                     ResponsesCallback callback);
   void MatchAllDidQueryCache(
@@ -406,10 +410,9 @@ class CONTENT_EXPORT CacheStorageCache {
                               int64_t current_cache_size);
 
   // GetAllMatchedEntries callbacks.
-  void GetAllMatchedEntriesImpl(
-      std::unique_ptr<ServiceWorkerFetchRequest> request,
-      blink::mojom::QueryParamsPtr options,
-      CacheEntriesCallback callback);
+  void GetAllMatchedEntriesImpl(blink::mojom::FetchAPIRequestPtr request,
+                                blink::mojom::QueryParamsPtr options,
+                                CacheEntriesCallback callback);
   void GetAllMatchedEntriesDidQueryCache(
       CacheEntriesCallback callback,
       blink::mojom::CacheStorageError error,
@@ -418,7 +421,7 @@ class CONTENT_EXPORT CacheStorageCache {
   // Returns ERROR_NOT_FOUND if not found. Otherwise deletes and returns OK.
   void Delete(blink::mojom::BatchOperationPtr operation,
               ErrorCallback callback);
-  void DeleteImpl(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void DeleteImpl(blink::mojom::FetchAPIRequestPtr request,
                   blink::mojom::QueryParamsPtr match_params,
                   ErrorCallback callback);
   void DeleteDidQueryCache(
@@ -427,7 +430,7 @@ class CONTENT_EXPORT CacheStorageCache {
       std::unique_ptr<QueryCacheResults> query_cache_results);
 
   // Keys callbacks.
-  void KeysImpl(std::unique_ptr<ServiceWorkerFetchRequest> request,
+  void KeysImpl(blink::mojom::FetchAPIRequestPtr request,
                 blink::mojom::QueryParamsPtr options,
                 RequestsCallback callback);
   void KeysDidQueryCache(
@@ -482,8 +485,13 @@ class CONTENT_EXPORT CacheStorageCache {
   const std::string cache_name_;
   base::FilePath path_;
 
-  // Raw pointer is safe because CacheStorage owns this object.
+  // Raw pointer is safe because the CacheStorage instance owns this
+  // CacheStorageCache object.
   CacheStorage* cache_storage_;
+
+  // A handle that is used to keep the owning CacheStorage instance referenced
+  // as long this cache object is also referenced.
+  CacheStorageHandle cache_storage_handle_;
 
   scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy_;
   base::WeakPtr<storage::BlobStorageContext> blob_storage_context_;
@@ -497,6 +505,7 @@ class CONTENT_EXPORT CacheStorageCache {
   int64_t last_reported_size_ = 0;
   size_t max_query_size_bytes_;
   size_t handle_ref_count_ = 0;
+  int query_cache_recursive_depth_ = 0;
   CacheStorageCacheObserver* cache_observer_;
   std::unique_ptr<CacheStorageCacheEntryHandler> cache_entry_handler_;
 

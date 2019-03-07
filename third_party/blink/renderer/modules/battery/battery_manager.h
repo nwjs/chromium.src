@@ -9,7 +9,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_property.h"
 #include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
-#include "third_party/blink/renderer/core/dom/pausable_object.h"
+#include "third_party/blink/renderer/core/execution_context/pausable_object.h"
 #include "third_party/blink/renderer/core/frame/platform_event_controller.h"
 #include "third_party/blink/renderer/modules/battery/battery_status.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
@@ -26,6 +26,8 @@ class BatteryManager final : public EventTargetWithInlineData,
 
  public:
   static BatteryManager* Create(ExecutionContext*);
+
+  explicit BatteryManager(ExecutionContext*);
   ~BatteryManager() override;
 
   // Returns a promise object that will be resolved with this BatteryManager.
@@ -57,8 +59,8 @@ class BatteryManager final : public EventTargetWithInlineData,
   bool HasLastData() override;
 
   // PausableObject implementation.
-  void Pause() override;
-  void Unpause() override;
+  void ContextPaused(PauseState) override;
+  void ContextUnpaused() override;
   void ContextDestroyed(ExecutionContext*) override;
 
   // ScriptWrappable implementation.
@@ -67,8 +69,6 @@ class BatteryManager final : public EventTargetWithInlineData,
   void Trace(blink::Visitor*) override;
 
  private:
-  explicit BatteryManager(ExecutionContext*);
-
   using BatteryProperty = ScriptPromiseProperty<Member<BatteryManager>,
                                                 Member<BatteryManager>,
                                                 Member<DOMException>>;

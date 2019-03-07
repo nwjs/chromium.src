@@ -97,6 +97,8 @@ jumbo_component("capture_lib") {
     "video/create_video_capture_device_factory.cc",
     "video/create_video_capture_device_factory.h",
     "video/scoped_buffer_pool_reservation.h",
+    "video/scoped_video_capture_jpeg_decoder.cc",
+    "video/scoped_video_capture_jpeg_decoder.h",
     "video/shared_memory_buffer_tracker.cc",
     "video/shared_memory_buffer_tracker.h",
     "video/shared_memory_handle_provider.cc",
@@ -200,7 +202,7 @@ jumbo_component("capture_lib") {
       "video/win/video_capture_device_win.cc",
       "video/win/video_capture_device_win.h",
     ]
-    deps += [ "//media/base/win" ]
+    deps += [ "//media/base/win:media_foundation_util" ]
     libs = [
       "mf.lib",
       "mfplat.lib",
@@ -268,7 +270,7 @@ jumbo_component("capture_lib") {
     public_deps += [ "//media/capture/video/chromeos/public" ]
     deps += [
       "//build/config/linux/libdrm",
-      "//chromeos:chromeos",
+      "//chromeos/dbus",
       "//media/capture/video/chromeos/mojo:cros_camera",
       "//third_party/libsync",
     ]
@@ -281,6 +283,7 @@ jumbo_component("capture_lib") {
     ]
   }
 }
+
 source_set("test_support") {
   testonly = true
 
@@ -392,8 +395,9 @@ test("capture_unittests") {
     ]
     deps += [
       "//build/config/linux/libdrm",
-      "//chromeos:chromeos",
+      "//chromeos/dbus:test_support",
       "//media/capture/video/chromeos/mojo:cros_camera",
+      "//media/capture/video/chromeos/public",
       "//mojo/core/embedder",
       "//third_party/libsync",
       "//third_party/minigbm",

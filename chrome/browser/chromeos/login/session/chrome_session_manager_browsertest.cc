@@ -7,8 +7,8 @@
 #include <memory>
 
 #include "base/command_line.h"
-#include "base/macros.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/login/login_manager_test.h"
 #include "chrome/browser/chromeos/login/screens/gaia_view.h"
@@ -22,7 +22,7 @@
 #include "chrome/browser/google/google_brand_chromeos.h"
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
 #include "chrome/common/chrome_switches.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/system/fake_statistics_provider.h"
 #include "chromeos/system/statistics_provider.h"
 #include "components/user_manager/user_names.h"
@@ -147,7 +147,7 @@ IN_PROC_BROWSER_TEST_F(ChromeSessionManagerTest, LoginExistingUsers) {
   EXPECT_EQ(session_manager::SessionState::ACTIVE, manager->session_state());
   EXPECT_EQ(1u, manager->sessions().size());
 
-  for (size_t i = 1; i < arraysize(kTestUsers); ++i) {
+  for (size_t i = 1; i < base::size(kTestUsers); ++i) {
     // Verify that session state is LOGIN_SECONDARY during user adding.
     UserAddingScreen::Get()->Start();
     base::RunLoop().RunUntilIdle();

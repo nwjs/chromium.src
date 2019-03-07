@@ -8,17 +8,15 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.autofill_assistant.AutofillAssistantUiDelegate.Client;
 
 /**
  * Automatically extracts context information and serializes it in JSON form.
  */
 class FeedbackContext extends JSONObject {
-    static String buildContextString(ChromeActivity activity, Client client, Details details,
-            String statusMessage, int indentSpaces) {
+    static String buildContextString(
+            ChromeActivity activity, String debugContext, int indentSpaces) {
         try {
-            return new FeedbackContext(activity, client, details, statusMessage)
-                    .toString(indentSpaces);
+            return new FeedbackContext(activity, debugContext).toString(indentSpaces);
         } catch (JSONException e) {
             // Note: it is potentially unsafe to return e.getMessage(): the exception message
             // could be wrangled and used as an attack vector when arriving at the JSON parser.
@@ -26,12 +24,9 @@ class FeedbackContext extends JSONObject {
         }
     }
 
-    private FeedbackContext(ChromeActivity activity, Client client, Details details,
-            String statusMessage) throws JSONException {
+    private FeedbackContext(ChromeActivity activity, String debugContext) throws JSONException {
         addActivityInformation(activity);
-        addClientContext(client);
-        put("movie", details.toJSONObject());
-        put("status", statusMessage);
+        addClientContext(debugContext);
     }
 
     private void addActivityInformation(ChromeActivity activity) throws JSONException {
@@ -39,12 +34,12 @@ class FeedbackContext extends JSONObject {
         put("intent-data", activity.getInitialIntent().getDataString());
     }
 
-    private void addClientContext(Client client) throws JSONException {
+    private void addClientContext(String debugContext) throws JSONException {
         // Try to parse the debug context as JSON object. If that fails, just add the string as-is.
         try {
-            put("debug-context", new JSONObject(client.getDebugContext()));
+            put("debug-context", new JSONObject(debugContext));
         } catch (JSONException encodingException) {
-            put("debug-context", client.getDebugContext());
+            put("debug-context", debugContext);
         }
     }
 }

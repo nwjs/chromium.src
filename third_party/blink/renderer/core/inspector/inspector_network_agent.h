@@ -109,7 +109,7 @@ class CORE_EXPORT InspectorNetworkAgent final
   void DidReceiveData(unsigned long identifier,
                       DocumentLoader*,
                       const char* data,
-                      size_t data_length);
+                      uint64_t data_length);
   void DidReceiveBlob(unsigned long identifier,
                       DocumentLoader*,
                       scoped_refptr<BlobDataHandle>);
@@ -141,6 +141,7 @@ class CORE_EXPORT InspectorNetworkAgent final
                    const AtomicString& method,
                    const KURL&,
                    bool async,
+                   EncodedFormData* form_data,
                    const HTTPHeaderMap& headers,
                    bool include_crendentials);
   void DidFinishXHR(XMLHttpRequest*);
@@ -153,7 +154,10 @@ class CORE_EXPORT InspectorNetworkAgent final
 
   void WillDestroyResource(Resource*);
 
-  void FrameScheduledNavigation(LocalFrame*, ScheduledNavigation*);
+  void FrameScheduledNavigation(LocalFrame*,
+                                const KURL&,
+                                double delay,
+                                ClientNavigationReason);
   void FrameClearedScheduledNavigation(LocalFrame*);
 
   void DidCreateWebSocket(ExecutionContext*,
@@ -170,17 +174,17 @@ class CORE_EXPORT InspectorNetworkAgent final
       network::mojom::blink::WebSocketHandshakeRequest*,
       network::mojom::blink::WebSocketHandshakeResponse*);
   void DidCloseWebSocket(ExecutionContext*, unsigned long identifier);
-  void DidReceiveWebSocketFrame(unsigned long identifier,
-                                int op_code,
-                                bool masked,
-                                const char* payload,
-                                size_t payload_length);
-  void DidSendWebSocketFrame(unsigned long identifier,
-                             int op_code,
-                             bool masked,
-                             const char* payload,
-                             size_t payload_length);
-  void DidReceiveWebSocketFrameError(unsigned long identifier, const String&);
+  void DidReceiveWebSocketMessage(unsigned long identifier,
+                                  int op_code,
+                                  bool masked,
+                                  const char* payload,
+                                  size_t payload_length);
+  void DidSendWebSocketMessage(unsigned long identifier,
+                               int op_code,
+                               bool masked,
+                               const char* payload,
+                               size_t payload_length);
+  void DidReceiveWebSocketMessageError(unsigned long identifier, const String&);
 
   // Called from frontend
   protocol::Response enable(Maybe<int> total_buffer_size,

@@ -29,8 +29,7 @@ cr.define('gpu', function() {
           'clientInfoChange', this.refresh.bind(this));
 
       // Add handler to 'copy to clipboard' button
-      document.getElementById('copy-to-clipboard').onclick =
-          function() {
+      $('copy-to-clipboard').onclick = function() {
         // Make sure nothing is selected
         window.getSelection().removeAllRanges();
 
@@ -39,9 +38,9 @@ cr.define('gpu', function() {
 
         // And deselect everything at the end.
         window.getSelection().removeAllRanges();
-      }
+      };
 
-          this.refresh();
+      this.refresh();
     },
 
     /**
@@ -151,25 +150,29 @@ cr.define('gpu', function() {
           workaroundsForHardwareGpuDiv.hidden = true;
         }
 
-        if (gpuInfo.basicInfo)
+        if (gpuInfo.basicInfo) {
           this.setTable_('basic-info', gpuInfo.basicInfo);
-        else
+        } else {
           this.setTable_('basic-info', []);
+        }
 
-        if (gpuInfo.compositorInfo)
+        if (gpuInfo.compositorInfo) {
           this.setTable_('compositor-info', gpuInfo.compositorInfo);
-        else
+        } else {
           this.setTable_('compositor-info', []);
+        }
 
-        if (gpuInfo.gpuMemoryBufferInfo)
+        if (gpuInfo.gpuMemoryBufferInfo) {
           this.setTable_('gpu-memory-buffer-info', gpuInfo.gpuMemoryBufferInfo);
-        else
+        } else {
           this.setTable_('gpu-memory-buffer-info', []);
+        }
 
-        if (gpuInfo.displayInfo)
+        if (gpuInfo.displayInfo) {
           this.setTable_('display-info', gpuInfo.displayInfo);
-        else
+        } else {
           this.setTable_('display-info', []);
+        }
 
         if (gpuInfo.videoAcceleratorsInfo) {
           this.setTable_(
@@ -229,7 +232,6 @@ cr.define('gpu', function() {
         'webgl2': 'WebGL2',
         'viz_display_compositor': 'Viz Service Display Compositor',
         'skia_renderer': 'Skia Renderer',
-        'skia_deferred_display_list': 'Skia Deferred Display List',
       };
 
       var statusMap = {
@@ -267,8 +269,9 @@ cr.define('gpu', function() {
         var featureEl = document.createElement('li');
 
         var nameEl = document.createElement('span');
-        if (!featureLabelMap[featureName])
+        if (!featureLabelMap[featureName]) {
           console.log('Missing featureLabel for', featureName);
+        }
         nameEl.textContent = featureLabelMap[featureName] + ': ';
         featureEl.appendChild(nameEl);
 
@@ -357,10 +360,11 @@ cr.define('gpu', function() {
         problemEl.appendChild(iNode);
 
         var headNode = document.createElement('span');
-        if (problem.tag == 'disabledFeatures')
+        if (problem.tag == 'disabledFeatures') {
           headNode.textContent = 'Disabled Features: ';
-        else  // problem.tag == 'workarounds'
+        } else {  // problem.tag == 'workarounds'
           headNode.textContent = 'Applied Workarounds: ';
+        }
         iNode.appendChild(headNode);
         for (j = 0; j < problem.affectedGpuSettings.length; ++j) {
           if (j > 0) {
@@ -369,10 +373,11 @@ cr.define('gpu', function() {
             iNode.appendChild(separateNode);
           }
           var nameNode = document.createElement('span');
-          if (problem.tag == 'disabledFeatures')
+          if (problem.tag == 'disabledFeatures') {
             nameNode.classList.add('feature-red');
-          else  // problem.tag == 'workarounds'
+          } else {  // problem.tag == 'workarounds'
             nameNode.classList.add('feature-yellow');
+          }
           nameNode.textContent = problem.affectedGpuSettings[j];
           iNode.appendChild(nameNode);
         }
@@ -382,7 +387,7 @@ cr.define('gpu', function() {
     },
 
     setText_: function(outputElementId, text) {
-      var peg = document.getElementById(outputElementId);
+      var peg = $(outputElementId);
       peg.textContent = text;
     },
 
@@ -390,9 +395,10 @@ cr.define('gpu', function() {
       var template = jstGetTemplate('info-view-table-template');
       jstProcess(new JsEvalContext({value: inputData}), template);
 
-      var peg = document.getElementById(outputElementId);
-      if (!peg)
+      var peg = $(outputElementId);
+      if (!peg) {
         throw new Error('Node ' + outputElementId + ' not found');
+      }
 
       peg.innerHTML = '';
       peg.appendChild(template);

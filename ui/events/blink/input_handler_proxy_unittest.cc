@@ -49,15 +49,6 @@ namespace test {
 
 namespace {
 
-const char* kCoalescedCountHistogram =
-    "Event.CompositorThreadEventQueue.CoalescedCount";
-const char* kContinuousHeadQueueingTimeHistogram =
-    "Event.CompositorThreadEventQueue.Continuous.HeadQueueingTime";
-const char* kContinuousTailQueueingTimeHistogram =
-    "Event.CompositorThreadEventQueue.Continuous.TailQueueingTime";
-const char* kNonContinuousQueueingTimeHistogram =
-    "Event.CompositorThreadEventQueue.NonContinuous.QueueingTime";
-
 enum InputHandlerProxyTestType {
   ROOT_SCROLL_NORMAL_HANDLER,
   ROOT_SCROLL_SYNCHRONOUS_HANDLER,
@@ -1406,8 +1397,6 @@ TEST(SynchronousInputHandlerProxyTest, SetOffset) {
 }
 
 TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedGestureScroll) {
-  base::HistogramTester histogram_tester;
-
   // Handle scroll on compositor.
   cc::InputHandlerScrollResult scroll_result_did_scroll_;
   scroll_result_did_scroll_.did_scroll = true;
@@ -1465,12 +1454,9 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedGestureScroll) {
   EXPECT_EQ(InputHandlerProxy::DID_HANDLE, event_disposition_recorder_[2]);
   EXPECT_EQ(InputHandlerProxy::DID_HANDLE, event_disposition_recorder_[3]);
   testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
-  histogram_tester.ExpectUniqueSample(kCoalescedCountHistogram, 2, 1);
 }
 
 TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedGestureScrollPinchScroll) {
-  base::HistogramTester histogram_tester;
-
   // Handle scroll on compositor.
   cc::InputHandlerScrollResult scroll_result_did_scroll_;
   scroll_result_did_scroll_.did_scroll = true;
@@ -1530,12 +1516,9 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedGestureScrollPinchScroll) {
   EXPECT_EQ(0ul, event_queue().size());
   EXPECT_EQ(12ul, event_disposition_recorder_.size());
   testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
-  histogram_tester.ExpectBucketCount(kCoalescedCountHistogram, 1, 2);
-  histogram_tester.ExpectBucketCount(kCoalescedCountHistogram, 2, 2);
 }
 
 TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedQueueingTime) {
-  base::HistogramTester histogram_tester;
   base::SimpleTestTickClock tick_clock;
   tick_clock.SetNowTicks(base::TimeTicks::Now());
   SetInputHandlerProxyTickClockForTesting(&tick_clock);
@@ -1569,13 +1552,6 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedQueueingTime) {
   EXPECT_EQ(0ul, event_queue().size());
   EXPECT_EQ(5ul, event_disposition_recorder_.size());
   testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
-  histogram_tester.ExpectUniqueSample(kContinuousHeadQueueingTimeHistogram, 140,
-                                      1);
-  histogram_tester.ExpectUniqueSample(kContinuousTailQueueingTimeHistogram, 80,
-                                      1);
-  histogram_tester.ExpectBucketCount(kNonContinuousQueueingTimeHistogram, 0, 1);
-  histogram_tester.ExpectBucketCount(kNonContinuousQueueingTimeHistogram, 70,
-                                     1);
 }
 
 TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedCoalesceScrollAndPinch) {
@@ -1643,6 +1619,41 @@ TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedCoalesceScrollAndPinch) {
   EXPECT_EQ(WebInputEvent::kGestureScrollEnd,
             event_queue()[10]->event().GetType());
   testing::Mock::VerifyAndClearExpectations(&mock_input_handler_);
+}
+
+TEST_F(InputHandlerProxyEventQueueTest, VSyncAlignedCoalesceTouchpadPinch) {
+  EXPECT_CALL(mock_input_handler_, PinchGestureBegin());
+  EXPECT_CALL(mock_input_handler_, SetNeedsAnimateInput());
+
+  HandleGestureEventWithSourceDevice(WebInputEvent::kGesturePinchBegin,
+                                     blink::kWebGestureDeviceTouchpad);
+  HandleGestureEventWithSourceDevice(WebInputEvent::kGesturePinchUpdate,
+                                     blink::kWebGestureDeviceTouchpad, 1.1f, 10,
+                                     20);
+  // The second update should coalesce with the first.
+  HandleGestureEventWithSourceDevice(WebInputEvent::kGesturePinchUpdate,
+                                     blink::kWebGestureDeviceTouchpad, 1.1f, 10,
+                                     20);
+  // The third update has a different anchor so it should not be coalesced.
+  HandleGestureEventWithSourceDevice(WebInputEvent::kGesturePinchUpdate,
+                                     blink::kWebGestureDeviceTouchpad, 1.1f, 11,
+                                     21);
+  HandleGestureEventWithSourceDevice(WebInputEvent::kGesturePinchEnd,
+                                     blink::kWebGestureDeviceTouchpad);
+
+  // Only the PinchBegin was dispatched.
+  EXPECT_EQ(3ul, event_queue().size());
+  EXPECT_EQ(1ul, event_disposition_recorder_.size());
+
+  ASSERT_EQ(WebInputEvent::kGesturePinchUpdate,
+            event_queue()[0]->event().GetType());
+  EXPECT_FLOAT_EQ(
+      1.21f,
+      ToWebGestureEvent(event_queue()[0]->event()).data.pinch_update.scale);
+  EXPECT_EQ(WebInputEvent::kGesturePinchUpdate,
+            event_queue()[1]->event().GetType());
+  EXPECT_EQ(WebInputEvent::kGesturePinchEnd,
+            event_queue()[2]->event().GetType());
 }
 
 TEST_F(InputHandlerProxyEventQueueTest, OriginalEventsTracing) {
@@ -2151,7 +2162,7 @@ TEST_P(InputHandlerProxyMainThreadScrollingReasonTest, WheelScrollHistogram) {
       blink::kWebGestureDeviceTouchpad,
       cc::MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects |
           cc::MainThreadScrollingReason::kThreadedScrollingDisabled |
-          cc::MainThreadScrollingReason::kPageOverlay |
+          cc::MainThreadScrollingReason::kFrameOverlay |
           cc::MainThreadScrollingReason::kHandlingScrollFromMainThread);
 
   EXPECT_THAT(
@@ -2166,7 +2177,7 @@ TEST_P(InputHandlerProxyMainThreadScrollingReasonTest, WheelScrollHistogram) {
                   cc::MainThreadScrollingReason::kThreadedScrollingDisabled),
               1),
           base::Bucket(
-              GetBucketSample(cc::MainThreadScrollingReason::kPageOverlay),
+              GetBucketSample(cc::MainThreadScrollingReason::kFrameOverlay),
               1)));
 
   // We only want to record "Handling scroll from main thread" reason if it's
@@ -2190,7 +2201,7 @@ TEST_P(InputHandlerProxyMainThreadScrollingReasonTest, WheelScrollHistogram) {
                   cc::MainThreadScrollingReason::kThreadedScrollingDisabled),
               1),
           base::Bucket(
-              GetBucketSample(cc::MainThreadScrollingReason::kPageOverlay), 1),
+              GetBucketSample(cc::MainThreadScrollingReason::kFrameOverlay), 1),
           base::Bucket(
               GetBucketSample(
                   cc::MainThreadScrollingReason::kHandlingScrollFromMainThread),

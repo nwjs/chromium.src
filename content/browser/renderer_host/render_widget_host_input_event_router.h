@@ -11,7 +11,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "base/containers/hash_tables.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
@@ -55,6 +54,7 @@ namespace content {
 class RenderWidgetHostImpl;
 class RenderWidgetHostView;
 class RenderWidgetHostViewBase;
+class RenderWidgetHostViewChildFrame;
 class RenderWidgetTargeter;
 class TouchEmulator;
 class TouchEventAckQueue;
@@ -100,15 +100,16 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
 
   // |event| is in root coordinates.
   void BubbleScrollEvent(RenderWidgetHostViewBase* target_view,
-                         const blink::WebGestureEvent& event,
-                         const RenderWidgetHostViewBase* resending_view);
-  void CancelScrollBubbling(RenderWidgetHostViewBase* target_view);
+                         RenderWidgetHostViewChildFrame* resending_view,
+                         const blink::WebGestureEvent& event);
+  void WillDetachChildView(
+      const RenderWidgetHostViewChildFrame* detaching_view);
 
   void AddFrameSinkIdOwner(const viz::FrameSinkId& id,
                            RenderWidgetHostViewBase* owner);
   void RemoveFrameSinkIdOwner(const viz::FrameSinkId& id);
 
-  bool is_registered(const viz::FrameSinkId& id) {
+  bool is_registered(const viz::FrameSinkId& id) const {
     return owner_map_.find(id) != owner_map_.end();
   }
 
@@ -147,6 +148,10 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
   // flinging.
   void StopFling();
 
+  // Returns true if |view| is currently registered in the router's owners map.
+  bool IsViewInMap(const RenderWidgetHostViewBase* view) const;
+  bool ViewMapIsEmpty() const;
+
   // TouchEmulatorClient:
   void ForwardEmulatedGestureEvent(
       const blink::WebGestureEvent& event) override;
@@ -155,6 +160,8 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
   void SetCursor(const WebCursor& cursor) override;
   void ShowContextMenuAtPoint(const gfx::Point& point,
                               const ui::MenuSourceType source_type) override;
+
+  size_t TouchEventAckQueueLengthForTesting() const;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(BrowserSideFlingBrowserTest,
@@ -182,7 +189,6 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
                                                  viz::FrameSinkIdHash>;
   struct TargetData {
     RenderWidgetHostViewBase* target;
-    gfx::Vector2dF delta;
     gfx::Transform transform;
 
     TargetData() : target(nullptr) {}
@@ -197,7 +203,6 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
       viz::EventSource source,
       gfx::PointF* transformed_point) const;
 
-  bool IsViewInMap(const RenderWidgetHostViewBase* view) const;
   void RouteTouchscreenGestureEvent(RenderWidgetHostViewBase* root_view,
                                     const blink::WebGestureEvent* event,
                                     const ui::LatencyInfo& latency);
@@ -224,13 +229,24 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
                                    RenderWidgetHostViewBase* target,
                                    RenderWidgetHostViewBase* root_view);
 
-  // The following methods take a GestureScrollUpdate event and send a
-  // GestureScrollBegin or GestureScrollEnd for wrapping it. This is needed
-  // when GestureScrollUpdates are being forwarded for scroll bubbling.
+  void CancelScrollBubbling();
+
+  // Cancels scroll bubbling if it is unsafe to send a gesture event sequence
+  // to |target| considering the views involved in an ongoing scroll.
+  void CancelScrollBubblingIfConflicting(
+      const RenderWidgetHostViewBase* target);
+
+  // Wraps a touchscreen GesturePinchBegin in a GestureScrollBegin.
   void SendGestureScrollBegin(RenderWidgetHostViewBase* view,
                               const blink::WebGestureEvent& event);
+  // Used to end a scroll sequence during scroll bubbling or as part of a
+  // wrapped pinch gesture.
   void SendGestureScrollEnd(RenderWidgetHostViewBase* view,
                             const blink::WebGestureEvent& event);
+  // Used when scroll bubbling is canceled to indicate to |view| that it should
+  // consider the scroll sequence to have ended.
+  void SendGestureScrollEnd(RenderWidgetHostViewBase* view,
+                            blink::WebGestureDevice source_device);
 
   // Helper functions to implement RenderWidgetTargeter::Delegate functions.
   RenderWidgetTargetResult FindMouseEventTarget(
@@ -314,11 +330,11 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
   // The following variable is temporary, for diagnosis of
   // https://crbug.com/824774.
   bool touchscreen_gesture_target_in_map_;
-  TargetData touchpad_gesture_target_;
-  TargetData bubbling_gesture_scroll_target_;
-  TargetData first_bubbling_scroll_target_;
+  RenderWidgetHostViewBase* touchpad_gesture_target_ = nullptr;
+  RenderWidgetHostViewBase* bubbling_gesture_scroll_target_ = nullptr;
+  RenderWidgetHostViewChildFrame* bubbling_gesture_scroll_origin_ = nullptr;
   // Used to target wheel events for the duration of a scroll.
-  TargetData wheel_target_;
+  RenderWidgetHostViewBase* wheel_target_ = nullptr;
   // Maintains the same target between mouse down and mouse up.
   TargetData mouse_capture_target_;
 

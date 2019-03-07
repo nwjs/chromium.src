@@ -22,6 +22,7 @@ from __future__ import print_function
 
 import argparse
 import code
+import itertools
 import logging
 import os
 import re
@@ -292,24 +293,8 @@ class MapFileParserGold(object):
         raise
 
 
-class _SymbolMaker(object):
-  def __init__(self):
-    self.syms = []
-    self.cur_sym = None
-
-  def Flush(self):
-    if self.cur_sym:
-      self.syms.append(self.cur_sym)
-      self.cur_sym = None
-
-  def Create(self, *args, **kwargs):
-    self.Flush()
-    self.cur_sym = models.Symbol(*args, **kwargs)
-
-
 class MapFileParserLld(object):
   """Parses a linker map file from LLD."""
-  # TODO(huangs): Add LTO support.
   # Map file writer for LLD linker (for ELF):
   # https://github.com/llvm-mirror/lld/blob/HEAD/ELF/MapFile.cpp
   _LINE_RE_V0 = re.compile(r'([0-9a-f]+)\s+([0-9a-f]+)\s+(\d+) ( *)(.*)')
@@ -321,6 +306,86 @@ class MapFileParserLld(object):
     self._linker_name = linker_name
     self._common_symbols = []
     self._section_sizes = {}
+
+  @staticmethod
+  def ParseArmAnnotations(tok):
+    """Decides whether a Level 3 token is an annotation.
+
+    Returns:
+      A 2-tuple (is_annotation, next_thumb2_mode):
+        is_annotation: Whether |tok| is an annotation.
+        next_thumb2_mode: New |thumb2_mode| value, or None if keep old value.
+    """
+    # Annotations for ARM match '$t', '$d.1', but not '$_21::invoke'.
+    if tok.startswith('$') and (len(tok) == 2 or
+                                (len(tok) >= 3 and tok[2] == '.')):
+      if tok.startswith('$t'):
+        return True, True  # Is annotation, enter Thumb2 mode.
+      if tok.startswith('$a'):
+        return True, False  # Is annotation, enter ARM32 mode.
+      return True, None  # Is annotation, keep old |thumb2_mode| value.
+    return False, None  # Not annotation, keep old |thumb2_mode| value.
+
+  def Tokenize(self, lines):
+    """Generator to filter and tokenize linker map lines."""
+    # Extract e.g., 'lld_v0' -> 0, or 'lld-lto_v1' -> 1.
+    map_file_version = int(self._linker_name.split('_v')[1])
+    pattern = MapFileParserLld._LINE_RE[map_file_version]
+
+    # A Level 3 symbol can have |size == 0| in some situations (e.g., assembly
+    # code symbols). To provided better size estimates in this case, the "span"
+    # of a Level 3 symbol is computed as:
+    #  (A) The |address| difference compared to the next Level 3 symbol.
+    #  (B) If the Level 3 symbol is the last among Level 3 lines nested under a
+    #      Level 2 line: The difference between the Level 3 symbol's |address|
+    #      and the containing Level 2 line's end address.
+    # To handle (A), |lines| is visited using a one-step lookahead, using
+    # |sentinel| to handle the last line. To handle (B), |level2_end_address| is
+    # computed for each Level 2 line.
+    sentinel = '0 0 0 0 THE_END'
+    assert pattern.match(sentinel)
+    level2_end_address = None
+    thumb2_mode = False
+    (line, address, size, level, tok) = (None, None, None, None, None)
+    for next_line in itertools.chain(lines, (sentinel,)):
+      m = pattern.match(next_line)
+      if m is None:
+        continue
+      next_address = int(m.group(1), 16)
+      next_size = int(m.group(2), 16)
+      next_level = (len(m.group(4)) // 8) + 1  # Add 1 to agree with comments.
+      next_tok = m.group(5)
+
+      if next_level == 3:
+        assert level >= 2, 'Cannot jump from Level 1 to Level 3.'
+        # Detect annotations. If found, maybe update |thumb2_mode|, then skip.
+        (is_annotation, next_thumb2_mode) = (
+            MapFileParserLld.ParseArmAnnotations(next_tok))
+        if is_annotation:
+          if next_thumb2_mode:
+            thumb2_mode = next_thumb2_mode
+          continue  # Skip annotations.
+        if thumb2_mode:
+          # Adjust odd address to even. Alignment is not guanteed for all
+          # symbols (e.g., data, or x86), so this is judiciously applied.
+          next_address &= ~1
+      else:
+        thumb2_mode = False  # Resets on leaving Level 3.
+
+      if address is not None:
+        span = None
+        if level == 3:
+          span = next_address if next_level == 3 else level2_end_address
+          span -= address
+        elif level == 2:
+          level2_end_address = address + size
+        yield (line, address, size, level, span, tok)
+
+      line = next_line
+      address = next_address
+      size = next_size
+      level = next_level
+      tok = next_tok
 
   def Parse(self, lines):
     """Parses a linker map file.
@@ -363,26 +428,30 @@ class MapFileParserLld(object):
 # 00000000002010c0 0000000000000000     0                 frame_dummy
 # 00000000002010ed 0000000000000071     1         a.o:(.text)
 # 00000000002010ed 0000000000000071     0                 main
-    # Extract e.g., 'lld_v0' -> 0, or 'lld-lto_v1' -> 1.
-    map_file_version = int(self._linker_name.split('_v')[1])
-    pattern = MapFileParserLld._LINE_RE[map_file_version]
-
-    sym_maker = _SymbolMaker()
+    syms = []
     cur_section = None
     cur_section_is_useful = None
     promoted_name_count = 0
+    # A Level 2 line does not supply |full_name| data (unless '<internal>').
+    # This would be taken from a Level 3 line. |is_partial| indicates that an
+    # eligible Level 3 line should be used to update |syms[-1].full_name|
+    # instead of creating a new symbol.
+    is_partial = False
+    # Assembly code can create consecutive Level 3 lines with |size == 0|. These
+    # lines can represent
+    #  (1) assembly functions (should form symbol), or
+    #  (2) assembly labels (should NOT form symbol).
+    # It seems (2) correlates with the presence of a leading Level 3 line with
+    # |size > 0|. This gives rise to the following strategy: Each symbol S from
+    # a Level 3 line suppresses Level 3 lines with |address| less than
+    # |next_usable_address := S.address + S.size|.
+    next_usable_address = 0
 
-    for line in lines:
-      m = pattern.match(line)
-      if m is None:
-        continue
-      address = int(m.group(1), 16)
-      size = int(m.group(2), 16)
-      indent_size = len(m.group(4))
-      tok = m.group(5)
-
-      if indent_size == 0:
-        sym_maker.Flush()
+    tokenizer = self.Tokenize(lines)
+    for (line, address, size, level, span, tok) in tokenizer:
+      # Level 1 data match the "Out" column. They specify sections or
+      # PROVIDE_HIDDEN lines.
+      if level == 1:
         if not tok.startswith('PROVIDE_HIDDEN'):
           self._section_sizes[tok] = size
         cur_section = tok
@@ -393,14 +462,18 @@ class MapFileParserLld(object):
                             models.SECTION_RODATA,
                             models.SECTION_TEXT) or
             cur_section.startswith(models.SECTION_DATA))
+
       elif cur_section_is_useful:
-        if indent_size == 8:
-          sym_maker.Flush()
-          # e.g. path.o:(.text._name)
+        # Level 2 data match the "In" column. They specify object paths and
+        # section names within objects, or '<internal>:...'.
+        if level == 2:
+          # Create a symbol here since there may be no ensuing Level 3 lines.
+          # But if there are, then the symbol can be modified later as sym[-1].
+          syms.append(models.Symbol(cur_section, size, address=address))
+          # E.g., 'path.o:(.text._name)' => ['path.o', '(.text._name)'].
           cur_obj, paren_value = tok.split(':')
-          # "(.text._name)" -> "_name".
+          # E.g., '(.text._name)' -> '_name'.
           mangled_name = paren_value[mangled_start_idx:-1]
-          sym_maker.Create(cur_section, size, address=address)
           # As of 2017/11 LLD does not distinguish merged strings from other
           # merged data. Feature request is filed under:
           # https://bugs.llvm.org/show_bug.cgi?id=35248
@@ -409,25 +482,42 @@ class MapFileParserLld(object):
               # Treat all <internal> sections within .rodata as as string
               # literals. Some may hold numeric constants or other data, but
               # there is currently no way to distinguish them.
-              sym_maker.cur_sym.full_name = '** lld merge strings'
+              syms[-1].full_name = '** lld merge strings'
             else:
               # e.g. <internal>:(.text.thunk)
-              sym_maker.cur_sym.full_name = '** ' + mangled_name
+              syms[-1].full_name = '** ' + mangled_name
+            cur_obj = None
           elif cur_obj == 'lto.tmp' or 'thinlto-cache' in cur_obj:
-            pass
-          else:
-            sym_maker.cur_sym.object_path = cur_obj
+            cur_obj = None
+          if cur_obj is not None:
+            syms[-1].object_path = cur_obj
 
-        elif indent_size == 16:
+          is_partial = not bool(syms[-1].full_name)
+          # Level 3 |address| is nested under Level 2, don't add |size|.
+          next_usable_address = address
+
+        # Level 3 data match the "Symbol" column. They specify symbol names or
+        # special names such as '.L_MergeGlobals'. Annotations such as '$d',
+        # '$t.42' also appear at Level 3, but they are consumed by |tokenizer|,
+        # so don't appear hear.
+        elif level == 3:
           # Ignore anything with '.L_MergedGlobals' prefix. This seems to only
           # happen for ARM (32-bit) builds.
           if tok.startswith('.L_MergedGlobals'):
             continue
-          # If multiple entries exist, take the first on that reports a size.
-          # Zero-length symbols look like "$t.4", "$d.5".
-          if size and not sym_maker.cur_sym.full_name:
+
+          # Use |span| to decide whether to use a Level 3 line for Symbols. This
+          # is useful for two purposes:
+          # * This is a better indicator than |size|, which can be 0 for
+          #   assembly functions.
+          # * If multiple Level 3 lines have the same starting address, this
+          #   cause all but the last line to have |span > 0|. This dedups lines
+          #   with identical symbol names (why do they exist?). Note that this
+          #   also skips legitimate aliases, but that's desired because nm.py
+          #   (downstream) assumes no aliases already exist.
+          if span > 0:
             # Outlined functions have names like OUTLINED_FUNCTION_0, which can
-            # appear 1000+ time that can cause false aliasing. We treat these as
+            # appear 1000+ time, and can cause false aliasing. We treat these as
             # special cases by designating them as a placeholder symbols and
             # renaming them to '** outlined function'.
             if tok.startswith('OUTLINED_FUNCTION_'):
@@ -436,14 +526,39 @@ class MapFileParserLld(object):
             if len(tok) != len(stripped_tok):
               promoted_name_count += 1
               tok = stripped_tok
-            sym_maker.cur_sym.full_name = tok
+
+            # Handle special case where a partial symbol consumes bytes before
+            # the first Level 3 symbol.
+            if is_partial and syms[-1].address < address:
+              # Truncate the partial symbol and leave it without |full_name|.
+              # The data from the current line will form a new symbol.
+              syms[-1].size = address - syms[-1].address
+              next_usable_address = address
+              is_partial = False
+
+            if is_partial:
+              syms[-1].full_name = tok
+              syms[-1].size = size if size > 0 else min(syms[-1].size, span)
+              next_usable_address = address + syms[-1].size
+              is_partial = False
+            elif address >= next_usable_address:
+              # Prefer |size|, and only fall back to |span| if |size == 0|.
+              size_to_use = size if size > 0 else span
+              syms.append(
+                  models.Symbol(
+                      cur_section, size_to_use, address=address, full_name=tok))
+              # Suppress symbols with overlapping |address|. This eliminates
+              # labels from assembly sources.
+              next_usable_address = address + size_to_use
+              if cur_obj is not None:
+                syms[-1].object_path = cur_obj
+
         else:
           logging.error('Problem line: %r', line)
 
-    sym_maker.Flush()
     if promoted_name_count:
       logging.info('Found %d promoted global names', promoted_name_count)
-    return self._section_sizes, sym_maker.syms
+    return self._section_sizes, syms
 
 
 def _DetectLto(lines):
@@ -541,6 +656,7 @@ def main():
       default=0,
       action='count',
       help='Verbose level (multiple times for more)')
+  parser.add_argument('--dump', action='store_true')
   args = parser.parse_args()
 
   logging.basicConfig(
@@ -554,17 +670,22 @@ def main():
   with open(args.linker_file, 'r') as map_file:
     section_sizes, syms = MapFileParser().Parse(linker_name, map_file)
 
-  # Enter interactive shell.
-  readline.parse_and_bind('tab: complete')
-  variables = {'section_sizes': section_sizes, 'syms': syms}
-  banner_lines = [
-      '*' * 80,
-      'Variables:',
-      '  section_sizes: Map from section to sizes.',
-      '  syms: Raw symbols parsed from the linker map file.',
-      '*' * 80,
-  ]
-  code.InteractiveConsole(variables).interact('\n'.join(banner_lines))
+  if args.dump:
+    print(section_sizes)
+    for sym in syms:
+      print(sym)
+  else:
+    # Enter interactive shell.
+    readline.parse_and_bind('tab: complete')
+    variables = {'section_sizes': section_sizes, 'syms': syms}
+    banner_lines = [
+        '*' * 80,
+        'Variables:',
+        '  section_sizes: Map from section to sizes.',
+        '  syms: Raw symbols parsed from the linker map file.',
+        '*' * 80,
+    ]
+    code.InteractiveConsole(variables).interact('\n'.join(banner_lines))
 
 
 if __name__ == '__main__':

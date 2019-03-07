@@ -64,8 +64,7 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
 
   bool use_swap_with_bounds() const { return use_swap_with_bounds_; }
 
-  void SwapBuffers(std::vector<ui::LatencyInfo> latency_info,
-                   bool need_presentation_feedback) override;
+  void SwapBuffers(std::vector<ui::LatencyInfo> latency_info) override;
   void SwapBuffersComplete() override;
 
   void DidReceiveTextureInUseResponses(
@@ -197,7 +196,9 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
       const cc::FilterOperations* filters,
       const cc::FilterOperations* backdrop_filters,
       const gfx::QuadF* clip_region,
+      const gfx::RectF* backdrop_filter_bounds_input,
       bool use_aa,
+      gfx::Rect* backdrop_filter_bounds,
       gfx::Rect* unclipped_rect);
   // Allocates and returns a texture id that contains a copy of the contents
   // of the current RenderPass being drawn.
@@ -206,13 +207,23 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
   static bool ShouldApplyBackgroundFilters(
       const RenderPassDrawQuad* quad,
       const cc::FilterOperations* backdrop_filters);
+  // Applies the backdrop filters to the backdrop that has been painted to this
+  // point, and returns it as an SkImage. Any opacity and/or "regular"
+  // (non-backdrop) filters will also be applied directly to the backdrop-
+  // filtered image at this point, so that the final result is as if the
+  // filtered backdrop image was painted as the starting point for this new
+  // stacking context, which would then be painted into its parent with opacity
+  // and filters applied. This is an approximation, but it should be close
+  // enough.
   sk_sp<SkImage> ApplyBackgroundFilters(
       const RenderPassDrawQuad* quad,
-      const cc::FilterOperations& backdrop_filters,
+      const cc::FilterOperations* backdrop_filters,
+      const cc::FilterOperations* regular_filters,
       uint32_t background_texture,
       const gfx::Rect& rect,
       const gfx::Rect& unclipped_rect,
-      const float backdrop_filter_quality);
+      const float backdrop_filter_quality,
+      const gfx::Rect& backdrop_filter_bounds);
 
   const TileDrawQuad* CanPassBeDrawnDirectly(const RenderPass* pass) override;
 
@@ -306,7 +317,6 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
   void SetupOverdrawFeedback();
   void FlushOverdrawFeedback(const gfx::Rect& output_rect);
   // Process overdraw feedback from query.
-  using OverdrawFeedbackCallback = base::Callback<void(unsigned, int)>;
   void ProcessOverdrawFeedback(std::vector<int>* overdraw,
                                size_t num_expected_results,
                                int max_result,

@@ -106,10 +106,10 @@ void MetricsRenderFrameObserver::DidStartResponse(
     // case. There should be a guarantee that DidStartProvisionalLoad be called
     // before DidStartResponse for the frame request.
     provisional_frame_resource_data_use_->DidStartResponse(
-        response_url, request_id, response_head);
+        response_url, request_id, response_head, resource_type);
   } else if (page_timing_metrics_sender_) {
     page_timing_metrics_sender_->DidStartResponse(response_url, request_id,
-                                                  response_head);
+                                                  response_head, resource_type);
     UpdateResourceMetadata(request_id);
   }
 }
@@ -307,10 +307,6 @@ mojom::PageLoadTimingPtr MetricsRenderFrameObserver::GetTiming() const {
         ClampDelta(perf.FirstLayout(), start);
   if (perf.FirstPaint() > 0.0)
     timing->paint_timing->first_paint = ClampDelta(perf.FirstPaint(), start);
-  if (perf.FirstTextPaint() > 0.0) {
-    timing->paint_timing->first_text_paint =
-        ClampDelta(perf.FirstTextPaint(), start);
-  }
   if (perf.FirstImagePaint() > 0.0) {
     timing->paint_timing->first_image_paint =
         ClampDelta(perf.FirstImagePaint(), start);
@@ -326,18 +322,27 @@ mojom::PageLoadTimingPtr MetricsRenderFrameObserver::GetTiming() const {
   if (perf.LargestImagePaint() > 0.0) {
     timing->paint_timing->largest_image_paint =
         ClampDelta(perf.LargestImagePaint(), start);
+    DCHECK(perf.LargestImagePaintSize() > 0);
+    timing->paint_timing->largest_image_paint_size =
+        perf.LargestImagePaintSize();
   }
   if (perf.LastImagePaint() > 0.0) {
     timing->paint_timing->last_image_paint =
         ClampDelta(perf.LastImagePaint(), start);
+    DCHECK(perf.LastImagePaintSize() > 0);
+    timing->paint_timing->last_image_paint_size = perf.LastImagePaintSize();
   }
   if (perf.LargestTextPaint() > 0.0) {
     timing->paint_timing->largest_text_paint =
         ClampDelta(perf.LargestTextPaint(), start);
+    DCHECK(perf.LargestTextPaintSize() > 0);
+    timing->paint_timing->largest_text_paint_size = perf.LargestTextPaintSize();
   }
   if (perf.LastTextPaint() > 0.0) {
     timing->paint_timing->last_text_paint =
         ClampDelta(perf.LastTextPaint(), start);
+    DCHECK(perf.LastTextPaintSize() > 0);
+    timing->paint_timing->last_text_paint_size = perf.LastTextPaintSize();
   }
   if (perf.ParseStart() > 0.0)
     timing->parse_timing->parse_start = ClampDelta(perf.ParseStart(), start);

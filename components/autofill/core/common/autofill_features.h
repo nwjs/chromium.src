@@ -21,6 +21,7 @@ namespace autofill {
 namespace features {
 
 // All features in alphabetical order.
+extern const base::Feature kAutocompleteRetentionPolicyEnabled;
 extern const base::Feature kAutofillAllowNonHttpActivation;
 extern const base::Feature kAutofillAddressNormalizer;
 extern const base::Feature kAutofillAlwaysFillAddresses;
@@ -41,8 +42,8 @@ extern const base::Feature kAutofillEnableIFrameSupportOniOS;
 extern const base::Feature kAutofillEnforceMinRequiredFieldsForHeuristics;
 extern const base::Feature kAutofillEnforceMinRequiredFieldsForQuery;
 extern const base::Feature kAutofillEnforceMinRequiredFieldsForUpload;
-extern const base::Feature kAutofillExpandedPopupViews;
 extern const base::Feature kAutofillGetPaymentsIdentityFromSync;
+extern const base::Feature kAutofillImportNonFocusableCreditCardForms;
 extern const base::Feature kAutofillKeyboardAccessory;
 extern const base::Feature kAutofillLocalCardMigrationShowFeedback;
 extern const base::Feature kAutofillManualFallback;
@@ -52,18 +53,18 @@ extern const base::Feature kAutofillPreferServerNamePredictions;
 extern const base::Feature kAutofillNoLocalSaveOnUploadSuccess;
 extern const base::Feature kAutofillOverrideWithRaterConsensus;
 extern const base::Feature kAutofillPrefilledFields;
-extern const base::Feature kAutofillRationalizeFieldTypePredictions;
-extern const base::Feature kAutofillRationalizeRepeatedServerPredictions;
 extern const base::Feature kAutofillRestrictUnownedFieldsToFormlessCheckout;
 extern const base::Feature kAutofillRichMetadataQueries;
 extern const base::Feature kAutofillSaveCardDialogUnlabeledExpirationDate;
 extern const base::Feature kAutofillSaveCardImprovedUserConsent;
 extern const base::Feature kAutofillSaveCardSignInAfterLocalSave;
 extern const base::Feature kAutofillSaveCreditCardUsesStrikeSystem;
+extern const base::Feature kAutofillSaveCreditCardUsesStrikeSystemV2;
 extern const base::Feature kAutofillSaveOnProbablySubmitted;
 extern const base::Feature kAutofillSendExperimentIdsInPaymentsRPCs;
 extern const base::Feature kAutofillSendOnlyCountryInGetUploadDetails;
 extern const base::Feature kAutofillServerCommunication;
+extern const base::Feature kAutofillSettingsCardTypeSplit;
 extern const base::Feature kAutofillShowAllSuggestionsOnPrefilledForms;
 extern const base::Feature kAutofillShowAutocompleteConsoleWarnings;
 extern const base::Feature kAutofillShowTypePredictions;
@@ -82,9 +83,9 @@ extern const base::Feature kAutofillUpstreamEditableCardholderName;
 extern const base::Feature kAutofillUpstreamEditableExpirationDate;
 extern const base::Feature kAutofillUpstreamUseGooglePayBrandingOnMobile;
 extern const base::Feature kAutofillUseApi;
+extern const base::Feature kAutofillProfileClientValidation;
 extern const base::Feature kAutofillUsePaymentsCustomerData;
 extern const base::Feature kAutomaticPasswordGeneration;
-extern const base::Feature kSingleClickAutofill;
 extern const char kAutofillCreditCardLastUsedDateShowExpirationDateKey[];
 extern const char kAutofillLocalCardMigrationCloseButtonDelay[];
 extern const char kAutofillCreditCardLocalCardMigrationParameterName[];
@@ -149,11 +150,6 @@ bool IsPasswordManualFallbackEnabled();
 // Returns whether the UI for addresses and credit cards in manual fallback is
 // enabled.
 bool IsAutofillManualFallbackEnabled();
-
-// Returns true if the native Views implementation of the Desktop dropdown
-// should be used. This will also be true if the kExperimentalUi flag is true,
-// which forces a bunch of forthcoming UI changes on.
-bool ShouldUseNativeViews();
 
 // Returns true if expiration dates on the save card dialog should be
 // unlabeled, i.e. not preceded by "Exp."

@@ -152,13 +152,13 @@ android_library("java") {
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrCoreVersionChecker.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrDaydreamApi.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrDelegateImpl.java",
+    "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrIntentDelegateImpl.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrDelegateProviderImpl.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrDialog.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrDialogManager.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrFeedbackStatus.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrFirstRunActivity.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrInputConnection.java",
-    "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrIntentUtils.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrModalPresenter.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrPopupWindow.java",
     "//chrome/android/java/src/org/chromium/chrome/browser/vr/VrShell.java",
@@ -183,6 +183,19 @@ android_library("java") {
     "//third_party/gvr-android-sdk:gvr_common_java",
     "//ui/android:ui_full_java",
     "//ui/android:ui_utils_java",
+  ]
+}
+
+android_library("ar_java") {
+  deps = [
+    "//third_party/android_deps:com_google_ar_core_java",
+  ]
+
+  java_files = [ "//chrome/android/java/src/org/chromium/chrome/browser/vr/ArCoreShimImpl.java" ]
+
+  classpath_deps = [
+    "//base:base_java",
+    "//chrome/android:chrome_java",
   ]
 }
 

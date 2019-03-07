@@ -64,6 +64,7 @@
 #endif
 
 #if defined(OS_WIN)
+#include "base/trace_event/trace_event_etw_export_win.h"
 #include "base/win/scoped_com_initializer.h"
 #include "base/win/windows_version.h"
 #include "media/gpu/windows/dxva_video_decode_accelerator_win.h"
@@ -211,6 +212,11 @@ int GpuMain(const MainFunctionParams& parameters) {
   if (gpu_preferences.gpu_startup_dialog)
     WaitForDebugger("Gpu");
 
+#if defined(OS_WIN)
+  if (gpu_preferences.enable_trace_export_events_to_etw)
+    base::trace_event::TraceEventETWExport::EnableETWExport();
+#endif
+
   base::Time start_time = base::Time::Now();
 
 #if defined(OS_WIN)
@@ -340,7 +346,6 @@ int GpuMain(const MainFunctionParams& parameters) {
   // Setup tracing sampler profiler as early as possible.
   std::unique_ptr<tracing::TracingSamplerProfiler> tracing_sampler_profiler =
       tracing::TracingSamplerProfiler::CreateOnMainThread();
-  tracing_sampler_profiler->OnMessageLoopStarted();
 
 #if defined(OS_ANDROID)
   base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(

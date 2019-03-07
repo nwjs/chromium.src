@@ -34,6 +34,8 @@ class LocalFrame;
 class HTMLAreaElement;
 class HTMLFrameOwnerElement;
 
+enum class SpatialNavigationDirection { kNone, kUp, kRight, kDown, kLeft };
+
 inline double MaxDistance() {
   return std::numeric_limits<double>::max();
 }
@@ -52,17 +54,12 @@ struct FocusCandidate {
   FocusCandidate()
       : visible_node(nullptr),
         focusable_node(nullptr),
-        enclosing_scrollable_box(nullptr),
-        distance(MaxDistance()),
         is_offscreen(true),
         is_offscreen_after_scrolling(true) {}
 
-  FocusCandidate(Node*, WebFocusType);
-  explicit FocusCandidate(HTMLAreaElement*, WebFocusType);
+  FocusCandidate(Node*, SpatialNavigationDirection);
+  explicit FocusCandidate(HTMLAreaElement*, SpatialNavigationDirection);
   bool IsNull() const { return !visible_node; }
-  bool InScrollableContainer() const {
-    return visible_node && enclosing_scrollable_box;
-  }
   bool IsFrameOwnerElement() const {
     return visible_node && visible_node->IsFrameOwnerElement();
   }
@@ -76,8 +73,6 @@ struct FocusCandidate {
   // visibleNode and focusableNode are one and the same.
   Member<Node> visible_node;
   Member<Node> focusable_node;
-  Member<Node> enclosing_scrollable_box;
-  double distance;
   LayoutRect rect_in_root_frame;
   bool is_offscreen;
   bool is_offscreen_after_scrolling;
@@ -85,32 +80,32 @@ struct FocusCandidate {
 
 CORE_EXPORT bool HasRemoteFrame(const Node*);
 CORE_EXPORT bool IsOffscreen(const Node*);
-CORE_EXPORT bool IsOffscreenAfterFrameScroll(const Node*, WebFocusType);
-bool ScrollInDirection(LocalFrame*, WebFocusType);
-bool ScrollInDirection(Node* container, WebFocusType);
-bool IsNavigableContainer(const Node*, WebFocusType);
+CORE_EXPORT bool IsOffscreenAfterFrameScroll(const Node*,
+                                             SpatialNavigationDirection);
+bool ScrollInDirection(Node* container, SpatialNavigationDirection);
 CORE_EXPORT bool IsScrollableNode(const Node* node);
 CORE_EXPORT bool IsScrollableAreaOrDocument(const Node*);
 CORE_EXPORT Node* ScrollableAreaOrDocumentOf(Node*);
-bool CanScrollInDirection(const Node* container, WebFocusType);
-bool CanScrollInDirection(const LocalFrame*, WebFocusType);
-bool CanBeScrolledIntoView(WebFocusType, const FocusCandidate&);
+bool CanScrollInDirection(const Node* container, SpatialNavigationDirection);
+bool CanScrollInDirection(const LocalFrame*, SpatialNavigationDirection);
 bool AreElementsOnSameLine(const FocusCandidate& first_candidate,
                            const FocusCandidate& second_candidate);
-void DistanceDataForNode(WebFocusType,
-                         const FocusCandidate& current,
-                         FocusCandidate&);
+
+double ComputeDistanceDataForNode(SpatialNavigationDirection,
+                                  const FocusCandidate& current_interest,
+                                  const FocusCandidate& candidate);
 CORE_EXPORT LayoutRect NodeRectInRootFrame(const Node*,
                                            bool ignore_border = false);
-CORE_EXPORT LayoutRect OppositeEdge(WebFocusType side,
+CORE_EXPORT LayoutRect OppositeEdge(SpatialNavigationDirection side,
                                     const LayoutRect& box,
                                     LayoutUnit thickness = LayoutUnit());
 CORE_EXPORT LayoutRect RootViewport(const LocalFrame*);
-LayoutRect StartEdgeForAreaElement(const HTMLAreaElement&, WebFocusType);
-HTMLFrameOwnerElement* FrameOwnerElement(FocusCandidate&);
+LayoutRect StartEdgeForAreaElement(const HTMLAreaElement&,
+                                   SpatialNavigationDirection);
+HTMLFrameOwnerElement* FrameOwnerElement(const FocusCandidate&);
 CORE_EXPORT LayoutRect SearchOrigin(const LayoutRect,
                                     Node*,
-                                    const WebFocusType);
+                                    const SpatialNavigationDirection);
 
 }  // namespace blink
 

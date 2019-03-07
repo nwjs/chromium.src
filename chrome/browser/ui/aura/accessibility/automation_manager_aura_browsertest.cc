@@ -6,27 +6,30 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/common/extensions/chrome_extension_messages.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/views/accessibility_checker.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/common/extension_messages.h"
+#include "ui/accessibility/ax_event_bundle_sink.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/views/accessibility/ax_aura_obj_wrapper.h"
+#include "ui/views/accessibility/ax_tree_source_views.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
 namespace {
 
-// Given an AXTreeSourceAura and a node within that tree, recursively search
+// Given an AXTreeSourceViews and a node within that tree, recursively search
 // for all nodes who have a child tree id of |target_ax_tree_id|, meaning
 // that they're a parent of a particular web contents.
 void FindAllHostsOfWebContentsWithAXTreeID(
-    AXTreeSourceAura* tree,
+    views::AXTreeSourceViews* tree,
     views::AXAuraObjWrapper* node,
     ui::AXTreeID target_ax_tree_id,
     std::vector<views::AXAuraObjWrapper*>* web_hosts) {
@@ -45,16 +48,26 @@ void FindAllHostsOfWebContentsWithAXTreeID(
   }
 }
 
-// A class that installs a test-only callback to handle automation events
+// A helper to retrieve an ax tree id given a RenderFrameHost.
+ui::AXTreeID GetAXTreeIDFromRenderFrameHost(content::RenderFrameHost* rfh) {
+  auto* registry = ui::AXTreeIDRegistry::GetInstance();
+  return registry->GetAXTreeID(ui::AXTreeIDRegistry::FrameID(
+      rfh->GetProcess()->GetID(), rfh->GetRoutingID()));
+}
+
+// A class that installs itself as the sink to handle automation event bundles
 // from AutomationManagerAura, then waits until an automation event indicates
 // that a given node ID is focused.
-class AutomationEventWaiter {
+class AutomationEventWaiter : public ui::AXEventBundleSink {
  public:
-  explicit AutomationEventWaiter(AutomationManagerAura* manager)
-      : run_loop_(std::make_unique<base::RunLoop>()), weak_factory_(this) {
-    manager->set_event_bundle_callback_for_testing(
-        base::BindRepeating(&AutomationEventWaiter::EventBundleCallback,
-                            weak_factory_.GetWeakPtr()));
+  AutomationEventWaiter() : run_loop_(std::make_unique<base::RunLoop>()) {
+    AutomationManagerAura::GetInstance()->set_event_bundle_sink(this);
+  }
+
+  ~AutomationEventWaiter() override {
+    // Don't bother to reconnect to AutomationEventRouter because it's not
+    // relevant to the tests.
+    AutomationManagerAura::GetInstance()->set_event_bundle_sink(nullptr);
   }
 
   // Returns immediately if the node with AXAuraObjCache ID |node_id|
@@ -77,11 +90,13 @@ class AutomationEventWaiter {
   }
 
  private:
-  // Callback to intercept messages sent by AutomationManagerAura.
-  void EventBundleCallback(
-      ExtensionMsg_AccessibilityEventBundleParams event_bundle) {
-    for (size_t i = 0; i < event_bundle.updates.size(); ++i) {
-      int focused_node_id = event_bundle.updates[i].tree_data.focus_id;
+  // ui::AXEventBundleSink:
+  void DispatchAccessibilityEvents(const ui::AXTreeID& tree_id,
+                                   std::vector<ui::AXTreeUpdate> updates,
+                                   const gfx::Point& mouse_location,
+                                   std::vector<ui::AXEvent> events) override {
+    for (const ui::AXTreeUpdate& update : updates) {
+      int focused_node_id = update.tree_data.focus_id;
       focused_node_ids_.push_back(focused_node_id);
       if (focused_node_id == node_id_to_wait_for_)
         run_loop_->QuitClosure().Run();
@@ -91,7 +106,6 @@ class AutomationEventWaiter {
   std::unique_ptr<base::RunLoop> run_loop_;
   int node_id_to_wait_for_ = 0;
   std::vector<int> focused_node_ids_;
-  base::WeakPtrFactory<AutomationEventWaiter> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(AutomationEventWaiter);
 };
@@ -120,7 +134,7 @@ IN_PROC_BROWSER_TEST_F(AutomationManagerAuraBrowserTest, WebAppearsOnce) {
   WaitForAccessibilityTreeToContainNodeWithName(web_contents, "Click me");
 
   auto* frame_host = web_contents->GetMainFrame();
-  ui::AXTreeID ax_tree_id = frame_host->GetAXTreeID();
+  ui::AXTreeID ax_tree_id = GetAXTreeIDFromRenderFrameHost(frame_host);
   ASSERT_NE(ax_tree_id, ui::AXTreeIDUnknown());
 
   std::vector<views::AXAuraObjWrapper*> web_hosts;
@@ -172,7 +186,7 @@ IN_PROC_BROWSER_TEST_F(AutomationManagerAuraBrowserTest,
   widget->GetRootView()->AddChildView(view3);
   views::AXAuraObjWrapper* wrapper3 = cache->GetOrCreate(view3);
 
-  AutomationEventWaiter waiter(manager);
+  AutomationEventWaiter waiter;
 
   // Focus view1, then block until we get an accessibility event that
   // shows this view is focused.

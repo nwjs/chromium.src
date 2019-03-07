@@ -6,7 +6,6 @@ cr.exportPath('multidevice_setup');
 
 /** @enum {string} */
 multidevice_setup.PageName = {
-  FAILURE: 'setup-failed-page',
   PASSWORD: 'password-page',
   SUCCESS: 'setup-succeeded-page',
   START: 'start-setup-page',
@@ -80,7 +79,7 @@ cr.define('multidevice_setup', function() {
        * DOM Element corresponding to the visible page.
        *
        * @private {!PasswordPageElement|!StartSetupPageElement|
-       *           !SetupSucceededPageElement|!SetupFailedPageElement}
+       *           !SetupSucceededPageElement}
        */
       visiblePage_: Object,
 
@@ -95,7 +94,7 @@ cr.define('multidevice_setup', function() {
       /**
        * Array of objects representing all potential MultiDevice hosts.
        *
-       * @private {!Array<!chromeos.deviceSync.mojom.RemoteDevice>}
+       * @private {!Array<!chromeos.multidevice.mojom.RemoteDevice>}
        */
       devices_: Array,
 
@@ -175,12 +174,14 @@ cr.define('multidevice_setup', function() {
 
     /** @private */
     onForwardNavigationRequested_: function() {
-      if (this.forwardButtonDisabled)
+      if (this.forwardButtonDisabled) {
         return;
+      }
 
       this.visiblePage_.getCanNavigateToNextPage().then((canNavigate) => {
-        if (!canNavigate)
+        if (!canNavigate) {
           return;
+        }
         this.navigateForward_();
       });
     },
@@ -188,9 +189,6 @@ cr.define('multidevice_setup', function() {
     /** @private */
     navigateForward_: function() {
       switch (this.visiblePageName) {
-        case PageName.FAILURE:
-          this.visiblePageName = PageName.START;
-          return;
         case PageName.PASSWORD:
           this.$$('password-page').clearPasswordTextInput();
           this.setHostDevice_();
@@ -199,10 +197,11 @@ cr.define('multidevice_setup', function() {
           this.exitSetupFlow_(true /* didUserCompleteSetup */);
           return;
         case PageName.START:
-          if (this.delegate.isPasswordRequiredToSetHost())
+          if (this.delegate.isPasswordRequiredToSetHost()) {
             this.visiblePageName = PageName.PASSWORD;
-          else
+          } else {
             this.setHostDevice_();
+          }
           return;
       }
     },
@@ -244,8 +243,9 @@ cr.define('multidevice_setup', function() {
      * @private
      */
     getForwardButtonText_: function() {
-      if (!this.visiblePage_)
+      if (!this.visiblePage_) {
         return undefined;
+      }
       return this.visiblePage_.forwardButtonText;
     },
 
@@ -264,8 +264,9 @@ cr.define('multidevice_setup', function() {
      * @private
      */
     getCancelButtonText_: function() {
-      if (!this.visiblePage_)
+      if (!this.visiblePage_) {
         return undefined;
+      }
       return this.visiblePage_.cancelButtonText;
     },
 
@@ -275,8 +276,9 @@ cr.define('multidevice_setup', function() {
      * @private
      */
     getBackwardButtonText_: function() {
-      if (!this.visiblePage_)
+      if (!this.visiblePage_) {
         return undefined;
+      }
       return this.visiblePage_.backwardButtonText;
     },
 

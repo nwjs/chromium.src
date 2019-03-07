@@ -92,6 +92,13 @@ class PacketCollector : public QuicPacketCreator::DelegateInterface,
     }
     return WRITE_FAILED;
   }
+  bool WriteCryptoData(EncryptionLevel level,
+                       QuicStreamOffset offset,
+                       QuicByteCount data_length,
+                       QuicDataWriter* writer) override {
+    QUIC_BUG << "PacketCollector::WriteCryptoData is unimplemented.";
+    return false;
+  }
 
   std::vector<std::unique_ptr<QuicEncryptedPacket>>* packets() {
     return &packets_;
@@ -137,7 +144,7 @@ class StatelessConnectionTerminator {
     // TODO(fayang): Use the right long header type for conneciton close sent by
     // dispatcher.
     creator_.SetLongHeaderType(RETRY);
-    if (!creator_.AddSavedFrame(QuicFrame(frame))) {
+    if (!creator_.AddSavedFrame(QuicFrame(frame), NOT_RETRANSMISSION)) {
       QUIC_BUG << "Unable to add frame to an empty packet";
       delete frame;
       return;
@@ -163,7 +170,7 @@ class StatelessConnectionTerminator {
               QuicUtils::GetCryptoStreamId(framer_->transport_version()),
               reject.length(), offset, offset,
               /*fin=*/false,
-              /*needs_full_padding=*/true, &frame)) {
+              /*needs_full_padding=*/true, NOT_RETRANSMISSION, &frame)) {
         QUIC_BUG << "Unable to consume data into an empty packet.";
         return;
       }
@@ -283,7 +290,9 @@ QuicDispatcher::QuicDispatcher(
               Perspective::IS_SERVER),
       last_error_(QUIC_NO_ERROR),
       new_sessions_allowed_per_event_loop_(0u),
-      accept_new_connections_(true) {
+      accept_new_connections_(true),
+      check_blocked_writer_for_blockage_(
+          GetQuicRestartFlag(quic_check_blocked_writer_for_blockage)) {
   framer_.set_visitor(this);
 }
 
@@ -374,9 +383,9 @@ bool QuicDispatcher::OnUnauthenticatedPublicHeader(
 
   if (time_wait_list_manager_->IsConnectionIdInTimeWait(connection_id)) {
     // This connection ID is already in time-wait state.
-    time_wait_list_manager_->ProcessPacket(current_self_address_,
-                                           current_peer_address_,
-                                           header.destination_connection_id);
+    time_wait_list_manager_->ProcessPacket(
+        current_self_address_, current_peer_address_,
+        header.destination_connection_id, GetPerPacketContext());
     return false;
   }
 
@@ -402,9 +411,9 @@ bool QuicDispatcher::OnUnauthenticatedPublicHeader(
         time_wait_list_manager()->SendVersionNegotiationPacket(
             connection_id, header.form != GOOGLE_QUIC_PACKET,
             GetSupportedVersions(), current_self_address_,
-            current_peer_address_);
+            current_peer_address_, GetPerPacketContext());
       } else {
-        QUIC_FLAG_COUNT(quic_reloadable_flag_quic_limit_version_negotiation);
+        QUIC_RELOADABLE_FLAG_COUNT(quic_limit_version_negotiation);
       }
       return false;
     }
@@ -460,7 +469,8 @@ void QuicDispatcher::ProcessUnauthenticatedHeaderFate(
       }
       DCHECK(time_wait_list_manager_->IsConnectionIdInTimeWait(connection_id));
       time_wait_list_manager_->ProcessPacket(
-          current_self_address_, current_peer_address_, connection_id);
+          current_self_address_, current_peer_address_, connection_id,
+          GetPerPacketContext());
 
       // Any packets which were buffered while the stateless rejector logic was
       // running should be discarded.  Do not inform the time wait list manager,
@@ -507,7 +517,7 @@ QuicDispatcher::QuicPacketFate QuicDispatcher::ValidityChecks(
     return kFateTimeWait;
   }
   if (GetQuicRestartFlag(quic_enable_accept_random_ipn)) {
-    QUIC_FLAG_COUNT_N(quic_restart_flag_quic_enable_accept_random_ipn, 1, 2);
+    QUIC_RESTART_FLAG_COUNT_N(quic_enable_accept_random_ipn, 1, 2);
     // Accepting Initial Packet Numbers in 1...((2^31)-1) range... check
     // maximum accordingly.
     if (header.packet_number > kMaxRandomInitialPacketNumber) {
@@ -532,7 +542,8 @@ QuicDispatcher::QuicPacketFate QuicDispatcher::ValidityChecks(
 
 void QuicDispatcher::CleanUpSession(SessionMap::iterator it,
                                     QuicConnection* connection,
-                                    bool should_close_statelessly) {
+                                    bool should_close_statelessly,
+                                    ConnectionCloseSource source) {
   write_blocked_list_.erase(connection);
   if (should_close_statelessly) {
     DCHECK(connection->termination_packets() != nullptr &&
@@ -544,7 +555,32 @@ void QuicDispatcher::CleanUpSession(SessionMap::iterator it,
       !connection->termination_packets()->empty()) {
     action = QuicTimeWaitListManager::SEND_TERMINATION_PACKETS;
   } else if (connection->transport_version() > QUIC_VERSION_43) {
-    action = QuicTimeWaitListManager::DO_NOTHING;
+    // TODO(fayang): Always resetting IETF connections is a debugging
+    // expediency. Stop doing this when removing flag
+    // quic_always_reset_ietf_connections.
+    if (!GetQuicReloadableFlag(quic_always_reset_ietf_connections) &&
+        (!GetQuicReloadableFlag(
+             quic_send_reset_for_post_handshake_connections_without_termination_packets) ||  // NOLINT
+         (source == ConnectionCloseSource::FROM_PEER))) {
+      action = QuicTimeWaitListManager::DO_NOTHING;
+    } else if (!connection->IsHandshakeConfirmed()) {
+      QUIC_CODE_COUNT(quic_v44_add_to_time_wait_list_with_handshake_failed);
+      action = QuicTimeWaitListManager::SEND_TERMINATION_PACKETS;
+      // This serializes a connection close termination packet with error code
+      // QUIC_HANDSHAKE_FAILED and adds the connection to the time wait list.
+      StatelesslyTerminateConnection(
+          connection->connection_id(), IETF_QUIC_LONG_HEADER_PACKET,
+          connection->version(), QUIC_HANDSHAKE_FAILED,
+          "Connection is closed by server before handshake confirmed",
+          // Although it is our intention to send termination packets, the
+          // |action| argument is not used by this call to
+          // StatelesslyTerminateConnection().
+          action);
+      session_map_.erase(it);
+      return;
+    } else {
+      QUIC_CODE_COUNT(quic_v44_add_to_time_wait_list_with_stateless_reset);
+    }
   }
   time_wait_list_manager_->AddConnectionIdToTimeWait(
       it->first, connection->transport_version() > QUIC_VERSION_43, action,
@@ -560,18 +596,56 @@ bool QuicDispatcher::ShouldAddToBlockedList() {
   return writer_->IsWriteBlocked();
 }
 
-std::unique_ptr<QuicDispatcher::PerPacketContext>
-QuicDispatcher::GetPerPacketContext() const {
+std::unique_ptr<QuicPerPacketContext> QuicDispatcher::GetPerPacketContext()
+    const {
   return nullptr;
 }
 
 void QuicDispatcher::DeleteSessions() {
+  if (GetQuicReloadableFlag(
+          quic_connection_do_not_add_to_write_blocked_list_if_disconnected) &&
+      !write_blocked_list_.empty()) {
+    QUIC_RELOADABLE_FLAG_COUNT_N(
+        quic_connection_do_not_add_to_write_blocked_list_if_disconnected, 2, 2);
+    for (const std::unique_ptr<QuicSession>& session : closed_session_list_) {
+      if (write_blocked_list_.erase(session->connection()) != 0) {
+        QUIC_BUG << "QuicConnection was in WriteBlockedList before destruction";
+      }
+    }
+  }
   closed_session_list_.clear();
 }
 
 void QuicDispatcher::OnCanWrite() {
   // The socket is now writable.
   writer_->SetWritable();
+
+  if (check_blocked_writer_for_blockage_) {
+    QUIC_RESTART_FLAG_COUNT_N(quic_check_blocked_writer_for_blockage, 2, 6);
+    // Move every blocked writer in |write_blocked_list_| to a temporary list.
+    const size_t num_blocked_writers_before = write_blocked_list_.size();
+    WriteBlockedList temp_list;
+    temp_list.swap(write_blocked_list_);
+    DCHECK(write_blocked_list_.empty());
+
+    // Give each blocked writer a chance to write what they indended to write.
+    // If they are blocked again, they will call |OnWriteBlocked| to add
+    // themselves back into |write_blocked_list_|.
+    while (!temp_list.empty()) {
+      QuicBlockedWriterInterface* blocked_writer = temp_list.begin()->first;
+      temp_list.erase(temp_list.begin());
+      blocked_writer->OnBlockedWriterCanWrite();
+    }
+    const size_t num_blocked_writers_after = write_blocked_list_.size();
+    if (num_blocked_writers_after != 0) {
+      if (num_blocked_writers_before == num_blocked_writers_after) {
+        QUIC_CODE_COUNT(quic_zero_progress_on_can_write);
+      } else {
+        QUIC_CODE_COUNT(quic_blocked_again_on_can_write);
+      }
+    }
+    return;
+  }
 
   // Give all the blocked writers one chance to write, until we're blocked again
   // or there's no work left.
@@ -602,7 +676,8 @@ void QuicDispatcher::Shutdown() {
 
 void QuicDispatcher::OnConnectionClosed(QuicConnectionId connection_id,
                                         QuicErrorCode error,
-                                        const QuicString& error_details) {
+                                        const QuicString& error_details,
+                                        ConnectionCloseSource source) {
   auto it = session_map_.find(connection_id);
   if (it == session_map_.end()) {
     QUIC_BUG << "ConnectionId " << connection_id
@@ -629,17 +704,30 @@ void QuicDispatcher::OnConnectionClosed(QuicConnectionId connection_id,
   }
   const bool should_close_statelessly =
       (error == QUIC_CRYPTO_HANDSHAKE_STATELESS_REJECT);
-  CleanUpSession(it, connection, should_close_statelessly);
+  CleanUpSession(it, connection, should_close_statelessly, source);
 }
 
 void QuicDispatcher::OnWriteBlocked(
     QuicBlockedWriterInterface* blocked_writer) {
-  if (!ShouldAddToBlockedList()) {
-    QUIC_BUG
-        << "Tried to add writer into blocked list when it shouldn't be added";
-    // Return without adding the connection to the blocked list, to avoid
-    // infinite loops in OnCanWrite.
-    return;
+  if (check_blocked_writer_for_blockage_) {
+    QUIC_RESTART_FLAG_COUNT_N(quic_check_blocked_writer_for_blockage, 1, 6);
+    if (!blocked_writer->IsWriterBlocked()) {
+      // It is a programming error if this ever happens. When we are sure it is
+      // not happening, replace it with a DCHECK.
+      QUIC_BUG
+          << "Tried to add writer into blocked list when it shouldn't be added";
+      // Return without adding the connection to the blocked list, to avoid
+      // infinite loops in OnCanWrite.
+      return;
+    }
+  } else {
+    if (!ShouldAddToBlockedList()) {
+      QUIC_BUG
+          << "Tried to add writer into blocked list when it shouldn't be added";
+      // Return without adding the connection to the blocked list, to avoid
+      // infinite loops in OnCanWrite.
+      return;
+    }
   }
   write_blocked_list_.insert(std::make_pair(blocked_writer, true));
 }
@@ -659,71 +747,53 @@ void QuicDispatcher::StatelesslyTerminateConnection(
     QuicErrorCode error_code,
     const QuicString& error_details,
     QuicTimeWaitListManager::TimeWaitAction action) {
-  if (GetQuicReloadableFlag(quic_fix_reject_by_session_type)) {
-    if (format != IETF_QUIC_LONG_HEADER_PACKET) {
-      QUIC_DVLOG(1) << "Statelessly terminating " << connection_id
-                    << " based on a non-ietf-long packet, action:" << action
-                    << ", error_code:" << error_code
-                    << ", error_details:" << error_details;
-      time_wait_list_manager_->AddConnectionIdToTimeWait(
-          connection_id, format != GOOGLE_QUIC_PACKET, action,
-          /*termination_packets=*/nullptr);
-      return;
-    }
+  if (format != IETF_QUIC_LONG_HEADER_PACKET) {
+    QUIC_DVLOG(1) << "Statelessly terminating " << connection_id
+                  << " based on a non-ietf-long packet, action:" << action
+                  << ", error_code:" << error_code
+                  << ", error_details:" << error_details;
+    time_wait_list_manager_->AddConnectionIdToTimeWait(
+        connection_id, format != GOOGLE_QUIC_PACKET, action,
+        /*termination_packets=*/nullptr);
+    return;
+  }
 
-    // If the version is known and supported by framer, send a connection close.
-    if (framer_.IsSupportedVersion(version)) {
-      QUIC_DVLOG(1)
-          << "Statelessly terminating " << connection_id
-          << " based on an ietf-long packet, which has a supported version:"
-          << version << ", error_code:" << error_code
-          << ", error_details:" << error_details;
-      // Set framer_ to the packet's version such that the connection close can
-      // be processed by the client.
-      ParsedQuicVersion original_version = framer_.version();
-      framer_.set_version(version);
-
-      StatelessConnectionTerminator terminator(connection_id, &framer_,
-                                               helper_.get(),
-                                               time_wait_list_manager_.get());
-      // This also adds the connection to time wait list.
-      terminator.CloseConnection(error_code, error_details, true);
-
-      // Restore framer_ to the original version, as if nothing changed in it.
-      framer_.set_version(original_version);
-      return;
-    }
-
+  // If the version is known and supported by framer, send a connection close.
+  if (framer_.IsSupportedVersion(version)) {
     QUIC_DVLOG(1)
         << "Statelessly terminating " << connection_id
-        << " based on an ietf-long packet, which has an unsupported version:"
+        << " based on an ietf-long packet, which has a supported version:"
         << version << ", error_code:" << error_code
         << ", error_details:" << error_details;
-    // Version is unknown or unsupported by framer, send a version negotiation
-    // with an empty version list, which can be understood by the client.
-    std::vector<std::unique_ptr<QuicEncryptedPacket>> termination_packets;
-    termination_packets.push_back(QuicFramer::BuildVersionNegotiationPacket(
-        connection_id, /*ietf_quic=*/true,
-        ParsedQuicVersionVector{UnsupportedQuicVersion()}));
-    time_wait_list_manager()->AddConnectionIdToTimeWait(
-        connection_id, /*ietf_quic=*/true,
-        QuicTimeWaitListManager::SEND_TERMINATION_PACKETS,
-        &termination_packets);
-    return;
-  }
+    // Set framer_ to the packet's version such that the connection close can be
+    // processed by the client.
+    ParsedQuicVersion original_version = framer_.version();
+    framer_.set_version(version);
 
-  if (format == IETF_QUIC_LONG_HEADER_PACKET) {
-    // Send connection close for IETF long header packet, and this also adds
-    // connection to time wait list.
     StatelessConnectionTerminator terminator(
         connection_id, &framer_, helper_.get(), time_wait_list_manager_.get());
+    // This also adds the connection to time wait list.
     terminator.CloseConnection(error_code, error_details, true);
+
+    // Restore framer_ to the original version, as if nothing changed in it.
+    framer_.set_version(original_version);
     return;
   }
 
-  time_wait_list_manager_->AddConnectionIdToTimeWait(
-      connection_id, format != GOOGLE_QUIC_PACKET, action,
-      /*termination_packets=*/nullptr);
+  QUIC_DVLOG(1)
+      << "Statelessly terminating " << connection_id
+      << " based on an ietf-long packet, which has an unsupported version:"
+      << version << ", error_code:" << error_code
+      << ", error_details:" << error_details;
+  // Version is unknown or unsupported by framer, send a version negotiation
+  // with an empty version list, which can be understood by the client.
+  std::vector<std::unique_ptr<QuicEncryptedPacket>> termination_packets;
+  termination_packets.push_back(QuicFramer::BuildVersionNegotiationPacket(
+      connection_id, /*ietf_quic=*/true,
+      ParsedQuicVersionVector{UnsupportedQuicVersion()}));
+  time_wait_list_manager()->AddConnectionIdToTimeWait(
+      connection_id, /*ietf_quic=*/true,
+      QuicTimeWaitListManager::SEND_TERMINATION_PACKETS, &termination_packets);
 }
 
 void QuicDispatcher::OnPacket() {}
@@ -942,7 +1012,7 @@ void QuicDispatcher::ProcessBufferedChlos(size_t max_connections_to_create) {
       return;
     }
     QuicSession* session =
-        CreateQuicSession(connection_id, packets.front().client_address,
+        CreateQuicSession(connection_id, packets.front().peer_address,
                           packet_list.alpn, packet_list.version);
     QUIC_DLOG(INFO) << "Created new session for " << connection_id;
     session_map_.insert(std::make_pair(connection_id, QuicWrapUnique(session)));
@@ -997,10 +1067,7 @@ void QuicDispatcher::BufferEarlyPacket(QuicConnectionId connection_id,
   EnqueuePacketResult rs = buffered_packets_.EnqueuePacket(
       connection_id, ietf_quic, *current_packet_, current_self_address_,
       current_peer_address_, /*is_chlo=*/false,
-      /*alpn=*/"",
-      GetQuicReloadableFlag(quic_fix_reject_by_session_type)
-          ? version
-          : UnsupportedQuicVersion());
+      /*alpn=*/"", version);
   if (rs != EnqueuePacketResult::SUCCESS) {
     OnBufferPacketFailure(rs, connection_id);
   }
@@ -1016,9 +1083,9 @@ void QuicDispatcher::ProcessChlo(PacketHeaderFormat form,
         "Stop accepting new connections",
         quic::QuicTimeWaitListManager::SEND_STATELESS_RESET);
     // Time wait list will reject the packet correspondingly.
-    time_wait_list_manager()->ProcessPacket(current_self_address(),
-                                            current_peer_address(),
-                                            current_connection_id());
+    time_wait_list_manager()->ProcessPacket(
+        current_self_address(), current_peer_address(), current_connection_id(),
+        GetPerPacketContext());
     return;
   }
   if (!buffered_packets_.HasBufferedPackets(current_connection_id_) &&
@@ -1108,7 +1175,7 @@ class StatelessRejectorProcessDoneCallback
   QuicSocketAddress current_self_address_;
   // TODO(wub): Wrap all current_* variables into PerPacketContext. And rename
   // |additional_context_| to |context_|.
-  std::unique_ptr<QuicDispatcher::PerPacketContext> additional_context_;
+  std::unique_ptr<QuicPerPacketContext> additional_context_;
   std::unique_ptr<QuicReceivedPacket> current_packet_;
   ParsedQuicVersion first_version_;
   const PacketHeaderFormat current_packet_format_;
@@ -1214,7 +1281,7 @@ void QuicDispatcher::OnStatelessRejectorProcessDone(
   framer_.set_version(first_version);
   if (GetQuicReloadableFlag(quic_fix_last_packet_is_ietf_quic)) {
     if (GetLastPacketFormat() != current_packet_format) {
-      QUIC_FLAG_COUNT(quic_reloadable_flag_quic_fix_last_packet_is_ietf_quic);
+      QUIC_RELOADABLE_FLAG_COUNT(quic_fix_last_packet_is_ietf_quic);
     }
     framer_.set_last_packet_form(current_packet_format);
   }
@@ -1231,7 +1298,8 @@ void QuicDispatcher::OnStatelessRejectorProcessDone(
   if (time_wait_list_manager_->IsConnectionIdInTimeWait(
           rejector->connection_id())) {
     time_wait_list_manager_->ProcessPacket(
-        current_self_address, current_peer_address, rejector->connection_id());
+        current_self_address, current_peer_address, rejector->connection_id(),
+        GetPerPacketContext());
     return;
   }
 
@@ -1306,7 +1374,7 @@ void QuicDispatcher::DeliverPacketsToSession(
     const std::list<BufferedPacket>& packets,
     QuicSession* session) {
   for (const BufferedPacket& packet : packets) {
-    session->ProcessUdpPacket(packet.server_address, packet.client_address,
+    session->ProcessUdpPacket(packet.self_address, packet.peer_address,
                               *(packet.packet));
   }
 }

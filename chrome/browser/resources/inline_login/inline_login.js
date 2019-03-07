@@ -13,17 +13,17 @@ cr.define('inline.login', function() {
    * The auth extension host instance.
    * @type {cr.login.GaiaAuthHost}
    */
-  var authExtHost;
+  let authExtHost;
 
   /**
    * Whether the auth ready event has been fired, for testing purpose.
    */
-  var authReadyFired;
+  let authReadyFired;
 
   /**
    * Whether the login UI is loaded for signing in primary account.
    */
-  var isLoginPrimaryAccount;
+  let isLoginPrimaryAccount;
 
   function onResize(e) {
     chrome.send('switchToFullTab', [e.detail]);
@@ -32,8 +32,9 @@ cr.define('inline.login', function() {
   function onAuthReady(e) {
     $('contents').classList.toggle('loading', false);
     authReadyFired = true;
-    if (isLoginPrimaryAccount)
+    if (isLoginPrimaryAccount) {
       chrome.send('metricsHandler:recordAction', ['Signin_SigninPage_Shown']);
+    }
   }
 
   function onDropLink(e) {

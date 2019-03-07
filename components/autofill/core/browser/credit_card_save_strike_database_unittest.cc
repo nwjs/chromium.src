@@ -13,14 +13,17 @@
 #include "base/test/scoped_task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/autofill/core/browser/proto/strike_data.pb.h"
+#include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/browser/test_credit_card_save_strike_database.h"
+#include "components/autofill/core/common/autofill_clock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace autofill {
 
 class CreditCardSaveStrikeDatabaseTest : public ::testing::Test {
  public:
-  CreditCardSaveStrikeDatabaseTest() : strike_database_(InitFilePath()) {}
+  CreditCardSaveStrikeDatabaseTest()
+      : strike_database_(new StrikeDatabase(InitFilePath())) {}
 
  protected:
   base::HistogramTester* GetHistogramTester() { return &histogram_tester_; }
@@ -100,6 +103,36 @@ TEST_F(CreditCardSaveStrikeDatabaseTest, ClearStrikesForZeroStrikesTest) {
   const std::string last_four = "1234";
   strike_database_.ClearStrikes(last_four);
   EXPECT_EQ(0, strike_database_.GetStrikes(last_four));
+}
+
+TEST_F(CreditCardSaveStrikeDatabaseTest, RemoveExpiredStrikesTest) {
+  autofill::TestAutofillClock test_clock;
+  test_clock.SetNow(AutofillClock::Now());
+  const std::string last_four1 = "1234";
+  const std::string last_four2 = "9876";
+  strike_database_.AddStrike(last_four1);
+
+  // Advance clock to past the entry for |last_four1|'s expiry time.
+  test_clock.Advance(base::TimeDelta::FromMicroseconds(
+      strike_database_.GetExpiryTimeMicros() + 1));
+
+  strike_database_.AddStrike(last_four2);
+  strike_database_.RemoveExpiredStrikes();
+
+  // |last_four1|'s entry should have its most recent strike expire, but
+  // |last_four2|'s should not.
+  EXPECT_EQ(0, strike_database_.GetStrikes(last_four1));
+  EXPECT_EQ(1, strike_database_.GetStrikes(last_four2));
+
+  // Advance clock to past |last_four2|'s expiry time.
+  test_clock.Advance(base::TimeDelta::FromMicroseconds(
+      strike_database_.GetExpiryTimeMicros() + 1));
+
+  strike_database_.RemoveExpiredStrikes();
+
+  // |last_four1| and |last_four2| should have no more unexpired strikes.
+  EXPECT_EQ(0, strike_database_.GetStrikes(last_four1));
+  EXPECT_EQ(0, strike_database_.GetStrikes(last_four2));
 }
 
 }  // namespace autofill

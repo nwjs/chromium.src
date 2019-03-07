@@ -20,6 +20,7 @@
 #include "ui/gl/gl_bindings.h"
 
 namespace gpu {
+class SharedContextState;
 class GpuDriverBugWorkarounds;
 class ImageFactory;
 class MailboxManager;
@@ -30,7 +31,6 @@ class MemoryTracker;
 
 namespace raster {
 class WrappedSkImageFactory;
-struct RasterDecoderContextState;
 }  // namespace raster
 
 // TODO(ericrk): Make this a very thin wrapper around SharedImageManager like
@@ -40,7 +40,7 @@ class GPU_GLES2_EXPORT SharedImageFactory {
   SharedImageFactory(const GpuPreferences& gpu_preferences,
                      const GpuDriverBugWorkarounds& workarounds,
                      const GpuFeatureInfo& gpu_feature_info,
-                     raster::RasterDecoderContextState* context_state,
+                     SharedContextState* context_state,
                      MailboxManager* mailbox_manager,
                      SharedImageManager* manager,
                      ImageFactory* image_factory,
@@ -52,6 +52,12 @@ class GPU_GLES2_EXPORT SharedImageFactory {
                          const gfx::Size& size,
                          const gfx::ColorSpace& color_space,
                          uint32_t usage);
+  bool CreateSharedImage(const Mailbox& mailbox,
+                         viz::ResourceFormat format,
+                         const gfx::Size& size,
+                         const gfx::ColorSpace& color_space,
+                         uint32_t usage,
+                         base::span<const uint8_t> pixel_data);
   bool CreateSharedImage(const Mailbox& mailbox,
                          int client_id,
                          gfx::GpuMemoryBufferHandle handle,
@@ -75,6 +81,7 @@ class GPU_GLES2_EXPORT SharedImageFactory {
   MailboxManager* mailbox_manager_;
   SharedImageManager* shared_image_manager_;
   std::unique_ptr<MemoryTypeTracker> memory_tracker_;
+  const bool using_vulkan_;
 
   // The set of SharedImages which have been created (and are being kept alive)
   // by this factory.
@@ -94,10 +101,6 @@ class GPU_GLES2_EXPORT SharedImageRepresentationFactory {
   SharedImageRepresentationFactory(SharedImageManager* manager,
                                    MemoryTracker* tracker);
   ~SharedImageRepresentationFactory();
-
-  bool IsSharedImage(const Mailbox& mailbox) const {
-    return manager_->IsSharedImage(mailbox);
-  }
 
   // Helpers which call similar classes on SharedImageManager, providing a
   // MemoryTypeTracker.

@@ -35,6 +35,7 @@
 #include "net/base/network_change_notifier.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "services/tracing/public/cpp/trace_event_agent.h"
+#include "services/tracing/public/cpp/traced_process_impl.h"
 #include "services/tracing/public/mojom/constants.mojom.h"
 #include "v8/include/v8-version-string.h"
 
@@ -115,33 +116,36 @@ TracingController* TracingController::GetInstance() {
 }
 
 TracingControllerImpl::TracingControllerImpl()
-    : delegate_(GetContentClient()->browser()->GetTracingDelegate()) {
+    : delegate_(GetContentClient()->browser()->GetTracingDelegate()),
+      weak_ptr_factory_(this) {
   DCHECK(!g_tracing_controller);
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   // Deliberately leaked, like this class.
   base::FileTracing::SetProvider(new FileTracingProviderImpl);
   AddAgents();
+  base::trace_event::TraceLog::GetInstance()->AddAsyncEnabledStateObserver(
+      weak_ptr_factory_.GetWeakPtr());
   g_tracing_controller = this;
 }
 
-TracingControllerImpl::~TracingControllerImpl() = default;
+TracingControllerImpl::~TracingControllerImpl() {
+  base::trace_event::TraceLog::GetInstance()->RemoveAsyncEnabledStateObserver(
+      this);
+}
 
 void TracingControllerImpl::AddAgents() {
-  auto* connector =
-      content::ServiceManagerConnection::GetForProcess()->GetConnector();
-  connector->BindInterface(tracing::mojom::kServiceName, &coordinator_);
+  tracing::TracedProcessImpl::GetInstance()->SetTaskRunner(
+      base::SequencedTaskRunnerHandle::Get());
 
 #if defined(OS_CHROMEOS)
-  agents_.push_back(std::make_unique<CrOSTracingAgent>(connector));
+  agents_.push_back(std::make_unique<CrOSTracingAgent>());
 #elif defined(CAST_TRACING_AGENT)
-  agents_.push_back(std::make_unique<CastTracingAgent>(connector));
+  agents_.push_back(std::make_unique<CastTracingAgent>());
 #endif
-
-  auto trace_event_agent = tracing::TraceEventAgent::Create(
-      connector, true /* request_clock_sync_marker_on_android */);
 
   // For adding general CPU, network, OS, and other system information to the
   // metadata.
+  auto* trace_event_agent = tracing::TraceEventAgent::GetInstance();
   trace_event_agent->AddMetadataGeneratorFunction(base::BindRepeating(
       &TracingControllerImpl::GenerateMetadataDict, base::Unretained(this)));
   if (delegate_) {
@@ -149,14 +153,20 @@ void TracingControllerImpl::AddAgents() {
         base::BindRepeating(&TracingDelegate::GenerateMetadataDict,
                             base::Unretained(delegate_.get())));
   }
-  trace_event_agent_ = std::move(trace_event_agent);
 }
 
-tracing::TraceEventAgent* TracingControllerImpl::GetTraceEventAgent() const {
-  DCHECK(trace_event_agent_);
-  return trace_event_agent_.get();
+void TracingControllerImpl::ConnectToServiceIfNeeded() {
+  if (!coordinator_) {
+    ServiceManagerConnection::GetForProcess()->GetConnector()->BindInterface(
+        tracing::mojom::kServiceName, &coordinator_);
+  }
 }
 
+void TracingControllerImpl::DisconnectFromService() {
+  coordinator_ = nullptr;
+}
+
+// Can be called on any thread.
 std::unique_ptr<base::DictionaryValue>
 TracingControllerImpl::GenerateMetadataDict() const {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -173,9 +183,11 @@ TracingControllerImpl::GenerateMetadataDict() const {
   }
 
   metadata_dict->SetString("network-type", GetNetworkTypeString());
-  metadata_dict->SetString("product-version", GetContentClient()->GetProduct());
+  metadata_dict->SetString("product-version",
+                           GetContentClient()->browser()->GetProduct());
   metadata_dict->SetString("v8-version", V8_VERSION_STRING);
-  metadata_dict->SetString("user-agent", GetContentClient()->GetUserAgent());
+  metadata_dict->SetString("user-agent",
+                           GetContentClient()->browser()->GetUserAgent());
 
 #if defined(OS_ANDROID)
   // The library name is used for symbolizing heap profiles. This cannot be
@@ -262,7 +274,7 @@ TracingControllerImpl::GenerateMetadataDict() const {
   // metadata filters, so we temporarily filter here as the controller is
   // what assembles the full trace data.
   MetadataFilterPredicate metadata_filter;
-  if (trace_config_->IsArgumentFilterEnabled()) {
+  if (trace_config_ && trace_config_->IsArgumentFilterEnabled()) {
     if (delegate_)
       metadata_filter = delegate_->GetMetadataFilterPredicate();
   }
@@ -285,21 +297,13 @@ TracingControllerImpl* TracingControllerImpl::GetInstance() {
 }
 
 bool TracingControllerImpl::GetCategories(GetCategoriesDoneCallback callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  coordinator_->GetCategories(base::BindOnce(
-      [](GetCategoriesDoneCallback callback, bool success,
-         const std::string& categories) {
-        const std::vector<std::string> split = base::SplitString(
-            categories, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
-        std::set<std::string> category_set;
-        for (const auto& category : split) {
-          category_set.insert(category);
-        }
-        std::move(callback).Run(category_set);
-      },
-      std::move(callback)));
-  // TODO(chiniforooshan): The actual success value should be sent by the
-  // callback asynchronously.
+  std::set<std::string> category_set;
+
+  tracing::TraceEventAgent::GetInstance()->GetCategories(&category_set);
+  for (auto& agent : agents_)
+    agent->GetCategories(&category_set);
+
+  std::move(callback).Run(category_set);
   return true;
 }
 
@@ -328,18 +332,32 @@ bool TracingControllerImpl::StartTracing(
   }
   trace_config_ =
       std::make_unique<base::trace_event::TraceConfig>(trace_config);
-  coordinator_->StartTracing(
-      trace_config.ToString(),
-      base::BindOnce(
-          [](StartTracingDoneCallback callback, bool success) {
-            if (!callback.is_null())
-              std::move(callback).Run();
-          },
-          std::move(callback)));
+
+  start_tracing_done_ = std::move(callback);
+  ConnectToServiceIfNeeded();
+  coordinator_->StartTracing(trace_config.ToString());
+
+  if (start_tracing_done_ &&
+      (base::trace_event::TraceLog::GetInstance()->IsEnabled() ||
+       !trace_config.process_filter_config().IsEnabled(
+           base::Process::Current().Pid()))) {
+    // If we're already tracing, or if the current process is excluded from the
+    // process filter, we'll never receive a callback from the TraceLog, so then
+    // we just run the callback right away.
+    std::move(start_tracing_done_).Run();
+  }
+
   // TODO(chiniforooshan): The actual success value should be sent by the
   // callback asynchronously.
   return true;
 }
+
+void TracingControllerImpl::OnTraceLogEnabled() {
+  if (start_tracing_done_)
+    std::move(start_tracing_done_).Run();
+}
+
+void TracingControllerImpl::OnTraceLogDisabled() {}
 
 bool TracingControllerImpl::StopTracing(
     const scoped_refptr<TraceDataEndpoint>& trace_data_endpoint) {
@@ -352,6 +370,10 @@ bool TracingControllerImpl::StopTracing(
   if (!IsTracing() || drainer_)
     return false;
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+#if defined(OS_ANDROID)
+  base::trace_event::TraceLog::GetInstance()->AddClockSyncMetadataEvent();
+#endif
 
   tracing::TraceStartupConfig::GetInstance()->SetDisabled();
   trace_data_endpoint_ = std::move(trace_data_endpoint);
@@ -381,6 +403,7 @@ bool TracingControllerImpl::GetTraceBufferUsage(
     GetTraceBufferUsageCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
+  ConnectToServiceIfNeeded();
   coordinator_->RequestBufferUsage(base::BindOnce(
       [](GetTraceBufferUsageCallback callback, bool success, float percent_full,
          uint32_t approximate_count) {
@@ -460,9 +483,9 @@ void TracingControllerImpl::OnMetadataAvailable(base::Value metadata) {
 
 void TracingControllerImpl::SetTracingDelegateForTesting(
     std::unique_ptr<TracingDelegate> delegate) {
-  if (!delegate)
+  if (!delegate) {
     delegate_.reset(GetContentClient()->browser()->GetTracingDelegate());
-  else {
+  } else {
     delegate_ = std::move(delegate);
   }
 }

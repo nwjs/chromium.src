@@ -20,16 +20,12 @@ class TestInterfaceEmpty;
 
 class CORE_EXPORT V8TestCallbackInterface final : public CallbackInterfaceBase {
  public:
-  // Creates and returns a new instance. Returns nullptr when |callback_object|
-  // is an object in a remote context (e.g. cross origin window object). The
-  // call sites may want to throw a SecurityError in the case.
-  // See also crbug.com/886588
-  static V8TestCallbackInterface* CreateOrNull(v8::Local<v8::Object> callback_object);
+  static V8TestCallbackInterface* Create(v8::Local<v8::Object> callback_object) {
+    return MakeGarbageCollected<V8TestCallbackInterface>(callback_object);
+  }
 
-  explicit V8TestCallbackInterface(
-      v8::Local<v8::Object> callback_object,
-      v8::Local<v8::Context> callback_object_creation_context)
-      : CallbackInterfaceBase(callback_object, callback_object_creation_context,
+  explicit V8TestCallbackInterface(v8::Local<v8::Object> callback_object)
+      : CallbackInterfaceBase(callback_object,
                               kNotSingleOperation) {}
   ~V8TestCallbackInterface() override = default;
 
@@ -78,6 +74,8 @@ class V8PersistentCallbackInterface<V8TestCallbackInterface> final : public V8Pe
   using V8CallbackInterface = V8TestCallbackInterface;
 
  public:
+  explicit V8PersistentCallbackInterface(V8CallbackInterface* callback_interface)
+      : V8PersistentCallbackInterfaceBase(callback_interface) {}
   ~V8PersistentCallbackInterface() override = default;
 
   CORE_EXPORT v8::Maybe<void> voidMethod(ScriptWrappable* callback_this_value) WARN_UNUSED_RESULT;
@@ -91,9 +89,6 @@ class V8PersistentCallbackInterface<V8TestCallbackInterface> final : public V8Pe
   CORE_EXPORT v8::Maybe<void> customVoidMethodTestInterfaceEmptyArg(ScriptWrappable* callback_this_value, TestInterfaceEmpty* testInterfaceEmptyArg) WARN_UNUSED_RESULT;
 
  private:
-  explicit V8PersistentCallbackInterface(V8CallbackInterface* callback_interface)
-      : V8PersistentCallbackInterfaceBase(callback_interface) {}
-
   V8CallbackInterface* Proxy() {
     return As<V8CallbackInterface>();
   }

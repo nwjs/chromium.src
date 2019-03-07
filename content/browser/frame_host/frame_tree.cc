@@ -12,7 +12,6 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/containers/hash_tables.h"
 #include "base/lazy_instance.h"
 #include "base/memory/ptr_util.h"
 #include "base/unguessable_token.h"
@@ -170,11 +169,15 @@ FrameTree::NodeRange FrameTree::NodesExceptSubtree(FrameTreeNode* node) {
   return NodeRange(root_, node);
 }
 
-bool FrameTree::AddFrame(
+FrameTreeNode* FrameTree::AddFrame(
     FrameTreeNode* parent,
     int process_id,
     int new_routing_id,
     service_manager::mojom::InterfaceProviderRequest interface_provider_request,
+    blink::mojom::DocumentInterfaceBrokerRequest
+        document_interface_broker_content_request,
+    blink::mojom::DocumentInterfaceBrokerRequest
+        document_interface_broker_blink_request,
     blink::WebTreeScopeType scope,
     const std::string& frame_name,
     const std::string& frame_unique_name,
@@ -191,7 +194,7 @@ bool FrameTree::AddFrame(
   // which requested a child frame to be added is the same as the process of the
   // parent node.
   if (parent->current_frame_host()->GetProcess()->GetID() != process_id)
-    return false;
+    return nullptr;
 
   std::unique_ptr<FrameTreeNode> new_node = base::WrapUnique(new FrameTreeNode(
       this, parent->navigator(), parent, scope, frame_name, frame_unique_name,
@@ -217,6 +220,12 @@ bool FrameTree::AddFrame(
   added_node->current_frame_host()->BindInterfaceProviderRequest(
       std::move(interface_provider_request));
 
+  DCHECK(document_interface_broker_content_request.is_pending());
+  DCHECK(document_interface_broker_blink_request.is_pending());
+  added_node->current_frame_host()->BindDocumentInterfaceBrokerRequest(
+      std::move(document_interface_broker_content_request),
+      std::move(document_interface_broker_blink_request));
+
   // The last committed NavigationEntry may have a FrameNavigationEntry with the
   // same |frame_unique_name|, since we don't remove FrameNavigationEntries if
   // their frames are deleted.  If there is a stale one, remove it to avoid
@@ -232,7 +241,7 @@ bool FrameTree::AddFrame(
   // we can announce the creation of the initial RenderFrame which already
   // exists in the renderer process.
   added_node->current_frame_host()->SetRenderFrameCreated(true);
-  return true;
+  return added_node;
 }
 
 void FrameTree::RemoveFrame(FrameTreeNode* child) {

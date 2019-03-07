@@ -120,9 +120,10 @@ bool CSSLayoutDefinition::Instance::Layout(
     fixed_block_size = computed_values.extent_;
   }
 
-  CustomLayoutConstraints* constraints = new CustomLayoutConstraints(
-      layout_custom.LogicalWidth(), fixed_block_size,
-      layout_custom.GetConstraintData(), isolate);
+  CustomLayoutConstraints* constraints =
+      MakeGarbageCollected<CustomLayoutConstraints>(
+          layout_custom.LogicalWidth(), fixed_block_size,
+          layout_custom.GetConstraintData(), isolate);
 
   // TODO(ikilpatrick): Instead of creating a new style_map each time here,
   // store on LayoutCustom, and update when the style changes.
@@ -327,9 +328,9 @@ void CSSLayoutDefinition::Instance::Trace(blink::Visitor* visitor) {
 }
 
 void CSSLayoutDefinition::Trace(Visitor* visitor) {
-  visitor->Trace(constructor_.Cast<v8::Value>());
-  visitor->Trace(intrinsic_sizes_.Cast<v8::Value>());
-  visitor->Trace(layout_.Cast<v8::Value>());
+  visitor->Trace(constructor_);
+  visitor->Trace(intrinsic_sizes_);
+  visitor->Trace(layout_);
   visitor->Trace(script_state_);
 }
 

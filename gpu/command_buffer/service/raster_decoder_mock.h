@@ -87,7 +87,7 @@ class MockRasterDecoder : public RasterDecoder {
   MOCK_CONST_METHOD0(RestoreFramebufferBindings, void());
   MOCK_CONST_METHOD0(RestoreProgramBindings, void());
   MOCK_METHOD0(RestoreRenderbufferBindings, void());
-  MOCK_CONST_METHOD1(RestoreTextureState, void(unsigned service_id));
+  MOCK_METHOD1(RestoreTextureState, void(unsigned service_id));
   MOCK_CONST_METHOD1(RestoreTextureUnitBindings, void(unsigned unit));
   MOCK_METHOD1(RestoreVertexAttribArray, void(unsigned index));
 
@@ -100,6 +100,7 @@ class MockRasterDecoder : public RasterDecoder {
   MOCK_METHOD0(DecoderIdForTest, int());
   MOCK_METHOD0(SetUpForRasterCHROMIUMForTest, void());
   MOCK_METHOD0(SetOOMErrorForTest, void());
+  MOCK_METHOD0(DisableFlushWorkaroundForTest, void());
   MOCK_METHOD4(DoCommands,
                error::Error(unsigned int num_commands,
                             const volatile void* buffer,

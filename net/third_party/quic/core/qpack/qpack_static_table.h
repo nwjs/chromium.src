@@ -5,9 +5,11 @@
 #ifndef NET_THIRD_PARTY_QUIC_CORE_QPACK_QPACK_STATIC_TABLE_H_
 #define NET_THIRD_PARTY_QUIC_CORE_QPACK_QPACK_STATIC_TABLE_H_
 
+#include <vector>
+
 #include "net/third_party/quic/platform/api/quic_export.h"
-#include "net/third_party/spdy/core/hpack/hpack_constants.h"
-#include "net/third_party/spdy/core/hpack/hpack_static_table.h"
+#include "net/third_party/quiche/src/spdy/core/hpack/hpack_constants.h"
+#include "net/third_party/quiche/src/spdy/core/hpack/hpack_static_table.h"
 
 namespace quic {
 
@@ -16,7 +18,8 @@ using QpackStaticTable = spdy::HpackStaticTable;
 
 // QPACK static table defined at
 // https://quicwg.org/base-drafts/draft-ietf-quic-qpack.html#static-table.
-QUIC_EXPORT_PRIVATE extern const QpackStaticEntry kQpackStaticTable[99];
+QUIC_EXPORT_PRIVATE const std::vector<QpackStaticEntry>&
+QpackStaticTableVector();
 
 // Returns a QpackStaticTable instance initialized with kQpackStaticTable.
 // The instance is read-only, has static lifetime, and is safe to share amoung

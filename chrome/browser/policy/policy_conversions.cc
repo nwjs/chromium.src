@@ -70,10 +70,11 @@ const PolicyStringMap kPolicySources[policy::POLICY_SOURCE_COUNT] = {
 using PolicyToSchemaMap = base::flat_map<std::string, policy::Schema>;
 
 // Utility function that returns a JSON serialization of the given |dict|.
-std::string DictionaryToJSONString(const Value& dict) {
+std::string DictionaryToJSONString(const Value& dict, bool is_pretty_print) {
   std::string json_string;
   base::JSONWriter::WriteWithOptions(
-      dict, base::JSONWriter::OPTIONS_PRETTY_PRINT, &json_string);
+      dict, (is_pretty_print ? base::JSONWriter::OPTIONS_PRETTY_PRINT : 0),
+      &json_string);
   return json_string;
 }
 
@@ -82,23 +83,25 @@ std::string DictionaryToJSONString(const Value& dict) {
 // i18n_template.js will display.
 Value CopyAndMaybeConvert(const Value& value,
                           bool convert_values,
-                          const base::Optional<policy::Schema>& schema) {
+                          const base::Optional<policy::Schema>& schema,
+                          bool is_pretty_print) {
   Value value_copy = value.Clone();
   if (schema.has_value())
     schema->MaskSensitiveValues(&value_copy);
   if (!convert_values)
     return value_copy;
-  if (value.is_dict())
-    return Value(DictionaryToJSONString(value_copy));
+  if (value_copy.is_dict())
+    return Value(DictionaryToJSONString(value_copy, is_pretty_print));
 
-  if (!value.is_list()) {
+  if (!value_copy.is_list()) {
     return value_copy;
   }
 
   Value result(Value::Type::LIST);
   for (const auto& element : value_copy.GetList()) {
     if (element.is_dict()) {
-      result.GetList().emplace_back(Value(DictionaryToJSONString(element)));
+      result.GetList().emplace_back(
+          Value(DictionaryToJSONString(element, is_pretty_print)));
     } else {
       result.GetList().push_back(element.Clone());
     }
@@ -136,7 +139,8 @@ void GetPolicyValues(
     bool with_user_policies,
     bool convert_values,
     const base::Optional<PolicyToSchemaMap>& known_policy_schemas,
-    Value* values) {
+    Value* values,
+    bool is_pretty_print) {
   DCHECK(values);
   for (const auto& entry : map) {
     const std::string& policy_name = entry.first;
@@ -148,7 +152,7 @@ void GetPolicyValues(
         GetKnownPolicySchema(known_policy_schemas, policy_name);
     Value value(Value::Type::DICTIONARY);
     value.SetKey("value", CopyAndMaybeConvert(*policy.value, convert_values,
-                                              known_policy_schema));
+                                              known_policy_schema, is_pretty_print));
     value.SetKey("scope", Value((policy.scope == policy::POLICY_SCOPE_USER)
                                     ? "user"
                                     : "machine"));
@@ -178,7 +182,8 @@ void GetPolicyValues(
 
 base::Optional<PolicyToSchemaMap> GetKnownPolicies(
     const scoped_refptr<policy::SchemaMap> schema_map,
-    const PolicyNamespace& policy_namespace) {
+    const PolicyNamespace& policy_namespace,
+    bool is_pretty_print) {
   const Schema* schema = schema_map->GetSchema(policy_namespace);
   // There is no policy name verification without valid schema.
   if (!schema || !schema->valid())
@@ -199,7 +204,8 @@ base::Optional<PolicyToSchemaMap> GetKnownPolicies(
 void GetChromePolicyValues(content::BrowserContext* context,
                            bool keep_user_policies,
                            bool convert_values,
-                           Value* values) {
+                           Value* values,
+                           bool is_pretty_print) {
   policy::PolicyService* policy_service = GetPolicyService(context);
   policy::PolicyMap map;
 
@@ -230,15 +236,18 @@ void GetChromePolicyValues(content::BrowserContext* context,
   // Convert dictionary values to strings for display.
   handler_list->PrepareForDisplaying(&map);
 
-  GetPolicyValues(map, &errors, keep_user_policies, convert_values,
-                  GetKnownPolicies(schema_map, policy_namespace), values);
+  GetPolicyValues(
+      map, &errors, keep_user_policies, convert_values,
+      GetKnownPolicies(schema_map, policy_namespace, is_pretty_print), values,
+      is_pretty_print);
 }
 
 }  // namespace
 
 Value GetAllPolicyValuesAsDictionary(content::BrowserContext* context,
                                      bool with_user_policies,
-                                     bool convert_values) {
+                                     bool convert_values,
+                                     bool is_pretty_print) {
   Value all_policies(Value::Type::DICTIONARY);
   if (!context) {
     LOG(ERROR) << "Can not dump policies, null context";
@@ -250,7 +259,7 @@ Value GetAllPolicyValuesAsDictionary(content::BrowserContext* context,
   // Add Chrome policy values.
   Value chrome_policies(Value::Type::DICTIONARY);
   GetChromePolicyValues(context, with_user_policies, convert_values,
-                        &chrome_policies);
+                        &chrome_policies, is_pretty_print);
   all_policies.SetKey("chromePolicies", std::move(chrome_policies));
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -281,10 +290,11 @@ Value GetAllPolicyValuesAsDictionary(content::BrowserContext* context,
     policy::PolicyNamespace policy_namespace = policy::PolicyNamespace(
         policy::POLICY_DOMAIN_EXTENSIONS, extension->id());
     policy::PolicyErrorMap empty_error_map;
-    GetPolicyValues(GetPolicyService(context)->GetPolicies(policy_namespace),
-                    &empty_error_map, with_user_policies, convert_values,
-                    GetKnownPolicies(schema_map, policy_namespace),
-                    &extension_policies);
+    GetPolicyValues(
+        GetPolicyService(context)->GetPolicies(policy_namespace),
+        &empty_error_map, with_user_policies, convert_values,
+        GetKnownPolicies(schema_map, policy_namespace, is_pretty_print),
+        &extension_policies, is_pretty_print);
     extension_values.SetKey(extension->id(), std::move(extension_policies));
   }
   all_policies.SetKey("extensionPolicies", std::move(extension_values));
@@ -347,13 +357,14 @@ void FillIdentityFields(Value* policy_dump) {
 
 std::string GetAllPolicyValuesAsJSON(content::BrowserContext* context,
                                      bool with_user_policies,
-                                     bool with_device_identity) {
+                                     bool with_device_identity,
+                                     bool is_pretty_print) {
   Value all_policies = policy::GetAllPolicyValuesAsDictionary(
-      context, with_user_policies, false /* convert_values */);
+      context, with_user_policies, false /* convert_values */, is_pretty_print);
   if (with_device_identity) {
     FillIdentityFields(&all_policies);
   }
-  return DictionaryToJSONString(all_policies);
+  return DictionaryToJSONString(all_policies, is_pretty_print);
 }
 
 }  // namespace policy

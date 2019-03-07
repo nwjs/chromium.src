@@ -60,6 +60,7 @@ class MessagePort;
 class Node;
 class ScriptState;
 class ServiceWorker;
+class V8EventListener;
 
 struct FiringEventIterator {
   DISALLOW_NEW();
@@ -80,7 +81,7 @@ class CORE_EXPORT EventTargetData final
   EventTargetData();
   ~EventTargetData();
 
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
   EventListenerMap event_listener_map;
   std::unique_ptr<FiringEventIteratorVector> firing_event_iterators;
@@ -132,22 +133,24 @@ class CORE_EXPORT EventTarget : public ScriptWrappable {
 
   static EventTarget* Create(ScriptState*);
 
+  bool addEventListener(const AtomicString& event_type, V8EventListener*);
+  bool addEventListener(const AtomicString& event_type,
+                        V8EventListener*,
+                        const AddEventListenerOptionsOrBoolean&);
   bool addEventListener(const AtomicString& event_type,
                         EventListener*,
                         bool use_capture = false);
   bool addEventListener(const AtomicString& event_type,
                         EventListener*,
-                        const AddEventListenerOptionsOrBoolean&);
-  bool addEventListener(const AtomicString& event_type,
-                        EventListener*,
                         AddEventListenerOptionsResolved*);
 
+  bool removeEventListener(const AtomicString& event_type, V8EventListener*);
+  bool removeEventListener(const AtomicString& event_type,
+                           V8EventListener*,
+                           const EventListenerOptionsOrBoolean&);
   bool removeEventListener(const AtomicString& event_type,
                            const EventListener*,
                            bool use_capture = false);
-  bool removeEventListener(const AtomicString& event_type,
-                           const EventListener*,
-                           const EventListenerOptionsOrBoolean&);
   bool removeEventListener(const AtomicString& event_type,
                            const EventListener*,
                            EventListenerOptions*);
@@ -234,7 +237,7 @@ class CORE_EXPORT EventTargetWithInlineData : public EventTarget {
  public:
   ~EventTargetWithInlineData() override = default;
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(event_target_data_);
     EventTarget::Trace(visitor);
   }

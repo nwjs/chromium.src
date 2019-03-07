@@ -107,6 +107,8 @@ class MetricsWebContentsObserver
       content::RenderFrameHost* render_frame_host,
       const content::GlobalRequestID& request_id,
       const content::mojom::ResourceLoadInfo& resource_load_info) override;
+  void FrameReceivedFirstUserActivation(
+      content::RenderFrameHost* render_frame_host) override;
 
   // These methods are forwarded from the MetricsNavigationThrottle.
   void WillStartNavigationRequest(content::NavigationHandle* navigation_handle);
@@ -245,6 +247,8 @@ class MetricsWebContentsObserver
       page_load_metrics_binding_;
 
   bool web_contents_will_soon_be_destroyed_ = false;
+
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
 
   DISALLOW_COPY_AND_ASSIGN(MetricsWebContentsObserver);
 };

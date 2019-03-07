@@ -9,24 +9,25 @@
 #include "ash/frame/ash_frame_caption_controller.h"  // mash-ok
 #include "ash/public/cpp/app_types.h"
 #include "ash/public/cpp/ash_constants.h"
-#include "ash/public/cpp/ash_layout_constants.h"
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/caption_buttons/frame_back_button.h"
 #include "ash/public/cpp/caption_buttons/frame_caption_button_container_view.h"
 #include "ash/public/cpp/default_frame_header.h"
 #include "ash/public/cpp/frame_utils.h"
 #include "ash/public/cpp/tablet_mode.h"
+#include "ash/public/cpp/touch_uma.h"
 #include "ash/public/cpp/window_pin_type.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/public/interfaces/constants.mojom.h"
 #include "ash/public/interfaces/window_state_type.mojom.h"
 #include "ash/wm/window_util.h"  // mash-ok
 #include "base/command_line.h"
+#include "base/metrics/user_metrics.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/themes/theme_properties.h"
-#include "chrome/browser/ui/ash/multi_user/multi_user_window_manager.h"
+#include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_client.h"
 #include "chrome/browser/ui/ash/session_util.h"
 #include "chrome/browser/ui/ash/tablet_mode_client.h"
 #include "chrome/browser/ui/browser.h"
@@ -67,6 +68,7 @@
 #include "ui/views/rect_based_targeting_utils.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
+#include "ui/views/window/caption_button_layout_constants.h"
 
 namespace {
 
@@ -204,6 +206,9 @@ void BrowserNonClientFrameViewAsh::Init() {
 
   frame_header_ = CreateFrameHeader();
 
+  if (browser_view()->IsBrowserTypeHostedApp())
+    SetUpForHostedApp();
+
   browser_view()->immersive_mode_controller()->AddObserver(this);
 
   UpdateFrameColors();
@@ -222,7 +227,7 @@ BrowserNonClientFrameViewAsh::CreateInterfacePtrForTesting() {
 // BrowserNonClientFrameView:
 
 gfx::Rect BrowserNonClientFrameViewAsh::GetBoundsForTabStrip(
-    views::View* tabstrip) const {
+    const views::View* tabstrip) const {
   if (!tabstrip)
     return gfx::Rect();
 
@@ -296,6 +301,29 @@ bool BrowserNonClientFrameViewAsh::CanUserExitFullscreen() const {
   return ash::IsWindowTrustedPinned(GetFrameWindow()) ? false : true;
 }
 
+SkColor BrowserNonClientFrameViewAsh::GetCaptionColor(
+    ActiveState active_state) const {
+  bool active = ShouldPaintAsActive(active_state);
+
+  SkColor active_color =
+      views::FrameCaptionButton::GetButtonColor(ash::kDefaultFrameColor);
+
+  // Hosted apps apply a theme color if specified by the extension.
+  Browser* browser = browser_view()->browser();
+  base::Optional<SkColor> theme_color =
+      browser->hosted_app_controller()->GetThemeColor();
+  if (theme_color)
+    active_color = views::FrameCaptionButton::GetButtonColor(*theme_color);
+
+  if (active)
+    return active_color;
+
+  // Add the container for extra hosted app buttons (e.g app menu button).
+  const float inactive_alpha_ratio =
+      views::FrameCaptionButton::GetInactiveButtonColorAlphaRatio();
+  return SkColorSetA(active_color, inactive_alpha_ratio * SK_AlphaOPAQUE);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // views::NonClientFrameView:
 
@@ -334,7 +362,7 @@ int BrowserNonClientFrameViewAsh::NonClientHitTest(const gfx::Point& point) {
 }
 
 void BrowserNonClientFrameViewAsh::GetWindowMask(const gfx::Size& size,
-                                                 gfx::Path* window_mask) {
+                                                 SkPath* window_mask) {
   // Aura does not use window masks.
 }
 
@@ -461,29 +489,6 @@ bool BrowserNonClientFrameViewAsh::OnMousePressed(const ui::MouseEvent& event) {
   return false;
 }
 
-bool BrowserNonClientFrameViewAsh::OnMouseDragged(const ui::MouseEvent& event) {
-  if (!features::IsUsingWindowService())
-    return false;
-
-  StartWindowMove(event);
-  return true;
-}
-
-void BrowserNonClientFrameViewAsh::OnMouseReleased(
-    const ui::MouseEvent& event) {
-  // If a window move has already been triggered and OnMouseReleased() is
-  // called, it means the mouse was released before the Ash asserted mouse
-  // capture, and the move should be cancelled. Note that if something else
-  // grabs mouse capture right after PerformWindowMove(), Ash may re-assert that
-  // capture instead of cancelling the move.
-  if (performing_window_move_) {
-    aura::WindowTreeHostMus* window_tree_host_mus =
-        static_cast<aura::WindowTreeHostMus*>(
-            GetWidget()->GetNativeWindow()->GetHost());
-    window_tree_host_mus->CancelWindowMove();
-  }
-}
-
 void BrowserNonClientFrameViewAsh::OnGestureEvent(ui::GestureEvent* event) {
   if (!features::IsUsingWindowService())
     return;
@@ -491,23 +496,19 @@ void BrowserNonClientFrameViewAsh::OnGestureEvent(ui::GestureEvent* event) {
   switch (event->type()) {
     case ui::ET_GESTURE_TAP:
       if (event->details().tap_count() == 2) {
-        // TODO(estade): need to log TouchUMA for GESTURE_MAXIMIZE_DOUBLETAP and
-        // GESTURE_FRAMEVIEW_TAP, as in WorkspaceEventHandler.
         ash_window_manager_->MaximizeWindowByCaptionClick(
             GetServerWindowId(), ui::mojom::PointerKind::TOUCH);
+        base::RecordAction(
+            base::UserMetricsAction("Caption_GestureTogglesMaximize"));
+        ash::TouchUMA::RecordGestureAction(ash::GESTURE_MAXIMIZE_DOUBLETAP);
+      } else {
+        ash::TouchUMA::RecordGestureAction(ash::GESTURE_FRAMEVIEW_TAP);
       }
-      break;
-
-    case ui::ET_GESTURE_SCROLL_UPDATE:
-      StartWindowMove(*event);
       break;
 
     default:
       break;
   }
-  // Always set the event as handled, otherwise the gesture recognizer will not
-  // emit ui::ET_GESTURE_SCROLL_UPDATE events.
-  event->SetHandled();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -719,7 +720,7 @@ bool BrowserNonClientFrameViewAsh::ShouldShowCaptionButtons() const {
   // Home Launcher feature is enabled, since it gives the user the ability to
   // minimize all windows when pressing the Launcher button on the shelf.
   const bool hide_caption_buttons_in_tablet_mode =
-      !browser_view()->browser()->is_app();
+      !UsePackagedAppHeaderStyle(browser_view()->browser());
   if (hide_caption_buttons_in_tablet_mode && TabletModeClient::Get() &&
       TabletModeClient::Get()->tablet_mode_enabled()) {
     return false;
@@ -770,15 +771,8 @@ BrowserNonClientFrameViewAsh::CreateFrameHeader() {
     header = std::make_unique<BrowserFrameHeaderAsh>(frame(), this, this,
                                                      caption_button_container_);
   } else {
-    auto default_frame_header = std::make_unique<ash::DefaultFrameHeader>(
+    header = std::make_unique<ash::DefaultFrameHeader>(
         frame(), this, caption_button_container_);
-    if (browser_view()->IsBrowserTypeHostedApp()) {
-      SetUpForHostedApp(default_frame_header.get());
-    } else if (!browser->is_app()) {
-      default_frame_header->SetFrameColors(kMdWebUiFrameColor,
-                                           kMdWebUiFrameColor);
-    }
-    header = std::move(default_frame_header);
   }
 
   header->SetBackButton(back_button_);
@@ -786,32 +780,15 @@ BrowserNonClientFrameViewAsh::CreateFrameHeader() {
   return header;
 }
 
-void BrowserNonClientFrameViewAsh::SetUpForHostedApp(
-    ash::DefaultFrameHeader* header) {
-  SkColor active_color = ash::FrameCaptionButton::GetButtonColor(
-      ash::FrameCaptionButton::ColorMode::kDefault, ash::kDefaultFrameColor);
-
-  // Hosted apps apply a theme color if specified by the extension.
+void BrowserNonClientFrameViewAsh::SetUpForHostedApp() {
   Browser* browser = browser_view()->browser();
-  base::Optional<SkColor> theme_color =
-      browser->hosted_app_controller()->GetThemeColor();
-  if (theme_color) {
-    header->set_button_color_mode(ash::FrameCaptionButton::ColorMode::kThemed);
-    header->SetFrameColors(*theme_color, *theme_color);
-    active_color = ash::FrameCaptionButton::GetButtonColor(
-        ash::FrameCaptionButton::ColorMode::kThemed, *theme_color);
-  }
-
   if (!browser->hosted_app_controller()->ShouldShowHostedAppButtonContainer())
     return;
 
   // Add the container for extra hosted app buttons (e.g app menu button).
-  const float inactive_alpha_ratio =
-      ash::FrameCaptionButton::GetInactiveButtonColorAlphaRatio();
-  SkColor inactive_color =
-      SkColorSetA(active_color, 255 * inactive_alpha_ratio);
   set_hosted_app_button_container(new HostedAppButtonContainer(
-      frame(), browser_view(), active_color, inactive_color));
+      frame(), browser_view(), GetCaptionColor(kActive),
+      GetCaptionColor(kInactive)));
   AddChildView(hosted_app_button_container());
 }
 
@@ -824,9 +801,6 @@ void BrowserNonClientFrameViewAsh::UpdateFrameColors() {
   } else if (browser_view()->IsBrowserTypeHostedApp()) {
     active_color =
         browser_view()->browser()->hosted_app_controller()->GetThemeColor();
-    frame_header_->set_button_color_mode(
-        active_color ? ash::FrameCaptionButton::ColorMode::kThemed
-                     : ash::FrameCaptionButton::ColorMode::kDefault);
   } else if (!browser_view()->browser()->is_app()) {
     active_color = kMdWebUiFrameColor;
   }
@@ -835,13 +809,12 @@ void BrowserNonClientFrameViewAsh::UpdateFrameColors() {
     window->SetProperty(ash::kFrameActiveColorKey, *active_color);
     window->SetProperty(ash::kFrameInactiveColorKey,
                         inactive_color.value_or(*active_color));
-    frame_header_->SetFrameColors(
-        window->GetProperty(ash::kFrameActiveColorKey),
-        window->GetProperty(ash::kFrameInactiveColorKey));
   } else {
     window->ClearProperty(ash::kFrameActiveColorKey);
     window->ClearProperty(ash::kFrameInactiveColorKey);
   }
+
+  frame_header_->UpdateFrameColors();
 }
 
 void BrowserNonClientFrameViewAsh::UpdateTopViewInset() {
@@ -865,7 +838,7 @@ bool BrowserNonClientFrameViewAsh::ShouldShowProfileIndicatorIcon() const {
   if (!browser->is_type_tabbed() && !browser->is_app())
     return false;
 
-  return MultiUserWindowManager::ShouldShowAvatar(
+  return MultiUserWindowManagerClient::ShouldShowAvatar(
       browser_view()->GetNativeWindow());
 }
 
@@ -916,44 +889,6 @@ ws::Id BrowserNonClientFrameViewAsh::GetServerWindowId() const {
 
 bool BrowserNonClientFrameViewAsh::IsInOverviewMode() const {
   return GetFrameWindow()->GetProperty(ash::kIsShowingInOverviewKey);
-}
-
-void BrowserNonClientFrameViewAsh::StartWindowMove(
-    const ui::LocatedEvent& event) {
-  DCHECK(features::IsUsingWindowService());
-
-  // The client may receive multiple events before Ash has taken over the window
-  // move. In this case, ignore the extras.
-  if (performing_window_move_)
-    return;
-
-  aura::WindowTreeHostMus* window_tree_host_mus =
-      static_cast<aura::WindowTreeHostMus*>(
-          GetWidget()->GetNativeWindow()->GetHost());
-  performing_window_move_ = true;
-  // Don't use display::Screen::GetCursorScreenPoint(), that's incorrect for
-  // touch events.
-  aura::Window* window = GetWidget()->GetNativeWindow();
-  gfx::Point cursor_location = window->GetBoundsInScreen().origin() +
-                               event.location().OffsetFromOrigin();
-  ws::mojom::MoveLoopSource source = ws::mojom::MoveLoopSource::MOUSE;
-  if (!event.IsMouseEvent()) {
-    source = ws::mojom::MoveLoopSource::TOUCH;
-    aura::Window* root = window->GetRootWindow();
-    // When using WindowService, the touch events for the window move will
-    // happen on the root window, so the events need to be transferred from
-    // widget to its root before starting move loop.
-    window->env()->gesture_recognizer()->TransferEventsTo(
-        window, root, ui::TransferTouchesBehavior::kDontCancel);
-  }
-  window_tree_host_mus->PerformWindowMove(
-      source, cursor_location,
-      base::BindRepeating(&BrowserNonClientFrameViewAsh::OnWindowMoveDone,
-                          weak_ptr_factory_.GetWeakPtr()));
-}
-
-void BrowserNonClientFrameViewAsh::OnWindowMoveDone(bool success) {
-  performing_window_move_ = false;
 }
 
 const aura::Window* BrowserNonClientFrameViewAsh::GetFrameWindow() const {

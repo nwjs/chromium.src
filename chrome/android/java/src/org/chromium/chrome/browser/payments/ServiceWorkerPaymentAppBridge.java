@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.payments;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Pair;
 
@@ -29,8 +30,6 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 /**
  * Native bridge for interacting with service worker based payment apps.
@@ -361,7 +360,8 @@ public class ServiceWorkerPaymentAppBridge implements PaymentAppFactory.PaymentA
     @CalledByNative
     private static void onInstallablePaymentAppCreated(@Nullable String name, String swUrl,
             String scope, boolean useCache, @Nullable Bitmap icon, String methodName,
-            WebContents webContents, PaymentAppFactory.PaymentAppCreatedCallback callback) {
+            String[] preferredRelatedApplications, WebContents webContents,
+            PaymentAppFactory.PaymentAppCreatedCallback callback) {
         ThreadUtils.assertOnUiThread();
 
         Context context = ChromeActivity.fromWebContents(webContents);
@@ -378,8 +378,8 @@ public class ServiceWorkerPaymentAppBridge implements PaymentAppFactory.PaymentA
         }
         callback.onPaymentAppCreated(new ServiceWorkerPaymentApp(webContents, name,
                 scopeUri.getHost(), swUri, scopeUri, useCache,
-                icon == null ? null : new BitmapDrawable(context.getResources(), icon),
-                methodName));
+                icon == null ? null : new BitmapDrawable(context.getResources(), icon), methodName,
+                preferredRelatedApplications));
     }
 
     @CalledByNative

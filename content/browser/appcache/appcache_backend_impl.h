@@ -7,9 +7,9 @@
 
 #include <stdint.h>
 
-#include "base/containers/hash_tables.h"
 #include "content/browser/appcache/appcache_host.h"
 #include "content/common/content_export.h"
+#include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
 
 namespace content {
 
@@ -37,7 +37,8 @@ class CONTENT_EXPORT AppCacheBackendImpl {
                    const int64_t cache_document_was_loaded_from,
                    const GURL& manifest_url);
   void GetResourceList(
-      int host_id, std::vector<AppCacheResourceInfo>* resource_infos);
+      int host_id,
+      std::vector<blink::mojom::AppCacheResourceInfo>* resource_infos);
   bool SelectCacheForSharedWorker(int host_id, int64_t appcache_id);
   bool MarkAsForeignEntry(int host_id,
                           const GURL& document_url,
@@ -45,7 +46,10 @@ class CONTENT_EXPORT AppCacheBackendImpl {
 
   // The xxxWithCallback functions take ownership of the callback iff the host
   // is found (and the return value is true). If the result is false, the
-  // callback is still available to the caller of these methods.
+  // callback might still be available to the caller of these methods.
+  // TODO(mek): Just pass callbacks unconditionally. That is possible if the
+  // caller is changed to call BindingSet::ReportBadMessage rather than calling
+  // the global mojo::ReportBadMessage.
   bool GetStatusWithCallback(int host_id, GetStatusCallback* callback);
   bool StartUpdateWithCallback(int host_id, StartUpdateCallback* callback);
   bool SwapCacheWithCallback(int host_id, SwapCacheCallback* callback);
@@ -56,7 +60,7 @@ class CONTENT_EXPORT AppCacheBackendImpl {
     return (it != hosts_.end()) ? (it->second.get()) : nullptr;
   }
 
-  using HostMap = base::hash_map<int, std::unique_ptr<AppCacheHost>>;
+  using HostMap = std::unordered_map<int, std::unique_ptr<AppCacheHost>>;
   const HostMap& hosts() { return hosts_; }
 
   // The AppCacheHost is precreated by the AppCacheNavigationHandleCore class

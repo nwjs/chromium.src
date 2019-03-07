@@ -29,7 +29,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/account_reconcilor_factory.h"
 #include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
@@ -41,14 +41,14 @@
 #include "components/browser_sync/profile_sync_service.h"
 #include "components/flags_ui/pref_service_flags_storage.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/core/browser/account_info.h"
 #include "components/signin/core/browser/account_reconcilor.h"
 #include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_pref_names.h"
-#include "components/signin/core/browser/signin_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/buildflags/buildflags.h"
 #include "net/base/escape.h"
+#include "services/identity/public/cpp/identity_manager.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/extension_service.h"
@@ -88,42 +88,6 @@ void UnblockExtensions(Profile* profile) {
   extension_service->UnblockAllExtensions();
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
-
-// Handles running a callback when a new Browser for the given profile
-// has been completely created.
-class BrowserAddedForProfileObserver : public BrowserListObserver {
- public:
-  BrowserAddedForProfileObserver(
-      Profile* profile,
-      ProfileManager::CreateCallback callback)
-      : profile_(profile),
-        callback_(callback) {
-    DCHECK(!callback_.is_null());
-    BrowserList::AddObserver(this);
-  }
-  ~BrowserAddedForProfileObserver() override {}
-
- private:
-  // Overridden from BrowserListObserver:
-  void OnBrowserAdded(Browser* browser) override {
-    if (browser->profile() == profile_) {
-      BrowserList::RemoveObserver(this);
-      // By the time the browser is added a tab (or multiple) are about to be
-      // added. Post the callback to the message loop so it gets executed after
-      // the tabs are created.
-      base::ThreadTaskRunnerHandle::Get()->PostTask(
-          FROM_HERE, base::BindOnce(callback_, profile_,
-                                    Profile::CREATE_STATUS_INITIALIZED));
-      base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, this);
-    }
-  }
-
-  // Profile for which the browser should be opened.
-  Profile* profile_;
-  ProfileManager::CreateCallback callback_;
-
-  DISALLOW_COPY_AND_ASSIGN(BrowserAddedForProfileObserver);
-};
 
 // Called after a |system_profile| is available to be used by the user manager.
 // Runs |callback|, if it exists. Depending on the value of
@@ -411,13 +375,12 @@ bool IsLockAvailable(Profile* profile) {
     AccountTrackerService* account_tracker =
         AccountTrackerServiceFactory::GetForProfile(profile);
     std::string account_id =
-      SigninManagerFactory::GetForProfile(profile)->GetAuthenticatedAccountId();
+        IdentityManagerFactory::GetForProfile(profile)->GetPrimaryAccountId();
     hosted_domain = account_tracker->GetAccountInfo(account_id).hosted_domain;
   }
   // TODO(mlerman): Prohibit only users who authenticate using SAML. Until then,
   // prohibited users who use hosted domains (aside from google.com).
-  if (hosted_domain != AccountTrackerService::kNoHostedDomainFound &&
-      hosted_domain != "google.com") {
+  if (hosted_domain != kNoHostedDomainFound && hosted_domain != "google.com") {
     return false;
   }
 
@@ -478,6 +441,29 @@ void BubbleViewModeFromAvatarBubbleMode(BrowserWindow::AvatarBubbleMode mode,
       return;
     default:
       *bubble_view_mode = profiles::BUBBLE_VIEW_MODE_PROFILE_CHOOSER;
+  }
+}
+
+BrowserAddedForProfileObserver::BrowserAddedForProfileObserver(
+    Profile* profile,
+    ProfileManager::CreateCallback callback)
+    : profile_(profile), callback_(callback) {
+  DCHECK(!callback_.is_null());
+  BrowserList::AddObserver(this);
+}
+
+BrowserAddedForProfileObserver::~BrowserAddedForProfileObserver() {}
+
+void BrowserAddedForProfileObserver::OnBrowserAdded(Browser* browser) {
+  if (browser->profile() == profile_) {
+    BrowserList::RemoveObserver(this);
+    // By the time the browser is added a tab (or multiple) are about to be
+    // added. Post the callback to the message loop so it gets executed after
+    // the tabs are created.
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(callback_, profile_,
+                                  Profile::CREATE_STATUS_INITIALIZED));
+    base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, this);
   }
 }
 

@@ -15,6 +15,7 @@
 #include "base/containers/adapters.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/json/json_writer.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
@@ -472,6 +473,7 @@ void LayerTreeImpl::PushPropertiesTo(LayerTreeImpl* target_tree) {
   // The page scale factor update can affect scrolling which requires that
   // these ids are set, so this must be before PushPageScaleFactorAndLimits.
   target_tree->SetViewportLayersFromIds(viewport_layer_ids_);
+  target_tree->set_viewport_property_ids(viewport_property_ids_);
 
   // Active tree already shares the page_scale_factor object with pending
   // tree so only the limits need to be provided.
@@ -680,7 +682,8 @@ void LayerTreeImpl::SetTransformMutated(ElementId element_id,
                                         const gfx::Transform& transform) {
   DCHECK_EQ(1u, property_trees()->element_id_to_transform_node_index.count(
                     element_id));
-  element_id_to_transform_animations_[element_id] = transform;
+  if (IsSyncTree() || IsRecycleTree())
+    element_id_to_transform_animations_[element_id] = transform;
   if (property_trees()->transform_tree.OnTransformAnimated(element_id,
                                                            transform))
     set_needs_update_draw_properties();
@@ -689,7 +692,8 @@ void LayerTreeImpl::SetTransformMutated(ElementId element_id,
 void LayerTreeImpl::SetOpacityMutated(ElementId element_id, float opacity) {
   DCHECK_EQ(
       1u, property_trees()->element_id_to_effect_node_index.count(element_id));
-  element_id_to_opacity_animations_[element_id] = opacity;
+  if (IsSyncTree() || IsRecycleTree())
+    element_id_to_opacity_animations_[element_id] = opacity;
   if (property_trees()->effect_tree.OnOpacityAnimated(element_id, opacity))
     set_needs_update_draw_properties();
 }
@@ -698,7 +702,8 @@ void LayerTreeImpl::SetFilterMutated(ElementId element_id,
                                      const FilterOperations& filters) {
   DCHECK_EQ(
       1u, property_trees()->element_id_to_effect_node_index.count(element_id));
-  element_id_to_filter_animations_[element_id] = filters;
+  if (IsSyncTree() || IsRecycleTree())
+    element_id_to_filter_animations_[element_id] = filters;
   if (property_trees()->effect_tree.OnFilterAnimated(element_id, filters))
     set_needs_update_draw_properties();
 }
@@ -771,6 +776,10 @@ void LayerTreeImpl::UpdatePropertyTreeAnimationFromMainThread() {
   // maps below if we find they have no node present in their
   // respective tree. This can be the case if the layer associated
   // with that element id has been removed.
+
+  // This code is assumed to only run on the sync tree; the node updates are
+  // then synced when the tree is activated. See http://crbug.com/916512
+  DCHECK(IsSyncTree());
 
   auto element_id_to_opacity = element_id_to_opacity_animations_.begin();
   while (element_id_to_opacity != element_id_to_opacity_animations_.end()) {
@@ -1184,9 +1193,13 @@ void LayerTreeImpl::ClearViewportLayers() {
 
 const ScrollNode* LayerTreeImpl::InnerViewportScrollNode() const {
   auto* inner_scroll = InnerViewportScrollLayer();
-  if (!inner_scroll)
-    return nullptr;
-
+  if (!inner_scroll) {
+    // TODO(crbug.com/909750): Check all other callers of
+    // InnerViewportScrollLayer() and switch to
+    // viewport_property_ids_.inner_scroll if needed.
+    return property_trees()->scroll_tree.Node(
+        viewport_property_ids_.inner_scroll);
+  }
   return property_trees()->scroll_tree.Node(inner_scroll->scroll_tree_index());
 }
 
@@ -2141,7 +2154,7 @@ LayerImpl* LayerTreeImpl::FindFirstScrollingLayerOrScrollbarThatIsHitByPoint(
 
 struct HitTestVisibleScrollableOrTouchableFunctor {
   bool operator()(LayerImpl* layer) const {
-    return layer->scrollable() || layer->should_hit_test() ||
+    return layer->scrollable() || layer->ShouldHitTest() ||
            !layer->touch_action_region().region().IsEmpty();
   }
 };
@@ -2334,6 +2347,33 @@ void LayerTreeImpl::ResetAllChangeTracking() {
   for (auto& layer : *layers_)
     layer->ResetChangeTracking();
   property_trees_.ResetAllChangeTracking();
+}
+
+std::string LayerTreeImpl::LayerListAsJson() const {
+  auto list = std::make_unique<base::ListValue>();
+  for (auto* layer : *this)
+    list->Append(layer->LayerAsJson());
+  std::string str;
+  base::JSONWriter::WriteWithOptions(
+      *list,
+      base::JSONWriter::OPTIONS_OMIT_DOUBLE_TYPE_PRESERVATION |
+          base::JSONWriter::OPTIONS_PRETTY_PRINT,
+      &str);
+  return str;
+}
+
+std::string LayerTreeImpl::LayerTreeAsJson() const {
+  std::string str;
+  if (root_layer_for_testing_) {
+    std::unique_ptr<base::Value> json(
+        root_layer_for_testing_->LayerTreeAsJson());
+    base::JSONWriter::WriteWithOptions(
+        *json,
+        base::JSONWriter::OPTIONS_OMIT_DOUBLE_TYPE_PRESERVATION |
+            base::JSONWriter::OPTIONS_PRETTY_PRINT,
+        &str);
+  }
+  return str;
 }
 
 }  // namespace cc

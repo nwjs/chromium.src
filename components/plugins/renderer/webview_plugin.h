@@ -126,6 +126,7 @@ class WebViewPlugin : public blink::WebPlugin,
   void OnDestruct() override {}
   void OnZoomLevelChanged() override;
 
+  void LoadHTML(const std::string& html_data, const GURL& url);
   void UpdatePluginForNewGeometry(const blink::WebRect& window_rect,
                                   const blink::WebRect& unobscured_rect);
 
@@ -165,7 +166,6 @@ class WebViewPlugin : public blink::WebPlugin,
     bool CanHandleGestureEvent() override;
     bool CanUpdateLayout() override;
     blink::WebScreenInfo GetScreenInfo() override;
-    blink::WebWidgetClient* WidgetClient() override;
 
     // WebWidgetClient methods:
     void SetToolTipText(const blink::WebString&,
@@ -175,9 +175,6 @@ class WebViewPlugin : public blink::WebPlugin,
                        blink::WebDragOperationsMask,
                        const SkBitmap&,
                        const gfx::Point&) override;
-    // TODO(ojan): Remove this override and have this class give a
-    // LayerTreeView to the WebWidget. Or stop making this a WebView?
-    bool AllowsBrokenNullLayerTreeView() const override;
     void DidInvalidateRect(const blink::WebRect&) override;
     void DidChangeCursor(const blink::WebCursorInfo& cursor) override;
     void ScheduleAnimation() override;
@@ -188,8 +185,6 @@ class WebViewPlugin : public blink::WebPlugin,
     void BindToFrame(blink::WebNavigationControl* frame) override;
     void DidClearWindowObject() override;
     void FrameDetached(DetachType) override;
-    void BeginNavigation(
-        std::unique_ptr<blink::WebNavigationInfo> info) override;
 
    private:
     WebViewPlugin* plugin_;

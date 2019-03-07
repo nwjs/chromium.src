@@ -223,8 +223,6 @@ class SocketDataProvider {
   virtual bool AllWriteDataConsumed() const = 0;
   virtual void CancelPendingRead() {}
 
-  virtual void OnEnableTCPFastOpenIfSupported();
-
   // Returns the last set receive buffer size, or -1 if never set.
   int receive_buffer_size() const { return receive_buffer_size_; }
   void set_receive_buffer_size(int receive_buffer_size) {
@@ -490,7 +488,6 @@ class SequencedSocketData : public SocketDataProvider {
   MockWriteResult OnWrite(const std::string& data) override;
   bool AllReadDataConsumed() const override;
   bool AllWriteDataConsumed() const override;
-  void OnEnableTCPFastOpenIfSupported() override;
   bool IsIdle() const override;
   void CancelPendingRead() override;
 
@@ -508,8 +505,6 @@ class SequencedSocketData : public SocketDataProvider {
   // occur synchronously with the call if it can.
   void Resume();
   void RunUntilPaused();
-
-  bool IsUsingTCPFastOpen() const;
 
   // When true, IsConnectedAndIdle() will return false if the next event in the
   // sequence is a synchronous.  Otherwise, the socket claims to be idle as
@@ -546,7 +541,6 @@ class SequencedSocketData : public SocketDataProvider {
   IoState write_state_;
 
   bool busy_before_sync_reads_;
-  bool is_using_tcp_fast_open_;
 
   // Used by RunUntilPaused.  NULL at all other times.
   std::unique_ptr<base::RunLoop> run_until_paused_run_loop_;
@@ -637,10 +631,12 @@ class MockClientSocketFactory : public ClientSocketFactory {
       std::unique_ptr<ClientSocketHandle> transport_socket,
       const std::string& user_agent,
       const HostPortPair& endpoint,
+      const ProxyServer& proxy_server,
       HttpAuthController* http_auth_controller,
       bool tunnel,
       bool using_spdy,
       NextProto negotiated_protocol,
+      ProxyDelegate* proxy_delegate,
       bool is_https_proxy,
       const NetworkTrafficAnnotationTag& traffic_annotation) override;
   void ClearSSLSessionCache() override;
@@ -758,7 +754,6 @@ class MockTCPClientSocket : public MockClientSocket, public AsyncSocket {
   bool IsConnectedAndIdle() const override;
   int GetPeerAddress(IPEndPoint* address) const override;
   bool WasEverUsed() const override;
-  void EnableTCPFastOpenIfSupported() override;
   bool GetSSLInfo(SSLInfo* ssl_info) override;
   void GetConnectionAttempts(ConnectionAttempts* out) const override;
   void ClearConnectionAttempts() override;
@@ -1004,6 +999,7 @@ class MockUDPClientSocket : public DatagramClientSocket, public AsyncSocket {
   void SetWriteMultiCoreEnabled(bool enabled) override;
   void SetSendmmsgEnabled(bool enabled) override;
   void SetWriteBatchingActive(bool active) override;
+  int SetMulticastInterface(uint32_t interface_index) override;
   const NetLogWithSource& NetLog() const override;
 
   // DatagramClientSocket implementation.
@@ -1384,15 +1380,24 @@ class MockTaggingClientSocketFactory : public MockClientSocketFactory {
   DISALLOW_COPY_AND_ASSIGN(MockTaggingClientSocketFactory);
 };
 
-// Constants for a successful SOCKS v4 handshake (connecting to localhost on
-// port 80, for the request).
+// Host / port used for SOCKS4 test strings.
+extern const char kSOCKS4TestHost[];
+extern const int kSOCKS4TestPort;
+
+// Constants for a successful SOCKS v4 handshake (connecting to kSOCKS4TestHost
+// on port kSOCKS4TestPort, for the request).
 extern const char kSOCKS4OkRequestLocalHostPort80[];
 extern const int kSOCKS4OkRequestLocalHostPort80Length;
 
 extern const char kSOCKS4OkReply[];
 extern const int kSOCKS4OkReplyLength;
 
-// Constants for a successful SOCKS v5 handshake.
+// Host / port used for SOCKS5 test strings.
+extern const char kSOCKS5TestHost[];
+extern const int kSOCKS5TestPort;
+
+// Constants for a successful SOCKS v5 handshake (connecting to kSOCKS5TestHost
+// on port kSOCKS5TestPort, for the request)..
 extern const char kSOCKS5GreetRequest[];
 extern const int kSOCKS5GreetRequestLength;
 

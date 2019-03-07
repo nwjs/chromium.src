@@ -14,7 +14,6 @@
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/modules/xr/xr.h"
-#include "third_party/blink/renderer/modules/xr/xr_device.h"
 #include "third_party/blink/renderer/modules/xr/xr_presentation_context.h"
 #include "third_party/blink/renderer/modules/xr/xr_session.h"
 #include "third_party/blink/renderer/modules/xr/xr_viewport.h"
@@ -86,8 +85,8 @@ std::unique_ptr<TransformationMatrix> getPoseMatrix(
 
 }  // namespace
 
-XRFrameProvider::XRFrameProvider(XRDevice* device)
-    : device_(device), last_has_focus_(device->HasFrameFocus()) {
+XRFrameProvider::XRFrameProvider(XR* xr)
+    : xr_(xr), last_has_focus_(xr->IsFrameFocused()) {
   frame_transport_ = MakeGarbageCollected<XRFrameTransport>();
 }
 
@@ -120,7 +119,7 @@ void XRFrameProvider::BeginImmersiveSession(
 }
 
 void XRFrameProvider::OnFocusChanged() {
-  bool focus = device_->HasFrameFocus();
+  bool focus = xr_->IsFrameFocused();
 
   // If we are gaining focus, schedule a frame for magic window.  This accounts
   // for skipping RAFs in ProcessScheduledFrame.  Only do this when there are
@@ -148,7 +147,7 @@ void XRFrameProvider::OnImmersiveSessionEnded() {
   if (!immersive_session_)
     return;
 
-  device_->xrDevicePtr()->ExitPresent();
+  xr_->xrDevicePtr()->ExitPresent();
 
   immersive_session_ = nullptr;
   pending_immersive_vsync_ = false;
@@ -214,14 +213,14 @@ void XRFrameProvider::ScheduleNonImmersiveFrame() {
   TRACE_EVENT0("gpu", __FUNCTION__);
   DCHECK(!immersive_session_)
       << "Scheduling should be done via the exclusive session if present.";
-  DCHECK(device_->xrMagicWindowProviderPtr())
+  DCHECK(xr_->xrMagicWindowProviderPtr())
       << "If there is no exclusive session, it should be impossible to "
          "schedule a frame without a MagicWindowProvider.";
 
   if (pending_non_immersive_vsync_)
     return;
 
-  LocalFrame* frame = device_->xr()->GetFrame();
+  LocalFrame* frame = xr_->GetFrame();
   if (!frame)
     return;
 
@@ -233,7 +232,7 @@ void XRFrameProvider::ScheduleNonImmersiveFrame() {
 
   pending_non_immersive_vsync_ = true;
 
-  device_->xrMagicWindowProviderPtr()->GetFrameData(WTF::Bind(
+  xr_->xrMagicWindowProviderPtr()->GetFrameData(WTF::Bind(
       &XRFrameProvider::OnNonImmersiveFrameData, WrapWeakPersistent(this)));
 
   // TODO(https://crbug.com/839253): Generalize the pass-through images
@@ -242,7 +241,8 @@ void XRFrameProvider::ScheduleNonImmersiveFrame() {
 
   // TODO(http://crbug.com/856257) Remove the special casing for AR and non-AR.
   if (!HasARSession()) {
-    doc->RequestAnimationFrame(new XRFrameProviderRequestCallback(this));
+    doc->RequestAnimationFrame(
+        MakeGarbageCollected<XRFrameProviderRequestCallback>(this));
   }
 }
 
@@ -262,7 +262,7 @@ void XRFrameProvider::OnImmersiveFrameData(
     return;
   }
 
-  LocalFrame* frame = device_->xr()->GetFrame();
+  LocalFrame* frame = xr_->GetFrame();
   if (!frame)
     return;
   Document* doc = frame->GetDocument();
@@ -306,7 +306,7 @@ void XRFrameProvider::OnNonImmersiveVSync(double high_res_now_ms) {
   if (immersive_session_)
     return;
 
-  LocalFrame* frame = device_->xr()->GetFrame();
+  LocalFrame* frame = xr_->GetFrame();
   if (!frame)
     return;
 
@@ -324,7 +324,7 @@ void XRFrameProvider::OnNonImmersiveFrameData(
   // TODO(https://crbug.com/837834): add unit tests for this code path.
 
   pending_non_immersive_vsync_ = false;
-  LocalFrame* frame = device_->xr()->GetFrame();
+  LocalFrame* frame = xr_->GetFrame();
   if (!frame)
     return;
   Document* doc = frame->GetDocument();
@@ -336,7 +336,8 @@ void XRFrameProvider::OnNonImmersiveFrameData(
     // Try to request a regular animation frame to avoid getting stuck.
     DVLOG(1) << __FUNCTION__ << ": NO FRAME DATA!";
     frame_pose_ = nullptr;
-    doc->RequestAnimationFrame(new XRFrameProviderRequestCallback(this));
+    doc->RequestAnimationFrame(
+        MakeGarbageCollected<XRFrameProviderRequestCallback>(this));
     return;
   }
 
@@ -366,7 +367,7 @@ void XRFrameProvider::ProcessScheduledFrame(
   TRACE_EVENT2("gpu", "XRFrameProvider::ProcessScheduledFrame", "frame",
                frame_id_, "timestamp", high_res_now_ms);
 
-  if (!device_->HasFrameFocus() && !immersive_session_) {
+  if (!xr_->IsFrameFocused() && !immersive_session_) {
     return;  // Not currently focused, so we won't expose poses (except to
              // immersive sessions).
   }
@@ -514,6 +515,8 @@ void XRFrameProvider::SubmitWebGLLayer(XRWebGLLayer* layer, bool was_changed) {
       presentation_provider_.get(), webgl_context->ContextGL(), webgl_context,
       std::move(image_ref), std::move(image_release_callback), frame_id_,
       needs_copy);
+  // If this layer is being mirrored, try to update the mirror.
+  layer->UpdateWebXRMirror();
 
   // Reset our frame id, since anything we'd want to do (resizing/etc) can
   // no-longer happen to this frame.
@@ -553,7 +556,7 @@ void XRFrameProvider::Dispose() {
 }
 
 void XRFrameProvider::Trace(blink::Visitor* visitor) {
-  visitor->Trace(device_);
+  visitor->Trace(xr_);
   visitor->Trace(frame_transport_);
   visitor->Trace(immersive_session_);
   visitor->Trace(requesting_sessions_);

@@ -8,7 +8,6 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Bundle;
 import android.provider.Browser;
 
 import org.chromium.base.ApiCompatibilityUtils;
@@ -16,19 +15,17 @@ import org.chromium.base.ContextUtils;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.ServiceTabLauncher;
-import org.chromium.chrome.browser.TabState;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabIdManager;
+import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tabmodel.AsyncTabParamsManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager.TabCreator;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.PageTransition;
-
-import java.util.Map;
 
 /**
  * Asynchronously creates Tabs by creating/starting up Activities.
@@ -148,15 +145,8 @@ public class TabDelegate extends TabCreator {
         } else {
             ChromeTabbedActivity.setNonAliasedComponent(intent, componentName);
         }
-
-        Map<String, String> extraHeaders = asyncParams.getLoadUrlParams().getExtraHeaders();
-        if (extraHeaders != null && !extraHeaders.isEmpty()) {
-            Bundle bundle = new Bundle();
-            for (Map.Entry<String, String> header : extraHeaders.entrySet()) {
-                bundle.putString(header.getKey(), header.getValue());
-            }
-            intent.putExtra(Browser.EXTRA_HEADERS, bundle);
-        }
+        IntentHandler.setIntentExtraHeaders(
+                asyncParams.getLoadUrlParams().getExtraHeaders(), intent);
 
         intent.putExtra(IntentHandler.EXTRA_TAB_ID, assignedTabId);
         intent.putExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, mIsIncognito);

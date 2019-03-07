@@ -16,7 +16,6 @@
 #include "android_webview/browser/browser_view_renderer.h"
 #include "android_webview/browser/browser_view_renderer_client.h"
 #include "android_webview/browser/find_helper.h"
-#include "android_webview/browser/gl_view_renderer_manager.h"
 #include "android_webview/browser/icon_helper.h"
 #include "android_webview/browser/permission/permission_request_handler_client.h"
 #include "android_webview/browser/renderer_host/aw_render_view_host_ext.h"
@@ -307,6 +306,11 @@ class AwContents : public FindHelper::Listener,
                 const base::android::JavaParamRef<jobject>& obj,
                 jint x,
                 jint y);
+  void RestoreScrollAfterTransition(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& obj,
+      jint x,
+      jint y);
   void SmoothScroll(JNIEnv* env,
                     const base::android::JavaParamRef<jobject>& obj,
                     jint target_x,
@@ -393,8 +397,6 @@ class AwContents : public FindHelper::Listener,
   typedef std::pair<const GURL, base::OnceCallback<void(bool)>> OriginCallback;
   // The first element in the list is always the currently pending request.
   std::list<OriginCallback> pending_geolocation_prompts_;
-
-  GLViewRendererManager::Key renderer_manager_key_;
 
   DISALLOW_COPY_AND_ASSIGN(AwContents);
 };

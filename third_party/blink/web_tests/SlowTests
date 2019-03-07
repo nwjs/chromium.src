@@ -14,6 +14,7 @@ crbug.com/24182 editing/selection/modify_move/move-by-word-visually-mac.html [ S
 crbug.com/24182 compositing/culling/filter-occlusion-blur-large.html [ Slow ]
 crbug.com/24182 compositing/video-frame-size-change.html [ Slow ]
 crbug.com/24182 editing/selection/caret-at-bidi-boundary.html [ Slow ]
+crbug.com/24182 virtual/bidi-caret-affinity/editing/selection/caret-at-bidi-boundary.html [ Slow ]
 crbug.com/24182 editing/selection/modify_move/move-by-word-visually-single-space-inline-element.html [ Slow ]
 crbug.com/24182 editing/selection/modify_move/move-by-word-visually-inline-block-positioned-element.html [ Slow ]
 crbug.com/24182 editing/selection/modify_move/move-by-word-visually-multi-space.html [ Slow ]
@@ -153,6 +154,7 @@ crbug.com/453312 html5lib/webkit-resumer.html [ Slow ]
 # FIXME: These tests might still be buggy and time out. They were marked as Slow on 9/20/2013.
 # Double-check the data after they've been running another week or so.
 crbug.com/245154 editing/selection/modify_move/move-by-character-brute-force.html [ Slow ]
+crbug.com/245154 virtual/bidi-caret-affinity/editing/selection/modify_move/move-by-character-brute-force.html [ Slow ]
 
 # This test takes 5+ seconds as intended because it tests connection throttling.
 crbug.com/459377 http/tests/websocket/multiple-connections-throttled.html [ Slow ]
@@ -212,8 +214,6 @@ crbug.com/528419 http/tests/devtools/elements/styles-2/pseudo-elements.js [ Slow
 crbug.com/802029 fast/dom/shadow/focus-controller-recursion-crash.html [ Slow ]
 
 crbug.com/592183 external/wpt/webusb/usbDevice.https.html [ Slow ]
-
-crbug.com/594189 virtual/spv2/fast/overflow/lots-of-sibling-inline-boxes.html [ Slow ]
 
 crbug.com/614910 virtual/gpu-rasterization/images/color-profile-filter.html [ Slow ]
 
@@ -315,7 +315,7 @@ crbug.com/626703 [ Debug ] external/wpt/html/nemantics/tabular-data/processing-m
 # This test continues to fail as timeout on Win7(dbg)
 crbug.com/757292 [ Win Debug ] external/wpt/encoding/legacy-mb-korean/euc-kr/euckr-encode-form-errors-han.html [ Slow ]
 
-# This page loads slow in real browser, and can timeout in SPv2 layout test.
+# This page loads slow in real browser, and can timeout in CompositeAfterPaint layout test.
 crbug.com/779366 fast/shapes/crash-allocating-very-large-raster-shape.html [ Slow ]
 
 crbug.com/787971 external/wpt/WebCryptoAPI/wrapKey_unwrapKey/wrapKey_unwrapKey.https.worker.html [ Slow ]
@@ -361,6 +361,7 @@ crbug.com/826957 fast/peerconnection/RTCPeerConnection-manyCandidates.html [ Slo
 crbug.com/842995 external/wpt/html/semantics/scripting-1/the-script-element/execution-timing/078.html [ Slow ]
 crbug.com/626703 external/wpt/html/semantics/scripting-1/the-script-element/async_007.htm [ Slow ]
 crbug.com/626703 external/wpt/html/semantics/scripting-1/the-script-element/async_010.htm [ Slow ]
+crbug.com/842995 virtual/streaming-preload/external/wpt/html/semantics/scripting-1/the-script-element/execution-timing/078.html [ Slow ]
 crbug.com/626703 virtual/streaming-preload/external/wpt/html/semantics/scripting-1/the-script-element/async_007.htm [ Slow ]
 crbug.com/626703 virtual/streaming-preload/external/wpt/html/semantics/scripting-1/the-script-element/async_010.htm [ Slow ]
 
@@ -387,6 +388,9 @@ crbug.com/864887 [ Mac ] fast/scroll-snap/snaps-after-scrollbar-scrolling.html [
 crbug.com/865262 [ Mac ] media/controls/text-track-menu-pointer-selection.html [ Slow ]
 crbug.com/865262 [ Mac ] virtual/new-remote-playback-pipeline/media/controls/text-track-menu-pointer-selection.html [ Slow ]
 crbug.com/876050 [ Mac ] virtual/video-surface-layer/media/controls/text-track-menu-pointer-selection.html [ Slow ]
+
+crbug.com/910627 webexposed/global-interface-listing-shared-worker.html [ Slow ]
+crbug.com/910627 virtual/stable/webexposed/global-interface-listing-shared-worker.html [ Slow ]
 
 ### virtual/gpu/fast/canvas/ blending layout tests are slow
 crbug.com/866850 [ Linux ] virtual/gpu/fast/canvas/canvas-blend-image.html [ Slow ]
@@ -509,7 +513,7 @@ crbug.com/874695 virtual/outofblink-cors-ns/external/wpt/xhr/xmlhttprequest-time
 crbug.com/874695 virtual/outofblink-cors-ns/external/wpt/xhr/xmlhttprequest-timeout-worker-simple.html [ Slow ]
 crbug.com/874695 virtual/outofblink-cors-ns/external/wpt/xhr/xmlhttprequest-timeout-worker-synconworker.html [ Slow ]
 crbug.com/874695 virtual/outofblink-cors-ns/external/wpt/xhr/xmlhttprequest-timeout-worker-twice.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/fetch-frame-resource.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/fetch-frame-resource.https.html [ Slow ]
 crbug.com/874695 virtual/webrtc-wpt-unified-plan/external/wpt/webrtc/RTCDTMFSender-ontonechange-long.https.html [ Slow ]
 
 # Tests where |3s <= slowest_run < 10s| on flakiness dashboard for site_per_process_webkit_layout_tests
@@ -569,7 +573,6 @@ crbug.com/874695 external/wpt/css/css-animations/event-dispatch.tentative.html [
 crbug.com/874695 external/wpt/css/css-fonts/variations/font-style-interpolation.html [ Slow ]
 crbug.com/874695 external/wpt/css/css-layout-api/constraints-data.https.html [ Slow ]
 crbug.com/874695 external/wpt/css/cssom-view/matchMedia.xht [ Slow ]
-crbug.com/874695 external/wpt/css/cssom-view/overscrollBehavior-manual.html [ Slow ]
 crbug.com/874695 external/wpt/css/cssom-view/scroll-behavior-smooth.html [ Slow ]
 crbug.com/874695 external/wpt/css/css-transitions/transitions-animatable-properties-01.html [ Slow ]
 crbug.com/874695 external/wpt/css/css-values/vh_not_refreshing_on_chrome.html [ Slow ]
@@ -722,7 +725,6 @@ crbug.com/874695 external/wpt/requestidlecallback/callback-suspended.html [ Slow
 crbug.com/874695 external/wpt/requestidlecallback/callback-timeout.html [ Slow ]
 crbug.com/874695 external/wpt/requestidlecallback/callback-timeout-when-busy.html [ Slow ]
 crbug.com/874695 external/wpt/requestidlecallback/callback-xhr-sync.html [ Slow ]
-crbug.com/874695 external/wpt/resource-timing/resource-timing.html [ Slow ]
 crbug.com/874695 external/wpt/screen-orientation/onchange-event.html [ Slow ]
 crbug.com/874695 external/wpt/screen-orientation/onchange-event-subframe.html [ Slow ]
 crbug.com/874695 external/wpt/screen-orientation/orientation-reading.html [ Slow ]
@@ -1389,19 +1391,19 @@ crbug.com/874695 virtual/paint-timing/external/wpt/paint-timing/idlharness.windo
 crbug.com/874695 virtual/reporting-api/external/wpt/content-security-policy/reporting-api/reporting-api-doesnt-send-reports-without-violation.https.sub.html [ Slow ]
 crbug.com/874695 virtual/sampling-heap-profiler/inspector-protocol/memory/sampling-native-snapshot.js [ Slow ]
 crbug.com/874695 virtual/scroll_customization/fast/scroll-behavior/overscroll-behavior.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/fetch-canvas-tainting-video-cache.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/fetch-canvas-tainting-video.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/fetch-event-redirect.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/fetch-event-respond-with-body-loaded-in-chunk.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/fetch-response-taint.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/navigation-redirect.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/registration-mime-types.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/registration-updateviacache.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/skip-waiting-using-registration.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/skip-waiting-without-using-registration.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/update-after-navigation-fetch-event.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/update-after-navigation-redirect.https.html [ Slow ]
-crbug.com/874695 virtual/service-worker-servicification/external/wpt/service-workers/service-worker/update-bytecheck.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/fetch-canvas-tainting-video-cache.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/fetch-canvas-tainting-video.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/fetch-event-redirect.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/fetch-event-respond-with-body-loaded-in-chunk.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/fetch-response-taint.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/navigation-redirect.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/registration-mime-types.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/registration-updateviacache.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/skip-waiting-using-registration.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/skip-waiting-without-using-registration.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/update-after-navigation-fetch-event.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/update-after-navigation-redirect.https.html [ Slow ]
+crbug.com/874695 virtual/disabled-service-worker-servicification/external/wpt/service-workers/service-worker/update-bytecheck.https.html [ Slow ]
 crbug.com/874695 virtual/sharedarraybuffer/external/wpt/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/broadcastchannel-success-and-failure.html [ Slow ]
 crbug.com/874695 virtual/sharedarraybuffer/external/wpt/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/broadcastchannel-success.html [ Slow ]
 crbug.com/874695 virtual/sharedarraybuffer/external/wpt/html/infrastructure/safe-passing-of-structured-data/shared-array-buffers/window-sharedworker-failure.html [ Slow ]
@@ -1481,8 +1483,8 @@ crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/thorough/red
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/thorough/redirect-password-base-https-other-https.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/thorough/scheme-blob-base-https-other-https.html [ Slow ]
 crbug.com/874695 virtual/streaming-preload/http/tests/fetch/workers/thorough/scheme-data-base-https-other-https.html [ Slow ]
-crbug.com/874695 virtual/sxg/http/tests/devtools/sxg/sxg-cert-not-found.js [ Slow ]
-crbug.com/874695 virtual/sxg/http/tests/devtools/sxg/sxg-disable-cache.js [ Slow ]
+crbug.com/874695 http/tests/devtools/sxg/sxg-cert-not-found.js [ Slow ]
+crbug.com/874695 http/tests/devtools/sxg/sxg-disable-cache.js [ Slow ]
 crbug.com/874695 virtual/threaded/animations/svg/animated-filter-svg-element.html [ Slow ]
 crbug.com/874695 virtual/threaded/external/wpt/css/css-scroll-snap/snap-at-user-scroll-end-manual.html [ Slow ]
 crbug.com/874695 virtual/threaded/external/wpt/feature-policy/experimental-features/vertical-scroll-touch-block-manual.tentative.html [ Slow ]
@@ -1549,7 +1551,7 @@ crbug.com/868956 virtual/gpu/fast/canvas/canvas-composite-video-shadow.html [ Sl
 crbug.com/878650 [ Release ] inspector-protocol/heap-profiler/heap-snapshot-merged-nodes.js [ Slow ]
 crbug.com/878650 [ Release ] inspector-protocol/heap-profiler/heap-snapshot-with-no-detached-iframe.js [ Slow ]
 
-crbug.com/878995 [ Win ] external/wpt/async-local-storage/key-types.tentative.https.html [ Slow ]
+crbug.com/878995 [ Win ] external/wpt/kv-storage/key-types.tentative.https.html [ Slow ]
 crbug.com/888225 external/wpt/svg/idlharness.window.html [ Slow ]
 
 crbug.com/893015 [ Linux ] http/tests/fetch/chromium/response-array-buffer-gc-crash.html [ Slow ]
@@ -1572,3 +1574,10 @@ crbug.com/893015 [ Linux ] virtual/streaming-preload/http/tests/fetch/chromium/r
 crbug.com/893015 [ Linux ] virtual/streaming-preload/http/tests/fetch/chromium/response-form-data-gc-crash.html [ Slow ]
 crbug.com/893015 [ Linux ] virtual/streaming-preload/http/tests/fetch/chromium/response-json-gc-crash.html [ Slow ]
 crbug.com/893015 [ Linux ] virtual/streaming-preload/http/tests/fetch/chromium/response-text-gc-crash.html [ Slow ]
+
+crbug.com/912364 [ Mac ] virtual/user-activation-v2/fast/events/no-fake-mousemove.html [ Slow ]
+crbug.com/914981 [ Mac ] media/controls/overflow-menu-pointer-selection.html [ Slow ]
+crbug.com/914981 [ Mac ] virtual/mouseevent_fractional/fast/events/no-fake-mousemove.html [ Slow ]
+crbug.com/914981 [ Mac ] virtual/new-remote-playback-pipeline/media/controls/overflow-menu-pointer-selection.html [ Slow ]
+crbug.com/914981 [ Mac ] virtual/video-surface-layer/media/controls/overflow-menu-pointer-selection.html [ Slow ]
+crbug.com/914981 [ Mac ] fast/events/no-fake-mousemove.html [ Slow ]

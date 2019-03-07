@@ -13,7 +13,7 @@
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/chromeos/policy/enrollment_status_chromeos.h"
 #include "chrome/test/base/in_process_browser_test.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/shill_service_client.h"
 #include "chromeos/network/network_handler.h"
@@ -97,7 +97,7 @@ class HandsOffEnrollmentTest : public InProcessBrowserTest {
       EXPECT_CALL(*mock, EnrollUsingAttestation())
           .Times(testing::AnyNumber())
           .WillRepeatedly(testing::Invoke(
-              [mock]() { mock->status_consumer()->OnDeviceEnrolled(""); }));
+              [mock]() { mock->status_consumer()->OnDeviceEnrolled(); }));
       EXPECT_CALL(*mock, GetDeviceAttributeUpdatePermission())
           .Times(testing::AnyNumber())
           .WillRepeatedly(testing::Invoke([mock]() {

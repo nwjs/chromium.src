@@ -10,6 +10,7 @@
 #include "cc/base/devtools_instrumentation.h"
 #include "cc/benchmarks/benchmark_instrumentation.h"
 #include "cc/input/browser_controls_offset_manager.h"
+#include "cc/paint/paint_worklet_layer_painter.h"
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/scheduler/commit_earlyout_reason.h"
 #include "cc/scheduler/compositor_timing_history.h"
@@ -164,7 +165,6 @@ void SingleThreadProxy::SetLayerTreeFrameSink(
 void SingleThreadProxy::SetNeedsAnimate() {
   TRACE_EVENT0("cc", "SingleThreadProxy::SetNeedsAnimate");
   DCHECK(task_runner_provider_->IsMainThread());
-  single_thread_client_->RequestScheduleAnimation();
   if (animate_requested_)
     return;
   animate_requested_ = true;
@@ -316,6 +316,11 @@ void SingleThreadProxy::SetMutator(std::unique_ptr<LayerTreeMutator> mutator) {
   host_impl_->SetLayerTreeMutator(std::move(mutator));
 }
 
+void SingleThreadProxy::SetPaintWorkletLayerPainter(
+    std::unique_ptr<PaintWorkletLayerPainter> painter) {
+  NOTREACHED();
+}
+
 void SingleThreadProxy::OnCanDrawStateChanged(bool can_draw) {
   TRACE_EVENT1("cc", "SingleThreadProxy::OnCanDrawStateChanged", "can_draw",
                can_draw);
@@ -453,8 +458,9 @@ void SingleThreadProxy::DidReceiveCompositorFrameAckOnImplThread() {
     // TextureLayer) is PostTasked and we want to make sure ack is received
     // after resources are returned.
     task_runner_provider_->MainThreadTaskRunner()->PostTask(
-        FROM_HERE, base::Bind(&SingleThreadProxy::DidReceiveCompositorFrameAck,
-                              frame_sink_bound_weak_ptr_));
+        FROM_HERE,
+        base::BindOnce(&SingleThreadProxy::DidReceiveCompositorFrameAck,
+                       frame_sink_bound_weak_ptr_));
   }
 }
 
@@ -491,6 +497,11 @@ void SingleThreadProxy::DidPresentCompositorFrameOnImplThread(
     const gfx::PresentationFeedback& feedback) {
   layer_tree_host_->DidPresentCompositorFrame(frame_token, std::move(callbacks),
                                               feedback);
+}
+
+void SingleThreadProxy::DidGenerateLocalSurfaceIdAllocationOnImplThread(
+    const viz::LocalSurfaceIdAllocation& allocation) {
+  layer_tree_host_->DidGenerateLocalSurfaceIdAllocation(allocation);
 }
 
 void SingleThreadProxy::RequestBeginMainFrameNotExpected(bool new_state) {
@@ -589,8 +600,8 @@ void SingleThreadProxy::ScheduleRequestNewLayerTreeFrameSink() {
   if (layer_tree_frame_sink_creation_callback_.IsCancelled() &&
       !layer_tree_frame_sink_creation_requested_) {
     layer_tree_frame_sink_creation_callback_.Reset(
-        base::Bind(&SingleThreadProxy::RequestNewLayerTreeFrameSink,
-                   weak_factory_.GetWeakPtr()));
+        base::BindOnce(&SingleThreadProxy::RequestNewLayerTreeFrameSink,
+                       weak_factory_.GetWeakPtr()));
     task_runner_provider_->MainThreadTaskRunner()->PostTask(
         FROM_HERE, layer_tree_frame_sink_creation_callback_.callback());
   }

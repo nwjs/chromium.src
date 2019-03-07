@@ -242,6 +242,8 @@ sk_sp<GrGLInterface> CreateGrGLInterface(
   functions->fTexBuffer = gl->glTexBufferFn;
   functions->fTexBufferRange = gl->glTexBufferRangeFn;
   functions->fTexImage2D = bind_slow(gl->glTexImage2DFn, progress_reporter);
+  functions->fTexParameterf = gl->glTexParameterfFn;
+  functions->fTexParameterfv = gl->glTexParameterfvFn;
   functions->fTexParameteri = gl->glTexParameteriFn;
   functions->fTexParameteriv = gl->glTexParameterivFn;
   functions->fTexStorage2D = gl->glTexStorage2DEXTFn;
@@ -522,9 +524,6 @@ sk_sp<GrGLInterface> CreateGrGLInterface(
   // EGL_KHR_image / EGL_KHR_image_base
   // functions->fCreateImage = nullptr;
   // functions->fDestroyImage = nullptr;
-
-  // GL 4.0 or GL_ARB_sample_shading or ES+GL_OES_sample_shading
-  functions->fMinSampleShading = gl->glMinSampleShadingFn;
 
   functions->fFenceSync = gl->glFenceSyncFn;
   functions->fIsSync = gl->glIsSyncFn;

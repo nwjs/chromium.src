@@ -96,7 +96,7 @@ class TestBrowserWindow : public BrowserWindow {
   bool IsFullscreenBubbleVisible() const override;
   LocationBar* GetLocationBar() const override;
   PageActionIconContainer* GetPageActionIconContainer() override;
-  void SetFocusToLocationBar(bool select_all) override {}
+  void SetFocusToLocationBar() override {}
   void UpdateReloadStopState(bool is_loading, bool force) override {}
   void UpdateToolbar(content::WebContents* contents) override {}
   void UpdateToolbarVisibility(bool visible, bool animate) override {}
@@ -127,7 +127,9 @@ class TestBrowserWindow : public BrowserWindow {
       bool disable_stay_in_chrome,
       IntentPickerResponse callback) override {}
   void SetIntentPickerViewVisibility(bool visible) override {}
-#endif  // defined(OS_CHROMEOS)
+#else  // !defined(OS_CHROMEOS)
+  BadgeServiceDelegate* GetBadgeServiceDelegate() const override;
+#endif
   autofill::SaveCardBubbleView* ShowSaveCreditCardBubble(
       content::WebContents* contents,
       autofill::SaveCardBubbleController* controller,
@@ -144,7 +146,7 @@ class TestBrowserWindow : public BrowserWindow {
 #if BUILDFLAG(ENABLE_ONE_CLICK_SIGNIN)
   void ShowOneClickSigninConfirmation(
       const base::string16& email,
-      const StartSyncCallback& start_sync_callback) override {}
+      base::OnceCallback<void(bool)> confirmed_callback) override {}
 #endif
   bool IsDownloadShelfVisible() const override;
   DownloadShelf* GetDownloadShelf() override;
@@ -179,6 +181,7 @@ class TestBrowserWindow : public BrowserWindow {
           callback) override {}
   std::string GetWorkspace() const override;
   bool IsVisibleOnAllWorkspaces() const override;
+  void ShowEmojiPanel() override {}
 
 #if BUILDFLAG(ENABLE_DESKTOP_IN_PRODUCT_HELP)
   void ShowInProductHelpPromo(InProductHelpFeature iph_feature) override {}
@@ -200,7 +203,7 @@ class TestBrowserWindow : public BrowserWindow {
     base::TimeTicks GetMatchSelectionTimestamp() const override;
     void AcceptInput() override {}
     void AcceptInput(base::TimeTicks match_selection_timestamp) override {}
-    void FocusLocation(bool select_all) override {}
+    void FocusLocation() override {}
     void FocusSearch() override {}
     void UpdateContentSettingsIcons() override {}
     void UpdateSaveCreditCardIcon() override {}

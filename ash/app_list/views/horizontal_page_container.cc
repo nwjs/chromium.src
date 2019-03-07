@@ -43,7 +43,7 @@ gfx::Size HorizontalPageContainer::CalculatePreferredSize() const {
   if (!GetWidget())
     return gfx::Size();
 
-  return contents_view_->GetPreferredSize();
+  return contents_view_->GetContentsBounds().size();
 }
 
 void HorizontalPageContainer::Layout() {
@@ -75,6 +75,11 @@ void HorizontalPageContainer::OnAnimationUpdated(double progress,
     HorizontalPage* page = horizontal_pages_[i];
     gfx::Rect to_rect = page->GetPageBoundsForState(to_state);
     gfx::Rect from_rect = page->GetPageBoundsForState(from_state);
+
+    // Invalidate layout when the state changes to ensure that SetBoundsRect
+    // below also triggers a layout.
+    if (from_state != to_state)
+      page->InvalidateLayout();
 
     // Animate linearly (the PaginationModel handles easing).
     gfx::Rect bounds(

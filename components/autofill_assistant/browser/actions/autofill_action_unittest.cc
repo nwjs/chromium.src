@@ -155,14 +155,13 @@ class AutofillActionTest : public testing::Test {
     return action;
   }
 
-  bool ProcessAction(const ActionProto& action_proto) {
+  ProcessedActionStatusProto ProcessAction(const ActionProto& action_proto) {
     AutofillAction action(action_proto);
     // We can use DirectCallback given that methods in ActionDelegate are mocked
     // and return directly.
     DirectCallback callback;
     action.ProcessAction(&mock_action_delegate_, callback.Get());
-    return callback.GetResultOrDie()->status() ==
-           ProcessedActionStatusProto::ACTION_APPLIED;
+    return callback.GetResultOrDie()->status();
   }
 
   void ExpectActionToStopScript(const ActionProto& action_proto,
@@ -170,9 +169,8 @@ class AutofillActionTest : public testing::Test {
     EXPECT_CALL(mock_action_delegate_,
                 StopCurrentScriptAndShutdown(expected_message));
 
-    // The AutofillAction should finish successfully even when stopping the
-    // current script.
-    EXPECT_TRUE(ProcessAction(action_proto));
+    EXPECT_EQ(ProcessedActionStatusProto::MANUAL_FALLBACK,
+              ProcessAction(action_proto));
   }
 
   MockActionDelegate mock_action_delegate_;
@@ -189,19 +187,11 @@ TEST_F(AutofillActionTest, FillManually) {
   action_proto.mutable_use_address()->set_prompt(kSelectionPrompt);
 
   // No selection was made previously.
-  EXPECT_CALL(mock_client_memory_, has_selected_address(kAddressName))
-      .WillOnce(Return(false));
-
-  // Expect prompt.
-  EXPECT_CALL(mock_action_delegate_, ShowStatusMessage(kSelectionPrompt));
-
-  // Return empty address guid (manual filling).
-  EXPECT_CALL(mock_action_delegate_, OnChooseAddress(_))
-      .WillOnce(RunOnceCallback<0>(""));
-
-  // We save the selection in memory.
-  EXPECT_CALL(mock_client_memory_,
-              set_selected_address(kAddressName, IsNull()));
+  // Note: We use ON_CALL instead of EXPECT_CALL as the `has_selected_address`
+  // call is made inside a DCHECK, which means this won't be called when testing
+  // a release build.
+  ON_CALL(mock_client_memory_, has_selected_address(kAddressName))
+      .WillByDefault(Return(true));
 
   ExpectActionToStopScript(action_proto, kFillForm);
 }
@@ -232,7 +222,8 @@ TEST_F(AutofillActionTest, ValidationSucceeds) {
   ON_CALL(mock_web_controller_, OnGetFieldValue(_, _))
       .WillByDefault(RunOnceCallback<1>(true, "not empty"));
 
-  EXPECT_TRUE(ProcessAction(action_proto));
+  EXPECT_EQ(ProcessedActionStatusProto::ACTION_APPLIED,
+            ProcessAction(action_proto));
 }
 
 TEST_F(AutofillActionTest, FallbackFails) {
@@ -321,7 +312,8 @@ TEST_F(AutofillActionTest, FallbackSucceeds) {
     EXPECT_CALL(mock_web_controller_, OnGetFieldValue(_, _))
         .WillRepeatedly(RunOnceCallback<1>(true, "not empty"));
   }
-  EXPECT_TRUE(ProcessAction(action_proto));
+  EXPECT_EQ(ProcessedActionStatusProto::ACTION_APPLIED,
+            ProcessAction(action_proto));
 }
 }  // namespace
 }  // namespace autofill_assistant

@@ -6,17 +6,16 @@
 
 #include <stdint.h>
 
-#include "base/macros.h"
 #include "base/memory/ptr_util.h"
+#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/platform_thread.h"
-#include "services/service_manager/public/c/main.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "services/service_manager/public/cpp/service.h"
-#include "services/service_manager/public/cpp/service_context.h"
-#include "services/service_manager/public/cpp/service_runner.h"
+#include "services/service_manager/public/cpp/service_executable/service_main.h"
 #include "services/ws/public/cpp/property_type_converters.h"
 #include "services/ws/public/mojom/window_manager.mojom.h"
 #include "ui/aura/window.h"
@@ -55,7 +54,6 @@ class WindowDelegateView : public views::WidgetDelegateView {
   enum Traits {
     RESIZABLE = 1 << 0,
     ALWAYS_ON_TOP = 1 << 1,
-    PANEL = 1 << 2,
   };
 
   explicit WindowDelegateView(uint32_t traits) : traits_(traits) {
@@ -67,14 +65,7 @@ class WindowDelegateView : public views::WidgetDelegateView {
   static void Create(uint32_t traits) {
     // Widget destroys itself when closed or ui::Window destroyed.
     views::Widget* widget = new views::Widget;
-    views::Widget::InitParams params(
-        (traits & PANEL) != 0 ? views::Widget::InitParams::TYPE_PANEL
-                              : views::Widget::InitParams::TYPE_WINDOW);
-    if ((traits & PANEL) != 0) {
-      params.mus_properties[ws::mojom::WindowManager::kBounds_InitProperty] =
-          mojo::TypeConverter<std::vector<uint8_t>, gfx::Rect>::Convert(
-              gfx::Rect(100, 100, 300, 300));
-    }
+    views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
     params.keep_on_top = (traits & ALWAYS_ON_TOP) != 0;
     // WidgetDelegateView deletes itself when Widget is destroyed.
     params.delegate = new WindowDelegateView(traits);
@@ -83,10 +74,7 @@ class WindowDelegateView : public views::WidgetDelegateView {
   }
 
   // WidgetDelegateView:
-  bool CanMaximize() const override {
-    // Panels can't be maximized.
-    return (traits_ & PANEL) == 0;
-  }
+  bool CanMaximize() const override { return true; }
   bool CanMinimize() const override { return true; }
   bool CanResize() const override { return (traits_ & RESIZABLE) != 0; }
   base::string16 GetWindowTitle() const override {
@@ -109,7 +97,7 @@ class ModalWindow : public views::WidgetDelegateView,
       : modal_type_(modal_type),
         color_(g_colors[g_color_index]),
         open_button_(MdTextButton::Create(this, base::ASCIIToUTF16("Moar!"))) {
-    ++g_color_index %= arraysize(g_colors);
+    ++g_color_index %= base::size(g_colors);
     AddChildView(open_button_);
   }
   ~ModalWindow() override = default;
@@ -164,7 +152,7 @@ class NonModalTransient : public views::WidgetDelegateView {
  public:
   NonModalTransient()
       : color_(g_colors[g_color_index]) {
-    ++g_color_index %= arraysize(g_colors);
+    ++g_color_index %= base::size(g_colors);
   }
   ~NonModalTransient() override = default;
 
@@ -239,8 +227,6 @@ class WindowTypeLauncherView : public views::WidgetDelegateView,
         always_on_top_button_(MdTextButton::Create(
             this,
             base::ASCIIToUTF16("Create Always On Top Window"))),
-        panel_button_(
-            MdTextButton::Create(this, base::ASCIIToUTF16("Create Panel"))),
         create_nonresizable_button_(MdTextButton::Create(
             this,
             base::ASCIIToUTF16("Create Non-Resizable Window"))),
@@ -302,7 +288,6 @@ class WindowTypeLauncherView : public views::WidgetDelegateView,
 
     AddViewToLayout(layout, create_button_);
     AddViewToLayout(layout, always_on_top_button_);
-    AddViewToLayout(layout, panel_button_);
     AddViewToLayout(layout, create_nonresizable_button_);
     AddViewToLayout(layout, bubble_button_);
     AddViewToLayout(layout, widgets_button_);
@@ -357,8 +342,6 @@ class WindowTypeLauncherView : public views::WidgetDelegateView,
     } else if (sender == always_on_top_button_) {
       WindowDelegateView::Create(WindowDelegateView::RESIZABLE |
                                  WindowDelegateView::ALWAYS_ON_TOP);
-    } else if (sender == panel_button_) {
-      WindowDelegateView::Create(WindowDelegateView::PANEL);
     } else if (sender == create_nonresizable_button_) {
       WindowDelegateView::Create(0u);
     } else if (sender == bubble_button_) {
@@ -418,7 +401,6 @@ class WindowTypeLauncherView : public views::WidgetDelegateView,
   WindowTypeLauncher* window_type_launcher_;
   views::Button* create_button_;
   views::Button* always_on_top_button_;
-  views::Button* panel_button_;
   views::Button* create_nonresizable_button_;
   views::Button* bubble_button_;
   views::Button* widgets_button_;
@@ -438,7 +420,9 @@ class WindowTypeLauncherView : public views::WidgetDelegateView,
 
 }  // namespace
 
-WindowTypeLauncher::WindowTypeLauncher() {
+WindowTypeLauncher::WindowTypeLauncher(
+    service_manager::mojom::ServiceRequest request)
+    : service_binding_(this, std::move(request)) {
   registry_.AddInterface<mash::mojom::Launchable>(
       base::Bind(&WindowTypeLauncher::Create, base::Unretained(this)));
 }
@@ -449,16 +433,16 @@ void WindowTypeLauncher::RemoveWindow(views::Widget* window) {
   DCHECK(it != windows_.end());
   windows_.erase(it);
   if (windows_.empty())
-    context()->QuitNow();
+    Terminate();
 }
 
 void WindowTypeLauncher::OnStart() {
   views::AuraInit::InitParams params;
-  params.connector = context()->connector();
-  params.identity = context()->identity();
+  params.connector = service_binding_.GetConnector();
+  params.identity = service_binding_.identity();
   aura_init_ = views::AuraInit::Create(params);
   if (!aura_init_)
-    context()->QuitNow();
+    Terminate();
 }
 
 void WindowTypeLauncher::OnBindInterface(
@@ -477,7 +461,8 @@ void WindowTypeLauncher::Launch(uint32_t what, mash::mojom::LaunchMode how) {
   }
   views::Widget* window = new views::Widget;
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
-  params.delegate = new WindowTypeLauncherView(this, context()->connector());
+  params.delegate =
+      new WindowTypeLauncherView(this, service_binding_.GetConnector());
   window->Init(params);
   window->Show();
   windows_.push_back(window);
@@ -487,7 +472,7 @@ void WindowTypeLauncher::Create(mash::mojom::LaunchableRequest request) {
   bindings_.AddBinding(this, std::move(request));
 }
 
-MojoResult ServiceMain(MojoHandle service_request_handle) {
-  return service_manager::ServiceRunner(new WindowTypeLauncher)
-      .Run(service_request_handle);
+void ServiceMain(service_manager::mojom::ServiceRequest request) {
+  base::MessageLoop message_loop;
+  WindowTypeLauncher(std::move(request)).RunUntilTermination();
 }

@@ -26,10 +26,11 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/fetch/fetch_api_request_headers_map.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
 #include "third_party/blink/public/platform/modules/notifications/web_notification_data.h"
 #include "third_party/blink/public/platform/modules/payments/web_payment_request_event_data.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_clients_info.h"
@@ -49,8 +50,8 @@ namespace {
 // Pipes connected to the context client.
 struct ContextClientPipes {
   // From the browser to ServiceWorkerContextClient.
-  mojom::ServiceWorkerPtr service_worker;
-  mojom::ControllerServiceWorkerPtr controller;
+  blink::mojom::ServiceWorkerPtr service_worker;
+  blink::mojom::ControllerServiceWorkerPtr controller;
   blink::mojom::ServiceWorkerRegistrationObjectAssociatedPtr registration;
 
   // From ServiceWorkerContextClient to the browser.
@@ -253,8 +254,9 @@ class ServiceWorkerContextClientTest : public testing::Test {
   }
 
   // Creates an empty struct to initialize ServiceWorkerProviderContext.
-  mojom::ServiceWorkerProviderInfoForStartWorkerPtr CreateProviderInfo() {
-    auto info = mojom::ServiceWorkerProviderInfoForStartWorker::New();
+  blink::mojom::ServiceWorkerProviderInfoForStartWorkerPtr
+  CreateProviderInfo() {
+    auto info = blink::mojom::ServiceWorkerProviderInfoForStartWorker::New();
     info->provider_id = 10;  // dummy
     return info;
   }
@@ -283,6 +285,7 @@ class ServiceWorkerContextClientTest : public testing::Test {
             nullptr /* preference_watcher_request */,
             nullptr /* subresource_loaders */,
             blink::scheduler::GetSingleThreadTaskRunnerForTesting());
+    context_client->SetReportDebugLogForTesting(false);
 
     context_client->WorkerContextStarted(proxy);
 
@@ -292,16 +295,39 @@ class ServiceWorkerContextClientTest : public testing::Test {
     auto registration_info =
         blink::mojom::ServiceWorkerRegistrationObjectInfo::New();
     registration_info->registration_id = 100;  // dummy
-    registration_info->options =
-        blink::mojom::ServiceWorkerRegistrationOptions::New(
-            kScope, blink::mojom::ScriptType::kClassic,
-            blink::mojom::ServiceWorkerUpdateViaCache::kAll);
+    registration_info->scope = kScope;
+    registration_info->update_via_cache =
+        blink::mojom::ServiceWorkerUpdateViaCache::kAll;
     out_pipes->registration_host_request =
         mojo::MakeRequest(&registration_info->host_ptr_info);
     registration_info->request = mojo::MakeRequest(&out_pipes->registration);
     out_pipes->service_worker->InitializeGlobalScope(
         std::move(service_worker_host), std::move(registration_info));
     task_runner()->RunUntilIdle();
+    return context_client;
+  }
+
+  std::unique_ptr<ServiceWorkerContextClient> CreateIdleContextClient(
+      ContextClientPipes* pipes,
+      MockWebServiceWorkerContextProxy* mock_proxy) {
+    std::unique_ptr<ServiceWorkerContextClient> context_client =
+        CreateContextClient(pipes, mock_proxy);
+    context_client->DidEvaluateScript(true /* success */);
+    task_runner()->RunUntilIdle();
+    EXPECT_TRUE(mock_proxy->fetch_events().empty());
+    is_idle_ = false;
+    auto timer = std::make_unique<ServiceWorkerTimeoutTimer>(
+        CreateCallbackWithCalledFlag(&is_idle_),
+        task_runner()->GetMockTickClock());
+    context_client->SetTimeoutTimerForTesting(std::move(timer));
+
+    // Ensure the idle state.
+    EXPECT_FALSE(context_client->RequestedTermination());
+    task_runner()->FastForwardBy(ServiceWorkerTimeoutTimer::kIdleDelay +
+                                 ServiceWorkerTimeoutTimer::kUpdateInterval +
+                                 base::TimeDelta::FromSeconds(1));
+    EXPECT_TRUE(context_client->RequestedTermination());
+
     return context_client;
   }
 
@@ -313,6 +339,7 @@ class ServiceWorkerContextClientTest : public testing::Test {
   base::MessageLoop message_loop_;
   scoped_refptr<base::TestMockTimeTaskRunner> task_runner_;
   base::test::ScopedFeatureList feature_list_;
+  bool is_idle_;
 };
 
 TEST_F(ServiceWorkerContextClientTest, Ping) {
@@ -337,13 +364,13 @@ TEST_F(ServiceWorkerContextClientTest, DispatchFetchEvent) {
   EXPECT_TRUE(mock_proxy.fetch_events().empty());
 
   const GURL expected_url("https://example.com/expected");
-  auto request = std::make_unique<network::ResourceRequest>();
+  auto request = blink::mojom::FetchAPIRequest::New();
   request->url = expected_url;
   blink::mojom::ServiceWorkerFetchResponseCallbackPtr fetch_callback_ptr;
   blink::mojom::ServiceWorkerFetchResponseCallbackRequest
       fetch_callback_request = mojo::MakeRequest(&fetch_callback_ptr);
   auto params = blink::mojom::DispatchFetchEventParams::New();
-  params->request = *request;
+  params->request = std::move(request);
   pipes.service_worker->DispatchFetchEvent(
       std::move(params), std::move(fetch_callback_ptr),
       base::BindOnce([](blink::mojom::ServiceWorkerEventStatus) {}));
@@ -374,15 +401,15 @@ TEST_F(ServiceWorkerContextClientTest, DispatchFetchEvent_Headers) {
   EXPECT_TRUE(mock_proxy.fetch_events().empty());
 
   const GURL expected_url("https://example.com/expected");
-  auto request = std::make_unique<network::ResourceRequest>();
+  auto request = blink::mojom::FetchAPIRequest::New();
   request->url = expected_url;
-  request->headers.SetHeader("x-bye-bye", "excluded");
-  request->headers.SetHeader("x-hi-hi", "present");
+  request->headers.emplace("x-bye-bye", "excluded");
+  request->headers.emplace("x-hi-hi", "present");
   blink::mojom::ServiceWorkerFetchResponseCallbackPtr fetch_callback_ptr;
   blink::mojom::ServiceWorkerFetchResponseCallbackRequest
       fetch_callback_request = mojo::MakeRequest(&fetch_callback_ptr);
   auto params = blink::mojom::DispatchFetchEventParams::New();
-  params->request = *request;
+  params->request = std::move(request);
   pipes.service_worker->DispatchFetchEvent(
       std::move(params), std::move(fetch_callback_ptr),
       base::BindOnce([](blink::mojom::ServiceWorkerEventStatus) {}));
@@ -391,12 +418,12 @@ TEST_F(ServiceWorkerContextClientTest, DispatchFetchEvent_Headers) {
   ASSERT_EQ(1u, mock_proxy.fetch_events().size());
   const blink::WebServiceWorkerRequest& received_request =
       mock_proxy.fetch_events()[0].second;
-  ServiceWorkerHeaderMap header_map;
+  blink::FetchAPIRequestHeadersMap header_map;
   GetServiceWorkerHeaderMapFromWebRequest(received_request, &header_map);
 
   EXPECT_EQ(expected_url, static_cast<GURL>(received_request.Url()));
-  EXPECT_TRUE(header_map.find("x-bye-bye") == header_map.end());
-  auto iter = header_map.find("x-hi-hi");
+  EXPECT_TRUE(header_map.find(std::string("x-bye-bye")) == header_map.end());
+  auto iter = header_map.find(std::string("x-hi-hi"));
   ASSERT_TRUE(iter != header_map.end());
   EXPECT_EQ("present", iter->second);
 
@@ -425,10 +452,10 @@ TEST_F(ServiceWorkerContextClientTest,
   blink::mojom::ServiceWorkerFetchResponseCallbackPtr fetch_callback_ptr;
   blink::mojom::ServiceWorkerFetchResponseCallbackRequest
       fetch_callback_request = mojo::MakeRequest(&fetch_callback_ptr);
-  auto request = std::make_unique<network::ResourceRequest>();
+  auto request = blink::mojom::FetchAPIRequest::New();
   request->url = expected_url;
   auto params = blink::mojom::DispatchFetchEventParams::New();
-  params->request = *request;
+  params->request = std::move(request);
   context_client->DispatchOrQueueFetchEvent(
       std::move(params), std::move(fetch_callback_ptr),
       base::BindOnce([](blink::mojom::ServiceWorkerEventStatus) {}));
@@ -446,36 +473,20 @@ TEST_F(ServiceWorkerContextClientTest,
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
   std::unique_ptr<ServiceWorkerContextClient> context_client =
-      CreateContextClient(&pipes, &mock_proxy);
-  context_client->DidEvaluateScript(true /* success */);
-  task_runner()->RunUntilIdle();
-  EXPECT_TRUE(mock_proxy.fetch_events().empty());
-
-  bool is_idle = false;
-  auto timer = std::make_unique<ServiceWorkerTimeoutTimer>(
-      CreateCallbackWithCalledFlag(&is_idle),
-      task_runner()->GetMockTickClock());
-  context_client->SetTimeoutTimerForTesting(std::move(timer));
-
-  // Ensure the idle state.
-  EXPECT_FALSE(context_client->RequestedTermination());
-  task_runner()->FastForwardBy(ServiceWorkerTimeoutTimer::kIdleDelay +
-                               ServiceWorkerTimeoutTimer::kUpdateInterval +
-                               base::TimeDelta::FromSeconds(1));
-  EXPECT_TRUE(context_client->RequestedTermination());
+      CreateIdleContextClient(&pipes, &mock_proxy);
 
   const GURL expected_url("https://example.com/expected");
 
   // FetchEvent dispatched directly from the controlled clients through
-  // mojom::ControllerServiceWorker should be queued in the idle state.
+  // blink::mojom::ControllerServiceWorker should be queued in the idle state.
   {
     blink::mojom::ServiceWorkerFetchResponseCallbackPtr fetch_callback_ptr;
     blink::mojom::ServiceWorkerFetchResponseCallbackRequest
         fetch_callback_request = mojo::MakeRequest(&fetch_callback_ptr);
-    auto request = std::make_unique<network::ResourceRequest>();
+    auto request = blink::mojom::FetchAPIRequest::New();
     request->url = expected_url;
     auto params = blink::mojom::DispatchFetchEventParams::New();
-    params->request = *request;
+    params->request = std::move(request);
     pipes.controller->DispatchFetchEvent(
         std::move(params), std::move(fetch_callback_ptr),
         base::BindOnce([](blink::mojom::ServiceWorkerEventStatus) {}));
@@ -493,22 +504,7 @@ TEST_F(ServiceWorkerContextClientTest,
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
   std::unique_ptr<ServiceWorkerContextClient> context_client =
-      CreateContextClient(&pipes, &mock_proxy);
-  context_client->DidEvaluateScript(true /* success */);
-  task_runner()->RunUntilIdle();
-  EXPECT_TRUE(mock_proxy.fetch_events().empty());
-  bool is_idle = false;
-  auto timer = std::make_unique<ServiceWorkerTimeoutTimer>(
-      CreateCallbackWithCalledFlag(&is_idle),
-      task_runner()->GetMockTickClock());
-  context_client->SetTimeoutTimerForTesting(std::move(timer));
-
-  // Ensure the idle state.
-  EXPECT_FALSE(context_client->RequestedTermination());
-  task_runner()->FastForwardBy(ServiceWorkerTimeoutTimer::kIdleDelay +
-                               ServiceWorkerTimeoutTimer::kUpdateInterval +
-                               base::TimeDelta::FromSeconds(1));
-  EXPECT_TRUE(context_client->RequestedTermination());
+      CreateIdleContextClient(&pipes, &mock_proxy);
 
   const GURL expected_url_1("https://example.com/expected_1");
   const GURL expected_url_2("https://example.com/expected_2");
@@ -518,14 +514,14 @@ TEST_F(ServiceWorkerContextClientTest,
       fetch_callback_request_2;
 
   // FetchEvent dispatched directly from the controlled clients through
-  // mojom::ControllerServiceWorker should be queued in the idle state.
+  // blink::mojom::ControllerServiceWorker should be queued in the idle state.
   {
     blink::mojom::ServiceWorkerFetchResponseCallbackPtr fetch_callback_ptr;
     fetch_callback_request_1 = mojo::MakeRequest(&fetch_callback_ptr);
-    auto request = std::make_unique<network::ResourceRequest>();
+    auto request = blink::mojom::FetchAPIRequest::New();
     request->url = expected_url_1;
     auto params = blink::mojom::DispatchFetchEventParams::New();
-    params->request = *request;
+    params->request = std::move(request);
     pipes.controller->DispatchFetchEvent(
         std::move(params), std::move(fetch_callback_ptr),
         base::BindOnce([](blink::mojom::ServiceWorkerEventStatus) {}));
@@ -533,15 +529,15 @@ TEST_F(ServiceWorkerContextClientTest,
   }
   EXPECT_TRUE(mock_proxy.fetch_events().empty());
 
-  // Another event dispatched to mojom::ServiceWorker wakes up
+  // Another event dispatched to blink::mojom::ServiceWorker wakes up
   // the context client.
   {
     blink::mojom::ServiceWorkerFetchResponseCallbackPtr fetch_callback_ptr;
     fetch_callback_request_2 = mojo::MakeRequest(&fetch_callback_ptr);
-    auto request = std::make_unique<network::ResourceRequest>();
+    auto request = blink::mojom::FetchAPIRequest::New();
     request->url = expected_url_2;
     auto params = blink::mojom::DispatchFetchEventParams::New();
-    params->request = *request;
+    params->request = std::move(request);
     pipes.service_worker->DispatchFetchEvent(
         std::move(params), std::move(fetch_callback_ptr),
         base::BindOnce([](blink::mojom::ServiceWorkerEventStatus) {}));
@@ -555,6 +551,25 @@ TEST_F(ServiceWorkerContextClientTest,
             static_cast<GURL>(mock_proxy.fetch_events()[0].second.Url()));
   EXPECT_EQ(expected_url_2,
             static_cast<GURL>(mock_proxy.fetch_events()[1].second.Url()));
+}
+
+TEST_F(ServiceWorkerContextClientTest, TaskInServiceWorker) {
+  EnableServicification();
+  ContextClientPipes pipes;
+  MockWebServiceWorkerContextProxy mock_proxy;
+  std::unique_ptr<ServiceWorkerContextClient> context_client =
+      CreateIdleContextClient(&pipes, &mock_proxy);
+
+  int task_id = context_client->WillStartTask();
+  EXPECT_FALSE(context_client->RequestedTermination());
+  context_client->DidEndTask(task_id);
+  EXPECT_FALSE(context_client->RequestedTermination());
+
+  // Ensure the idle state.
+  task_runner()->FastForwardBy(ServiceWorkerTimeoutTimer::kIdleDelay +
+                               ServiceWorkerTimeoutTimer::kUpdateInterval +
+                               base::TimeDelta::FromSeconds(1));
+  EXPECT_TRUE(context_client->RequestedTermination());
 }
 
 }  // namespace content

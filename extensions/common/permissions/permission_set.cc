@@ -13,32 +13,20 @@
 
 namespace extensions {
 
-namespace {
-
-void AddPatternsAndRemovePaths(const URLPatternSet& set, URLPatternSet* out) {
-  DCHECK(out);
-  for (auto i = set.begin(); i != set.end(); ++i) {
-    URLPattern p = *i;
-    p.SetPath("/*");
-    out->AddPattern(p);
-  }
-}
-
-}  // namespace
-
-//
-// PermissionSet
-//
-
 PermissionSet::PermissionSet(): allow_all_override_(false) {}
-PermissionSet::PermissionSet(const APIPermissionSet& apis,
-                             const ManifestPermissionSet& manifest_permissions,
+PermissionSet::PermissionSet(APIPermissionSet apis,
+                             ManifestPermissionSet manifest_permissions,
                              const URLPatternSet& explicit_hosts,
                              const URLPatternSet& scriptable_hosts, bool allow_all)
-    : apis_(apis),
-      manifest_permissions_(manifest_permissions),
-      scriptable_hosts_(scriptable_hosts), allow_all_override_(allow_all) {
-  AddPatternsAndRemovePaths(explicit_hosts, &explicit_hosts_);
+    : apis_(std::move(apis)),
+      manifest_permissions_(std::move(manifest_permissions)),
+      scriptable_hosts_(scriptable_hosts.Clone()), allow_all_override_(allow_all) {
+  for (URLPattern pattern : explicit_hosts) {
+    // Strip the paths from the incoming explicit hosts; we don't use them.
+    pattern.SetPath("/*");
+    explicit_hosts_.AddPattern(std::move(pattern));
+  }
+
   InitImplicitPermissions();
   InitEffectiveHosts();
 }
@@ -63,7 +51,8 @@ std::unique_ptr<const PermissionSet> PermissionSet::CreateDifference(
   URLPatternSet scriptable_hosts = URLPatternSet::CreateDifference(
       set1.scriptable_hosts(), set2.scriptable_hosts());
 
-  return base::WrapUnique(new PermissionSet(apis, manifest_permissions,
+  return base::WrapUnique(new PermissionSet(std::move(apis),
+                                            std::move(manifest_permissions),
                                             explicit_hosts, scriptable_hosts));
 }
 
@@ -85,7 +74,8 @@ std::unique_ptr<const PermissionSet> PermissionSet::CreateIntersection(
   URLPatternSet scriptable_hosts = URLPatternSet::CreateIntersection(
       set1.scriptable_hosts(), set2.scriptable_hosts(), intersection_behavior);
 
-  return base::WrapUnique(new PermissionSet(apis, manifest_permissions,
+  return base::WrapUnique(new PermissionSet(std::move(apis),
+                                            std::move(manifest_permissions),
                                             explicit_hosts, scriptable_hosts));
 }
 
@@ -107,7 +97,8 @@ std::unique_ptr<const PermissionSet> PermissionSet::CreateUnion(
   URLPatternSet scriptable_hosts = URLPatternSet::CreateUnion(
       set1.scriptable_hosts(), set2.scriptable_hosts());
 
-  return base::WrapUnique(new PermissionSet(apis, manifest_permissions,
+  return base::WrapUnique(new PermissionSet(std::move(apis),
+                                            std::move(manifest_permissions),
                                             explicit_hosts, scriptable_hosts));
 }
 
@@ -224,7 +215,12 @@ bool PermissionSet::HasEffectiveAccessToURL(const GURL& url) const {
   return effective_hosts().MatchesURL(url);
 }
 
-PermissionSet::PermissionSet(const PermissionSet& permissions) = default;
+PermissionSet::PermissionSet(const PermissionSet& other)
+    : apis_(other.apis_.Clone()),
+      manifest_permissions_(other.manifest_permissions_.Clone()),
+      explicit_hosts_(other.explicit_hosts_.Clone()),
+      scriptable_hosts_(other.scriptable_hosts_.Clone()),
+      effective_hosts_(other.effective_hosts_.Clone()) {}
 
 void PermissionSet::InitImplicitPermissions() {
   // The downloads permission implies the internal version as well.

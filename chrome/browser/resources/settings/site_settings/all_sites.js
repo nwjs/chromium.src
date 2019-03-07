@@ -28,6 +28,16 @@ Polymer({
       value: function() {
         return new Map();
       },
+      observer: 'forceListUpdate_',
+    },
+
+    /**
+     * Filtered site group list.
+     * @type {!Array<SiteGroup>}
+     * @private
+     */
+    filteredList_: {
+      type: Array,
     },
 
     /**
@@ -48,6 +58,7 @@ Polymer({
     searchQuery_: {
       type: String,
       value: '',
+      observer: 'forceListUpdate_',
     },
 
     /**
@@ -80,6 +91,20 @@ Polymer({
       type: Object,
       observer: 'focusConfigChanged_',
     },
+
+    /**
+     * @private
+     * Used to track the last-focused element across rows for the
+     * focusRowBehavior.
+     */
+    lastFocused_: Object,
+
+    /**
+     * @private
+     * Used to track whether the list of row items has been blurred for the
+     * focusRowBehavior.
+     */
+    listBlurred_: Boolean,
   },
 
   /** @private {?settings.LocalDataBrowserProxy} */
@@ -91,15 +116,19 @@ Polymer({
         settings.LocalDataBrowserProxyImpl.getInstance();
   },
 
+  listeners: {
+    'delete-current-entry': 'onDeleteCurrentEntry_',
+  },
+
   /** @override */
   ready: function() {
     this.addWebUIListener(
-        'onLocalStorageListFetched', this.onLocalStorageListFetched.bind(this));
+        'onStorageListFetched', this.onStorageListFetched.bind(this));
     this.addWebUIListener(
         'contentSettingSitePermissionChanged', this.populateList_.bind(this));
     this.addEventListener(
         'site-entry-selected',
-        (/** @type {!{detail: !{item: !SiteGroup, index: number}}} */ e) => {
+        (/** @type {!CustomEvent<!{item: !SiteGroup, index: number}>} */ e) => {
           this.selectedItem_ = e.detail;
         });
     this.addEventListener('site-entry-storage-updated', () => {
@@ -110,7 +139,6 @@ Polymer({
         }
       }, 500);
     });
-    this.populateList_();
   },
 
   /** @override */
@@ -123,6 +151,21 @@ Polymer({
   },
 
   /**
+   * Reload the site list when the all sites page is visited.
+   *
+   * settings.RouteObserverBehavior
+   * @param {!settings.Route} currentRoute
+   * @protected
+   */
+  currentRouteChanged: function(currentRoute) {
+    settings.GlobalScrollTargetBehaviorImpl.currentRouteChanged.call(
+        this, currentRoute);
+    if (currentRoute == settings.routes.SITE_SETTINGS_ALL) {
+      this.populateList_();
+    }
+  },
+
+  /**
    * Retrieves a list of all known sites with site details.
    * @private
    */
@@ -131,47 +174,34 @@ Polymer({
     const contentTypes = this.getCategoryList();
     // Make sure to include cookies, because All Sites handles data storage +
     // cookies as well as regular settings.ContentSettingsTypes.
-    if (!contentTypes.includes(settings.ContentSettingsTypes.COOKIES))
+    if (!contentTypes.includes(settings.ContentSettingsTypes.COOKIES)) {
       contentTypes.push(settings.ContentSettingsTypes.COOKIES);
+    }
 
     this.browserProxy.getAllSites(contentTypes).then((response) => {
+      // Create a new map to make an observable change.
+      const newMap = /** @type {!Map<string, !SiteGroup>} */
+                      (new Map(this.siteGroupMap));
       response.forEach(siteGroup => {
-        this.siteGroupMap.set(siteGroup.etldPlus1, siteGroup);
+        newMap.set(siteGroup.etldPlus1, siteGroup);
       });
-      this.forceListUpdate_();
+      this.siteGroupMap = newMap;
     });
   },
 
   /**
-   * Integrate sites using local storage into the existing sites map, as there
+   * Integrate sites using storage into the existing sites map, as there
    * may be overlap between the existing sites.
-   * @param {!Array<!SiteGroup>} list The list of sites using local storage.
+   * @param {!Array<!SiteGroup>} list The list of sites using storage.
    */
-  onLocalStorageListFetched: function(list) {
+  onStorageListFetched: function(list) {
+    // Create a new map to make an observable change.
+    const newMap = /** @type {!Map<string, !SiteGroup>} */
+                    (new Map(this.siteGroupMap));
     list.forEach(storageSiteGroup => {
-      if (this.siteGroupMap.has(storageSiteGroup.etldPlus1)) {
-        const siteGroup = this.siteGroupMap.get(storageSiteGroup.etldPlus1);
-        const storageOriginInfoMap = new Map();
-        storageSiteGroup.origins.forEach(
-            originInfo =>
-                storageOriginInfoMap.set(originInfo.origin, originInfo));
-
-        // If there is an overlapping origin, update the original
-        // |originInfo|.
-        siteGroup.origins.forEach(originInfo => {
-          if (!storageOriginInfoMap.has(originInfo.origin))
-            return;
-          Object.apply(originInfo, storageOriginInfoMap.get(originInfo.origin));
-          storageOriginInfoMap.delete(originInfo.origin);
-        });
-        // Otherwise, add it to the list.
-        storageOriginInfoMap.forEach(
-            originInfo => siteGroup.origins.push(originInfo));
-      } else {
-        this.siteGroupMap.set(storageSiteGroup.etldPlus1, storageSiteGroup);
-      }
+      newMap.set(storageSiteGroup.etldPlus1, storageSiteGroup);
     });
-    this.forceListUpdate_();
+    this.siteGroupMap = newMap;
   },
 
   /**
@@ -200,34 +230,14 @@ Polymer({
    */
   sortSiteGroupList_: function(siteGroupList) {
     const sortMethod = this.$.sortMethod.value;
-    if (!this.sortMethods_)
+    if (!this.sortMethods_) {
       return siteGroupList;
+    }
 
     if (sortMethod == this.sortMethods_.mostVisited) {
       siteGroupList.sort(this.mostVisitedComparator_);
     } else if (sortMethod == this.sortMethods_.storage) {
-      // Storage is loaded asynchronously, so make sure it's updated for every
-      // item in the list to ensure the sorting is correct.
-      const etldPlus1List = siteGroupList.reduce((list, siteGroup) => {
-        if (siteGroup.origins.length > 1 && siteGroup.etldPlus1.length > 0)
-          list.push(siteGroup.etldPlus1);
-        return list;
-      }, []);
-
-      this.localDataBrowserProxy_.getNumCookiesList(etldPlus1List)
-          .then(numCookiesList => {
-            assert(etldPlus1List.length == numCookiesList.length);
-            numCookiesList.forEach(cookiesPerEtldPlus1 => {
-              this.siteGroupMap.get(cookiesPerEtldPlus1.etldPlus1).numCookies =
-                  cookiesPerEtldPlus1.numCookies;
-            });
-
-            // |siteGroupList| by this point should have already been provided
-            // to the iron list, so just sort in-place here and make sure to
-            // re-render the item order.
-            siteGroupList.sort(this.storageComparator_);
-            this.$.allSitesList.fire('iron-resize');
-          });
+      siteGroupList.sort(this.storageComparator_);
     } else if (sortMethod == this.sortMethods_.name) {
       siteGroupList.sort(this.nameComparator_);
     }
@@ -292,8 +302,7 @@ Polymer({
    * @private
    */
   onSearchChanged_: function() {
-    const searchElement = /** @type {SettingsSubpageSearchElement} */ (
-        this.$$('settings-subpage-search'));
+    const searchElement = this.$$('cr-search-field');
     this.searchQuery_ = searchElement.getSearchInput().value.toLowerCase();
   },
 
@@ -302,8 +311,8 @@ Polymer({
    * @private
    */
   onSortMethodChanged_: function() {
-    this.$.allSitesList.items =
-        this.sortSiteGroupList_(this.$.allSitesList.items);
+    this.filteredList_ =
+        this.sortSiteGroupList_(this.filteredList_);
     // Force the iron-list to rerender its items, as the order has changed.
     this.$.allSitesList.fire('iron-resize');
   },
@@ -314,7 +323,7 @@ Polymer({
    * @private
    */
   forceListUpdate_: function() {
-    this.$.allSitesList.items =
+    this.filteredList_ =
         this.filterPopulatedList_(this.siteGroupMap, this.searchQuery_);
     this.$.allSitesList.fire('iron-resize');
   },
@@ -329,13 +338,15 @@ Polymer({
     // fire once.
     assert(!oldConfig);
 
-    if (!settings.routes.SITE_SETTINGS_ALL)
+    if (!settings.routes.SITE_SETTINGS_ALL) {
       return;
+    }
 
     const onNavigatedTo = () => {
       this.async(() => {
-        if (this.selectedItem_ == null || this.siteGroupMap.size == 0)
+        if (this.selectedItem_ == null || this.siteGroupMap.size == 0) {
           return;
+        }
 
         // Focus the site-entry to ensure the iron-list renders it, otherwise
         // the query selector will not be able to find it. Note the index is
@@ -350,4 +361,33 @@ Polymer({
     this.focusConfig.set(
         settings.routes.SITE_SETTINGS_SITE_DETAILS.path, onNavigatedTo);
   },
+
+  /**
+   * Whether the |siteGroupMap| is empty.
+   * @return {boolean}
+   * @private
+   */
+  siteGroupMapEmpty_: function() {
+    return !this.siteGroupMap.size;
+  },
+
+  /**
+   * Whether the |filteredList_| is empty due to searching.
+   * @return {boolean}
+   * @private
+   */
+  noSearchResultFound_: function() {
+    return !this.filteredList_.length && !this.siteGroupMapEmpty_();
+  },
+
+  /**
+   * Delete an entry from |siteGroupMap| for given etldPlus1.
+   * @param {!CustomEvent<!{etldPlus1: string}>} e
+   * @private
+   */
+  onDeleteCurrentEntry_: function(e) {
+    this.siteGroupMap.delete(e.detail.etldPlus1);
+    this.forceListUpdate_();
+  }
+
 });

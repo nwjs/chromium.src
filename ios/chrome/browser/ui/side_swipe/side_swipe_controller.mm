@@ -27,6 +27,8 @@
 #import "ios/chrome/browser/ui/toolbar/public/side_swipe_toolbar_interacting.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/web/page_placeholder_tab_helper.h"
+#import "ios/chrome/browser/web/web_navigation_util.h"
+#import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/web/public/navigation_item.h"
 #import "ios/web/public/web_client.h"
 #import "ios/web/public/web_state/web_state_observer_bridge.h"
@@ -334,7 +336,7 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
         FullscreenControllerFactory::GetInstance()->GetForBrowserState(
             browserState_));
     SnapshotTabHelper::FromWebState([model_ currentTab].webState)
-        ->UpdateSnapshot(/*with_overlays=*/true, /*visible_frame_only=*/true);
+        ->UpdateSnapshotWithCallback(nil);
     [[NSNotificationCenter defaultCenter]
         postNotificationName:kSideSwipeWillStartNotification
                       object:nil];
@@ -406,10 +408,14 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
 }
 
 - (BOOL)canNavigate:(BOOL)goBack {
-  if (goBack && [[model_ currentTab] canGoBack]) {
+  WebStateList* webStateList = model_.webStateList;
+  if (!webStateList || !webStateList->GetActiveWebState())
+    return NO;
+  web::WebState* webState = webStateList->GetActiveWebState();
+  if (goBack && webState->GetNavigationManager()->CanGoBack()) {
     return YES;
   }
-  if (!goBack && [[model_ currentTab] canGoForward]) {
+  if (!goBack && webState->GetNavigationManager()->CanGoForward()) {
     return YES;
   }
   return NO;
@@ -454,17 +460,21 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
     animatedFullscreenDisabler_ = nullptr;
   }
 
-  __weak Tab* weakCurrentTab = [model_ currentTab];
   [pageSideSwipeView_ handleHorizontalPan:gesture
       onOverThresholdCompletion:^{
-        BOOL wantsBack = IsSwipingBack(gesture.direction);
-        web::WebState* webState = [weakCurrentTab webState];
-        if (wantsBack) {
-          [[model_ currentTab] goBack];
-        } else {
-          [[model_ currentTab] goForward];
+        WebStateList* webStateList = model_.webStateList;
+        web::WebState* webState = nullptr;
+        if (webStateList) {
+          webState = webStateList->GetActiveWebState();
         }
-
+        BOOL wantsBack = IsSwipingBack(gesture.direction);
+        if (webState) {
+          if (wantsBack) {
+            web_navigation_util::GoBack(webState);
+          } else {
+            web_navigation_util::GoForward(webState);
+          }
+        }
         // Checking -IsLoading() is likely incorrect, but to narrow the scope of
         // fixes for slim navigation manager, only ignore this state when
         // slim is disabled.  With slim navigation enabled, this false when
@@ -492,7 +502,6 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
 - (void)handleiPhoneTabSwipe:(SideSwipeGestureRecognizer*)gesture {
   if (gesture.state == UIGestureRecognizerStateBegan) {
     Tab* currentTab = [model_ currentTab];
-    DCHECK(currentTab.webState);
 
     inSwipe_ = YES;
 
@@ -501,10 +510,13 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
     // Add horizontal stack view controller.
     // TODO(crbug.com/904992): Do not use SnapshotGeneratorDelegate from
     // SideSwipeController.
-    CGFloat headerHeight =
-        [self.snapshotDelegate snapshotGenerator:nil
-                   snapshotEdgeInsetsForWebState:currentTab.webState]
-            .top;
+    CGFloat headerHeight = 0;
+    if (currentTab.webState) {
+      headerHeight =
+          [self.snapshotDelegate snapshotGenerator:nil
+                     snapshotEdgeInsetsForWebState:currentTab.webState]
+              .top;
+    }
 
     if (tabSideSwipeView_) {
       [tabSideSwipeView_ setFrame:frame];
@@ -525,8 +537,10 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
     }
 
     // Ensure that there's an up-to-date snapshot of the current tab.
-    SnapshotTabHelper::FromWebState(currentTab.webState)
-        ->UpdateSnapshot(/*with_overlays=*/true, /*visible_frame_only=*/true);
+    if (currentTab.webState) {
+      SnapshotTabHelper::FromWebState(currentTab.webState)
+          ->UpdateSnapshotWithCallback(nil);
+    }
 
     // Hide the infobar after snapshot has been updated (see the previous line)
     // to avoid it obscuring the cards in the side swipe view.

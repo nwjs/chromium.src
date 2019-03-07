@@ -8,13 +8,13 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_LIBJINGLE_XMPP_JID_H_
-#define WEBRTC_LIBJINGLE_XMPP_JID_H_
+#ifndef THIRD_PARTY_LIBJINGLE_XMPP_XMPP_JID_H_
+#define THIRD_PARTY_LIBJINGLE_XMPP_XMPP_JID_H_
 
 #include <string>
 #include "third_party/libjingle_xmpp/xmllite/xmlconstants.h"
 
-namespace buzz {
+namespace jingle_xmpp {
 
 // The Jid class encapsulates and provides parsing help for Jids. A Jid
 // consists of three parts: the node, the domain and the resource, e.g.:
@@ -77,4 +77,4 @@ private:
 
 }
 
-#endif  // WEBRTC_LIBJINGLE_XMPP_JID_H_
+#endif  // THIRD_PARTY_LIBJINGLE_XMPP_XMPP_JID_H_

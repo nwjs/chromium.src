@@ -24,6 +24,7 @@ Untuk informasi tentang privasi, lihat Kebijakan Privasi Google (http://goo.gl/S
 <translation id="1520828917794284345">Ubah ukuran desktop agar sesuai</translation>
 <translation id="154040539590487450">Gagal memulai layanan akses jarak jauh.</translation>
 <translation id="1546934824884762070">Terjadi kesalahan yang tidak terduga. Laporkan masalah ini kepada pengembang.</translation>
+<translation id="1624185583382384493">Chrome Desktop Jarak Jauh kini tersedia di web. Coba <ph name="LINK_BEGIN" />aplikasi web<ph name="LINK_END" /> kami—cepat dan gratis, dengan lebih banyak fitur, termasuk dukungan yang ditingkatkan untuk beberapa monitor.</translation>
 <translation id="1643640058022401035">Dengan meninggalkan halaman ini, Anda akan mengakhiri sesi Chromoting.</translation>
 <translation id="1654128982815600832">Mengaktifkan sambungan jarak jauh untuk komputer ini...</translation>
 <translation id="170207782578677537">Gagal mendaftarkan komputer ini.</translation>
@@ -240,6 +241,7 @@ PC</translation>
 <translation id="6198252989419008588">Ubah PIN</translation>
 <translation id="6204583485351780592"><ph name="HOSTNAME" /> (kedaluwarsa)</translation>
 <translation id="6221358653751391898">Anda tidak masuk ke Chrome. Masuk dan coba lagi.</translation>
+<translation id="6227369581881558336">Chrome Desktop Jarak Jauh kini tersedia di web dengan fitur baru termasuk transfer file! Lihat <ph name="LINK_BEGIN" />aplikasi web<ph name="LINK_END" /> kami.</translation>
 <translation id="6284412385303060032">Host yang berjalan di layar logika konsol telah dinonaktifkan untuk mendukung mode tirai dengan beralih ke host yang berjalan di sesi khusus pengguna.</translation>
 <translation id="629730747756840877">Akun</translation>
 <translation id="6304318647555713317">Klien</translation>
@@ -287,7 +289,6 @@ PC</translation>
 <translation id="7434397035092923453">Akses ditolak untuk klien: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7444276978508498879">Klien tersambung: <ph name="CLIENT_USERNAME" />.</translation>
 <translation id="7526139040829362392">Ubah akun</translation>
-<translation id="7589941250119944644">Chrome Desktop Jarak Jauh kini dapat diakses di web. Coba <ph name="LINK_BEGIN" />aplikasi web<ph name="LINK_END" /> versi baru ini—cepat dan gratis, dengan fitur yang sama seperti sebelumnya.</translation>
 <translation id="7606912958770842224">Aktifkan sambungan jarak jauh</translation>
 <translation id="7628469622942688817">Ingat PIN saya di perangkat ini.</translation>
 <translation id="7649070708921625228">Bantuan</translation>

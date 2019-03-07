@@ -107,6 +107,25 @@
     ],
     "functions": [
       {
+        "name": "getBatteryDescription",
+        "type": "function",
+        "description": "Called to request battery status from Chrome OS system.",
+        "parameters": [
+          {
+            "name": "callback",
+            "type": "function",
+            "description": "Returns battery description as a string.",
+            "parameters": [
+              {
+                "name": "batteryDescription",
+                "type": "string"
+              }
+            ]
+          }
+        ],
+        "platforms": ["chromeos"]
+      },
+      {
         "name": "setNativeAccessibilityEnabled",
         "type": "function",
         "description": "Enables or disables native accessibility support. Once disabled, it is up to the calling extension to provide accessibility for web contents.",
@@ -199,6 +218,36 @@
               "maximum": 90  // 'z' key
             },
             "description": "The key codes for the keys that will be captured."
+          }
+        ],
+        "platforms": ["chromeos"]
+      },
+      {
+            "name": "setSwitchAccessMenuState",
+            "type": "function",
+            "description": "Shows or hides the Switch Access menu. If shown, it is at the indicated location.",
+            "parameters": [
+              {
+                "name": "show",
+                "type": "boolean",
+                "description": "If true, show the menu. If false, hide the menu."
+              },
+              {
+                "name": "element_bounds",
+                "$ref": "ScreenRect",
+                "description": "Position of an element, in global screen coordinates, to place the menu next to."
+              }
+            ],
+            "platforms": ["chromeos"]
+      },
+      {
+        "name": "forwardKeyEventsToSwitchAccess",
+        "type": "function",
+        "description": "When enabled, forwards key events to the Switch Access extension",
+        "parameters": [
+          {
+            "name": "shouldForward",
+            "type": "boolean"
           }
         ],
         "platforms": ["chromeos"]

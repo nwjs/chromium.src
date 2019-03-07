@@ -109,31 +109,37 @@ void EmptyLocalFrameClient::BeginNavigation(
     mojom::blink::BlobURLTokenPtr,
     base::TimeTicks,
     const String&,
+    WebContentSecurityPolicyList,
     mojom::blink::NavigationInitiatorPtr) {}
 
 void EmptyLocalFrameClient::DispatchWillSendSubmitEvent(HTMLFormElement*) {}
 
 DocumentLoader* EmptyLocalFrameClient::CreateDocumentLoader(
     LocalFrame* frame,
-    const ResourceRequest& request,
-    const SubstituteData& substitute_data,
-    ClientRedirectPolicy client_redirect_policy,
-    const base::UnguessableToken& devtools_navigation_token,
-    WebFrameLoadType load_type,
     WebNavigationType navigation_type,
     std::unique_ptr<WebNavigationParams> navigation_params,
     std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) {
   DCHECK(frame);
+  return MakeGarbageCollected<DocumentLoader>(frame, navigation_type,
+                                              std::move(navigation_params));
+}
 
-  return MakeGarbageCollected<DocumentLoader>(
-      frame, request, substitute_data, client_redirect_policy,
-      devtools_navigation_token, load_type, navigation_type,
-      std::move(navigation_params));
+mojom::blink::DocumentInterfaceBroker*
+EmptyLocalFrameClient::GetDocumentInterfaceBroker() {
+  mojo::MakeRequest(&document_interface_broker_);
+  return document_interface_broker_.get();
 }
 
 LocalFrame* EmptyLocalFrameClient::CreateFrame(const AtomicString&,
                                                HTMLFrameOwnerElement*) {
   return nullptr;
+}
+
+std::pair<RemoteFrame*, base::UnguessableToken>
+EmptyLocalFrameClient::CreatePortal(HTMLPortalElement*,
+                                    mojom::blink::PortalRequest) {
+  return std::pair<RemoteFrame*, base::UnguessableToken>(
+      nullptr, base::UnguessableToken());
 }
 
 WebPluginContainerImpl* EmptyLocalFrameClient::CreatePlugin(

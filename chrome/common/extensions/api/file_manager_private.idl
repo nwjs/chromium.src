@@ -9,7 +9,8 @@
 namespace fileManagerPrivate {
 // Type of the mounted volume.
 enum VolumeType { drive, downloads, removable, archive, provided, mtp,
-                  media_view, crostini, android_files, testing };
+                  media_view, crostini, android_files, documents_provider,
+                  testing };
 
 // Device type. Available if this is removable volume.
 enum DeviceType { usb, sd, optical, mobile, unknown };
@@ -447,6 +448,10 @@ dictionary VolumeMetadata {
 
   // Icons for the volume.
   IconSet iconSet;
+
+  // Drive label of the volume. Removable partitions that belong to the
+  // same physical removable device share the same drive label.
+  DOMString? driveLabel;
 };
 
 // Payload data for mount event.
@@ -1153,13 +1158,20 @@ interface Functions {
   // |callback|
   static void mountCrostini(SimpleCallback callback);
 
-  // Shares directory with crostini container.
+  // Shares paths with crostini container.
   // |entries| Entries of the files or directories to share.
   // |persist| If true, shares will persist across restarts.
   // |callback|
   [nocompile]
   static void sharePathsWithCrostini(
       [instanceof=Entry] object[] entries, boolean persist, SimpleCallback callback);
+
+  // Unshares path with crostini container.
+  // |entry| Entry of the file or directory to unshare.
+  // |callback|
+  [nocompile]
+  static void unsharePathWithCrostini(
+      [instanceof=Entry] object entry, SimpleCallback callback);
 
   // Returns list of paths shared with crostini container.
   [nocompile]

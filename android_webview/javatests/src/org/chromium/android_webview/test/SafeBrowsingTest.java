@@ -40,6 +40,7 @@ import org.chromium.android_webview.ErrorCodeConversionHelper;
 import org.chromium.android_webview.SafeBrowsingAction;
 import org.chromium.android_webview.test.TestAwContentsClient.OnReceivedError2Helper;
 import org.chromium.android_webview.test.util.GraphicsTestUtils;
+import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CallbackHelper;
@@ -141,6 +142,11 @@ public class SafeBrowsingTest {
 
         // Mock time it takes for a lookup request to complete.
         private static final long CHECK_DELTA_US = 10;
+
+        @Override
+        public String getSafetyNetId() {
+            return "";
+        }
 
         @Override
         public boolean init(Observer result) {
@@ -527,8 +533,12 @@ public class SafeBrowsingTest {
         // Check onSafeBrowsingHit arguments
         final String responseUrl = mTestServer.getURL(BILLING_HTML_PATH);
         Assert.assertEquals(responseUrl, mContentsClient.getLastRequest().url);
-        Assert.assertEquals(AwSafeBrowsingConversionHelper.SAFE_BROWSING_THREAT_BILLING,
-                mContentsClient.getLastThreatType());
+        // The expectedCode intentionally depends on targetSdk (and is disconnected from SDK_INT).
+        // This is for backwards compatibility with apps with a lower targetSdk.
+        int expectedCode = BuildInfo.targetsAtLeastQ()
+                ? AwSafeBrowsingConversionHelper.SAFE_BROWSING_THREAT_BILLING
+                : AwSafeBrowsingConversionHelper.SAFE_BROWSING_THREAT_UNKNOWN;
+        Assert.assertEquals(expectedCode, mContentsClient.getLastThreatType());
     }
 
     @Test

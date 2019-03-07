@@ -23,6 +23,7 @@
 #include "chrome/browser/offline_pages/offline_page_utils.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "components/offline_pages/core/client_namespace_constants.h"
+#include "components/offline_pages/core/offline_clock.h"
 #include "components/offline_pages/core/offline_page_model.h"
 #include "components/offline_pages/core/request_header/offline_page_header.h"
 #include "components/previews/core/previews_experiments.h"
@@ -407,7 +408,11 @@ void GetPagesToServeURL(
       OfflinePageModel* offline_page_model =
           OfflinePageModelFactory::GetForBrowserContext(
               web_contents->GetBrowserContext());
-      DCHECK(offline_page_model);
+      if (!offline_page_model) {
+        FailedToFindOfflinePage(RequestResult::OFFLINE_PAGE_NOT_FOUND,
+                                network_state, job);
+        return;
+      }
       offline_page_model->GetPageByOfflineId(
           offline_id, base::Bind(&GetPageByOfflineIdDone, url, offline_header,
                                  network_state, web_contents_getter, job));
@@ -622,7 +627,7 @@ void OfflinePageRequestHandler::OnTrustedOfflinePageFound() {
   // If the page is being loaded on a slow network, only use the offline page
   // if it was created within the past day.
   if (network_state_ == NetworkState::PROHIBITIVELY_SLOW_NETWORK &&
-      base::Time::Now() - GetCurrentOfflinePage().creation_time >
+      OfflineTimeNow() - GetCurrentOfflinePage().creation_time >
           previews::params::OfflinePreviewFreshnessDuration()) {
     ReportRequestResult(RequestResult::PAGE_NOT_FRESH, network_state_);
     delegate_->FallbackToDefault();
@@ -795,7 +800,8 @@ void OfflinePageRequestHandler::UpdateDigestOnBackground(
 
 void OfflinePageRequestHandler::FinalizeDigestOnBackground(
     base::OnceCallback<void(const std::string&)> digest_finalized_callback) {
-  DCHECK(archive_validator_.get());
+  if (!archive_validator_)
+    archive_validator_ = new ThreadSafeArchiveValidator();
 
   // Delegate to background task runner to finalize the hash to get the digest
   // since it is time consuming. Once it is done, |digest_finalized_callback|

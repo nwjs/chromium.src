@@ -26,17 +26,12 @@ class FrameTest : public PageTestBase {
 
   void Navigate(const String& destinationUrl, bool user_activated) {
     const KURL& url = KURL(NullURL(), destinationUrl);
+    auto navigation_params =
+        WebNavigationParams::CreateWithHTMLBuffer(SharedBuffer::Create(), url);
+    if (user_activated)
+      navigation_params->is_user_activated = true;
     GetDocument().GetFrame()->Loader().CommitNavigation(
-        ResourceRequest(url), SubstituteData(SharedBuffer::Create()),
-        ClientRedirectPolicy::kNotClientRedirect,
-        base::UnguessableToken::Create());
-    if (user_activated) {
-      GetDocument()
-          .GetFrame()
-          ->Loader()
-          .GetProvisionalDocumentLoader()
-          ->SetUserActivated();
-    }
+        std::move(navigation_params), nullptr /* extra_data */);
     blink::test::RunPendingTasks();
     ASSERT_EQ(url.GetString(), GetDocument().Url().GetString());
   }

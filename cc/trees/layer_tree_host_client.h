@@ -18,10 +18,12 @@ struct PresentationFeedback;
 }
 
 namespace viz {
+class LocalSurfaceIdAllocation;
 struct BeginFrameArgs;
 }
 
 namespace cc {
+struct ElementId;
 
 struct ApplyViewportChangesArgs {
   // Scroll offset delta of the inner (visual) viewport.
@@ -103,6 +105,15 @@ class LayerTreeHostClient {
   virtual void RecordWheelAndTouchScrollingCount(
       bool has_scrolled_by_wheel,
       bool has_scrolled_by_touch) = 0;
+
+  // Notifies the client when an overscroll has happened.
+  virtual void SendOverscrollEventFromImplSide(
+      const gfx::Vector2dF& overscroll_delta,
+      ElementId scroll_latched_element_id) = 0;
+  // Notifies the client when a gesture scroll has ended.
+  virtual void SendScrollEndEventFromImplSide(
+      ElementId scroll_latched_element_id) = 0;
+
   // Request a LayerTreeFrameSink from the client. When the client has one it
   // should call LayerTreeHost::SetLayerTreeFrameSink. This will result in
   // either DidFailToInitializeLayerTreeFrameSink or
@@ -121,6 +132,8 @@ class LayerTreeHostClient {
   // Record UMA and UKM metrics that require the time from the start of
   // BeginMainFrame to the Commit, or early out.
   virtual void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) = 0;
+  virtual void DidGenerateLocalSurfaceIdAllocation(
+      const viz::LocalSurfaceIdAllocation& allocation) = 0;
 
  protected:
   virtual ~LayerTreeHostClient() {}

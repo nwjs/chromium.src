@@ -11,8 +11,8 @@
 
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
-#include "base/message_loop/message_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_task_environment.h"
 #include "components/autofill/core/browser/autofill_profile.h"
 #include "components/autofill/core/browser/country_names.h"
 #include "components/autofill/core/browser/webdata/autofill_change.h"
@@ -262,7 +262,7 @@ class AutofillProfileSyncableServiceTest : public testing::Test {
   }
 
  protected:
-  base::MessageLoop message_loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
   MockAutofillProfileSyncableService autofill_syncable_service_;
   std::unique_ptr<MockSyncChangeProcessor> sync_processor_;
 };
@@ -1502,7 +1502,7 @@ class SyncUpdatesUsageStatsTest
   }
 
  protected:
-  base::MessageLoop message_loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
   MockAutofillProfileSyncableService autofill_syncable_service_;
   std::unique_ptr<MockSyncChangeProcessor> sync_processor_;
 };
@@ -1604,7 +1604,7 @@ TEST_F(AutofillProfileSyncableServiceTest, ClientOverwritesUsageStats) {
       .WillOnce(Return(true));
   autofill_syncable_service_.MergeDataAndStartSyncing(
       syncer::AUTOFILL_PROFILE, data_list,
-      base::WrapUnique(sync_change_processor),
+      std::unique_ptr<TestSyncChangeProcessor>(sync_change_processor),
       std::unique_ptr<syncer::SyncErrorFactory>(
           new syncer::SyncErrorFactoryMock()));
 
@@ -1640,7 +1640,7 @@ TEST_F(AutofillProfileSyncableServiceTest, IgnoreServerProfileUpdate) {
       .WillOnce(Return(true));
   autofill_syncable_service_.MergeDataAndStartSyncing(
       syncer::AUTOFILL_PROFILE, syncer::SyncDataList(),
-      base::WrapUnique(new TestSyncChangeProcessor),
+      std::make_unique<TestSyncChangeProcessor>(),
       std::unique_ptr<syncer::SyncErrorFactory>(
           new syncer::SyncErrorFactoryMock()));
   AutofillProfile server_profile(AutofillProfile::SERVER_PROFILE, "server-id");

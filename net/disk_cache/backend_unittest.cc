@@ -11,6 +11,7 @@
 #include "base/metrics/field_trial.h"
 #include "base/run_loop.h"
 #include "base/sequenced_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -56,11 +57,10 @@
 
 using net::test::IsError;
 using net::test::IsOk;
+using testing::ByRef;
 using testing::Contains;
 using testing::Eq;
 using testing::Field;
-using testing::Contains;
-using testing::ByRef;
 
 #if defined(OS_WIN)
 #include "base/win/scoped_handle.h"
@@ -161,7 +161,8 @@ class DiskCacheBackendTest : public DiskCacheTestWithCache {
   void BackendDoomRecent();
   void BackendDoomBetween();
   void BackendCalculateSizeOfAllEntries();
-  void BackendCalculateSizeOfEntriesBetween();
+  void BackendCalculateSizeOfEntriesBetween(
+      bool expect_access_time_range_comparisons);
   void BackendTransaction(const std::string& name, int num_entries, bool load);
   void BackendRecoverInsert();
   void BackendRecoverRemove();
@@ -185,6 +186,7 @@ class DiskCacheBackendTest : public DiskCacheTestWithCache {
   void BackendDisabledAPI();
 
   void BackendEviction();
+  void BackendOpenOrCreateEntry();
 };
 
 int DiskCacheBackendTest::GeneratePendingIO(net::TestCompletionCallback* cb) {
@@ -441,17 +443,17 @@ void DiskCacheBackendTest::BackendKeying() {
   entry2->Close();
 
   char buffer[30];
-  base::strlcpy(buffer, kName1, arraysize(buffer));
+  base::strlcpy(buffer, kName1, base::size(buffer));
   ASSERT_THAT(OpenEntry(buffer, &entry2), IsOk());
   EXPECT_TRUE(entry1 == entry2);
   entry2->Close();
 
-  base::strlcpy(buffer + 1, kName1, arraysize(buffer) - 1);
+  base::strlcpy(buffer + 1, kName1, base::size(buffer) - 1);
   ASSERT_THAT(OpenEntry(buffer + 1, &entry2), IsOk());
   EXPECT_TRUE(entry1 == entry2);
   entry2->Close();
 
-  base::strlcpy(buffer + 3, kName1, arraysize(buffer) - 3);
+  base::strlcpy(buffer + 3, kName1, base::size(buffer) - 3);
   ASSERT_THAT(OpenEntry(buffer + 3, &entry2), IsOk());
   EXPECT_TRUE(entry1 == entry2);
   entry2->Close();
@@ -663,6 +665,58 @@ TEST_F(DiskCacheBackendTest, CreateBackendPostCleanup) {
   int64_t size = 0;
   EXPECT_TRUE(base::GetFileSize(entry_path, &size));
   EXPECT_GT(size, kBufSize);
+}
+
+TEST_F(DiskCacheBackendTest, SimpleCreateBackendRecoveryAppCache) {
+  // Tests index recovery in APP_CACHE mode. (This is harder to test for
+  // DISK_CACHE since post-cleanup callbacks aren't permitted there).
+  const int kBufSize = 4 * 1024;
+  scoped_refptr<net::IOBuffer> buffer =
+      base::MakeRefCounted<net::IOBuffer>(kBufSize);
+  CacheTestFillBuffer(buffer->data(), kBufSize, true);
+
+  SetSimpleCacheMode();
+  SetCacheType(net::APP_CACHE);
+  DisableFirstCleanup();
+  CleanupCacheDir();
+
+  base::RunLoop run_loop;
+  net::TestCompletionCallback cb;
+  std::unique_ptr<disk_cache::Backend> cache;
+
+  // Create a backend with post-cleanup callback specified, in order to know
+  // when the index has been written back (so it can be deleted race-free).
+  int rv = disk_cache::CreateCacheBackend(
+      net::APP_CACHE, net::CACHE_BACKEND_SIMPLE, cache_path_, 0, false, nullptr,
+      &cache, run_loop.QuitClosure(), cb.callback());
+  EXPECT_THAT(cb.GetResult(rv), IsOk());
+  ASSERT_TRUE(cache.get());
+
+  // Create an entry.
+  disk_cache::Entry* entry = nullptr;
+  rv = cache->CreateEntry("key", net::HIGHEST, &entry, cb.callback());
+  ASSERT_EQ(net::OK, cb.GetResult(rv));
+  EXPECT_EQ(kBufSize, WriteData(entry, 0, 0, buffer.get(), kBufSize, false));
+  entry->Close();
+
+  cache.reset();
+
+  // Wait till the post-cleanup callback.
+  run_loop.Run();
+
+  // Delete the index.
+  base::DeleteFile(
+      cache_path_.AppendASCII("index-dir").AppendASCII("the-real-index"),
+      false);
+
+  // Open the cache again. The fixture will also waits for index init.
+  InitCache();
+
+  // Entry should not have a trailer size, since can't tell what it should be
+  // when doing recovery (and definitely shouldn't interpret last use time as
+  // such).
+  EXPECT_EQ(0, simple_cache_impl_->index()->GetTrailerPrefetchSize(
+                   disk_cache::simple_util::GetEntryHashKey("key")));
 }
 
 // Tests that |BackendImpl| fails to initialize with a missing file.
@@ -2184,7 +2238,8 @@ TEST_F(DiskCacheBackendTest, SimpleCacheCalculateSizeOfAllEntries) {
   BackendCalculateSizeOfAllEntries();
 }
 
-void DiskCacheBackendTest::BackendCalculateSizeOfEntriesBetween() {
+void DiskCacheBackendTest::BackendCalculateSizeOfEntriesBetween(
+    bool expect_access_time_comparisons) {
   InitCache();
 
   EXPECT_EQ(0, CalculateSizeOfEntriesBetween(base::Time(), base::Time::Max()));
@@ -2217,12 +2272,14 @@ void DiskCacheBackendTest::BackendCalculateSizeOfEntriesBetween() {
   ASSERT_EQ(CalculateSizeOfAllEntries(),
             CalculateSizeOfEntriesBetween(base::Time(), base::Time::Max()));
 
-  int start_end = CalculateSizeOfEntriesBetween(start, end);
-  ASSERT_EQ(CalculateSizeOfAllEntries(), start_end);
-  ASSERT_EQ(size_1 + size_2 + size_3, start_end);
+  if (expect_access_time_comparisons) {
+    int start_end = CalculateSizeOfEntriesBetween(start, end);
+    ASSERT_EQ(CalculateSizeOfAllEntries(), start_end);
+    ASSERT_EQ(size_1 + size_2 + size_3, start_end);
 
-  ASSERT_EQ(size_1, CalculateSizeOfEntriesBetween(start, middle));
-  ASSERT_EQ(size_2 + size_3, CalculateSizeOfEntriesBetween(middle, end));
+    ASSERT_EQ(size_1, CalculateSizeOfEntriesBetween(start, middle));
+    ASSERT_EQ(size_2 + size_3, CalculateSizeOfEntriesBetween(middle, end));
+  }
 
   // After dooming the entries, the size should be back to zero.
   ASSERT_THAT(DoomAllEntries(), IsOk());
@@ -2237,15 +2294,21 @@ TEST_F(DiskCacheBackendTest, CalculateSizeOfEntriesBetween) {
 
 TEST_F(DiskCacheBackendTest, MemoryOnlyCalculateSizeOfEntriesBetween) {
   SetMemoryOnlyMode();
-  BackendCalculateSizeOfEntriesBetween();
+  BackendCalculateSizeOfEntriesBetween(true);
 }
 
 TEST_F(DiskCacheBackendTest, SimpleCacheCalculateSizeOfEntriesBetween) {
-  // Use net::APP_CACHE to make size estimations deterministic via
-  // non-optimistic writes.
+  // Test normal mode in where access time range comparisons are supported.
+  SetSimpleCacheMode();
+  BackendCalculateSizeOfEntriesBetween(true);
+}
+
+TEST_F(DiskCacheBackendTest, SimpleCacheAppCacheCalculateSizeOfEntriesBetween) {
+  // Test SimpleCache in APP_CACHE mode separately since it does not support
+  // access time range comparisons.
   SetCacheType(net::APP_CACHE);
   SetSimpleCacheMode();
-  BackendCalculateSizeOfEntriesBetween();
+  BackendCalculateSizeOfEntriesBetween(false);
 }
 
 void DiskCacheBackendTest::BackendTransaction(const std::string& name,
@@ -3849,6 +3912,8 @@ TEST_F(DiskCacheBackendTest, ShaderCacheUpdateRankForExternalCacheHit) {
 }
 
 TEST_F(DiskCacheBackendTest, SimpleCacheShutdownWithPendingCreate) {
+  // Use net::APP_CACHE to make size estimations deterministic via
+  // non-optimistic writes.
   SetCacheType(net::APP_CACHE);
   SetSimpleCacheMode();
   BackendShutdownWithPendingCreate(false);
@@ -4688,4 +4753,103 @@ TEST_F(DiskCacheBackendTest, SimpleMaxSizeLimit) {
 
   size += 1;
   SetMaxSize(size, true /* should_succeed */);
+}
+
+void DiskCacheBackendTest::BackendOpenOrCreateEntry() {
+  InitCache();
+
+  // Test that new key is created.
+  disk_cache::EntryWithOpened es1;
+  ASSERT_THAT(OpenOrCreateEntry("first", &es1), IsOk());
+  ASSERT_TRUE(nullptr != es1.entry);
+  ASSERT_FALSE(es1.opened);
+
+  // Test that existing key is opened and its entry matches.
+  disk_cache::EntryWithOpened es2;
+  ASSERT_THAT(OpenOrCreateEntry("first", &es2), IsOk());
+  ASSERT_TRUE(nullptr != es2.entry);
+  ASSERT_TRUE(es2.opened);
+  ASSERT_EQ(es1.entry, es2.entry);
+
+  // Test that different keys' entries are not the same.
+  disk_cache::EntryWithOpened es3;
+  ASSERT_THAT(OpenOrCreateEntry("second", &es3), IsOk());
+  ASSERT_TRUE(nullptr != es2.entry);
+  ASSERT_FALSE(es3.opened);
+  ASSERT_NE(es3.entry, es1.entry);
+
+  // Test that a new entry can be created with the same key as a doomed entry.
+  es3.entry->Doom();
+  disk_cache::EntryWithOpened es4;
+  ASSERT_THAT(OpenOrCreateEntry("second", &es4), IsOk());
+  ASSERT_TRUE(nullptr != es4.entry);
+  ASSERT_FALSE(es4.opened);
+  ASSERT_NE(es4.entry, es3.entry);
+
+  // Verify the expected number of entries
+  ASSERT_EQ(2, cache_->GetEntryCount());
+
+  es1.entry->Close();
+  es2.entry->Close();
+  es3.entry->Close();
+  es4.entry->Close();
+}
+
+TEST_F(DiskCacheBackendTest, InMemoryOnlyOpenOrCreateEntry) {
+  SetMemoryOnlyMode();
+  BackendOpenOrCreateEntry();
+}
+
+TEST_F(DiskCacheBackendTest, BlockFileOpenOrCreateEntry) {
+  BackendOpenOrCreateEntry();
+}
+
+TEST_F(DiskCacheBackendTest, SimpleOpenOrCreateEntry) {
+  SetSimpleCacheMode();
+  BackendOpenOrCreateEntry();
+}
+
+TEST_F(DiskCacheBackendTest, EmptyCorruptSimpleCacheRecovery) {
+  SetSimpleCacheMode();
+
+  const std::string kCorruptData("corrupted");
+
+  // Create a corrupt fake index in an otherwise empty simple cache.
+  ASSERT_TRUE(base::PathExists(cache_path_));
+  const base::FilePath index = cache_path_.AppendASCII("index");
+  ASSERT_EQ(static_cast<int>(kCorruptData.length()),
+            base::WriteFile(index, kCorruptData.data(), kCorruptData.length()));
+
+  base::RunLoop run_loop;
+  std::unique_ptr<disk_cache::Backend> cache;
+  net::TestCompletionCallback cb;
+
+  // Simple cache should be able to recover.
+  int rv = disk_cache::CreateCacheBackend(
+      net::APP_CACHE, net::CACHE_BACKEND_SIMPLE, cache_path_, 0, false, nullptr,
+      &cache, cb.callback());
+  EXPECT_THAT(cb.GetResult(rv), IsOk());
+}
+
+TEST_F(DiskCacheBackendTest, NonEmptyCorruptSimpleCacheDoesNotRecover) {
+  SetSimpleCacheMode();
+  BackendOpenOrCreateEntry();
+
+  const std::string kCorruptData("corrupted");
+
+  // Corrupt the fake index file for the populated simple cache.
+  ASSERT_TRUE(base::PathExists(cache_path_));
+  const base::FilePath index = cache_path_.AppendASCII("index");
+  ASSERT_EQ(static_cast<int>(kCorruptData.length()),
+            base::WriteFile(index, kCorruptData.data(), kCorruptData.length()));
+
+  base::RunLoop run_loop;
+  std::unique_ptr<disk_cache::Backend> cache;
+  net::TestCompletionCallback cb;
+
+  // Simple cache should not be able to recover when there are entry files.
+  int rv = disk_cache::CreateCacheBackend(
+      net::APP_CACHE, net::CACHE_BACKEND_SIMPLE, cache_path_, 0, false, nullptr,
+      &cache, cb.callback());
+  EXPECT_THAT(cb.GetResult(rv), IsError(net::ERR_FAILED));
 }

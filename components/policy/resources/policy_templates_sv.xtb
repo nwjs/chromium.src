@@ -24,6 +24,16 @@
       När den här policyn är inställd på falskt eller inte har ställts in överförs cookies som ställts in av IdP:n bara till användarens profil under den första inloggningen på en enhet.
 
       Den här policyn gäller bara användare vars domän matchar enhetens registreringsdomän. För alla andra användare överförs cookies som anges av IdP:n bara till användarens profil under den första inloggningen på enheten.</translation>
+<translation id="1030120600562044329">Aktiverar anonym rapportering av användning och kraschrelaterad data om <ph name="PRODUCT_NAME" /> till Google och förhindrar att användarna ändrar inställningen.
+
+      Om den här inställningen är aktiverad skickas anonyma rapporter och kraschrelaterad
+      data till Google.  Om den är inaktiverad skickas inte denna information
+      till Google.  Inställningen kan i båda fallen inte ändras av användaren.
+      Om principen inte ställs in blir den vad användaren väljer
+      när programmet installeras/körs första gången.
+
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.
+      (Se DeviceMetricsReportingEnabled för Chrome OS.)</translation>
 <translation id="1035385378988781231">Principen styr om funktionen för nätverksresurser i <ph name="PRODUCT_NAME" /> använder autentisering med NTLM.
 
       När principen är inställd på sant används NTLM för autentisering på SMB-resurser om det behövs.
@@ -70,6 +80,11 @@
       Mer information om säkra sammanhang finns på
       https://www.w3.org/TR/secure-contexts/.
       </translation>
+<translation id="1107764601871839136">Anger livstid (i timmar) för grupprincipobjektets (GPO) cache. Systemet kan återanvända cachelagrade grupprincipobjekt så länge versionen inte har ändrats istället för att ladda ned dem igen vid varje principhämtning. Den här principen avgör hur länge cachelagrade grupprincipobjekt får återanvändas innan de laddas ned igen. Cacheminnet rensas vid omstart och utloggning.
+
+      Om principen inte ställs in kan cachelagrade grupprincipobjekt återanvändas i 25 timmar.
+
+      Om principen ställs in på 0 inaktiveras cachelagring av grupprincipobjekt. Observera att detta ökar belastningen på servern eftersom grupprincipobjekt laddas ned igen vid varje principhämtning även om de inte har ändrats.</translation>
 <translation id="1117535567637097036">Protokollhanterarna som ställs in via den här principen används inte för intent i Android.</translation>
 <translation id="1118093128235245168">Tillåt att webbplatser begär åtkomst till en ansluten USB-enhet</translation>
 <translation id="1128903365609589950">Konfigurerar den katalog som <ph name="PRODUCT_NAME" /> ska använda för att lagra cachade filer på hårddisken.
@@ -129,22 +144,16 @@
 <translation id="1243570869342663665">Styr SafeSites-filtrering av barnförbjudet innehåll.</translation>
 <translation id="1257550411839719984">Ange standardkatalog för nedladdning</translation>
 <translation id="1265053460044691532">Begränsa tiden som en användare som verifierats via SAML kan logga in offline</translation>
+<translation id="1290634681382861275">Styr diverse inställningar, bl.a. USB, Bluetooth, policyuppdateringar och utvecklarläge.</translation>
 <translation id="1291880496936992484">Varning: RC4 kommer att helt tas bort från <ph name="PRODUCT_NAME" /> efter version 52 (kring september 2016) och den här principen upphör då att fungera.
 
       Om principen inte har ställts in eller är inställd på falskt kommer RC4-krypteringssviter inte att aktiveras. Principen kan ställas in som sant om kompatibilitet med en föråldrad server önskas bibehållas. Detta är en nödlösning, och servern bör omkonfigureras.</translation>
-<translation id="1297117713060236551">Med den här principen styrs listan över webbplatser som aldrig ska aktivera ett webbläsarbyte.
-
-      Observera att element även kan läggas till på den här listan via principen <ph name="USE_IE_SITELIST_POLICY_NAME" />.
-
-      När den här principen lämnas utan inställning läggs inga webbplatser till på listan.
-
-      När den här principen är inställd behandlas varje objekt som en regel som liknar principen <ph name="URL_LIST_POLICY_NAME" />. Logiken är dock omvänd: om reglerna matchar öppnas inte en alternativ webbläsare.
-
-      Till skillnad från <ph name="URL_LIST_POLICY_NAME" /> gäller reglerna åt båda hållen. Det innebär att när tillägget för Internet Explorer är installerat och aktiverat styr det även huruvida <ph name="IE_PRODUCT_NAME" /> ska öppna dessa webbadresser i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="1297182715641689552">Använd en PAC-proxyskript</translation>
 <translation id="1304973015437969093">Tilläggs-/app-id:n och uppdateringsadresser som ska installeras obemärkt</translation>
+<translation id="1307415922184340052">Skicka användarnamn och filnamn till den lokala skrivarservern för alla utskriftsjobb. Standardinställningen är att inte skicka dem.</translation>
 <translation id="1307454923744766368">Ursprung eller värdnamnsmönster som begränsningar av
       osäkra ursprung inte ska gälla för</translation>
+<translation id="1312799700549720683">Styr skärminställningar.</translation>
 <translation id="1313457536529613143">Anger den procentsats med vilken fördröjningen av skärmdämpningen skalanpassas när användaren gör något då skärmen är dämpad eller strax efter det att skärmen har stängts av.
 
           Om den här principen är inställd anges den procentsats med vilken fördröjningen av skärmdämpningen skalanpassas när användaren gör något eller strax efter det att skärmen har stängts av. När dämpningsfördröjningen skalanpassas anpassas fördröjningen av avstängningen av skärmen, skärmlåset och dödtiden så att samma avstånd från den ursprungligen angivna fördröjningen av skärmdämpningen bibehålls.
@@ -162,10 +171,18 @@
 
       Om den här principen inte anges används standardbeteendet att inte tillåta någon kombinering av HTTP/2-anslutningar för anslutningar som använder klientcertifikat.</translation>
 <translation id="1353966721814789986">Startsidor</translation>
+<translation id="1354424209129232709">Högst:</translation>
 <translation id="1359553908012294236">Om den här principen är inställd på sant, eller om den inte är konfigurerad, aktiveras gästinloggning i <ph name="PRODUCT_NAME" />. Gästinloggningar är profiler i <ph name="PRODUCT_NAME" /> där alla fönster öppnas i inkognitoläge.
 
       Om principen är inställd på falskt tillåts ingen användning av gästprofiler i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="1363275621236827384">Aktivera frågor till Quirks-servern (servern för maskinvaruspecifik information) om maskinvaruprofiler</translation>
+<translation id="1383493480903114193">Principen tvingar nätverkskod att köras i webbläsarprocessen.
+
+      Principen är inaktiverad som standard, och när den är aktiverad utsätts användarna för säkerhetsproblemen när nätverksprocessen körs i en sandlåda.
+
+      Syftet med principen är att ge företag en möjlighet att migrera till programvara från tredje part som inte är beroende av att kunna anropa nätverks-API:erna. Proxyservrar rekommenderas framför LSP och korrigeringar av Win32 API.
+
+      Om principen inte har ställts in kan nätverkskod köras utanför webbläsarprocessen, beroende på vilka experiment med NetworkService som körs.</translation>
 <translation id="1384459581748403878">Referens: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Om Symantec Corporations äldre PKI-infrastruktur ska vara betrodd eller inte</translation>
 <translation id="1393485621820363363">Aktiverade skrivare för företagsenheter</translation>
@@ -174,6 +191,19 @@
 <translation id="142346659686073702">Tillåt oanknutna användare att använda Crostini</translation>
 <translation id="1426410128494586442">Ja</translation>
 <translation id="1427655258943162134">Proxyserverns adress eller webbadress</translation>
+<translation id="1431272318313028342">Aktiverar Säker webbsökning i <ph name="PRODUCT_NAME" /> och förhindrar att användarna ändrar inställningen.
+
+      Om du aktiverar den här inställningen är Säker webbsökning alltid aktiv.
+
+      Om du inaktiverar den här inställningen är Säker webbsökning aldrig aktiv.
+
+      Om du aktiverar eller inaktiverar den här inställningen kan användaren inte ändra eller åsidosätta inställningen Aktivera skydd mot lösenordsfiske och skadliga program i <ph name="PRODUCT_NAME" />.
+
+      Om den här principen inte ställs in är funktionen aktiverad, men användaren kan ändra den.
+
+      Mer information om säker webbsökning finns på https://developers.google.com/safe-browsing.
+
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="1435659902881071157">Nätverkskonfiguration på enhetsnivå</translation>
 <translation id="1438739959477268107">Standardinställningar för nyckelgenerering</translation>
 <translation id="1454846751303307294">Policyn gör att du kan ställa in en lista med webbadressmönster som anger webbplatser som inte får köra JavaScript.
@@ -282,9 +312,25 @@
 <translation id="1675002386741412210">Stöds av:</translation>
 <translation id="1689963000958717134">Tillåter att en pushad nätverkskonfiguration används för alla användare på en <ph name="PRODUCT_OS_NAME" />-enhet. Nätverkskonfigurationen är en JSON-formaterad sträng som definieras av formatet för öppen nätverkskonfiguration som beskrivs på <ph name="ONC_SPEC_URL" /></translation>
 <translation id="1708496595873025510">Ange begränsning av hämtningen av startvärdet för Variations</translation>
+<translation id="1717817358640580294">Om ingen inställning anges kan Chrome Cleanup rapportera metadata om oönskad programvara hittas i en sökning till Google enligt inställningen i principen SafeBrowsingExtendedReportingEnabled. Chrome Cleanup frågar sedan om användaren vill ta bort det oönskade programmet. Användaren kan välja att dela resultatet av rensningen med Google för att bidra till att identifiera oönskade program i framtiden. Resultaten innehåller metadata om filer, automatiskt installerade tillägg och registernycklar enligt beskrivningen i rapporten om sekretess i Chrome.
+
+      Om principen är inaktiverad rapporterar Chrome Cleanup inga metadata om oönskade program som upptäcks under en sökning till Google, vilket åsidosätter eventuella inställningar av principen SafeBrowsingExtendedReportingEnabled. Chrome Cleanup frågar användaren om hen vill ta bort den oönskade programvaran.  Resultatet av rensningen rapporteras inte till Google och användaren kan inte välja att göra det.
+
+      Om principen är aktiverad rapporterar Chrome Cleanup metadata om oönskade program som upptäcks under en sökning till Google enligt den princip som anges av SafeBrowsingExtendedReportingEnabled. Chrome Cleanup frågar användaren om hen vill ta bort den oönskade programvaran.  Resultatet av rensningen rapporteras till Google och användaren kan inte välja bort det.
+
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="172374442286684480">Tillåt alla webbplatser att ange lokala data</translation>
 <translation id="1734716591049455502">Konfigurera alternativ för fjärråtkomst</translation>
 <translation id="1736269219679256369">Tillåt fortsättning från SSL-varningssidan</translation>
+<translation id="1745780278307622857">Identifiera om <ph name="PRODUCT_NAME" /> kan tillåta nedladdning utan Säker webbsökning när nedladdningen görs från en pålitlig källa.
+
+      Om principen är inställd på falskt skickas inte filer till Säker webbsökning för analys om de kommer från en pålitlig källa.
+
+      Om principen inte är inställd eller inställd på sant, skickas nedladdade filer till Säker webbsökning för analys, även om de kommer från en pålitlig källa.
+
+      Observera att dessa begränsningar gäller både för nedladdningar som startats från webbsideinnehåll och med alternativet Spara länk som ... på snabbmenyn. Begränsningarna gäller inte om den sida som visas sparas eller laddas ned, och inte heller om alternativet att spara som PDF används i utskriftsalternativen.
+
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="1749815929501097806">Anger de användarvillkor som användaren måste godkänna innan en session med ett konto som är lokalt i enheten kan påbörjas.
 
       Om policyn ställs in laddar <ph name="PRODUCT_OS_NAME" /> ned användarvillkoren och de visas för användaren varje gång en session med ett konto som är lokalt i enheten påbörjas. Användaren får inte påbörja sessionen förrän användarvillkoren har godkänts.
@@ -295,6 +341,7 @@
 <translation id="1750315445671978749">Blockera alla nedladdningar</translation>
 <translation id="1781356041596378058">Den här principen styr även tillgången till Androids utvecklaralternativ. Om principen är inställd på sant kan användarna inte öppna utvecklaralternativen. Om principen är inställd på falskt eller lämnas utan inställning kan användarna öppna utvecklaralternativen genom att trycka sju gånger på versionsnumret i appen Inställningar i Android.</translation>
 <translation id="1797233582739332495">Visa användaren ett återkommande meddelande om att omstart krävs</translation>
+<translation id="1798559516913615713">Livstid för GPO-cache</translation>
 <translation id="1803646570632580723">Lista över fasta appar som ska visas i startfönstret</translation>
 <translation id="1808715480127969042">Blockera cookies på dessa webbplatser</translation>
 <translation id="1810261428246410396">Tillåt att direktinternetdelning används.</translation>
@@ -302,8 +349,20 @@
 
       Principen ska anges som en sträng med webbadressen och hash-värdet i JSON-format.</translation>
 <translation id="1827523283178827583">Använd fasta proxyservrar</translation>
+<translation id="1831495419375964631">Den här principen är en webbadress som pekar på en XML-fil med samma format som Internet Explorers princip <ph name="IEEM_SITELIST_POLICY" />. Detta läser in regler från en XML-fil utan att reglerna delas med Internet Explorer.
+
+      Om principen inte ställs in, eller inte ställs in på en giltig webbadress, används den inte som regelkälla för byte av webbläsare i <ph name="PRODUCT_NAME" />.
+
+      När den här principen är inställd på en giltig webbadress hämtar <ph name="PRODUCT_NAME" /> webbplatslistan från den webbadressen och använder reglerna som om de hade konfigurerats med principen <ph name="SITELIST_POLICY_NAME" />.
+
+      Mer information om principen <ph name="IEEM_SITELIST_POLICY" /> i Internet Explorer finns på https://docs.microsoft.com/internet-explorer/ie11-deploy-guide/what-is-enterprise-mode</translation>
+<translation id="1839060937202387559">Rapportera maskinvarustatistik och identifierare för lagringsenheter.
+
+      Om principen är inställd på falskt rapporteras ingen sådan statistik.
+      Om principen är inställd på sant eller saknar inställning rapporteras statistiken.</translation>
 <translation id="1843117931376765605">Uppdateringsfrekvens för användarpolicy</translation>
 <translation id="1844620919405873871">Konfigurerar principer som är relaterade till snabb upplåsning.</translation>
+<translation id="1845405905602899692">Inställningar för offentlig miljö</translation>
 <translation id="1847960418907100918">Anger parametrarna som används vid sökningar på Instant med POST. Den består av kommaavgränsade namn-/värdepar. Om ett värde är en mallparameter, t.ex. {searchTerms} i ovanstående exempel, kommer det att ersättas med riktiga söktermer.
 
           Den här policyn är valfri. Om den inte anges kommer begäran om sökningar på Instant att använda GET-metoden.
@@ -335,15 +394,6 @@
       Om du inaktiverar inställningen visas ett meddelande varje gång användaren utför en åtgärd som skulle göra att en dialogruta för filval öppnades (som att importera bokmärken, överföra filer, spara länkar osv.) istället och användaren antas ha klickat på Avbryt i dialogrutan för filval.
 
       Om inställningen inte ställs in kan användaren öppna dialogrutor för filval som vanligt.</translation>
-<translation id="1879485426724769439">Anger vilken tidszon som används på enheten. Användare kan åsidosätta den angivna tidszonen för den aktuella sessionen. När användaren loggar ut återgår dock inställningen till den angivna tidszonen. Om en ogiltig tidszon anges är principen fortfarande aktiverad och GMT används istället. Om en tom sträng anges ignoreras principen.
-
-      Om principen inte används är det den tidszon som för närvarande är aktiv som används. Användare kan dock ändra tidszonen och ändringen är permanent. Därför påverkas inloggningsskärmen och alla användare av de ändringar som en enskild användare gör.
-
-      På nya enheter har tidszonen US/Pacific angetts.
-
-      Formatvärdet följer namnen på tidszonerna i databasen IANA Time Zone Database (besök http://sv.wikipedia.org/wiki/Tz_database). Det går att hänvisa till de flesta tidszoner som continent/large_city eller ocean/large_city.
-
-      När du anger principen inaktiveras automatiska tidszoner efter enhetens plats. Principen SystemTimezoneAutomaticDetection åsidosätts också.</translation>
 <translation id="1885782360784839335">Aktivera reklamflikar</translation>
 <translation id="1888871729456797026">Registreringstoken för molnprincip på stationär dator</translation>
 <translation id="1897365952389968758">Tillåt alla webbplatser att köra JavaScript (rekommenderas)</translation>
@@ -354,6 +404,12 @@
       Om värdet är falskt inaktiveras rapportering av statistik och diagnostisk data.
 
       Om principen inte har konfigurerats inaktiveras rapporteringen av statistik och diagnostisk data på enheter som inte hanteras men aktiveras på hanterade enheter.</translation>
+<translation id="1907431809333268751">Konfigurera listan med webbadresser för företagsinloggning (endast HTTP- och HTTPS-protokoll). Lösenordets fingeravtryck registreras på dessa webbadresser och används för att identifiera återanvändning av lösenord.
+      För att <ph name="PRODUCT_NAME" /> ska kunna registrera fingeravtryck för lösenord korrekt måste inloggningssidorna följa riktlinjerna på https://www.chromium.org/developers/design-documents/create-amazing-password-forms.
+
+      Om den här inställningen är aktiverad registrerar tjänsten för lösenordsskydd fingeravtryck för lösenord på dessa webbadresser för att identifiera återanvändning av lösenord.
+      Om inställningen är inaktiverad eller inte inställd registrerar tjänsten för lösenordsskydd bara fingeravtryck för lösenord på https://accounts.google.com.
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="1920046221095339924">Tillåt hanterad session på enheten</translation>
 <translation id="1929709556673267855">Tillhandahåller skrivarkonfigurationer för företagsskrivare som kopplats till enheter.
 
@@ -400,6 +456,7 @@
       Om policyn är inställd på sant kommer <ph name="PRODUCT_OS_NAME" /> att försöka ladda ned betalningar med automatisk uppdatering via HTTP. Om policyn är inställd på falskt eller inte har angetts kommer HTTPS att användas för att ladda ned betalningar med automatisk uppdatering.</translation>
 <translation id="199764499252435679">Aktivera komponentuppdateringar i <ph name="PRODUCT_NAME" /></translation>
 <translation id="2006530844219044261">Energibesparing (DPMS)</translation>
+<translation id="2014757022750736514">Styr hur inloggningsskärmen där användarna loggar in fungerar. Inställningarna gäller bl.a. vem som får logga in, vilka slags konton som är tillåtna, vilka autentiseringsmetoder som ska användas och allmänna inställningar för tillgänglighet, inmatningsmetod och språkkod.</translation>
 <translation id="201557587962247231">Frekvens för antal uppladdningar av statusrapport för enhet</translation>
 <translation id="2017301949684549118">Webbadresser till webbappar som ska installeras obemärkt</translation>
 <translation id="2018836497795982119">Anger en tid i millisekunder för hur ofta enhetshanteringstjänsten tillfrågas om användarpolicyinformation.
@@ -427,6 +484,9 @@
 <translation id="209586405398070749">Stabil kanal</translation>
 <translation id="2098658257603918882">Aktivera rapportering av användning och kraschrelaterade data</translation>
 <translation id="2104418465060359056">Rapportera information om tillägg och pluginprogram</translation>
+<translation id="2107601598727098402">
+        Den här principen fasades ut i M72. Använd CloudManagementEnrollmentToken istället.
+        </translation>
 <translation id="2111016292707172233">Aktiverar tillgången till Tryck för att söka i innehållsvyn i <ph name="PRODUCT_NAME" />.
 
       Om inställningen aktiveras blir Tryck för att söka tillgängligt för användaren som sedan kan välja att aktivera eller inaktivera funktionen.
@@ -469,10 +529,6 @@
 <translation id="214901426630414675">Begränsa dubbelsidig utskrift</translation>
 <translation id="2149330464730004005">Aktivera färgutskrift</translation>
 <translation id="2156132677421487971">Konfigurera principer för <ph name="PRODUCT_NAME" />, en funktion med vars hjälp användare kan skicka innehåll på flikar, webbplatser och skrivbordet från webbläsaren till fjärrskärmar och ljudsystem.</translation>
-<translation id="2163878108829382394">
-        Om principen ställs in på Sant är registrering för molnhantering obligatoriskt och det går inte att starta Chrome om registreringen misslyckas.
-
-        Om principen inte anges eller ställs in på Falskt är registrering för molnhantering valfritt och det går att starta Chrome även om registreringen misslyckas.</translation>
 <translation id="2166472654199325139">Filtrera inte bort webbplatser med barnförbjudet innehåll</translation>
 <translation id="2168397434410358693">Inaktivitetstid när enheten är ansluten till elnätet</translation>
 <translation id="2170233653554726857">Aktivera WPAD-optimering</translation>
@@ -622,6 +678,20 @@
       Om inställningen har inaktiverats kan användarna inte skriva ut från <ph name="PRODUCT_NAME" />. Utskrifter inaktiveras bland annat via skiftnyckelmenyn, tillägg och JavaScript-appar. Det går fortfarande att skriva ut från pluginprogram som kopplas förbi <ph name="PRODUCT_NAME" /> under utskriften. Vissa Flash-appar har till exempel utskriftsalternativet i kontextmenyn, som inte omfattas av policyn.</translation>
 <translation id="2518231489509538392">Tillåta uppspelning av ljud</translation>
 <translation id="2521581787935130926">Visa genvägen Appar i bokmärkesfältet</translation>
+<translation id="2529659024053332711">Gör att du kan ange beteende vid start.
+
+          Om du väljer Öppna sidan Ny flik, öppnas alltid sidan Ny flik när du startar <ph name="PRODUCT_NAME" />.
+
+          Om du väljer Återställ den senaste sessionen, öppnas de webbadresser som var öppna när <ph name="PRODUCT_NAME" /> stängdes senast, och webbsessionen återställs som den var då.
+          Om du väljer det här alternativet inaktiveras vissa inställningar som är beroende av sessioner eller som utför åtgärder när webbläsaren avslutas (till exempel rensning av webbinformation när webbläsaren avslutas eller sessions-cookies).
+
+          Om du väljer Öppna följande sidor, öppnas de webbadresser som anges i listan Webbadresser att öppna vid start när en användare startar <ph name="PRODUCT_NAME" />.
+
+          Om du aktiverar den här inställningen kan den inte ändras av användarna i <ph name="PRODUCT_NAME" />.
+
+          Att inaktivera den här inställningen är samma sak som att inte konfigurera den alls. Användaren kan fortfarande ändra den i <ph name="PRODUCT_NAME" />.
+
+          Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade för enhetshantering.</translation>
 <translation id="2529880111512635313">Konfigurera listan med appar och tillägg som måste installeras</translation>
 <translation id="253135976343875019">Inaktivitetstid när enheten är ansluten till elnätet</translation>
 <translation id="2536525645274582300">Användaren bestämmer om Googles platstjänster ska aktiveras</translation>
@@ -704,7 +774,6 @@
           Policyn används bara om policyn DefaultSearchProviderEnabled är aktiverad.</translation>
 <translation id="268577405881275241">Aktivera proxyfunktionen för datakomprimering</translation>
 <translation id="2693108589792503178">Konfigurera webbadressen för ändring av lösenord.</translation>
-<translation id="2696531058295423290">Tillåt att <ph name="PLUGIN_VM_NAME" /> används av enheter på <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="2731627323327011390">Inaktivera användning av <ph name="PRODUCT_OS_NAME" />-certifikat för ARC-appar</translation>
 <translation id="2742843273354638707">Dölj appen Chrome Web Store och länken i sidfoten från den nya fliksidan och startprogrammet för <ph name="PRODUCT_OS_NAME" />.
 
@@ -726,6 +795,15 @@
 
       När principen är inställd på <ph name="BR_UNDER_USER_CONTROL" /> får användaren välja om säkerhetskopiering och återställning i Android ska användas. Om användaren aktiverar säkerhetskopiering och återställning laddas data om Android-appar upp till Androids servrar för säkerhetskopiering och kompatibla appar återställs från dem vid ominstallation.</translation>
 <translation id="2757054304033424106">Typer av tillägg/appar som får installeras</translation>
+<translation id="2758084448533744848">Anger vilken tidszon som måste användas på enheten. När principen har angetts kan användarna inte åsidosätta den angivna tidszonen. Om ett ogiltigt värde har angetts för principen aktiveras den fortfarande, men får värdet GMT. Om en tom sträng har angetts ignoreras principen.
+
+      Om principen inte används gäller den nuvarande tidszonen som tidigare, men användarna kan ändra tidszon.
+
+      På nya enheter används tidszonen US/Pacific som standard.
+
+      Värdets format följer tidszonernas namn i databasen IANA Time Zone Database (se https://en.wikipedia.org/wiki/Tz_database). De flesta tidszoner går att hänvisa till enligt mönstret kontinent/storstad eller världshav/storstad.
+
+      När den här principen har angetts inaktiveras automatisk tidszonsuppslagning utifrån enhetens plats helt. Den åsidosätter även principen SystemTimezoneAutomaticDetection.</translation>
 <translation id="2759224876420453487">Styr användarens beteende i en multiprofilsession</translation>
 <translation id="2761483219396643566">Inaktivitetstid när enheten drivs av batteriet</translation>
 <translation id="2762164719979766599">Anger en lista över lokala konton på enheten som ska visas på inloggningsskärmen.
@@ -751,6 +829,11 @@
           Om inställningen har inaktiverats och utgående UDP-anslutningar filtreras av brandväggen, tillåter datorn bara anslutningar från klientdatorer inom det lokala nätverket.
 
           Om policyn inte har angetts är inställningen aktiverad.</translation>
+<translation id="2813281962735757923">Den här principen styr under vilka tidsperioder som <ph name="PRODUCT_OS_NAME" />-enheten inte får söka efter uppdateringar automatiskt.
+      Följande gäller om principen är inställd på en lista över tidsintervall som inte är tom:
+      Enheterna tillåts inte att söka efter uppdateringar automatiskt inom de angivna tidsintervallen. Enheter som behöver återställas eller som inte uppfyller de lägsta versionskraven för <ph name="PRODUCT_OS_NAME" /> påverkas inte av principen på grund av möjliga säkerhetsproblem. Principen blockerar inte heller sökningar efter uppdateringar som användaren eller administratören har begärt.
+      Följande gäller om principen inte har angetts eller om tidsintervall saknas:
+      Inga automatiska sökningar efter uppdateringar blockeras av principen, men de kan blockeras av andra principer. Den här funktionen är bara aktiverad på Chrome-enheter som har konfigurerats så att de automatiskt startas för offentlig miljö. Andra enheter begränsas inte av den här principen.</translation>
 <translation id="2823870601012066791">Windows-registerplats för <ph name="PRODUCT_OS_NAME" />-klienter:</translation>
 <translation id="2824715612115726353">Aktivera inkognitoläge</translation>
 <translation id="2838830882081735096">Tillåt inte datamigrering och ARC</translation>
@@ -789,6 +872,7 @@
           |created_time_millis| är en UTC-tidsstämpel som anger när åsidosättningen skapades. Värdet skickas som en sträng eftersom tidsstämpeln inte kan anges som ett heltal. Det används för att avgöra om den aktuella åsidosättningen fortfarande gäller. Om den nu gällande tidsbegränsningen (begränsad användningstid eller begränsad tidsperiod) påbörjades efter att åsidosättningen skapades gäller den inte. Åsidosättningen gäller inte heller om den skapades före den senaste ändringen av den time_window_limit eller time_usage_window som är aktiv.
 
           Flera åsidosättningar kan skickas. Den senaste giltiga posten är den som gäller.</translation>
+<translation id="2905984450136807296">Livstid för cachelagrad autentiseringsdata</translation>
 <translation id="2906874737073861391">Lista över tillägg i AppPack</translation>
 <translation id="2907992746861405243">Styr vilka skrivare från <ph name="BULK_PRINTERS_POLICY" /> som är tillgängliga för användare.
 
@@ -797,6 +881,7 @@
       Om inget värde anges för principen används <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
 <translation id="2908277604670530363">Högsta antalet samtidiga anslutningar till proxyservern</translation>
+<translation id="2952347049958405264">Begränsningar:</translation>
 <translation id="2956777931324644324">Den här policyn har gäller inte för version 36 och senare av <ph name="PRODUCT_NAME" />.
 
       Anger om domänbundna TLS-certifikattillägg ska aktiveras.
@@ -820,6 +905,7 @@
 <translation id="2987227569419001736">Kontrollera användningen av Web Bluetooth API</translation>
 <translation id="3016255526521614822">Ange anteckningsappar som är tillåtna på låsskärmen i <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021562480854470924">Antalet återställningspunkter som tillåts</translation>
+<translation id="3023572080620427845">Webbadress till en XML-fil som innehåller webbadresser att läsa in i en alternativ webbläsare.</translation>
 <translation id="3030000825273123558">Aktivera statistikrapportering</translation>
 <translation id="3034580675120919256">Policyn gör att du kan ange om webbplatser får köra JavaScript. Du kan tillåta JavaScript på alla webbplatser eller blockera JavaScript på alla webbplatser.
 
@@ -868,11 +954,18 @@
           Observera att den här principen felaktigt var aktiverad för Android tidigare, men funktionen har aldrig stötts fullt ut på Android.</translation>
 <translation id="3096595567015595053">Lista med aktiverade plugin-program</translation>
 <translation id="3101501961102569744">Välj hur inställningar för proxyserver ska anges</translation>
+<translation id="3101709781009526431">Datum och tid</translation>
 <translation id="3117676313396757089">Varning: DHE kommer att helt tas bort från <ph name="PRODUCT_NAME" /> efter version 57 (runt mars 2017) och den här principen upphör då att fungera.
 
       Om principen inte har ställts in eller är inställd på falskt kommer DHE-krypteringssviter i TLS inte att aktiveras. Principen kan ställas in som sant för att aktivera DHE-krypteringssviter och om kompatibilitet med en föråldrad server önskas bibehållas. Detta är en nödlösning, och servern bör omkonfigureras.
 
       Servrar uppmanas att migrera till ECDHE-krypteringssviter. Om dessa inte är tillgängliga ska en krypteringssvit med RSA-nyckelutbyte aktiveras.</translation>
+<translation id="3117706142826400449">Om principen är inaktiverad förhindras att Chrome Cleanup söker igenom systemet och tar bort oönskade program. Det går inte att aktivera Chrome Cleanup manuellt från chrome://settings/cleanup.
+
+      Om principen är aktiverad eller inte inställd alls genomsöker Chrome Cleanup systemet efter oönskade program regelbundet. Om något upptäcks blir användaren tillfrågad om det ska tas bort. Det går att aktivera Chrome Cleanup manuellt från chrome://settings.
+
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
+<translation id="3165808775394012744">Dessa principer finns med här för att göra dem lättare att ta bort.</translation>
 <translation id="316778957754360075">Den här inställningen finns inte med i version 29 av <ph name="PRODUCT_NAME" /> och senare. Det rekommenderade sättet att konfigurera tillägg/appsamlingar som värdlagras hos företaget är att ta med platsen där CRX-paketen finns på listan ExtensionInstallSources och infoga direkta nedladdningslänkar till paketen på en webbsida. Det går att skapa ett startprogram för den aktuella webbsidan med hjälp av principen ExtensionInstallForcelist.</translation>
 <translation id="3171369832001535378">Mall för enhetens värdnamn i nätverket</translation>
 <translation id="3185009703220253572">sedan version <ph name="SINCE_VERSION" /></translation>
@@ -897,13 +990,6 @@
           Om du inte anger den här principen kan användarna själva välja proxyinställningar.</translation>
 <translation id="3205825995289802549">Maximera det först visade fönstret första gången som webbläsaren körs</translation>
 <translation id="3211426942294667684">Inloggningsinställningar för webbläsare</translation>
-<translation id="3213821784736959823">Styr huruvida den inbyggda DNS-klienten används i <ph name="PRODUCT_NAME" />.
-
-      Om policyn tillämpas används den inbyggda DNS-klienten om den är tillgänglig.
-
-      Om policyn inte tillämpas används aldrig den inbyggda DNS-klienten.
-
-      Om policyn inte tillämpas kan användarna ändra huruvida den inbyggda DNS-klienten används genom att redigera chrome://flags eller ange en flagga i kommandoraden.</translation>
 <translation id="3214164532079860003">Om den här policyn är aktiverad tvingar den startsidan att importeras från den nuvarande standardwebbläsaren.
 
       Om policyn inte är aktiverad importeras inte startsidan.
@@ -981,6 +1067,7 @@
 <translation id="3414260318408232239">Om denna princip inte konfigureras används den lägsta standardversionen (TLS 1.0.) av <ph name="PRODUCT_NAME" />.
 
       I annat fall kan följande värden anges: tls1, tls1.1 eller tls1.2. Om ett värde har angetts används inte versioner av SSL/TLS som är tidigare än den angivna versionen av <ph name="PRODUCT_NAME" />. Ett värde som inte känns igen ignoreras.</translation>
+<translation id="34160070798637152">Styr nätverkskonfigurationen för enheten.</translation>
 <translation id="3417418267404583991">Om den här policyn är inställd på sant eller inte är konfigurerad aktiveras gästinloggning i <ph name="PRODUCT_OS_NAME" />. Gästinloggningar är anonyma användarsessioner och kräver inget lösenord.
 
       Om policyn är inställd på falskt går det inte att starta gästsessioner i <ph name="PRODUCT_OS_NAME" />.</translation>
@@ -994,15 +1081,18 @@
 
       Med inställningen Av eller om inget värde anges är begränsat läge på YouTube inte obligatoriskt i <ph name="PRODUCT_NAME" />. Däremot kan det fortfarande finnas externa principer, till exempel principer för YouTube, som gör begränsat läge obligatoriskt.</translation>
 <translation id="3428247105888806363">Aktivera nätverksförslag</translation>
+<translation id="3432863169147125747">Styr utskriftsinställningar.</translation>
 <translation id="3437924696598384725">Tillåt att användaren hanterar VPN-anslutningar</translation>
 <translation id="3449886121729668969">Konfigurerar proxyinställningarna för <ph name="PRODUCT_NAME" />. Dessa proxyinställningar blir också tillgängliga för ARC-appar.
 
       Använd inte den här principen. Den är inte färdig ännu.</translation>
+<translation id="3459509316159669723">Skriva ut</translation>
 <translation id="3460784402832014830">Anger webbadressen som en sökmotor använder för att tillhandahålla en ny fliksida.
 
           Policyn är valfri. Om den inte anges tillhandahålls ingen ny fliksida.
 
           Policyn följs endast om policyn DefaultSearchProviderEnabled är aktiverad.</translation>
+<translation id="3461279434465463233">Rapportera strömförsörjningsstatus</translation>
 <translation id="346731943813722404">Anger om fördröjningar i energisparfunktionen och begränsningar i sessionslängden endast ska användas efter att den första användaraktiviteten har observerats i en session.
 
           Om Sant har angetts för den här policyn börjar inte fördröjningar i energisparfunktionen och begränsningar i sessionslängden förrän den första användaraktiviteten har observerats i sessionen.
@@ -1042,20 +1132,11 @@
       Om DeveloperToolsDisallowed (värde 2) anges för principen går det inte att använda utvecklarverktygen eller att granska webbplatselement. Kortkommandon och alternativ för att öppna utvecklarverktygen eller JavaScript-konsolen på menyer och snabbmenyer inaktiveras.</translation>
 <translation id="3547954654003013442">Proxyinställningar</translation>
 <translation id="355118380775352753">Webbplatser som ska öppnas i alternativa webbläsare</translation>
-<translation id="3556806727696701427">Aktiverar funktionen Säker webbsökning i <ph name="PRODUCT_NAME" /> och hindrar användarna från att ändra inställningen.
-
-      Om du aktiverar inställningen är Säker webbsökning alltid aktiverad.
-
-      Om du inaktiverar inställningen är Säker webbsökning aldrig aktiverad.
-
-      Om du aktiverar eller inaktiverar den här inställningen kan användarna inte ändra eller åsidosätta inställningen Aktivera skydd mot lösenordsfiske och skadlig programvara i <ph name="PRODUCT_NAME" />.
-
-      Om ett värde inte anges för principen är den aktiverad, men användarna kan ändra den.
-
-      Läs mer om Säker webbsökning på https://developers.google.com/safe-browsing.
-
-      Principen är inte tillgänglig för Windows-instanser som inte har fogats till en <ph name="MS_AD_NAME" />-domän.</translation>
 <translation id="3577251398714997599">Annonsinställningar för webbplatser med påträngande annonser</translation>
+<translation id="3583230441447348508">Anger en lista med förkonfigurerade filresurser i nätverket.
+
+      Varje post i principens lista är ett objekt med två medlemmar: share_url och mode. share_url ska vara filresursens webbadress och mode ska vara antingen drop_down eller pre_mount. Läget drop_down anger att share_url ska läggas till på rullgardinsmenyn för filresurser att söka efter. Läget pre_mount anger att share_url ska monteras.</translation>
+<translation id="3591527072193107424">Aktivera funktionen Stöd för äldre webbläsare.</translation>
 <translation id="3591584750136265240">Konfigurera vad som ska göras vid inloggningsautentisering</translation>
 <translation id="3624171042292187668">
       Ta gärna en titt på principen IsolateOrigins också: du kan få det bästa av två världar, isolering och begränsad inverkan på användarna, genom att ange en lista med webbplatser som ska isoleras med IsolateOrigins. Med den här inställningen, SitePerProcess, isoleras alla webbplatser.
@@ -1070,12 +1151,20 @@
 <translation id="3628480121685794414">Aktivera enkelsidig utskrift</translation>
 <translation id="3646859102161347133">Ange typen av skärmförstorare</translation>
 <translation id="3653237928288822292">Ikon för standardsökleverantör</translation>
+<translation id="3660510274595679517">
+        Om principen ställs in på Sant är registrering för molnhantering obligatoriskt och det går inte att starta Chrome om registreringen misslyckas.
+
+        Om principen inte anges eller ställs in på Falskt är registrering för molnhantering valfritt och det går att starta Chrome även om registreringen misslyckas.
+
+        Principen används på stationära datorer för registrering av datorn för molnhantering och kan ställas in via registret eller gruppolicyobjekt på Windows, plist på Mac och en JSON-principfil på Linux.</translation>
 <translation id="3660562134618097814">Överför SAML-cookies från identitetsleverantörer vid inloggning</translation>
+<translation id="3701121231485832347">Styr inställningar för <ph name="PRODUCT_OS_NAME" />-enheter som hanteras med <ph name="MS_AD_NAME" />.</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (Enradsfältet har fasats ut och tas snart bort. Börja använda flerradsfältet i stället.)</translation>
 <translation id="3709266154059827597">Konfigurera svartlista för tilläggsinstallation</translation>
 <translation id="3711895659073496551">Stäng av</translation>
 <translation id="3715569262675717862">Autentisering utifrån klientcertifikat</translation>
 <translation id="3736879847913515635">Gör att en person kan läggas till i användarhanteraren</translation>
+<translation id="3738723882663496016">Den här principen anger licensnyckeln för <ph name="PLUGIN_VM_NAME" /> på den här enheten.</translation>
 <translation id="3748900290998155147">Anger om processlås är tillåtna. Tillägg kan begära processlås via tilläggs-API:et för energibesparing och via ARC-appar.
 
           Om principen är inställd på sant eller inte har någon inställning tillåts processlås för energibesparing.
@@ -1145,6 +1234,7 @@
 
           Om du inte ställer in policyn är skärmtangentbordet inaktiverat som standard, men det aktiveras av användaren när som helst.</translation>
 <translation id="382476126209906314">Konfigurera prefixet TalkGadget för fjärråtkomstvärdar</translation>
+<translation id="3824972131618513497">Styr inställningar för strömförsörjning och omstart.</translation>
 <translation id="3831376478177535007">Om inställningen aktiveras är certifikat från Symantec Corporations äldre PKI-åtgärder tillåtna i <ph name="PRODUCT_NAME" /> så länge det går att validera dem i en obruten kedja till ett identifierat CA-certifikat.
 
       Observera att principen är beroende av att operativsystemet fortfarande känner igen certifikat från Symantecs äldre infrastruktur. Om en uppdatering av operativsystemet leder till en ändring av hur sådana certifikat hanteras har principen inte längre någon funktion. Den här principen är bara en tillfällig lösning så att företag ska få längre tid på sig att överflytta från äldre Symantec-certifikat. Principen tas bort kring den 1 januari 2019.
@@ -1222,9 +1312,6 @@
 
           Om ingen inställning görs eller om Falskt anges kan användaren föra över filer till Google Drive.</translation>
 <translation id="3915395663995367577">Webbadress till en PAC-proxyfil</translation>
-<translation id="3925020515212192040">Anger en lista med förkonfigurerade filresurser i nätverket.
-
-      Varje post i principens lista är ett objekt med två medlemmar: share_url och mode. share_url ska vara filresursens webbadress och mode ska vara drop_down, som anger att share_url läggs till på rullgardinsmenyn för filresurser att söka efter.</translation>
 <translation id="3925377537407648234">Ange skärmupplösning och skalningsfaktor</translation>
 <translation id="3939893074578116847">Skicka nätverkspaket för övervakning av onlinestatusen till hanteringsservern, så att
       den kan identifiera om enheten är offline.
@@ -1240,6 +1327,13 @@
 <translation id="3965339130942650562">Tidsgräns för utloggning av inaktiv användare</translation>
 <translation id="3973371701361892765">Dölj aldrig hyllan automatiskt</translation>
 <translation id="3984028218719007910">Avgör om <ph name="PRODUCT_OS_NAME" /> ska spara lokala kontodata efter utloggning. Om värdet är sant sparas inga konton permanent av <ph name="PRODUCT_OS_NAME" /> och alla data från användarsessionen kasseras efter utloggning. Om policyn är inställd på falskt eller inte konfigurerad kan lokala användardata sparas (krypterade) i enheten.</translation>
+<translation id="398475542699441679">Principen styr om stödet för äldre webbläsare ska vara aktiverat.
+
+      När principen saknar inställning eller har ställts in på falskt görs inga försök att öppna angivna webbadresser i en annan webbläsare än Chrome.
+
+      När principen är inställd på sant öppnas vissa webbadresser i en annan webbläsare än Chrome (t.ex. Internet Explorer). Funktionen konfigureras med principerna i gruppen <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
+
+      Funktionen ersätter tillägget <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. Tilläggets inställningar förs över till den här funktionen, men vi rekommenderar starkt att du använder principerna i Chrome i stället. På det sättet förebyggs framtida kompatibilitetsproblem.</translation>
 <translation id="3997519162482760140">Webbadresser som ska beviljas åtkomst till videoinspelningsenheter på inloggningssidor med SAML</translation>
 <translation id="4001275826058808087">IT-administratörer för företagsenheter kan använda den här flaggan för att styra om användarna ska kunna utnyttja erbjudanden via registrering i Chrome OS.
 
@@ -1291,6 +1385,7 @@
 <translation id="4121350739760194865">Förhindra att appkampanjer visas på den nya fliksidan</translation>
 <translation id="412697421478384751">Tillåt att användare anger en osäker pinkod till låsskärmen</translation>
 <translation id="4138655880188755661">Tidsgräns</translation>
+<translation id="4150201353443180367">Skärm</translation>
 <translation id="4157003184375321727">Rapportera version av operativsystem och fast programvara</translation>
 <translation id="4157594634940419685">Tillåt åtkomst till lokala CUPS-skrivare</translation>
 <translation id="4183229833636799228">Standardinställning för <ph name="FLASH_PLUGIN_NAME" /></translation>
@@ -1388,6 +1483,9 @@
 <translation id="4432762137771104529">Aktivera utökad rapportering för Säker webbsökning</translation>
 <translation id="443454694385851356">Äldre (osäker)</translation>
 <translation id="443665821428652897">Ta bort webbplatsdata när webbläsaren avslutas</translation>
+<translation id="4439132805807595336">Aktivera PluginVm för den här enheten.
+
+      Om principen ställs in på Falskt eller om den inte har någon inställning aktiveras inte <ph name="PLUGIN_VM_NAME" /> för den här enheten. Om principen ställs in på Sant aktiveras <ph name="PLUGIN_VM_NAME" /> för enheten om detta tillåts av andra inställningar. <ph name="PLUGIN_VM_ALLOWED_POLICY_NAME" /> måste vara inställt på sant och <ph name="PLUGIN_VM_LICENSE_KEY_POLICY_NAME" /> och <ph name="PLUGIN_VM_IMAGE_POLICY_NAME" />måste ha ställts in för att <ph name="PLUGIN_VM_NAME" /> ska kunna köras.</translation>
 <translation id="4439336120285389675">Ange en lista över utfasade webbplattformsfunktioner som ska kunna återaktiveras tillfälligt.
 
       Med den här policyn får administratörer möjlighet att återaktivera webbplattformsfunktioner som har fasats ut under en begränsad tid. Funktionerna identifieras med hjälp av en strängtagg och de funktioner som motsvarar taggarna och ingår i listan som har angetts via den här policyn återaktiveras.
@@ -1398,6 +1496,7 @@
       </translation>
 <translation id="4442582539341804154">Aktivera lås när enheten är i viloläge eller vänteläge</translation>
 <translation id="4449545651113180484">Rotera skärmen 270 grader medurs</translation>
+<translation id="445270821089253489">Styr vilket slags användar- och enhetsinformation som rapporteras.</translation>
 <translation id="4454820008017317557">Visa ikonen för <ph name="PRODUCT_NAME" /> i verktygsfältet</translation>
 <translation id="4467952432486360968">Blockera cookies från tredje part</translation>
 <translation id="4474167089968829729">Aktivera lösenordshanteraren för sparade lösenord</translation>
@@ -1440,6 +1539,7 @@
 <translation id="4531706050939927436">Android-appar kan tvångsinstalleras via Googles Administratörskonsol med Google Play. Den här principen gäller inte för dem.</translation>
 <translation id="4534500438517478692">Namn på Android-begränsning:</translation>
 <translation id="4541530620466526913">Lokala konton på enheten</translation>
+<translation id="4543502256674577024">Inställningar för enhetsuppdatering</translation>
 <translation id="4544079461524242527">Konfigurerar inställningar för hantering av tillägg för <ph name="PRODUCT_NAME" />.
 
           Principen styr flera inställningar, bland annat inställningar som styrs av befintliga tilläggsrelaterade policyer. Principen åsidosätter alla äldre principer om båda är angivna.
@@ -1473,6 +1573,7 @@
 <translation id="465099050592230505">Webbadress till företagets webbutik (föråldrad)</translation>
 <translation id="4665897631924472251">Inställningar för hantering av tillägg</translation>
 <translation id="4668325077104657568">Standardinställning för bilder</translation>
+<translation id="4670865688564083639">Minst:</translation>
 <translation id="4671708336564240458">Ger dig möjlighet att ange huruvida webbplatser med otillåten användning ska kunna öppna nya fönster eller flikar.
 
       Om sant har angetts för principen kan webbplatser med otillåten användning inte öppna nya fönster eller flikar.
@@ -1486,6 +1587,7 @@
 
           Exempel på mönster finns på https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Öppna följande sidor</translation>
+<translation id="4674871290487541952">Tillåt osäkra algoritmer vid integritetskontrollen när tillägg uppdateras och installeras.</translation>
 <translation id="4680936297850947973">Har fasats ut i M68. Använd DefaultPopupsSetting i stället.
 
       En fullständig förklaring finns på https://www.chromestatus.com/features/5675755719622656.
@@ -1547,6 +1649,7 @@
           Om du inte anger den här principen kan användarna själva välja proxyinställningar.</translation>
 <translation id="4816674326202173458">Tillåt en företagsanvändare att vara både primär och sekundär (standardbeteendet för användare som inte hanteras av någon annan)</translation>
 <translation id="4826326557828204741">Åtgärd som ska vidtas när fördröjning på grund av inaktivitet har uppnåtts vid batteridrift</translation>
+<translation id="4832852360828533362">Användar- och enhetsrapportering</translation>
 <translation id="4834526953114077364">De användare som använts minst nyligen och som inte har loggat in de senaste tre månaderna tas bort tills det finns tillräckligt med ledigt utrymme</translation>
 <translation id="4858735034935305895">Tillåt helskärmsläge</translation>
 <translation id="4861767323695239729">Konfigurera tillåtna inmatningsmetoder i en användarsession</translation>
@@ -1576,11 +1679,6 @@
 
       Om principen är inställd på falskt tillåter <ph name="PRODUCT_NAME" /> inte att nya profiler skapas i profilhanteraren.</translation>
 <translation id="4970855112942626932">Inaktivera inloggning i webbläsare</translation>
-<translation id="4971529314808359013">Med den här principen kan du ange en lista med webbadressmönster som anger för vilka webbplatser <ph name="PRODUCT_NAME" /> ska välja ett klientcertifikat automatiskt, om webbplatsen kräver ett certifikat.
-
-          Värdet måste vara JSON-ordlistor i strängformat i en matris. Varje ordlista måste ha formen { "pattern": "$URL_PATTERN", "filter" : $FILTER }, där $URL_PATTERN är ett innehållsinställningsmönster. $FILTER begränsar vilka klientcertifikat webbläsaren automatiskt väljer mellan. Oavsett vilket filter som används väljs bara certifikat som matchar serverns certifikatbegäran. Om $FILTER har formen { "ISSUER": { "CN": "$ISSUER_CN" } } är det dessutom endast klientcertifikat som har skapats av ett certifikat med CommonName $ISSUER_CN som väljs. Om $FILTER är en tom ordlista {} begränsas inte valet av klientcertifikat ytterligare.
-
-          Om principen inte anges görs inga automatiska val för någon webbplats.</translation>
 <translation id="4978405676361550165">När principen OffHours har ställts in ignoreras de angivna enhetsprinciperna (använd standardinställningarna för dessa principer) under de angivna tidsperioderna. Varje gång en OffHours-period börjar eller slutar ändras tillämpningen av enhetsprinciperna i Chrome. Användarna aviseras och måste logga ut när OffHours-perioden slutar och enhetens principinställningar ändras (t.ex. om användaren är inloggad med ett konto som inte är tillåtet).</translation>
 <translation id="4980635395568992380">Datatyp:</translation>
 <translation id="4983201894483989687">Tillåt att föråldrade plugin-program körs</translation>
@@ -1596,6 +1694,19 @@
 <translation id="5058573563327660283">Välj den strategi som används för att frigöra diskutrymme under automatisk rensning (utfasad)</translation>
 <translation id="5067143124345820993">Vitlista för användarinloggning</translation>
 <translation id="5068140065960598044">Molnprincipen åsidosätter datorprincipen för <ph name="PRODUCT_NAME" />.</translation>
+<translation id="5076274878326940940">Aktiverar användning av en standardsökmotor.
+
+          Om du aktiverar den här inställningen görs en standardsökning när användaren skriver text som inte är en webbadress i sökfältet.
+
+          Du kan ange vilken standardsökmotor som ska användas genom att ställa in resten av principerna för standardsökning. Om dessa inte anges kan användaren välja standardsökmotor.
+
+          Om du inaktiverar den här inställningen görs ingen sökning om användaren skriver text som inte är en webbadress i sökrutan.
+
+          Om du aktiverar eller inaktiverar den här inställningen kan den inte ändras eller åsidosättas av användaren i <ph name="PRODUCT_NAME" />.
+
+          Om den här principen inte anges, aktiveras standardsökmotorn och användaren kan ställa in listan med standardsökmotorer.
+
+          Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="5085647276663819155">Inaktivera förhandsgranskning av utskrift</translation>
 <translation id="5090209345759901501">Utöka inställningen för Flash-innehåll till allt innehåll</translation>
 <translation id="5093540029655764852">Anger frekvensen (i dagar) med vilken en klient byter lösenordet till kontot på sin lokala dator. Lösenordet genereras slumpmässigt av klienten och är inte synligt för användaren.
@@ -1609,6 +1720,15 @@
       Observera att om klienten har varit offline en längre tid kan lösenorden vara äldre än det angivna antalet dagar.</translation>
 <translation id="5105313908130842249">Skärmlåsningstid när enheten drivs av batteriet</translation>
 <translation id="5108031557082757679">Inaktiverade skrivare för företagsenheter</translation>
+<translation id="5113732180192599620">Med den här principen styrs listan över webbplatser som aldrig ska aktivera ett webbläsarbyte.
+
+      Observera att element även kan läggas till på den här listan via principen <ph name="USE_IE_SITELIST_POLICY_NAME" /> och <ph name="EXTERNAL_SITELIST_URL_POLICY_NAME" />.
+
+      När den här principen lämnas utan inställning läggs inga webbplatser till på listan.
+
+      När den här principen är inställd behandlas varje objekt som en regel som liknar principen <ph name="URL_LIST_POLICY_NAME" />. Logiken är dock omvänd: om reglerna matchar öppnas inte en alternativ webbläsare.
+
+      Till skillnad från <ph name="URL_LIST_POLICY_NAME" /> gäller reglerna åt båda hållen. Det innebär att när tillägget för Internet Explorer är installerat och aktiverat styr det även huruvida <ph name="IE_PRODUCT_NAME" /> ska öppna dessa webbadresser i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="5130288486815037971">Om RC4-krypteringssviter i TLS är aktiverade eller inte</translation>
 <translation id="5141670636904227950">Ange standardtypen för skärmförstoraren på inloggningsskärmen</translation>
 <translation id="5142301680741828703">Rendera alltid följande webbadressmönster i <ph name="PRODUCT_FRAME_NAME" /></translation>
@@ -1647,6 +1767,15 @@
       Om principen har ställts in på falskt inaktiveras livscykeln för flikar och alla flikar får fortsätta att köras som vanligt.
 
       Om principen har ställts in på sant eller lämnats utan inställning aktiveras livscykeln för flikar.</translation>
+<translation id="5207823059027350538">Ändrar standardsidan för Ny flik och förhindrar att användare ändrar den.
+
+          Sidan Ny flik är den sida som öppnas när nya flikar skapas (inklusive den första fliken i ett nytt fönster).
+
+          Den här principen avgör inte vilka sidor som öppnas när webbläsaren startas. De styrs av principerna för <ph name="RESTORE_ON_STARTUP_POLICY_NAME" />. Däremot påverkar den här principen startsidan om startsidan är inställd på att öppna sidan Ny flik, samt den sida som öppnas vid start om den är inställd på att öppna sidan Ny flik.
+
+          Om principen inte är inställd eller lämnas tom används standardsidan för ny flik.
+
+          Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="5208240613060747912">Policyn gör att du kan ange en lista med webbadressmönster som inte får visa meddelanden.
 
           Om policyn inte anges används det globala standardvärdet för alla webbplatser. Standardvärdet hämtas från policyn DefaultNotificationsSetting om den har angetts eller användarens personliga konfiguration om den inte har det.</translation>
@@ -1750,6 +1879,7 @@
 <translation id="5405289061476885481">Konfigurerar vilka tangentbordslayouter som är tillåtna på inloggningsskärmen i <ph name="PRODUCT_OS_NAME" />.
 
       Om en lista med identifierare för inmatningsmetoder har angetts för principen blir de angivna inmatningsmetoderna tillgängliga på inloggningsskärmen. Den inmatningsmetod som anges först blir standardvärde. När fokus ligger på ett användarfält på inloggningsskärmen blir användarens äldsta inmatningsmetod tillgänglig förutom de inmatningsmetoder som angetts i principen. Om principen inte har ställts in styrs valet av inmatningsmetoder av vilken språkkod som används för inloggningsskärmen. Ogiltiga värden som inte identifierar någon inmatningsmetod ignoreras.</translation>
+<translation id="5422643441807528365">Licensnyckel för <ph name="PLUGIN_VM_NAME" /></translation>
 <translation id="5423001109873148185">Om den här policyn är aktiverad tvingar den sökmotorer att importeras från standardwebbläsaren. Policyn påverkar också dialogrutan för import.
 
       Om policyn är inaktiverad importeras inte standardsökmotorn.
@@ -1758,6 +1888,11 @@
 <translation id="5423197884968724595">Begränsningsnamn för Android WebView:</translation>
 <translation id="5424147596523390018">Tillåt alla färginställningar</translation>
 <translation id="5442026853063570579">Den här principen styr även åtkomsten till Androids utvecklaralternativ. Om DeveloperToolsDisallowed (värde 2) anges för principen kan användarna inte öppna utvecklaralternativen. Om ett annat värde anges eller värdet lämnas tomt kan användarna öppna utvecklaralternativen genom att trycka sju gånger på versionsnumret i appen Inställningar i Android.</translation>
+<translation id="544342220587994947">Med den här principen kan du ange en lista med webbadressmönster som anger för vilka webbplatser ett klientcertifikat ska väljas automatiskt i <ph name="PRODUCT_NAME" />, om webbplatsen kräver ett certifikat.
+
+          Värdet måste vara en vektor med JSON-ordlistor i strängformat. Varje ordlista måste ha formatet { "pattern": "$URL_PATTERN", "filter": $FILTER } där $URL_PATTERN är ett mönster för innehållsinställningar. $FILTER begränsar urvalet klientcertifikat som webbläsaren automatiskt ska välja bland. Oavsett filter väljs endast sådana certifikat som matchar serverns certifikatbegäran. Om $FILTER t.ex. har formatet { "ISSUER": { "CN": "$ISSUER_CN" } } begränsas urvalet ytterligare till enbart klientcertifikat som har utfärdats av ett certifikat med CommonName $ISSUER_CN. Om både "ISSUER" och "SUBJECT" har angetts i $FILTER måste klientcertifikatet uppfylla båda villkoren. Om en organisation ("O") har angetts i $FILTER väljs enbart certifikat med minst en organisation som matchar det angivna värdet. Om en organisationsenhet ("OU") har angetts i $FILTER väljs enbart certifikat med minst en organisationsenhet som matchar det angivna värdet. Om $FILTER är en tom ordlista {} begränsas inte valet av klientcertifikat ytterligare.
+
+          Om principen inte anges görs inga automatiska val för någon webbplats.</translation>
 <translation id="5447306928176905178">Aktivera minnesrapportering (heap-storlek för JavaScript) på sidan (föråldrad)</translation>
 <translation id="5457065417344056871">Använda gästläget i webbläsaren</translation>
 <translation id="5457924070961220141">Policyn gör att du kan konfigurera standardrenderare för HTML när <ph name="PRODUCT_FRAME_NAME" /> installeras.
@@ -1766,6 +1901,17 @@
 <translation id="546726650689747237">Skärmdämpningstid när enheten är ansluten till elnätet</translation>
 <translation id="5469143988693423708">Crostini har aktiverats för användaren</translation>
 <translation id="5469825884154817306">Blockera bilder på dessa webbplatser</translation>
+<translation id="5472668698895343595">Den här principen styr listan med webbplatser som ska öppnas i en alternativ webbläsare.
+
+      Observera att element även kan läggas till i listan via principerna <ph name="USE_IE_SITELIST_POLICY_NAME" /> och <ph name="EXTERNAL_SITELIST_URL_POLICY_NAME" />.
+
+      Om den här principen inte är inställd läggs inga webbplatser till i listan.
+
+      Om den här principen är inställd hanteras varje objekt som en regel för något som ska öppnas i en alternativ webbläsare. <ph name="PRODUCT_NAME" /> använder reglerna för att avgöra om en webbadress ska öppnas i en alternativ webbläsare.
+
+      Om tillägget för Internet Explorer finns och är aktiverat, växlar Internet Explorer tillbaka till <ph name="PRODUCT_NAME" /> om reglerna inte matchar.
+
+      Om reglerna motsäger varandra använder <ph name="PRODUCT_NAME" /> den mest specifika regeln.</translation>
 <translation id="5475361623548884387">Aktivera utskrift</translation>
 <translation id="547601067149622666">Tillåt inte annonser på webbplatser med påträngande annonser</translation>
 <translation id="5499375345075963939">Policyn är endast aktiv i återförsäljarläge.
@@ -1834,6 +1980,7 @@
 
       OBS! Den här principen gäller bara Chrome på Android på enheter med mer än 1 GB RAM. Använd SitePerProcess om du vill tillämpa principen på andra plattformar än Android.
       </translation>
+<translation id="5599461642204007579">Inställningar för hantering med <ph name="MS_AD_NAME" /></translation>
 <translation id="5630352020869108293">Återställ den senaste sessionen</translation>
 <translation id="5645779841392247734">Tillåt cookies på dessa webbplatser</translation>
 <translation id="5689430183304951538">Standardinställning för pappersformat vid utskrift</translation>
@@ -1844,29 +1991,26 @@
 
       Om inställningen har inaktiverats eller inte har konfigurerats kan användare använda alla typer av extern lagring som stöds av deras enhet.</translation>
 <translation id="5697306356229823047">Rapportera enhetsanvändare</translation>
+<translation id="5699487516670033016">Anger livstid (i timmar) för cacheminnet för autentiseringsdata. Cacheminnet används för att det ska gå snabbare att logga in. Det innehåller allmän data (arbetsgruppsnamn o.s.v.) om associerade områden (d.v.s. områden som datorns område litar på). Ingen användarspecifik data och ingen data för icke-associerade områden cachelagras. Cacheminnet rensas när enheten startas om.
+
+      Om principen inte anges kan cachelagrad autentiseringsdata återanvändas i upp till 73 timmar.
+
+      Om principen är inställd på 0 inaktiveras autentiseringsdata. Det kan göra att det går betydligt långsammare att logga in associerade användare eftersom områdesspecifik data måste hämtas vid varje inloggning.
+
+      Observera att områdesdata cachelagras även för tillfälliga användare. Cacheminnet bör stängas av om tillfälliga användares områden inte ska spåras.</translation>
 <translation id="570062449808736508">När man ställt in ett annat värde för principen än en tom sträng läser WebView webbadressbegränsningar från innehållsutgivaren med utfärdarnamnet.</translation>
 <translation id="5701714006401683963">Om principen är inställd på falskt fungerar en hanterad gästsession på det sätt som dokumenteras på https://support.google.com/chrome/a/answer/3017014 – en vanlig så kallad offentlig session.
 
       Om principen är inställd på sant eller lämnas utan inställning fungerar en hanterad gästsession som en så kallad hanterad session, vilket häver många av de begränsningar som gäller för vanliga offentliga sessioner.
 
       Om principen har ställts in kan användaren inte ändra eller åsidosätta den.</translation>
+<translation id="572155275267014074">Android-inställningar</translation>
 <translation id="5722934961007828462">När den här inställningen är aktiverad kommer <ph name="PRODUCT_NAME" /> alltid att utföra kontroller för återkallning av servercertifikat som valideras och signeras av lokalt installerade CA-certifikat.
 
       Om <ph name="PRODUCT_NAME" /> inte kan hämta statusinformation för återkallning kommer sådana certifikat att behandlas som återkallade ("hard-fail").
 
       Om ingen inställning görs för principen eller om den har värdet falskt använder <ph name="PRODUCT_NAME" /> de befintliga inställningarna för kontroller för återkallning online.</translation>
 <translation id="5728154254076636808">Aktivera framställningen av roamingkopior för profiluppgifterna för <ph name="PRODUCT_NAME" /></translation>
-<translation id="5728661376331491504">Med den här principen styrs listan över webbplatser som ska öppnas i en alternativ webbläsare
-
-      Observera att element även kan läggas till i listan via principen <ph name="USE_IE_SITELIST_POLICY_NAME" />.
-
-      När den här principen lämnas utan inställning läggs inga webbplatser till i listan.
-
-      När principen är inställd behandlas vart och ett av objekten som en regel för något som ska öppnas i en alternativ webbläsare. <ph name="PRODUCT_NAME" /> använder dessa regler för att välja om en webbadress ska öppnas i en alternativ webbläsare.
-
-      När tillägget för Internet Explorer är installerat och aktiverat byter Internet Explorer tillbaka till <ph name="PRODUCT_NAME" /> om reglerna inte stämmer överens.
-
-      Om reglerna motsäger varandra används den mest specifika regeln av <ph name="PRODUCT_NAME" />.</translation>
 <translation id="5732972008943405952">Importera formuläruppgifter för Autofyll från standardwebbläsaren första gången den körs</translation>
 <translation id="5765780083710877561">Beskrivning:</translation>
 <translation id="5770738360657678870">Kanal för utvecklare (kan vara instabil)</translation>
@@ -1883,6 +2027,7 @@
 
           Policyns värde anges i millisekunder.</translation>
 <translation id="5783009211970309878">Skriv ut sidhuvud och sidfot</translation>
+<translation id="5809210507920527553">Styr inställningar för Linux-behållaren (Crostini).</translation>
 <translation id="5809728392451418079">Ange visningsnamnet för lokala konton på enheten</translation>
 <translation id="5814301096961727113">Ange standardtillståndet för talad feedback på inloggningsskärmen</translation>
 <translation id="5815129011704381141">Starta om automatiskt efter uppdatering</translation>
@@ -1906,10 +2051,12 @@
       Om principen har inaktiverats påbörjas nedladdningen genast och användaren blir inte tillfrågad om var den ska sparas.
       Om principen inte konfigureras kan användaren ändra inställningen.
       </translation>
+<translation id="5832274826894536455">Utfasade principer</translation>
 <translation id="5835124959204887277">Anger webbadresser och domäner som det inte visas meddelanden för när attesteringscertifikat begärs från säkerhetsnycklar. Dessutom skickas en signal till säkerhetsnyckeln som indikerar att enskild attestering kan användas. Utan detta meddelas användare i version 65 eller senare av Chrome när webbplatser begär attestering för säkerhetsnycklar.
 
       Webbadresser (som https://example.com/some/path) matchar endast som U2F appID. Domäner (som example.com) matchar endast som WebAuthn RP ID. Därför måste både webbadressen och domänen för appID anges om båda API:erna U2F och WebAuthn ska täcka en viss webbplats.</translation>
 <translation id="5836064773277134605">Begränsa UDP-portintervallet som används av värden för fjärråtkomst</translation>
+<translation id="5861856285460256766">Konfiguration av föräldraåtkomstkod</translation>
 <translation id="5862253018042179045">Ställer in standardtillståndet för hjälpmedelsfunktionen talad feedback på inloggningsskärmen.
 
           Om den här principen är sann är talad feedback aktiverad när inloggningsskärmen visas.
@@ -2029,6 +2176,7 @@
       Läs mer om PinnedLauncherApps om du vill fästa appar i översikten.</translation>
 <translation id="602728333950205286">Dynamisk webbadress för standardsökleverantör</translation>
 <translation id="603410445099326293">Parametrar för föreslagen webbadress som använder POST</translation>
+<translation id="6034341625190551415">Styr offentliga sessioner och konton för offentlig miljö.</translation>
 <translation id="6036523166753287175">Aktivera brandväggspassage från fjärråtkomstsvärd</translation>
 <translation id="6070667616071269965">Tangentbordslayouter för enhetens inloggningsskärm</translation>
 <translation id="6074963268421707432">Tillåt inte att någon webbplats visar aviseringar på skrivbordet</translation>
@@ -2052,6 +2200,7 @@
           Policyvärdet ska anges i millisekunder. Värdena har skurits ned så att de är mindre än fördröjningen innan viloläget.</translation>
 <translation id="6097601282776163274">Aktivera insamling av anonymiserad data kopplad till webbadresser</translation>
 <translation id="6099853574908182288">Standardinställning för färgutskrift</translation>
+<translation id="6107642964266628393">Styr hur och när uppdateringar av Chrome OS tillämpas.</translation>
 <translation id="6111936128861357925">Tillåt påskäggsspelet med dinosaurier</translation>
 <translation id="6114416803310251055">föråldrad</translation>
 <translation id="6133088669883929098">Tillåt alla webbplatser att använda nyckelgenerering</translation>
@@ -2159,6 +2308,11 @@
       Om principen anges som False kommer användarna inte att redovisas.</translation>
 <translation id="6394350458541421998">Den här principen finns inte med i <ph name="PRODUCT_OS_NAME" /> version 29 och senare. Använd principen PresentationScreenDimDelayScale i stället.</translation>
 <translation id="6401669939808766804">Logga ut användaren</translation>
+<translation id="6406448383934634215">Om Öppna följande sidor har valts som startåtgärd kan du ange en lista med webbadresser som ska öppnas. Om inställningen inte anges öppnas inga webbadresser vid start.
+
+          Den här principen fungerar bara om principen RestoreOnStartup är inställd på RestoreOnStartupIsURLs.
+
+          Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="6426205278746959912">Det går inte att göra det obligatoriskt för Android-appar att ansluta via en proxyserver. Android-appar har tillgång till ett urval av proxyinställningarna enligt nedan och kan, men måste inte, följa dem.
 
           Med alternativet Använd aldrig proxyserver får Android-apparna informationen att ingen proxyserver har konfigurerats.
@@ -2174,7 +2328,27 @@
 <translation id="645425387487868471">Aktivera tvingad inloggning för <ph name="PRODUCT_NAME" /></translation>
 <translation id="6464074037294098618">Aktivera autofyll för adresser</translation>
 <translation id="6473623140202114570">Konfigurera listan över domäner där Säker webbsökning inte utlöser varningar.</translation>
+<translation id="6488627892044759800">Konfigurerar typen av standardstartsida i <ph name="PRODUCT_NAME" /> och förhindrar att användarna ändrar inställningarna för startsidan. Startsidan kan ställas in på en webbadress som du anger eller på sidan Ny flik.
+
+          Om du aktiverar den här inställningen används alltid sidan Ny flik som startsida, och webbadressen för startsida används inte.
+
+          Om du inaktiverar den här inställningen är användarens startsida aldrig sidan Ny flik, om inte webbadressen för startsidan är inställd på chrome://newtab.
+
+          Om du aktiverar eller inaktiverar den här inställningen kan användarna inte ändra typ av startsida i <ph name="PRODUCT_NAME" />.
+
+          Om du inte ställer in den här principen kan användaren själv välja om sidan Ny flik ska vara startsida.
+
+          Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="6491139795995924304">Tillåt Bluetooth på enheten</translation>
+<translation id="6495328383950074966">Konfigurera listan med domäner som Säker webbsökning litar på. Det betyder följande:
+      Säker webbsökning kontrollerar inte om det finns skadliga resurser (t. ex. lösenordsfiske, skadliga program eller oönskade program) om en webbadress matchar dessa domäner.
+      Nedladdningsskyddet i Säker webbsökning kontrollerar inte nedladdningar som görs från dessa domäner.
+      Lösenordsskyddet i Säker webbsökning kontrollerar inte om lösenord återanvänds om sidans webbadress matchar dessa domäner.
+
+      Om den här inställningen är aktiverad litar säker webbsökning på dessa domäner.
+      Om den här inställningen är inaktiverad eller inte har ställts in, används skyddet i Säker webbsökning på alla resurser.
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
+<translation id="6515357889978918016"><ph name="PLUGIN_VM_NAME" />-bild</translation>
 <translation id="6520802717075138474">Importera sökmotorer från standardwebbläsaren första gången den körs</translation>
 <translation id="6525955212636890608">Om du aktiverar den här inställningen körs allt inbäddat Flash-innehåll på webbplatser där Flash är tillåtet enligt innehållsinställningarna (som kan ha angetts av användaren eller med en företagsprincip). Det gäller även innehåll som kommer från andra domäner eller småskaligt innehåll.
 
@@ -2215,6 +2389,7 @@
 <translation id="6573305661369899995">Ange en extern källa för webbadressbegränsningar</translation>
 <translation id="6598235178374410284">Användarens avatarbild</translation>
 <translation id="6603004149426829878">Skicka alla tillgängliga platssignaler till servern när tidszon fastställs</translation>
+<translation id="6628120204569232711">Rapportera status för lagringsenheter</translation>
 <translation id="6628646143828354685">Principen innebär att du kan ange om webbplatser får tillgång till Bluetooth-enheter i närheten. Åtkomsten kan blockeras helt eller så kan användaren bli tillfrågad varje gång en webbplats begär att få tillgång till Bluetooth-enheter i närheten.
 
           Om policyn inte anges används 3 och användaren kan ändra inställningen.</translation>
@@ -2279,6 +2454,7 @@
 <translation id="6786747875388722282">Tillägg</translation>
 <translation id="6786967369487349613">Ange roamingprofilkatalogen</translation>
 <translation id="6810445994095397827">Blockera JavaScript på dessa webbplatser</translation>
+<translation id="6813263547126514821">Strömförsörjning och avstängning</translation>
 <translation id="681446116407619279">Autentiseringsscheman som stöds</translation>
 <translation id="6816212867679667972">Bestäm värdnamn för enheten som används i DHCP-begäranden.
 
@@ -2288,6 +2464,13 @@
 
       Om principen inte är inställd eller om värdet efter ersättningen inte är ett giltigt värdnamn så anges inget värdnamn i DHCP-förfrågan. </translation>
 <translation id="6835883744948188639">Visa användaren ett återkommande meddelande om att omstart rekommenderas</translation>
+<translation id="6837480141980366278">Avgör om den inbyggda DNS-klienten används i <ph name="PRODUCT_NAME" />.
+
+      Om den här principen är inställd på Sant används den inbyggda DNS-klienten om den är tillgänglig.
+
+      Om den här principen är inställd på Falskt används aldrig den inbyggda DNS-klienten.
+
+      Om den här principen inte anges, aktiveras den inbyggda DNS-klienten som standard i MacOS, Android (om varken Privat DNS eller VPN är aktiverad) och ChromeOS, och användarna kan ändra om den inbyggda DNS-klienten används genom att ändra chrome://flags eller ange en flagga på kommandoraden.</translation>
 <translation id="6838056959556423778">Åsidosätter skrivarens standardurvalsregler för <ph name="PRODUCT_NAME" />.
 
       Genom denna princip fastställs reglerna för valet av standardskrivare i <ph name="PRODUCT_NAME" />, vilket sker första gången som utskriftsfunktionen används av en profil.
@@ -2319,6 +2502,7 @@
       Skrivare som är anslutna till <ph name="CLOUD_PRINT_NAME" /> betraktas som <ph name="PRINTER_TYPE_CLOUD" /> medan övriga skrivare klassificeras som <ph name="PRINTER_TYPE_LOCAL" />.
       Om ett fält utelämnas innebär det att alla värden anses matcha. Om till exempel anslutningen inte anges hittar förhandsgranskningen alla typer av skrivare, såväl lokala skrivare som molnskrivare.
       Reguljära uttryck måste följa syntaxen för reguljära uttryck i JavaScript. Matchningarna är skiftlägeskänsliga.</translation>
+<translation id="6843296367238757293">Den här principen är föråldrad. Den bör inte användas. Läs mer på https://support.google.com/chrome/a/answer/7643500</translation>
 <translation id="684856667300805181">Den här principen togs bort i <ph name="PRODUCT_NAME" /> 68 och ersattes av <ph name="ARC_GLS_POLICY_NAME" />.</translation>
 <translation id="6856743875250214792">Principen har fasats ut och togs bort i M66 eftersom den endast användes för interna tester och utgör en säkerhetsrisk.
 
@@ -2361,13 +2545,6 @@
       OBS! På Android är webbplatsisolering en funktion på experimentstadiet. Stödet kommer att bli bättre med tiden, men för närvarande kan prestandaproblem uppstå.
 
       OBS! Den här principen gäller bara Chrome på Android på enheter med mer än 1 GB RAM. Använd SitePerProcess om du vill tillämpa principen på andra plattformar än Android.
-      </translation>
-<translation id="6922040258551909078">
-      När principen är inställd på sant har molnprincipen företräde framför datorprincipen i händelse av konflikt.
-      När principen är inställd på falskt eller inte har ställts in har datorprincipen företräde i händelse av konflikt med molnprincipen.
-      Mer information om principers inbördes prioritet finns här: https://support.google.com/chrome?p=set_chrome_policies_for_devices
-
-      Principen är inte tillgänglig på Windows-instanser som inte har anslutits till en <ph name="MS_AD_NAME" />-domän
       </translation>
 <translation id="6922884955650325312">Blockera pluginprogrammet för <ph name="FLASH_PLUGIN_NAME" /></translation>
 <translation id="6923366716660828830">Policyn anger namnet på standardsökleverantören. Om värdet lämnas tomt eller inte anges används det värdnamn som angavs av sökadressen.
@@ -2449,14 +2626,6 @@
       </translation>
 <translation id="706669471845501145">Tillåt att webbplatser visar aviseringar på skrivbordet</translation>
 <translation id="7072208053150563108">Ändringsfrekvens för datorns lösenord</translation>
-<translation id="7074513465313721551">Konfigurera listan över domäner som Säker webbsökning litar på. Detta innebär:
-      Säker webbsökning söker inte efter skadliga resurser (t.ex. nätfiske, skadlig eller oönskad programvara) om webbadressen matchar dessa domäner.
-      Tjänsten för nedladdningsskydd i Säker webbsökning kontrollerar inte nedladdningar som värdlagras på dessa domäner.
-      Lösenordsskyddet i Säker webbsökning söker inte efter återanvända lösenord om sidans webbadress matchar dessa domäner.
-
-      Om inställningen aktiveras litar Säker webbsökning på dessa domäner.
-      Om inställningen inaktiveras, eller om inget värde anges, tillämpas standardskyddet från Säker webbsökning på alla resurser.
-      Principen är inte tillgänglig på Windows-instanser som inte har kopplats till en <ph name="MS_AD_NAME" />-domän.</translation>
 <translation id="7079519252486108041">Blockera popup-fönster på dessa webbplatser</translation>
 <translation id="7085803328069945025">Låter dig ange med hjälp av en lista med webbadressmönster vilka webbplatser som får begära åtkomstbehörighet till en USB-enhet.
 
@@ -2479,6 +2648,12 @@
       Om policyn är inställd på falskt inaktiveras bakgrundsläget och det kan inte ändras av användaren i webbläsarinställningarna.
 
       Om policyn inte ställs in är bakgrundsläget inaktiverat från början och kan ändras av användaren i webbläsarinställningarna.</translation>
+<translation id="7123266440503901785">Med <ph name="PRODUCT_NAME" /> installeras och uppdateras tillägg på ett säkert sätt. Däremot kanske vissa tillägg utanför Chrome Web Store bara skyddas av osäkra signeringsalgoritmer eller hash-tekniker som SHA1. När den här principen är inaktiverad går det inte att nyinstallera eller uppdatera sådana tillägg i Chrome (förrän utvecklaren har skrivit om tillägget så att säkrare algoritmer används). När principen är aktiverad tillåts installation och uppdateringar av sådana tillägg.
+
+          Om ingen inställning har angetts är principen aktiverad som standard.
+          Från och med <ph name="PRODUCT_NAME" /> 75 kommer principen i stället att vara inaktiverad som standard.
+
+          Från och med <ph name="PRODUCT_NAME" /> 77 kommer principen att ignoreras och ses som inaktiverad.</translation>
 <translation id="7126716959063786004">Gör det möjligt att avsluta processer i Aktivitetshanteraren</translation>
 <translation id="7127892035367404455">Återställ till målversion</translation>
 <translation id="7128918109610518786">Visar en lista med de appidentifierare som ska visas som fasta appar i startfältet i <ph name="PRODUCT_OS_NAME" />.
@@ -2487,6 +2662,7 @@
 
       Om den här policyn inte ställs in kan användaren ändra listan med fasta appar i startfältet.</translation>
 <translation id="7132877481099023201">Webbadresser som ska beviljas åtkomst till videoinspelningsenheter utan meddelande</translation>
+<translation id="7138678301420049075">Övrigt</translation>
 <translation id="7158064522994309072">Med den här principen styrs vilket kommando som ska användas för att öppna webbadresser i en alternativ webbläsare.
 
       När principen lämnas utan inställning används en standard som är specifik för plattformen: Internet Explorer för Windows eller Safari för Mac OS X. Det går inte att öppna en alternativ webbläsare i Linux när den här principen inte är inställd.
@@ -2519,6 +2695,17 @@
           Automatisk uppspelning tillåts endast för domäner som har angetts i principen <ph name="PLUGINS_ALLOWED_FOR_URLS_POLICY_NAME" />. Om du vill aktivera automatisk uppspelning för alla webbplatser kan du lägga till http://* och https://* på denna lista.
 
           Om denna princip inte anges kan användaren ändra denna inställning manuellt.</translation>
+<translation id="7229876938563670511">Konfigurerar webbadressen för standardstartsidan i <ph name="PRODUCT_NAME" /> och förhindrar att användarna ändrar den.
+
+          Startsidan är den sida som öppnas med hemknappen. Vilka sidor som öppnas vid start avgörs av principerna i RestoreOnStartup.
+
+          Startsidans typ kan vara en webbadress du anger här eller sidan Ny flik. Om du väljer Sidan Ny flik används inte den här principen.
+
+          Om du aktiverar den här inställningen kan användarna inte ändra webbadress för startsidan i <ph name="PRODUCT_NAME" />, men de kan ändå välja att använda sidan Ny flik som startsida.
+
+          Om den här principen inte ställs in kan användaren välja startsida själv om HomepageIsNewTabPage inte heller är inställd.
+
+          Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="7229975860249300121">Innehåller ett reguljärt uttryck som används för att styra vilka Google-konton som får vara primärt webbläsarkonto i <ph name="PRODUCT_NAME" /> (dvs. det konto som anges i samband med valet att använda synkronisering).
 
       Ett felmeddelande visas om en användare försöker ange ett primärt webbläsarkonto med ett användarnamn som inte matchar detta mönster. 
@@ -2538,13 +2725,6 @@
 
           Om principen inte anges är skärmförstoraren inaktiverad första gången som inloggningsskärmen visas. Användarna kan aktivera eller inaktivera skärmförstoraren när som helst och dess inställning på inloggningsskärmen sparas för olika användare.</translation>
 <translation id="7249828445670652637">Aktivera användning av CA-certifikat i <ph name="PRODUCT_OS_NAME" /> för ARC-appar</translation>
-<translation id="725322441686394886">Om principen inte anges och Chrome Cleanup upptäcker oönskad programvara kan metadata om genomsökningen rapporteras till Google i enlighet med principer som anges i SafeBrowsingExtendedReportingEnabled. Chrome Cleanup frågar sedan om användaren vill rensa den oönskade programvaran. Användaren kan välja att dela resultaten från rensningen med Google för att förbättra framtida genomsökning. Resultaten innehåller metadata från filer, automatiskt installerade tillägg och registernycklar i enlighet med dokumentationen om sekretess i Google Chrome.
-
-      Om principen är inställd på falskt och Chrome Cleanup upptäcker oönskad programvara rapporteras inte metadata om genomsökningen till Google, och principer som anges i SafeBrowsingExtendedReportingEnabled åsidosätts. Chrome Cleanup frågar om användaren vill rensa den oönskade programvaran. Resultaten från rensningen rapporteras inte till Google och användaren får inte alternativet att göra det.
-
-      Om principen är inställd på sant och Chrome Cleanup upptäcker oönskad programvara kan metadata om genomsökningen rapporteras till Google i enlighet med principer som anges i SafeBrowsingExtendedReportingEnabled. Chrome Cleanup frågar om användaren vill rensa den oönskade programvaran. Resultaten från rensningen rapporteras till Google och användaren får inte alternativet att förhindra det.
-
-      Principen är inte tillgänglig på Windows-instanser som inte är kopplade till en <ph name="MS_AD_NAME" /> domän.</translation>
 <translation id="7258823566580374486">Aktivera avskärmning av fjärråtkomstvärdar</translation>
 <translation id="7260277299188117560">Automatisk uppdatering av p2p har aktiverats</translation>
 <translation id="7261252191178797385">Enhetens bakgrundsbild</translation>
@@ -2608,6 +2788,7 @@
       Om RemoveLRUIfDormant har angetts som policy tas användare som inte har loggat in på tre månader bort, via automatisk rensning, i en ordningsföljd utifrån vem som loggade in för längst tid sedan, tills tillräckligt med utrymme har frigjorts.
 
       Om policyn inte har angetts används den inbyggda strategin av den automatiska rensningen. För närvarande är det strategin RemoveLRUIfDormant.</translation>
+<translation id="7336785017449297672">Styr inställningar för klocka och tidszon.</translation>
 <translation id="7336878834592315572">Behåll cookies under hela sessionen</translation>
 <translation id="7337967786223261174">Konfigurerar en lista över skrivare.
 
@@ -2625,6 +2806,7 @@
       På enheter som hanteras via Active Directory har principen stöd för att utöka <ph name="MACHINE_NAME_VARIABLE" /> till datornamnet i Active Directory eller en delsträng av det. Med datornamnet <ph name="MACHINE_NAME_EXAMPLE" /> skulle till exempel <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> ersättas av de fyra tecknen från och med position nummer sex, d.v.s. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Observera att positionerna räknas från och med noll.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (gemener) fasas ut med M71 och tas bort i M72.
       </translation>
+<translation id="7339315111520512972">Tvinga nätverkskod att köras i webbläsarprocessen</translation>
 <translation id="7340034977315324840">Rapportera aktivitetstider för enhet</translation>
 <translation id="7343497214039883642">Skivarkonfigurationsfil för företagsenheter</translation>
 <translation id="7349338075015720646">Anger en lista över webbplatser som installeras obemärkt utan att användaren gör något och som användaren inte kan avinstallera eller inaktivera.
@@ -2642,11 +2824,6 @@
 
       Läs mer om Säker webbsökning på https://developers.google.com/safe-browsing.</translation>
 <translation id="737655323154569539">Begränsar pappersformatet för utskrift. Om principen har lämnats utan inställning eller är inställd på en tom lista används ingen begränsning.</translation>
-<translation id="7417728346887499628">Om principen är inaktiverad förhindras Chrome Cleanup från att genomsöka systemet efter oönskad programvara och genomföra rensning. Möjligheten att starta Chrome Cleanup manuellt via chrome://settings/cleanup inaktiveras.
-
-      Om den är aktiverad eller inte inställd alls genomsöker Chrome Cleanup systemet efter oönskad programvara regelbundet. Om något upptäcks blir användaren tillfrågad om de vill ta bort det. Möjligheten att starta Chrome Cleanup manuellt via chrome://settings aktiveras.
-
-      Denna princip är inte tillgänglig på Windows-instanser som inte är kopplade till en <ph name="MS_AD_NAME" /> domän.</translation>
 <translation id="7417972229667085380">Procentsatsen med vilken fördröjningen vid dödtid skalanpassas i presentationsläge (föråldrad)</translation>
 <translation id="7421483919690710988">Ange medieenhetens cachestorlek i byte</translation>
 <translation id="7424751532654212117">Lista med undantag till listan med inaktiverade plugin-program</translation>
@@ -2718,6 +2895,18 @@
           Om ett tillägg inte finns med på listan, eller om listan inte har fastställts misslyckas anslutningen till API:et och en felkod visas.</translation>
 <translation id="7618907117929117943">Återställ till målversionen om operativsystemet är nyare än målversionen och om det går att föra över konfigurationen på enhetsnivå (inklusive användaruppgifter i nätverket) vid återställningen, vilket också innebär att introduktionen vid första användningen (OOBE) hoppas över efter återställningen. Återställningen avbryts eller uteblir om detta inte går (därför att målversionen inte har stöd för att återställa data eller på grund av en ändring som inte är bakåtkompatibel).
           Stöds i version 70 eller senare av <ph name="PRODUCT_OS_NAME" />. I äldre klienter än så innebär det här värdet att återställning inaktiveras.</translation>
+<translation id="7620869951155758729">Den här principen anger vilken konfiguration som ska användas för att generera och verifiera föräldraåtkomstkoder.
+
+      |current_config| används alltid för att generera åtkomstkoder och bör endast användas för validering av åtkomstkoder när de inte kan valideras med hjälp av |future_config|.
+      |future_config| är huvudkonfigurationen för validering av åtkomstkoder.
+      |old_configs| bör endast användas för validering av åtkomstkoder när de inte kan valideras med hjälp av |future_config| eller |current_config|.
+
+      Policyn förväntas att användas med gradvis växling av konfigurationerna för åtkomstkoder. Nya konfigurationer hamnar alltid i |future_config| och
+      dess befintliga värde flyttas samtidigt till |current_config|. De tidigare värdena i |current_config| flyttas till |old_configs| och tas bort när cykeln är slutförd.
+
+      Denna policy gäller endast för konton för barn.
+      När den här principen används kan föräldraåtkomstkoder verifieras på barnets enhet.
+      När den här principen har lämnats utan inställning går det inte att verifiera föräldraåtkomstkoder på barnets enhet.</translation>
 <translation id="7625444193696794922">Policyn anger vilken versionskanal som enheten ska låsas till.</translation>
 <translation id="7632724434767231364">GSSAPI-biblioteksnamn</translation>
 <translation id="7635471475589566552">Policyn konfigurerar appens språkversion i <ph name="PRODUCT_NAME" /> och förhindrar att användarna ändrar språk.
@@ -2740,9 +2929,6 @@
       Observera att dessa begränsningar gäller för nedladdningar som aktiverats från innehåll på webbsidor, samt alternativet Ladda ned länk ... på snabbmenyn. Dessa begränsningar gäller inte alternativen att spara eller ladda ned den sida som visas, eller möjligheten att spara en PDF från utskriftsalternativen.
 
       Mer information om Säker webbläsning finns på https://developers.google.com/safe-browsing.</translation>
-<translation id="7642803091923523695">Aktivera PluginVm för den här enheten.
-
-      Om principen ställs in på Falskt eller om den inte har någon inställning aktiveras inte <ph name="PLUGIN_VM_NAME" /> för den här enheten. Om principen ställs in på Sant aktiveras <ph name="PLUGIN_VM_NAME" /> för enheten om detta tillåts av andra inställningar. <ph name="PLUGIN_VM_ALLOWED_POLICY_NAME" /> måste ställas in på sant och <ph name="PLUGIN_VM_IMAGE_POLICY_NAME" /> och måste ställas in för att <ph name="PLUGIN_VM_NAME" /> ska kunna köras.</translation>
 <translation id="7643883929273267746">Begränsa vilka konton som är synliga i <ph name="PRODUCT_NAME" /></translation>
 <translation id="7651739109954974365">Avgör om dataroaming ska vara tillåtet för enheten. Om värdet är sant är dataroaming tillåten. Om policyn inte är konfigurerad eller om värdet är falskt är dataroaming inte tillåten.</translation>
 <translation id="7673194325208122247">Tidsperiod (millisekunder)</translation>
@@ -2780,6 +2966,7 @@
       Principen är avsedd att ge företag möjlighet att migrera befintliga servrar från HTTP/0.9. Principen tas bort framöver.
 
       Om principen inte har angetts, inaktiveras HTTP/0.9 på portar som inte har angetts som standard.</translation>
+<translation id="7747447585227954402">Tillåt att <ph name="PLUGIN_VM_NAME" /> används av enheter på <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="7749402620209366169">Aktiverar tvåfaktorsautentisering för värdar för fjärråtkomst istället för en användarangiven PIN-kod.
 
           Om inställningen aktiveras måste användaren ange en giltig tvåfaktorskod för att komma åt värden.
@@ -2858,6 +3045,17 @@
 <translation id="793473937901685727">Ange om certifikat ska vara tillgängliga för ARC-appar</translation>
 <translation id="7937766917976512374">Tillåta eller neka videoinspelning</translation>
 <translation id="7941975817681987555">Förutsäg inte nätverksåtgärder för någon nätverksanslutning</translation>
+<translation id="7952002811557367112">Den här principen förhindrar att användaren läser in webbsidor från svartlistade webbadresser. Svartlistan är en lista med webbadressmallar som anger vilka webbadresser som ska svartlistas.
+
+      En webbadressmall måste formateras enligt https://www.chromium.org/administrators/url-blacklist-filter-format.
+
+      Undantag kan definieras i principerna för vitlistade webbadresser. Dessa principer är begränsade till 1000 poster. Ytterligare poster ignoreras.
+
+      Interna adresser som börjar med chrome://* bör inte blockeras eftersom det kan leda till oväntade fel.
+
+      Den här principen förhindrar inte att sidan uppdateras dynamiskt via JavaScript. Om du till exempel blockerar example.com/abc kan användarna fortfarande besöka example.com och klicka på en länk till example.com/abc, förutsatt att sidan inte uppdateras.
+
+      Om den här principen inte anges, svartlistas inga webbadresser i webbläsaren.</translation>
 <translation id="7953256619080733119">Värdar för hanterade användares manuella undantag</translation>
 <translation id="7961779417826583251">Inaktivera tillämpning av certifikattransparens för en lista med äldre certifikatutfärdare</translation>
 <translation id="7974114691960514888">Policyn stöds inte längre.
@@ -3010,7 +3208,10 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 <translation id="8274603902181597201">Rensa bort användarens ecryptfs-krypterade hemkatalog och börja om med en ny ext4-krypterad hemkatalog.</translation>
 <translation id="8285435910062771358">Helskärmsförstoraren är aktiverad</translation>
 <translation id="8288199156259560552">Aktivera Googles platstjänst för Android</translation>
-<translation id="8290453559005611000">PluginVm-avbildning</translation>
+<translation id="8292322992383748446">Rapportera maskinvarustatistik för SoC-komponenter.
+
+      Om principen är inställd på falskt rapporteras ingen sådan statistik.
+      Om principen är inställd på sant eller saknar inställning rapporteras statistiken.</translation>
 <translation id="8294750666104911727">Normalt kommer sidor med X-UA-Compatible som är inställda på chrome=1 att renderas i <ph name="PRODUCT_FRAME_NAME" /> trots policyn ChromeFrameRendererSettings.
 
           Om du aktiverar inställningen kommer sidorna inte att kunna genomsökas efter metataggar.
@@ -3022,6 +3223,7 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 
           Om ingen inställning görs eller om Falskt anges, kan användaren föra över filer till Google Drive via mobilanslutningar.</translation>
 <translation id="8300992833374611099">Styr var Utvecklarverktyg kan användas</translation>
+<translation id="8306117673860983372">Inloggningsinställningar</translation>
 <translation id="8312129124898414409">Gör att du kan ange om webbplatser får använda nyckelgenerering. Du kan antingen tillåta eller blockera användning av nyckelgenerering på alla webbplatser.
 
           Om du inte anger policyn används BlockKeygen och inställningen kan ändras av användaren.</translation>
@@ -3036,11 +3238,22 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 <translation id="8367209241899435947">Aktivera Chrome Cleanup i Windows</translation>
 <translation id="8369602308428138533">Skärmavstängningstid när enheten är ansluten till elnätet</translation>
 <translation id="8371178326720637170">Gör det möjligt för hanterade tillägg att använda API:et Enterprise Hardware Platform</translation>
+<translation id="8374747520743832795">Rapportera maskinvarustatistik och identifierare för strömförsörjningen.
+
+      Om principen är inställd på falskt rapporteras ingen sådan statistik.
+      Om principen är inställd på sant eller saknar inställning rapporteras statistiken.</translation>
+<translation id="8377433219608936819">
+      Om den här principen är inställd på Sant har molnprinciper företräde om de är i konflikt med enhetsprinciper.
+      Om den här principen är inställd på Falskt eller inte är konfigurerad har enhetens principer företräde om de är i konflikt med molnprinciper.
+      Mer information om principprioritering finns på https://support.google.com/chrome?p=set_chrome_policies_for_devices
+
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller till Windows 10 Pro- eller Enterprise-instanser som är registrerade för enhetshantering.</translation>
 <translation id="8382184662529825177">Aktivera användning av fjärrattestering för innehållsskydd för enheten</translation>
 <translation id="838870586332499308">Aktivera dataroaming</translation>
 <translation id="8390049129576938611">Inaktiverar den interna PDF-läsaren i <ph name="PRODUCT_NAME" />. PDF-filer behandlas i stället som nedladdningar så att användaren kan öppna dem med standardappen.
 
       Om den här principen inte anges eller är inaktiverad öppnas PDF-filer med PDF-pluginprogrammet såvida användaren inte inaktiverar det.</translation>
+<translation id="8395749934754392549">Styr inställningar för Android-behållaren (ARC) och Android-appar.</translation>
 <translation id="8396145449084377015">Med den här principen styrs huruvida regler ska läsas in från Internet Explorers princip SiteList.
 
       När den här principen inte har någon inställning eller är inställd på falskt använder <ph name="PRODUCT_NAME" /> inte Internet Explorers princip <ph name="IEEM_SITELIST_POLICY" /> som en källa för regler för byte av webbläsare.
@@ -3054,6 +3267,7 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 <translation id="841977920223099909">Lösenordsskyddets utlösare för varningar</translation>
 <translation id="8424255554404582727">Ange standardrotation efter omstart för skärmen</translation>
 <translation id="8426231401662877819">Rotera skärmen 90 grader medurs</translation>
+<translation id="8433186206711564395">Nätverksinställningar</translation>
 <translation id="8433423491036718210">Konfigurera listan med webbadresser för företagsinloggning där signaturer för lösenord registreras i tjänsten för lösenordsskydd.</translation>
 <translation id="8451988835943702790">Använd sidan Ny flik som startsida</translation>
 <translation id="8459216513698220096">Anger om och hur användarpolicyn från datorns GPO behandlas.
@@ -3094,12 +3308,6 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
           Exempel på mönster finns på https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="8489964335640955763">PluginVm</translation>
 <translation id="8493645415242333585">Spara inte webbhistorik</translation>
-<translation id="8498293625012059298">Konfigurera webbadressen för att byta lösenord (endast HTTP och HTTPS). Användarna skickas till den här webbadressen av tjänsten för lösenordsskydd så att de kan byta lösenord efter att en varning visats i webbläsaren.
-      Se till att sidan för att byta lösenord följer riktlinjerna på https://www.chromium.org/developers/design-documents/create-amazing-password-forms så att <ph name="PRODUCT_NAME" /> kan registrera lösenordssignaturer korrekt.
-
-      Om inställningen är aktiverad skickas användarna till den här webbadressen där de får byta lösenord efter att en varning visats i webbläsaren.
-      Om inställningen är inaktiverad eller har lämnats utan inställning skickas användarna till https://myaccounts.google.com där de får byta lösenord.
-      Principen är inte tillgänglig på Windows-instanser som inte har fogats till en <ph name="MS_AD_NAME" />-domän.</translation>
 <translation id="8499172469244085141">Standardinställningar (kan åsidosättas av användare)</translation>
 <translation id="8507835864888987300">Anger en målversion för automatiska uppdateringar.
 
@@ -3112,6 +3320,7 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 
       Obs! Versionsbegränsningar rekommenderas inte eftersom de kan leda till att uppdateringar av programvaran eller viktiga säkerhetskorrigeringar inte görs. Om uppdateringarna begränsas till ett visst versionsprefix kan användarnas säkerhet äventyras.</translation>
 <translation id="8519264904050090490">Webbadresser för hanterade användares manuella undantag</translation>
+<translation id="8525526490824335042">Linux-behållare</translation>
 <translation id="8538235451413605457">Konfigurerar kravet på lägsta tillåtna version av <ph name="PRODUCT_NAME" />. Versioner som är äldre än det givna värdet ses som föråldrade. Användaren tillåts då inte logga in förrän operativsystemet har uppdaterats.
       Om den aktuella versionen blir föråldrad under en pågående användarsession loggas användaren ut.
 
@@ -3180,6 +3389,7 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
       Om principen inte ställs in används som standard tidsperioden 345 600 000 millisekunder (fyra dagar) för <ph name="PRODUCT_OS_NAME" />-enheter och 604 800 000 millisekunder (en vecka) för <ph name="PRODUCT_NAME" />.</translation>
 <translation id="8685024486845674965">Lösenordsskyddets varningar utlöses av att lösenordet återanvänds</translation>
 <translation id="8693243869659262736">Använd en inbyggd DNS-klient</translation>
+<translation id="8703488928438047864">Rapportera kortstatus</translation>
 <translation id="8704831857353097849">Lista med inaktiverade plugin-program</translation>
 <translation id="8711086062295757690">Policyn anger nyckelordet, som är ett kortkommando som används i adressfältet för att aktivera sökning för den här leverantören.
 
@@ -3215,6 +3425,12 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
           Om du aktiverar inställningen hoppas CNAME-sökningen över och servernamnet som angavs används.
 
           Om du inaktiverar inställningen eller inte anger den avgörs serverns kanoniska namn av en CNAME-sökning.</translation>
+<translation id="8765776988041674792">Konfigurera webbadress för lösenordsbyte (endast HTTP- och HTTPS-protokoll). Tjänsten för lösenordsskydd hänvisar användare till denna webbadress för att byta lösenord efter att en varning visats i webbläsaren.
+      För att <ph name="PRODUCT_NAME" /> ska kunna registrera fingeravtrycket för det nya lösenordet korrekt på sidan för lösenordsbyte måste sidan följa riktlinjerna på https://www.chromium.org/developers/design-documents/create-amazing-password-forms.
+
+      Om den här inställningen är aktiverad hänvisar tjänsten för lösenordsbyte användarna till den här webbadressen för att ändra sina lösenord efter att en varning visats i webbläsaren.
+      Om inställningen är inaktiverad eller inte anges, skickar tjänsten för lösenordsbyte användarna till https://myaccounts.google.com.
+      Den här principen är bara tillgänglig i Windows-instanser som är kopplade till en <ph name="MS_AD_NAME" />-domän, eller i Windows 10 Pro- eller Enterprise-instanser som är registrerade i enhetshantering.</translation>
 <translation id="8782750230688364867">Anger den procentsats med vilken fördröjningen av skärmdämpningen skalanpassas när enheten är i presentationsläge.
 
           Om den här principen är inställd anges den procentsats med vilken fördröjningen av skärmdämpningen skalanpassas när enheten är i presentationsläge. När fördröjningen av skärmdämpningen skalanpassas anpassas fördröjningarna för när skärmen stängs av, låses och inte används så att avstånden från fördröjningen för skärmdämpningens ursprungliga inställning bibehålls.
@@ -3333,12 +3549,6 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 <translation id="8976248126101463034">Tillåt gnubby-autentisering för fjärråtkomstvärdar</translation>
 <translation id="8976531594979650914">Använd systemets standardskrivare som standard</translation>
 <translation id="8992176907758534924">Tillåt inte att bilder visas på någon webbplats</translation>
-<translation id="9012851181124311976">Konfigurera listan med webbadresser för företagsinloggning (endast HTTP och HTTPS). På dessa webbadresser registreras lösenordssignaturer, som används för att upptäcka när ett lösenord återanvänds.
-      Se till att inloggningssidorna följer riktlinjerna på https://www.chromium.org/developers/design-documents/create-amazing-password-forms så att <ph name="PRODUCT_NAME" /> kan registrera lösenordssignaturer korrekt.
-
-      Om inställningen är aktiverad registreras lösenordssignaturer på webbadresserna i syfte att upptäcka när ett lösenord återanvänds.
-      Om inställningen är inaktiverad eller har lämnats utan inställning registreras lösenordsignaturer endast på https://accounts.google.com.
-      Principen är inte tillgänglig på Windows-instanser som inte har fogats till en <ph name="MS_AD_NAME" />-domän.</translation>
 <translation id="9035964157729712237">Tilläggs-ID:n att undanta från svartlistan</translation>
 <translation id="9042911395677044526">Tillåter att en pushad nätverkskonfiguration används per användare på en <ph name="PRODUCT_OS_NAME" />-enhet. Nätverkskonfigurationen är en JSON-formaterad sträng som definieras av formatet för öppen nätverkskonfiguration som beskrivs på <ph name="ONC_SPEC_URL" /></translation>
 <translation id="906631898352326790">
@@ -3442,9 +3652,5 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 <translation id="944817693306670849">Ange storlek för diskcache</translation>
 <translation id="981346395360763138">Googles platstjänster har inaktiverats</translation>
 <translation id="982497069985795632">Aktivera stavningskontroll</translation>
-<translation id="988537626274109600">Den här principen styr inom vilka tidsperioder som <ph name="PRODUCT_OS_NAME" />-enheten inte får söka efter uppdateringar automatiskt.
-      Om principen är inställd på en lista över tidsintervaller som inte är tom
-      får inte enheter söka efter uppdateringar automatiskt inom de angivna tidsintervallen. Enheter som behöver återställas eller inte uppfyller de lägsta versionskraven för <ph name="PRODUCT_OS_NAME" /> påverkas inte av principen på grund av möjliga säkerhetsproblem. Dessutom kan principen inte blockera sökningar efter uppdateringar som har begärts av användare eller administratörer.
-      Om principen inte är inställd alls
-      blockeras inga automatiska sökningar efter uppdateringar av principen, men de kan blockeras av andra principer.</translation>
+<translation id="991560005425213776">Skicka användarnamn och filnamn till lokala skrivare</translation>
 </translationbundle>

@@ -15,6 +15,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/optional.h"
 #include "build/build_config.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -24,6 +25,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "content/public/browser/notification_observer.h"
 #include "content/public/browser/notification_registrar.h"
+#include "ui/native_theme/native_theme.h"
 #include "url/gurl.h"
 
 #if defined(OS_ANDROID)
@@ -130,6 +132,10 @@ class InstantService : public KeyedService,
   // Used for testing.
   ThemeBackgroundInfo* GetThemeInfoForTesting() { return theme_info_.get(); }
 
+  // Used for testing.
+  void SetDarkModeThemeForTesting(ui::NativeTheme* theme);
+
+  // Used for testing.
   void AddValidBackdropUrlForTesting(const GURL& url) const;
 
   // Check if a custom background has been set by the user.
@@ -138,10 +144,13 @@ class InstantService : public KeyedService,
  private:
   class SearchProviderObserver;
 
+  class DarkModeHandler;
+
   friend class InstantExtendedTest;
   friend class InstantUnitTestBase;
 
   FRIEND_TEST_ALL_PREFIXES(InstantExtendedTest, ProcessIsolation);
+  FRIEND_TEST_ALL_PREFIXES(InstantServiceTest, DeleteThumbnailDataIfExists);
   FRIEND_TEST_ALL_PREFIXES(InstantServiceTest, GetNTPTileSuggestion);
 
   // KeyedService:
@@ -158,6 +167,10 @@ class InstantService : public KeyedService,
   // Called when the search provider changes. Disables custom links if the
   // search provider is not Google.
   void OnSearchProviderChanged(bool is_google);
+
+  // Called when dark mode changes. Updates current theme info as necessary and
+  // notifies that the theme has changed.
+  void OnDarkModeChanged(bool dark_mode);
 
   // ntp_tiles::MostVisitedSites::Observer implementation.
   void OnURLsAvailable(
@@ -180,6 +193,14 @@ class InstantService : public KeyedService,
   void FallbackToDefaultThemeInfo();
 
   void RemoveLocalBackgroundImageCopy();
+
+  // Remove old user thumbnail data if it exists. If |callback| is provided,
+  // calls back true if the thumbnail data was deleted. Thumbnails have been
+  // deprecated as of M69.
+  // TODO(crbug.com/893362): Remove after M75.
+  void DeleteThumbnailDataIfExists(
+      const base::FilePath& profile_path,
+      base::Optional<base::OnceCallback<void(bool)>> callback);
 
   // Returns false if the custom background pref cannot be parsed, otherwise
   // returns true and sets custom_background_url to the value in the pref.
@@ -211,6 +232,9 @@ class InstantService : public KeyedService,
 
   // Keeps track of any changes in search engine provider. May be null.
   std::unique_ptr<SearchProviderObserver> search_provider_observer_;
+
+  // Keeps track of any changes to system dark mode.
+  std::unique_ptr<DarkModeHandler> dark_mode_handler_;
 
   PrefChangeRegistrar pref_change_registrar_;
 

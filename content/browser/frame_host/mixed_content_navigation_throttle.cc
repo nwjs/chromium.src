@@ -19,7 +19,7 @@
 #include "content/public/common/origin_util.h"
 #include "content/public/common/web_preferences.h"
 #include "net/base/url_util.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 #include "url/url_constants.h"
@@ -148,13 +148,9 @@ bool MixedContentNavigationThrottle::ShouldBlockNavigation(bool for_redirect) {
 
   // From this point on we know this is not a main frame navigation and that
   // there is mixed content. Now let's decide if it's OK to proceed with it.
-  const WebPreferences& prefs = mixed_content_node->current_frame_host()
-                                    ->render_view_host()
-                                    ->GetWebkitPreferences();
 
   ReportBasicMixedContentFeatures(handle_impl->request_context_type(),
-                                  handle_impl->mixed_content_context_type(),
-                                  prefs);
+                                  handle_impl->mixed_content_context_type());
 
   // If we're in strict mode, we'll automagically fail everything, and
   // intentionally skip the client/embedder checks in order to prevent degrading
@@ -162,6 +158,9 @@ bool MixedContentNavigationThrottle::ShouldBlockNavigation(bool for_redirect) {
   bool block_all_mixed_content = !!(
       mixed_content_node->current_replication_state().insecure_request_policy &
       blink::kBlockAllMixedContent);
+  const WebPreferences& prefs = mixed_content_node->current_frame_host()
+                                    ->render_view_host()
+                                    ->GetWebkitPreferences();
   bool strict_mode =
       prefs.strict_mixed_content_checking || block_all_mixed_content;
 
@@ -296,8 +295,7 @@ void MixedContentNavigationThrottle::MaybeSendBlinkFeatureUsageReport() {
 // Based off of MixedContentChecker::count.
 void MixedContentNavigationThrottle::ReportBasicMixedContentFeatures(
     blink::mojom::RequestContextType request_context_type,
-    blink::WebMixedContentContextType mixed_content_context_type,
-    const WebPreferences& prefs) {
+    blink::WebMixedContentContextType mixed_content_context_type) {
   mixed_content_features_.insert(MIXED_CONTENT_PRESENT);
 
   // Report any blockable content.

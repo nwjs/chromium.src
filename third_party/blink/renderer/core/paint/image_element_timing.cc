@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_replaced.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
@@ -32,7 +33,7 @@ ImageElementTiming& ImageElementTiming::From(LocalDOMWindow& window) {
   ImageElementTiming* timing =
       Supplement<LocalDOMWindow>::From<ImageElementTiming>(window);
   if (!timing) {
-    timing = new ImageElementTiming(window);
+    timing = MakeGarbageCollected<ImageElementTiming>(window);
     ProvideTo(window, timing);
   }
   return *timing;
@@ -40,7 +41,7 @@ ImageElementTiming& ImageElementTiming::From(LocalDOMWindow& window) {
 
 ImageElementTiming::ImageElementTiming(LocalDOMWindow& window)
     : Supplement<LocalDOMWindow>(window) {
-  DCHECK(RuntimeEnabledFeatures::ElementTimingEnabled());
+  DCHECK(origin_trials::ElementTimingEnabled(GetSupplementable()->document()));
 }
 
 void ImageElementTiming::NotifyImagePainted(const HTMLImageElement* element,
@@ -60,10 +61,12 @@ void ImageElementTiming::NotifyImagePainted(const HTMLImageElement* element,
   if (!layout_image->CachedImage())
     return;
 
-  const KURL& url = layout_image->CachedImage()->Url();
   DCHECK(GetSupplementable()->document() == &layout_image->GetDocument());
-  if (!SecurityOrigin::AreSameSchemeHostPort(layout_image->GetDocument().Url(),
-                                             url))
+  DCHECK(layout_image->GetDocument().GetSecurityOrigin());
+  if (!Performance::PassesTimingAllowCheck(
+          layout_image->CachedImage()->GetResponse(),
+          *layout_image->GetDocument().GetSecurityOrigin(), AtomicString(),
+          &layout_image->GetDocument()))
     return;
 
   // Compute the viewport rect.
@@ -121,29 +124,15 @@ void ImageElementTiming::NotifyImagePainted(const HTMLImageElement* element,
 
 void ImageElementTiming::ReportImagePaintSwapTime(WebLayerTreeView::SwapResult,
                                                   base::TimeTicks timestamp) {
-  Document* document = GetSupplementable()->document();
-  DCHECK(document);
-  const SecurityOrigin* current_origin = document->GetSecurityOrigin();
-  // It suffices to check the current origin against the parent origin since all
-  // origins stored in |element_timings_| have been checked against the current
-  // origin.
-  while (document &&
-         current_origin->IsSameSchemeHostPort(document->GetSecurityOrigin())) {
-    DCHECK(document->domWindow());
-    WindowPerformance* performance =
-        DOMWindowPerformance::performance(*document->domWindow());
-    if (performance &&
-        performance->HasObserverFor(PerformanceEntry::kElement)) {
-      for (const auto& element_timing : element_timings_) {
-        performance->AddElementTiming(element_timing.name, element_timing.rect,
-                                      timestamp);
-      }
+  WindowPerformance* performance =
+      DOMWindowPerformance::performance(*GetSupplementable());
+  if (performance && (performance->HasObserverFor(PerformanceEntry::kElement) ||
+                      performance->ShouldBufferEntries())) {
+    for (const auto& element_timing : element_timings_) {
+      performance->AddElementTiming(element_timing.name, element_timing.rect,
+                                    timestamp);
     }
-    // Provide the entry to the parent documents for as long as the origin check
-    // still holds.
-    document = document->ParentDocument();
   }
-
   element_timings_.clear();
 }
 

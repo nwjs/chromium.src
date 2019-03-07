@@ -27,11 +27,13 @@
 #include "content/public/common/network_service_util.h"
 #include "content/public/common/resource_type.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
+#include "net/http/http_auth_preferences.h"
 #include "net/ssl/client_cert_store.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 
 #if defined(OS_ANDROID)
 #include "base/android/content_uri_utils.h"
+#include "net/android/http_auth_negotiate_android.h"
 #endif
 
 namespace content {
@@ -374,7 +376,7 @@ WebContents* GetWebContents(int process_id, int routing_id) {
   return WebContents::FromFrameTreeNodeId(routing_id);
 }
 
-BrowserContext* GetBrowserContext(int process_id, int routing_id) {
+BrowserContext* GetBrowserContextFromIds(int process_id, int routing_id) {
   WebContents* web_contents = GetWebContents(process_id, routing_id);
   if (web_contents)
     return web_contents->GetBrowserContext();
@@ -412,6 +414,17 @@ void OnCertificateRequestedContinuation(
                             cert_info);  // deletes self
 }
 
+#if defined(OS_ANDROID)
+void FinishGenerateNegotiateAuthToken(
+    std::unique_ptr<net::android::HttpAuthNegotiateAndroid> auth_negotiate,
+    std::unique_ptr<std::string> auth_token,
+    std::unique_ptr<net::HttpAuthPreferences> prefs,
+    NetworkServiceClient::OnGenerateHttpNegotiateAuthTokenCallback callback,
+    int result) {
+  std::move(callback).Run(result, *auth_token);
+}
+#endif
+
 }  // namespace
 
 NetworkServiceClient::NetworkServiceClient(
@@ -429,12 +442,29 @@ NetworkServiceClient::NetworkServiceClient(
     memory_pressure_listener_ =
         std::make_unique<base::MemoryPressureListener>(base::BindRepeating(
             &NetworkServiceClient::OnMemoryPressure, base::Unretained(this)));
+
+#if defined(OS_ANDROID)
+    DCHECK(net::NetworkChangeNotifier::HasNetworkChangeNotifier());
+    GetNetworkService()->GetNetworkChangeManager(
+        mojo::MakeRequest(&network_change_manager_));
+    net::NetworkChangeNotifier::AddConnectionTypeObserver(this);
+    net::NetworkChangeNotifier::AddMaxBandwidthObserver(this);
+    net::NetworkChangeNotifier::AddIPAddressObserver(this);
+    net::NetworkChangeNotifier::AddDNSObserver(this);
+#endif
   }
 }
 
 NetworkServiceClient::~NetworkServiceClient() {
-  if (IsOutOfProcessNetworkService())
+  if (IsOutOfProcessNetworkService()) {
     net::CertDatabase::GetInstance()->RemoveObserver(this);
+#if defined(OS_ANDROID)
+    net::NetworkChangeNotifier::RemoveConnectionTypeObserver(this);
+    net::NetworkChangeNotifier::RemoveMaxBandwidthObserver(this);
+    net::NetworkChangeNotifier::RemoveIPAddressObserver(this);
+    net::NetworkChangeNotifier::RemoveDNSObserver(this);
+#endif
+  }
 }
 
 void NetworkServiceClient::OnAuthRequired(
@@ -479,8 +509,6 @@ void NetworkServiceClient::OnCertificateRequested(
     const scoped_refptr<net::SSLCertRequestInfo>& cert_info,
     network::mojom::NetworkServiceClient::OnCertificateRequestedCallback
         callback) {
-  base::RepeatingCallback<WebContents*(void)> web_contents_getter;
-
   // Use |window_id| if it's provided.
   if (window_id) {
     base::PostTaskWithTraitsAndReplyWithResult(
@@ -585,7 +613,7 @@ void NetworkServiceClient::OnClearSiteData(int process_id,
                                            int load_flags,
                                            OnClearSiteDataCallback callback) {
   auto browser_context_getter =
-      base::BindRepeating(GetBrowserContext, process_id, routing_id);
+      base::BindRepeating(GetBrowserContextFromIds, process_id, routing_id);
   auto web_contents_getter =
       base::BindRepeating(GetWebContents, process_id, routing_id);
   ClearSiteDataHandler::HandleHeader(browser_context_getter,
@@ -607,6 +635,62 @@ void NetworkServiceClient::OnApplicationStateChange(
     base::android::ApplicationState state) {
   GetNetworkService()->OnApplicationStateChange(state);
 }
+
+void NetworkServiceClient::OnConnectionTypeChanged(
+    net::NetworkChangeNotifier::ConnectionType type) {
+  network_change_manager_->OnNetworkChanged(
+      false /* dns_changed */, false /* ip_address_changed */,
+      true /* connection_type_changed */, network::mojom::ConnectionType(type),
+      false /* connection_subtype_changed */,
+      network::mojom::ConnectionSubtype(
+          net::NetworkChangeNotifier::GetConnectionSubtype()));
+}
+
+void NetworkServiceClient::OnMaxBandwidthChanged(
+    double max_bandwidth_mbps,
+    net::NetworkChangeNotifier::ConnectionType type) {
+  // The connection subtype change will trigger a max bandwidth change in the
+  // network service notifier.
+  network_change_manager_->OnNetworkChanged(
+      false /* dns_changed */, false /* ip_address_changed */,
+      false /* connection_type_changed */, network::mojom::ConnectionType(type),
+      true /* connection_subtype_changed */,
+      network::mojom::ConnectionSubtype(
+          net::NetworkChangeNotifier::GetConnectionSubtype()));
+}
+
+void NetworkServiceClient::OnIPAddressChanged() {
+  network_change_manager_->OnNetworkChanged(
+      false /* dns_changed */, true /* ip_address_changed */,
+      false /* connection_type_changed */,
+      network::mojom::ConnectionType(
+          net::NetworkChangeNotifier::GetConnectionType()),
+      false /* connection_subtype_changed */,
+      network::mojom::ConnectionSubtype(
+          net::NetworkChangeNotifier::GetConnectionSubtype()));
+}
+
+void NetworkServiceClient::OnDNSChanged() {
+  network_change_manager_->OnNetworkChanged(
+      true /* dns_changed */, false /* ip_address_changed */,
+      false /* connection_type_changed */,
+      network::mojom::ConnectionType(
+          net::NetworkChangeNotifier::GetConnectionType()),
+      false /* connection_subtype_changed */,
+      network::mojom::ConnectionSubtype(
+          net::NetworkChangeNotifier::GetConnectionSubtype()));
+}
+
+void NetworkServiceClient::OnInitialDNSConfigRead() {
+  network_change_manager_->OnNetworkChanged(
+      true /* dns_changed */, false /* ip_address_changed */,
+      false /* connection_type_changed */,
+      network::mojom::ConnectionType(
+          net::NetworkChangeNotifier::GetConnectionType()),
+      false /* connection_subtype_changed */,
+      network::mojom::ConnectionSubtype(
+          net::NetworkChangeNotifier::GetConnectionSubtype()));
+}
 #endif
 
 void NetworkServiceClient::OnDataUseUpdate(
@@ -616,5 +700,34 @@ void NetworkServiceClient::OnDataUseUpdate(
   GetContentClient()->browser()->OnNetworkServiceDataUseUpdate(
       network_traffic_annotation_id_hash, recv_bytes, sent_bytes);
 }
+
+#if defined(OS_ANDROID)
+void NetworkServiceClient::OnGenerateHttpNegotiateAuthToken(
+    const std::string& server_auth_token,
+    bool can_delegate,
+    const std::string& auth_negotiate_android_account_type,
+    const std::string& spn,
+    OnGenerateHttpNegotiateAuthTokenCallback callback) {
+  // The callback takes ownership of these unique_ptrs and destroys them when
+  // run.
+  auto prefs = std::make_unique<net::HttpAuthPreferences>();
+  prefs->set_auth_android_negotiate_account_type(
+      auth_negotiate_android_account_type);
+
+  auto auth_negotiate =
+      std::make_unique<net::android::HttpAuthNegotiateAndroid>(prefs.get());
+  net::android::HttpAuthNegotiateAndroid* auth_negotiate_raw =
+      auth_negotiate.get();
+  auth_negotiate->set_server_auth_token(server_auth_token);
+  auth_negotiate->set_can_delegate(can_delegate);
+
+  auto auth_token = std::make_unique<std::string>();
+  auth_negotiate_raw->GenerateAuthToken(
+      nullptr, spn, std::string(), auth_token.get(),
+      base::BindOnce(&FinishGenerateNegotiateAuthToken,
+                     std::move(auth_negotiate), std::move(auth_token),
+                     std::move(prefs), std::move(callback)));
+}
+#endif
 
 }  // namespace content

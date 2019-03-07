@@ -7,10 +7,10 @@
 #include <stddef.h>
 
 #include <memory>
+#include <unordered_map>
 
-#include "base/containers/hash_tables.h"
 #include "base/logging.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
@@ -285,11 +285,11 @@ class KeySystemsImpl : public KeySystems {
   bool IsValidMimeTypeCodecsCombination(const std::string& mime_type,
                                         SupportedCodecs codecs) const;
 
-  typedef base::hash_map<std::string, std::unique_ptr<KeySystemProperties>>
+  typedef std::unordered_map<std::string, std::unique_ptr<KeySystemProperties>>
       KeySystemPropertiesMap;
-  typedef base::hash_map<std::string, SupportedCodecs> MimeTypeToCodecsMap;
-  typedef base::hash_map<std::string, EmeCodec> CodecMap;
-  typedef base::hash_map<std::string, EmeInitDataType> InitDataTypesMap;
+  typedef std::unordered_map<std::string, SupportedCodecs> MimeTypeToCodecsMap;
+  typedef std::unordered_map<std::string, EmeCodec> CodecMap;
+  typedef std::unordered_map<std::string, EmeInitDataType> InitDataTypesMap;
 
   // TODO(sandersd): Separate container enum from codec mask value.
   // http://crbug.com/417440
@@ -332,7 +332,7 @@ KeySystemsImpl* KeySystemsImpl::GetInstance() {
 KeySystemsImpl::KeySystemsImpl()
     : audio_codec_mask_(EME_CODEC_AUDIO_ALL),
       video_codec_mask_(EME_CODEC_VIDEO_ALL) {
-  for (size_t i = 0; i < arraysize(kMimeTypeToCodecsMap); ++i) {
+  for (size_t i = 0; i < base::size(kMimeTypeToCodecsMap); ++i) {
     RegisterMimeType(kMimeTypeToCodecsMap[i].mime_type,
                      kMimeTypeToCodecsMap[i].codecs);
   }

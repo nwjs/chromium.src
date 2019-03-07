@@ -68,7 +68,8 @@ extern const int kCreditCardSigninPromoImpressionLimit;
 class AutofillManager : public AutofillHandler,
                         public AutofillDownloadManager::Observer,
                         public payments::FullCardRequest::ResultDelegate,
-                        public payments::FullCardRequest::UIDelegate {
+                        public payments::FullCardRequest::UIDelegate,
+                        public AutocompleteHistoryManager::SuggestionsHandler {
  public:
   AutofillManager(AutofillDriver* driver,
                   AutofillClient* client,
@@ -140,6 +141,9 @@ class AutofillManager : public AutofillHandler,
   void RemoveAutocompleteEntry(const base::string16& name,
                                const base::string16& value);
 
+  // Invoked when the user selected |value| in the Autocomplete drop-down.
+  void OnAutocompleteEntrySelected(const base::string16& value);
+
   // Returns true when the Payments card unmask prompt is being displayed.
   bool IsShowingUnmaskPrompt();
 
@@ -170,7 +174,6 @@ class AutofillManager : public AutofillHandler,
   // start.
   virtual bool MaybeStartVoteUploadProcess(
       std::unique_ptr<FormStructure> form_structure,
-      const base::TimeTicks& timestamp,
       bool observed_submission);
 
   // Update the pending form with |form|, possibly processing the current
@@ -199,6 +202,12 @@ class AutofillManager : public AutofillHandler,
   void SelectFieldOptionsDidChange(const FormData& form) override;
   void Reset() override;
 
+  // AutocompleteHistoryManager::SuggestionsHandler:
+  void OnSuggestionsReturned(
+      int query_id,
+      bool autoselect_first_suggestion,
+      const std::vector<Suggestion>& suggestions) override;
+
   // Returns the value of AutofillEnabled pref.
   virtual bool IsAutofillEnabled() const;
 
@@ -224,6 +233,7 @@ class AutofillManager : public AutofillHandler,
   AutofillManager(AutofillDriver* driver,
                   AutofillClient* client,
                   PersonalDataManager* personal_data,
+                  AutocompleteHistoryManager* autocomplete_history_manager,
                   const std::string app_locale = "en-US",
                   AutofillDownloadManagerState enable_download_manager =
                       DISABLE_AUTOFILL_DOWNLOAD_MANAGER);
@@ -259,8 +269,7 @@ class AutofillManager : public AutofillHandler,
   // AutofillHandler:
   void OnFormSubmittedImpl(const FormData& form,
                            bool known_success,
-                           SubmissionSource source,
-                           base::TimeTicks timestamp) override;
+                           SubmissionSource source) override;
   void OnTextFieldDidChangeImpl(const FormData& form,
                                 const FormFieldData& field,
                                 const gfx::RectF& bounding_box,
@@ -533,7 +542,8 @@ class AutofillManager : public AutofillHandler,
   std::unique_ptr<AutofillDownloadManager> download_manager_;
 
   // Handles single-field autocomplete form data.
-  std::unique_ptr<AutocompleteHistoryManager> autocomplete_history_manager_;
+  // May be NULL.  NULL indicates OTR.
+  base::WeakPtr<AutocompleteHistoryManager> autocomplete_history_manager_;
 
   // Utility for logging URL keyed metrics.
   std::unique_ptr<AutofillMetrics::FormInteractionsUkmLogger>

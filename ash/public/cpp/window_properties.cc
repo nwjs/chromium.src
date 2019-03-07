@@ -51,6 +51,9 @@ void RegisterWindowProperties(aura::PropertyConverter* property_converter) {
       mojom::kBlockedForAssistantSnapshot_Property,
       aura::PropertyConverter::CreateAcceptAnyValueCallback());
   property_converter->RegisterPrimitiveProperty(
+      kCanAttachToAnotherWindowKey, mojom::kCanAttachToAnotherWindow_Property,
+      aura::PropertyConverter::CreateAcceptAnyValueCallback());
+  property_converter->RegisterPrimitiveProperty(
       kCanConsumeSystemKeysKey, mojom::kCanConsumeSystemKeys_Property,
       aura::PropertyConverter::CreateAcceptAnyValueCallback());
   property_converter->RegisterStringProperty(
@@ -85,9 +88,6 @@ void RegisterWindowProperties(aura::PropertyConverter* property_converter) {
       aura::PropertyConverter::CreateAcceptAnyValueCallback());
   property_converter->RegisterPrimitiveProperty(
       kIsShowingInOverviewKey, mojom::kIsShowingInOverview_Property,
-      aura::PropertyConverter::CreateAcceptAnyValueCallback());
-  property_converter->RegisterPrimitiveProperty(
-      kPanelAttachedKey, ws::mojom::WindowManager::kPanelAttached_Property,
       aura::PropertyConverter::CreateAcceptAnyValueCallback());
   property_converter->RegisterPrimitiveProperty(
       kRenderTitleAreaProperty,
@@ -125,6 +125,9 @@ void RegisterWindowProperties(aura::PropertyConverter* property_converter) {
       aura::PropertyConverter::CreateAcceptAnyValueCallback());
   property_converter->RegisterWindowPtrProperty(
       kTabDraggingSourceWindowKey, mojom::kTabDraggingSourceWindow_Property);
+  property_converter->RegisterPrimitiveProperty(
+      kWindowPipTypeKey, mojom::kIsWindowPip_Property,
+      aura::PropertyConverter::CreateAcceptAnyValueCallback());
   property_converter->RegisterTimeDeltaProperty(
       wm::kWindowVisibilityAnimationDurationKey,
       ws::mojom::WindowManager::kWindowVisibilityAnimationDuration_Property);
@@ -166,7 +169,6 @@ DEFINE_UI_CLASS_PROPERTY_KEY(bool,
                              false);
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kIsDraggingTabsKey, false);
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kIsShowingInOverviewKey, false);
-DEFINE_UI_CLASS_PROPERTY_KEY(bool, kPanelAttachedKey, true);
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kRenderTitleAreaProperty, false);
 DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(gfx::Rect,
                                    kRestoreBoundsOverrideKey,

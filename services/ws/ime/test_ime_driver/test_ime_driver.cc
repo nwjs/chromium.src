@@ -20,11 +20,12 @@ class TestInputMethod : public mojom::InputMethod {
 
  private:
   // mojom::InputMethod:
-  void OnTextInputTypeChanged(ui::TextInputType text_input_type) override {
-    NOTIMPLEMENTED();
+  void OnTextInputStateChanged(
+      ws::mojom::TextInputStatePtr text_input_state) override {
+    NOTIMPLEMENTED_LOG_ONCE();
   }
   void OnCaretBoundsChanged(const gfx::Rect& caret_bounds) override {
-    NOTIMPLEMENTED();
+    NOTIMPLEMENTED_LOG_ONCE();
   }
   void ProcessKeyEvent(std::unique_ptr<ui::Event> key_event,
                        ProcessKeyEventCallback callback) override {
@@ -39,8 +40,8 @@ class TestInputMethod : public mojom::InputMethod {
                        base::Unretained(this), std::move(cloned_event),
                        std::move(callback)));
   }
-  void CancelComposition() override { NOTIMPLEMENTED(); }
-  void ShowVirtualKeyboardIfEnabled() override { NOTIMPLEMENTED(); }
+  void CancelComposition() override { NOTIMPLEMENTED_LOG_ONCE(); }
+  void ShowVirtualKeyboardIfEnabled() override { NOTIMPLEMENTED_LOG_ONCE(); }
 
   void PostProcssKeyEvent(std::unique_ptr<ui::Event> key_event,
                           ProcessKeyEventCallback callback,
@@ -69,11 +70,11 @@ TestIMEDriver::TestIMEDriver() {}
 
 TestIMEDriver::~TestIMEDriver() {}
 
-void TestIMEDriver::StartSession(mojom::StartSessionDetailsPtr details) {
-  mojo::MakeStrongBinding(
-      std::make_unique<TestInputMethod>(
-          mojom::TextInputClientPtr(std::move(details->client))),
-      std::move(details->input_method_request));
+void TestIMEDriver::StartSession(mojom::InputMethodRequest input_method_request,
+                                 mojom::TextInputClientPtr client,
+                                 mojom::SessionDetailsPtr details) {
+  mojo::MakeStrongBinding(std::make_unique<TestInputMethod>(std::move(client)),
+                          std::move(input_method_request));
 }
 
 }  // namespace test

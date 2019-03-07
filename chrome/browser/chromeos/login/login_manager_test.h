@@ -15,10 +15,6 @@
 
 class AccountId;
 
-namespace content {
-class WebContents;
-}  // namespace content
-
 namespace chromeos {
 
 class UserContext;
@@ -35,7 +31,7 @@ class LoginManagerTest : public MixinBasedBrowserTest {
                    bool should_initialize_webui);
   ~LoginManagerTest() override;
 
-  // Overridden from InProcessBrowserTest.
+  // InProcessBrowserTest:
   void TearDownOnMainThread() override;
   void SetUpCommandLine(base::CommandLine* command_line) override;
   void SetUpOnMainThread() override;
@@ -65,16 +61,6 @@ class LoginManagerTest : public MixinBasedBrowserTest {
   // Add user with |user_id| to session.
   void AddUser(const AccountId& user_id);
 
-  // Executes given JS |expression| in |web_contents_| and checks
-  // that it is true.
-  void JSExpect(const std::string& expression);
-
-  content::WebContents* web_contents() { return web_contents_; }
-
-  test::JSChecker& js_checker() { return js_checker_; }
-
-  static std::string GetGaiaIDForUserID(const std::string& user_id);
-
   // For obviously consumer users (that have e.g. @gmail.com e-mail) policy
   // fetching code is skipped. This code is executed only for users that may be
   // enterprise users. Thus if you derive from this class and don't need
@@ -89,21 +75,12 @@ class LoginManagerTest : public MixinBasedBrowserTest {
   static const char kEnterpriseUser2GaiaId[];
 
  protected:
-  void InitializeWebContents();
-
   FakeGaia fake_gaia_;
   HTTPSForwarder gaia_https_forwarder_;
 
  private:
-
-  void set_web_contents(content::WebContents* web_contents) {
-    web_contents_ = web_contents;
-  }
-
   const bool should_launch_browser_;
   const bool should_initialize_webui_;
-  content::WebContents* web_contents_;
-  test::JSChecker js_checker_;
 
   DISALLOW_COPY_AND_ASSIGN(LoginManagerTest);
 };

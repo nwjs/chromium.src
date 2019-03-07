@@ -47,6 +47,10 @@ namespace user_prefs {
 class PrefRegistrySyncable;
 }  // namespace user_prefs
 
+namespace app_list {
+class ArcAppShortcutsSearchProviderTest;
+}  // namespace app_list
+
 // Declares shareable ARC app specific preferences, that keep information
 // about app attributes (name, package_name, activity) and its state. This
 // information is used to pre-create non-ready app items while ARC bridge
@@ -305,12 +309,20 @@ class ArcAppListPrefs : public KeyedService,
                        const std::string& key,
                        base::Value value);
 
-  void SetDefaltAppsReadyCallback(base::OnceClosure callback);
+  void SetDefaultAppsReadyCallback(base::OnceClosure callback);
   void SimulateDefaultAppAvailabilityTimeoutForTesting();
+
+  // Returns true if:
+  // 1. specified package is new in the system
+  // 2. is not installed.
+  // 3. is not scheduled to install by sync
+  // 4. Is not currently installing.
+  bool IsUnknownPackage(const std::string& package_name) const;
 
  private:
   friend class ChromeLauncherControllerTest;
   friend class ArcAppModelBuilderTest;
+  friend class app_list::ArcAppShortcutsSearchProviderTest;
   // To support deprecated mojom icon requests.
   class ResizeRequest;
 
@@ -439,10 +451,6 @@ class ArcAppListPrefs : public KeyedService,
                          const std::string& package_name,
                          const std::string& activity);
 
-  // Returns true is specified package is new in the system, was not installed
-  // and it is not scheduled to install by sync.
-  bool IsUnknownPackage(const std::string& package_name) const;
-
   // Detects that default apps either exist or installation session is started.
   void DetectDefaultAppAvailability();
 
@@ -541,8 +549,8 @@ class ArcAppListPrefs : public KeyedService,
   // Default apps should be either already installed or their installations
   // should be started soon after initial app list refresh.
   base::OneShotTimer detect_default_app_availability_timeout_;
-  // Set of currently installing default apps_.
-  std::unordered_set<std::string> default_apps_installations_;
+  // Set of currently installing apps_.
+  std::unordered_set<std::string> apps_installations_;
 
   arc::ArcPackageSyncableService* sync_service_ = nullptr;
 

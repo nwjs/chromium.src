@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# Contribuging to Chrome DevTools Protocol: https://docs.google.com/document/d/1c-COD2kaK__5iMM5SEx-PzNA7HFmgttcYfOHHX0HaOM/edit?usp=sharing
+# Contributing to Chrome DevTools Protocol: https://docs.google.com/document/d/1c-COD2kaK__5iMM5SEx-PzNA7HFmgttcYfOHHX0HaOM/edit?usp=sharing
 
 version
   major 1
@@ -107,11 +107,12 @@ experimental domain Accessibility
       # The sources which contributed to the computation of this property.
       optional array of AXValueSource sources
 
-  # Values of AXProperty name: from 'busy' to 'roledescription' - states which apply to every AX
-  # node, from 'live' to 'root' - attributes which apply to nodes in live regions, from
-  # 'autocomplete' to 'valuetext' - attributes which apply to widgets, from 'checked' to 'selected'
-  # - states which apply to widgets, from 'activedescendant' to 'owns' - relationships between
-  # elements other than parent/child/sibling.
+  # Values of AXProperty name:
+  # - from 'busy' to 'roledescription': states which apply to every AX node
+  # - from 'live' to 'root': attributes which apply to nodes in live regions
+  # - from 'autocomplete' to 'valuetext': attributes which apply to widgets
+  # - from 'checked' to 'selected': states which apply to widgets
+  # - from 'activedescendant' to 'owns' - relationships between elements other than parent/child/sibling.
   type AXPropertyName extends string
     enum
       busy
@@ -514,6 +515,7 @@ domain Browser
       protectedMediaIdentifier
       sensors
       videoCapture
+      idleDetection
 
   # Grant specific permissions to the given origin and reject all others.
   experimental command grantPermissions
@@ -996,8 +998,6 @@ experimental domain CSS
       # The computed font weight for this node, as a CSS computed value string (e.g. 'normal' or
       # '100').
       optional string computedFontWeight
-      # The computed font size for the document body, as a computed CSS value string (e.g. '16px').
-      optional string computedBodyFontSize
 
   # Returns the computed style for a DOM node identified by `nodeId`.
   command getComputedStyleForNode
@@ -1239,7 +1239,7 @@ experimental domain CacheStorage
   # Fetches cache entry.
   command requestCachedResponse
     parameters
-      # Id of cache that contains the enty.
+      # Id of cache that contains the entry.
       CacheId cacheId
       # URL spec of the request.
       string requestURL
@@ -1256,11 +1256,58 @@ experimental domain CacheStorage
       integer skipCount
       # Number of records to fetch.
       integer pageSize
+      # If present, only return the entries containing this substring in the path
+      optional string pathFilter
     returns
       # Array of object store data entries.
       array of DataEntry cacheDataEntries
       # If true, there are more entries to fetch in the given range.
       boolean hasMore
+
+# A domain for interacting with Cast, Presentation API, and Remote Playback API
+# functionalities.
+experimental domain Cast
+
+  # Starts observing for sinks that can be used for tab mirroring, and if set,
+  # sinks compatible with |presentationUrl| as well. When sinks are found, a
+  # |sinksUpdated| event is fired.
+  # Also starts observing for issue messages. When an issue is added or removed,
+  # an |issueUpdated| event is fired.
+  command enable
+    parameters
+      optional string presentationUrl
+
+  # Stops observing for sinks and issues.
+  command disable
+
+  # Sets a sink to be used when the web page requests the browser to choose a
+  # sink via Presentation API, Remote Playback API, or Cast SDK.
+  command setSinkToUse
+    parameters
+      string sinkName
+
+  # Starts mirroring the tab to the sink.
+  command startTabMirroring
+    parameters
+      string sinkName
+
+  # Stops the active Cast session on the sink.
+  command stopCasting
+    parameters
+      string sinkName
+
+  # This is fired whenever the list of available sinks changes. A sink is a
+  # device or a software surface that you can cast to.
+  event sinksUpdated
+    parameters
+      array of string sinkNames
+
+  # This is fired whenever the outstanding issue/error message changes.
+  # |issueMessage| is empty if there is no issue.
+  event issueUpdated
+    parameters
+      string issueMessage
+
 
 # This domain exposes DOM read/write operations. Each DOM Node is represented with its mirror object
 # that has an `id`. This `id` can be used to get additional information on the Node, resolve it into
@@ -1751,6 +1798,8 @@ domain DOM
       optional DOM.BackendNodeId backendNodeId
       # Symbolic group name that can be used to release multiple objects.
       optional string objectGroup
+      # Execution context in which to resolve the node.
+      optional Runtime.ExecutionContextId executionContextId
     returns
       # JavaScript object wrapper for given node.
       Runtime.RemoteObject object
@@ -1788,6 +1837,15 @@ domain DOM
       optional BackendNodeId backendNodeId
       # JavaScript object id of the node wrapper.
       optional Runtime.RemoteObjectId objectId
+
+  # Returns file information for the given
+  # File wrapper.
+  experimental command getFileInfo
+    parameters
+      # JavaScript object id of the node wrapper.
+      Runtime.RemoteObjectId objectId
+    returns
+      string path
 
   # Enables console to refer to the node with given id via $x (see Command Line API for more details
   # $x functions).
@@ -2776,8 +2834,9 @@ experimental domain IndexedDB
     properties
       # Database name.
       string name
-      # Database version.
-      integer version
+      # Database version (type is not 'integer', as the standard
+      # requires the version number to be 'unsigned long long')
+      number version
       # Object stores in this database.
       array of ObjectStore objectStores
 
@@ -3036,12 +3095,21 @@ domain Input
         left
         middle
         right
+        back
+        forward
+      # A number indicating which buttons are pressed on the mouse when a mouse event is triggered.
+      # Left=1, Right=2, Middle=4, Back=8, Forward=16, None=0.
+      optional integer buttons
       # Number of times the mouse button was clicked (default: 0).
       optional integer clickCount
       # X delta in CSS pixels for mouse wheel event (default: 0).
       optional number deltaX
       # Y delta in CSS pixels for mouse wheel event (default: 0).
       optional number deltaY
+      # Pointer type (default: "mouse").
+      optional enum pointerType
+        mouse
+        pen
 
   # Dispatches a touch event to the page.
   command dispatchTouchEvent
@@ -3818,14 +3886,16 @@ domain Network
       # HTTP request headers text.
       optional string requestHeadersText
 
-  # WebSocket frame data.
+  # WebSocket message data. This represents an entire WebSocket message, not just a fragmented frame as the name suggests.
   type WebSocketFrame extends object
     properties
-      # WebSocket frame opcode.
+      # WebSocket message opcode.
       number opcode
-      # WebSocke frame mask.
+      # WebSocket message mask.
       boolean mask
-      # WebSocke frame payload data.
+      # WebSocket message payload data.
+      # If the opcode is 1, this is a text message and payloadData is a UTF-8 string.
+      # If the opcode isn't 1, then payloadData is a base64 encoded string representing binary data.
       string payloadData
 
   # Information about the cached resource.
@@ -3983,8 +4053,6 @@ domain Network
     properties
       # Signed exchange request URL.
       string requestUrl
-      # Signed exchange request method.
-      string requestMethod
       # Signed exchange response code.
       integer responseCode
       # Signed exchange response headers.
@@ -4459,17 +4527,17 @@ domain Network
       # Request initiator.
       optional Initiator initiator
 
-  # Fired when WebSocket frame error occurs.
+  # Fired when WebSocket message error occurs.
   event webSocketFrameError
     parameters
       # Request identifier.
       RequestId requestId
       # Timestamp.
       MonotonicTime timestamp
-      # WebSocket frame error message.
+      # WebSocket error message.
       string errorMessage
 
-  # Fired when WebSocket frame is received.
+  # Fired when WebSocket message is received.
   event webSocketFrameReceived
     parameters
       # Request identifier.
@@ -4479,7 +4547,7 @@ domain Network
       # WebSocket response data.
       WebSocketFrame response
 
-  # Fired when WebSocket frame is sent.
+  # Fired when WebSocket message is sent.
   event webSocketFrameSent
     parameters
       # Request identifier.
@@ -4522,11 +4590,12 @@ experimental domain Overlay
     properties
       # Whether the node info tooltip should be shown (default: false).
       optional boolean showInfo
+      # Whether the node styles in the tooltip (default: false).
+      optional boolean showStyles
       # Whether the rulers should be shown (default: false).
       optional boolean showRulers
       # Whether the extension lines from node to the rulers should be shown (default: false).
       optional boolean showExtensionLines
-      optional boolean displayAsMaterial
       # The content box highlight fill color (default: transparent).
       optional DOM.RGBA contentColor
       # The padding highlight fill color (default: transparent).
@@ -4541,8 +4610,6 @@ experimental domain Overlay
       optional DOM.RGBA shapeColor
       # The shape margin fill color (default: transparent).
       optional DOM.RGBA shapeMarginColor
-      # Selectors to highlight relevant nodes.
-      optional string selectorList
       # The grid layout color (default: transparent).
       optional DOM.RGBA cssGridColor
 
@@ -4550,6 +4617,7 @@ experimental domain Overlay
     enum
       searchForNode
       searchForUAShadowDOM
+      captureAreaScreenshot
       none
 
   # Disables domain notifications.
@@ -4592,6 +4660,8 @@ experimental domain Overlay
       optional DOM.BackendNodeId backendNodeId
       # JavaScript object id of the node to be highlighted.
       optional Runtime.RemoteObjectId objectId
+      # Selectors to highlight relevant nodes.
+      optional string selector
 
   # Highlights given quad. Coordinates are absolute with respect to the main frame viewport.
   command highlightQuad
@@ -4628,6 +4698,12 @@ experimental domain Overlay
       # A descriptor for the highlight appearance of hovered-over nodes. May be omitted if `enabled
       # == false`.
       optional HighlightConfig highlightConfig
+
+  # Highlights owner element of all frames detected to be ads.
+  command setShowAdHighlights
+    parameters
+      # True for showing ad highlights
+      boolean show
 
   command setPausedInDebuggerMessage
     parameters
@@ -4690,8 +4766,11 @@ experimental domain Overlay
   # Fired when user asks to capture screenshot of some area on the page.
   event screenshotRequested
     parameters
-      # Viewport to capture, in CSS.
+      # Viewport to capture, in device independent pixels (dip).
       Page.Viewport viewport
+
+  # Fired when user cancels the inspect mode.
+  event inspectModeCanceled
 
 # Actions and events related to the inspected page belong to the page domain.
 domain Page
@@ -4860,17 +4939,19 @@ domain Page
       number clientHeight
       # Scale relative to the ideal viewport (size at width=device-width).
       number scale
+      # Page zoom factor (CSS to device independent pixels ratio).
+      optional number zoom
 
   # Viewport for capturing screenshot.
   type Viewport extends object
     properties
-      # X offset in CSS pixels.
+      # X offset in device independent pixels (dip).
       number x
-      # Y offset in CSS pixels
+      # Y offset in device independent pixels (dip).
       number y
-      # Rectangle width in CSS pixels
+      # Rectangle width in device independent pixels (dip).
       number width
-      # Rectangle height in CSS pixels
+      # Rectangle height in device independent pixels (dip).
       number height
       # Page scale factor.
       number scale
@@ -5038,6 +5119,9 @@ domain Page
       # Array of navigation history entries.
       array of NavigationEntry entries
 
+  # Resets navigation history for the current page.
+  command resetNavigationHistory
+
   # Returns content of the given resource.
   experimental command getResourceContent
     parameters
@@ -5157,8 +5241,6 @@ domain Page
   command removeScriptToEvaluateOnNewDocument
     parameters
       ScriptIdentifier identifier
-
-  experimental command requestAppBanner
 
   # Acknowledges that a screencast frame has been received by the frontend.
   experimental command screencastFrameAck
@@ -5364,6 +5446,9 @@ domain Page
       string message
       # Specifies the endpoint group to deliver the report to.
       optional string group
+
+  # Pauses page execution. Can be resumed using generic Runtime.runIfWaitingForDebugger.
+  experimental command waitForDebugger
 
   event domContentEventFired
     parameters
@@ -5828,7 +5913,7 @@ experimental domain Storage
     parameters
       # Security origin.
       string origin
-      # Comma separated origin names.
+      # Comma separated list of StorageType to clear.
       string storageTypes
 
   # Returns usage and quota in bytes.

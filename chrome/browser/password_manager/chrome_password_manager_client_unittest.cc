@@ -189,7 +189,8 @@ class ChromePasswordManagerClientTest : public ChromeRenderViewHostTestHarness {
             ProfileSyncServiceFactory::GetInstance()->SetTestingFactoryAndUse(
                 profile(), base::BindRepeating(&BuildMockProfileSyncService)));
 
-    EXPECT_CALL(*mock_sync_service, IsFirstSetupComplete())
+    EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+                IsFirstSetupComplete())
         .WillRepeatedly(Return(true));
     EXPECT_CALL(*mock_sync_service, GetTransportState())
         .WillRepeatedly(Return(syncer::SyncService::TransportState::ACTIVE));
@@ -199,7 +200,8 @@ class ChromePasswordManagerClientTest : public ChromeRenderViewHostTestHarness {
   // Make a navigation entry that will accept an annotation.
   void SetupNavigationForAnnotation() {
     ProfileSyncServiceMock* mock_sync_service = SetupBasicMockSync();
-    EXPECT_CALL(*mock_sync_service, IsUsingSecondaryPassphrase())
+    EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+                IsUsingSecondaryPassphrase())
         .WillRepeatedly(Return(false));
     metrics_enabled_ = true;
     NavigateAndCommit(GURL("about:blank"));
@@ -291,7 +293,8 @@ TEST_F(ChromePasswordManagerClientTest, GetPasswordSyncState) {
   active_types.Put(syncer::PASSWORDS);
   EXPECT_CALL(*mock_sync_service, GetActiveDataTypes())
       .WillRepeatedly(Return(active_types));
-  EXPECT_CALL(*mock_sync_service, IsUsingSecondaryPassphrase())
+  EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+              IsUsingSecondaryPassphrase())
       .WillRepeatedly(Return(false));
 
   ChromePasswordManagerClient* client = GetClient();
@@ -301,7 +304,8 @@ TEST_F(ChromePasswordManagerClientTest, GetPasswordSyncState) {
             client->GetPasswordSyncState());
 
   // Again, using a custom passphrase.
-  EXPECT_CALL(*mock_sync_service, IsUsingSecondaryPassphrase())
+  EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+              IsUsingSecondaryPassphrase())
       .WillRepeatedly(Return(true));
 
   EXPECT_EQ(password_manager::SYNCING_WITH_CUSTOM_PASSPHRASE,
@@ -316,20 +320,11 @@ TEST_F(ChromePasswordManagerClientTest, GetPasswordSyncState) {
   EXPECT_EQ(password_manager::NOT_SYNCING, client->GetPasswordSyncState());
 
   // Again, without a custom passphrase.
-  EXPECT_CALL(*mock_sync_service, IsUsingSecondaryPassphrase())
+  EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+              IsUsingSecondaryPassphrase())
       .WillRepeatedly(Return(false));
 
   EXPECT_EQ(password_manager::NOT_SYNCING, client->GetPasswordSyncState());
-}
-
-TEST_F(ChromePasswordManagerClientTest, IsIncognitoTest) {
-  ChromePasswordManagerClient* client = GetClient();
-
-  profile()->ForceIncognito(true);
-  EXPECT_TRUE(client->IsIncognito());
-
-  profile()->ForceIncognito(false);
-  EXPECT_FALSE(client->IsIncognito());
 }
 
 TEST_F(ChromePasswordManagerClientTest,
@@ -385,9 +380,19 @@ TEST_F(ChromePasswordManagerClientTest, SavingAndFillingEnabledConditionsTest) {
   EXPECT_TRUE(client->IsSavingAndFillingEnabled(kUrlOn));
   EXPECT_TRUE(client->IsFillingEnabled(kUrlOn));
   EXPECT_TRUE(client->IsFillingFallbackEnabled(kUrlOn));
+}
+
+TEST_F(ChromePasswordManagerClientTest,
+       SavingAndFillingDisabledConditionsInIncognito) {
+  std::unique_ptr<WebContents> incognito_web_contents(
+      content::WebContentsTester::CreateTestWebContents(
+          profile()->GetOffTheRecordProfile(), nullptr));
+  std::unique_ptr<MockChromePasswordManagerClient> client(
+      new MockChromePasswordManagerClient(incognito_web_contents.get()));
+  EXPECT_CALL(*client, GetMainFrameCertStatus()).WillRepeatedly(Return(0));
 
   // Saving disabled in Incognito mode.
-  profile()->ForceIncognito(true);
+  const GURL kUrlOn("https://accounts.google.com");
   EXPECT_FALSE(client->IsSavingAndFillingEnabled(kUrlOn));
   EXPECT_TRUE(client->IsFillingEnabled(kUrlOn));
   EXPECT_TRUE(client->IsFillingFallbackEnabled(kUrlOn));
@@ -403,6 +408,8 @@ TEST_F(ChromePasswordManagerClientTest, SavingAndFillingEnabledConditionsTest) {
   // In guest mode saving is disabled, filling is enabled but there is in fact
   // nothing to fill, manual filling is disabled.
   profile()->SetGuestSession(true);
+  profile()->GetOffTheRecordProfile()->AsTestingProfile()->SetGuestSession(
+      true);
   EXPECT_FALSE(client->IsSavingAndFillingEnabled(kUrlOn));
   EXPECT_TRUE(client->IsFillingEnabled(kUrlOn));
   EXPECT_FALSE(client->IsFillingFallbackEnabled(kUrlOn));
@@ -518,7 +525,8 @@ TEST_F(ChromePasswordManagerClientTest, WebUINoLogging) {
 TEST_F(ChromePasswordManagerClientTest,
        AnnotateNavigationEntryWithMetricsNoCustom) {
   ProfileSyncServiceMock* mock_sync_service = SetupBasicMockSync();
-  EXPECT_CALL(*mock_sync_service, IsUsingSecondaryPassphrase())
+  EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+              IsUsingSecondaryPassphrase())
       .WillRepeatedly(Return(false));
   metrics_enabled_ = true;
 
@@ -527,14 +535,15 @@ TEST_F(ChromePasswordManagerClientTest,
 
   EXPECT_EQ(
       SerializedNavigationEntry::HAS_PASSWORD_FIELD,
-      GetPasswordStateFromNavigation(*controller().GetLastCommittedEntry()));
+      GetPasswordStateFromNavigation(controller().GetLastCommittedEntry()));
 }
 
 // Metrics disabled, syncing with non-custom passphrase: Do not annotate.
 TEST_F(ChromePasswordManagerClientTest,
        AnnotateNavigationEntryNoMetricsNoCustom) {
   ProfileSyncServiceMock* mock_sync_service = SetupBasicMockSync();
-  EXPECT_CALL(*mock_sync_service, IsUsingSecondaryPassphrase())
+  EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+              IsUsingSecondaryPassphrase())
       .WillRepeatedly(Return(false));
   metrics_enabled_ = false;
 
@@ -543,14 +552,15 @@ TEST_F(ChromePasswordManagerClientTest,
 
   EXPECT_EQ(
       SerializedNavigationEntry::PASSWORD_STATE_UNKNOWN,
-      GetPasswordStateFromNavigation(*controller().GetLastCommittedEntry()));
+      GetPasswordStateFromNavigation(controller().GetLastCommittedEntry()));
 }
 
 // Metrics enabled, syncing with custom passphrase: Do not annotate.
 TEST_F(ChromePasswordManagerClientTest,
        AnnotateNavigationEntryWithMetricsWithCustom) {
   ProfileSyncServiceMock* mock_sync_service = SetupBasicMockSync();
-  EXPECT_CALL(*mock_sync_service, IsUsingSecondaryPassphrase())
+  EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+              IsUsingSecondaryPassphrase())
       .WillRepeatedly(Return(true));
   metrics_enabled_ = true;
 
@@ -559,14 +569,15 @@ TEST_F(ChromePasswordManagerClientTest,
 
   EXPECT_EQ(
       SerializedNavigationEntry::PASSWORD_STATE_UNKNOWN,
-      GetPasswordStateFromNavigation(*controller().GetLastCommittedEntry()));
+      GetPasswordStateFromNavigation(controller().GetLastCommittedEntry()));
 }
 
 // Metrics disabled, syncing with custom passphrase: Do not annotate.
 TEST_F(ChromePasswordManagerClientTest,
        AnnotateNavigationEntryNoMetricsWithCustom) {
   ProfileSyncServiceMock* mock_sync_service = SetupBasicMockSync();
-  EXPECT_CALL(*mock_sync_service, IsUsingSecondaryPassphrase())
+  EXPECT_CALL(*mock_sync_service->GetUserSettingsMock(),
+              IsUsingSecondaryPassphrase())
       .WillRepeatedly(Return(true));
   metrics_enabled_ = false;
 
@@ -575,7 +586,7 @@ TEST_F(ChromePasswordManagerClientTest,
 
   EXPECT_EQ(
       SerializedNavigationEntry::PASSWORD_STATE_UNKNOWN,
-      GetPasswordStateFromNavigation(*controller().GetLastCommittedEntry()));
+      GetPasswordStateFromNavigation(controller().GetLastCommittedEntry()));
 }
 
 // State transition: Unannotated
@@ -584,7 +595,7 @@ TEST_F(ChromePasswordManagerClientTest, AnnotateNavigationEntryUnannotated) {
 
   EXPECT_EQ(
       SerializedNavigationEntry::PASSWORD_STATE_UNKNOWN,
-      GetPasswordStateFromNavigation(*controller().GetLastCommittedEntry()));
+      GetPasswordStateFromNavigation(controller().GetLastCommittedEntry()));
 }
 
 // State transition: unknown->false
@@ -594,7 +605,7 @@ TEST_F(ChromePasswordManagerClientTest, AnnotateNavigationEntryToFalse) {
   GetClient()->AnnotateNavigationEntry(false);
   EXPECT_EQ(
       SerializedNavigationEntry::NO_PASSWORD_FIELD,
-      GetPasswordStateFromNavigation(*controller().GetLastCommittedEntry()));
+      GetPasswordStateFromNavigation(controller().GetLastCommittedEntry()));
 }
 
 // State transition: false->true
@@ -605,7 +616,7 @@ TEST_F(ChromePasswordManagerClientTest, AnnotateNavigationEntryToTrue) {
   GetClient()->AnnotateNavigationEntry(true);
   EXPECT_EQ(
       SerializedNavigationEntry::HAS_PASSWORD_FIELD,
-      GetPasswordStateFromNavigation(*controller().GetLastCommittedEntry()));
+      GetPasswordStateFromNavigation(controller().GetLastCommittedEntry()));
 }
 
 // State transition: true->false (retains true)
@@ -616,7 +627,7 @@ TEST_F(ChromePasswordManagerClientTest, AnnotateNavigationEntryTrueToFalse) {
   GetClient()->AnnotateNavigationEntry(false);
   EXPECT_EQ(
       SerializedNavigationEntry::HAS_PASSWORD_FIELD,
-      GetPasswordStateFromNavigation(*controller().GetLastCommittedEntry()));
+      GetPasswordStateFromNavigation(controller().GetLastCommittedEntry()));
 }
 
 // Handle missing ChromePasswordManagerClient instance in BindCredentialManager

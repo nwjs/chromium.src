@@ -11,6 +11,7 @@
 #include "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/url_formatter/elide_url.h"
 #import "ios/chrome/browser/ui/dialogs/dialog_presenter.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
@@ -25,7 +26,7 @@
 #import "ios/web/public/test/earl_grey/web_view_matchers.h"
 #include "ios/web/public/test/element_selector.h"
 #include "ios/web/public/test/url_test_util.h"
-#include "ios/web/public/web_state/web_state.h"
+#import "ios/web/public/web_state/web_state.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "net/test/embedded_test_server/request_handler_util.h"
@@ -232,10 +233,10 @@ void WaitForAlertToBeShown(NSString* alert_label) {
 
 // Waits for a JavaScript dialog to be shown from the page at |url|.
 void WaitForJavaScriptDialogToBeShown(const GURL& url) {
-  NSString* hostname = base::SysUTF8ToNSString(url.host());
-  NSString* expectedTitle = l10n_util::GetNSStringF(
-      IDS_JAVASCRIPT_MESSAGEBOX_TITLE, base::SysNSStringToUTF16(hostname));
-
+  base::string16 URLString = url_formatter::FormatUrlForSecurityDisplay(
+      url, url_formatter::SchemeDisplay::OMIT_HTTP_AND_HTTPS);
+  NSString* expectedTitle =
+      l10n_util::GetNSStringF(IDS_JAVASCRIPT_MESSAGEBOX_TITLE, URLString);
   WaitForAlertToBeShown(expectedTitle);
 }
 
@@ -258,9 +259,10 @@ void ShowJavaScriptDialog(JavaScriptAlertType type, const GURL& url) {
 void AssertJavaScriptAlertNotPresent(const GURL& url) {
   ConditionBlock condition = ^{
     NSError* error = nil;
-    NSString* hostname = base::SysUTF8ToNSString(url.host());
-    NSString* expectedTitle = l10n_util::GetNSStringF(
-        IDS_JAVASCRIPT_MESSAGEBOX_TITLE, base::SysNSStringToUTF16(hostname));
+    base::string16 URLString = url_formatter::FormatUrlForSecurityDisplay(
+        url, url_formatter::SchemeDisplay::OMIT_HTTP_AND_HTTPS);
+    NSString* expectedTitle =
+        l10n_util::GetNSStringF(IDS_JAVASCRIPT_MESSAGEBOX_TITLE, URLString);
 
     id<GREYMatcher> titleLabel =
         chrome_test_util::StaticTextWithAccessibilityLabel(expectedTitle);
@@ -518,9 +520,13 @@ void TapSuppressDialogsButton() {
 
   // Show settings.
   [ChromeEarlGreyUI openSettingsMenu];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          StaticTextWithAccessibilityLabelId(
-                                              IDS_IOS_SETTINGS_TITLE)]
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(grey_accessibilityLabel(
+                                              l10n_util::GetNSString(
+                                                  IDS_IOS_SETTINGS_TITLE)),
+                                          grey_accessibilityTrait(
+                                              UIAccessibilityTraitHeader),
+                                          nil)]
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Show an alert.
@@ -603,11 +609,7 @@ void TapSuppressDialogsButton() {
   }
 
   // Wait for the alert to be shown.
-  NSString* hostname = base::SysUTF8ToNSString(self.onLoadPageURL.host());
-  NSString* expectedTitle = l10n_util::GetNSStringF(
-      IDS_JAVASCRIPT_MESSAGEBOX_TITLE, base::SysNSStringToUTF16(hostname));
-
-  WaitForAlertToBeShown(expectedTitle);
+  WaitForJavaScriptDialogToBeShown(self.onLoadPageURL);
 
   // Verify that the omnibox shows the correct URL when the dialog is visible.
   std::string title =

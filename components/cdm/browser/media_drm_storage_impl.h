@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "base/memory/weak_ptr.h"
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
@@ -35,10 +36,18 @@ namespace cdm {
 class MediaDrmStorageImpl final
     : public content::FrameServiceBase<media::mojom::MediaDrmStorage> {
  public:
+  using GetOriginIdCB = base::RepeatingCallback<void(
+      base::OnceCallback<void(const base::UnguessableToken&)>)>;
+
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
   // Get a list of origins that have persistent storage on the device.
   static std::set<GURL> GetAllOrigins(const PrefService* pref_service);
+
+  // Get a list of all origins that have been modified after |modified_since|.
+  static std::vector<GURL> GetOriginsModifiedSince(
+      const PrefService* pref_service,
+      base::Time modified_since);
 
   // Clear licenses if:
   // 1. The license creation time falls in [|start|, |end|], and
@@ -56,6 +65,7 @@ class MediaDrmStorageImpl final
 
   MediaDrmStorageImpl(content::RenderFrameHost* render_frame_host,
                       PrefService* pref_service,
+                      GetOriginIdCB get_origin_id_cb,
                       media::mojom::MediaDrmStorageRequest request);
 
   // media::mojom::MediaDrmStorage implementation.
@@ -75,11 +85,23 @@ class MediaDrmStorageImpl final
   // |this| can only be destructed as a FrameServiceBase.
   ~MediaDrmStorageImpl() final;
 
+  // Called when |get_origin_id_cb_| asynchronously returns a origin ID as part
+  // of Initialize();
+  void OnOriginIdObtained(const base::UnguessableToken& origin_id);
+
   PrefService* const pref_service_ = nullptr;
+  GetOriginIdCB get_origin_id_cb_;
 
   // ID for the current origin. Per EME spec on individualization,
   // implementation should not expose application-specific information.
   base::UnguessableToken origin_id_;
+
+  // As Initialize() may be asynchronous, save the InitializeCallback when
+  // necessary.
+  InitializeCallback init_cb_;
+
+  // NOTE: Weak pointers must be invalidated before all other member variables.
+  base::WeakPtrFactory<MediaDrmStorageImpl> weak_factory_;
 };
 
 }  // namespace cdm

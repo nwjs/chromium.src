@@ -55,7 +55,7 @@ class VideoElementResizeDelegate final : public ResizeObserver::Delegate {
         entries[0]->target()->GetLayoutObject());
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(text_track_container_);
     ResizeObserver::Delegate::Trace(visitor);
   }
@@ -69,7 +69,7 @@ class VideoElementResizeDelegate final : public ResizeObserver::Delegate {
 TextTrackContainer::TextTrackContainer(Document& document)
     : HTMLDivElement(document), default_font_size_(0) {}
 
-void TextTrackContainer::Trace(blink::Visitor* visitor) {
+void TextTrackContainer::Trace(Visitor* visitor) {
   visitor->Trace(video_size_observer_);
   HTMLDivElement::Trace(visitor);
 }
@@ -96,7 +96,7 @@ LayoutObject* TextTrackContainer::CreateLayoutObject(const ComputedStyle&) {
 
 void TextTrackContainer::ObserveSizeChanges(Element& element) {
   video_size_observer_ = ResizeObserver::Create(
-      GetDocument(), new VideoElementResizeDelegate(*this));
+      GetDocument(), MakeGarbageCollected<VideoElementResizeDelegate>(*this));
   video_size_observer_->observe(&element);
 }
 

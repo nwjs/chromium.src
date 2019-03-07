@@ -21,7 +21,11 @@ class PLATFORM_EXPORT CompositorMutatorClient : public cc::LayerTreeMutator,
       std::unique_ptr<AnimationWorkletMutatorDispatcherImpl>);
   ~CompositorMutatorClient() override;
 
+  void SynchronizeAnimatorName(const String& animator_name) override {}
   void SetMutationUpdate(std::unique_ptr<cc::MutatorOutputState>) override;
+  // TODO(http://crbug.com/791280): Plumb notifications through to cc scheduler.
+  void NotifyAnimationsPending() override {}
+  void NotifyAnimationsReady() override {}
 
   // cc::LayerTreeMutator
   void SetClient(cc::LayerTreeMutatorClient*) override;

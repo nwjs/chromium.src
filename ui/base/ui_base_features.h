@@ -7,13 +7,12 @@
 
 #include "base/feature_list.h"
 #include "build/build_config.h"
+#include "ui/base/buildflags.h"
 #include "ui/base/ui_base_export.h"
-#include "ui/base/ui_features.h"
 
 namespace features {
 
 // Keep sorted!
-UI_BASE_EXPORT extern const base::Feature kEnableEmojiContextMenu;
 UI_BASE_EXPORT extern const base::Feature
     kEnableFullscreenHandwritingVirtualKeyboard;
 UI_BASE_EXPORT extern const base::Feature kEnableStylusVirtualKeyboard;
@@ -24,11 +23,9 @@ UI_BASE_EXPORT extern const base::Feature kSettingsShowsPerKeyboardSettings;
 #endif  // defined(OS_CHROMEOS)
 UI_BASE_EXPORT extern const base::Feature kInputMethodSettingsUiUpdate;
 UI_BASE_EXPORT extern const base::Feature kSystemKeyboardLock;
-UI_BASE_EXPORT extern const base::Feature kTouchableAppContextMenu;
 UI_BASE_EXPORT extern const base::Feature kNotificationIndicator;
 UI_BASE_EXPORT extern const base::Feature kUiCompositorScrollWithLayers;
 
-UI_BASE_EXPORT bool IsTouchableAppContextMenuEnabled();
 UI_BASE_EXPORT bool IsNotificationIndicatorEnabled();
 
 UI_BASE_EXPORT bool IsUiGpuRasterizationEnabled();
@@ -63,6 +60,8 @@ UI_BASE_EXPORT extern const base::Feature kMash;
 // make it the default kMash behavior.
 UI_BASE_EXPORT extern const base::Feature kMashOopViz;
 
+// NOTE: Do not access directly outside of tests. Use IsSingleProcessMash()
+// to avoid problems when Mash and SingleProcessMash are both enabled.
 UI_BASE_EXPORT extern const base::Feature kSingleProcessMash;
 
 // Returns true if Chrome's aura usage is backed by the WindowService.
@@ -104,6 +103,9 @@ UI_BASE_EXPORT bool IsOzoneDrmMojo();
 // macOS Mojave/Windows 10.
 UI_BASE_EXPORT extern const base::Feature kDarkMode;
 
+#if defined(OS_CHROMEOS)
+UI_BASE_EXPORT extern const base::Feature kHandwritingGesture;
+#endif
 }  // namespace features
 
 #endif  // UI_BASE_UI_BASE_FEATURES_H_

@@ -123,6 +123,8 @@ PipelineIntegrationTestBase::PipelineIntegrationTestBase()
     : hashing_enabled_(false),
       clockless_playback_(false),
       webaudio_attached_(false),
+      mono_output_(false),
+      fuzzing_(false),
       pipeline_(
           new PipelineImpl(scoped_task_environment_.GetMainThreadTaskRunner(),
                            scoped_task_environment_.GetMainThreadTaskRunner(),
@@ -150,13 +152,19 @@ void PipelineIntegrationTestBase::ParseTestTypeFlags(uint8_t flags) {
   clockless_playback_ = !(flags & kNoClockless);
   webaudio_attached_ = flags & kWebAudio;
   mono_output_ = flags & kMonoOutput;
+  fuzzing_ = flags & kFuzzing;
 }
 
 // TODO(xhwang): Method definitions in this file needs to be reordered.
 
 void PipelineIntegrationTestBase::OnSeeked(base::TimeDelta seek_time,
                                            PipelineStatus status) {
-  EXPECT_EQ(seek_time, pipeline_->GetMediaTime());
+  // When fuzzing, sometimes a seek to 0 results in an actual media time > 0.
+  if (fuzzing_)
+    EXPECT_LE(seek_time, pipeline_->GetMediaTime());
+  else
+    EXPECT_EQ(seek_time, pipeline_->GetMediaTime());
+
   pipeline_status_ = status;
 }
 
@@ -272,7 +280,7 @@ PipelineStatus PipelineIntegrationTestBase::StartInternal(
 
   // Should never be called as the required decryption keys for the encrypted
   // media files are provided in advance.
-  EXPECT_CALL(*this, OnWaitingForDecryptionKey()).Times(0);
+  EXPECT_CALL(*this, OnWaiting(WaitingReason::kNoDecryptionKey)).Times(0);
 
   // DemuxerStreams may signal config changes.
   // In practice, this doesn't happen for FFmpegDemuxer, but it's allowed for
@@ -585,7 +593,9 @@ PipelineStatus PipelineIntegrationTestBase::StartPipelineWithMediaSource(
     FakeEncryptedMedia* encrypted_media) {
   ParseTestTypeFlags(test_type);
 
-  if (!(test_type & kExpectDemuxerFailure))
+  if (fuzzing_)
+    EXPECT_CALL(*source, InitSegmentReceivedMock(_)).Times(AnyNumber());
+  else if (!(test_type & kExpectDemuxerFailure))
     EXPECT_CALL(*source, InitSegmentReceivedMock(_)).Times(AtLeast(1));
 
   EXPECT_CALL(*this, OnMetadata(_))
@@ -619,14 +629,14 @@ PipelineStatus PipelineIntegrationTestBase::StartPipelineWithMediaSource(
 
     // Encrypted content used but keys provided in advance, so this is
     // never called.
-    EXPECT_CALL(*this, OnWaitingForDecryptionKey()).Times(0);
+    EXPECT_CALL(*this, OnWaiting(WaitingReason::kNoDecryptionKey)).Times(0);
     pipeline_->SetCdm(
         encrypted_media->GetCdmContext(),
         base::Bind(&PipelineIntegrationTestBase::DecryptorAttached,
                    base::Unretained(this)));
   } else {
     // Encrypted content not used, so this is never called.
-    EXPECT_CALL(*this, OnWaitingForDecryptionKey()).Times(0);
+    EXPECT_CALL(*this, OnWaiting(WaitingReason::kNoDecryptionKey)).Times(0);
   }
 
   pipeline_->Start(
@@ -669,11 +679,6 @@ void PipelineIntegrationTestBase::RunUntilQuitOrEndedOrError(
 
   on_ended_closure_ = run_loop->QuitWhenIdleClosure();
   RunUntilQuitOrError(run_loop);
-}
-
-base::TimeTicks DummyTickClock::NowTicks() const {
-  now_ += base::TimeDelta::FromSeconds(60);
-  return now_;
 }
 
 }  // namespace media

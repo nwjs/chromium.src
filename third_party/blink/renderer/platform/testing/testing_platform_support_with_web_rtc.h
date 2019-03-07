@@ -8,7 +8,7 @@
 #include "base/single_thread_task_runner.h"
 #include "third_party/blink/public/platform/web_rtc_peer_connection_handler.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
-#include "third_party/webrtc/api/peerconnectioninterface.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
 
 namespace blink {
 
@@ -23,10 +23,12 @@ class MockWebRTCPeerConnectionHandler : public WebRTCPeerConnectionHandler {
   bool Initialize(const webrtc::PeerConnectionInterface::RTCConfiguration&,
                   const WebMediaConstraints&) override;
 
-  void CreateOffer(const WebRTCSessionDescriptionRequest&,
-                   const WebMediaConstraints&) override;
-  void CreateOffer(const WebRTCSessionDescriptionRequest&,
-                   const WebRTCOfferOptions&) override;
+  std::vector<std::unique_ptr<WebRTCRtpTransceiver>> CreateOffer(
+      const WebRTCSessionDescriptionRequest&,
+      const WebMediaConstraints&) override;
+  std::vector<std::unique_ptr<WebRTCRtpTransceiver>> CreateOffer(
+      const WebRTCSessionDescriptionRequest&,
+      const WebRTCOfferOptions&) override;
   void CreateAnswer(const WebRTCSessionDescriptionRequest&,
                     const WebMediaConstraints&) override;
   void CreateAnswer(const WebRTCSessionDescriptionRequest&,
@@ -64,6 +66,12 @@ class MockWebRTCPeerConnectionHandler : public WebRTCPeerConnectionHandler {
       const WebRTCDataChannelInit&) override;
   void Stop() override;
   WebString Id() const override;
+  webrtc::PeerConnectionInterface* NativePeerConnection() override;
+
+ private:
+  class DummyWebRTCRtpTransceiver;
+
+  std::vector<std::unique_ptr<DummyWebRTCRtpTransceiver>> transceivers_;
 };
 
 class TestingPlatformSupportWithWebRTC : public TestingPlatformSupport {

@@ -105,10 +105,14 @@ const base::Feature kUmaShortHWClass{"UmaShortHWClass",
 
 }  // namespace features
 
-ChromeOSMetricsProvider::ChromeOSMetricsProvider()
+ChromeOSMetricsProvider::ChromeOSMetricsProvider(
+    metrics::MetricsLogUploader::MetricServiceType service_type)
     : registered_user_count_at_log_initialization_(false),
       user_count_at_log_initialization_(0),
-      weak_ptr_factory_(this) {}
+      weak_ptr_factory_(this) {
+  if (service_type == metrics::MetricsLogUploader::UMA)
+    profile_provider_ = std::make_unique<metrics::ProfileProvider>();
+}
 
 ChromeOSMetricsProvider::~ChromeOSMetricsProvider() {
 }
@@ -151,7 +155,8 @@ void ChromeOSMetricsProvider::Init() {
     hardware_class_ =
         variations::VariationsFieldTrialCreator::GetShortHardwareClass();
   }
-  perf_provider_.Init();
+  if (profile_provider_ != nullptr)
+    profile_provider_->Init();
 }
 
 void ChromeOSMetricsProvider::AsyncInit(const base::Closure& done_callback) {
@@ -186,8 +191,8 @@ void ChromeOSMetricsProvider::InitTaskGetFullHardwareClass(
 void ChromeOSMetricsProvider::InitTaskGetBluetoothAdapter(
     const base::Closure& callback) {
   device::BluetoothAdapterFactory::GetAdapter(
-      base::Bind(&ChromeOSMetricsProvider::SetBluetoothAdapter,
-                 weak_ptr_factory_.GetWeakPtr(), callback));
+      base::BindOnce(&ChromeOSMetricsProvider::SetBluetoothAdapter,
+                     weak_ptr_factory_.GetWeakPtr(), callback));
 }
 
 void ChromeOSMetricsProvider::ProvideSystemProfileMetrics(
@@ -245,7 +250,7 @@ void ChromeOSMetricsProvider::ProvideCurrentSessionData(
     metrics::ChromeUserMetricsExtension* uma_proto) {
   ProvideStabilityMetrics(uma_proto->mutable_system_profile());
   std::vector<SampledProfile> sampled_profiles;
-  if (perf_provider_.GetSampledProfiles(&sampled_profiles)) {
+  if (profile_provider_->GetSampledProfiles(&sampled_profiles)) {
     for (auto& profile : sampled_profiles) {
       uma_proto->add_sampled_profile()->Swap(&profile);
     }

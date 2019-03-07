@@ -47,8 +47,6 @@ bool PrimaryAccountMutatorImpl::ClearPrimaryAccount(
       !LegacyIsPrimaryAccountAuthInProgress())
     return false;
 
-  // TODO: report failure if SignOut is not allowed.
-
   switch (action) {
     case PrimaryAccountMutator::ClearAccountsAction::kDefault:
       signin_manager_->SignOut(source_metric, delete_metric);
@@ -73,15 +71,6 @@ void PrimaryAccountMutatorImpl::SetSettingPrimaryAccountAllowed(bool allowed) {
   signin_manager_->SetSigninAllowed(allowed);
 }
 
-bool PrimaryAccountMutatorImpl::IsClearingPrimaryAccountAllowed() const {
-  NOTIMPLEMENTED();
-  return false;
-}
-
-void PrimaryAccountMutatorImpl::SetClearingPrimaryAccountAllowed(bool allowed) {
-  NOTIMPLEMENTED();
-}
-
 void PrimaryAccountMutatorImpl::SetAllowedPrimaryAccountPattern(
     const std::string& pattern) {
   NOTIMPLEMENTED();
@@ -103,7 +92,7 @@ void PrimaryAccountMutatorImpl::LegacyCompletePendingPrimaryAccountSignin() {
 }
 
 void PrimaryAccountMutatorImpl::LegacyMergeSigninCredentialIntoCookieJar() {
-  NOTIMPLEMENTED();
+  signin_manager_->MergeSigninCredentialIntoCookieJar();
 }
 
 bool PrimaryAccountMutatorImpl::LegacyIsPrimaryAccountAuthInProgress() const {
@@ -125,7 +114,8 @@ AccountInfo PrimaryAccountMutatorImpl::LegacyPrimaryAccountForAuthInProgress()
 
 void PrimaryAccountMutatorImpl::LegacyCopyCredentialsFrom(
     const PrimaryAccountMutator& source) {
-  NOTIMPLEMENTED();
+  signin_manager_->CopyCredentialsFrom(
+      *static_cast<const PrimaryAccountMutatorImpl&>(source).signin_manager_);
 }
 
 }  // namespace identity

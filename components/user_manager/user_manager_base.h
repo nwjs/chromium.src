@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
@@ -30,6 +31,9 @@ class TaskRunner;
 }
 
 namespace user_manager {
+
+// Hides all Supervised Users.
+USER_MANAGER_EXPORT extern const base::Feature kHideSupervisedUsers;
 
 class RemoveUserDelegate;
 
@@ -165,6 +169,9 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   // |device_local_accounts_set|.
   virtual void LoadDeviceLocalAccounts(
       std::set<AccountId>* device_local_accounts_set) = 0;
+
+  // Notifies observers that active user has changed.
+  void NotifyActiveUserChanged(const User* active_user);
 
   // Notifies that user has logged in.
   virtual void NotifyOnLogin();
@@ -318,9 +325,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   // Notifies observers that merge session state had changed.
   void NotifyMergeSessionStateChanged();
-
-  // Notifies observers that active user has changed.
-  void NotifyActiveUserChanged(const User* active_user);
 
   // Notifies observers that active account_id hash has changed.
   void NotifyActiveUserHashChanged(const std::string& hash);

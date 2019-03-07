@@ -1336,8 +1336,16 @@ IN_PROC_BROWSER_TEST_P(TwoClientBookmarksSyncTestIncludingUssTests,
   ASSERT_FALSE(ContainsDuplicateBookmarks(0));
 }
 
+// Flaky on windows, see htpp://crbug.com/919877
+#if defined(OS_WIN)
+#define MAYBE_MC_MergeSimpleBMHierarchyEqualSetsUnderBMBar \
+  DISABLED_MC_MergeSimpleBMHierarchyEqualSetsUnderBMBar
+#else
+#define MAYBE_MC_MergeSimpleBMHierarchyEqualSetsUnderBMBar \
+  MC_MergeSimpleBMHierarchyEqualSetsUnderBMBar
+#endif
 IN_PROC_BROWSER_TEST_P(TwoClientBookmarksSyncTestIncludingUssTests,
-                       MC_MergeSimpleBMHierarchyEqualSetsUnderBMBar) {
+                       MAYBE_MC_MergeSimpleBMHierarchyEqualSetsUnderBMBar) {
   ASSERT_TRUE(SetupClients()) << "SetupClients() failed.";
   DisableVerifier();
 
@@ -1376,15 +1384,10 @@ IN_PROC_BROWSER_TEST_P(TwoClientBookmarksSyncTestIncludingUssTests,
   ASSERT_FALSE(ContainsDuplicateBookmarks(0));
 }
 
-// Flaky on win-asan, see htpp://crbug.com/908771
-#if defined(ADDRESS_SANITIZER) && defined(OS_WIN)
-#define MAYBE_MC_MergeDifferentBMModelsModeratelyComplex DISABLED_MC_MergeDifferentBMModelsModeratelyComplex
-#else
-#define MAYBE_MC_MergeDifferentBMModelsModeratelyComplex MC_MergeDifferentBMModelsModeratelyComplex
-#endif
+// This test is flaky, see htpp://crbug.com/908771
 // Merge moderately complex bookmark models.
 IN_PROC_BROWSER_TEST_P(TwoClientBookmarksSyncTestIncludingUssTests,
-                       MAYBE_MC_MergeDifferentBMModelsModeratelyComplex) {
+                       DISABLED_MC_MergeDifferentBMModelsModeratelyComplex) {
   ASSERT_TRUE(SetupClients()) << "SetupClients() failed.";
   DisableVerifier();
 
@@ -1879,7 +1882,8 @@ IN_PROC_BROWSER_TEST_P(TwoClientBookmarksSyncTestIncludingUssTests,
 
   // Set a passphrase and enable encryption on Client 0. Client 1 will not
   // understand the bookmark updates.
-  GetSyncService(0)->SetEncryptionPassphrase(kValidPassphrase);
+  GetSyncService(0)->GetUserSettings()->SetEncryptionPassphrase(
+      kValidPassphrase);
   ASSERT_TRUE(PassphraseAcceptedChecker(GetSyncService(0)).Wait());
   ASSERT_TRUE(EnableEncryption(0));
   ASSERT_TRUE(GetClient(0)->AwaitMutualSyncCycleCompletion(GetClient(1)));
@@ -1895,7 +1899,8 @@ IN_PROC_BROWSER_TEST_P(TwoClientBookmarksSyncTestIncludingUssTests,
 
   // Set the passphrase. Everything should resolve.
   ASSERT_TRUE(PassphraseRequiredChecker(GetSyncService(1)).Wait());
-  ASSERT_TRUE(GetSyncService(1)->SetDecryptionPassphrase(kValidPassphrase));
+  ASSERT_TRUE(GetSyncService(1)->GetUserSettings()->SetDecryptionPassphrase(
+      kValidPassphrase));
   ASSERT_TRUE(PassphraseAcceptedChecker(GetSyncService(1)).Wait());
   ASSERT_TRUE(BookmarksMatchChecker().Wait());
   ASSERT_EQ(0, GetClient(1)->GetLastCycleSnapshot().num_encryption_conflicts());

@@ -67,6 +67,8 @@ class TestWindowServiceDelegate : public WindowServiceDelegate {
                    ui::DragDropTypes::DragEventSource source,
                    DragDropCompletedCallback callback) override;
   void CancelDragLoop(aura::Window* window) override;
+  ui::EventTarget* GetGlobalEventTarget() override;
+  aura::Window* GetRootWindowForDisplayId(int64_t display_id) override;
   aura::Window* GetTopmostWindowAtPoint(const gfx::Point& location_in_screen,
                                         const std::set<aura::Window*>& ignore,
                                         aura::Window** real_topmost) override;

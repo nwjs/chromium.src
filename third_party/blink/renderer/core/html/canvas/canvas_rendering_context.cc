@@ -163,9 +163,7 @@ CanvasRenderingContext::ResolveContextTypeAliases(
   return type;
 }
 
-bool CanvasRenderingContext::WouldTaintOrigin(
-    CanvasImageSource* image_source,
-    const SecurityOrigin* destination_security_origin) {
+bool CanvasRenderingContext::WouldTaintOrigin(CanvasImageSource* image_source) {
   // Don't taint the canvas on data URLs. This special case is needed here
   // because CanvasImageSource::WouldTaintOrigin() can return false for data
   // URLs due to restrictions on SVG foreignObject nodes as described in
@@ -178,12 +176,11 @@ bool CanvasRenderingContext::WouldTaintOrigin(
   if (has_url && source_url.ProtocolIsData())
     return false;
 
-  return image_source->WouldTaintOrigin(destination_security_origin);
+  return image_source->WouldTaintOrigin();
 }
 
-void CanvasRenderingContext::Trace(blink::Visitor* visitor) {
+void CanvasRenderingContext::Trace(Visitor* visitor) {
   visitor->Trace(host_);
-  visitor->Trace(creation_attributes_);
   ScriptWrappable::Trace(visitor);
 }
 

@@ -36,7 +36,6 @@
 
 namespace blink {
 
-struct FocusCandidate;
 struct FocusParams;
 class ContainerNode;
 class Document;
@@ -46,7 +45,6 @@ class Frame;
 class HTMLFrameOwnerElement;
 class InputDeviceCapabilities;
 class LocalFrame;
-class Node;
 class Page;
 class RemoteFrame;
 
@@ -108,30 +106,18 @@ class CORE_EXPORT FocusController final
   void Trace(blink::Visitor*);
 
  private:
-  using SkipList = HeapHashSet<Member<Node>>;
 
   Element* FindFocusableElement(WebFocusType, Element&, OwnerMap&);
 
   bool AdvanceFocus(WebFocusType,
                     bool initial_focus,
                     InputDeviceCapabilities* source_capabilities = nullptr);
-  bool AdvanceFocusDirectionally(WebFocusType);
   bool AdvanceFocusInDocumentOrder(
       LocalFrame*,
       Element* start,
       WebFocusType,
       bool initial_focus,
       InputDeviceCapabilities* source_capabilities);
-
-  bool AdvanceFocusDirectionallyInContainer(Node* start_container,
-                                            const LayoutRect& starting_rect,
-                                            WebFocusType,
-                                            Node* pruned_sub_tree_root);
-  void FindFocusCandidateInContainer(Node& container,
-                                     const LayoutRect& starting_rect,
-                                     WebFocusType,
-                                     FocusCandidate& closest,
-                                     const SkipList& already_checked);
 
   void NotifyFocusChangedObservers() const;
 

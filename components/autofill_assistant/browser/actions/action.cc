@@ -10,17 +10,12 @@
 
 namespace autofill_assistant {
 
-Action::Action(const ActionProto& proto) : proto_(proto), show_overlay_(true) {}
+Action::Action(const ActionProto& proto) : proto_(proto) {}
 
 Action::~Action() {}
 
 void Action::ProcessAction(ActionDelegate* delegate,
                            ProcessActionCallback callback) {
-  if (show_overlay_) {
-    delegate->ShowOverlay();
-  } else {
-    delegate->HideOverlay();
-  }
   processed_action_proto_ = std::make_unique<ProcessedActionProto>();
   InternalProcessAction(delegate, std::move(callback));
 }
@@ -39,14 +34,6 @@ std::vector<std::string> Action::ExtractVector(
     vector.emplace_back(string);
   }
   return vector;
-}
-
-Selector Action::ExtractSelector(const ElementReferenceProto& element) {
-  Selector a_selector;
-  for (const auto& selector : element.selectors()) {
-    a_selector.selectors.emplace_back(selector);
-  }
-  return a_selector;
 }
 
 }  // namespace autofill_assistant

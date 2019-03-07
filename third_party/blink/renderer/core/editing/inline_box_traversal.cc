@@ -289,9 +289,14 @@ class AbstractInlineBoxAndSideAffinity {
       return ToPositionInFlatTree(ToNGCaretPosition().ToPositionInDOMTree());
 
     const InlineBoxPosition inline_box_position = ToInlineBoxPosition();
-    return PositionInFlatTree::EditingPositionOf(
-        inline_box_position.inline_box->GetLineLayoutItem().GetNode(),
-        inline_box_position.offset_in_box);
+    const LineLayoutItem item =
+        inline_box_position.inline_box->GetLineLayoutItem();
+    const int text_start_offset =
+        item.IsText() ? LineLayoutText(item).TextStartOffset() : 0;
+    const int offset_in_node =
+        text_start_offset + inline_box_position.offset_in_box;
+    return PositionInFlatTree::EditingPositionOf(item.GetNode(),
+                                                 offset_in_node);
   }
 
   AbstractInlineBox GetBox() const { return box_; }
@@ -846,6 +851,7 @@ const InlineBox& InlineBoxTraversal::FindRightBoundaryOfEntireBidiRun(
 
 InlineBoxPosition BidiAdjustment::AdjustForCaretPositionResolution(
     const InlineBoxPosition& caret_position) {
+  DCHECK(!RuntimeEnabledFeatures::BidiCaretAffinityEnabled());
   const AbstractInlineBoxAndSideAffinity unadjusted(caret_position);
   const AbstractInlineBoxAndSideAffinity adjusted =
       unadjusted.AtLeftSide()
@@ -858,6 +864,7 @@ InlineBoxPosition BidiAdjustment::AdjustForCaretPositionResolution(
 
 NGCaretPosition BidiAdjustment::AdjustForCaretPositionResolution(
     const NGCaretPosition& caret_position) {
+  DCHECK(!RuntimeEnabledFeatures::BidiCaretAffinityEnabled());
   const AbstractInlineBoxAndSideAffinity unadjusted(caret_position);
   const AbstractInlineBoxAndSideAffinity adjusted =
       unadjusted.AtLeftSide()
@@ -870,6 +877,7 @@ NGCaretPosition BidiAdjustment::AdjustForCaretPositionResolution(
 
 InlineBoxPosition BidiAdjustment::AdjustForHitTest(
     const InlineBoxPosition& caret_position) {
+  DCHECK(!RuntimeEnabledFeatures::BidiCaretAffinityEnabled());
   const AbstractInlineBoxAndSideAffinity unadjusted(caret_position);
   const AbstractInlineBoxAndSideAffinity adjusted =
       unadjusted.AtLeftSide()
@@ -880,6 +888,7 @@ InlineBoxPosition BidiAdjustment::AdjustForHitTest(
 
 NGCaretPosition BidiAdjustment::AdjustForHitTest(
     const NGCaretPosition& caret_position) {
+  DCHECK(!RuntimeEnabledFeatures::BidiCaretAffinityEnabled());
   const AbstractInlineBoxAndSideAffinity unadjusted(caret_position);
   const AbstractInlineBoxAndSideAffinity adjusted =
       unadjusted.AtLeftSide()
@@ -891,6 +900,7 @@ NGCaretPosition BidiAdjustment::AdjustForHitTest(
 SelectionInFlatTree BidiAdjustment::AdjustForRangeSelection(
     const VisiblePositionInFlatTree& base,
     const VisiblePositionInFlatTree& extent) {
+  DCHECK(!RuntimeEnabledFeatures::BidiCaretAffinityEnabled());
   return RangeSelectionAdjuster::AdjustFor(base, extent);
 }
 

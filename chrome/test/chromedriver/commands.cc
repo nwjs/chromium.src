@@ -14,7 +14,6 @@
 #include "base/bind_helpers.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/memory/linked_ptr.h"
 #include "base/memory/ptr_util.h"
 #include "base/message_loop/message_loop_current.h"
 #include "base/run_loop.h"
@@ -31,24 +30,32 @@
 #include "chrome/test/chromedriver/session.h"
 #include "chrome/test/chromedriver/session_thread_map.h"
 #include "chrome/test/chromedriver/util.h"
+#include "chrome/test/chromedriver/version.h"
 
 void ExecuteGetStatus(
     const base::DictionaryValue& params,
     const std::string& session_id,
     const CommandCallback& callback) {
+  // W3C defined data:
+  // ChromeDriver doesn't have a preset limit on number of active sessions,
+  // so we are always ready.
+  base::DictionaryValue info;
+  info.SetBoolean("ready", true);
+  info.SetString("message", "ChromeDriver ready for new sessions.");
+
+  // ChromeDriver specific data:
   base::DictionaryValue build;
-  build.SetString("version", "alpha");
+  build.SetString("version", kChromeDriverVersion);
+  info.SetKey("build", std::move(build));
 
   base::DictionaryValue os;
   os.SetString("name", base::SysInfo::OperatingSystemName());
   os.SetString("version", base::SysInfo::OperatingSystemVersion());
   os.SetString("arch", base::SysInfo::OperatingSystemArchitecture());
-
-  base::DictionaryValue info;
-  info.SetKey("build", std::move(build));
   info.SetKey("os", std::move(os));
+
   callback.Run(Status(kOk), base::Value::ToUniquePtrValue(std::move(info)),
-               std::string(), false);
+               std::string(), kW3CDefault);
 }
 
 void ExecuteCreateSession(
@@ -60,8 +67,8 @@ void ExecuteCreateSession(
   std::string new_id = session_id;
   if (new_id.empty())
     new_id = GenerateId();
-  std::unique_ptr<Session> session(new Session(new_id));
-  std::unique_ptr<base::Thread> thread(new base::Thread(new_id));
+  std::unique_ptr<Session> session = std::make_unique<Session>(new_id);
+  std::unique_ptr<base::Thread> thread = std::make_unique<base::Thread>(new_id);
   if (!thread->Start()) {
     callback.Run(
         Status(kUnknownError, "failed to start a thread for the new session"),
@@ -72,8 +79,7 @@ void ExecuteCreateSession(
 
   thread->task_runner()->PostTask(
       FROM_HERE, base::BindOnce(&SetThreadLocalSession, std::move(session)));
-  session_thread_map
-      ->insert(std::make_pair(new_id, make_linked_ptr(thread.release())));
+  session_thread_map->insert(std::make_pair(new_id, std::move(thread)));
   init_session_cmd.Run(params, new_id, callback);
 }
 
@@ -120,9 +126,8 @@ void ExecuteGetSessions(const Command& session_capabilities_command,
 
   base::RunLoop run_loop;
 
-  for (SessionThreadMap::const_iterator iter = session_thread_map->begin();
-       iter != session_thread_map->end();
-       ++iter) {
+  for (auto iter = session_thread_map->begin();
+       iter != session_thread_map->end(); ++iter) {
     session_capabilities_command.Run(params,
                                      iter->first,
                                      base::Bind(
@@ -172,9 +177,8 @@ void ExecuteQuitAll(
     return;
   }
   base::RunLoop run_loop;
-  for (SessionThreadMap::const_iterator iter = session_thread_map->begin();
-       iter != session_thread_map->end();
-       ++iter) {
+  for (auto iter = session_thread_map->begin();
+       iter != session_thread_map->end(); ++iter) {
     quit_command.Run(params,
                      iter->first,
                      base::Bind(&OnSessionQuit,

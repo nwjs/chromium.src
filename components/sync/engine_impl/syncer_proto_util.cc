@@ -7,8 +7,10 @@
 #include <map>
 
 #include "base/format_macros.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
+#include "components/sync/base/model_type.h"
 #include "components/sync/base/time.h"
 #include "components/sync/engine_impl/net/server_connection_manager.h"
 #include "components/sync/engine_impl/syncer.h"
@@ -337,13 +339,43 @@ bool SyncerProtoUtil::PostAndProcessHeaders(ServerConnectionManager* scm,
                             msg.message_contents(),
                             ClientToServerMessage::Contents_MAX + 1);
 
+  if (msg.has_get_updates()) {
+    UMA_HISTOGRAM_ENUMERATION("Sync.PostedGetUpdatesOrigin",
+                              msg.get_updates().get_updates_origin(),
+                              sync_pb::SyncEnums::GetUpdatesOrigin_ARRAYSIZE);
+
+    for (const sync_pb::DataTypeProgressMarker& progress_marker :
+         msg.get_updates().from_progress_marker()) {
+      UMA_HISTOGRAM_ENUMERATION(
+          "Sync.PostedDataTypeGetUpdatesRequest",
+          ModelTypeToHistogramInt(GetModelTypeFromSpecificsFieldNumber(
+              progress_marker.data_type_id())),
+          static_cast<int>(MODEL_TYPE_COUNT));
+    }
+  }
+
+  const base::Time start_time = base::Time::Now();
+
   // Fills in params.buffer_out and params.response.
   if (!scm->PostBufferWithCachedAuth(&params)) {
     LOG(WARNING) << "Error posting from syncer:" << params.response;
     return false;
   }
 
-  return response->ParseFromString(params.buffer_out);
+  if (!response->ParseFromString(params.buffer_out)) {
+    DLOG(WARNING) << "Error parsing response from sync server";
+    return false;
+  }
+
+  UMA_HISTOGRAM_MEDIUM_TIMES("Sync.PostedClientToServerMessageLatency",
+                             base::Time::Now() - start_time);
+
+  if (response->error_code() != sync_pb::SyncEnums::SUCCESS) {
+    base::UmaHistogramSparse("Sync.PostedClientToServerMessageError",
+                             response->error_code());
+  }
+
+  return true;
 }
 
 base::TimeDelta SyncerProtoUtil::GetThrottleDelay(

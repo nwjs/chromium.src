@@ -78,11 +78,16 @@ StyleImage* CSSImageValue::CacheImage(
         document.GetFrame()->IsClientLoFiAllowed(params.GetResourceRequest())) {
       params.SetClientLoFiPlaceholder();
     }
-    cached_image_ = StyleFetchedImage::Create(
-        document, params,
-        image_request_optimization == FetchParameters::kDeferImageLoad);
-  }
+    bool is_lazily_loaded =
+        image_request_optimization == FetchParameters::kDeferImageLoad &&
+        // Only http/https images are eligible to be lazily loaded.
+        params.Url().ProtocolIsInHTTPFamily();
+    if (is_lazily_loaded)
+      params.SetLazyImageDeferred();
 
+    cached_image_ =
+        StyleFetchedImage::Create(document, params, is_lazily_loaded);
+  }
   return cached_image_.Get();
 }
 

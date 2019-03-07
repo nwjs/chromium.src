@@ -4,14 +4,12 @@
 
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_adaptor.h"
 
+#include "base/logging.h"
 #import "ios/chrome/browser/tabs/tab_model.h"
 #import "ios/chrome/browser/ui/main/view_controller_swapping.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_paging.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_url_loader.h"
-
 #import "ios/web/public/navigation_manager.h"
-
-#import "base/logging.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -20,12 +18,6 @@
 @implementation TabGridAdaptor
 // TabSwitcher properties.
 @synthesize delegate = _delegate;
-// Public properties
-@synthesize tabGridViewController = _tabGridViewController;
-@synthesize adaptedDispatcher = _adaptedDispatcher;
-@synthesize tabGridPager = _tabGridPager;
-@synthesize incognitoMediator = _incognitoMediator;
-@synthesize loader = _loader;
 
 #pragma mark - TabSwitcher
 
@@ -52,6 +44,7 @@
 
 - (Tab*)dismissWithNewTabAnimationToModel:(TabModel*)targetModel
                                   withURL:(const GURL&)URL
+                               virtualURL:(const GURL&)virtualURL
                                   atIndex:(NSUInteger)position
                                transition:(ui::PageTransition)transition {
   NSUInteger tabIndex = position;
@@ -60,6 +53,7 @@
 
   web::NavigationManager::WebLoadParams loadParams(URL);
   loadParams.transition_type = transition;
+  loadParams.virtual_url = virtualURL;
 
   // Create the new tab.
   Tab* tab = [targetModel insertTabWithLoadParams:loadParams

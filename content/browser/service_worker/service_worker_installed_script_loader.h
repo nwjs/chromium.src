@@ -12,18 +12,20 @@
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "mojo/public/cpp/system/data_pipe_drainer.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
+#include "services/network/public/mojom/url_loader_factory.mojom.h"
 
 namespace content {
 
 // S13nServiceWorker: A URLLoader that loads an installed service worker script
-// for a non-installed service worker.
+// for a service worker that doesn't have a
+// ServiceWorkerInstalledScriptsManager.
 //
-// This only happens when a service worker that's still being installed uses
-// importScripts() to load a script multiple times, or load the main script
-// again, which is an unusual case. In the usual cases, installed scripts are
-// served to installed service workers via service worker script streaming
-// (i.e., ServiceWorkerInstalledScriptsSender) and non-installed scripts are
-// served to non-installed service workers via ServiceWorkerNewScriptLoader.
+// Some cases where this happens:
+// - a new (non-installed) service worker requests a script that it already
+//   installed, e.g., importScripts('a.js') multiple times.
+// - a service worker that was new when it started and became installed while
+//   running requests an installed script, e.g., importScripts('a.js') after
+//   installation.
 class CONTENT_EXPORT ServiceWorkerInstalledScriptLoader
     : public network::mojom::URLLoader,
       public ServiceWorkerInstalledScriptReader::Client,
@@ -48,11 +50,9 @@ class CONTENT_EXPORT ServiceWorkerInstalledScriptLoader
       ServiceWorkerInstalledScriptReader::FinishedReason reason) override;
 
   // network::mojom::URLLoader overrides:
-  void FollowRedirect(
-      const base::Optional<std::vector<std::string>>&
-          to_be_removed_request_headers,
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
-      const base::Optional<GURL>& new_url) override;
+  void FollowRedirect(const std::vector<std::string>& removed_headers,
+                      const net::HttpRequestHeaders& modified_headers,
+                      const base::Optional<GURL>& new_url) override;
   void ProceedWithResponse() override;
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override;

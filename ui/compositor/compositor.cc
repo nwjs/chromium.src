@@ -63,21 +63,21 @@ const char* kDefaultTraceEnvironmentName = "browser";
 
 }  // namespace
 
-Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
-                       ui::ContextFactory* context_factory,
-                       ui::ContextFactoryPrivate* context_factory_private,
-                       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
-                       bool enable_surface_synchronization,
-                       bool enable_pixel_canvas,
-                       bool external_begin_frames_enabled,
-                       bool force_software_compositor,
-                       const char* trace_environment_name)
+Compositor::Compositor(
+    const viz::FrameSinkId& frame_sink_id,
+    ui::ContextFactory* context_factory,
+    ui::ContextFactoryPrivate* context_factory_private,
+    scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+    bool enable_pixel_canvas,
+    ui::ExternalBeginFrameClient* external_begin_frame_client,
+    bool force_software_compositor,
+    const char* trace_environment_name)
     : context_factory_(context_factory),
       context_factory_private_(context_factory_private),
       frame_sink_id_(frame_sink_id),
       task_runner_(task_runner),
       vsync_manager_(new CompositorVSyncManager()),
-      external_begin_frames_enabled_(external_begin_frames_enabled),
+      external_begin_frame_client_(external_begin_frame_client),
       force_software_compositor_(force_software_compositor),
       layer_animator_collection_(this),
       is_pixel_canvas_(enable_pixel_canvas),
@@ -155,7 +155,7 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
 
   settings.initial_debug_state.SetRecordRenderingStats(
       command_line->HasSwitch(cc::switches::kEnableGpuBenchmarking));
-  settings.enable_surface_synchronization = enable_surface_synchronization;
+  settings.enable_surface_synchronization = true;
   settings.build_hit_test_data = features::IsVizHitTestingSurfaceLayerEnabled();
 
   settings.use_zero_copy = IsUIZeroCopyEnabled();
@@ -179,6 +179,20 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
 #endif
 
   settings.memory_policy.bytes_limit_when_visible = 512 * 1024 * 1024;
+
+  // Used to configure ui compositor memory limit for chromeos devices.
+  // See crbug.com/923141.
+  if (command_line->HasSwitch(
+          switches::kUiCompositorMemoryLimitWhenVisibleMB)) {
+    std::string value_str = command_line->GetSwitchValueASCII(
+        switches::kUiCompositorMemoryLimitWhenVisibleMB);
+    unsigned value_in_mb;
+    if (base::StringToUint(value_str, &value_in_mb)) {
+      settings.memory_policy.bytes_limit_when_visible =
+          1024 * 1024 * value_in_mb;
+    }
+  }
+
   settings.memory_policy.priority_cutoff_when_visible =
       gpu::MemoryAllocation::CUTOFF_ALLOW_NICE_TO_HAVE;
 
@@ -189,9 +203,6 @@ Compositor::Compositor(const viz::FrameSinkId& frame_sink_id,
     settings.wait_for_all_pipeline_stages_before_draw = true;
     settings.enable_latency_recovery = false;
   }
-
-  settings.always_request_presentation_time =
-      command_line->HasSwitch(cc::switches::kAlwaysRequestPresentationTime);
 
   animation_host_ = cc::AnimationHost::CreateMainInstance();
 
@@ -505,36 +516,6 @@ scoped_refptr<CompositorVSyncManager> Compositor::vsync_manager() const {
   return vsync_manager_;
 }
 
-void Compositor::IssueExternalBeginFrame(const viz::BeginFrameArgs& args) {
-  TRACE_EVENT1("ui", "Compositor::IssueExternalBeginFrame", "args",
-               args.AsValue());
-  DCHECK(external_begin_frames_enabled_);
-  if (context_factory_private_)
-    context_factory_private_->IssueExternalBeginFrame(this, args);
-}
-
-void Compositor::SetExternalBeginFrameClient(ExternalBeginFrameClient* client) {
-  DCHECK(external_begin_frames_enabled_);
-  external_begin_frame_client_ = client;
-  if (needs_external_begin_frames_ && external_begin_frame_client_)
-    external_begin_frame_client_->OnNeedsExternalBeginFrames(true);
-}
-
-void Compositor::OnDisplayDidFinishFrame(const viz::BeginFrameAck& ack) {
-  DCHECK(external_begin_frames_enabled_);
-  if (external_begin_frame_client_)
-    external_begin_frame_client_->OnDisplayDidFinishFrame(ack);
-}
-
-void Compositor::OnNeedsExternalBeginFrames(bool needs_begin_frames) {
-  DCHECK(external_begin_frames_enabled_);
-  if (external_begin_frame_client_) {
-    external_begin_frame_client_->OnNeedsExternalBeginFrames(
-        needs_begin_frames);
-  }
-  needs_external_begin_frames_ = needs_begin_frames;
-}
-
 void Compositor::AddObserver(CompositorObserver* observer) {
   observer_list_.AddObserver(observer);
 }
@@ -597,10 +578,10 @@ void Compositor::RequestNewLayerTreeFrameSink() {
 }
 
 void Compositor::DidFailToInitializeLayerTreeFrameSink() {
-  // The LayerTreeFrameSink should already be bound/initialized before being
-  // given to
-  // the Compositor.
-  NOTREACHED();
+  task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&Compositor::RequestNewLayerTreeFrameSink,
+                     context_creation_weak_ptr_factory_.GetWeakPtr()));
 }
 
 void Compositor::DidCommit() {
@@ -621,6 +602,12 @@ void Compositor::DidPresentCompositorFrame(
   TRACE_EVENT_MARK_WITH_TIMESTAMP1("cc,benchmark", "FramePresented",
                                    feedback.timestamp, "environment",
                                    trace_environment_name_);
+}
+
+void Compositor::DidGenerateLocalSurfaceIdAllocation(
+    const viz::LocalSurfaceIdAllocation& allocation) {
+  for (auto& observer : observer_list_)
+    observer.DidGenerateLocalSurfaceIdAllocation(this, allocation);
 }
 
 void Compositor::DidSubmitCompositorFrame() {

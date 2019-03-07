@@ -138,8 +138,8 @@ UI.InspectorView = class extends UI.VBox {
   }
 
   createToolbars() {
-    this._tabbedPane.leftToolbar().appendLocationItems('main-toolbar-left');
-    this._tabbedPane.rightToolbar().appendLocationItems('main-toolbar-right');
+    this._tabbedPane.leftToolbar().appendItemsAtLocation('main-toolbar-left');
+    this._tabbedPane.rightToolbar().appendItemsAtLocation('main-toolbar-right');
   }
 
   /**
@@ -276,7 +276,7 @@ UI.InspectorView = class extends UI.VBox {
           keyboardEvent.location === KeyboardEvent.DOM_KEY_LOCATION_NUMPAD)
         panelIndex = event.keyCode - 0x61;
       if (panelIndex !== -1) {
-        const panelName = this._tabbedPane.allTabs()[panelIndex];
+        const panelName = this._tabbedPane.tabIds()[panelIndex];
         if (panelName) {
           if (!UI.Dialog.hasInstance() && !this._currentPanelLocked)
             this.showPanel(panelName);

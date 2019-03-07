@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_CHROMEOS_POWER_AUTO_SCREEN_BRIGHTNESS_ADAPTER_H_
 #define CHROME_BROWSER_CHROMEOS_POWER_AUTO_SCREEN_BRIGHTNESS_ADAPTER_H_
 
-#include "base/containers/ring_buffer.h"
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
@@ -15,6 +14,7 @@
 #include "base/time/tick_clock.h"
 #include "base/time/time.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/als_reader.h"
+#include "chrome/browser/chromeos/power/auto_screen_brightness/als_samples.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/brightness_monitor.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/metrics_reporter.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/modeller.h"
@@ -32,7 +32,8 @@ namespace auto_screen_brightness {
 // brightness as predicted by the model and instructs powerd to change it.
 class Adapter : public AlsReader::Observer,
                 public BrightnessMonitor::Observer,
-                public Modeller::Observer {
+                public Modeller::Observer,
+                public PowerManagerClient::Observer {
  public:
   // Type of curve to use.
   // These values are persisted to logs. Entries should not be renumbered and
@@ -48,22 +49,23 @@ class Adapter : public AlsReader::Observer,
     kMaxValue = kLatest
   };
 
-  // TODO(jiameng): we currently use past 5 seconds of ambient values to
-  // calculate average ambient when we predict optimal brightness. This is
-  // shorter than the duration used for training data (10 seconds), because it's
-  // important that we can quickly adjust the brightness when ambient value
-  // changes. This duration should be revised.
-  static constexpr base::TimeDelta kAmbientLightShortHorizon =
-      base::TimeDelta::FromSeconds(5);
-
-  // Size of |ambient_light_values_|.
-  static constexpr int kNumberAmbientValuesToTrack =
-      (kAmbientLightShortHorizon.InMicroseconds() /
-       base::Time::kMicrosecondsPerSecond) *
-      AlsReader::kAlsPollFrequency;
+  // How user manual brightness change will affect Adapter.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class UserAdjustmentEffect {
+    // Completely disable Adapter until browser restarts.
+    kDisableAuto = 0,
+    // Pause Adapter until system is suspended and then resumed.
+    kPauseAuto = 1,
+    // No impact on Adapter and Adapter continues to auto-adjust brightness.
+    kContinueAuto = 2,
+    kMaxValue = kContinueAuto
+  };
 
   // The values in Params can be overridden by experiment flags.
   struct Params {
+    Params();
+
     // Average ambient value has to go up (resp. down) by
     // |brightening_lux_threshold_ratio| (resp. |darkening_lux_threshold_ratio|)
     // from the current value before brightness could be changed: brightness
@@ -82,7 +84,7 @@ class Adapter : public AlsReader::Observer,
 
     // Whether brightness should be set to the predicted value when the first
     // ambient reading comes in. If false, we'll wait for
-    // |kAmbientLightShortHorizon| of ambient values before setting brightness
+    // |auto_brightness_als_horizon| of ambient values before setting brightness
     // for the first time.
     bool update_brightness_on_startup = true;
 
@@ -94,6 +96,20 @@ class Adapter : public AlsReader::Observer,
         base::TimeDelta::FromSeconds(10);
 
     ModelCurve model_curve = ModelCurve::kLatest;
+
+    // Average ambient value is calculated over the past
+    // |auto_brightness_als_horizon|. This is only used for brightness update,
+    // which can be different from the horizon used in model training.
+    base::TimeDelta auto_brightness_als_horizon =
+        base::TimeDelta::FromSeconds(5);
+
+    // If true, we take logs of lux values before averaging. If false, we take
+    // logs of averaged lux values. This should be the same as
+    // that used by the modeller.
+    bool average_log_als = false;
+
+    UserAdjustmentEffect user_adjustment_effect =
+        UserAdjustmentEffect::kDisableAuto;
   };
 
   // These values are persisted to logs. Entries should not be renumbered and
@@ -103,6 +119,17 @@ class Adapter : public AlsReader::Observer,
     kSuccess = 1,
     kDisabled = 2,
     kMaxValue = kDisabled
+  };
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class BrightnessChangeCause {
+    kInitialAlsReceived = 0,
+    kImmediateBrightneningThresholdExceeded = 1,
+    kImmediateDarkeningThresholdExceeded = 2,
+    kBrightneningThresholdExceeded = 3,
+    kDarkeningThresholdExceeded = 4,
+    kMaxValue = kDarkeningThresholdExceeded
   };
 
   Adapter(Profile* profile,
@@ -129,15 +156,22 @@ class Adapter : public AlsReader::Observer,
       const base::Optional<MonotoneCubicSpline>& global_curve,
       const base::Optional<MonotoneCubicSpline>& personal_curve) override;
 
+  // chromeos::PowerManagerClient::Observer overrides:
+  void SuspendDone(const base::TimeDelta& sleep_duration) override;
+
   void SetTickClockForTesting(const base::TickClock* test_tick_clock);
 
   Status GetStatusForTesting() const;
+
+  // Only returns true if Adapter status is success and it's not disabled by
+  // user adjustment.
+  bool IsAppliedForTesting() const;
   base::Optional<MonotoneCubicSpline> GetGlobalCurveForTesting() const;
   base::Optional<MonotoneCubicSpline> GetPersonalCurveForTesting() const;
 
   // Returns the actual average over |ambient_light_values_|, which is not
   // necessarily the same as |average_ambient_lux_|.
-  double GetAverageAmbientForTesting() const;
+  base::Optional<double> GetAverageAmbientForTesting(base::TimeTicks now);
   double GetBrighteningThresholdForTesting() const;
   double GetDarkeningThresholdForTesting() const;
 
@@ -153,19 +187,21 @@ class Adapter : public AlsReader::Observer,
   // AlsReader, BrightnessMonitor, Modeller or power manager.
   void UpdateStatus();
 
-  // Returns true if the adapter can change the brightness.
+  // Returns a BrightnessChangeCause if the adapter can change the brightness.
   // This is generally the case when the brightness hasn't been manually
   // set, we've received enough initial ambient light readings, and
   // the ambient light has changed beyond thresholds for a long enough
   // period of time.
-  bool CanAdjustBrightness(double current_average_ambient) const;
+  // Returns nullopt if it shouldn't change the brightness.
+  base::Optional<BrightnessChangeCause> CanAdjustBrightness(
+      double current_average_ambient) const;
 
   // Called when ambient light changes. It only changes screen brightness if
   // |CanAdjustBrightness| returns true and a required curve is set up:
   // if the required curve is personal but no personal curve is available, then
   // brightness won't be changed.
   // It will call |UpdateLuxThresholds| if brightness is actually changed.
-  void MaybeAdjustBrightness();
+  void MaybeAdjustBrightness(base::TimeTicks now);
 
   // This is only called when brightness is changed.
   void UpdateLuxThresholds();
@@ -184,22 +220,22 @@ class Adapter : public AlsReader::Observer,
       brightness_monitor_observer_;
   ScopedObserver<Modeller, Modeller::Observer> modeller_observer_;
 
+  ScopedObserver<chromeos::PowerManagerClient,
+                 chromeos::PowerManagerClient::Observer>
+      power_manager_client_observer_;
+
   // Used to report daily metrics to UMA. This may be null in unit tests.
   MetricsReporter* metrics_reporter_;
 
   chromeos::PowerManagerClient* const power_manager_client_;
-
-  // Whether to continue adapting brightness after user makes a brightness
-  // change.
-  bool continue_auto_brightness_after_user_adjustment_ = false;
 
   Params params_;
 
   // This will be replaced by a mock tick clock during tests.
   const base::TickClock* tick_clock_;
 
-  base::RingBuffer<AmbientLightSample, kNumberAmbientValuesToTrack>
-      ambient_light_values_;
+  // This buffer will be used to store the recent ambient light values.
+  std::unique_ptr<AmbientLightSampleBuffer> ambient_light_values_;
 
   base::Optional<AlsReader::AlsInitStatus> als_init_status_;
   base::Optional<bool> brightness_monitor_success_;
@@ -208,6 +244,11 @@ class Adapter : public AlsReader::Observer,
   base::Optional<bool> power_manager_service_available_;
 
   Status adapter_status_ = Status::kInitializing;
+
+  // This is set to true whenever a user makes a manual adjustment, and if
+  // |params_.user_adjustment_effect| is not |kContinueAuto|. It will be
+  // reset to false if |params_.user_adjustment_effect| is |kPauseAuto|.
+  bool adapter_disabled_by_user_adjustment_ = false;
 
   // The thresholds are calculated from |average_ambient_lux_|. They are only
   // updated when brightness should occur (because average ambient value changed

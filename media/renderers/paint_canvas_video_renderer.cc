@@ -342,6 +342,12 @@ class VideoImageGenerator : public cc::PaintImageGenerator {
   bool QueryYUVA8(SkYUVASizeInfo* sizeInfo,
                   SkYUVAIndex indices[SkYUVAIndex::kIndexCount],
                   SkYUVColorSpace* color_space) const override {
+    // Temporarily disabling this path to avoid creating YUV ImageData in
+    // GpuImageDecodeCache.
+    // TODO(crbug.com/921636): Restore the code below once YUV rendering support
+    // is added for VideoImageGenerator.
+    return false;
+#if 0
     if (!media::IsYuvPlanar(frame_->format()) ||
         // TODO(rileya): Skia currently doesn't support YUVA conversion. Remove
         // this case once it does. As-is we will fall back on the pure-software
@@ -376,6 +382,7 @@ class VideoImageGenerator : public cc::PaintImageGenerator {
     indices[SkYUVAIndex::kA_Index] = {-1, SkColorChannel::kR};
 
     return true;
+#endif
   }
 
   bool GetYUVA8Planes(const SkYUVASizeInfo& sizeInfo,
@@ -936,6 +943,7 @@ void PaintCanvasVideoRenderer::ConvertVideoFrameToRGBPixels(
     case PIXEL_FORMAT_MT21:
     case PIXEL_FORMAT_ABGR:
     case PIXEL_FORMAT_XBGR:
+    case PIXEL_FORMAT_P016LE:
     case PIXEL_FORMAT_UNKNOWN:
       NOTREACHED() << "Only YUV formats and Y16 are supported, got: "
                    << media::VideoPixelFormatToString(video_frame->format());

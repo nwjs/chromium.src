@@ -562,8 +562,9 @@ FileManager.prototype = /** @struct */ {
     this.volumeManager_.addEventListener(
         VolumeManagerCommon.ARCHIVE_OPENED_EVENT_TYPE, function(event) {
           assert(event.detail.mountPoint);
-          if (window.isFocused())
+          if (window.isFocused()) {
             this.directoryModel_.changeDirectoryEntry(event.detail.mountPoint);
+          }
         }.bind(this));
 
     this.directoryModel_.addEventListener(
@@ -595,11 +596,8 @@ FileManager.prototype = /** @struct */ {
         this.ui_.sortButtonToggleRipple,
         assert(this.directoryModel_.getFileList()));
     this.gearMenuController_ = new GearMenuController(
-        this.ui_.gearButton,
-        this.ui_.gearButtonToggleRipple,
-        this.ui_.gearMenu,
-        this.directoryModel_,
-        this.commandHandler_,
+        this.ui_.gearButton, this.ui_.gearButtonToggleRipple, this.ui_.gearMenu,
+        this.ui_.providersMenu, this.directoryModel_, this.commandHandler_,
         assert(this.providersModel_));
     this.selectionMenuController_ = new SelectionMenuController(
         this.ui_.selectionMenuButton,
@@ -686,6 +684,7 @@ FileManager.prototype = /** @struct */ {
         this.enableTouchMode_ = true;
       }
     }.bind(this));
+    console.warn('Files app sync startup finished.');
   };
 
   /**
@@ -694,8 +693,9 @@ FileManager.prototype = /** @struct */ {
   FileManager.prototype.initDataTransferOperations_ = function() {
     // CopyManager are required for 'Delete' operation in
     // Open and Save dialogs. But drag-n-drop and copy-paste are not needed.
-    if (this.dialogType !== DialogType.FULL_PAGE)
+    if (this.dialogType !== DialogType.FULL_PAGE) {
       return;
+    }
 
     this.fileTransferController_ = new FileTransferController(
         assert(this.document_), assert(this.ui_.listContainer),
@@ -721,13 +721,15 @@ FileManager.prototype = /** @struct */ {
 
     // TODO(hirono): Move the following block to the UI part.
     var commandButtons = this.dialogDom_.querySelectorAll('button[command]');
-    for (var j = 0; j < commandButtons.length; j++)
+    for (var j = 0; j < commandButtons.length; j++) {
       CommandButton.decorate(commandButtons[j]);
+    }
 
     var inputs = this.getDomInputs_();
 
-    for (let input of inputs)
+    for (let input of inputs) {
       this.setContextMenuForInput_(input);
+    }
 
     this.setContextMenuForInput_(this.ui_.listContainer.renameInput);
     this.setContextMenuForInput_(
@@ -841,6 +843,7 @@ FileManager.prototype = /** @struct */ {
   FileManager.prototype.initGeneral_ = function() {
     // Initialize the application state.
     // TODO(mtomasz): Unify window.appState with location.search format.
+    console.warn('Files app starting up.');
     if (window.appState) {
       var params = {};
       for (var name in window.appState) {
@@ -879,8 +882,9 @@ FileManager.prototype = /** @struct */ {
                     this.backgroundPage_.background);
             this.fileBrowserBackground_.ready(function() {
               loadTimeData.data = this.fileBrowserBackground_.stringData;
-              if (util.runningInBrowser())
+              if (util.runningInBrowser()) {
                 this.backgroundPage_.registerDialog(window);
+              }
               this.fileOperationManager_ =
                   this.fileBrowserBackground_.fileOperationManager;
               this.mediaImportHandler_ =
@@ -997,9 +1001,6 @@ FileManager.prototype = /** @struct */ {
 
     util.addIsFocusedMethod();
 
-    // Populate the static localized strings.
-    i18nTemplate.process(this.document_, loadTimeData);
-
     // The cwd is not known at this point.  Hide the import status column before
     // redrawing, to avoid ugly flashing in the UI, caused when the first redraw
     // has a visible status column, and then the cwd is later discovered to be
@@ -1089,10 +1090,11 @@ FileManager.prototype = /** @struct */ {
     this.folderShortcutsModel_ = new FolderShortcutsDataModel(
         this.volumeManager_);
 
+    assert(this.launchParams_);
     this.selectionHandler_ = new FileSelectionHandler(
         assert(this.directoryModel_), assert(this.fileOperationManager_),
         assert(this.ui_.listContainer), assert(this.metadataModel_),
-        assert(this.volumeManager_));
+        assert(this.volumeManager_), this.launchParams_.allowedPaths);
 
     this.directoryModel_.getFileListSelection().addEventListener('change',
         this.selectionHandler_.onFileSelectionChanged.bind(
@@ -1159,7 +1161,6 @@ FileManager.prototype = /** @struct */ {
     this.spinnerController_.blink();
 
     // Create dialog action controller.
-    assert(this.launchParams_);
     this.dialogActionController_ = new DialogActionController(
         this.dialogType,
         this.ui_.dialogFooter,
@@ -1197,7 +1198,8 @@ FileManager.prototype = /** @struct */ {
                     str('RECENT_ROOT_LABEL'),
                     VolumeManagerCommon.RootType.RECENT,
                     this.getSourceRestriction_())) :
-            null);
+            null,
+        assert(this.directoryModel_));
 
     this.setupCrostini_();
     this.ui_.initDirectoryTree(directoryTree);
@@ -1230,8 +1232,9 @@ FileManager.prototype = /** @struct */ {
       // Redraw the tree even if not enabled.  This is required for testing.
       this.directoryTree.redraw(false);
 
-      if (!crostiniEnabled)
+      if (!crostiniEnabled) {
         return;
+      }
 
       // Load any existing shared paths.
       chrome.fileManagerPrivate.getCrostiniSharedPaths(
@@ -1298,8 +1301,9 @@ FileManager.prototype = /** @struct */ {
             // If the selection is root, then use it as a current directory
             // instead. This is because, selecting a root entry is done as
             // opening it.
-            if (locationInfo.isRootEntry)
+            if (locationInfo.isRootEntry) {
               nextCurrentDirEntry = inEntry;
+            }
 
             // If this dialog attempts to open file(s) and the selection is a
             // directory, the selection should be the current directory.
@@ -1310,8 +1314,9 @@ FileManager.prototype = /** @struct */ {
 
             // By default, the selection should be selected entry and the
             // parent directory of it should be the current directory.
-            if (!nextCurrentDirEntry)
+            if (!nextCurrentDirEntry) {
               selectionEntry = inEntry;
+            }
 
             callback();
           }, callback);
@@ -1437,8 +1442,9 @@ FileManager.prototype = /** @struct */ {
 
     // If there is no target select MyFiles by default.
     queue.run((callback) => {
-      if (!nextCurrentDirEntry && this.directoryTree.dataModel.myFilesModel_)
+      if (!nextCurrentDirEntry && this.directoryTree.dataModel.myFilesModel_) {
         nextCurrentDirEntry = this.directoryTree.dataModel.myFilesModel_.entry;
+      }
 
       callback();
     });
@@ -1471,13 +1477,20 @@ FileManager.prototype = /** @struct */ {
       directoryEntry, opt_selectionEntry, opt_suggestedName) {
     // Open the directory, and select the selection (if passed).
     if (directoryEntry) {
+      const entryDescription = util.entryDebugString(directoryEntry);
+      console.warn(
+          'Files app start up: changing to directory: ' + entryDescription);
       this.directoryModel_.changeDirectoryEntry(directoryEntry, function() {
-        if (opt_selectionEntry)
+        if (opt_selectionEntry) {
           this.directoryModel_.selectEntry(opt_selectionEntry);
-
+        }
+        console.warn(
+            'Files app start up: finished changing to directory: ' +
+            entryDescription);
         this.ui_.addLoadedAttribute();
       }.bind(this));
     } else {
+      console.warn('No entry for finishSetupCurrentDirectory_');
       this.ui_.addLoadedAttribute();
     }
 
@@ -1503,12 +1516,15 @@ FileManager.prototype = /** @struct */ {
    * @private
    */
   FileManager.prototype.onUnload_ = function() {
-    if (this.importHistory_)
+    if (this.importHistory_) {
       this.importHistory_.removeObserver(this.onHistoryChangedBound_);
-    if (this.directoryModel_)
+    }
+    if (this.directoryModel_) {
       this.directoryModel_.dispose();
-    if (this.volumeManager_)
+    }
+    if (this.volumeManager_) {
       this.volumeManager_.dispose();
+    }
     if (this.fileTransferController_) {
       for (var i = 0;
            i < this.fileTransferController_.pendingTaskIds.length;
@@ -1539,7 +1555,8 @@ FileManager.prototype = /** @struct */ {
     // The native implementation of the Files app creates snapshot files for
     // non-native files. But it does not work for folders (e.g., dialog for
     // loading unpacked extensions).
-    if (allowedPaths === AllowedPaths.NATIVE_PATH &&
+    if ((allowedPaths === AllowedPaths.NATIVE_PATH ||
+         allowedPaths === AllowedPaths.NATIVE_OR_DRIVE_PATH) &&
         !DialogType.isFolderDialog(this.launchParams_.type)) {
       if (this.launchParams_.type == DialogType.SELECT_SAVEAS_FILE) {
         // Only drive can create snapshot files for saving.
@@ -1558,10 +1575,12 @@ FileManager.prototype = /** @struct */ {
    */
   FileManager.prototype.getSourceRestriction_ = function() {
     var allowedPaths = this.getAllowedPaths_();
-    if (allowedPaths == AllowedPaths.NATIVE_PATH)
+    if (allowedPaths == AllowedPaths.NATIVE_PATH) {
       return chrome.fileManagerPrivate.SourceRestriction.NATIVE_SOURCE;
-    if (allowedPaths == AllowedPaths.NATIVE_OR_DRIVE_PATH)
+    }
+    if (allowedPaths == AllowedPaths.NATIVE_OR_DRIVE_PATH) {
       return chrome.fileManagerPrivate.SourceRestriction.NATIVE_OR_DRIVE_SOURCE;
+    }
     return chrome.fileManagerPrivate.SourceRestriction.ANY_SOURCE;
   };
 

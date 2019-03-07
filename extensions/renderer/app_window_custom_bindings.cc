@@ -4,8 +4,8 @@
 
 #include "extensions/renderer/app_window_custom_bindings.h"
 
+#include "base/bind.h"
 #include "third_party/blink/public/web/blink.h"
-
 
 #include "base/command_line.h"
 #include "content/public/renderer/render_frame.h"

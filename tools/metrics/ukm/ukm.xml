@@ -135,6 +135,62 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="AppListAppLaunch">
+  <owner>pdyson@chromium.org</owner>
+  <summary>
+    Recorded when an app is launched from the launcher on ChromeOS. This can be
+    from the suggestion chip, or from the grid of apps. The UKM metrics are not
+    keyed by navigational urls. Instead, for Chrome apps the keys are based upon
+    the app id, for Play apps the keys are based upon a hash of the package name
+    and for PWAs the keys are the urls associated with the PWA.
+  </summary>
+  <metric name="AppType">
+    <summary>
+      The type of app. 1: CHROME, 2: PLAY, 3: PWA.
+    </summary>
+  </metric>
+  <metric name="ClickMethod">
+    <summary>
+      Click method. 1: MOUSE, 2: TOUCH, 3: SYTLUS, 4: KEYBOARD.
+    </summary>
+  </metric>
+  <metric name="DayOfWeek">
+    <summary>
+      An enum representing the day of the week that the data was logged in the
+      local time zone. Sunday = 0.
+    </summary>
+  </metric>
+  <metric name="DeviceMode">
+    <summary>
+      The mode of the device. 1: CLOSED_LID (Lid is closed), 2: LAPTOP (Lid is
+      open, tablet mode off or unsupported) , 3: TABLET (Lid is open, tablet
+      mode on or no lid at all).
+    </summary>
+  </metric>
+  <metric name="DeviceType">
+    <summary>
+      The type of the device. 1: TABLET, 2: LAPTOP.
+    </summary>
+  </metric>
+  <metric name="HourOfDay">
+    <summary>
+      The hour of the day when the data is logged. Hours since midnight in the
+      local time zone.
+    </summary>
+  </metric>
+  <metric name="LaunchedFrom">
+    <summary>
+      Where the app was launched from. 1: GRID, 2: SUGGESTED, 3: SHELF.
+    </summary>
+  </metric>
+  <metric name="PositionIndex">
+    <summary>
+      The position of the app within the grid/suggested apps/shelf. 0 is the
+      first position.
+    </summary>
+  </metric>
+</event>
+
 <event name="Autofill.DeveloperEngagement">
   <owner>jiahuiguo@google.com</owner>
   <summary>
@@ -399,6 +455,11 @@ be describing additional metrics about the same event.
     <summary>
       Type of form. Stored as bitvector. A set ith bit implies enum FormType's
       ith type was detected. Multiple types are possible.
+    </summary>
+  </metric>
+  <metric name="HasUpiVpaField">
+    <summary>
+      True for forms containing a UPI/VPA field.
     </summary>
   </metric>
   <metric name="IsForCreditCard">
@@ -900,6 +961,19 @@ be describing additional metrics about the same event.
     <summary>
       Opt-in UseCounter feature.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="IsMainFrameFeature">
+    <summary>
+      Emits True(1) or False(0) to indicate whether the Feature recorded is in
+      the main frame or not.
+    </summary>
   </metric>
 </event>
 
@@ -1085,6 +1159,14 @@ be describing additional metrics about the same event.
   <metric name="OutcomeRankerPrediction">
     <summary>
       Emits a 1 or 0 to indicate what Ranker's prediction was for this record.
+      Recorded only when OutcomeRankerDidPredict is true.
+    </summary>
+  </metric>
+  <metric name="OutcomeRankerPredictionScore">
+    <summary>
+      Emits a single-precision float to indicate the score for the Ranker
+      prediction for this record. Recorded only when OutcomeRankerDidPredict is
+      true.
     </summary>
   </metric>
   <metric name="OutcomeWasCardsDataShown">
@@ -1527,6 +1609,7 @@ be describing additional metrics about the same event.
     </summary>
     <aggregation>
       <history>
+        <index fields="profile.country"/>
         <statistics>
           <quantiles type="std-percentiles"/>
         </statistics>
@@ -1564,6 +1647,7 @@ be describing additional metrics about the same event.
     </summary>
     <aggregation>
       <history>
+        <index fields="profile.country"/>
         <statistics>
           <quantiles type="std-percentiles"/>
         </statistics>
@@ -1769,6 +1853,25 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="MainFrameDownload">
+  <owner>yaoxia@chromium.org</owner>
+  <summary>
+    Measurement for top frame download. It is only recorded for downloads
+    originated from navigations or from HTML anchor download attributes.
+  </summary>
+  <metric name="HasGesture">
+    <summary>
+      A boolean denoting whether the download involves a transient user gesture.
+    </summary>
+  </metric>
+  <metric name="HasSandbox">
+    <summary>
+      A boolean denoting whether the download occurs in a sandboxed browsing
+      context.
+    </summary>
+  </metric>
+</event>
+
 <event name="Media.Autoplay.Attempt">
   <owner>mlamouri@chromium.org</owner>
   <owner>media-dev@chromium.org</owner>
@@ -1864,6 +1967,36 @@ be describing additional metrics about the same event.
       Similar to &quot;Source&quot; in &quot;Media.Autoplay.Attempt&quot; with
       the addition of a value for both sources being used: 0 for attribute; 1
       for play(); 2 for both attempted.
+    </summary>
+  </metric>
+</event>
+
+<event name="Media.EME.RequestMediaKeySystemAccess">
+  <owner>xhwang@chromium.org</owner>
+  <owner>media-dev@chromium.org</owner>
+  <summary>
+    Event recorded when RequestMediaKeySystemAccess() is called as part of
+    Encrypted Media Extensions (EME) API.
+  </summary>
+  <metric name="KeySystem">
+    <summary>
+      The key system passed in requestMediaKeySystemAccess() call.
+    </summary>
+  </metric>
+  <metric name="VideoCapabilities">
+    <summary>
+      Whether there are any &quot;videoCapabilities&quot;.
+    </summary>
+  </metric>
+  <metric name="VideoCapabilities.HasEmptyRobustness">
+    <summary>
+      Whether there are any &quot;videoCapabilities&quot; with empty robustness.
+    </summary>
+  </metric>
+  <metric name="VideoCapabilities.HasHwSecureAllRobustness">
+    <summary>
+      Whether there are any &quot;videoCapabilities&quot; with robustness being
+      &quot;HW_SECURE_ALL&quot;.
     </summary>
   </metric>
 </event>
@@ -2066,8 +2199,7 @@ be describing additional metrics about the same event.
   </summary>
   <metric name="AudibleTime">
     <summary>
-      The number of seconds of audio that were audible during the entire
-      lifetime of the AudioContext.
+      Audible time in milliseconds for this event.
     </summary>
   </metric>
   <metric name="IsMainFrame">
@@ -2974,6 +3106,14 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Net.LegacyTLSVersion">
+  <owner>davidben@chromium.org</owner>
+  <summary>
+    Recorded when a page is loaded whose main frame load used TLS 1.0 or TLS
+    1.1.
+  </summary>
+</event>
+
 <event name="Notification">
   <owner>peter@chromium.org</owner>
   <summary>
@@ -3122,6 +3262,21 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="BackgroundFetchDeletingRegistration">
+  <owner>nator@chromium.org</owner>
+  <owner>rayankans@chromium.org</owner>
+  <owner>peter@chromium.org</owner>
+  <summary>
+    A BackgroundFetchDeletingRegistration event is logged when a background
+    fetch job is being deleted.
+  </summary>
+  <metric name="UserInitiatedAbort">
+    <summary>
+      Boolean for whether the background fetch job was cancelled from the UI.
+    </summary>
+  </metric>
+</event>
+
 <event name="OfflinePages.SavePageRequested">
   <owner>petewil@chromium.org</owner>
   <metric name="RequestedFromForeground">
@@ -3188,6 +3343,17 @@ be describing additional metrics about the same event.
     <summary>
       Measures the time in milliseconds from when the OS level input event
       occurred which triggered a navigation, until the navigation was started.
+      Only set if the code can trace back to the original input event. Some
+      known cases where it is missing: crbug.com/889223 crbug.com/893162
+      crbug.com/897837 crbug.com/897840
+    </summary>
+  </metric>
+  <metric name="Experimental.Navigation.UserInitiated">
+    <summary>
+      True if this navigation was initiated by user input. For renderer
+      navigations, only true if the code can trace back to the original input
+      event. Some known cases where it is missing: crbug.com/889223
+      crbug.com/897837 crbug.com/897840
     </summary>
   </metric>
   <metric name="Experimental.NavigationToInteractive">
@@ -3213,6 +3379,13 @@ be describing additional metrics about the same event.
       </history>
     </aggregation>
   </metric>
+  <metric name="Experimental.PaintTiming.NavigationToLargestContentPaint">
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time when the page first paints the largest content (text or
+      image) within viewport. See http://bit.ly/fcp_plus_plus for more details.
+    </summary>
+  </metric>
   <metric name="Experimental.PaintTiming.NavigationToLargestImagePaint">
     <summary>
       Measures the time in milliseconds from navigation timing's navigation
@@ -3221,12 +3394,36 @@ be describing additional metrics about the same event.
       end of each page load. See http://bit.ly/fcp_plus_plus for more details.
     </summary>
   </metric>
+  <metric
+      name="Experimental.PaintTiming.NavigationToLargestImagePaint.BeforeUserInput">
+    <obsolete>
+      Deprecated 01/2019
+    </obsolete>
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time when the page first paints the largest image within
+      viewport after the image finishes loading, before user input. See
+      http://bit.ly/fcp_plus_plus for more details.
+    </summary>
+  </metric>
   <metric name="Experimental.PaintTiming.NavigationToLargestTextPaint">
     <summary>
       Measures the time in milliseconds from navigation timing's navigation
       start to the time when the page first paints the largest text within
       viewport. The value is recorded at the end of each page load. See
       http://bit.ly/fcp_plus_plus for more details.
+    </summary>
+  </metric>
+  <metric
+      name="Experimental.PaintTiming.NavigationToLargestTextPaint.BeforeUserInput">
+    <obsolete>
+      Deprecated 01/2019
+    </obsolete>
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time when the page first paints the largest text within
+      viewport, before user input. See http://bit.ly/fcp_plus_plus for more
+      details.
     </summary>
   </metric>
   <metric name="Experimental.PaintTiming.NavigationToLastImagePaint">
@@ -3246,6 +3443,11 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InteractiveTiming.FirstInputDelay">
+    <obsolete>
+      Deprecated on January 2019 in favor of InteractiveTiming.FirstInputDelay2,
+      which correctly excludes some scrolling cases that were previously not
+      excluded from this metric.
+    </obsolete>
     <summary>
       Measures First Input Delay, the duration between the hardware timestamp
       and the start of event processing on the main thread for the first
@@ -3260,7 +3462,35 @@ be describing additional metrics about the same event.
       </history>
     </aggregation>
   </metric>
+  <metric name="InteractiveTiming.FirstInputDelay2">
+    <summary>
+      Measures First Input Delay, the duration between the hardware timestamp
+      and the start of event processing on the main thread for the first
+      meaningful input per navigation. See https://goo.gl/tr1oTZ for a detailed
+      explanation. In ms.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
   <metric name="InteractiveTiming.FirstInputTimestamp">
+    <obsolete>
+      Deprecated on January 2019 in favor of
+      InteractiveTiming.FirstInputTimestamp2, which correctly excludes some
+      scrolling cases that were previously not excluded from this metric.
+    </obsolete>
+    <summary>
+      The duration between navigation start and the hardware timestamp of the
+      first meaningful input per navigation. See https://goo.gl/tr1oTZ for a
+      detailed explanation. In ms.
+    </summary>
+  </metric>
+  <metric name="InteractiveTiming.FirstInputTimestamp2">
     <summary>
       The duration between navigation start and the hardware timestamp of the
       first meaningful input per navigation. See https://goo.gl/tr1oTZ for a
@@ -3268,13 +3498,44 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InteractiveTiming.LongestInputDelay">
+    <obsolete>
+      Deprecated on January 2019 in favor of
+      InteractiveTiming.LongestInputDelay2, which correctly excludes some
+      scrolling cases that were previously not excluded from this metric.
+    </obsolete>
     <summary>
       Measures longest Input Delay, the longest duration between the hardware
       timestamp and the start of event processing on the main thread for the
       meaningful input per navigation. In ms.
     </summary>
   </metric>
+  <metric name="InteractiveTiming.LongestInputDelay2">
+    <summary>
+      Measures longest Input Delay, the longest duration between the hardware
+      timestamp and the start of event processing on the main thread for the
+      meaningful input per navigation. In ms.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
   <metric name="InteractiveTiming.LongestInputTimestamp">
+    <obsolete>
+      Deprecated on January 2019 in favor of
+      InteractiveTiming.LongestInputTimestamp2, which correctly excludes some
+      scrolling cases that were previously not excluded from this metric.
+    </obsolete>
+    <summary>
+      The duration between navigation start and the hardware timestamp of the
+      meaningful input with longest queuing delay per navigation. In ms.
+    </summary>
+  </metric>
+  <metric name="InteractiveTiming.LongestInputTimestamp2">
     <summary>
       The duration between navigation start and the hardware timestamp of the
       meaningful input with longest queuing delay per navigation. In ms.
@@ -3297,6 +3558,19 @@ be describing additional metrics about the same event.
     <summary>
       The duration between the start of the DNS resolution to the end for the
       origin of the main frame request. In ms.
+    </summary>
+  </metric>
+  <metric name="MainFrameResource.NavigationStartToRequestStart">
+    <summary>
+      The duration from the start of the navigation to the start of the main
+      frame request. This includes the time to process any redirects on the main
+      frame request. In ms.
+    </summary>
+  </metric>
+  <metric name="MainFrameResource.RedirectCount">
+    <summary>
+      The number of main frame redirects that occurred before commit. Unset if
+      there were no redirects.
     </summary>
   </metric>
   <metric name="MainFrameResource.RequestStartToReceiveHeadersEnd">
@@ -3424,6 +3698,7 @@ be describing additional metrics about the same event.
     </summary>
     <aggregation>
       <history>
+        <index fields="profile.country"/>
         <statistics>
           <quantiles type="std-percentiles"/>
         </statistics>
@@ -3437,6 +3712,7 @@ be describing additional metrics about the same event.
     </summary>
     <aggregation>
       <history>
+        <index fields="profile.country"/>
         <statistics>
           <quantiles type="std-percentiles"/>
         </statistics>
@@ -3447,6 +3723,11 @@ be describing additional metrics about the same event.
     <summary>
       Measures the time in milliseconds from navigation timing's navigation
       start to the time the parser started, for main frame documents.
+    </summary>
+  </metric>
+  <metric name="WasCached">
+    <summary>
+      Set to 1 if the main resource was served from cache.
     </summary>
   </metric>
 </event>
@@ -3495,6 +3776,72 @@ be describing additional metrics about the same event.
       distinguish two forms on the same site.
     </summary>
   </metric>
+  <metric name="Fill.FirstFillingResultInRenderer">
+    <summary>
+      Records whether the PasswordAutofillAgent in the renderer manages to fill
+      credentials as instructed by the browser or records a failure reason
+      otherwise. Only the outcome of the first attempt to fill is recorded.
+
+      0: Success
+
+      1: No password element - The password element to be filled has not been
+      found.
+
+      2: Blocked by frame hierarchy - Filling only happens in iframes if all
+      parent frames PSL-match the security origin of the iframe containing the
+      password field.
+
+      3: Password element is not autocompleteable - Passwords are not filled
+      into fields that are not editable.
+
+      4: Username prefilled with incompatible value - The username field
+      contains a string that does not match the username of any available
+      credential. This typically indicates placeholder values.
+
+      5: Found no password for username - No credential was filled due to
+      mismatches with the username. This can happen in a number of cases: In
+      case the username field is empty and readonly. In case of a
+      username-first-flow where a user's credentials do contain a username but
+      the form contains only a password field and no username field. In case of
+      change password forms that contain no username field. In case the user
+      name is given on a page but only PSL matched credentials exist for this
+      username. There may be further cases.
+
+      6: Wait for username - Renderer was instructed to wait until user has
+      manually picked a credential. This happens for example if the session is
+      an incognito session, the credendial's URL matches the mainframe only via
+      the PSL, the site is on HTTP, or the form has no current password field.
+      Fill.FirstWaitForUsernameReason records the root causes.
+
+      7: No fillable elements found - No fillable elements were found, only
+      possible for the old form parser.
+
+      This is replicated as PasswordManager.FirstFillingResultInRenderer in UMA.
+    </summary>
+  </metric>
+  <metric name="Fill.FirstWaitForUsernameReason">
+    <summary>
+      This metric records why the browser instructs the renderer not to fill the
+      credentials on page load but to wait for the user to confirm the
+      credential to be filled. Only the value of the first decision to fill is
+      recorded.
+
+      0: Don't wait
+
+      1: Incognito mode - User is browsing in incognito mode.
+
+      2: Public suffix match - A credential exists for a PSL matched site but
+      not for the current security origin.
+
+      3: Form not good for filling - Form is suspected to be a password change
+      form. (Only recorded for old form parser)
+
+      4: FOAS on HTTP - User is on an HTTP site where passwords are filled on
+      account selection (FOAS).
+
+      This is replicated PasswordManager.FirstWaitForUsernameReason in UMA.
+    </summary>
+  </metric>
   <metric name="FillOnLoad">
     <summary>
       Deprecated in November 2018, because the decision this metric supported
@@ -3534,6 +3881,13 @@ be describing additional metrics about the same event.
       Records for each password form (and HTTP auth), whether the password
       manager has filled/provided credentials. Recorded values correspond to the
       enum ManagerAutofillEvent.
+    </summary>
+  </metric>
+  <metric name="ManagerFill.Assistance">
+    <summary>
+      Records for each successful submission the degree to which the user has
+      been assisted by the password manager. Recorded values correspond to the
+      enum password_manager::PasswordFormMetricsRecorder::FillingAssistance.
     </summary>
   </metric>
   <metric name="ParsingComparison">
@@ -4419,6 +4773,36 @@ be describing additional metrics about the same event.
   <metric name="NeededSniffing">
     <summary>
       Whether the HTTP response needed sniffing to confirm its MIME type.
+    </summary>
+  </metric>
+</event>
+
+<event name="SubframeDownload">
+  <owner>yaoxia@chromium.org</owner>
+  <summary>
+    Measurement for subframe download. It is only recorded for downloads
+    originated from navigations or from HTML anchor download attributes.
+  </summary>
+  <metric name="HasGesture">
+    <summary>
+      A boolean denoting whether the download involves a transient user gesture.
+    </summary>
+  </metric>
+  <metric name="HasSandbox">
+    <summary>
+      A boolean denoting whether the download occurs in a sandboxed browsing
+      context.
+    </summary>
+  </metric>
+  <metric name="IsAdFrame">
+    <summary>
+      A boolean denoting whether the download occurs in an ad subframe.
+    </summary>
+  </metric>
+  <metric name="IsCrossOrigin">
+    <summary>
+      A boolean denoting whether the download occurs in a subframe x-origin to
+      the top frame.
     </summary>
   </metric>
 </event>
@@ -5777,6 +6161,15 @@ be describing additional metrics about the same event.
       included on the site.
     </summary>
   </metric>
+</event>
+
+<event name="HistoryManipulationIntervention">
+  <owner>shivanisha@chromium.org</owner>
+  <summary>
+    Logged when an entry in the back-forward list is marked to be skipped on
+    subsequent back/forward button clicks as part of the history manipulation
+    intervention. This is logged when the entry is navigated away from.
+  </summary>
 </event>
 
 </ukm-configuration>

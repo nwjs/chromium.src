@@ -19,6 +19,7 @@ struct AutofillMetadata {
   ~AutofillMetadata(){};
 
   bool operator==(const AutofillMetadata&) const;
+  bool operator!=(const AutofillMetadata&) const;
 
   // The ID for the model. This should be the guid for local data and server_id
   // for the server data.
@@ -38,6 +39,9 @@ struct AutofillMetadata {
   // card.
   std::string billing_address_id;
 };
+
+// So we can compare AutofillMetadata with EXPECT_EQ().
+std::ostream& operator<<(std::ostream& os, const AutofillMetadata& metadata);
 
 }  // namespace autofill
 

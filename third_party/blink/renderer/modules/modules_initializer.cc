@@ -222,10 +222,10 @@ void ModulesInitializer::InitInspectorAgentSession(
       MakeGarbageCollected<DeviceOrientationInspectorAgent>(inspected_frames));
   session->Append(
       MakeGarbageCollected<InspectorDOMStorageAgent>(inspected_frames));
+  session->Append(MakeGarbageCollected<InspectorAccessibilityAgent>(
+      inspected_frames, dom_agent));
   if (allow_view_agents) {
     session->Append(InspectorDatabaseAgent::Create(page));
-    session->Append(MakeGarbageCollected<InspectorAccessibilityAgent>(
-        inspected_frames, dom_agent));
     session->Append(InspectorCacheStorageAgent::Create(inspected_frames));
   }
 }
@@ -266,14 +266,15 @@ std::unique_ptr<WebMediaPlayer> ModulesInitializer::CreateWebMediaPlayer(
 
 WebRemotePlaybackClient* ModulesInitializer::CreateWebRemotePlaybackClient(
     HTMLMediaElement& html_media_element) const {
-  return HTMLMediaElementRemotePlayback::remote(html_media_element);
+  return &RemotePlayback::From(html_media_element);
 }
 
 void ModulesInitializer::ProvideModulesToPage(Page& page,
                                               WebViewClient* client) const {
   MediaKeysController::ProvideMediaKeysTo(page);
   ::blink::ProvideContextFeaturesTo(page, ContextFeaturesClientImpl::Create());
-  ::blink::ProvideDatabaseClientTo(page, new DatabaseClient);
+  ::blink::ProvideDatabaseClientTo(page,
+                                   MakeGarbageCollected<DatabaseClient>());
   StorageNamespace::ProvideSessionStorageNamespaceTo(page, client);
 }
 

@@ -36,6 +36,11 @@ Polymer({
               settings.routes.CROSTINI_SHARED_PATHS.path,
               '#crostini .subpage-arrow button');
         }
+        if (settings.routes.CROSTINI_SHARED_USB_DEVICES) {
+          map.set(
+              settings.routes.CROSTINI_SHARED_USB_DEVICES.path,
+              '#crostini .subpage-arrow button');
+        }
         return map;
       },
     },
@@ -53,7 +58,8 @@ Polymer({
 
   /** @private */
   onSubpageTap_: function(event) {
-    if (this.prefs.crostini.enabled.value)
+    if (this.getPref('crostini.enabled.value')) {
       settings.navigateTo(settings.routes.CROSTINI_DETAILS);
+    }
   },
 });

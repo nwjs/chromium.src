@@ -17,9 +17,9 @@
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
-#include "content/public/test/layouttest_support.h"
-#include "content/shell/common/layout_test/layout_test_switches.h"
+#include "content/public/test/web_test_support.h"
 #include "content/shell/common/shell_switches.h"
+#include "content/shell/common/web_test/web_test_switches.h"
 #include "content/shell/renderer/shell_render_view_observer.h"
 #include "content/shell/renderer/web_test/blink_test_helpers.h"
 #include "content/shell/renderer/web_test/blink_test_runner.h"
@@ -34,7 +34,6 @@
 #include "media/base/audio_latency.h"
 #include "media/base/mime_util.h"
 #include "media/media_buildflags.h"
-#include "third_party/blink/public/platform/modules/webmidi/web_midi_accessor.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
 #include "third_party/blink/public/platform/web_media_stream_center.h"
 #include "third_party/blink/public/platform/web_rtc_peer_connection_handler.h"
@@ -51,8 +50,6 @@ using blink::WebAudioDevice;
 using blink::WebFrame;
 using blink::WebLocalFrame;
 using blink::WebMediaStreamCenter;
-using blink::WebMIDIAccessor;
-using blink::WebMIDIAccessorClient;
 using blink::WebPlugin;
 using blink::WebPluginParams;
 using blink::WebRTCPeerConnectionHandler;
@@ -63,7 +60,7 @@ namespace content {
 
 WebTestContentRendererClient::WebTestContentRendererClient() {
   EnableWebTestProxyCreation();
-  SetWorkerRewriteURLFunction(RewriteLayoutTestsURL);
+  SetWorkerRewriteURLFunction(RewriteWebTestsURL);
 }
 
 WebTestContentRendererClient::~WebTestContentRendererClient() {}
@@ -98,14 +95,6 @@ void WebTestContentRendererClient::RenderViewCreated(RenderView* render_view) {
   test_runner->Reset(false /* for_new_test */);
 }
 
-std::unique_ptr<WebMIDIAccessor>
-WebTestContentRendererClient::OverrideCreateMIDIAccessor(
-    WebMIDIAccessorClient* client) {
-  test_runner::WebTestInterfaces* interfaces =
-      WebTestRenderThreadObserver::GetInstance()->test_interfaces();
-  return interfaces->CreateMIDIAccessor(client);
-}
-
 WebThemeEngine* WebTestContentRendererClient::OverrideThemeEngine() {
   return WebTestRenderThreadObserver::GetInstance()
       ->test_interfaces()
@@ -130,30 +119,32 @@ void WebTestContentRendererClient::DidInitializeWorkerContextOnWorkerThread(
 
 void WebTestContentRendererClient::
     SetRuntimeFeaturesDefaultsBeforeBlinkInitialization() {
-  // We always expose GC to layout tests.
+  // We always expose GC to web tests.
   std::string flags("--expose-gc");
+  auto* command_line = base::CommandLine::ForCurrentProcess();
   v8::V8::SetFlagsFromString(flags.c_str(), static_cast<int>(flags.size()));
-  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kStableReleaseMode)) {
+  if (!command_line->HasSwitch(switches::kStableReleaseMode)) {
     blink::WebRuntimeFeatures::EnableTestOnlyFeatures(true);
   }
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableFontAntialiasing)) {
+  if (command_line->HasSwitch(switches::kEnableFontAntialiasing)) {
     blink::SetFontAntialiasingEnabledForTest(true);
+  }
+  if (command_line->HasSwitch(
+          switches::kDisableOriginTrialControlledBlinkFeatures)) {
+    blink::WebRuntimeFeatures::EnableOriginTrialControlledFeatures(false);
   }
 }
 
 bool WebTestContentRendererClient::IsIdleMediaSuspendEnabled() {
-  // Disable idle media suspend to avoid layout tests getting into accidentally
+  // Disable idle media suspend to avoid web tests getting into accidentally
   // bad states if they take too long to run.
   return false;
 }
 
 bool WebTestContentRendererClient::SuppressLegacyTLSVersionConsoleMessage() {
-#if defined(OS_WIN) || defined(OS_MACOSX)
-  // Blink uses an outdated test server on Windows and older versions of macOS.
-  // Until those are fixed, suppress the warning. See https://crbug.com/747666
-  // and https://crbug.com/905831.
+#if defined(OS_MACOSX)
+  // Blink uses an outdated test server on older versions of macOS. Until those
+  // are fixed, suppress the warning. See https://crbug.com/905831.
   return true;
 #else
   return false;

@@ -73,30 +73,26 @@ cr.define('settings_sections_tests', function() {
      * @param {boolean} hasSelection Whether the document has a selection.
      */
     function initDocumentInfo(isPdf, hasSelection) {
-      const info = new print_preview.DocumentInfo();
+      const info = page.$.documentInfo;
       info.init(!isPdf, 'title', hasSelection);
-      if (isPdf)
-        info.updateFitToPageScaling(98);
-      info.updatePageCount(3);
-      page.set('documentInfo_', info);
+      if (isPdf) {
+        info.set('documentSettings.fitToPageScaling', 98);
+      }
+      info.set('documentSettings.pageCount', 3);
+      info.margins = null;
       Polymer.dom.flush();
     }
 
     function addSelection() {
       // Add a selection.
-      let info = new print_preview.DocumentInfo();
-      info.init(page.documentInfo_.isModifiable, 'title', true);
-      page.set('documentInfo_', info);
+      page.$.documentInfo.init(
+          page.documentSettings_.isModifiable, 'title', true);
       Polymer.dom.flush();
     }
 
     function setPdfDestination() {
-      const saveAsPdfDestination = new print_preview.Destination(
-          print_preview.Destination.GooglePromotedId.SAVE_AS_PDF,
-          print_preview.DestinationType.LOCAL,
-          print_preview.DestinationOrigin.LOCAL,
-          loadTimeData.getString('printToPDF'), false /*isRecent*/,
-          print_preview.DestinationConnectionStatus.ONLINE);
+      const saveAsPdfDestination =
+          print_preview_test_utils.getSaveAsPdfDestination();
       saveAsPdfDestination.capabilities =
           print_preview_test_utils.getCddTemplate(saveAsPdfDestination.id)
               .capabilities;
@@ -257,8 +253,6 @@ cr.define('settings_sections_tests', function() {
             selectElement.value);
         assertEquals(
             capabilityAndValue.expectedValue, page.getSettingValue('color'));
-        // Check that setting is not marked as managed.
-        assertFalse(colorElement.$$('print-preview-settings-section').managed);
         assertFalse(selectElement.disabled);
       });
     });
@@ -267,13 +261,10 @@ cr.define('settings_sections_tests', function() {
       // Check that the Save to Google Drive printer does not show the color
       // capability, but sets the value as true by default.
       const colorElement = page.$$('print-preview-color-settings');
-      const googleDrivePrinter = new print_preview.Destination(
-          print_preview.Destination.GooglePromotedId.DOCS,
-          print_preview.DestinationType.GOOGLE,
-          print_preview.DestinationOrigin.COOKIES,
-          print_preview.Destination.GooglePromotedId.DOCS, true /* isRecent */,
-          print_preview.DestinationConnectionStatus.ONLINE, {});
-      page.set('destination_', googleDrivePrinter);
+      page.set(
+          'destination_',
+          print_preview_test_utils.getGoogleDriveDestination(
+              'foo@chromium.org'));
       const capabilities =
           print_preview_test_utils
               .getCddTemplate(print_preview.Destination.GooglePromotedId.DOCS)
@@ -415,14 +406,6 @@ cr.define('settings_sections_tests', function() {
      */
     function isSectionHidden(checkbox) {
       return checkbox.parentNode.parentNode.hidden;
-    }
-
-    /**
-     * @param {!CrCheckboxElement} checkbox The checkbox to check
-     * @return {boolean} Whether the checkbox's parent section is managed.
-     */
-    function isSectionManaged(checkbox) {
-      return checkbox.parentNode.parentNode.managed;
     }
 
     test(assert(TestNames.Other), function() {
@@ -586,6 +569,7 @@ cr.define('settings_sections_tests', function() {
     });
 
     test(assert(TestNames.SetPages), function() {
+      initDocumentInfo(false, false);
       const pagesElement = page.$$('print-preview-pages-settings');
       // This section is always visible.
       assertFalse(pagesElement.hidden);
@@ -931,7 +915,7 @@ cr.define('settings_sections_tests', function() {
             // to verify that the input matches them.
             if (scalingValid) {
               const scalingDisplay = fitToPage ?
-                  page.documentInfo_.fitToPageScaling.toString() :
+                  page.documentSettings_.fitToPageScaling.toString() :
                   scalingValue;
               assertEquals(scalingDisplay, scalingInput.value);
             }
@@ -1195,9 +1179,6 @@ cr.define('settings_sections_tests', function() {
           assertEquals(
               subtestParams.expectedValue ? 'color' : 'bw',
               selectElement.value);
-          assertEquals(
-              subtestParams.expectedManaged,
-              colorElement.$$('print-preview-settings-section').managed);
           assertEquals(subtestParams.expectedManaged, selectElement.disabled);
         }
       });
@@ -1275,8 +1256,6 @@ cr.define('settings_sections_tests', function() {
             subtestParams.expectedHidden, isSectionHidden(duplexElement));
         if (!subtestParams.expectedHidden) {
           assertEquals(subtestParams.expectedValue, duplexElement.checked);
-          assertEquals(
-              subtestParams.expectedManaged, isSectionManaged(duplexElement));
           assertEquals(subtestParams.expectedManaged, duplexElement.disabled);
         }
       });

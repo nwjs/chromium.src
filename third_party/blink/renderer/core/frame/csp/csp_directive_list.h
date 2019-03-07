@@ -38,6 +38,10 @@ class CORE_EXPORT CSPDirectiveList
                                   ContentSecurityPolicyHeaderSource,
                                   bool should_parse_wasm_eval = false);
 
+  CSPDirectiveList(ContentSecurityPolicy*,
+                   ContentSecurityPolicyHeaderType,
+                   ContentSecurityPolicyHeaderSource);
+
   void Parse(const UChar* begin,
              const UChar* end,
              bool should_parse_wasm_eval = false);
@@ -206,10 +210,6 @@ class CORE_EXPORT CSPDirectiveList
   FRIEND_TEST_ALL_PREFIXES(CSPDirectiveListTest, OperativeDirectiveGivenType);
 
   enum RequireSRIForToken { kNone = 0, kScript = 1 << 0, kStyle = 1 << 1 };
-
-  CSPDirectiveList(ContentSecurityPolicy*,
-                   ContentSecurityPolicyHeaderType,
-                   ContentSecurityPolicyHeaderSource);
 
   bool ParseDirective(const UChar* begin,
                       const UChar* end,
@@ -380,6 +380,14 @@ class CORE_EXPORT CSPDirectiveList
 
   uint8_t require_sri_for_;
 
+  // If a "report-to" directive is used:
+  // - |report_endpoints_| is a list of token parsed from the "report-to"
+  //   directive's value, and
+  // - |use_reporting_api_| is true.
+  // Otherwise,
+  // - |report_endpoints_| is a list of uri-reference parsed from a
+  //   "report-uri" directive's value if any, and
+  // - |use_reporting_api_| is false.
   Vector<String> report_endpoints_;
   bool use_reporting_api_;
 

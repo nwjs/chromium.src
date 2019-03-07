@@ -94,6 +94,7 @@ class Local;
 
 namespace webrtc {
 struct RtpCapabilities;
+class AsyncResolverFactory;
 }
 
 namespace blink {
@@ -111,8 +112,6 @@ class WebDatabaseObserver;
 class WebGraphicsContext3DProvider;
 class WebImageCaptureFrameGrabber;
 class WebLocalFrame;
-class WebMIDIAccessor;
-class WebMIDIAccessorClient;
 class WebMediaCapabilitiesClient;
 class WebMediaPlayer;
 class WebMediaRecorderHandler;
@@ -221,13 +220,6 @@ class BLINK_PLATFORM_EXPORT Platform {
       const WebString& device_id) {
     return nullptr;
   }
-
-  // MIDI ----------------------------------------------------------------
-
-  // Creates a platform dependent WebMIDIAccessor. MIDIAccessor under platform
-  // creates and owns it.
-  virtual std::unique_ptr<WebMIDIAccessor> CreateMIDIAccessor(
-      WebMIDIAccessorClient*);
 
   // Blob ----------------------------------------------------------------
 
@@ -387,7 +379,7 @@ class BLINK_PLATFORM_EXPORT Platform {
   virtual void CacheMetadata(blink::mojom::CodeCacheType cache_type,
                              const WebURL&,
                              base::Time response_time,
-                             const char* data,
+                             const uint8_t* data,
                              size_t data_size) {}
 
   // A request to fetch contents associated with this URL from metadata cache.
@@ -403,7 +395,7 @@ class BLINK_PLATFORM_EXPORT Platform {
   virtual void CacheMetadataInCacheStorage(
       const WebURL&,
       base::Time response_time,
-      const char* data,
+      const uint8_t* data,
       size_t data_size,
       const blink::WebSecurityOrigin& cache_storage_origin,
       const WebString& cache_storage_cache_name) {}
@@ -655,6 +647,10 @@ class BLINK_PLATFORM_EXPORT Platform {
   // May return null if WebRTC functionality is not implemented.
   virtual std::unique_ptr<cricket::PortAllocator> CreateWebRtcPortAllocator(
       WebLocalFrame* frame);
+
+  // May return null if WebRTC functionality is not implemented.
+  virtual std::unique_ptr<webrtc::AsyncResolverFactory>
+  CreateWebRtcAsyncResolverFactory();
 
   // Creates a WebCanvasCaptureHandler to capture Canvas output.
   virtual std::unique_ptr<WebCanvasCaptureHandler>

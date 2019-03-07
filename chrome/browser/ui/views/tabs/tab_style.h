@@ -5,14 +5,16 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_TABS_TAB_STYLE_H_
 #define CHROME_BROWSER_UI_VIEWS_TABS_TAB_STYLE_H_
 
+#include <memory>
+
 #include "base/macros.h"
 #include "ui/gfx/geometry/rect_f.h"
-#include "ui/gfx/path.h"
 
 namespace gfx {
 class Canvas;
 }
 
+class SkPath;
 class Tab;
 
 // Holds all of the logic for rendering tabs, including preferred sizes, paths,
@@ -72,7 +74,7 @@ class TabStyle {
   // We've implemented this as a factory function so that when we're playing
   // with new variatons on tab shapes we can have a few possible implementations
   // and switch them in one place.
-  static TabStyle* CreateForTab(const Tab* tab);
+  static std::unique_ptr<TabStyle> CreateForTab(const Tab* tab);
 
   virtual ~TabStyle();
 
@@ -80,14 +82,11 @@ class TabStyle {
   // If |force_active| is true, applies an active appearance on the tab (usually
   // involving painting an optional stroke) even if the tab is not the active
   // tab.
-  virtual gfx::Path GetPath(
+  virtual SkPath GetPath(
       PathType path_type,
       float scale,
       bool force_active = false,
       RenderUnits render_units = RenderUnits::kPixels) const = 0;
-
-  // Gets the bounds for the leading and trailing separators for a tab.
-  virtual SeparatorBounds GetSeparatorBounds(float scale) const = 0;
 
   // Returns the thickness of the stroke drawn around the top and sides of the
   // tab.  Only active tabs may have a stroke, and not in all cases.  If there
@@ -96,12 +95,7 @@ class TabStyle {
   virtual int GetStrokeThickness(bool should_paint_as_active = false) const = 0;
 
   // Paint the tab.
-  virtual void PaintTab(gfx::Canvas* canvas, const gfx::Path& clip) const = 0;
-
-  // Returns the opacities of the separators.  If |for_layout| is true, returns
-  // the "layout" opacities, which ignore the effects of surrounding tabs' hover
-  // effects and consider only the current tab's state.
-  virtual SeparatorOpacities GetSeparatorOpacities(bool for_layout) const = 0;
+  virtual void PaintTab(gfx::Canvas* canvas, const SkPath& clip) const = 0;
 
   // Returns the insets to use for laying out tab contents.
   virtual gfx::Insets GetContentsInsets() const = 0;

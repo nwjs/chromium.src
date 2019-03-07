@@ -101,6 +101,9 @@ struct GPU_EXPORT GpuPreferences {
 
   bool log_gpu_control_list_decisions = false;
 
+  // Enable exporting of events to ETW (on Windows).
+  bool enable_trace_export_events_to_etw = false;
+
   // ===================================
   // Settings from //gpu/command_buffer/service/gpu_switches.cc
 
@@ -202,6 +205,7 @@ struct GPU_EXPORT GpuPreferences {
 
   bool enable_oop_rasterization_ddl = false;
   bool enable_raster_to_sk_image = false;
+  bool enable_passthrough_raster_decoder = false;
 
   // Start the watchdog suspended, as the app is already backgrounded and won't
   // send a background/suspend signal.

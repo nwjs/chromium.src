@@ -6,17 +6,23 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/command_line.h"
+#include "base/no_destructor.h"
+#include "base/optional.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/accessibility/ax_mode_observer.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_text_utils.h"
 #include "ui/accessibility/ax_tree_data.h"
 #include "ui/accessibility/platform/atk_util_auralinux.h"
@@ -258,12 +264,19 @@ static const gchar* AXPlatformNodeAuraLinuxGetDescription(
 }
 
 static gint AXPlatformNodeAuraLinuxGetIndexInParent(AtkObject* atk_object) {
-  AXPlatformNodeAuraLinux* obj = AtkObjectToAXPlatformNodeAuraLinux(atk_object);
-
-  if (!obj)
+  AtkObject* parent = atk_object_get_parent(atk_object);
+  if (!parent)
     return -1;
 
-  return obj->GetIndexInParent();
+  int n_children = atk_object_get_n_accessible_children(parent);
+  for (int i = 0; i < n_children; i++) {
+    AtkObject* child = atk_object_ref_accessible_child(parent, i);
+    g_object_unref(child);
+    if (child == atk_object)
+      return i;
+  }
+
+  return -1;
 }
 
 static AtkObject* AXPlatformNodeAuraLinuxGetParent(AtkObject* atk_object) {
@@ -297,15 +310,9 @@ static AtkObject* AXPlatformNodeAuraLinuxRefChild(AtkObject* atk_object,
 static AtkRelationSet* AXPlatformNodeAuraLinuxRefRelationSet(
     AtkObject* atk_object) {
   AXPlatformNodeAuraLinux* obj = AtkObjectToAXPlatformNodeAuraLinux(atk_object);
-  AtkRelationSet* atk_relation_set =
-      ATK_OBJECT_CLASS(kAXPlatformNodeAuraLinuxParentClass)
-          ->ref_relation_set(atk_object);
-
   if (!obj)
-    return atk_relation_set;
-
-  obj->GetAtkRelations(atk_relation_set);
-  return atk_relation_set;
+    return atk_relation_set_new();
+  return obj->GetAtkRelations();
 }
 
 static AtkAttributeSet* AXPlatformNodeAuraLinuxGetAttributes(
@@ -356,15 +363,6 @@ static gfx::Point FindAtkObjectParentCoords(AtkObject* atk_object) {
   atk_object = atk_object_get_parent(atk_object);
 
   return FindAtkObjectParentCoords(atk_object);
-}
-
-static AtkObject* FindAtkObjectParentFrame(AtkObject* atk_object) {
-  while (atk_object) {
-    if (atk_object_get_role(atk_object) == ATK_ROLE_FRAME)
-      return atk_object;
-    atk_object = atk_object_get_parent(atk_object);
-  }
-  return nullptr;
 }
 
 static void AXPlatformNodeAuraLinuxGetExtents(AtkComponent* atk_component,
@@ -744,7 +742,8 @@ static AtkHyperlink* AXPlatformNodeAuraLinuxHypertextGetLink(
     return nullptr;
 
   int32_t id = ax_hypertext.hyperlinks[index];
-  auto* link = AXPlatformNodeAuraLinux::GetFromUniqueId(id);
+  auto* link = static_cast<AXPlatformNodeAuraLinux*>(
+      AXPlatformNodeBase::GetFromUniqueId(id));
   if (!link)
     return nullptr;
 
@@ -969,10 +968,204 @@ static const GInterfaceInfo TextInfo = {
     reinterpret_cast<GInterfaceInitFunc>(AXTextInterfaceBaseInit), nullptr,
     nullptr};
 
+//
+// AtkWindow interface.
+//
 static void AXWindowInterfaceBaseInit(AtkWindowIface* iface) {}
 
 static const GInterfaceInfo WindowInfo = {
     reinterpret_cast<GInterfaceInitFunc>(AXWindowInterfaceBaseInit), nullptr,
+    nullptr};
+
+//
+// AtkSelection interface.
+//
+static gboolean AXPlatformNodeAuraLinuxAddSelection(AtkSelection* selection,
+                                                    gint index) {
+  AXPlatformNodeAuraLinux* obj =
+      AtkObjectToAXPlatformNodeAuraLinux(ATK_OBJECT(selection));
+  if (!obj)
+    return FALSE;
+  if (index < 0 || index >= obj->GetChildCount())
+    return FALSE;
+
+  AXPlatformNodeAuraLinux* child =
+      AtkObjectToAXPlatformNodeAuraLinux(obj->ChildAtIndex(index));
+  DCHECK(child);
+
+  if (!child->SupportsSelectionWithAtkSelection())
+    return FALSE;
+
+  bool selected = child->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
+  if (selected)
+    return TRUE;
+
+  AXActionData data;
+  data.action = ax::mojom::Action::kDoDefault;
+  return child->GetDelegate()->AccessibilityPerformAction(data);
+}
+
+static gboolean AXPlatformNodeAuraLinuxClearSelection(AtkSelection* selection) {
+  AXPlatformNodeAuraLinux* obj =
+      AtkObjectToAXPlatformNodeAuraLinux(ATK_OBJECT(selection));
+  if (!obj)
+    return FALSE;
+
+  int child_count = obj->GetChildCount();
+  bool success = true;
+  for (int i = 0; i < child_count; ++i) {
+    AXPlatformNodeAuraLinux* child =
+        AtkObjectToAXPlatformNodeAuraLinux(obj->ChildAtIndex(i));
+    DCHECK(child);
+
+    if (!child->SupportsSelectionWithAtkSelection())
+      continue;
+
+    bool selected =
+        child->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
+    if (!selected)
+      continue;
+
+    AXActionData data;
+    data.action = ax::mojom::Action::kDoDefault;
+    success = success && child->GetDelegate()->AccessibilityPerformAction(data);
+  }
+
+  return success;
+}
+
+static AtkObject* AXPlatformNodeAuraLinuxRefSelection(
+    AtkSelection* selection,
+    gint requested_child_index) {
+  AXPlatformNodeAuraLinux* obj =
+      AtkObjectToAXPlatformNodeAuraLinux(ATK_OBJECT(selection));
+  if (!obj)
+    return nullptr;
+
+  int child_count = obj->GetChildCount();
+  gint selected_count = 0;
+  for (int i = 0; i < child_count; ++i) {
+    AtkObject* child = obj->ChildAtIndex(i);
+    AXPlatformNodeAuraLinux* child_ax_node =
+        AtkObjectToAXPlatformNodeAuraLinux(child);
+    DCHECK(child_ax_node);
+
+    if (child_ax_node->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected)) {
+      if (selected_count == requested_child_index)
+        return static_cast<AtkObject*>(g_object_ref(child));
+      ++selected_count;
+    }
+  }
+
+  return nullptr;
+}
+
+static gint AXPlatformNodeAuraLinuxGetSelectionCount(AtkSelection* selection) {
+  AXPlatformNodeAuraLinux* obj =
+      AtkObjectToAXPlatformNodeAuraLinux(ATK_OBJECT(selection));
+  if (!obj)
+    return 0;
+
+  int child_count = obj->GetChildCount();
+  gint selected_count = 0;
+  for (int i = 0; i < child_count; ++i) {
+    AXPlatformNodeAuraLinux* child =
+        AtkObjectToAXPlatformNodeAuraLinux(obj->ChildAtIndex(i));
+    DCHECK(child);
+
+    if (child->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected))
+      ++selected_count;
+  }
+
+  return selected_count;
+}
+
+static gboolean AXPlatformNodeAuraLinuxIsChildSelected(AtkSelection* selection,
+                                                       gint index) {
+  AXPlatformNodeAuraLinux* obj =
+      AtkObjectToAXPlatformNodeAuraLinux(ATK_OBJECT(selection));
+  if (!obj)
+    return FALSE;
+  if (index < 0 || index >= obj->GetChildCount())
+    return FALSE;
+
+  AXPlatformNodeAuraLinux* child =
+      AtkObjectToAXPlatformNodeAuraLinux(obj->ChildAtIndex(index));
+  DCHECK(child);
+  return child->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
+}
+
+static gboolean AXPlatformNodeAuraLinuxRemoveSelection(
+    AtkSelection* selection,
+    gint index_into_selected_children) {
+  AXPlatformNodeAuraLinux* obj =
+      AtkObjectToAXPlatformNodeAuraLinux(ATK_OBJECT(selection));
+
+  int child_count = obj->GetChildCount();
+  for (int i = 0; i < child_count; ++i) {
+    AXPlatformNodeAuraLinux* child =
+        AtkObjectToAXPlatformNodeAuraLinux(obj->ChildAtIndex(i));
+    DCHECK(child);
+
+    bool selected =
+        child->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
+    if (selected && index_into_selected_children == 0) {
+      if (!child->SupportsSelectionWithAtkSelection())
+        return FALSE;
+
+      AXActionData data;
+      data.action = ax::mojom::Action::kDoDefault;
+      return child->GetDelegate()->AccessibilityPerformAction(data);
+    } else if (selected) {
+      index_into_selected_children--;
+    }
+  }
+
+  return FALSE;
+}
+
+static gboolean AXPlatformNodeAuraLinuxSelectAllSelection(
+    AtkSelection* selection) {
+  AXPlatformNodeAuraLinux* obj =
+      AtkObjectToAXPlatformNodeAuraLinux(ATK_OBJECT(selection));
+  if (!obj)
+    return FALSE;
+
+  int child_count = obj->GetChildCount();
+  bool success = true;
+  for (int i = 0; i < child_count; ++i) {
+    AXPlatformNodeAuraLinux* child =
+        AtkObjectToAXPlatformNodeAuraLinux(obj->ChildAtIndex(i));
+    DCHECK(child);
+
+    if (!child->SupportsSelectionWithAtkSelection())
+      continue;
+
+    bool selected =
+        child->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
+    if (selected)
+      continue;
+
+    AXActionData data;
+    data.action = ax::mojom::Action::kDoDefault;
+    success = success && child->GetDelegate()->AccessibilityPerformAction(data);
+  }
+
+  return success;
+}
+
+static void AXSelectionInterfaceBaseInit(AtkSelectionIface* iface) {
+  iface->add_selection = AXPlatformNodeAuraLinuxAddSelection;
+  iface->clear_selection = AXPlatformNodeAuraLinuxClearSelection;
+  iface->ref_selection = AXPlatformNodeAuraLinuxRefSelection;
+  iface->get_selection_count = AXPlatformNodeAuraLinuxGetSelectionCount;
+  iface->is_child_selected = AXPlatformNodeAuraLinuxIsChildSelected;
+  iface->remove_selection = AXPlatformNodeAuraLinuxRemoveSelection;
+  iface->select_all_selection = AXPlatformNodeAuraLinuxSelectAllSelection;
+}
+
+static const GInterfaceInfo SelectionInfo = {
+    reinterpret_cast<GInterfaceInitFunc>(AXSelectionInterfaceBaseInit), nullptr,
     nullptr};
 
 //
@@ -1068,6 +1261,44 @@ AXPlatformNodeAuraLinux* g_current_selected = nullptr;
 // null if if the AtkObject is destroyed.
 AtkObject* g_active_top_level_frame = nullptr;
 
+static AtkObject* FindAtkObjectParentFrame(AtkObject* atk_object) {
+  while (atk_object) {
+    if (atk_object_get_role(atk_object) == ATK_ROLE_FRAME)
+      return atk_object;
+    atk_object = atk_object_get_parent(atk_object);
+  }
+  return nullptr;
+}
+
+static bool IsFrameAncestorOfAtkObject(AtkObject* frame,
+                                       AtkObject* atk_object) {
+  AtkObject* current_frame = FindAtkObjectParentFrame(atk_object);
+  while (current_frame) {
+    if (current_frame == frame)
+      return true;
+    current_frame =
+        FindAtkObjectParentFrame(atk_object_get_parent(current_frame));
+  }
+  return false;
+}
+
+// Returns a stack of AtkObjects of activated popup menus. Since each popup
+// menu and submenu has its own native window, we want to properly manage the
+// activated state for their containing frames.
+static std::vector<AtkObject*>& GetActiveMenus() {
+  static base::NoDestructor<std::vector<AtkObject*>> active_menus;
+  return *active_menus;
+}
+
+// The currently active frame is g_active_top_level_frame, unless there is an
+// active menu. If there is an active menu the parent frame of the
+// most-recently opened active menu should be the currently active frame.
+AtkObject* ComputeActiveTopLevelFrame() {
+  if (!GetActiveMenus().empty())
+    return FindAtkObjectParentFrame(GetActiveMenus().back());
+  return g_active_top_level_frame;
+}
+
 const char* GetUniqueAccessibilityGTypeName(int interface_mask) {
   // 37 characters is enough for "AXPlatformNodeAuraLinux%x" with any integer
   // value.
@@ -1147,6 +1378,9 @@ int AXPlatformNodeAuraLinux::GetGTypeInterfaceMask() {
   if (role == ATK_ROLE_FRAME)
     interface_mask |= 1 << ATK_WINDOW_INTERFACE;
 
+  if (IsContainerWithSelectableChildren(GetData().role))
+    interface_mask |= 1 << ATK_SELECTION_INTERFACE;
+
   return interface_mask;
 }
 
@@ -1190,6 +1424,8 @@ GType AXPlatformNodeAuraLinux::GetAccessibilityGType() {
     g_type_add_interface_static(type, ATK_TYPE_TEXT, &TextInfo);
   if (interface_mask_ & (1 << ATK_WINDOW_INTERFACE))
     g_type_add_interface_static(type, ATK_TYPE_WINDOW, &WindowInfo);
+  if (interface_mask_ & (1 << ATK_SELECTION_INTERFACE))
+    g_type_add_interface_static(type, ATK_TYPE_SELECTION, &SelectionInfo);
 
   return type;
 }
@@ -1232,22 +1468,6 @@ AXPlatformNode* AXPlatformNode::Create(AXPlatformNodeDelegate* delegate) {
 AXPlatformNode* AXPlatformNode::FromNativeViewAccessible(
     gfx::NativeViewAccessible accessible) {
   return AtkObjectToAXPlatformNodeAuraLinux(accessible);
-}
-
-using UniqueIdMap = base::hash_map<int32_t, AXPlatformNodeAuraLinux*>;
-// Map from each AXPlatformNode's unique id to its instance.
-base::LazyInstance<UniqueIdMap>::Leaky g_unique_id_map =
-    LAZY_INSTANCE_INITIALIZER;
-
-// static
-AXPlatformNodeAuraLinux* AXPlatformNodeAuraLinux::GetFromUniqueId(
-    int32_t unique_id) {
-  UniqueIdMap* unique_ids = g_unique_id_map.Pointer();
-  auto iter = unique_ids->find(unique_id);
-  if (iter != unique_ids->end())
-    return iter->second;
-
-  return nullptr;
 }
 
 //
@@ -1460,12 +1680,14 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() {
     // ax_platform_node_win.cc code does this.
     case ax::mojom::Role::kListBoxOption:
       return ATK_ROLE_LIST_ITEM;
+    case ax::mojom::Role::kListGrid:
+      return ATK_ROLE_TABLE;
+    case ax::mojom::Role::kListItem:
+      return ATK_ROLE_LIST_ITEM;
     case ax::mojom::Role::kListMarker:
       // TODO(Accessibility) Having a separate accessible object for the marker
       // is inconsistent with other implementations. http://crbug.com/873144.
       return kStaticRole;
-    case ax::mojom::Role::kListItem:
-      return ATK_ROLE_LIST_ITEM;
     case ax::mojom::Role::kLog:
       return ATK_ROLE_LOG;
     case ax::mojom::Role::kMain:
@@ -1646,8 +1868,14 @@ AtkRole AXPlatformNodeAuraLinux::GetAtkRole() {
 
 void AXPlatformNodeAuraLinux::GetAtkState(AtkStateSet* atk_state_set) {
   AXNodeData data = GetData();
-  if (atk_object_ == g_active_top_level_frame)
+
+  bool menu_active = !GetActiveMenus().empty();
+  if (!menu_active && atk_object_ == g_active_top_level_frame)
     atk_state_set_add_state(atk_state_set, ATK_STATE_ACTIVE);
+  if (menu_active &&
+      FindAtkObjectParentFrame(GetActiveMenus().back()) == atk_object_)
+    atk_state_set_add_state(atk_state_set, ATK_STATE_ACTIVE);
+
   if (data.HasState(ax::mojom::State::kCollapsed))
     atk_state_set_add_state(atk_state_set, ATK_STATE_EXPANDABLE);
   if (data.HasState(ax::mojom::State::kDefault))
@@ -1739,8 +1967,116 @@ void AXPlatformNodeAuraLinux::GetAtkState(AtkStateSet* atk_state_set) {
     atk_state_set_add_state(atk_state_set, ATK_STATE_FOCUSED);
 }
 
-void AXPlatformNodeAuraLinux::GetAtkRelations(
-    AtkRelationSet* atk_relation_set) {
+struct AtkIntRelation {
+  ax::mojom::IntAttribute attribute;
+  AtkRelationType relation;
+  base::Optional<AtkRelationType> reverse_relation;
+};
+
+static AtkIntRelation kIntRelations[] = {
+    {ax::mojom::IntAttribute::kMemberOfId, ATK_RELATION_MEMBER_OF,
+     base::nullopt},
+#if defined(ATK_226)
+    {ax::mojom::IntAttribute::kDetailsId, ATK_RELATION_DETAILS,
+     ATK_RELATION_DETAILS_FOR},
+    {ax::mojom::IntAttribute::kErrormessageId, ATK_RELATION_ERROR_MESSAGE,
+     ATK_RELATION_ERROR_FOR},
+#endif
+};
+
+struct AtkIntListRelation {
+  ax::mojom::IntListAttribute attribute;
+  AtkRelationType relation;
+  base::Optional<AtkRelationType> reverse_relation;
+};
+
+static AtkIntListRelation kIntListRelations[] = {
+    {ax::mojom::IntListAttribute::kControlsIds, ATK_RELATION_CONTROLLER_FOR,
+     ATK_RELATION_CONTROLLED_BY},
+    {ax::mojom::IntListAttribute::kDescribedbyIds, ATK_RELATION_DESCRIBED_BY,
+     ATK_RELATION_DESCRIPTION_FOR},
+    {ax::mojom::IntListAttribute::kFlowtoIds, ATK_RELATION_FLOWS_TO,
+     ATK_RELATION_FLOWS_FROM},
+    {ax::mojom::IntListAttribute::kLabelledbyIds, ATK_RELATION_LABELLED_BY,
+     ATK_RELATION_LABEL_FOR},
+};
+
+void AXPlatformNodeAuraLinux::AddRelationToSet(AtkRelationSet* relation_set,
+                                               AtkRelationType relation,
+                                               int target_id) {
+  // Avoid adding self-referential relations.
+  if (target_id == GetData().id)
+    return;
+
+  // If we were compiled with a newer version of ATK than the runtime version,
+  // it's possible that we might try to add a relation that doesn't exist in
+  // the runtime version of the AtkRelationType enum. This will cause a runtime
+  // error, so return early here if we are about to do that.
+  static base::Optional<int> max_relation_type = base::nullopt;
+  if (!max_relation_type.has_value()) {
+    GEnumClass* enum_class =
+        G_ENUM_CLASS(g_type_class_ref(atk_relation_type_get_type()));
+    max_relation_type = enum_class->maximum;
+    g_type_class_unref(enum_class);
+  }
+  if (relation > max_relation_type.value())
+    return;
+
+  AXPlatformNode* target = GetDelegate()->GetFromNodeID(target_id);
+  if (!target)
+    return;
+  atk_relation_set_add_relation_by_type(relation_set, relation,
+                                        target->GetNativeViewAccessible());
+}
+
+AtkRelationSet* AXPlatformNodeAuraLinux::GetAtkRelations() {
+  AtkRelationSet* relation_set = atk_relation_set_new();
+
+  // For each possible relation defined by an IntAttribute, we test that
+  // attribute and then look for reverse relations. AddRelationToSet handles
+  // discarding self-referential relations.
+  for (unsigned i = 0; i < G_N_ELEMENTS(kIntRelations); i++) {
+    const AtkIntRelation& relation = kIntRelations[i];
+
+    int target_id;
+    if (GetIntAttribute(relation.attribute, &target_id))
+      AddRelationToSet(relation_set, relation.relation, target_id);
+
+    if (!relation.reverse_relation.has_value())
+      continue;
+
+    std::set<int32_t> target_ids =
+        GetDelegate()->GetReverseRelations(relation.attribute, GetData().id);
+    for (int32_t target_id : target_ids) {
+      AddRelationToSet(relation_set, relation.reverse_relation.value(),
+                       target_id);
+    }
+  }
+
+  // Now we do the same for each possible relation defined by an
+  // IntListAttribute. In this case we need to handle each target in the list.
+  for (unsigned i = 0; i < G_N_ELEMENTS(kIntListRelations); i++) {
+    const AtkIntListRelation& relation = kIntListRelations[i];
+
+    std::vector<int32_t> target_ids;
+    if (GetIntListAttribute(relation.attribute, &target_ids)) {
+      for (int32_t target_id : target_ids) {
+        AddRelationToSet(relation_set, relation.relation, target_id);
+      }
+    }
+
+    if (!relation.reverse_relation.has_value())
+      continue;
+
+    std::set<int32_t> reverse_target_ids =
+        GetDelegate()->GetReverseRelations(relation.attribute, GetData().id);
+    for (int32_t target_id : reverse_target_ids) {
+      AddRelationToSet(relation_set, relation.reverse_relation.value(),
+                       target_id);
+    }
+  }
+
+  return relation_set;
 }
 
 AXPlatformNodeAuraLinux::AXPlatformNodeAuraLinux() = default;
@@ -1753,8 +2089,6 @@ AXPlatformNodeAuraLinux::~AXPlatformNodeAuraLinux() {
 }
 
 void AXPlatformNodeAuraLinux::Destroy() {
-  g_unique_id_map.Get().erase(GetUniqueId());
-
   DestroyAtkObjects();
   AXPlatformNodeBase::Destroy();
 }
@@ -1762,7 +2096,6 @@ void AXPlatformNodeAuraLinux::Destroy() {
 void AXPlatformNodeAuraLinux::Init(AXPlatformNodeDelegate* delegate) {
   // Initialize ATK.
   AXPlatformNodeBase::Init(delegate);
-  g_unique_id_map.Get()[GetUniqueId()] = this;
   DataChanged();
 }
 
@@ -1831,6 +2164,93 @@ void AXPlatformNodeAuraLinux::OnExpandedStateChanged(bool is_expanded) {
                                  is_expanded);
 }
 
+void AXPlatformNodeAuraLinux::OnMenuPopupStart() {
+  AtkObject* parent_frame = FindAtkObjectParentFrame(atk_object_);
+  if (!parent_frame)
+    return;
+
+  // Exit early if kMenuPopupStart is sent multiple times for the same menu.
+  std::vector<AtkObject*>& active_menus = GetActiveMenus();
+  bool menu_already_open = !active_menus.empty();
+  if (menu_already_open && active_menus.back() == atk_object_)
+    return;
+
+  // We also want to inform the AT that menu the is now showing. Normally this
+  // event is not fired because the menu will be created with the
+  // ATK_STATE_SHOWING already set to TRUE.
+  atk_object_notify_state_change(atk_object_, ATK_STATE_SHOWING, TRUE);
+
+  // We need to compute this before modifying the active menu stack.
+  AtkObject* previous_active_frame = ComputeActiveTopLevelFrame();
+
+  active_menus.push_back(atk_object_);
+
+  // We exit early if the newly activated menu has the same AtkWindow as the
+  // previous one.
+  if (previous_active_frame == parent_frame)
+    return;
+  if (previous_active_frame) {
+    g_signal_emit_by_name(previous_active_frame, "deactivate");
+    atk_object_notify_state_change(previous_active_frame, ATK_STATE_ACTIVE,
+                                   FALSE);
+  }
+  g_signal_emit_by_name(parent_frame, "activate");
+  atk_object_notify_state_change(parent_frame, ATK_STATE_ACTIVE, TRUE);
+}
+
+void AXPlatformNodeAuraLinux::OnMenuPopupHide() {
+  AtkObject* parent_frame = FindAtkObjectParentFrame(atk_object_);
+  if (!parent_frame)
+    return;
+
+  atk_object_notify_state_change(atk_object_, ATK_STATE_SHOWING, FALSE);
+
+  // kMenuPopupHide may be called multiple times for the same menu, so only
+  // remove it if our parent frame matches the most recently opened menu.
+  std::vector<AtkObject*>& active_menus = GetActiveMenus();
+  if (active_menus.empty())
+    return;
+
+  // When multiple levels of menu are closed at once, they may be hidden out
+  // of order. When this happens, we just remove the open menu from the stack.
+  if (active_menus.back() != atk_object_) {
+    auto it =
+        std::find(active_menus.rbegin(), active_menus.rend(), atk_object_);
+    if (it != active_menus.rend()) {
+      // We used a reverse iterator, so we need to convert it into a normal
+      // iterator to use it for std::vector::erase(...).
+      auto to_remove = --(it.base());
+      active_menus.erase(to_remove);
+    }
+    return;
+  }
+
+  active_menus.pop_back();
+
+  // We exit early if the newly activated menu has the same AtkWindow as the
+  // previous one.
+  AtkObject* new_active_item = ComputeActiveTopLevelFrame();
+  if (new_active_item == parent_frame)
+    return;
+  g_signal_emit_by_name(parent_frame, "deactivate");
+  atk_object_notify_state_change(parent_frame, ATK_STATE_ACTIVE, FALSE);
+  if (new_active_item) {
+    g_signal_emit_by_name(new_active_item, "activate");
+    atk_object_notify_state_change(new_active_item, ATK_STATE_ACTIVE, TRUE);
+  }
+}
+
+void AXPlatformNodeAuraLinux::OnMenuPopupEnd() {
+  if (!GetActiveMenus().empty() && g_active_top_level_frame &&
+      ComputeActiveTopLevelFrame() != g_active_top_level_frame) {
+    g_signal_emit_by_name(g_active_top_level_frame, "activate");
+    atk_object_notify_state_change(g_active_top_level_frame, ATK_STATE_ACTIVE,
+                                   TRUE);
+  }
+
+  GetActiveMenus().clear();
+}
+
 void AXPlatformNodeAuraLinux::OnWindowActivated() {
   AtkObject* parent_frame = FindAtkObjectParentFrame(atk_object_);
   if (!parent_frame || parent_frame == g_active_top_level_frame)
@@ -1840,6 +2260,15 @@ void AXPlatformNodeAuraLinux::OnWindowActivated() {
 
   g_signal_emit_by_name(parent_frame, "activate");
   atk_object_notify_state_change(parent_frame, ATK_STATE_ACTIVE, TRUE);
+
+  // We also send a focus event for the currently focused element, so that
+  // the user knows where the focus is when the toplevel window regains focus.
+  if (g_current_focused &&
+      IsFrameAncestorOfAtkObject(parent_frame, g_current_focused)) {
+    g_signal_emit_by_name(g_current_focused, "focus-event", true);
+    atk_object_notify_state_change(ATK_OBJECT(g_current_focused),
+                                   ATK_STATE_FOCUSED, true);
+  }
 }
 
 void AXPlatformNodeAuraLinux::OnWindowDeactivated() {
@@ -1857,8 +2286,7 @@ void AXPlatformNodeAuraLinux::OnFocused() {
   DCHECK(atk_object_);
 
   if (atk_object_get_role(atk_object_) == ATK_ROLE_FRAME) {
-    g_signal_emit_by_name(atk_object_, "activate");
-    atk_object_notify_state_change(atk_object_, ATK_STATE_ACTIVE, TRUE);
+    OnWindowActivated();
     return;
   }
 
@@ -1920,6 +2348,11 @@ bool AXPlatformNodeAuraLinux::SelectionAndFocusAreTheSame() {
   return false;
 }
 
+bool AXPlatformNodeAuraLinux::SupportsSelectionWithAtkSelection() {
+  return SupportsToggle(GetData().role) ||
+         GetData().role == ax::mojom::Role::kListBoxOption;
+}
+
 void AXPlatformNodeAuraLinux::OnValueChanged() {
   DCHECK(atk_object_);
 
@@ -1945,6 +2378,21 @@ void AXPlatformNodeAuraLinux::OnValueChanged() {
 void AXPlatformNodeAuraLinux::NotifyAccessibilityEvent(
     ax::mojom::Event event_type) {
   switch (event_type) {
+    // There are three types of messages that we receive for popup menus. Each
+    // time a popup menu is shown, we get a kMenuPopupStart message. This
+    // includes if the menu is hidden and then re-shown. When a menu is hidden
+    // we receive the kMenuPopupHide message. Finally, when the entire menu is
+    // closed we receive the kMenuPopupEnd message for the parent menu and all
+    // of the submenus that were opened when navigating through the menu.
+    case ax::mojom::Event::kMenuPopupEnd:
+      OnMenuPopupEnd();
+      break;
+    case ax::mojom::Event::kMenuPopupHide:
+      OnMenuPopupHide();
+      break;
+    case ax::mojom::Event::kMenuPopupStart:
+      OnMenuPopupStart();
+      break;
     case ax::mojom::Event::kCheckedStateChanged:
       OnCheckedStateChanged();
       break;

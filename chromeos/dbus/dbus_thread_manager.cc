@@ -19,13 +19,13 @@
 #include "chromeos/dbus/cec_service_client.h"
 #include "chromeos/dbus/cicerone_client.h"
 #include "chromeos/dbus/concierge_client.h"
+#include "chromeos/dbus/constants/dbus_switches.h"
 #include "chromeos/dbus/cras_audio_client.h"
 #include "chromeos/dbus/cros_disks_client.h"
 #include "chromeos/dbus/cryptohome_client.h"
 #include "chromeos/dbus/dbus_client.h"
 #include "chromeos/dbus/dbus_clients_browser.h"
 #include "chromeos/dbus/dbus_clients_common.h"
-#include "chromeos/dbus/dbus_switches.h"
 #include "chromeos/dbus/debug_daemon_client.h"
 #include "chromeos/dbus/easy_unlock_client.h"
 #include "chromeos/dbus/gsm_sms_client.h"
@@ -38,6 +38,7 @@
 #include "chromeos/dbus/modem_messaging_client.h"
 #include "chromeos/dbus/permission_broker_client.h"
 #include "chromeos/dbus/power_manager_client.h"
+#include "chromeos/dbus/runtime_probe_client.h"
 #include "chromeos/dbus/seneschal_client.h"
 #include "chromeos/dbus/session_manager_client.h"
 #include "chromeos/dbus/shill_device_client.h"
@@ -264,6 +265,11 @@ SessionManagerClient* DBusThreadManager::GetSessionManagerClient() {
   return clients_common_->session_manager_client_.get();
 }
 
+RuntimeProbeClient* DBusThreadManager::GetRuntimeProbeClient() {
+  return clients_browser_ ? clients_browser_->runtime_probe_client_.get()
+                          : nullptr;
+}
+
 SeneschalClient* DBusThreadManager::GetSeneschalClient() {
   return clients_browser_ ? clients_browser_->seneschal_client_.get() : nullptr;
 }
@@ -426,6 +432,12 @@ void DBusThreadManagerSetter::SetDebugDaemonClient(
 void DBusThreadManagerSetter::SetHammerdClient(
     std::unique_ptr<HammerdClient> client) {
   DBusThreadManager::Get()->clients_common_->hammerd_client_ =
+      std::move(client);
+}
+
+void DBusThreadManagerSetter::SetRuntimeProbeClient(
+    std::unique_ptr<RuntimeProbeClient> client) {
+  DBusThreadManager::Get()->clients_browser_->runtime_probe_client_ =
       std::move(client);
 }
 

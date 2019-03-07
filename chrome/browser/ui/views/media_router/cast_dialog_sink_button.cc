@@ -50,7 +50,6 @@ class StopButton : public views::LabelButton {
     SetFocusBehavior(FocusBehavior::ALWAYS);
     // Remove the outlines drawn when the button is in focus.
     SetInstallFocusRingOnFocus(false);
-    SetFocusPainter(nullptr);
 
     SetAccessibleName(l10n_util::GetStringFUTF16(
         IDS_MEDIA_ROUTER_STOP_CASTING_BUTTON_ACCESSIBLE_NAME,
@@ -227,6 +226,9 @@ void CastDialogSinkButton::OnMouseReleased(const ui::MouseEvent& event) {
 
 void CastDialogSinkButton::OnEnabledChanged() {
   HoverButton::OnEnabledChanged();
+  // Prevent a DCHECK failure seen at https://crbug.com/912687 by not having an
+  // InkDrop if the button is disabled.
+  SetInkDropMode(enabled() ? InkDropMode::ON : InkDropMode::OFF);
   // If the button has a state other than AVAILABLE (e.g. CONNECTED), there is
   // no need to change the status or the icon.
   if (sink_.state != UIMediaSinkState::AVAILABLE)

@@ -168,6 +168,12 @@
 #define glShallowFinishCHROMIUM GLES2_GET_FUN(ShallowFinishCHROMIUM)
 #define glShallowFlushCHROMIUM GLES2_GET_FUN(ShallowFlushCHROMIUM)
 #define glOrderingBarrierCHROMIUM GLES2_GET_FUN(OrderingBarrierCHROMIUM)
+#define glMultiDrawArraysWEBGL GLES2_GET_FUN(MultiDrawArraysWEBGL)
+#define glMultiDrawArraysInstancedWEBGL \
+  GLES2_GET_FUN(MultiDrawArraysInstancedWEBGL)
+#define glMultiDrawElementsWEBGL GLES2_GET_FUN(MultiDrawElementsWEBGL)
+#define glMultiDrawElementsInstancedWEBGL \
+  GLES2_GET_FUN(MultiDrawElementsInstancedWEBGL)
 #define glStencilFunc GLES2_GET_FUN(StencilFunc)
 #define glStencilFuncSeparate GLES2_GET_FUN(StencilFuncSeparate)
 #define glStencilMask GLES2_GET_FUN(StencilMask)
@@ -336,8 +342,6 @@
 #define glCommitOverlayPlanesCHROMIUM GLES2_GET_FUN(CommitOverlayPlanesCHROMIUM)
 #define glFlushDriverCachesCHROMIUM GLES2_GET_FUN(FlushDriverCachesCHROMIUM)
 #define glGetLastFlushIdCHROMIUM GLES2_GET_FUN(GetLastFlushIdCHROMIUM)
-#define glScheduleDCLayerSharedStateCHROMIUM \
-  GLES2_GET_FUN(ScheduleDCLayerSharedStateCHROMIUM)
 #define glScheduleDCLayerCHROMIUM GLES2_GET_FUN(ScheduleDCLayerCHROMIUM)
 #define glSetActiveURLCHROMIUM GLES2_GET_FUN(SetActiveURLCHROMIUM)
 #define glMatrixLoadfCHROMIUM GLES2_GET_FUN(MatrixLoadfCHROMIUM)

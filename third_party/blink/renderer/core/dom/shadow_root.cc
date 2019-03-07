@@ -56,7 +56,6 @@ void ShadowRoot::Distribute() {
 }
 
 struct SameSizeAsShadowRoot : public DocumentFragment, public TreeScope {
-  char empty_class_fields_due_to_gc_mixin_marker[1];
   Member<void*> member[3];
   unsigned counters_and_flags[1];
 };
@@ -171,6 +170,8 @@ Node::InsertionNotificationRequest ShadowRoot::InsertedInto(
   if (!insertion_point.isConnected())
     return kInsertionDone;
 
+  GetDocument().GetStyleEngine().ShadowRootInsertedToDocument(*this);
+
   GetDocument().GetSlotAssignmentEngine().Connected(*this);
 
   // FIXME: When parsing <video controls>, InsertedInto() is called many times
@@ -253,7 +254,7 @@ void ShadowRoot::SetNeedsDistributionRecalc() {
     V0().ClearDistribution();
 }
 
-void ShadowRoot::Trace(blink::Visitor* visitor) {
+void ShadowRoot::Trace(Visitor* visitor) {
   visitor->Trace(style_sheet_list_);
   visitor->Trace(slot_assignment_);
   visitor->Trace(shadow_root_v0_);

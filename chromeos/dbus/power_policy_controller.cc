@@ -8,12 +8,10 @@
 
 #include <utility>
 
-#include "base/feature_list.h"
 #include "base/format_macros.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
-#include "chromeos/chromeos_features.h"
 #include "chromeos/dbus/power_manager/backlight.pb.h"
 
 // Avoid some ugly line-wrapping later.
@@ -115,8 +113,7 @@ PowerPolicyController::PrefValues::PrefValues()
       presentation_screen_dim_delay_factor(1.0),
       user_activity_screen_dim_delay_factor(1.0),
       wait_for_initial_user_activity(false),
-      force_nonzero_brightness_for_user_activity(true),
-      smart_dim_enabled(true) {}
+      force_nonzero_brightness_for_user_activity(true) {}
 
 // static
 std::string PowerPolicyController::GetPolicyDebugString(
@@ -228,6 +225,7 @@ void PowerPolicyController::ApplyPrefs(const PrefValues& values) {
       lock_ms < delays->idle_ms()) {
     delays->set_screen_lock_ms(lock_ms);
   }
+  auto_screen_lock_enabled_ = values.enable_auto_screen_lock;
 
   prefs_policy_.set_ac_idle_action(GetProtoAction(values.ac_idle_action));
   prefs_policy_.set_battery_idle_action(
@@ -245,20 +243,10 @@ void PowerPolicyController::ApplyPrefs(const PrefValues& values) {
     }
   }
 
-  // Screen-dim deferral in response to user activity predictions can
-  // interact poorly with delay scaling, resulting in the system staying
-  // awake for a long time if a prediction is wrong. See
-  // https://crbug.com/888392.
-  if (values.smart_dim_enabled &&
-      base::FeatureList::IsEnabled(features::kUserActivityPrediction)) {
-    prefs_policy_.set_presentation_screen_dim_delay_factor(1.0);
-    prefs_policy_.set_user_activity_screen_dim_delay_factor(1.0);
-  } else {
-    prefs_policy_.set_presentation_screen_dim_delay_factor(
-        values.presentation_screen_dim_delay_factor);
-    prefs_policy_.set_user_activity_screen_dim_delay_factor(
-        values.user_activity_screen_dim_delay_factor);
-  }
+  prefs_policy_.set_presentation_screen_dim_delay_factor(
+      values.presentation_screen_dim_delay_factor);
+  prefs_policy_.set_user_activity_screen_dim_delay_factor(
+      values.user_activity_screen_dim_delay_factor);
 
   prefs_policy_.set_wait_for_initial_user_activity(
       values.wait_for_initial_user_activity);
@@ -271,6 +259,15 @@ void PowerPolicyController::ApplyPrefs(const PrefValues& values) {
 
   prefs_were_set_ = true;
   SendCurrentPolicy();
+}
+
+base::TimeDelta PowerPolicyController::GetMaxPolicyAutoScreenLockDelay() {
+  if (!prefs_were_set_ || !auto_screen_lock_enabled_) {
+    return base::TimeDelta();
+  }
+  int ac_delay = prefs_policy_.ac_delays().screen_lock_ms();
+  int battery_delay = prefs_policy_.battery_delays().screen_lock_ms();
+  return base::TimeDelta::FromMilliseconds(std::max(ac_delay, battery_delay));
 }
 
 int PowerPolicyController::AddScreenWakeLock(WakeLockReason reason,

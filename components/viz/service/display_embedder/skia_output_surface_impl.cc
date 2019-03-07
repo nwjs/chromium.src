@@ -47,73 +47,114 @@ base::RepeatingCallback<void(Args...)> CreateSafeCallback(
 }  // namespace
 
 // A helper class for fulfilling promise image on the GPU thread.
-template <class FulfillContextType>
 class SkiaOutputSurfaceImpl::PromiseTextureHelper {
  public:
-  using HelperType = PromiseTextureHelper<FulfillContextType>;
-
-  PromiseTextureHelper(base::WeakPtr<SkiaOutputSurfaceImplOnGpu> impl_on_gpu,
-                       FulfillContextType context)
-      : impl_on_gpu_(impl_on_gpu), context_(std::move(context)) {}
-  ~PromiseTextureHelper() = default;
-
-  static sk_sp<SkImage> MakePromiseSkImage(
+  static sk_sp<SkImage> MakePromiseSkImageFromMetadata(
       SkiaOutputSurfaceImpl* impl,
-      SkDeferredDisplayListRecorder* recorder,
-      const GrBackendFormat& backend_format,
+      const ResourceMetadata& metadata) {
+    auto* helper = new PromiseTextureHelper(
+        impl->impl_on_gpu_->weak_ptr(), metadata.size, metadata.resource_format,
+        metadata.mailbox_holder);
+    return helper->MakePromiseSkImage(impl);
+  }
+
+  static sk_sp<SkImage> MakePromiseSkImageFromRenderPass(
+      SkiaOutputSurfaceImpl* impl,
+      ResourceFormat resource_format,
       gfx::Size size,
-      GrMipMapped mip_mapped,
-      GrSurfaceOrigin origin,
-      SkColorType color_type,
-      SkAlphaType alpha_type,
-      sk_sp<SkColorSpace> color_space,
-      FulfillContextType context) {
+      RenderPassId render_pass_id) {
     DCHECK_CALLED_ON_VALID_THREAD(impl->thread_checker_);
     // The ownership of the helper will be passed into makePromisTexture(). The
-    // HelperType::Done will always be called. It will delete the helper.
-    auto* helper =
-        new HelperType(impl->impl_on_gpu_->weak_ptr(), std::move(context));
-    auto image = recorder->makePromiseTexture(
-        backend_format, size.width(), size.height(), mip_mapped, origin,
-        color_type, alpha_type, color_space, HelperType::Fulfill,
-        HelperType::Release, HelperType::Done, helper);
-    return image;
+    // PromiseTextureHelper::Done will always be called. It will delete the
+    // helper.
+    auto* helper = new PromiseTextureHelper(
+        impl->impl_on_gpu_->weak_ptr(), size, resource_format, render_pass_id);
+    return helper->MakePromiseSkImage(impl);
   }
 
  private:
   friend class SkiaOutputSurfaceImpl::YUVAPromiseTextureHelper;
 
-  static void Fulfill(void* texture_context,
-                      GrBackendTexture* backend_texture) {
+  PromiseTextureHelper(base::WeakPtr<SkiaOutputSurfaceImplOnGpu> impl_on_gpu,
+                       const gfx::Size& size,
+                       ResourceFormat resource_format,
+                       RenderPassId render_pass_id)
+      : impl_on_gpu_(impl_on_gpu),
+        size_(size),
+        resource_format_(resource_format),
+        render_pass_id_(render_pass_id) {}
+  PromiseTextureHelper(base::WeakPtr<SkiaOutputSurfaceImplOnGpu> impl_on_gpu,
+                       const gfx::Size& size,
+                       ResourceFormat resource_format,
+                       const gpu::MailboxHolder& mailbox_holder)
+      : impl_on_gpu_(impl_on_gpu),
+        size_(size),
+        resource_format_(resource_format),
+        render_pass_id_(0u),
+        mailbox_holder_(mailbox_holder) {}
+  ~PromiseTextureHelper() = default;
+
+  sk_sp<SkImage> MakePromiseSkImage(SkiaOutputSurfaceImpl* impl) {
+    SkColorType color_type = ResourceFormatToClosestSkColorType(
+        true /* gpu_compositing */, resource_format_);
+    GrBackendFormat backend_format;
+    if (!impl->gpu_service_->is_using_vulkan()) {
+      // Convert internal format from GLES2 to platform GL.
+      const auto* version_info = impl->impl_on_gpu_->gl_version_info();
+      unsigned int texture_storage_format =
+          TextureStorageFormat(resource_format_);
+      backend_format = GrBackendFormat::MakeGL(
+          gl::GetInternalFormat(version_info, texture_storage_format),
+          GL_TEXTURE_2D);
+    } else {
+#if BUILDFLAG(ENABLE_VULKAN)
+      backend_format = GrBackendFormat::MakeVk(ToVkFormat(resource_format_));
+#else
+      NOTREACHED();
+#endif
+    }
+    return impl->recorder_->makePromiseTexture(
+        backend_format, size_.width(), size_.height(), GrMipMapped::kNo,
+        kTopLeft_GrSurfaceOrigin /* origin */, color_type, kPremul_SkAlphaType,
+        nullptr /* color_space */, PromiseTextureHelper::Fulfill,
+        PromiseTextureHelper::Release, PromiseTextureHelper::Done, this);
+  }
+
+  static sk_sp<SkPromiseImageTexture> Fulfill(void* texture_context) {
     DCHECK(texture_context);
-    auto* helper = static_cast<HelperType*>(texture_context);
+    auto* helper = static_cast<PromiseTextureHelper*>(texture_context);
     // The fulfill is always called by SkiaOutputSurfaceImplOnGpu::SwapBuffers
     // or SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass, so impl_on_gpu_
     // should be always valid.
     DCHECK(helper->impl_on_gpu_);
-    helper->impl_on_gpu_->FulfillPromiseTexture(
-        helper->context_, &helper->shared_image_, backend_texture);
+    if (helper->render_pass_id_) {
+      return helper->impl_on_gpu_->FulfillPromiseTexture(
+          helper->render_pass_id_, &helper->shared_image_);
+    } else {
+      return helper->impl_on_gpu_->FulfillPromiseTexture(
+          helper->mailbox_holder_, helper->size_, helper->resource_format_,
+          &helper->shared_image_);
+    }
   }
 
   static void Release(void* texture_context) {
     DCHECK(texture_context);
-    auto* helper = static_cast<HelperType*>(texture_context);
-    if (helper->shared_image_) {
+    auto* helper = static_cast<PromiseTextureHelper*>(texture_context);
+    if (helper->shared_image_)
       helper->shared_image_->EndReadAccess();
-      helper->shared_image_.reset();
-    }
   }
 
   static void Done(void* texture_context) {
     DCHECK(texture_context);
-    std::unique_ptr<HelperType> helper(
-        static_cast<HelperType*>(texture_context));
+    auto* helper = static_cast<PromiseTextureHelper*>(texture_context);
+    delete helper;
   }
 
   base::WeakPtr<SkiaOutputSurfaceImplOnGpu> impl_on_gpu_;
-
-  // The data for calling the fulfill methods in SkiaOutputSurfaceImpl.
-  FulfillContextType context_;
+  const gfx::Size size_;
+  const ResourceFormat resource_format_;
+  RenderPassId render_pass_id_;
+  gpu::MailboxHolder mailbox_holder_;
 
   // If non-null, an outstanding SharedImageRepresentation that must be freed on
   // Release. Only written / read from GPU thread.
@@ -127,14 +168,12 @@ class SkiaOutputSurfaceImpl::YUVAPromiseTextureHelper {
  public:
   static sk_sp<SkImage> MakeYUVAPromiseSkImage(
       SkiaOutputSurfaceImpl* impl,
-      SkDeferredDisplayListRecorder* recorder,
       SkYUVColorSpace yuv_color_space,
       std::vector<ResourceMetadata> metadatas,
       bool has_alpha) {
     DCHECK_CALLED_ON_VALID_THREAD(impl->thread_checker_);
     DCHECK_LE(metadatas.size(), 4u);
 
-    using PlaneHelper = PromiseTextureHelper<ResourceMetadata>;
     bool is_i420 = has_alpha ? metadatas.size() == 4 : metadatas.size() == 3;
 
     GrBackendFormat formats[4];
@@ -149,58 +188,60 @@ class SkiaOutputSurfaceImpl::YUVAPromiseTextureHelper {
         nullptr, nullptr, nullptr, nullptr};
 
     // The ownership of the contexts will be passed into
-    // makeYUVAPromisTexture(). The HelperType::Done will always be called. It
-    // will delete contexts.
-    const auto process_planar = [&](size_t i, auto format) {
+    // makeYUVAPromiseTexture(). The PromiseTextureHelper::Done will always be
+    // called. It will delete contexts.
+    const auto process_planar = [&](size_t i, ResourceFormat resource_format,
+                                    GLenum gl_format) {
       auto& metadata = metadatas[i];
-      metadata.driver_backend_format = GrBackendFormat::MakeGL(
-          format, *metadata.backend_format.getGLTarget());
-      formats[i] = metadata.driver_backend_format;
+      metadata.resource_format = resource_format;
+      formats[i] = GrBackendFormat::MakeGL(
+          gl_format, metadata.mailbox_holder.texture_target);
       yuva_sizes[i].set(metadata.size.width(), metadata.size.height());
-      contexts[i] =
-          new PlaneHelper(impl->impl_on_gpu_->weak_ptr(), std::move(metadata));
+      contexts[i] = new PromiseTextureHelper(
+          impl->impl_on_gpu_->weak_ptr(), metadata.size,
+          metadata.resource_format, metadata.mailbox_holder);
     };
 
     if (is_i420) {
-      process_planar(0, GL_R8);
+      process_planar(0, RED_8, GL_R8);
       indices[SkYUVAIndex::kY_Index].fIndex = 0;
       indices[SkYUVAIndex::kY_Index].fChannel = SkColorChannel::kR;
 
-      process_planar(1, GL_R8);
+      process_planar(1, RED_8, GL_R8);
       indices[SkYUVAIndex::kU_Index].fIndex = 1;
       indices[SkYUVAIndex::kU_Index].fChannel = SkColorChannel::kR;
 
-      process_planar(2, GL_R8);
+      process_planar(2, RED_8, GL_R8);
       indices[SkYUVAIndex::kV_Index].fIndex = 2;
       indices[SkYUVAIndex::kV_Index].fChannel = SkColorChannel::kR;
       if (has_alpha) {
-        process_planar(3, GL_R8);
+        process_planar(3, RED_8, GL_R8);
         indices[SkYUVAIndex::kA_Index].fIndex = 3;
         indices[SkYUVAIndex::kA_Index].fChannel = SkColorChannel::kR;
       }
     } else {
-      process_planar(0, GL_R8);
+      process_planar(0, RED_8, GL_R8);
       indices[SkYUVAIndex::kY_Index].fIndex = 0;
       indices[SkYUVAIndex::kY_Index].fChannel = SkColorChannel::kR;
 
-      process_planar(1, GL_RG8);
+      process_planar(1, RG_88, GL_RG8);
       indices[SkYUVAIndex::kU_Index].fIndex = 1;
       indices[SkYUVAIndex::kU_Index].fChannel = SkColorChannel::kR;
 
       indices[SkYUVAIndex::kV_Index].fIndex = 1;
       indices[SkYUVAIndex::kV_Index].fChannel = SkColorChannel::kG;
       if (has_alpha) {
-        process_planar(2, GL_R8);
+        process_planar(2, RED_8, GL_R8);
         indices[SkYUVAIndex::kA_Index].fIndex = 2;
         indices[SkYUVAIndex::kA_Index].fChannel = SkColorChannel::kR;
       }
     }
 
-    auto image = recorder->makeYUVAPromiseTexture(
+    auto image = impl->recorder_->makeYUVAPromiseTexture(
         yuv_color_space, formats, yuva_sizes, indices, yuva_sizes[0].width(),
         yuva_sizes[0].height(), kTopLeft_GrSurfaceOrigin,
-        nullptr /* color_space */, PlaneHelper::Fulfill, PlaneHelper::Release,
-        PlaneHelper::Done, contexts);
+        nullptr /* color_space */, PromiseTextureHelper::Fulfill,
+        PromiseTextureHelper::Release, PromiseTextureHelper::Done, contexts);
     return image;
   }
 
@@ -396,29 +437,9 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImage(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(recorder_);
 
-  if (!gpu_service_->is_using_vulkan()) {
-    // Convert internal format from GLES2 to platform GL.
-    const auto* version_info = impl_on_gpu_->gl_version_info();
-    metadata.driver_backend_format = GrBackendFormat::MakeGL(
-        gl::GetInternalFormat(version_info,
-                              *metadata.backend_format.getGLFormat()),
-        *metadata.backend_format.getGLTarget());
-  } else {
-#if BUILDFLAG(ENABLE_VULKAN)
-    metadata.driver_backend_format = GrBackendFormat::MakeVk(
-        gfx::SkColorTypeToVkFormat(metadata.color_type));
-#else
-    NOTREACHED();
-#endif
-  }
-
-  DCHECK(!metadata.mailbox.IsZero());
-  resource_sync_tokens_.push_back(metadata.sync_token);
-
-  return PromiseTextureHelper<ResourceMetadata>::MakePromiseSkImage(
-      this, &recorder_.value(), metadata.driver_backend_format, metadata.size,
-      metadata.mip_mapped, metadata.origin, metadata.color_type,
-      metadata.alpha_type, metadata.color_space, std::move(metadata));
+  DCHECK(!metadata.mailbox_holder.mailbox.IsZero());
+  resource_sync_tokens_.push_back(metadata.mailbox_holder.sync_token);
+  return PromiseTextureHelper::MakePromiseSkImageFromMetadata(this, metadata);
 }
 
 sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromYUV(
@@ -431,8 +452,34 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromYUV(
          (!has_alpha && (metadatas.size() == 2 || metadatas.size() == 3)));
 
   return YUVAPromiseTextureHelper::MakeYUVAPromiseSkImage(
-      this, &recorder_.value(), yuv_color_space, std::move(metadatas),
-      has_alpha);
+      this, yuv_color_space, std::move(metadatas), has_alpha);
+}
+
+gpu::SyncToken SkiaOutputSurfaceImpl::QueueReleasePromiseSkImage(
+    sk_sp<SkImage>&& image) {
+  images_pending_release_.emplace_back(std::move(image));
+
+  gpu::SyncToken sync_token(gpu::CommandBufferNamespace::VIZ_OUTPUT_SURFACE,
+                            impl_on_gpu_->command_buffer_id(),
+                            ++sync_fence_release_);
+  sync_token.SetVerifyFlush();
+  return sync_token;
+}
+
+void SkiaOutputSurfaceImpl::FlushQueuedReleases() {
+  if (images_pending_release_.empty())
+    return;
+
+  auto sequence_id = gpu_service_->skia_output_surface_sequence_id();
+  // impl_on_gpu_ is released on the GPU thread by a posted task from
+  // SkiaOutputSurfaceImpl::dtor. So it is safe to use base::Unretained.
+  auto callback =
+      base::BindOnce(&SkiaOutputSurfaceImplOnGpu::DestroySkImages,
+                     base::Unretained(impl_on_gpu_.get()),
+                     std::move(images_pending_release_), sync_fence_release_);
+  images_pending_release_.clear();
+  gpu_service_->scheduler()->ScheduleTask(gpu::Scheduler::Task(
+      sequence_id, std::move(callback), std::vector<gpu::SyncToken>()));
 }
 
 void SkiaOutputSurfaceImpl::SkiaSwapBuffers(OutputSurfaceFrame frame) {
@@ -520,30 +567,11 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromRenderPass(
     bool mipmap) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(recorder_);
+  // TODO(penghuang): remove this mipmap argument, because we always pass false.
+  DCHECK(!mipmap);
 
-  SkColorType color_type =
-      ResourceFormatToClosestSkColorType(true /* gpu_compositing */, format);
-  GrBackendFormat backend_format;
-
-  if (!gpu_service_->is_using_vulkan()) {
-    // Convert internal format from GLES2 to platform GL.
-    const auto* version_info = impl_on_gpu_->gl_version_info();
-    unsigned int texture_storage_format = TextureStorageFormat(format);
-    backend_format = GrBackendFormat::MakeGL(
-        gl::GetInternalFormat(version_info, texture_storage_format),
-        GL_TEXTURE_2D);
-  } else {
-#if BUILDFLAG(ENABLE_VULKAN)
-    backend_format =
-        GrBackendFormat::MakeVk(gfx::SkColorTypeToVkFormat(color_type));
-#else
-    NOTREACHED();
-#endif
-  }
-  return PromiseTextureHelper<RenderPassId>::MakePromiseSkImage(
-      this, &recorder_.value(), backend_format, size,
-      mipmap ? GrMipMapped::kYes : GrMipMapped::kNo, kTopLeft_GrSurfaceOrigin,
-      color_type, kPremul_SkAlphaType, nullptr /* color_space */, id);
+  return PromiseTextureHelper::MakePromiseSkImageFromRenderPass(this, format,
+                                                                size, id);
 }
 
 void SkiaOutputSurfaceImpl::RemoveRenderPassResource(
@@ -563,14 +591,17 @@ void SkiaOutputSurfaceImpl::RemoveRenderPassResource(
 void SkiaOutputSurfaceImpl::CopyOutput(
     RenderPassId id,
     const gfx::Rect& copy_rect,
+    const gfx::ColorSpace& color_space,
+    const gfx::Rect& result_rect,
     std::unique_ptr<CopyOutputRequest> request) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   if (!request->has_result_task_runner())
     request->set_result_task_runner(base::ThreadTaskRunnerHandle::Get());
   auto sequence_id = gpu_service_->skia_output_surface_sequence_id();
-  auto callback = base::BindOnce(&SkiaOutputSurfaceImplOnGpu::CopyOutput,
-                                 base::Unretained(impl_on_gpu_.get()), id,
-                                 copy_rect, std::move(request));
+  auto callback =
+      base::BindOnce(&SkiaOutputSurfaceImplOnGpu::CopyOutput,
+                     base::Unretained(impl_on_gpu_.get()), id, copy_rect,
+                     color_space, result_rect, std::move(request));
   gpu_service_->scheduler()->ScheduleTask(gpu::Scheduler::Task(
       sequence_id, std::move(callback), std::vector<gpu::SyncToken>()));
 }
@@ -631,8 +662,7 @@ SkiaOutputSurfaceImpl::CreateSkSurfaceCharacterization(
         GL_TEXTURE_2D);
   } else {
 #if BUILDFLAG(ENABLE_VULKAN)
-    backend_format =
-        GrBackendFormat::MakeVk(gfx::SkColorTypeToVkFormat(color_type));
+    backend_format = GrBackendFormat::MakeVk(ToVkFormat(format));
 #else
     NOTREACHED();
 #endif

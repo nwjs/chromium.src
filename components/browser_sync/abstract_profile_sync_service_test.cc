@@ -113,38 +113,7 @@ void SyncEngineForProfileSyncTest::ConfigureDataTypes(ConfigureParams params) {
           syncer::ModelTypeSet(), params.ready_task));
 }
 
-// Helper function for return-type-upcasting of the callback.
-syncer::SyncService* GetSyncService(
-    base::Callback<TestProfileSyncService*(void)> get_sync_service_callback) {
-  return get_sync_service_callback.Run();
-}
-
 }  // namespace
-
-/* static */
-syncer::ImmutableChangeRecordList
-ProfileSyncServiceTestHelper::MakeSingletonChangeRecordList(
-    int64_t node_id,
-    syncer::ChangeRecord::Action action) {
-  syncer::ChangeRecord record;
-  record.action = action;
-  record.id = node_id;
-  syncer::ChangeRecordList records(1, record);
-  return syncer::ImmutableChangeRecordList(&records);
-}
-
-/* static */
-syncer::ImmutableChangeRecordList
-ProfileSyncServiceTestHelper::MakeSingletonDeletionChangeRecordList(
-    int64_t node_id,
-    const sync_pb::EntitySpecifics& specifics) {
-  syncer::ChangeRecord record;
-  record.action = syncer::ChangeRecord::ACTION_DELETE;
-  record.id = node_id;
-  record.specifics = specifics;
-  syncer::ChangeRecordList records(1, record);
-  return syncer::ImmutableChangeRecordList(&records);
-}
 
 AbstractProfileSyncServiceTest::AbstractProfileSyncServiceTest()
     : data_type_thread_("Extra thread") {
@@ -180,14 +149,7 @@ void AbstractProfileSyncServiceTest::CreateSyncService(
   EXPECT_CALL(*components, CreateSyncEngine(_, _, _, _))
       .WillOnce(Return(ByMove(std::move(engine))));
 
-  sync_service_->GetUserSettings()->SetFirstSetupComplete();
-}
-
-base::Callback<syncer::SyncService*(void)>
-AbstractProfileSyncServiceTest::GetSyncServiceCallback() {
-  return base::Bind(GetSyncService,
-                    base::Bind(&AbstractProfileSyncServiceTest::sync_service,
-                               base::Unretained(this)));
+  sync_service_->sync_prefs()->SetFirstSetupComplete();
 }
 
 CreateRootHelper::CreateRootHelper(AbstractProfileSyncServiceTest* test,

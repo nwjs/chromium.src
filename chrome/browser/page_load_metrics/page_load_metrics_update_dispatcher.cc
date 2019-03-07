@@ -162,14 +162,6 @@ internal::PageLoadTimingStatus IsValidPageLoadTiming(
   }
 
   if (!EventsInOrder(timing.paint_timing->first_paint,
-                     timing.paint_timing->first_text_paint)) {
-    LOG(ERROR) << "Invalid first_paint " << timing.paint_timing->first_paint
-               << " for first_text_paint "
-               << timing.paint_timing->first_text_paint;
-    return internal::INVALID_ORDER_FIRST_PAINT_FIRST_TEXT_PAINT;
-  }
-
-  if (!EventsInOrder(timing.paint_timing->first_paint,
                      timing.paint_timing->first_image_paint)) {
     LOG(ERROR) << "Invalid first_paint " << timing.paint_timing->first_paint
                << " for first_image_paint "
@@ -334,9 +326,6 @@ class PageLoadTimingMerger {
     mojom::PaintTiming* target_paint_timing = target_->paint_timing.get();
     MaybeUpdateTimeDelta(&target_paint_timing->first_paint,
                          navigation_start_offset, new_paint_timing.first_paint);
-    MaybeUpdateTimeDelta(&target_paint_timing->first_text_paint,
-                         navigation_start_offset,
-                         new_paint_timing.first_text_paint);
     MaybeUpdateTimeDelta(&target_paint_timing->first_image_paint,
                          navigation_start_offset,
                          new_paint_timing.first_image_paint);
@@ -344,9 +333,24 @@ class PageLoadTimingMerger {
                          navigation_start_offset,
                          new_paint_timing.first_contentful_paint);
     if (is_main_frame) {
-      // First meaningful paint is only tracked in the main frame.
+      // FMP and FCP++ are only tracked in the main frame.
       target_paint_timing->first_meaningful_paint =
           new_paint_timing.first_meaningful_paint;
+
+      target_paint_timing->largest_image_paint =
+          new_paint_timing.largest_image_paint;
+      target_paint_timing->largest_image_paint_size =
+          new_paint_timing.largest_image_paint_size;
+      target_paint_timing->last_image_paint = new_paint_timing.last_image_paint;
+      target_paint_timing->last_image_paint_size =
+          new_paint_timing.last_image_paint_size;
+      target_paint_timing->largest_text_paint =
+          new_paint_timing.largest_text_paint;
+      target_paint_timing->largest_text_paint_size =
+          new_paint_timing.largest_text_paint_size;
+      target_paint_timing->last_text_paint = new_paint_timing.last_text_paint;
+      target_paint_timing->last_text_paint_size =
+          new_paint_timing.last_text_paint_size;
     }
   }
 
@@ -427,36 +431,6 @@ void PageLoadMetricsUpdateDispatcher::ShutDown() {
   }
   timer_ = nullptr;
 
-  if (largest_image_paint_) {
-    pending_merged_page_timing_->paint_timing->largest_image_paint.swap(
-        largest_image_paint_);
-    // Reset it so multiple shutdowns will have only one dispatch.
-    largest_image_paint_.reset();
-    should_dispatch = true;
-  }
-  if (last_image_paint_) {
-    pending_merged_page_timing_->paint_timing->last_image_paint.swap(
-        last_image_paint_);
-    // Reset it so multiple shutdowns will have only one dispatch.
-    last_image_paint_.reset();
-    should_dispatch = true;
-  }
-
-  if (largest_text_paint_) {
-    pending_merged_page_timing_->paint_timing->largest_text_paint.swap(
-        largest_text_paint_);
-    // Reset it so multiple shutdowns will have only one dispatch.
-    largest_text_paint_.reset();
-    should_dispatch = true;
-  }
-  if (last_text_paint_) {
-    pending_merged_page_timing_->paint_timing->last_text_paint.swap(
-        last_text_paint_);
-    // Reset it so multiple shutdowns will have only one dispatch.
-    last_text_paint_.reset();
-    should_dispatch = true;
-  }
-
   if (should_dispatch) {
     DispatchTimingUpdates();
   }
@@ -478,7 +452,8 @@ void PageLoadMetricsUpdateDispatcher::UpdateMetrics(
 
   // Report data usage before new timing and metadata for messages that have
   // both updates.
-  client_->UpdateResourceDataUse(resources);
+  client_->UpdateResourceDataUse(render_frame_host->GetFrameTreeNodeId(),
+                                 resources);
   if (render_frame_host->GetParent() == nullptr) {
     UpdateMainFrameMetadata(std::move(new_metadata));
     UpdateMainFrameTiming(std::move(new_timing));
@@ -488,7 +463,7 @@ void PageLoadMetricsUpdateDispatcher::UpdateMetrics(
     UpdateSubFrameTiming(render_frame_host, std::move(new_timing));
     // TODO: Handle subframe PageRenderData.
   }
-  client_->UpdateFeaturesUsage(*new_features);
+  client_->UpdateFeaturesUsage(render_frame_host, *new_features);
 }
 
 void PageLoadMetricsUpdateDispatcher::UpdateFeatures(
@@ -500,7 +475,7 @@ void PageLoadMetricsUpdateDispatcher::UpdateFeatures(
     // these as they could skew metrics. See http://crbug.com/761037
     return;
   }
-  client_->UpdateFeaturesUsage(new_features);
+  client_->UpdateFeaturesUsage(render_frame_host, new_features);
 }
 
 void PageLoadMetricsUpdateDispatcher::DidFinishSubFrameNavigation(
@@ -585,18 +560,6 @@ void PageLoadMetricsUpdateDispatcher::UpdateMainFrameTiming(
   mojom::InteractiveTimingPtr last_interactive_timing =
       std::move(pending_merged_page_timing_->interactive_timing);
 
-  // Update the latest candidate to the corresponding buffers. We will dispatch
-  // the last candidate at the page load end. Because we don't want to dispatch
-  // the non-last candidate here, we clear it from |new_timing|.
-  largest_image_paint_.swap(new_timing->paint_timing->largest_image_paint);
-  new_timing->paint_timing->largest_image_paint.reset();
-  last_image_paint_.swap(new_timing->paint_timing->last_image_paint);
-  new_timing->paint_timing->last_image_paint.reset();
-  largest_text_paint_.swap(new_timing->paint_timing->largest_text_paint);
-  new_timing->paint_timing->largest_text_paint.reset();
-  last_text_paint_.swap(new_timing->paint_timing->last_text_paint);
-  new_timing->paint_timing->last_text_paint.reset();
-
   // Update the pending_merged_page_timing_, making sure to merge the previously
   // observed |paint_timing| and |interactive_timing|, which are tracked across
   // all frames in the page.
@@ -671,9 +634,6 @@ void PageLoadMetricsUpdateDispatcher::DispatchTimingUpdates() {
 
   LogIfOutOfOrderTiming(current_merged_page_timing_->paint_timing->first_paint,
                         pending_merged_page_timing_->paint_timing->first_paint);
-  LogIfOutOfOrderTiming(
-      current_merged_page_timing_->paint_timing->first_text_paint,
-      pending_merged_page_timing_->paint_timing->first_text_paint);
   LogIfOutOfOrderTiming(
       current_merged_page_timing_->paint_timing->first_image_paint,
       pending_merged_page_timing_->paint_timing->first_image_paint);

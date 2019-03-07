@@ -6,6 +6,7 @@
 #define UI_GL_GL_SURFACE_EGL_SURFACE_CONTROL_H_
 
 #include <android/native_window.h>
+#include <memory>
 
 #include "base/android/scoped_hardware_buffer_handle.h"
 #include "base/memory/weak_ptr.h"
@@ -16,6 +17,10 @@
 
 namespace base {
 class SingleThreadTaskRunner;
+
+namespace android {
+class ScopedHardwareBufferFenceSync;
+}  // namespace android
 }  // namespace base
 
 namespace gl {
@@ -75,15 +80,16 @@ class GL_EXPORT GLSurfaceEGLSurfaceControl : public gl::GLSurfaceEGL {
 
     int z_order = 0;
     AHardwareBuffer* hardware_buffer = nullptr;
-    gfx::Rect bounds_rect;
-    gfx::Rect crop_rect;
+    gfx::Rect dst;
+    gfx::Rect src;
+    gfx::OverlayTransform transform = gfx::OVERLAY_TRANSFORM_NONE;
     bool opaque = true;
 
     gl::SurfaceControl::Surface surface;
   };
 
-  using ResourceRefs =
-      std::vector<std::unique_ptr<GLImage::ScopedHardwareBuffer>>;
+  using ResourceRefs = std::vector<
+      std::unique_ptr<base::android::ScopedHardwareBufferFenceSync>>;
 
   void CommitPendingTransaction(
       const SwapCompletionCallback& completion_callback,
@@ -94,7 +100,7 @@ class GL_EXPORT GLSurfaceEGLSurfaceControl : public gl::GLSurfaceEGL {
   void OnTransactionAckOnGpuThread(SwapCompletionCallback completion_callback,
                                    PresentationCallback presentation_callback,
                                    ResourceRefs released_resources,
-                                   int64_t present_time_ns);
+                                   int32_t present_fence);
 
   // Holds the surface state changes made since the last call to SwapBuffers.
   base::Optional<gl::SurfaceControl::Transaction> pending_transaction_;

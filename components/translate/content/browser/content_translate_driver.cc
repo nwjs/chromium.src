@@ -4,13 +4,19 @@
 
 #include "components/translate/content/browser/content_translate_driver.h"
 
+#include <string>
+#include <utility>
+
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "components/language/core/browser/url_language_histogram.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/translate/core/browser/translate_manager.h"
+#include "components/translate/core/common/translate_util.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_details.h"
@@ -18,10 +24,14 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/referrer.h"
 #include "net/http/http_status_code.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "url/gurl.h"
+
+namespace translate {
 
 namespace {
 
@@ -31,15 +41,17 @@ const int kMaxTranslateLoadCheckAttempts = 20;
 
 }  // namespace
 
-namespace translate {
-
 ContentTranslateDriver::ContentTranslateDriver(
-    content::NavigationController* nav_controller)
+    content::NavigationController* nav_controller,
+    const TemplateURLService* template_url_service,
+    language::UrlLanguageHistogram* url_language_histogram)
     : content::WebContentsObserver(nav_controller->GetWebContents()),
       navigation_controller_(nav_controller),
       translate_manager_(nullptr),
       max_reload_check_attempts_(kMaxTranslateLoadCheckAttempts),
+      template_url_service_(template_url_service),
       next_page_seq_no_(0),
+      language_histogram_(url_language_histogram),
       weak_pointer_factory_(this) {
   DCHECK(navigation_controller_);
 }
@@ -101,6 +113,23 @@ void ContentTranslateDriver::OnIsPageTranslatedChanged() {
     observer.OnIsPageTranslatedChanged(web_contents);
 }
 
+network::mojom::URLLoaderFactoryPtr
+ContentTranslateDriver::CreateURLLoaderFactory() {
+  // Find the renderer process that will need to use the URLLoaderFactory.
+  // Currently translate requests are only sent to the main frame process.
+  content::RenderProcessHost* process =
+      web_contents()->GetMainFrame()->GetProcess();
+
+  // Create a new URLLoaderFactory, locking the initiator origin to the one
+  // returned by GetTranslateSecurityOrigin.
+  network::mojom::URLLoaderFactoryPtr factory;
+  url::Origin origin = url::Origin::Create(GetTranslateSecurityOrigin());
+  network::mojom::TrustedURLLoaderHeaderClientPtrInfo null_header_client;
+  process->CreateURLLoaderFactory(origin, std::move(null_header_client),
+                                  mojo::MakeRequest(&factory));
+  return factory;
+}
+
 void ContentTranslateDriver::TranslatePage(int page_seq_no,
                                            const std::string& translate_script,
                                            const std::string& source_lang,
@@ -110,7 +139,7 @@ void ContentTranslateDriver::TranslatePage(int page_seq_no,
     return;  // This page has navigated away.
 
   it->second->Translate(
-      translate_script, source_lang, target_lang,
+      translate_script, CreateURLLoaderFactory(), source_lang, target_lang,
       base::BindOnce(&ContentTranslateDriver::OnPageTranslated,
                      base::Unretained(this)));
 }
@@ -221,9 +250,14 @@ void ContentTranslateDriver::DidFinishNavigation(
 
   translate::TranslateLanguageList* language_list =
       translate::TranslateDownloadManager::GetInstance()->language_list();
+  const base::Optional<url::Origin>& initiator_origin =
+      navigation_handle->GetInitiatorOrigin();
+
   std::string href_translate;
   if (language_list->IsSupportedLanguage(
-          navigation_handle->GetHrefTranslate())) {
+          navigation_handle->GetHrefTranslate()) &&
+      initiator_origin.has_value() &&
+      IsDefaultSearchEngineOriginator(initiator_origin.value())) {
     href_translate = navigation_handle->GetHrefTranslate();
   }
 
@@ -236,10 +270,36 @@ void ContentTranslateDriver::OnPageAway(int page_seq_no) {
   pages_.erase(page_seq_no);
 }
 
-void ContentTranslateDriver::OnPageReady(
-    mojom::PagePtr page,
-    const LanguageDetectionDetails& details,
-    bool page_needs_translation) {
+bool ContentTranslateDriver::IsDefaultSearchEngineOriginator(
+    const url::Origin& originating_origin) const {
+  const TemplateURL* default_provider =
+      template_url_service_->GetDefaultSearchProvider();
+
+  if (default_provider) {
+    GURL search_url = default_provider->GenerateSearchURL(
+        template_url_service_->search_terms_data());
+
+    return search_url.is_valid() &&
+           url::Origin::Create(search_url) == originating_origin;
+  }
+
+  return false;
+}
+
+void ContentTranslateDriver::AddBinding(
+    translate::mojom::ContentTranslateDriverRequest request) {
+  bindings_.AddBinding(this, std::move(request));
+}
+
+void ContentTranslateDriver::RegisterPage(
+    translate::mojom::PagePtr page,
+    const translate::LanguageDetectionDetails& details,
+    const bool page_needs_translation) {
+  // If we have a language histogram (i.e. we're not in incognito), update it
+  // with the detected language of every page visited.
+  if (language_histogram_ && details.is_cld_reliable)
+    language_histogram_->OnPageVisited(details.cld_language);
+
   pages_[++next_page_seq_no_] = std::move(page);
   pages_[next_page_seq_no_].set_connection_error_handler(
       base::BindOnce(&ContentTranslateDriver::OnPageAway,

@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{Acum o zi}few{Acum # zile}other{Acum # de zile}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{Acum 1 minut}few{Acum # minute}other{Acum # de minute}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1 min.}few{# min.}other{# min.}}</translation>
+<translation id="1181037720776840403">Elimină</translation>
 <translation id="1243314992276662751">Încărcați</translation>
 <translation id="1269641567813814718">Win</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">Săgeată în jos</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{O zi}few{# zile}other{# de zile}}</translation>
 <translation id="335581015389089642">Voce</translation>
+<translation id="3462241349431650993">Dacă ascunzi sugestia, nu se va mai afișa în cont pe niciun dispozitiv.</translation>
 <translation id="3479552764303398839">Nu acum</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{O zi rămasă}few{# zile rămase}other{# de zile rămase}}</translation>
+<translation id="3608915363409716668">peste <ph name="MAXIMUM_VALUE" /></translation>
 <translation id="3618849550573277856">Caută „<ph name="LOOKUP_STRING" />”</translation>
 <translation id="364720409959344976">Selectați un dosar de încărcat</translation>
 <translation id="3660179305079774227">Săgeată în sus</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{Acum 1 secundă}few{Acum # secunde}other{Acum # de secunde}}</translation>
 <translation id="654149438358937226">Blochează toate notificările</translation>
 <translation id="6567071839949112727">dă clic pe predecesor</translation>
+<translation id="6578407462441924264">Nedenumit</translation>
 <translation id="6612467943526193239">Pentru a ieși din calibrare, apasă pe Esc.</translation>
 <translation id="6620110761915583480">Salvează fișierul</translation>
 <translation id="6699343763173986273">Melodia următoare din conținutul media</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{Acum o oră}few{Acum # ore}other{Acum # de ore}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{O sec. rămasă}few{# sec. rămase}other{# sec. rămase}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />, completare automată</translation>
 <translation id="815598010540052116">Derulează în jos</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">O pagină mai jos</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">bifează</translation>
 <translation id="8393700583063109961">Trimite un mesaj</translation>
 <translation id="8394908167088220973">Redați/întrerupeți conținutul media</translation>
+<translation id="8420205633584771378">Eliminați această sugestie?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 an}few{# ani}other{# ani}}</translation>
 <translation id="8602707065186045623">Fișier <ph name="SAVEAS_EXTENSION_TYPE" /> (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> KO/s</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">Butonul Înapoi</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> KO</translation>
 <translation id="9002566407876343676">deschide</translation>
-<translation id="9038489124413477075">Dosar fără nume</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{O sec.}few{# sec.}other{# sec.}}</translation>
 <translation id="9059834730836941392">Restrânge notificarea</translation>
 <translation id="9150735707954472829">Filă</translation>

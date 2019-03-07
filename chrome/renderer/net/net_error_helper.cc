@@ -46,7 +46,7 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/platform/web_data.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_url.h"
@@ -86,7 +86,7 @@ const int kNavigationCorrectionFetchTimeoutSec = 3;
 
 NetErrorHelperCore::PageType GetLoadingPageType(
     blink::WebDocumentLoader* document_loader) {
-  GURL url = document_loader->GetRequest().Url();
+  GURL url = document_loader->GetUrl();
   if (!url.is_valid() || url.spec() != kUnreachableWebDataURL)
     return NetErrorHelperCore::NON_ERROR_PAGE;
   return NetErrorHelperCore::ERROR_PAGE;
@@ -503,6 +503,10 @@ void NetErrorHelper::RequestEasterEggHighScore() {
 
 void NetErrorHelper::UpdateEasterEggHighScore(int high_score) {
   GetRemoteNetworkEasterEgg()->UpdateHighScore(high_score);
+}
+
+void NetErrorHelper::ResetEasterEggHighScore() {
+  GetRemoteNetworkEasterEgg()->ResetHighScore();
 }
 
 void NetErrorHelper::FetchNavigationCorrections(

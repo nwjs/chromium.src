@@ -340,8 +340,9 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kLegend, "Legend"},
     {ax::mojom::Role::kLink, "Link"},
     {ax::mojom::Role::kLineBreak, "LineBreak"},
-    {ax::mojom::Role::kListBoxOption, "ListBoxOption"},
     {ax::mojom::Role::kListBox, "ListBox"},
+    {ax::mojom::Role::kListBoxOption, "ListBoxOption"},
+    {ax::mojom::Role::kListGrid, "ListGrid"},
     {ax::mojom::Role::kListItem, "ListItem"},
     {ax::mojom::Role::kListMarker, "ListMarker"},
     {ax::mojom::Role::kList, "List"},
@@ -386,11 +387,11 @@ const InternalRoleEntry kInternalRoles[] = {
     {ax::mojom::Role::kStaticText, "StaticText"},
     {ax::mojom::Role::kStatus, "Status"},
     {ax::mojom::Role::kSwitch, "Switch"},
+    {ax::mojom::Role::kTab, "Tab"},
     {ax::mojom::Role::kTabList, "TabList"},
     {ax::mojom::Role::kTabPanel, "TabPanel"},
-    {ax::mojom::Role::kTab, "Tab"},
-    {ax::mojom::Role::kTableHeaderContainer, "TableHeaderContainer"},
     {ax::mojom::Role::kTable, "Table"},
+    {ax::mojom::Role::kTableHeaderContainer, "TableHeaderContainer"},
     {ax::mojom::Role::kTerm, "Term"},
     {ax::mojom::Role::kTextField, "TextField"},
     {ax::mojom::Role::kTextFieldWithComboBox, "ComboBox"},
@@ -901,9 +902,12 @@ void AXObject::UpdateCachedAttributeValuesIfNeeded() const {
       !!InheritsPresentationalRoleFrom();
   cached_is_ignored_ = ComputeAccessibilityIsIgnored();
   cached_is_editable_root_ = ComputeIsEditableRoot();
+  // Compute live region root, which can be from any ARIA live value, including
+  // "off", or from an automatic ARIA live value, e.g. from role="status".
   // TODO(dmazzoni): remove this const_cast.
+  AtomicString aria_live;
   cached_live_region_root_ =
-      IsLiveRegion()
+      IsLiveRegionRoot()
           ? const_cast<AXObject*>(this)
           : (ParentObjectIfExists() ? ParentObjectIfExists()->LiveRegionRoot()
                                     : nullptr);
@@ -1723,7 +1727,8 @@ void AXObject::Markers(Vector<DocumentMarker::MarkerType>&,
 
 void AXObject::TextCharacterOffsets(Vector<int>&) const {}
 
-void AXObject::GetWordBoundaries(Vector<AXRange>&) const {}
+void AXObject::GetWordBoundaries(Vector<int>& word_starts,
+                                 Vector<int>& word_ends) const {}
 
 ax::mojom::DefaultActionVerb AXObject::Action() const {
   Element* action_element = ActionElement();
@@ -1911,7 +1916,12 @@ int AXObject::IndexInParent() const {
   return (index == kNotFound) ? 0 : static_cast<int>(index);
 }
 
-bool AXObject::IsLiveRegion() const {
+bool AXObject::IsLiveRegionRoot() const {
+  const AtomicString& live_region = LiveRegionStatus();
+  return !live_region.IsEmpty();
+}
+
+bool AXObject::IsActiveLiveRegionRoot() const {
   const AtomicString& live_region = LiveRegionStatus();
   return !live_region.IsEmpty() && !EqualIgnoringASCIICase(live_region, "off");
 }
@@ -2526,7 +2536,7 @@ AXObject* AXObject::CellForColumnAndRow(unsigned target_column_index,
   // i.e. it's an ARIA grid/table.
   //
   // TODO(dmazzoni): delete this code or rename it "for testing only"
-  // since it's only needed for Blink layout tests and not for production.
+  // since it's only needed for Blink web tests and not for production.
   unsigned row_index = 0;
   for (const auto& row : TableRowChildren()) {
     unsigned column_index = 0;
@@ -2585,45 +2595,11 @@ int AXObject::AriaRowCount() const {
 }
 
 unsigned AXObject::ColumnIndex() const {
-  if (!IsTableCellLikeRole())
-    return 0;
-
-  const AXObject* row = TableRowParent();
-  if (!row)
-    return 0;
-
-  unsigned column_index = 0;
-  for (const auto& child : row->TableCellChildren()) {
-    if (child == this)
-      break;
-    column_index++;
-  }
-  return column_index;
+  return 0;
 }
 
 unsigned AXObject::RowIndex() const {
-  const AXObject* row = nullptr;
-  if (IsTableRowLikeRole())
-    row = this;
-  else if (IsTableCellLikeRole())
-    row = TableRowParent();
-
-  if (!row)
-    return 0;
-
-  const AXObject* table = row->TableParent();
-  if (!table)
-    return 0;
-
-  unsigned row_index = 0;
-  for (const auto& child : table->TableRowChildren()) {
-    if (child == row)
-      break;
-    if (!child->IsTableRowLikeRole())
-      continue;
-    row_index++;
-  }
-  return row_index;
+  return 0;
 }
 
 unsigned AXObject::ColumnSpan() const {
@@ -2645,84 +2621,19 @@ unsigned AXObject::AriaRowIndex() const {
 }
 
 unsigned AXObject::ComputeAriaColumnIndex() const {
-  if (!IsTableCellLikeRole())
-    return 0;
-
-  // First see if it has an ARIA column index explicitly set.
-  uint32_t col_index;
-  if (HasAOMPropertyOrARIAAttribute(AOMUIntProperty::kColIndex, col_index) &&
-      col_index >= 1) {
-    return col_index;
-  }
-
-  // Get the previous sibling.
-  // TODO(dmazzoni): this code depends on the DOM; move this code out of Blink
-  // and make it more general.
-  AXObject* previous = nullptr;
-  if (GetNode()) {
-    Node* previousNode = ElementTraversal::PreviousSibling(*GetNode());
-    previous = AXObjectCache().GetOrCreate(previousNode);
-  }
-
-  // It has a previous sibling, so if that cell has a column index, this one's
-  // index is one greater.
-  if (previous) {
-    col_index = previous->AriaColumnIndex();
-    if (col_index)
-      return col_index + 1;
-    return 0;
-  }
-
-  // No previous cell, so check the row to see if it sets a column index.
-  const AXObject* row = TableRowParent();
-  if (!row)
-    return 0;
-  if (row->HasAOMPropertyOrARIAAttribute(AOMUIntProperty::kColIndex,
-                                         col_index)) {
-    return col_index;
-  }
-
-  // Otherwise there's no ARIA column index.
-  return 0;
+  // Return the ARIA column index if it has been set. Otherwise return a default
+  // value of 0.
+  uint32_t col_index = 0;
+  HasAOMPropertyOrARIAAttribute(AOMUIntProperty::kColIndex, col_index);
+  return col_index;
 }
 
 unsigned AXObject::ComputeAriaRowIndex() const {
-  if (!IsTableCellLikeRole() && !IsTableRowLikeRole())
-    return 0;
-
-  // First check if there's an ARIA row index explicitly set.
-  uint32_t row_index;
-  if (HasAOMPropertyOrARIAAttribute(AOMUIntProperty::kRowIndex, row_index) &&
-      row_index >= 1) {
-    return row_index;
-  }
-
-  // If this is a cell, return the ARIA row index of the containing row.
-  if (IsTableCellLikeRole()) {
-    const AXObject* row = TableRowParent();
-    if (row)
-      return row->AriaRowIndex();
-    return 0;
-  }
-
-  // Otherwise, this is a row. Find the previous sibling row.
-  // TODO(dmazzoni): this code depends on the DOM; move this code out of Blink
-  // and make it more general.
-  if (!GetNode())
-    return 0;
-  Node* previousNode = ElementTraversal::PreviousSibling(*GetNode());
-  AXObject* previous = AXObjectCache().GetOrCreate(previousNode);
-  if (!previous || !previous->IsTableRowLikeRole())
-    return 0;
-
-  // If the previous row has an ARIA row index, this one is the same index
-  // plus one.
-  row_index = previous->AriaRowIndex();
-  if (row_index)
-    return row_index + 1;
-
-  // Otherwise there's no ARIA row index.
-  return 0;
+  // Return the ARIA row index if it has been set. Otherwise return a default
+  // value of 0.
+  uint32_t row_index = 0;
+  HasAOMPropertyOrARIAAttribute(AOMUIntProperty::kRowIndex, row_index);
+  return row_index;
 }
 
 AXObject::AXObjectVector AXObject::TableRowChildren() const {
@@ -2932,6 +2843,9 @@ bool AXObject::OnNativeClickAction() {
   Element* element = GetElement();
   if (!element && GetNode())
     element = GetNode()->parentElement();
+
+  if (IsTextControl())
+    return OnNativeFocusAction();
 
   if (element) {
     element->AccessKeyAction(true);
@@ -3319,6 +3233,7 @@ bool AXObject::NameFromContents(bool recursive) const {
     case ax::mojom::Role::kInputTime:
     case ax::mojom::Role::kKeyboard:
     case ax::mojom::Role::kListBox:
+    case ax::mojom::Role::kListGrid:
     case ax::mojom::Role::kLog:
     case ax::mojom::Role::kMain:
     case ax::mojom::Role::kMarquee:

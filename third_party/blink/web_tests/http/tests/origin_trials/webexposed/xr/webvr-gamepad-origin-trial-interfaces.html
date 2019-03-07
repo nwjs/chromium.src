@@ -14,7 +14,6 @@ const token="AjBmNGyEfNhgv1i84o2MDXzBna5hynT2UdRWh24E6smvQuM6lTjdHiORSsixiR6wo8A
 
 properties_to_check = {
   'Gamepad': ['pose', 'hand', 'displayId'],
-  'GamepadButton': ['touched'],
 };
 
 interfaces_to_check = [
@@ -22,21 +21,21 @@ interfaces_to_check = [
 ];
 
 // Skip this test if flags are not set properly.
-if(!self.internals.runtimeFlags.gamepadExtensionsEnabled) {
+if(!self.internals.runtimeFlags.webVRGamepadSupportEnabled) {
   test(t => {
     OriginTrialsHelper.check_properties_missing(this, properties_to_check);
-  }, "Additional Gamepad Extensions properties are not available without a token.");
+  }, "The WebVR-specific Gamepad properties are not available without a token.");
 
   test(t => {
     OriginTrialsHelper.check_interfaces_missing(this, interfaces_to_check);
-  }, "Additional Gamepad Extensions interfaces are not available without a token.");
+  }, "The WebVR-specific Gamepad interfaces are not available without a token.");
 }
 
 OriginTrialsHelper.add_token(token);
 
 test(t => {
   OriginTrialsHelper.check_properties(this, properties_to_check);
-}, 'Additional Gamepad Extensions properties are available.');
+}, 'The WebVR-specific Gamepad properties are available.');
 
 test(t => {
   OriginTrialsHelper.check_interfaces(this, interfaces_to_check);
@@ -53,6 +52,6 @@ test(t => {
       'angularAcceleration'
     ]
   });
-}, 'Additional Gamepad Extensions interfaces and their properties are available.');
+}, 'The WebVR-specific Gamepad interfaces and their properties are available.');
 
 </script>

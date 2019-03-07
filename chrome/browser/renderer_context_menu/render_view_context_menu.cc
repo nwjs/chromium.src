@@ -15,7 +15,6 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -31,6 +30,8 @@
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
+#include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings.h"
+#include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings_factory.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/download/download_stats.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -38,8 +39,6 @@
 #include "chrome/browser/media/router/media_router_dialog_controller.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/media/router/media_router_metrics.h"
-#include "chrome/browser/net/spdyproxy/data_reduction_proxy_chrome_settings.h"
-#include "chrome/browser/net/spdyproxy/data_reduction_proxy_chrome_settings_factory.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/plugins/chrome_plugin_service_filter.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
@@ -50,6 +49,7 @@
 #include "chrome/browser/profiles/profile_io_data.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_window.h"
+#include "chrome/browser/renderer_context_menu/accessibility_labels_menu_observer.h"
 #include "chrome/browser/renderer_context_menu/context_menu_content_type_factory.h"
 #include "chrome/browser/renderer_context_menu/spelling_menu_observer.h"
 #include "chrome/browser/search/search.h"
@@ -58,6 +58,7 @@
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/translate/translate_service.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
@@ -99,6 +100,7 @@
 #include "components/spellcheck/common/spellcheck_common.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/driver/sync_driver_switches.h"
 #include "components/translate/core/browser/translate_download_manager.h"
 #include "components/translate/core/browser/translate_manager.h"
 #include "components/translate/core/browser/translate_prefs.h"
@@ -351,11 +353,12 @@ const struct UmaEnumCommandIdPair {
     {96, -1, IDC_CONTENT_CONTEXT_START_SMART_SELECTION_ACTION4},
     {97, -1, IDC_CONTENT_CONTEXT_START_SMART_SELECTION_ACTION5},
     {98, -1, IDC_CONTENT_CONTEXT_LOOK_UP},
+    {99, -1, IDC_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_TOGGLE},
     // Add new items here and use |enum_id| from the next line.
     // Also, add new items to RenderViewContextMenuItem enum in
     // tools/metrics/histograms/enums.xml.
-    {99, -1, 0},  // Must be the last. Increment |enum_id| when new IDC
-                  // was added.
+    {100, -1, 0},  // Must be the last. Increment |enum_id| when new IDC
+                   // was added.
 };
 
 // Collapses large ranges of ids before looking for UMA enum.
@@ -396,7 +399,7 @@ int FindUMAEnumValueForCommand(int id, UmaEnumIdLookupType enum_lookup_type) {
     return 1;
 
   id = CollapseCommandsForUMA(id);
-  const size_t kMappingSize = arraysize(kUmaEnumToControlId);
+  const size_t kMappingSize = base::size(kUmaEnumToControlId);
   for (size_t i = 0; i < kMappingSize; ++i) {
     if (kUmaEnumToControlId[i].control_id == id) {
       if (enum_lookup_type == GENERAL_ENUM_ID)
@@ -457,23 +460,6 @@ content::WebContents* GetWebContentsToUse(content::WebContents* web_contents) {
     return guest_view->embedder_web_contents();
 #endif
   return web_contents;
-}
-
-void WriteURLToClipboard(const GURL& url) {
-  if (url.is_empty() || !url.is_valid())
-    return;
-
-  // Unescaping path and query is not a good idea because other applications
-  // may not encode non-ASCII characters in UTF-8.  See crbug.com/2820.
-  base::string16 text =
-      url.SchemeIs(url::kMailToScheme)
-          ? base::ASCIIToUTF16(url.path())
-          : url_formatter::FormatUrl(
-                url, url_formatter::kFormatUrlOmitNothing,
-                net::UnescapeRule::NONE, nullptr, nullptr, nullptr);
-
-  ui::ScopedClipboardWriter scw(ui::CLIPBOARD_TYPE_COPY_PASTE);
-  scw.WriteText(text);
 }
 
 bool g_custom_id_ranges_initialized = false;
@@ -564,6 +550,21 @@ void RenderViewContextMenu::AddSpellCheckServiceItem(ui::SimpleMenuModel* menu,
   } else {
     menu->AddItemWithStringId(IDC_CONTENT_CONTEXT_SPELLING_TOGGLE,
                               IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE);
+    AddGoogleIconToLastMenuItem(menu);
+  }
+}
+
+// static
+void RenderViewContextMenu::AddAccessibilityLabelsServiceItem(
+    ui::SimpleMenuModel* menu,
+    bool is_checked) {
+  if (is_checked) {
+    menu->AddCheckItemWithStringId(
+        IDC_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_TOGGLE,
+        IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND);
+  } else {
+    menu->AddItemWithStringId(IDC_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_TOGGLE,
+                              IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND);
     AddGoogleIconToLastMenuItem(menu);
   }
 }
@@ -746,6 +747,34 @@ void RenderViewContextMenu::AppendCurrentExtensionItems() {
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
+base::string16 RenderViewContextMenu::FormatURLForClipboard(const GURL& url) {
+  DCHECK(!url.is_empty());
+  DCHECK(url.is_valid());
+
+  url_formatter::FormatUrlTypes format_types;
+  net::UnescapeRule::Type unescape_rules;
+  if (url.SchemeIs(url::kMailToScheme)) {
+    format_types = url_formatter::kFormatUrlOmitMailToScheme;
+    unescape_rules =
+        net::UnescapeRule::PATH_SEPARATORS |
+        net::UnescapeRule::URL_SPECIAL_CHARS_EXCEPT_PATH_SEPARATORS;
+  } else {
+    format_types = url_formatter::kFormatUrlOmitNothing;
+    unescape_rules = net::UnescapeRule::NONE;
+  }
+
+  return url_formatter::FormatUrl(url, format_types, unescape_rules, nullptr,
+                                  nullptr, nullptr);
+}
+
+void RenderViewContextMenu::WriteURLToClipboard(const GURL& url) {
+  if (url.is_empty() || !url.is_valid())
+    return;
+
+  ui::ScopedClipboardWriter scw(ui::CLIPBOARD_TYPE_COPY_PASTE);
+  scw.WriteText(FormatURLForClipboard(url));
+}
+
 void RenderViewContextMenu::InitMenu() {
   RenderViewContextMenuBase::InitMenu();
 
@@ -861,6 +890,11 @@ void RenderViewContextMenu::InitMenu() {
     AppendCurrentExtensionItems();
   }
 
+  // Accessibility label items are appended to all menus when a screen reader
+  // is enabled. It can be difficult to open a specific context menu with a
+  // screen reader, so this is a UX approved solution.
+  AppendAccessibilityLabelsItems();
+
 #if defined(NWJS_SDK)
   bool enable_devtools = true;
   const base::CommandLine* command_line =
@@ -909,7 +943,7 @@ void RenderViewContextMenu::RecordUsedItem(int id) {
     return;
   }
 
-  const size_t kMappingSize = arraysize(kUmaEnumToControlId);
+  const size_t kMappingSize = base::size(kUmaEnumToControlId);
   UMA_HISTOGRAM_EXACT_LINEAR("RenderViewContextMenu.Used", enum_id,
                              kUmaEnumToControlId[kMappingSize - 1].enum_id);
   // Record to additional context specific histograms.
@@ -941,7 +975,7 @@ void RenderViewContextMenu::RecordUsedItem(int id) {
 void RenderViewContextMenu::RecordShownItem(int id) {
   int enum_id = FindUMAEnumValueForCommand(id, GENERAL_ENUM_ID);
   if (enum_id != -1) {
-    const size_t kMappingSize = arraysize(kUmaEnumToControlId);
+    const size_t kMappingSize = base::size(kUmaEnumToControlId);
     UMA_HISTOGRAM_EXACT_LINEAR("RenderViewContextMenu.Shown", enum_id,
                                kUmaEnumToControlId[kMappingSize - 1].enum_id);
   } else {
@@ -1345,6 +1379,10 @@ void RenderViewContextMenu::AppendPageItems() {
                                   IDS_CONTENT_CONTEXT_SAVEPAGEAS);
   menu_model_.AddItemWithStringId(IDC_PRINT, IDS_CONTENT_CONTEXT_PRINT);
   AppendMediaRouterItem();
+  if (base::FeatureList::IsEnabled(switches::kSyncSendTabToSelf)) {
+    menu_model_.AddItemWithStringId(IDC_SEND_TO_MY_DEVICES,
+                                    IDS_CONTENT_CONTEXT_SEND_TO_MY_DEVICES);
+  }
 
 #if 0
   if (TranslateService::IsTranslatableURL(params_.page_url)) {
@@ -1564,6 +1602,16 @@ void RenderViewContextMenu::AppendSpellingSuggestionItems() {
   }
   observers_.AddObserver(spelling_suggestions_menu_observer_.get());
   spelling_suggestions_menu_observer_->InitMenu(params_);
+}
+
+void RenderViewContextMenu::AppendAccessibilityLabelsItems() {
+  menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
+  if (!accessibility_labels_menu_observer_) {
+    accessibility_labels_menu_observer_ =
+        std::make_unique<AccessibilityLabelsMenuObserver>(this);
+  }
+  observers_.AddObserver(accessibility_labels_menu_observer_.get());
+  accessibility_labels_menu_observer_->InitMenu(params_);
 }
 
 void RenderViewContextMenu::AppendProtocolHandlerSubMenu() {
@@ -1800,6 +1848,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     case IDC_CONTENT_CONTEXT_GOTOURL:
     case IDC_SPELLPANEL_TOGGLE:
     case IDC_CONTENT_CONTEXT_LANGUAGE_SETTINGS:
+    case IDC_SEND_TO_MY_DEVICES:
       return true;
     case IDC_CHECK_SPELLING_WHILE_TYPING:
       return prefs->GetBoolean(spellcheck::prefs::kSpellCheckEnable);
@@ -2013,6 +2062,11 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       embedder_web_contents_->OnSavePage();
       break;
 
+    case IDC_SEND_TO_MY_DEVICES:
+      // TODO(tinazwang): add implementation
+      NOTIMPLEMENTED();
+      break;
+
     case IDC_RELOAD:
       embedder_web_contents_->GetController().Reload(
           content::ReloadType::NORMAL, true);
@@ -2131,9 +2185,17 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       ExecPictureInPicture();
       break;
 
-    case IDC_CONTENT_CONTEXT_EMOJI:
-      ui::ShowEmojiPanel();
+    case IDC_CONTENT_CONTEXT_EMOJI: {
+      Browser* browser = GetBrowser();
+      if (browser) {
+        browser->window()->ShowEmojiPanel();
+      } else {
+        // TODO(https://crbug.com/919167): Ensure this is called in the correct
+        // process. This fails in print preview for PWA windows on Mac.
+        ui::ShowEmojiPanel();
+      }
       break;
+    }
 
     default:
       NOTREACHED();
@@ -2143,6 +2205,10 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
 
 void RenderViewContextMenu::AddSpellCheckServiceItem(bool is_checked) {
   AddSpellCheckServiceItem(&menu_model_, is_checked);
+}
+
+void RenderViewContextMenu::AddAccessibilityLabelsServiceItem(bool is_checked) {
+  AddAccessibilityLabelsServiceItem(&menu_model_, is_checked);
 }
 
 // static
@@ -2184,9 +2250,8 @@ bool RenderViewContextMenu::IsReloadEnabled() const {
   if (!core_tab_helper)
     return false;
 
-  CoreTabHelperDelegate* core_delegate = core_tab_helper->delegate();
-  return !core_delegate ||
-         core_delegate->CanReloadContents(embedder_web_contents_);
+  Browser* browser = GetBrowser();
+  return !browser || browser->CanReloadContents(embedder_web_contents_);
 }
 
 bool RenderViewContextMenu::IsViewSourceEnabled() const {
@@ -2293,9 +2358,8 @@ bool RenderViewContextMenu::IsSavePageEnabled() const {
   if (!core_tab_helper)
     return false;
 
-  CoreTabHelperDelegate* core_delegate = core_tab_helper->delegate();
-  if (core_delegate &&
-      !core_delegate->CanSaveContents(embedder_web_contents_))
+  Browser* browser = GetBrowser();
+  if (browser && !browser->CanSaveContents(embedder_web_contents_))
     return false;
 
   PrefService* local_state = g_browser_process->local_state();
@@ -2327,7 +2391,7 @@ bool RenderViewContextMenu::IsPasteAndMatchStyleEnabled() const {
     return false;
 
   return ui::Clipboard::GetForCurrentThread()->IsFormatAvailable(
-      ui::Clipboard::GetPlainTextFormatType(),
+      ui::ClipboardFormatType::GetPlainTextType(),
       ui::CLIPBOARD_TYPE_COPY_PASTE);
 }
 
@@ -2739,10 +2803,6 @@ void RenderViewContextMenu::ExecPictureInPicture() {
       gfx::Point(params_.x, params_.y),
       WebMediaPlayerAction(WebMediaPlayerAction::Type::kPictureInPicture,
                            !picture_in_picture_active));
-}
-
-void RenderViewContextMenu::WriteURLToClipboard(const GURL& url) {
-  ::WriteURLToClipboard(url);
 }
 
 void RenderViewContextMenu::MediaPlayerActionAt(

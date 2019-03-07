@@ -173,6 +173,11 @@ int LitePageRedirectPreviewMaxServerBlacklistByteSize() {
       250 * 1024 /* 250KB */);
 }
 
+size_t LitePageRedirectPreviewMaxNavigationRestarts() {
+  return base::GetFieldTrialParamByFeatureAsInt(
+      features::kLitePageServerPreviews, "max_navigation_restart", 5);
+}
+
 int PreviewServerLoadshedMaxSeconds() {
   return base::GetFieldTrialParamByFeatureAsInt(
       features::kLitePageServerPreviews, "loadshed_max_seconds",
@@ -322,12 +327,6 @@ bool IsOptimizationHintsEnabled() {
   return base::FeatureList::IsEnabled(features::kOptimizationHints);
 }
 
-net::EffectiveConnectionType EffectiveConnectionTypeThresholdForClientLoFi() {
-  return GetParamValueAsECTByFeature(features::kClientLoFi,
-                                     kEffectiveConnectionTypeThreshold,
-                                     net::EFFECTIVE_CONNECTION_TYPE_2G);
-}
-
 int NoScriptPreviewsInflationPercent() {
   // The default value was determined from lab experiment data of whitelisted
   // URLs. It may be improved once there is enough UKM live experiment data
@@ -339,11 +338,6 @@ int NoScriptPreviewsInflationPercent() {
 int NoScriptPreviewsInflationBytes() {
   return GetFieldTrialParamByFeatureAsInt(features::kNoScriptPreviews,
                                           kNoScriptInflationBytes, 0);
-}
-
-bool NoScriptPreviewsUsesTopLevelHints() {
-  return base::FeatureList::IsEnabled(
-      features::kNoScriptPreviewsUsesTopLevelHints);
 }
 
 int ResourceLoadingHintsPreviewsInflationPercent() {

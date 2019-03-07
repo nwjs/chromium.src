@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/logging.h"
+#include "build/build_config.h"
 #include "content/browser/accessibility/browser_accessibility.h"
 #include "content/browser/accessibility/browser_accessibility_manager.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -28,10 +29,10 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
 
  protected:
   BrowserAccessibility* FindNode(ax::mojom::Role role,
-                                 const std::string& name) {
+                                 const std::string& name_or_value) {
     BrowserAccessibility* root = GetManager()->GetRoot();
     CHECK(root);
-    return FindNodeInSubtree(*root, role, name);
+    return FindNodeInSubtree(*root, role, name_or_value);
   }
 
   BrowserAccessibilityManager* GetManager() {
@@ -58,13 +59,19 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
  private:
   BrowserAccessibility* FindNodeInSubtree(BrowserAccessibility& node,
                                           ax::mojom::Role role,
-                                          const std::string& name) {
+                                          const std::string& name_or_value) {
+    const auto& name =
+        node.GetStringAttribute(ax::mojom::StringAttribute::kName);
+    const auto& value =
+        node.GetStringAttribute(ax::mojom::StringAttribute::kValue);
     if (node.GetRole() == role &&
-        node.GetStringAttribute(ax::mojom::StringAttribute::kName) == name)
+        (name == name_or_value || value == name_or_value)) {
       return &node;
+    }
+
     for (unsigned int i = 0; i < node.PlatformChildCount(); ++i) {
-      BrowserAccessibility* result = FindNodeInSubtree(
-          *node.PlatformGetChild(i), role, name);
+      BrowserAccessibility* result =
+          FindNodeInSubtree(*node.PlatformGetChild(i), role, name_or_value);
       if (result)
         return result;
     }
@@ -316,6 +323,143 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, ImgElementGetImage) {
   EXPECT_EQ(SK_ColorGREEN, bitmap.getColor(1, 1));
   EXPECT_EQ(SK_ColorBLUE, bitmap.getColor(0, 2));
   EXPECT_EQ(SK_ColorBLUE, bitmap.getColor(1, 2));
+}
+
+IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
+                       DoDefaultActionFocusesContentEditable) {
+  NavigateToURL(shell(), GURL(url::kAboutBlankURL));
+
+  AccessibilityNotificationWaiter waiter(shell()->web_contents(),
+                                         ui::kAXModeComplete,
+                                         ax::mojom::Event::kLoadComplete);
+  GURL url(
+      "data:text/html,"
+      "<div><button>Before</button></div>"
+      "<div contenteditable>Editable text</div>"
+      "<div><button>After</button></div>");
+  NavigateToURL(shell(), url);
+  waiter.WaitForNotification();
+
+  BrowserAccessibility* target =
+      FindNode(ax::mojom::Role::kGenericContainer, "Editable text");
+  ASSERT_NE(nullptr, target);
+
+  AccessibilityNotificationWaiter waiter2(
+      shell()->web_contents(), ui::kAXModeComplete, ax::mojom::Event::kFocus);
+  GetManager()->DoDefaultAction(*target);
+  waiter2.WaitForNotification();
+
+  BrowserAccessibility* focus = GetManager()->GetFocus();
+  EXPECT_EQ(focus->GetId(), target->GetId());
+}
+
+IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, InputSetValue) {
+  NavigateToURL(shell(), GURL(url::kAboutBlankURL));
+
+  AccessibilityNotificationWaiter waiter(shell()->web_contents(),
+                                         ui::kAXModeComplete,
+                                         ax::mojom::Event::kLoadComplete);
+  GURL url(
+      "data:text/html,"
+      "<input aria-label='Answer' value='Before'>");
+  NavigateToURL(shell(), url);
+  waiter.WaitForNotification();
+
+  BrowserAccessibility* target =
+      FindNode(ax::mojom::Role::kTextField, "Answer");
+  ASSERT_NE(nullptr, target);
+  EXPECT_EQ("Before",
+            target->GetStringAttribute(ax::mojom::StringAttribute::kValue));
+
+  AccessibilityNotificationWaiter waiter2(shell()->web_contents(),
+                                          ui::kAXModeComplete,
+                                          ax::mojom::Event::kValueChanged);
+  GetManager()->SetValue(*target, "After");
+  waiter2.WaitForNotification();
+
+  EXPECT_EQ("After",
+            target->GetStringAttribute(ax::mojom::StringAttribute::kValue));
+}
+
+IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, TextareaSetValue) {
+  NavigateToURL(shell(), GURL(url::kAboutBlankURL));
+
+  AccessibilityNotificationWaiter waiter(shell()->web_contents(),
+                                         ui::kAXModeComplete,
+                                         ax::mojom::Event::kLoadComplete);
+  GURL url(
+      "data:text/html,"
+      "<textarea aria-label='Answer'>Before</textarea>");
+  NavigateToURL(shell(), url);
+  waiter.WaitForNotification();
+
+  BrowserAccessibility* target =
+      FindNode(ax::mojom::Role::kTextField, "Answer");
+  ASSERT_NE(nullptr, target);
+  EXPECT_EQ("Before",
+            target->GetStringAttribute(ax::mojom::StringAttribute::kValue));
+
+  AccessibilityNotificationWaiter waiter2(shell()->web_contents(),
+                                          ui::kAXModeComplete,
+                                          ax::mojom::Event::kValueChanged);
+  GetManager()->SetValue(*target, "Line1\nLine2");
+  waiter2.WaitForNotification();
+
+  EXPECT_EQ("Line1\nLine2",
+            target->GetStringAttribute(ax::mojom::StringAttribute::kValue));
+
+  // TODO(dmazzoni): On Android we use an ifdef to disable inline text boxes,
+  // which contain all of the line break information.
+  //
+  // We should do it with accessibility flags instead. http://crbug.com/672205
+#if !defined(OS_ANDROID)
+  // Check that it really does contain two lines.
+  auto start_pos = target->CreatePositionAt(0);
+  auto end_of_line_1 = start_pos->CreateNextLineEndPosition(
+      ui::AXBoundaryBehavior::CrossBoundary);
+  EXPECT_EQ(5, end_of_line_1->text_offset());
+#endif
+}
+
+IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
+                       ContenteditableSetValue) {
+  NavigateToURL(shell(), GURL(url::kAboutBlankURL));
+
+  AccessibilityNotificationWaiter waiter(shell()->web_contents(),
+                                         ui::kAXModeComplete,
+                                         ax::mojom::Event::kLoadComplete);
+  GURL url(
+      "data:text/html,"
+      "<div contenteditable aria-label='Answer'>Before</div>");
+  NavigateToURL(shell(), url);
+  waiter.WaitForNotification();
+
+  BrowserAccessibility* target =
+      FindNode(ax::mojom::Role::kGenericContainer, "Answer");
+  ASSERT_NE(nullptr, target);
+  EXPECT_EQ("Before",
+            target->GetStringAttribute(ax::mojom::StringAttribute::kValue));
+
+  AccessibilityNotificationWaiter waiter2(shell()->web_contents(),
+                                          ui::kAXModeComplete,
+                                          ax::mojom::Event::kValueChanged);
+  GetManager()->SetValue(*target, "Line1\nLine2");
+  waiter2.WaitForNotification();
+
+  EXPECT_EQ("Line1\nLine2",
+            target->GetStringAttribute(ax::mojom::StringAttribute::kValue));
+
+  // TODO(dmazzoni): On Android we use an ifdef to disable inline text boxes,
+  // which contain all of the line break information.
+  //
+  // We should do it with accessibility flags instead. http://crbug.com/672205
+#if !defined(OS_ANDROID)
+  // Check that it really does contain two lines.
+  auto start_pos = target->CreatePositionAt(0);
+  auto end_of_line_1 = start_pos->CreateNextLineEndPosition(
+      ui::AXBoundaryBehavior::CrossBoundary);
+  EXPECT_EQ(5, end_of_line_1->text_offset());
+#endif
 }
 
 }  // namespace content

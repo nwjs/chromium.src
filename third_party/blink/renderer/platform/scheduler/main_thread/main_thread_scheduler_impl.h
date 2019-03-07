@@ -26,8 +26,8 @@
 #include "build/build_config.h"
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
-#include "third_party/blink/renderer/platform/scheduler/common/idle_canceled_delayed_task_sweeper.h"
 #include "third_party/blink/renderer/platform/scheduler/common/idle_helper.h"
+#include "third_party/blink/renderer/platform/scheduler/common/idle_memory_reclaimer.h"
 #include "third_party/blink/renderer/platform/scheduler/common/pollable_thread_safe_flag.h"
 #include "third_party/blink/renderer/platform/scheduler/common/thread_scheduler_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/common/tracing_helper.h"
@@ -41,7 +41,6 @@
 #include "third_party/blink/renderer/platform/scheduler/main_thread/prioritize_compositing_after_input_experiment.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/queueing_time_estimator.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/render_widget_signals.h"
-#include "third_party/blink/renderer/platform/scheduler/main_thread/task_cost_estimator.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/use_case.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/user_model.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
@@ -132,10 +131,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     // entries. This is initialized early with all valid entries. Entries that
     // aren't valid task types, i.e. non-frame level, are base::nullopt.
     FrameTaskTypeToQueueTraitsArray frame_task_types_to_queue_traits;
-
-    bool disable_expensive_task_blocking;
-    bool disable_non_touchstart_input_heuristics;
-    bool disable_touchstart_input_heuristics;
   };
 
   static const char* UseCaseToString(UseCase use_case);
@@ -338,8 +333,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
   // Test helpers.
   MainThreadSchedulerHelper* GetSchedulerHelperForTesting();
-  TaskCostEstimator* GetLoadingTaskCostEstimatorForTesting();
-  TaskCostEstimator* GetTimerTaskCostEstimatorForTesting();
   IdleTimeEstimator* GetIdleTimeEstimatorForTesting();
   base::TimeTicks CurrentIdleTaskDeadlineForTesting() const;
   void RunIdleTasksForTesting(base::OnceClosure callback);
@@ -422,11 +415,8 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
       main_thread_scheduler_impl_unittest::MainThreadSchedulerImplTest,
       Tracing);
 
-  enum class ExpensiveTaskPolicy { kRun, kBlock, kThrottle };
-
   enum class TimeDomainType {
     kReal,
-    kThrottled,
     kVirtual,
   };
 
@@ -440,13 +430,11 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     TaskQueuePolicy()
         : is_enabled(true),
           is_paused(false),
-          is_throttled(false),
           is_deferred(false),
           use_virtual_time(false) {}
 
     bool is_enabled;
     bool is_paused;
-    bool is_throttled;
     bool is_deferred;
     bool use_virtual_time;
 
@@ -456,7 +444,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
     bool operator==(const TaskQueuePolicy& other) const {
       return is_enabled == other.is_enabled && is_paused == other.is_paused &&
-             is_throttled == other.is_throttled &&
              is_deferred == other.is_deferred &&
              use_virtual_time == other.use_virtual_time;
     }
@@ -695,9 +682,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
       const TaskQueuePolicy& old_task_queue_policy,
       const TaskQueuePolicy& new_task_queue_policy) const;
 
-  static const char* ExpensiveTaskPolicyToString(
-      ExpensiveTaskPolicy expensive_task_policy);
-
   void AddQueueToWakeUpBudgetPool(MainThreadTaskQueue* queue);
 
   void PauseRendererImpl();
@@ -762,7 +746,7 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
   MainThreadSchedulerHelper helper_;
   IdleHelper idle_helper_;
-  IdleCanceledDelayedTaskSweeper idle_canceled_delayed_task_sweeper_;
+  IdleMemoryReclaimer idle_memory_reclaimer_;
   std::unique_ptr<TaskQueueThrottler> task_queue_throttler_;
   RenderWidgetSignals render_widget_scheduler_signals_;
 
@@ -812,8 +796,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
         base::TimeTicks now);
     ~MainThreadOnly();
 
-    TaskCostEstimator loading_task_cost_estimator;
-    TaskCostEstimator timer_task_cost_estimator;
     IdleTimeEstimator idle_time_estimator;
     TraceableState<UseCase, TracingCategoryName::kDefault> current_use_case;
     Policy current_policy;
@@ -825,21 +807,12 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
         longest_jank_free_task_duration;
     TraceableCounter<int, TracingCategoryName::kInfo>
         renderer_pause_count;  // Renderer is paused if non-zero.
-    TraceableState<ExpensiveTaskPolicy, TracingCategoryName::kInfo>
-        expensive_task_policy;
     TraceableState<v8::RAILMode, TracingCategoryName::kInfo>
         rail_mode_for_tracing;  // Don't use except for tracing.
     TraceableState<bool, TracingCategoryName::kDebug> renderer_hidden;
     TraceableState<bool, TracingCategoryName::kTopLevel> renderer_backgrounded;
     TraceableState<bool, TracingCategoryName::kDefault>
         keep_active_fetch_or_worker;
-    TraceableCounter<base::TimeDelta, TracingCategoryName::kInfo>
-        loading_task_estimated_cost;
-    TraceableCounter<base::TimeDelta, TracingCategoryName::kInfo>
-        timer_task_estimated_cost;
-    TraceableState<bool, TracingCategoryName::kInfo>
-        loading_tasks_seem_expensive;
-    TraceableState<bool, TracingCategoryName::kInfo> timer_tasks_seem_expensive;
     TraceableState<bool, TracingCategoryName::kDefault>
         blocking_input_expected_soon;
     TraceableState<bool, TracingCategoryName::kDebug>

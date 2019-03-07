@@ -7,7 +7,6 @@
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/stl_util.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -275,7 +274,7 @@ GURL ScriptContext::GetDocumentLoaderURLForFrame(
       frame->GetProvisionalDocumentLoader()
           ? frame->GetProvisionalDocumentLoader()
           : frame->GetDocumentLoader();
-  GURL ret = document_loader ? GURL(document_loader->GetRequest().Url()) : GURL();
+  GURL ret = document_loader ? GURL(document_loader->GetUrl()) : GURL();
 #if 0
   //nwjs: iframe url
   if (!ret.is_valid() || ret.is_empty())
@@ -296,9 +295,9 @@ GURL ScriptContext::GetAccessCheckedFrameURL(
             ? frame->GetProvisionalDocumentLoader()
             : frame->GetDocumentLoader();
     if (document_loader &&
-        frame->GetSecurityOrigin().CanAccess(blink::WebSecurityOrigin::Create(
-            document_loader->GetRequest().Url()))) {
-      return GURL(document_loader->GetRequest().Url());
+        frame->GetSecurityOrigin().CanAccess(
+            blink::WebSecurityOrigin::Create(document_loader->GetUrl()))) {
+      return GURL(document_loader->GetUrl());
     }
   }
   return GURL(weburl);
@@ -376,7 +375,7 @@ void ScriptContext::OnResponseReceived(const std::string& name,
           .ToLocalChecked()};
 
   module_system()->CallModuleMethodSafe("sendRequest", "handleResponse",
-                                        arraysize(argv), argv);
+                                        base::size(argv), argv);
 }
 
 bool ScriptContext::HasAPIPermission(APIPermission::ID permission) const {

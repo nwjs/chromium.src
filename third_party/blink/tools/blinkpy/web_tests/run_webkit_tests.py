@@ -114,7 +114,7 @@ def parse_args(args):
                 action='append',
                 default=[],
                 dest='adb_devices',
-                help='Run Android layout tests on these devices'),
+                help='Run Android web tests on these devices'),
             # FIXME: Flip this to be off by default once we can log the
             # device setup more cleanly.
             optparse.make_option(
@@ -300,7 +300,7 @@ def parse_args(args):
                 help='Number of times to run the set of tests (e.g. ABCABCABC)'),
             optparse.make_option(
                 '--layout-tests-directory',
-                help=('Path to a custom layout tests directory')),
+                help=('Path to a custom web tests directory')),
             optparse.make_option(
                 '--max-locked-shards',
                 type='int',
@@ -464,7 +464,17 @@ def parse_args(args):
                 '--zero-tests-executed-ok',
                 action='store_true',
                 help='If set, exit with a success code when no tests are run.'
-                ' Used on trybots when layout tests are retried without patch.')
+                ' Used on trybots when web tests are retried without patch.')
+        ]))
+
+    option_group_definitions.append(
+        ('web-platform-tests (WPT) Options', [
+            optparse.make_option(
+                '--no-manifest-update',
+                dest='manifest_update',
+                action='store_false',
+                default=True,
+                help=('Do not update the web-platform-tests MANIFEST.json.')),
         ]))
 
     # FIXME: Move these into json_results_generator.py.
@@ -499,7 +509,7 @@ def parse_args(args):
     option_parser = optparse.OptionParser(
         prog='run_web_tests.py',
         usage='%prog [options] [tests]',
-        description='Runs Blink layout tests as described in docs/testing/web_tests.md')
+        description='Runs Blink web tests as described in docs/testing/web_tests.md')
 
     for group_name, group_options in option_group_definitions:
         option_group = optparse.OptionGroup(option_parser, group_name)
@@ -564,7 +574,7 @@ def _set_up_derived_options(port, options, args):
 
         if not options.test_list:
             options.test_list = []
-        options.test_list.append(port.host.filesystem.join(port.layout_tests_dir(), 'SmokeTests'))
+        options.test_list.append(port.host.filesystem.join(port.web_tests_dir(), 'SmokeTests'))
         if not options.skipped:
             options.skipped = 'always'
 

@@ -57,6 +57,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_paths.h"
+#include "content/public/common/network_service_util.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/browsing_data_remover_test_util.h"
 #include "content/public/test/download_test_observer.h"
@@ -537,7 +538,6 @@ class BrowsingDataRemoverBrowserTest : public InProcessBrowserTest {
         new BrowsingDataIndexedDBHelper(indexed_db_context),
         BrowsingDataFileSystemHelper::Create(file_system_context),
         BrowsingDataQuotaHelper::Create(profile),
-        BrowsingDataChannelIDHelper::Create(profile->GetRequestContext()),
         new BrowsingDataServiceWorkerHelper(service_worker_context),
         new BrowsingDataSharedWorkerHelper(storage_partition,
                                            profile->GetResourceContext()),
@@ -691,7 +691,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowsingDataRemoverBrowserTest, SyncTokenError) {
   AccountInfo primary_account =
       AddAccountToProfile(kAccountId, profile, /*is_primary=*/true);
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
-  identity::SetAccountWithRefreshTokenInPersistentErrorState(
+  identity::UpdatePersistentErrorOfRefreshTokenForAccount(
       identity_manager, primary_account.account_id,
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
@@ -899,7 +899,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, Cache) {
 // after the crash.
 IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
                        ClearCacheAndNetworkServiceCrashes) {
-  if (!base::FeatureList::IsEnabled(network::features::kNetworkService))
+  if (!content::IsOutOfProcessNetworkService())
     return;
 
   // Clear the cached data with a task posted to crash the network service.
@@ -1131,7 +1131,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP, MediaLicenseDeletion) {
   EXPECT_FALSE(HasDataForType(kMediaLicenseType));
 
   SetDataForType(kMediaLicenseType);
-  EXPECT_EQ(0, GetSiteDataCount());
+  EXPECT_EQ(1, GetSiteDataCount());
   EXPECT_EQ(1, GetMediaLicenseCount());
   ExpectCookieTreeModelCount(1);
   EXPECT_TRUE(HasDataForType(kMediaLicenseType));
@@ -1140,7 +1140,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataRemoverBrowserTestP, MediaLicenseDeletion) {
   // which should not remove the recently created Media License.
   RemoveAndWait(content::BrowsingDataRemover::DATA_TYPE_MEDIA_LICENSES,
                 delete_begin, kLastHour);
-  EXPECT_EQ(0, GetSiteDataCount());
+  EXPECT_EQ(1, GetSiteDataCount());
   EXPECT_EQ(1, GetMediaLicenseCount());
   ExpectCookieTreeModelCount(1);
   EXPECT_TRUE(HasDataForType(kMediaLicenseType));
@@ -1174,7 +1174,7 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
   EXPECT_FALSE(HasDataForType(kMediaLicenseType));
 
   SetDataForType(kMediaLicenseType);
-  EXPECT_EQ(0, GetSiteDataCount());
+  EXPECT_EQ(1, GetSiteDataCount());
   EXPECT_EQ(1, GetMediaLicenseCount());
   ExpectCookieTreeModelCount(1);
   EXPECT_TRUE(HasDataForType(kMediaLicenseType));
@@ -1233,6 +1233,53 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
   EXPECT_EQ(0, GetMediaLicenseCount());
   ExpectCookieTreeModelCount(0);
 }
+
+IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
+                       MediaLicenseDeletionWithFilter) {
+  const std::string kMediaLicenseType = "MediaLicense";
+
+  GURL url =
+      embedded_test_server()->GetURL("/browsing_data/media_license.html");
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  EXPECT_EQ(0, GetMediaLicenseCount());
+  EXPECT_FALSE(HasDataForType(kMediaLicenseType));
+
+  SetDataForType(kMediaLicenseType);
+  EXPECT_EQ(1, GetMediaLicenseCount());
+  EXPECT_TRUE(HasDataForType(kMediaLicenseType));
+
+  // Try to remove the Media Licenses using a whitelist that doesn't include
+  // the current URL. Media License should not be deleted.
+  std::unique_ptr<BrowsingDataFilterBuilder> filter_builder =
+      BrowsingDataFilterBuilder::Create(BrowsingDataFilterBuilder::WHITELIST);
+  filter_builder->AddOrigin(
+      url::Origin::CreateFromNormalizedTuple("https", "test-origin", 443));
+  RemoveWithFilterAndWait(
+      content::BrowsingDataRemover::DATA_TYPE_MEDIA_LICENSES,
+      std::move(filter_builder));
+  EXPECT_EQ(1, GetMediaLicenseCount());
+
+  // Now try with a blacklist that includes the current URL. Media License
+  // should not be deleted.
+  filter_builder =
+      BrowsingDataFilterBuilder::Create(BrowsingDataFilterBuilder::BLACKLIST);
+  filter_builder->AddOrigin(url::Origin::Create(url));
+  RemoveWithFilterAndWait(
+      content::BrowsingDataRemover::DATA_TYPE_MEDIA_LICENSES,
+      std::move(filter_builder));
+  EXPECT_EQ(1, GetMediaLicenseCount());
+
+  // Now try with a whitelist that includes the current URL. Media License
+  // should be deleted this time.
+  filter_builder =
+      BrowsingDataFilterBuilder::Create(BrowsingDataFilterBuilder::WHITELIST);
+  filter_builder->AddOrigin(url::Origin::Create(url));
+  RemoveWithFilterAndWait(
+      content::BrowsingDataRemover::DATA_TYPE_MEDIA_LICENSES,
+      std::move(filter_builder));
+  EXPECT_EQ(0, GetMediaLicenseCount());
+}
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
 const std::vector<std::string> kStorageTypes{
@@ -1290,10 +1337,6 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, StorageRemovedFromDisk) {
   // but there are a few bugs that need to be fixed.
   // Any addition to this list must have an associated TODO().
   static const std::vector<std::string> whitelist = {
-    // TODO(crbug.com/823071): LevelDB logs are not deleted immediately.
-    "File System/Origins/[0-9]*.log",
-    "Service Worker/Database/[0-9]*.log",
-
 #if defined(OS_CHROMEOS)
     // TODO(crbug.com/846297): Many leveldb files remain on ChromeOS. I couldn't
     // reproduce this in manual testing, so it might be a timing issue when

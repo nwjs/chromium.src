@@ -32,6 +32,13 @@ interface Assistant {
   // Starts a new Assistant voice interaction.
   StartVoiceInteraction();
 
+  // Starts a warmer welcome interaction for Assistant launch.
+  // |num_warmer_welcome_triggered| is the count of warmer welcomes
+  // already triggered. If |allow_tts| is true, the result may contain TTS.
+  // Otherwise TTS will not be present in the generated server response.
+  StartWarmerWelcomeInteraction(int32 num_warmer_welcome_triggered,
+      bool allow_tts);
+
   // Stops the active Assistant interaction and cancel the conversation if
   // |cancel_conversation|. If there is no active interaction, this method
   // is a no-op.
@@ -40,11 +47,6 @@ interface Assistant {
   // Registers assistant interaction event subscriber. Subscribers'
   // implementation is responsible for selecting events of interest.
   AddAssistantInteractionSubscriber(AssistantInteractionSubscriber subscriber);
-
-  // Registers assistant notification event subscriber. Subscribers'
-  // implementation is responsible for selecting events of interest.
-  AddAssistantNotificationSubscriber(
-      AssistantNotificationSubscriber subscriber);
 
   // Retrieves a notification. A voiceless interaction will be sent to server to
   // retrieve the notification of |action_index|, which can trigger other
@@ -64,12 +66,18 @@ interface Assistant {
   // interactions (see StartCachedScreenContextInteraction()).
   CacheScreenContext() => ();
 
+  // Clears the screen context cached by calling CacheScreenContext().
+  ClearScreenContextCache();
+
   // Invoked when accessibility status is changed. Note that though
   // accessibility status has changed, |spoken_feedback_enabled| may not have.
   OnAccessibilityStatusChanged(bool spoken_feedback_enabled);
+
+  // Send Assistant feedback to Assistant server.
+  SendAssistantFeedback(AssistantFeedback feedback);
 };
 
-// Subscribes to assistant's interaction event. These events are server driven
+// Subscribes to Assistant's interaction event. These events are server driven
 // in response to the user's direct interaction with the assistant. Responses
 // from the assistant may contain untrusted third-party content. Subscriber
 // implementations must be sure to handle the response data appropriately.
@@ -114,17 +122,6 @@ interface AssistantInteractionSubscriber {
   OnTtsStarted(bool due_to_error);
 };
 
-// Subscribes to assistant's notification event. These events are server
-// driven and pertain to push notifications.
-interface AssistantNotificationSubscriber {
-  // Assistant got notification from server.
-  OnShowNotification(AssistantNotification notification);
-
-  // Notifies UI to remove the notification with the |grouping_key|.
-  // If |grouping_key| is empty, remove all notifications.
-  OnRemoveNotification(string grouping_key);
-};
-
 // Interface for browser to bind and start assistant.
 interface AssistantPlatform {
   // Initiates assistant and provides interfaces for assistant to call into the
@@ -162,6 +159,13 @@ interface DeviceActions {
 
   // Enables or disables Night Light.
   SetNightLightEnabled(bool enabled);
+
+  // Open the Android app if the app is available.
+  OpenAndroidApp(AndroidAppInfo app_info) => (bool app_opened);
+
+  // Verify the status of the Android apps.
+  VerifyAndroidApp(array<AndroidAppInfo> apps_info) => (array<AndroidAppInfo>
+                                                        apps_info);
 };
 
 // Enumeration of possible completions for an Assistant interaction.
@@ -213,8 +217,11 @@ struct AssistantNotification {
   // List of buttons in the notification.
   array<AssistantNotificationButton> buttons;
 
-  // An id that uniquely identifies a notification.
-  string notification_id;
+  // An id that uniquely identifies a notification on the client.
+  string client_id;
+
+  // An id that uniquely identifies a notification on the server.
+  string server_id;
 
   // Used to fetch notification contents.
   string consistency_token;
@@ -225,4 +232,25 @@ struct AssistantNotification {
 
   // Obfuscated Gaia id of the intended recipient of the user.
   string obfuscated_gaia_id;
+};
+
+// Models status of an app.
+enum AppStatus { UNKNOWN, AVAILABLE, UNAVAILABLE, VERSION_MISMATCH, DISABLED };
+
+// Models an Android app.
+struct AndroidAppInfo {
+  string package_name;
+  int32 version;
+  string localized_app_name;
+  string intent;
+  AppStatus status;
+};
+
+//  Details for Assistant feedback.
+struct AssistantFeedback {
+  // User input to be sent with the feedback report.
+  string description;
+
+  // Whether user consent to send debug info.
+  bool assistant_debug_info_allowed;
 };

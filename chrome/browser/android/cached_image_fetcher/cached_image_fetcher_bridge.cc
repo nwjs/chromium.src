@@ -14,6 +14,7 @@
 #include "chrome/browser/cached_image_fetcher/cached_image_fetcher_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_android.h"
+#include "components/image_fetcher/core/cache/cached_image_fetcher_metrics_reporter.h"
 #include "components/image_fetcher/core/cache/image_cache.h"
 #include "components/image_fetcher/core/cached_image_fetcher.h"
 #include "components/image_fetcher/core/cached_image_fetcher_service.h"
@@ -59,7 +60,6 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 // static
 jlong JNI_CachedImageFetcherBridge_Init(
     JNIEnv* j_env,
-    const JavaParamRef<jclass>& j_caller,
     const JavaParamRef<jobject>& j_profile) {
   Profile* profile = ProfileAndroid::FromProfileAndroid(j_profile);
   base::FilePath file_path =
@@ -114,6 +114,23 @@ void CachedImageFetcherBridge::FetchImage(JNIEnv* j_env,
       base::BindOnce(&CachedImageFetcherBridge::OnImageFetched,
                      weak_ptr_factory_.GetWeakPtr(), callback),
       kTrafficAnnotation);
+}
+
+void CachedImageFetcherBridge::ReportEvent(
+    JNIEnv* j_env,
+    const base::android::JavaRef<jobject>& j_this,
+    const jint j_event_id) {
+  CachedImageFetcherEvent event =
+      static_cast<CachedImageFetcherEvent>(j_event_id);
+  CachedImageFetcherMetricsReporter::ReportEvent(event);
+}
+
+void CachedImageFetcherBridge::ReportCacheHitTime(
+    JNIEnv* j_env,
+    const base::android::JavaRef<jobject>& j_this,
+    const jlong start_time_millis) {
+  base::Time start_time = base::Time::FromJavaTime(start_time_millis);
+  CachedImageFetcherMetricsReporter::ReportImageLoadFromCacheTime(start_time);
 }
 
 void CachedImageFetcherBridge::OnImageFetched(

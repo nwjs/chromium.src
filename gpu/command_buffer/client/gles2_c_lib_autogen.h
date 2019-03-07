@@ -740,6 +740,39 @@ void GL_APIENTRY GLES2ShallowFlushCHROMIUM() {
 void GL_APIENTRY GLES2OrderingBarrierCHROMIUM() {
   gles2::GetGLContext()->OrderingBarrierCHROMIUM();
 }
+void GL_APIENTRY GLES2MultiDrawArraysWEBGL(GLenum mode,
+                                           const GLint* firsts,
+                                           const GLsizei* counts,
+                                           GLsizei drawcount) {
+  gles2::GetGLContext()->MultiDrawArraysWEBGL(mode, firsts, counts, drawcount);
+}
+void GL_APIENTRY
+GLES2MultiDrawArraysInstancedWEBGL(GLenum mode,
+                                   const GLint* firsts,
+                                   const GLsizei* counts,
+                                   const GLsizei* instance_counts,
+                                   GLsizei drawcount) {
+  gles2::GetGLContext()->MultiDrawArraysInstancedWEBGL(
+      mode, firsts, counts, instance_counts, drawcount);
+}
+void GL_APIENTRY GLES2MultiDrawElementsWEBGL(GLenum mode,
+                                             const GLsizei* counts,
+                                             GLenum type,
+                                             const GLsizei* offsets,
+                                             GLsizei drawcount) {
+  gles2::GetGLContext()->MultiDrawElementsWEBGL(mode, counts, type, offsets,
+                                                drawcount);
+}
+void GL_APIENTRY
+GLES2MultiDrawElementsInstancedWEBGL(GLenum mode,
+                                     const GLsizei* counts,
+                                     GLenum type,
+                                     const GLsizei* offsets,
+                                     const GLsizei* instance_counts,
+                                     GLsizei drawcount) {
+  gles2::GetGLContext()->MultiDrawElementsInstancedWEBGL(
+      mode, counts, type, offsets, instance_counts, drawcount);
+}
 void GL_APIENTRY GLES2StencilFunc(GLenum func, GLint ref, GLuint mask) {
   gles2::GetGLContext()->StencilFunc(func, ref, mask);
 }
@@ -1533,27 +1566,35 @@ void GL_APIENTRY GLES2FlushDriverCachesCHROMIUM() {
 GLuint GL_APIENTRY GLES2GetLastFlushIdCHROMIUM() {
   return gles2::GetGLContext()->GetLastFlushIdCHROMIUM();
 }
-void GL_APIENTRY
-GLES2ScheduleDCLayerSharedStateCHROMIUM(GLfloat opacity,
-                                        GLboolean is_clipped,
-                                        const GLfloat* clip_rect,
-                                        GLint z_order,
-                                        const GLfloat* transform) {
-  gles2::GetGLContext()->ScheduleDCLayerSharedStateCHROMIUM(
-      opacity, is_clipped, clip_rect, z_order, transform);
-}
-void GL_APIENTRY
-GLES2ScheduleDCLayerCHROMIUM(GLsizei num_textures,
-                             const GLuint* contents_texture_ids,
-                             const GLfloat* contents_rect,
-                             GLuint background_color,
-                             GLuint edge_aa_mask,
-                             const GLfloat* bounds_rect,
-                             GLuint filter,
-                             GLuint protected_video_type) {
+void GL_APIENTRY GLES2ScheduleDCLayerCHROMIUM(GLuint y_texture_id,
+                                              GLuint uv_texture_id,
+                                              GLint z_order,
+                                              GLint content_x,
+                                              GLint content_y,
+                                              GLint content_width,
+                                              GLint content_height,
+                                              GLint quad_x,
+                                              GLint quad_y,
+                                              GLint quad_width,
+                                              GLint quad_height,
+                                              GLfloat transform_c1r1,
+                                              GLfloat transform_c2r1,
+                                              GLfloat transform_c1r2,
+                                              GLfloat transform_c2r2,
+                                              GLfloat transform_tx,
+                                              GLfloat transform_ty,
+                                              GLboolean is_clipped,
+                                              GLint clip_x,
+                                              GLint clip_y,
+                                              GLint clip_width,
+                                              GLint clip_height,
+                                              GLuint protected_video_type) {
   gles2::GetGLContext()->ScheduleDCLayerCHROMIUM(
-      num_textures, contents_texture_ids, contents_rect, background_color,
-      edge_aa_mask, bounds_rect, filter, protected_video_type);
+      y_texture_id, uv_texture_id, z_order, content_x, content_y, content_width,
+      content_height, quad_x, quad_y, quad_width, quad_height, transform_c1r1,
+      transform_c2r1, transform_c1r2, transform_c2r2, transform_tx,
+      transform_ty, is_clipped, clip_x, clip_y, clip_width, clip_height,
+      protected_video_type);
 }
 void GL_APIENTRY GLES2SetActiveURLCHROMIUM(const char* url) {
   gles2::GetGLContext()->SetActiveURLCHROMIUM(url);
@@ -1836,10 +1877,9 @@ void GL_APIENTRY GLES2MaxShaderCompilerThreadsKHR(GLuint count) {
   gles2::GetGLContext()->MaxShaderCompilerThreadsKHR(count);
 }
 GLuint GL_APIENTRY
-GLES2CreateAndTexStorage2DSharedImageCHROMIUM(GLenum internalFormat,
-                                              const GLbyte* mailbox) {
+GLES2CreateAndTexStorage2DSharedImageCHROMIUM(const GLbyte* mailbox) {
   return gles2::GetGLContext()->CreateAndTexStorage2DSharedImageCHROMIUM(
-      internalFormat, mailbox);
+      mailbox);
 }
 void GL_APIENTRY GLES2BeginSharedImageAccessDirectCHROMIUM(GLuint texture,
                                                            GLenum mode) {
@@ -2470,6 +2510,23 @@ extern const NameToFunc g_gles2_function_table[] = {
         reinterpret_cast<GLES2FunctionPointer>(glOrderingBarrierCHROMIUM),
     },
     {
+        "glMultiDrawArraysWEBGL",
+        reinterpret_cast<GLES2FunctionPointer>(glMultiDrawArraysWEBGL),
+    },
+    {
+        "glMultiDrawArraysInstancedWEBGL",
+        reinterpret_cast<GLES2FunctionPointer>(glMultiDrawArraysInstancedWEBGL),
+    },
+    {
+        "glMultiDrawElementsWEBGL",
+        reinterpret_cast<GLES2FunctionPointer>(glMultiDrawElementsWEBGL),
+    },
+    {
+        "glMultiDrawElementsInstancedWEBGL",
+        reinterpret_cast<GLES2FunctionPointer>(
+            glMultiDrawElementsInstancedWEBGL),
+    },
+    {
         "glStencilFunc",
         reinterpret_cast<GLES2FunctionPointer>(glStencilFunc),
     },
@@ -3089,11 +3146,6 @@ extern const NameToFunc g_gles2_function_table[] = {
     {
         "glGetLastFlushIdCHROMIUM",
         reinterpret_cast<GLES2FunctionPointer>(glGetLastFlushIdCHROMIUM),
-    },
-    {
-        "glScheduleDCLayerSharedStateCHROMIUM",
-        reinterpret_cast<GLES2FunctionPointer>(
-            glScheduleDCLayerSharedStateCHROMIUM),
     },
     {
         "glScheduleDCLayerCHROMIUM",

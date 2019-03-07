@@ -48,10 +48,15 @@ class SmbFileSystem : public file_system_provider::ProvidedFileSystemInterface,
   using UnmountCallback = base::OnceCallback<base::File::Error(
       const std::string&,
       file_system_provider::Service::UnmountReason)>;
+  using RequestCredentialsCallback =
+      base::RepeatingCallback<void(const std::string& /* share_path */,
+                                   int32_t /* mount_id */,
+                                   base::OnceClosure /* reply */)>;
 
   SmbFileSystem(
       const file_system_provider::ProvidedFileSystemInfo& file_system_info,
-      UnmountCallback unmount_callback);
+      UnmountCallback unmount_callback,
+      RequestCredentialsCallback request_creds_callback);
   ~SmbFileSystem() override;
 
   // ProvidedFileSystemInterface overrides.
@@ -224,6 +229,10 @@ class SmbFileSystem : public file_system_provider::ProvidedFileSystemInterface,
       int entires_count,
       base::ElapsedTimer metrics_timer);
 
+  // Requests updated credentials for the mount. Once the credentials have been
+  // updated, |reply| is executed.
+  void RequestUpdatedCredentials(base::OnceClosure reply);
+
   void HandleRequestUnmountCallback(
       storage::AsyncFileUtil::StatusCallback callback,
       smbprovider::ErrorType error);
@@ -287,6 +296,7 @@ class SmbFileSystem : public file_system_provider::ProvidedFileSystemInterface,
   void HandleStartReadDirectoryCallback(
       storage::AsyncFileUtil::ReadDirectoryCallback callback,
       OperationId operation_id,
+      const base::FilePath& directory_path,
       base::ElapsedTimer metrics_timer,
       smbprovider::ErrorType error,
       int32_t read_dir_token,
@@ -312,6 +322,8 @@ class SmbFileSystem : public file_system_provider::ProvidedFileSystemInterface,
 
   int32_t GetMountId() const;
 
+  std::string GetMountPath() const;
+
   SmbProviderClient* GetSmbProviderClient() const;
   base::WeakPtr<SmbProviderClient> GetWeakSmbProviderClient() const;
 
@@ -331,6 +343,7 @@ class SmbFileSystem : public file_system_provider::ProvidedFileSystemInterface,
   const file_system_provider::OpenedFiles opened_files_;
 
   UnmountCallback unmount_callback_;
+  RequestCredentialsCallback request_creds_callback_;
   std::unique_ptr<TempFileManager> temp_file_manager_;
   mutable SmbTaskQueue task_queue_;
 

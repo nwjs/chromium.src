@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/layout/jank_tracker.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/loader/interactive_detector.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/page/autoscroll_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/compositing/paint_layer_compositor.h"
@@ -73,17 +74,13 @@ void PageWidgetDelegate::UpdateLifecycle(
   }
 }
 
-static void PaintContentInternal(Page& page,
-                                 cc::PaintCanvas* canvas,
-                                 const WebRect& rect,
-                                 LocalFrame& root,
-                                 const GlobalPaintFlags global_paint_flags) {
+void PageWidgetDelegate::PaintContent(cc::PaintCanvas* canvas,
+                                      const WebRect& rect,
+                                      LocalFrame& root) {
   if (rect.IsEmpty())
     return;
 
-  // FIXME: device scale factor settings are layering violations and should
-  // not be used within Blink paint code.
-  float scale_factor = page.DeviceScaleFactorDeprecated();
+  float scale_factor = root.DevicePixelRatio();
   canvas->save();
   canvas->scale(scale_factor, scale_factor);
 
@@ -96,8 +93,8 @@ static void PaintContentInternal(Page& page,
 
     PaintRecordBuilder builder;
     builder.Context().SetDeviceScaleFactor(scale_factor);
-    view->PaintWithLifecycleUpdate(builder.Context(), global_paint_flags,
-                                   CullRect(dirty_rect));
+    view->PaintOutsideOfLifecycle(builder.Context(), kGlobalPaintNormalPhase,
+                                  CullRect(dirty_rect));
     builder.EndRecording(
         *canvas,
         view->GetLayoutView()->FirstFragment().LocalBorderBoxProperties());
@@ -108,22 +105,6 @@ static void PaintContentInternal(Page& page,
   }
 
   canvas->restore();
-}
-
-void PageWidgetDelegate::PaintContent(Page& page,
-                                      cc::PaintCanvas* canvas,
-                                      const WebRect& rect,
-                                      LocalFrame& root) {
-  PaintContentInternal(page, canvas, rect, root, kGlobalPaintNormalPhase);
-}
-
-void PageWidgetDelegate::PaintContentIgnoringCompositing(
-    Page& page,
-    cc::PaintCanvas* canvas,
-    const WebRect& rect,
-    LocalFrame& root) {
-  PaintContentInternal(page, canvas, rect, root,
-                       kGlobalPaintFlattenCompositingLayers);
 }
 
 WebInputEventResult PageWidgetDelegate::HandleInputEvent(
@@ -143,7 +124,7 @@ WebInputEventResult PageWidgetDelegate::HandleInputEvent(
     if (interactive_detector)
       interactive_detector->HandleForInputDelay(event);
 
-    if (RuntimeEnabledFeatures::JankTrackingEnabled()) {
+    if (origin_trials::JankTrackingEnabled(document)) {
       if (LocalFrameView* view = document->View())
         view->GetJankTracker().NotifyInput(event);
     }

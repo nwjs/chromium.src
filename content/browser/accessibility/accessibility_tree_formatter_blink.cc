@@ -4,11 +4,12 @@
 
 #include "content/browser/accessibility/accessibility_tree_formatter_blink.h"
 
-#include <math.h>
-#include <stddef.h>
+#include <cmath>
+#include <cstddef>
 
 #include <utility>
 
+#include "base/optional.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -16,82 +17,36 @@
 #include "base/values.h"
 #include "content/browser/accessibility/browser_accessibility_manager.h"
 #include "ui/accessibility/ax_enums.mojom.h"
-#include "ui/accessibility/ax_node.h"
+#include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/platform/ax_platform_node_delegate.h"
+#include "ui/accessibility/platform/compute_attributes.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/transform.h"
 
 namespace content {
 namespace {
 
-// Compute the attribute value instead of returning the "raw" attribute value
-// for those attributes that have computation methods.
-int32_t GetIntAttribute(const BrowserAccessibility& node,
-                        ax::mojom::IntAttribute attr) {
-  ui::AXNode* ax_node = node.node();
-  if (ax_node == nullptr) {
-    return node.GetIntAttribute(attr);
+base::Optional<std::string> GetStringAttribute(
+    const BrowserAccessibility& node,
+    ax::mojom::StringAttribute attr) {
+  // Language and Font Family are different from other string attributes
+  // in that they inherit.
+  if (attr == ax::mojom::StringAttribute::kFontFamily ||
+      attr == ax::mojom::StringAttribute::kLanguage) {
+    std::string value = node.GetInheritedStringAttribute(attr);
+    if (value.empty()) {
+      return base::nullopt;
+    }
+    return value;
   }
 
-  // If the current node is not a cell, then trying to compute cell-related
-  // attributes will return incorrect results. We should fall back to the raw
-  // attribute value when that happens.
-  bool is_cell = ax_node->IsTableCellOrHeader();
-
-  switch (attr) {
-    case ax::mojom::IntAttribute::kAriaCellColumnIndex:
-      if (is_cell) {
-        return ax_node->GetTableCellAriaColIndex();
-      }
-      break;
-
-    case ax::mojom::IntAttribute::kAriaCellRowIndex:
-      if (is_cell) {
-        return ax_node->GetTableCellAriaRowIndex();
-      }
-      break;
-
-    case ax::mojom::IntAttribute::kAriaColumnCount:
-      return ax_node->GetTableAriaColCount();
-    case ax::mojom::IntAttribute::kAriaRowCount:
-      return ax_node->GetTableAriaRowCount();
-
-    case ax::mojom::IntAttribute::kTableCellColumnIndex:
-      if (is_cell) {
-        return ax_node->GetTableCellColIndex();
-      }
-      break;
-
-    case ax::mojom::IntAttribute::kTableCellRowIndex:
-      if (is_cell) {
-        return ax_node->GetTableCellRowIndex();
-      }
-      break;
-
-    case ax::mojom::IntAttribute::kTableCellColumnSpan:
-      if (is_cell) {
-        return ax_node->GetTableCellColSpan();
-      }
-      break;
-
-    case ax::mojom::IntAttribute::kTableCellRowSpan:
-      if (is_cell) {
-        return ax_node->GetTableCellRowSpan();
-      }
-      break;
-
-    case ax::mojom::IntAttribute::kTableColumnCount:
-      return ax_node->GetTableColCount();
-    case ax::mojom::IntAttribute::kTableRowCount:
-      return ax_node->GetTableRowCount();
-
-    case ax::mojom::IntAttribute::kTableRowIndex:
-      return ax_node->GetTableRowRowIndex();
-
-    default:
-      break;
+  // Always return the attribute if the node has it, even if the value is an
+  // empty string.
+  std::string value;
+  if (node.GetStringAttribute(attr, &value)) {
+    return value;
   }
-
-  return node.GetIntAttribute(attr);
+  return base::nullopt;
 }
 
 std::string IntAttrToString(const BrowserAccessibility& node,
@@ -236,17 +191,6 @@ void AccessibilityTreeFormatterBlink::AddProperties(
   dict->SetInteger("unclippedBoundsWidth", unclipped_bounds.width());
   dict->SetInteger("unclippedBoundsHeight", unclipped_bounds.height());
 
-  // Language and Font Family are different from other string attributes
-  // in that they inherit.
-  std::string font_family =
-      node.GetInheritedStringAttribute(ax::mojom::StringAttribute::kFontFamily);
-  if (!font_family.empty())
-    dict->SetString("fontFamily", font_family);
-  std::string language =
-      node.GetInheritedStringAttribute(ax::mojom::StringAttribute::kLanguage);
-  if (!language.empty())
-    dict->SetString("language", language);
-
   for (int32_t state_index = static_cast<int32_t>(ax::mojom::State::kNone);
        state_index <= static_cast<int32_t>(ax::mojom::State::kMaxValue);
        ++state_index) {
@@ -264,11 +208,9 @@ void AccessibilityTreeFormatterBlink::AddProperties(
        static_cast<int32_t>(ax::mojom::StringAttribute::kMaxValue);
        ++attr_index) {
     auto attr = static_cast<ax::mojom::StringAttribute>(attr_index);
-    if (attr != ax::mojom::StringAttribute::kFontFamily &&
-        attr != ax::mojom::StringAttribute::kLanguage) {
-      if (node.HasStringAttribute(attr))
-        dict->SetString(ui::ToString(attr), node.GetStringAttribute(attr));
-    }
+    auto maybe_value = GetStringAttribute(node, attr);
+    if (maybe_value.has_value())
+      dict->SetString(ui::ToString(attr), maybe_value.value());
   }
 
   for (int32_t attr_index =
@@ -276,9 +218,10 @@ void AccessibilityTreeFormatterBlink::AddProperties(
        attr_index <= static_cast<int32_t>(ax::mojom::IntAttribute::kMaxValue);
        ++attr_index) {
     auto attr = static_cast<ax::mojom::IntAttribute>(attr_index);
-    if (node.HasIntAttribute(attr)) {
-      int32_t value = GetIntAttribute(node, attr);
-      dict->SetString(ui::ToString(attr), IntAttrToString(node, attr, value));
+    auto maybe_value = ui::ComputeAttribute(&node, attr);
+    if (maybe_value.has_value()) {
+      dict->SetString(ui::ToString(attr),
+                      IntAttrToString(node, attr, maybe_value.value()));
     }
   }
 

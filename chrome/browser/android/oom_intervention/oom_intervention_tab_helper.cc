@@ -78,7 +78,8 @@ OomInterventionTabHelper::~OomInterventionTabHelper() = default;
 void OomInterventionTabHelper::OnHighMemoryUsage() {
   auto* config = OomInterventionConfig::GetInstance();
   if (config->is_renderer_pause_enabled() ||
-      config->is_navigate_ads_enabled()) {
+      config->is_navigate_ads_enabled() ||
+      config->is_purge_v8_memory_enabled()) {
     NearOomReductionInfoBar::Show(web_contents(), this);
     intervention_state_ = InterventionState::UI_SHOWN;
     if (!last_navigation_timestamp_.is_null()) {
@@ -153,6 +154,8 @@ void OomInterventionTabHelper::RenderProcessGone(
 
 void OomInterventionTabHelper::DidStartNavigation(
     content::NavigationHandle* navigation_handle) {
+  load_finished_ = false;
+
   // Filter out sub-frame's navigation or if the navigation happens without
   // changing document.
   if (!navigation_handle->IsInMainFrame() ||
@@ -191,11 +194,6 @@ void OomInterventionTabHelper::DidStartNavigation(
   }
 }
 
-void OomInterventionTabHelper::DocumentAvailableInMainFrame() {
-  if (IsLastVisibleWebContents(web_contents()))
-    StartMonitoringIfNeeded();
-}
-
 void OomInterventionTabHelper::OnVisibilityChanged(
     content::Visibility visibility) {
   if (visibility == content::Visibility::VISIBLE) {
@@ -204,6 +202,12 @@ void OomInterventionTabHelper::OnVisibilityChanged(
   } else {
     StopMonitoring();
   }
+}
+
+void OomInterventionTabHelper::DocumentOnLoadCompletedInMainFrame() {
+  load_finished_ = true;
+  if (IsLastVisibleWebContents(web_contents()))
+    StartMonitoringIfNeeded();
 }
 
 void OomInterventionTabHelper::OnCrashDumpProcessed(
@@ -266,6 +270,9 @@ void OomInterventionTabHelper::StartMonitoringIfNeeded() {
   if (near_oom_detected_time_)
     return;
 
+  if (!load_finished_)
+    return;
+
   auto* config = OomInterventionConfig::GetInstance();
   if (config->should_detect_in_renderer()) {
     if (binding_.is_bound())
@@ -290,8 +297,11 @@ void OomInterventionTabHelper::StartDetectionInRenderer() {
   auto* config = OomInterventionConfig::GetInstance();
   bool renderer_pause_enabled = config->is_renderer_pause_enabled();
   bool navigate_ads_enabled = config->is_navigate_ads_enabled();
+  bool purge_v8_memory_enabled = config->is_purge_v8_memory_enabled();
 
-  if ((renderer_pause_enabled || navigate_ads_enabled) && decider_) {
+  if ((renderer_pause_enabled || navigate_ads_enabled ||
+       purge_v8_memory_enabled) &&
+      decider_) {
     DCHECK(!web_contents()->GetBrowserContext()->IsOffTheRecord());
     const std::string& host = web_contents()->GetVisibleURL().host();
     if (!decider_->CanTriggerIntervention(host)) {
@@ -311,7 +321,8 @@ void OomInterventionTabHelper::StartDetectionInRenderer() {
   blink::mojom::DetectionArgsPtr detection_args =
       config->GetRendererOomDetectionArgs();
   intervention_->StartDetection(std::move(host), std::move(detection_args),
-                                renderer_pause_enabled, navigate_ads_enabled);
+                                renderer_pause_enabled, navigate_ads_enabled,
+                                purge_v8_memory_enabled);
 }
 
 void OomInterventionTabHelper::OnNearOomDetected() {
@@ -347,3 +358,5 @@ void OomInterventionTabHelper::ResetInterfaces() {
   if (binding_.is_bound())
     binding_.Close();
 }
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(OomInterventionTabHelper)

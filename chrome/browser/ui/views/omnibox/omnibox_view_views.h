@@ -103,7 +103,12 @@ class OmniboxViewViews : public OmniboxView,
   using OmniboxView::SetUserText;
   void SetUserText(const base::string16& text,
                    bool update_popup) override;
+  void SetWindowTextAndCaretPos(const base::string16& text,
+                                size_t caret_pos,
+                                bool update_popup,
+                                bool notify_text_changed) override;
   void EnterKeywordModeForDefaultSearchProvider() override;
+  bool IsSelectAll() const override;
   void GetSelectionBounds(base::string16::size_type* start,
                           base::string16::size_type* end) const override;
   void SelectAll(bool reversed) override;
@@ -121,44 +126,23 @@ class OmniboxViewViews : public OmniboxView,
   void RemovedFromWidget() override;
   bool ShouldDoLearning() override;
 
- protected:
   // For testing only.
-  OmniboxPopupContentsView* GetPopupContentsView() const {
+  OmniboxPopupContentsView* GetPopupContentsViewForTesting() const {
     return popup_view_.get();
   }
 
+ protected:
   // views::Textfield:
   bool IsDropCursorForInsertion() const override;
 
  private:
+  // TODO(tommycli): Remove the rest of these friends after porting these
+  // browser tests to unit tests.
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, CloseOmniboxPopupOnTextDrag);
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, FriendlyAccessibleLabel);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, AccessiblePopup);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, MaintainCursorAfterFocusCycle);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, OnBlur);
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, DoNotNavigateOnDrop);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest,
-                           MouseMoveAndExitSetsHoveredState);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           FirstMouseClickFocusesOnly);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           NegligibleDragKeepsElisions);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           CaretPlacementByMouse);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           MouseDoubleClick);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           MouseTripleClick);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           MouseClickDrag);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           MouseClickDragToBeginningSelectingText);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           MouseClickDragToBeginningSelectingURL);
-  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
-                           MouseDoubleClickDrag);
-  friend class OmniboxViewViewsTest;
-  friend class OmniboxViewViewsSteadyStateElisionsTest;
+
+  class PathFadeAnimation;
 
   enum class UnelisionGesture {
     HOME_KEY_PRESSED,
@@ -212,12 +196,7 @@ class OmniboxViewViews : public OmniboxView,
   bool MaybeUnfocusTabButton();
 
   // OmniboxView:
-  void SetWindowTextAndCaretPos(const base::string16& text,
-                                size_t caret_pos,
-                                bool update_popup,
-                                bool notify_text_changed) override;
   void SetCaretPos(size_t caret_pos) override;
-  bool IsSelectAll() const override;
   void UpdatePopup() override;
   void ApplyCaretVisibility() override;
   void OnTemporaryTextMaybeChanged(const base::string16& display_text,
@@ -285,7 +264,7 @@ class OmniboxViewViews : public OmniboxView,
   void OnGetDragOperationsForTextfield(int* drag_operations) override;
   void AppendDropFormats(
       int* formats,
-      std::set<ui::Clipboard::FormatType>* format_types) override;
+      std::set<ui::ClipboardFormatType>* format_types) override;
   int OnDrop(const ui::OSExchangeData& data) override;
   void UpdateContextMenu(ui::SimpleMenuModel* menu_contents) override;
 
@@ -294,7 +273,6 @@ class OmniboxViewViews : public OmniboxView,
   void OnCompositingStarted(ui::Compositor* compositor,
                             base::TimeTicks start_time) override;
   void OnCompositingEnded(ui::Compositor* compositor) override;
-  void OnCompositingChildResizing(ui::Compositor* compositor) override;
   void OnCompositingShuttingDown(ui::Compositor* compositor) override;
 
   // TemplateURLServiceObserver:
@@ -305,6 +283,9 @@ class OmniboxViewViews : public OmniboxView,
   bool popup_window_mode_;
 
   std::unique_ptr<OmniboxPopupContentsView> popup_view_;
+
+  // Animation used to fade out the path under some elision settings.
+  std::unique_ptr<PathFadeAnimation> path_fade_animation_;
 
   security_state::SecurityLevel security_level_;
 
@@ -322,10 +303,12 @@ class OmniboxViewViews : public OmniboxView,
   // |location_bar_view_| can be NULL in tests.
   LocationBarView* location_bar_view_;
 
+#if defined(OS_CHROMEOS)
   // True if the IME candidate window is open. When this is true, we want to
   // avoid showing the popup. So far, the candidate window is detected only
   // on Chrome OS.
-  bool ime_candidate_window_open_;
+  bool ime_candidate_window_open_ = false;
+#endif
 
   // True if any mouse button is currently depressed.
   bool is_mouse_pressed_;

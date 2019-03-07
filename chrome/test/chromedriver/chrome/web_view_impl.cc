@@ -17,6 +17,7 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/test/chromedriver/chrome/browser_info.h"
+#include "chrome/test/chromedriver/chrome/cast_tracker.h"
 #include "chrome/test/chromedriver/chrome/debugger_tracker.h"
 #include "chrome/test/chromedriver/chrome/devtools_client_impl.h"
 #include "chrome/test/chromedriver/chrome/dom_tracker.h"
@@ -96,6 +97,10 @@ const char* GetAsString(MouseButton button) {
       return "middle";
     case kRightMouseButton:
       return "right";
+    case kBackMouseButton:
+      return "back";
+    case kForwardMouseButton:
+      return "forward";
     case kNoneMouseButton:
       return "none";
     default:
@@ -114,6 +119,18 @@ const char* GetAsString(KeyEventType type) {
     case kCharEventType:
       return "char";
     default:
+      return "";
+  }
+}
+
+const char* GetAsString(PointerType type) {
+  switch (type) {
+    case kMouse:
+      return "mouse";
+    case kPen:
+      return "pen";
+    default:
+      NOTREACHED();
       return "";
   }
 }
@@ -427,6 +444,8 @@ Status WebViewImpl::DispatchTouchEventsForMouseEvents(
           continue;
         params.SetString("type", "touchMove");
         break;
+      default:
+        break;
     }
 
     std::unique_ptr<base::ListValue> touchPoints(new base::ListValue);
@@ -459,7 +478,9 @@ Status WebViewImpl::DispatchMouseEvents(const std::list<MouseEvent>& events,
     params.SetInteger("y", it->y * page_scale_factor);
     params.SetInteger("modifiers", it->modifiers);
     params.SetString("button", GetAsString(it->button));
+    params.SetInteger("buttons", it->buttons);
     params.SetInteger("clickCount", it->click_count);
+    params.SetString("pointerType", GetAsString(it->pointer_type));
     Status status = client_->SendCommand("Input.dispatchMouseEvent", params);
     if (status.IsError())
       return status;
@@ -499,12 +520,28 @@ Status WebViewImpl::DispatchKeyEvents(const std::list<KeyEvent>& events) {
     params.SetString("text", it->modified_text);
     params.SetString("unmodifiedText", it->unmodified_text);
     params.SetInteger("windowsVirtualKeyCode", it->key_code);
-    ui::DomCode dom_code = ui::UsLayoutKeyboardCodeToDomCode(it->key_code);
-    std::string code = ui::KeycodeConverter::DomCodeToCodeString(dom_code);
+    std::string code;
+    if (it->is_from_action) {
+      code = it->code;
+    } else {
+      ui::DomCode dom_code = ui::UsLayoutKeyboardCodeToDomCode(it->key_code);
+      code = ui::KeycodeConverter::DomCodeToCodeString(dom_code);
+    }
     if (!code.empty())
       params.SetString("code", code);
     if (!it->key.empty())
       params.SetString("key", it->key);
+    else if (it->is_from_action)
+      params.SetString("key", it->modified_text);
+    if (it->location != 0) {
+      // The |location| parameter in DevTools protocol only accepts 1 (left
+      // modifiers) and 2 (right modifiers). For location 3 (numeric keypad),
+      // it is necessary to set the |isKeypad| parameter.
+      if (it->location == 3)
+        params.SetBoolean("isKeypad", true);
+      else
+        params.SetInteger("location", it->location);
+    }
     Status status = client_->SendCommand("Input.dispatchKeyEvent", params);
     if (status.IsError())
       return status;
@@ -569,8 +606,8 @@ Status WebViewImpl::AddCookie(const std::string& name,
   params.SetString("path", path);
   params.SetBoolean("secure", secure);
   params.SetBoolean("httpOnly", httpOnly);
-  params.SetDouble("expirationDate", expiry);
-  params.SetDouble("expires", expiry);
+  if (expiry >= 0)
+    params.SetDouble("expires", expiry);
 
   std::unique_ptr<base::DictionaryValue> result;
   Status status =
@@ -942,6 +979,20 @@ void WebViewImpl::SetDetached() {
 
 bool WebViewImpl::IsDetached() const {
   return is_detached_;
+}
+
+std::unique_ptr<base::Value> WebViewImpl::GetCastSinks() {
+  if (!cast_tracker_)
+    cast_tracker_ = std::make_unique<CastTracker>(client_.get());
+  HandleReceivedEvents();
+  return std::unique_ptr<base::Value>(cast_tracker_->sinks().DeepCopy());
+}
+
+std::unique_ptr<base::Value> WebViewImpl::GetCastIssueMessage() {
+  if (!cast_tracker_)
+    cast_tracker_ = std::make_unique<CastTracker>(client_.get());
+  HandleReceivedEvents();
+  return std::unique_ptr<base::Value>(cast_tracker_->issue().DeepCopy());
 }
 
 WebViewImplHolder::WebViewImplHolder(WebViewImpl* web_view)

@@ -122,13 +122,14 @@ unsigned ShapeResult::RunInfo::NumGraphemes(unsigned start,
                                             unsigned end) const {
   if (graphemes_.size() == 0 || start >= num_characters_)
     return 0;
-  DCHECK_LT(start, end);
-  DCHECK_LE(end, num_characters_);
+  CHECK_LT(start, end);
+  CHECK_LE(end, num_characters_);
+  CHECK_EQ(num_characters_, graphemes_.size());
   return graphemes_[end - 1] - graphemes_[start] + 1;
 }
 
 void ShapeResult::EnsureGraphemes(const StringView& text) const {
-  DCHECK_EQ(NumCharacters(), text.length());
+  CHECK_EQ(NumCharacters(), text.length());
 
   // Hit-testing, canvas, etc. may still call this function for 0-length text,
   // or glyphs may be missing at all.
@@ -144,7 +145,7 @@ void ShapeResult::EnsureGraphemes(const StringView& text) const {
     return;
 
   unsigned result_start_index = StartIndex();
-  for (const auto& run : runs_) {
+  for (const scoped_refptr<RunInfo>& run : runs_) {
     if (!run)
       continue;
     DCHECK_GE(run->start_index_, result_start_index);
@@ -289,7 +290,6 @@ void ShapeResult::RunInfo::CharacterIndexForXPosition(
     BreakGlyphsOption break_glyphs_option,
     GlyphIndexResult* result) const {
   DCHECK(target_x >= 0 && target_x <= width_);
-  const unsigned num_glyphs = glyph_data_.size();
 
   result->origin_x = 0;
   unsigned glyph_sequence_start = 0;
@@ -301,12 +301,12 @@ void ShapeResult::RunInfo::CharacterIndexForXPosition(
     glyph_sequence_start = glyph_sequence_end = num_characters_;
   }
 
-  for (unsigned i = 0; i < num_glyphs; ++i) {
-    unsigned current_glyph_char_index = glyph_data_[i].character_index;
+  for (const HarfBuzzRunGlyphData& glyph_data : glyph_data_) {
+    unsigned current_glyph_char_index = glyph_data.character_index;
     // If the glyph is part of the same sequence, we just accumulate the
     // advance.
     if (glyph_sequence_start == current_glyph_char_index) {
-      result->advance += glyph_data_[i].advance;
+      result->advance += glyph_data.advance;
       continue;
     }
 
@@ -328,7 +328,7 @@ void ShapeResult::RunInfo::CharacterIndexForXPosition(
     }
     glyph_sequence_start = current_glyph_char_index;
     result->origin_x += result->advance;
-    result->advance = glyph_data_[i].advance;
+    result->advance = glyph_data.advance;
   }
 
   // At this point, we have [glyph_sequence_start, glyph_sequence_end)
@@ -512,19 +512,18 @@ void ShapeResult::OffsetForPosition(float target_x,
   unsigned characters_so_far = Rtl() ? NumCharacters() : 0;
   float current_x = 0;
 
-  for (unsigned i = 0; i < runs_.size(); ++i) {
-    const RunInfo* run = runs_[i].get();
+  for (const scoped_refptr<RunInfo>& run_ptr : runs_) {
+    const RunInfo* run = run_ptr.get();
     if (!run)
       continue;
     if (Rtl())
-      characters_so_far -= runs_[i]->num_characters_;
+      characters_so_far -= run->num_characters_;
     float next_x = current_x + run->width_;
     float offset_for_run = target_x - current_x;
     if (offset_for_run >= 0 && offset_for_run < run->width_) {
       // The x value in question is within this script run.
       run->CharacterIndexForXPosition(offset_for_run, break_glyphs_option,
                                       result);
-      result->run_index = i;
       result->characters_on_left_runs = characters_so_far;
       if (Rtl()) {
         result->left_character_index =
@@ -555,7 +554,6 @@ void ShapeResult::OffsetForPosition(float target_x,
     result->right_character_index += characters_so_far;
   }
 
-  result->run_index = runs_.size() - 1;
   result->characters_on_left_runs = characters_so_far;
 
   DCHECK_LE(result->left_character_index, NumCharacters());
@@ -971,38 +969,67 @@ unsigned ShapeResult::RunInfo::LimitNumGlyphs(
     const bool is_ltr,
     const hb_glyph_info_t* glyph_infos) {
   unsigned num_glyphs = *num_glyphs_in_out;
+  CHECK_GT(num_glyphs, 0u);
 
   // If there were larger character indexes than kMaxCharacterIndex, reduce
   // num_glyphs so that all character indexes can fit to kMaxCharacterIndex.
   // Because code points and glyphs are not always 1:1, we need to check the
   // first and the last cluster.
+  const hb_glyph_info_t* left_glyph_info = &glyph_infos[start_glyph];
+  const hb_glyph_info_t* right_glyph_info = &left_glyph_info[num_glyphs - 1];
   unsigned start_cluster;
   if (is_ltr) {
-    start_cluster = glyph_infos[start_glyph].cluster;
-    unsigned last_cluster = glyph_infos[start_glyph + num_glyphs - 1].cluster;
-    unsigned last_character_index = last_cluster - start_cluster;
-    if (UNLIKELY(last_character_index >
-                 HarfBuzzRunGlyphData::kMaxCharacterIndex)) {
-      // Make sure the end is a cluster boundary.
-      do {
-        num_glyphs--;
-        num_characters_ = last_character_index;
-        last_cluster = glyph_infos[start_glyph + num_glyphs - 1].cluster;
-        last_character_index = last_cluster - start_cluster;
-      } while (last_character_index > HarfBuzzRunGlyphData::kMaxCharacterIndex);
+    start_cluster = left_glyph_info->cluster;
+    unsigned last_cluster = right_glyph_info->cluster;
+    unsigned max_cluster =
+        start_cluster + HarfBuzzRunGlyphData::kMaxCharacterIndex;
+    if (UNLIKELY(last_cluster > max_cluster)) {
+      // Limit at |max_cluster| in LTR. If |max_cluster| is 100:
+      //   0 1 2 ... 98 99 99 101 101 103 ...
+      //                     ^ limit here.
+      // Find |glyph_info| where |cluster| <= |max_cluster|.
+      const hb_glyph_info_t* limit_glyph_info = std::upper_bound(
+          left_glyph_info, right_glyph_info + 1, max_cluster,
+          [](unsigned cluster, const hb_glyph_info_t& glyph_info) {
+            return cluster < glyph_info.cluster;
+          });
+      --limit_glyph_info;
+      CHECK_GT(limit_glyph_info, left_glyph_info);
+      CHECK_LT(limit_glyph_info, right_glyph_info);
+      DCHECK_LE(limit_glyph_info->cluster, max_cluster);
+      // Adjust |right_glyph_info| and recompute dependent variables.
+      right_glyph_info = limit_glyph_info;
+      num_glyphs = right_glyph_info - left_glyph_info + 1;
+      num_characters_ = right_glyph_info[1].cluster - start_cluster;
     }
   } else {
-    start_cluster = glyph_infos[start_glyph + num_glyphs - 1].cluster;
-    const unsigned last_cluster = glyph_infos[start_glyph].cluster;
-    unsigned last_character_index = last_cluster - start_cluster;
-    if (UNLIKELY(last_character_index >
-                 HarfBuzzRunGlyphData::kMaxCharacterIndex)) {
-      do {
-        num_glyphs--;
-        num_characters_ = last_character_index;
-        start_cluster = glyph_infos[start_glyph + num_glyphs - 1].cluster;
-        last_character_index = last_cluster - start_cluster;
-      } while (last_character_index > HarfBuzzRunGlyphData::kMaxCharacterIndex);
+    start_cluster = right_glyph_info->cluster;
+    unsigned last_cluster = left_glyph_info->cluster;
+    unsigned max_cluster =
+        start_cluster + HarfBuzzRunGlyphData::kMaxCharacterIndex;
+    if (UNLIKELY(last_cluster > max_cluster)) {
+      // Limit the right edge, which is in the reverse order in RTL.
+      // If |min_cluster| is 3:
+      //   103 102 ... 4 4 2 2 ...
+      //                  ^ limit here.
+      // Find |glyph_info| where |cluster| >= |min_cluster|.
+      unsigned min_cluster =
+          last_cluster - HarfBuzzRunGlyphData::kMaxCharacterIndex;
+      DCHECK_LT(start_cluster, min_cluster);
+      const hb_glyph_info_t* limit_glyph_info = std::upper_bound(
+          left_glyph_info, right_glyph_info + 1, min_cluster,
+          [](unsigned cluster, const hb_glyph_info_t& glyph_info) {
+            return cluster > glyph_info.cluster;
+          });
+      --limit_glyph_info;
+      CHECK_GT(limit_glyph_info, left_glyph_info);
+      CHECK_LT(limit_glyph_info, right_glyph_info);
+      DCHECK_GE(limit_glyph_info->cluster, min_cluster);
+      // Adjust |right_glyph_info| and recompute dependent variables.
+      right_glyph_info = limit_glyph_info;
+      start_cluster = right_glyph_info->cluster;
+      num_glyphs = right_glyph_info - left_glyph_info + 1;
+      num_characters_ = last_cluster - right_glyph_info[1].cluster;
     }
   }
 
@@ -1331,7 +1358,9 @@ void ShapeResult::CopyRange(unsigned start_offset,
       // No need to process runs after the end of the range.
       if ((!Rtl() && end_offset <= run_end) ||
           (Rtl() && start_offset > run_start)) {
-        if (start_run_index)
+        // RTL cannot use |start_run_index| because runs are in the descending
+        // order.
+        if (!Rtl() && start_run_index)
           *start_run_index = run_index;
         break;
       }

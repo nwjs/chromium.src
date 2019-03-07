@@ -72,14 +72,6 @@ DesktopWindowTreeHostPlatform::~DesktopWindowTreeHostPlatform() {
   DestroyDispatcher();
 }
 
-void DesktopWindowTreeHostPlatform::SetBoundsInDIP(
-    const gfx::Rect& bounds_in_dip) {
-  DCHECK_NE(0, device_scale_factor());
-  SetBoundsInPixels(
-      gfx::ConvertRectToPixel(device_scale_factor(), bounds_in_dip),
-      viz::LocalSurfaceIdAllocation());
-}
-
 void DesktopWindowTreeHostPlatform::Init(const Widget::InitParams& params) {
   ui::PlatformWindowInitProperties properties =
       ConvertWidgetInitParamsToInitProperties(params);
@@ -95,7 +87,7 @@ void DesktopWindowTreeHostPlatform::Init(const Widget::InitParams& params) {
 
 void DesktopWindowTreeHostPlatform::OnNativeWidgetCreated(
     const Widget::InitParams& params) {
-  native_widget_delegate_->OnNativeWidgetCreated(true);
+  native_widget_delegate_->OnNativeWidgetCreated();
 
 #if defined(OS_LINUX)
   // Setup a non_client_window_event_filter, which handles resize/move, double
@@ -418,6 +410,12 @@ bool DesktopWindowTreeHostPlatform::IsFullscreen() const {
 }
 
 void DesktopWindowTreeHostPlatform::SetOpacity(float opacity) {
+  // TODO: needs PlatformWindow support.
+  NOTIMPLEMENTED_LOG_ONCE();
+}
+
+void DesktopWindowTreeHostPlatform::SetAspectRatio(
+    const gfx::SizeF& aspect_ratio) {
   // TODO: needs PlatformWindow support.
   NOTIMPLEMENTED_LOG_ONCE();
 }

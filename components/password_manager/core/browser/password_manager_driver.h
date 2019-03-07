@@ -18,6 +18,7 @@
 namespace autofill {
 class AutofillDriver;
 struct FormData;
+struct NewPasswordFormGenerationData;
 struct PasswordForm;
 struct PasswordFormGenerationData;
 struct PasswordFormFillData;
@@ -55,6 +56,11 @@ class PasswordManagerDriver
   virtual void FormsEligibleForGenerationFound(
       const std::vector<autofill::PasswordFormGenerationData>& forms) = 0;
 
+  // Notifies the driver that a password can be generated on the fields
+  // identified by |form|.
+  virtual void FormEligibleForGenerationFound(
+      const autofill::NewPasswordFormGenerationData& form) {}
+
   // Notifies the driver that username and password predictions from autofill
   // have been received.
   virtual void AutofillDataReceived(
@@ -87,10 +93,6 @@ class PasswordManagerDriver
 
   // Tells the driver to clear previewed password and username fields.
   virtual void ClearPreviewedForm() = 0;
-
-  // Tells the driver to find the focused password field and to show generation
-  // popup at it.
-  virtual void GeneratePassword() {}
 
   // Returns the PasswordGenerationManager associated with this instance.
   virtual PasswordGenerationManager* GetPasswordGenerationManager() = 0;

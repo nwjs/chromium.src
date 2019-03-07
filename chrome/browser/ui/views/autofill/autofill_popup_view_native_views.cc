@@ -7,6 +7,8 @@
 #include <algorithm>
 
 #include "base/strings/utf_string_conversions.h"
+#include "build/build_config.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/autofill_popup_layout_model.h"
 #include "chrome/browser/ui/autofill/popup_view_common.h"
@@ -157,10 +159,8 @@ class AutofillPopupItemView : public AutofillPopupRowView {
                                                int text_context,
                                                int text_style) const;
 
-  // Sets |font_weight| as the font weight to be used for primary information on
-  // the current item. Returns false if no custom font weight is undefined.
-  virtual bool ShouldUseCustomFontWeightForPrimaryInfo(
-      gfx::Font::Weight* font_weight) const = 0;
+  // Returns the font weight to be applied to primary info.
+  virtual gfx::Font::Weight GetPrimaryTextWeight() const = 0;
 
  private:
   void AddIcon(gfx::ImageSkia icon);
@@ -190,8 +190,7 @@ class AutofillPopupSuggestionView : public AutofillPopupItemView {
   std::unique_ptr<views::Background> CreateBackground() override;
   PopupItemLayoutType GetLayoutType() const override;
   int GetPrimaryTextStyle() override;
-  bool ShouldUseCustomFontWeightForPrimaryInfo(
-      gfx::Font::Weight* font_weight) const override;
+  gfx::Font::Weight GetPrimaryTextWeight() const override;
   views::View* CreateSubtextLabel() override;
   views::View* CreateDescriptionLabel() override;
 
@@ -217,8 +216,7 @@ class PasswordPopupSuggestionView : public AutofillPopupSuggestionView {
   views::View* CreateValueLabel() override;
   views::View* CreateSubtextLabel() override;
   views::View* CreateDescriptionLabel() override;
-  bool ShouldUseCustomFontWeightForPrimaryInfo(
-      gfx::Font::Weight* font_weight) const override;
+  gfx::Font::Weight GetPrimaryTextWeight() const override;
 
  private:
   PasswordPopupSuggestionView(AutofillPopupViewNativeViews* popup_view,
@@ -247,8 +245,7 @@ class AutofillPopupFooterView : public AutofillPopupItemView {
   void CreateContent() override;
   std::unique_ptr<views::Background> CreateBackground() override;
   int GetPrimaryTextStyle() override;
-  bool ShouldUseCustomFontWeightForPrimaryInfo(
-      gfx::Font::Weight* font_weight) const override;
+  gfx::Font::Weight GetPrimaryTextWeight() const override;
 
  private:
   AutofillPopupFooterView(AutofillPopupViewNativeViews* popup_view,
@@ -458,8 +455,8 @@ views::View* AutofillPopupItemView::CreateValueLabel() {
       popup_view_->controller()->GetElidedValueAt(line_number_),
       ChromeTextContext::CONTEXT_BODY_TEXT_LARGE, GetPrimaryTextStyle());
 
-  gfx::Font::Weight font_weight;
-  if (ShouldUseCustomFontWeightForPrimaryInfo(&font_weight)) {
+  const gfx::Font::Weight font_weight = GetPrimaryTextWeight();
+  if (font_weight != text_label->font_list().GetFontWeight()) {
     text_label->SetFontList(
         text_label->font_list().DeriveWithWeight(font_weight));
   }
@@ -528,8 +525,8 @@ AutofillPopupSuggestionView* AutofillPopupSuggestionView::Create(
 std::unique_ptr<views::Background>
 AutofillPopupSuggestionView::CreateBackground() {
   return views::CreateSolidBackground(
-      is_selected_ ? AutofillPopupBaseView::kSelectedBackgroundColor
-                   : AutofillPopupBaseView::kBackgroundColor);
+      is_selected_ ? popup_view_->GetSelectedBackgroundColor()
+                   : popup_view_->GetBackgroundColor());
 }
 
 // By default, this returns kLeadingIcon for passwords and kTrailingIcon for all
@@ -560,20 +557,8 @@ int AutofillPopupSuggestionView::GetPrimaryTextStyle() {
   return views::style::TextStyle::STYLE_PRIMARY;
 }
 
-bool AutofillPopupSuggestionView::ShouldUseCustomFontWeightForPrimaryInfo(
-    gfx::Font::Weight* font_weight) const {
-  switch (autofill::GetForcedFontWeight()) {
-    case ForcedFontWeight::kDefault:
-      return false;
-
-    case ForcedFontWeight::kMedium:
-      *font_weight = views::TypographyProvider::MediumWeightForUI();
-      return true;
-
-    case ForcedFontWeight::kBold:
-      *font_weight = gfx::Font::Weight::BOLD;
-      return true;
-  }
+gfx::Font::Weight AutofillPopupSuggestionView::GetPrimaryTextWeight() const {
+  return views::TypographyProvider::MediumWeightForUI();
 }
 
 AutofillPopupSuggestionView::AutofillPopupSuggestionView(
@@ -657,9 +642,8 @@ views::View* PasswordPopupSuggestionView::CreateDescriptionLabel() {
   return new ConstrainedWidthView(label, kAutofillPopupPasswordMaxWidth);
 }
 
-bool PasswordPopupSuggestionView::ShouldUseCustomFontWeightForPrimaryInfo(
-    gfx::Font::Weight* font_weight) const {
-  return false;
+gfx::Font::Weight PasswordPopupSuggestionView::GetPrimaryTextWeight() const {
+  return gfx::Font::Weight::NORMAL;
 }
 
 PasswordPopupSuggestionView::PasswordPopupSuggestionView(
@@ -701,23 +685,22 @@ void AutofillPopupFooterView::CreateContent() {
       /*left=*/0,
       /*bottom=*/0,
       /*right=*/0,
-      /*color=*/AutofillPopupBaseView::kSeparatorColor));
+      /*color=*/popup_view_->GetSeparatorColor()));
   AutofillPopupItemView::CreateContent();
 }
 
 std::unique_ptr<views::Background> AutofillPopupFooterView::CreateBackground() {
   return views::CreateSolidBackground(
-      is_selected_ ? AutofillPopupBaseView::kSelectedBackgroundColor
-                   : AutofillPopupBaseView::kFooterBackgroundColor);
+      is_selected_ ? popup_view_->GetSelectedBackgroundColor()
+                   : popup_view_->GetFooterBackgroundColor());
 }
 
 int AutofillPopupFooterView::GetPrimaryTextStyle() {
   return ChromeTextStyle::STYLE_SECONDARY;
 }
 
-bool AutofillPopupFooterView::ShouldUseCustomFontWeightForPrimaryInfo(
-    gfx::Font::Weight* font_weight) const {
-  return false;
+gfx::Font::Weight AutofillPopupFooterView::GetPrimaryTextWeight() const {
+  return gfx::Font::Weight::NORMAL;
 }
 
 AutofillPopupFooterView::AutofillPopupFooterView(
@@ -753,7 +736,7 @@ void AutofillPopupSeparatorView::CreateContent() {
   SetLayoutManager(std::make_unique<views::FillLayout>());
 
   views::Separator* separator = new views::Separator();
-  separator->SetColor(AutofillPopupBaseView::kSeparatorColor);
+  separator->SetColor(popup_view_->GetSeparatorColor());
   // Add some spacing between the the previous item and the separator.
   separator->SetPreferredHeight(
       views::MenuConfig::instance().separator_thickness);
@@ -773,7 +756,7 @@ void AutofillPopupSeparatorView::RefreshStyle() {
 
 std::unique_ptr<views::Background>
 AutofillPopupSeparatorView::CreateBackground() {
-  return views::CreateSolidBackground(SK_ColorWHITE);
+  return views::CreateSolidBackground(popup_view_->GetBackgroundColor());
 }
 
 AutofillPopupSeparatorView::AutofillPopupSeparatorView(
@@ -818,7 +801,7 @@ void AutofillPopupWarningView::CreateContent() {
   views::Label* text_label = CreateLabelWithColorReadabilityDisabled(
       controller->GetElidedValueAt(line_number_),
       ChromeTextContext::CONTEXT_BODY_TEXT_LARGE, ChromeTextStyle::STYLE_RED);
-  text_label->SetEnabledColor(AutofillPopupBaseView::kWarningColor);
+  text_label->SetEnabledColor(popup_view_->GetWarningColor());
   text_label->SetMultiLine(true);
   int max_width =
       std::min(kAutofillPopupMaxWidth,
@@ -834,7 +817,7 @@ void AutofillPopupWarningView::CreateContent() {
 
 std::unique_ptr<views::Background>
 AutofillPopupWarningView::CreateBackground() {
-  return views::CreateSolidBackground(SK_ColorWHITE);
+  return views::CreateSolidBackground(popup_view_->GetBackgroundColor());
 }
 
 }  // namespace
@@ -882,7 +865,7 @@ AutofillPopupViewNativeViews::AutofillPopupViewNativeViews(
   layout_->set_main_axis_alignment(views::BoxLayout::MAIN_AXIS_ALIGNMENT_START);
 
   CreateChildViews();
-  SetBackground(views::CreateSolidBackground(kBackgroundColor));
+  SetBackground(views::CreateSolidBackground(GetBackgroundColor()));
 }
 
 AutofillPopupViewNativeViews::~AutofillPopupViewNativeViews() {}
@@ -1001,7 +984,7 @@ void AutofillPopupViewNativeViews::CreateChildViews() {
   if (has_footer) {
     views::View* footer_container = new views::View();
     footer_container->SetBackground(
-        views::CreateSolidBackground(kFooterBackgroundColor));
+        views::CreateSolidBackground(GetFooterBackgroundColor()));
 
     views::BoxLayout* footer_layout = footer_container->SetLayoutManager(
         std::make_unique<views::BoxLayout>(views::BoxLayout::kVertical));
@@ -1091,6 +1074,31 @@ void AutofillPopupViewNativeViews::DoUpdateBoundsAndRedrawPopup() {
   SetClipPath();
 
   SchedulePaint();
+}
+
+// static
+AutofillPopupView* AutofillPopupView::Create(
+    AutofillPopupController* controller) {
+#if defined(OS_MACOSX)
+  // It's possible for the container_view to not be in a window. In that case,
+  // cancel the popup since we can't fully set it up.
+  if (!platform_util::GetTopLevel(controller->container_view()))
+    return nullptr;
+#endif
+
+  views::Widget* observing_widget =
+      views::Widget::GetTopLevelWidgetForNativeView(
+          controller->container_view());
+
+#if !defined(OS_MACOSX)
+  // If the top level widget can't be found, cancel the popup since we can't
+  // fully set it up. On Mac Cocoa browser, |observing_widget| is null
+  // because the parent is not a views::Widget.
+  if (!observing_widget)
+    return nullptr;
+#endif
+
+  return new AutofillPopupViewNativeViews(controller, observing_widget);
 }
 
 }  // namespace autofill

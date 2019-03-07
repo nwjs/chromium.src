@@ -55,10 +55,9 @@ int TrackAudioRenderer::Render(base::TimeDelta delay,
     return 0;
   }
 
-
   // TODO(miu): Plumbing is needed to determine the actual playout timestamp
   // of the audio, instead of just snapshotting TimeTicks::Now(), for proper
-  // audio/video sync.  http://crbug.com/335335
+  // audio/video sync. https://crbug.com/335335
   const base::TimeTicks playout_time = base::TimeTicks::Now() + delay;
   DVLOG(2) << "Pulling audio out of shifter to be played "
            << delay.InMilliseconds() << " ms from now.";
@@ -218,12 +217,7 @@ void TrackAudioRenderer::SetVolume(float volume) {
     sink_->SetVolume(volume);
 }
 
-media::OutputDeviceInfo TrackAudioRenderer::GetOutputDeviceInfo() {
-  DCHECK(task_runner_->BelongsToCurrentThread());
-  return sink_ ? sink_->GetOutputDeviceInfo() : media::OutputDeviceInfo();
-}
-
-base::TimeDelta TrackAudioRenderer::GetCurrentRenderTime() const {
+base::TimeDelta TrackAudioRenderer::GetCurrentRenderTime() {
   DCHECK(task_runner_->BelongsToCurrentThread());
   base::AutoLock auto_lock(thread_lock_);
   if (source_params_.IsValid()) {
@@ -234,7 +228,7 @@ base::TimeDelta TrackAudioRenderer::GetCurrentRenderTime() const {
   return prior_elapsed_render_time_;
 }
 
-bool TrackAudioRenderer::IsLocalRenderer() const {
+bool TrackAudioRenderer::IsLocalRenderer() {
   DCHECK(task_runner_->BelongsToCurrentThread());
   return MediaStreamAudioTrack::From(audio_track_)->is_local_track();
 }

@@ -29,6 +29,8 @@ class PageLoadMetricsTestWaiter
     // kLoadTimingInfo waits for main frame timing info only.
     kLoadTimingInfo = 1 << 6,
   };
+  using FrameTreeNodeId =
+      page_load_metrics::PageLoadMetricsObserver::FrameTreeNodeId;
 
   explicit PageLoadMetricsTestWaiter(content::WebContents* web_contents);
 
@@ -39,6 +41,12 @@ class PageLoadMetricsTestWaiter
 
   // Add a subframe-level expectation.
   void AddSubFrameExpectation(TimingField field);
+
+  // Add a single WebFeature expectation.
+  void AddWebFeatureExpectation(blink::mojom::WebFeature web_feature);
+
+  // Add number of subframe navigations expectation.
+  void AddSubframeNavigationExpectation(size_t expected_subframe_navigations);
 
   // Add a minimum completed resource expectation.
   void AddMinimumCompleteResourcesExpectation(
@@ -74,6 +82,8 @@ class PageLoadMetricsTestWaiter
   class WaiterMetricsObserver
       : public page_load_metrics::PageLoadMetricsObserver {
    public:
+    using FrameTreeNodeId =
+        page_load_metrics::PageLoadMetricsObserver::FrameTreeNodeId;
     // We use a WeakPtr to the PageLoadMetricsTestWaiter because |waiter| can be
     // destroyed before this WaiterMetricsObserver.
     explicit WaiterMetricsObserver(
@@ -89,8 +99,17 @@ class PageLoadMetricsTestWaiter
                               extra_request_complete_info) override;
 
     void OnResourceDataUseObserved(
+        FrameTreeNodeId frame_tree_node_id,
         const std::vector<page_load_metrics::mojom::ResourceDataUpdatePtr>&
             resources) override;
+
+    void OnFeaturesUsageObserved(
+        content::RenderFrameHost* rfh,
+        const page_load_metrics::mojom::PageLoadFeatures&,
+        const page_load_metrics::PageLoadExtraInfo& extra_info) override;
+
+    void OnDidFinishSubFrameNavigation(
+        content::NavigationHandle* navigation_handle) override;
 
    private:
     const base::WeakPtr<PageLoadMetricsTestWaiter> waiter_;
@@ -150,8 +169,18 @@ class PageLoadMetricsTestWaiter
   // from a resource load. Stops waiting if expectations are satisfied after
   // update.
   void OnResourceDataUseObserved(
+      FrameTreeNodeId frame_tree_node_id,
       const std::vector<page_load_metrics::mojom::ResourceDataUpdatePtr>&
           resources);
+
+  // Updates |observed_web_features_| to record any new feature observed.
+  // Stops waiting if expectations are satisfied after update.
+  void OnFeaturesUsageObserved(content::RenderFrameHost* rfh,
+                               const mojom::PageLoadFeatures& features,
+                               const PageLoadExtraInfo& extra_info);
+
+  void OnDidFinishSubFrameNavigation(
+      content::NavigationHandle* navigation_handle);
 
   void OnTrackerCreated(page_load_metrics::PageLoadTracker* tracker) override;
 
@@ -159,12 +188,22 @@ class PageLoadMetricsTestWaiter
 
   bool ResourceUseExpectationsSatisfied() const;
 
+  bool WebFeaturesExpectationsSatisfied() const;
+
+  bool SubframeNavigationExpectationsSatisfied() const;
+
   std::unique_ptr<base::RunLoop> run_loop_;
 
   TimingFieldBitSet page_expected_fields_;
   TimingFieldBitSet subframe_expected_fields_;
+  std::bitset<static_cast<size_t>(blink::mojom::WebFeature::kNumberOfFeatures)>
+      expected_web_features_;
+  size_t expected_subframe_navigations_ = 0;
 
   TimingFieldBitSet observed_page_fields_;
+  std::bitset<static_cast<size_t>(blink::mojom::WebFeature::kNumberOfFeatures)>
+      observed_web_features_;
+  size_t observed_subframe_navigations_ = 0;
 
   int current_complete_resources_ = 0;
   int64_t current_network_bytes_ = 0;

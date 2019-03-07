@@ -34,11 +34,7 @@ class AutofillAction : public Action {
   void InternalProcessAction(ActionDelegate* delegate,
                              ProcessActionCallback callback) override;
 
-  void EndAction(bool successful);
-
-  // Called when the user selected the data.
-  void OnDataSelected(ActionDelegate* delegate,
-                      const std::string& guid);
+  void EndAction(ProcessedActionStatusProto status);
 
   // Fill the form using data in client memory. Return whether filling succeeded
   // or not through OnAddressFormFilled or OnCardFormFilled.

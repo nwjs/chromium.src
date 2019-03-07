@@ -119,7 +119,7 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
     ORIGIN_CLEAR_ON_TRANSITION_FROM_SECURE_TO_INSECURE,
     // Always clear the referrer regardless of the request destination.
     NO_REFERRER,
-    MAX_REFERRER_POLICY
+    MAX_REFERRER_POLICY = NO_REFERRER
   };
 
   // First-party URL redirect policy: During server redirects, the first-party
@@ -286,6 +286,15 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   const GURL& site_for_cookies() const { return site_for_cookies_; }
   // This method may only be called before Start().
   void set_site_for_cookies(const GURL& site_for_cookies);
+
+  // The origin of the top frame of the page making the request (where
+  // applicable). Note that this is experimental and may not always be set.
+  const base::Optional<url::Origin>& top_frame_origin() const {
+    return top_frame_origin_;
+  }
+  void set_top_frame_origin(const base::Optional<url::Origin>& origin) {
+    top_frame_origin_ = origin;
+  }
 
   // Indicate whether SameSite cookies should be attached even though the
   // request is cross-site.
@@ -628,10 +637,11 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
 
   // This method may be called to follow a redirect that was deferred in
   // response to an OnReceivedRedirect call. If non-null,
-  // |modified_request_headers| are changes applied to the request headers after
+  // |modified_headers| are changes applied to the request headers after
   // updating them for the redirect.
   void FollowDeferredRedirect(
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers);
+      const base::Optional<std::vector<std::string>>& removed_headers,
+      const base::Optional<net::HttpRequestHeaders>& modified_headers);
 
   // One of the following two methods should be called in response to an
   // OnAuthRequired() callback (and only then).
@@ -751,11 +761,12 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
   void set_status(URLRequestStatus status);
 
   // Allow the URLRequestJob to redirect this request. If non-null,
-  // |modified_request_headers| are changes applied to the request headers after
-  // updating them for the redirect.
+  // |removed_headers| and |modified_headers| are changes
+  // applied to the request headers after updating them for the redirect.
   void Redirect(
       const RedirectInfo& redirect_info,
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers);
+      const base::Optional<std::vector<std::string>>& removed_headers,
+      const base::Optional<net::HttpRequestHeaders>& modified_headers);
 
   // Called by URLRequestJob to allow interception when a redirect occurs.
   void NotifyReceivedRedirect(const RedirectInfo& redirect_info,
@@ -855,6 +866,8 @@ class NET_EXPORT URLRequest : public base::SupportsUserData {
 
   std::vector<GURL> url_chain_;
   GURL site_for_cookies_;
+  base::Optional<url::Origin> top_frame_origin_;
+
   bool attach_same_site_cookies_;
   base::Optional<url::Origin> initiator_;
   GURL delegate_redirect_url_;

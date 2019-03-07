@@ -5,6 +5,7 @@
 #ifndef CONTENT_BROWSER_CHILD_PROCESS_LAUNCHER_HELPER_H_
 #define CONTENT_BROWSER_CHILD_PROCESS_LAUNCHER_HELPER_H_
 
+#include <map>
 #include <memory>
 
 #include "base/macros.h"
@@ -17,7 +18,6 @@
 #include "content/public/common/result_codes.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/system/invitation.h"
-#include "services/catalog/public/cpp/manifest_parsing_util.h"
 #include "services/service_manager/zygote/common/zygote_buildflags.h"
 
 #if !defined(OS_FUCHSIA)
@@ -39,7 +39,7 @@
 #endif
 
 #if defined(OS_FUCHSIA)
-#include "content/common/sandbox_policy_fuchsia.h"
+#include "services/service_manager/sandbox/fuchsia/sandbox_policy_fuchsia.h"
 #endif
 
 #if BUILDFLAG(USE_ZYGOTE_HANDLE)
@@ -182,7 +182,7 @@ class ChildProcessLauncherHelper :
 
   static void SetRegisteredFilesForService(
       const std::string& service_name,
-      catalog::RequiredFileMap required_files);
+      std::map<std::string, base::FilePath> required_files);
 
   static void ResetRegisteredFilesForTesting();
 
@@ -247,7 +247,7 @@ class ChildProcessLauncherHelper :
 #endif
 
 #if defined(OS_FUCHSIA)
-  SandboxPolicyFuchsia sandbox_policy_;
+  service_manager::SandboxPolicyFuchsia sandbox_policy_;
 #endif
 };
 

@@ -83,6 +83,7 @@ struct FrameVisualProperties;
 class FrameTreeNode;
 class InterstitialPage;
 class NavigationHandle;
+class NavigationHandleImpl;
 class RenderWidgetHost;
 class RenderWidgetHostView;
 class WebContents;
@@ -824,7 +825,7 @@ void WaitForInterstitialDetach(content::WebContents* web_contents);
 // destroyed by the time WaitForInterstitialDetach is called (e.g. when waiting
 // for an interstitial detach after closing a tab).
 void RunTaskAndWaitForInterstitialDetach(content::WebContents* web_contents,
-                                         const base::Closure& task);
+                                         base::OnceClosure task);
 
 // Waits until all resources have loaded in the given RenderFrameHost.
 // When the load completes, this function sends a "pageLoadComplete" message
@@ -1401,7 +1402,7 @@ class TestNavigationManager : public WebContentsObserver {
   void OnNavigationStateChanged();
 
   const GURL url_;
-  NavigationHandle* handle_;
+  NavigationHandleImpl* handle_;
   bool navigation_paused_;
   NavigationState current_state_;
   NavigationState desired_state_;

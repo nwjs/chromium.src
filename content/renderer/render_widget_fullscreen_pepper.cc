@@ -15,7 +15,7 @@
 #include "content/common/widget_messages.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/use_zoom_for_dsf_policy.h"
-#include "content/renderer/gpu/layer_tree_view.h"
+#include "content/renderer/compositor/layer_tree_view.h"
 #include "content/renderer/pepper/pepper_plugin_instance_impl.h"
 #include "content/renderer/render_thread_impl.h"
 #include "gpu/ipc/client/gpu_channel_host.h"
@@ -276,11 +276,14 @@ RenderWidgetFullscreenPepper* RenderWidgetFullscreenPepper::Create(
     mojom::WidgetRequest widget_request) {
   DCHECK_NE(MSG_ROUTING_NONE, routing_id);
   DCHECK(show_callback);
-  scoped_refptr<RenderWidgetFullscreenPepper> widget(
+  scoped_refptr<RenderWidgetFullscreenPepper> widget =
       new RenderWidgetFullscreenPepper(routing_id, compositor_deps, plugin,
-                                       screen_info, std::move(widget_request)));
+                                       screen_info, std::move(widget_request));
   widget->Init(std::move(show_callback),
                new PepperWidget(widget.get(), local_main_frame_url));
+  // Init() makes |this| self-referencing for the RenderWidget. But this class
+  // is also a FullscreenContainer which is also self-referencing. So we leave
+  // here with 2 self-references.
   widget->AddRef();
   return widget.get();
 }
@@ -293,7 +296,6 @@ RenderWidgetFullscreenPepper::RenderWidgetFullscreenPepper(
     mojom::WidgetRequest widget_request)
     : RenderWidget(routing_id,
                    compositor_deps,
-                   WidgetType::kFrame,
                    screen_info,
                    blink::kWebDisplayModeUndefined,
                    false,
@@ -353,7 +355,7 @@ void RenderWidgetFullscreenPepper::SetLayer(cc::Layer* layer) {
   }
   UpdateLayerBounds();
   layer_->SetIsDrawable(true);
-  layer_tree_view()->SetRootLayer(layer_);
+  layer_tree_view()->SetNonBlinkManagedRootLayer(layer_);
 }
 
 bool RenderWidgetFullscreenPepper::OnMessageReceived(const IPC::Message& msg) {

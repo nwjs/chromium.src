@@ -32,12 +32,14 @@
 
 #include "base/location.h"
 #include "base/macros.h"
+#include "base/optional.h"
 #include "base/unguessable_token.h"
-#include "services/network/public/mojom/referrer_policy.mojom-shared.h"
 #include "third_party/blink/renderer/bindings/core/v8/sanitize_script_errors.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/context_lifecycle_notifier.h"
 #include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/pause_state.h"
+#include "third_party/blink/renderer/core/loader/console_logger_impl_base.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/loader/fetch/https_state.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
@@ -51,15 +53,20 @@ namespace service_manager {
 class InterfaceProvider;
 }
 
+namespace network {
+namespace mojom {
+enum class ReferrerPolicy : int32_t;
+}  // namespace mojom
+}  // namespace network
+
 namespace blink {
 
-class ConsoleMessage;
 class ContentSecurityPolicy;
+class ContentSecurityPolicyDelegate;
 class CoreProbeSink;
 class DOMTimerCoordinator;
 class ErrorEvent;
 class EventTarget;
-class FetchClientSettingsObjectSnapshot;
 class FrameOrWorkerScheduler;
 class InterfaceInvalidator;
 class KURL;
@@ -103,7 +110,8 @@ enum class SecureContextMode { kInsecureContext, kSecureContext };
 // by an extension developer, but these share an ExecutionContext (the document)
 // in common.
 class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
-                                     public Supplementable<ExecutionContext> {
+                                     public Supplementable<ExecutionContext>,
+                                     public ConsoleLoggerImplBase {
   MERGE_GARBAGE_COLLECTED_MIXINS();
 
  public:
@@ -141,6 +149,16 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
   SecurityOrigin* GetMutableSecurityOrigin();
 
   ContentSecurityPolicy* GetContentSecurityPolicy();
+
+  // Returns the content security policy to be used based on the current
+  // JavaScript world we are in.
+  // Note: As part of crbug.com/896041, existing usages of
+  // ContentSecurityPolicy::ShouldBypassMainWorld should eventually be replaced
+  // by GetContentSecurityPolicyForWorld. However this is under active
+  // development, hence new callers should still use
+  // ContentSecurityPolicy::ShouldBypassMainWorld for now.
+  virtual ContentSecurityPolicy* GetContentSecurityPolicyForWorld();
+
   virtual const KURL& Url() const = 0;
   virtual const KURL& BaseURL() const = 0;
   virtual KURL CompleteURL(const String& url) const = 0;
@@ -171,19 +189,20 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
 
   void DispatchErrorEvent(ErrorEvent*, SanitizeScriptErrors);
 
-  virtual void AddConsoleMessage(ConsoleMessage*) = 0;
   virtual void ExceptionThrown(ErrorEvent*) = 0;
 
   PublicURLManager& GetPublicURLManager();
 
+  ContentSecurityPolicyDelegate& GetContentSecurityPolicyDelegate();
+
   virtual void RemoveURLFromMemoryCache(const KURL&);
 
-  void PausePausableObjects();
+  void PausePausableObjects(PauseState);
   void UnpausePausableObjects();
   void StopPausableObjects();
   void NotifyContextDestroyed() override;
 
-  void PauseScheduledTasks();
+  void PauseScheduledTasks(PauseState);
   void UnpauseScheduledTasks();
 
   // TODO(haraken): Remove these methods by making the customers inherit from
@@ -193,8 +212,9 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
   virtual void TasksWerePaused() {}
   virtual void TasksWereUnpaused() {}
 
-  bool IsContextPaused() const { return is_context_paused_; }
+  bool IsContextPaused() const { return pause_state_.has_value(); }
   bool IsContextDestroyed() const { return is_context_destroyed_; }
+  base::Optional<PauseState> ContextPauseState() const { return pause_state_; }
 
   // Called after the construction of an PausableObject to synchronize
   // pause state.
@@ -225,8 +245,6 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
   // algorithm defined in the Referrer Policy spec.
   // https://w3c.github.io/webappsec-referrer-policy/#determine-requests-referrer
   virtual String OutgoingReferrer() const;
-
-  FetchClientSettingsObjectSnapshot* CreateFetchClientSettingsObjectSnapshot();
 
   // Parses a comma-separated list of referrer policy tokens, and sets
   // the context's referrer policy to the last one that is a valid
@@ -271,10 +289,12 @@ class CORE_EXPORT ExecutionContext : public ContextLifecycleNotifier,
   bool in_dispatch_error_event_;
   HeapVector<Member<ErrorEvent>> pending_exceptions_;
 
-  bool is_context_paused_;
+  base::Optional<PauseState> pause_state_;
   bool is_context_destroyed_;
 
   Member<PublicURLManager> public_url_manager_;
+
+  const Member<ContentSecurityPolicyDelegate> csp_delegate_;
 
   // Counter that keeps track of how many window interaction calls are allowed
   // for this ExecutionContext. Callers are expected to call

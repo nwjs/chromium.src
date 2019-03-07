@@ -4,6 +4,8 @@
 
 #include "ui/events/devices/input_device_observer_win.h"
 
+#include <utility>
+
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/memory/singleton.h"
@@ -12,10 +14,12 @@
 #include <windows.h>
 
 // This macro provides the implementation for the observer notification methods.
-#define NOTIFY_OBSERVERS_METHOD(method_decl, observer_call) \
-  void InputDeviceObserverWin::method_decl {                \
-    for (InputDeviceEventObserver & observer : observers_)  \
-      observer.observer_call;                               \
+#define WIN_NOTIFY_OBSERVERS(method_decl, input_device_types) \
+  void InputDeviceObserverWin::method_decl {                  \
+    for (InputDeviceEventObserver & observer : observers_) {  \
+      observer.OnInputDeviceConfigurationChanged(             \
+          InputDeviceEventObserver::input_device_types);      \
+    }                                                         \
   }
 
 namespace ui {
@@ -25,7 +29,7 @@ namespace {
 // The registry subkey that contains information about the state of the
 // detachable/convertible laptop, it tells if the device has an accessible
 // keyboard.
-// OEMs are expected to follow this guidelines to report docked/undocked state
+// OEMs are expected to follow these guidelines to report docked/undocked state
 // https://msdn.microsoft.com/en-us/windows/hardware/commercialize/customize/desktop/unattend/microsoft-windows-gpiobuttons-convertibleslatemode
 const base::char16 kRegistryPriorityControl[] =
     L"System\\CurrentControlSet\\Control\\PriorityControl";
@@ -42,9 +46,9 @@ InputDeviceObserverWin::InputDeviceObserverWin() : weak_factory_(this) {
     slate_mode_enabled_ = IsSlateModeEnabled(registry_key_.get());
     // Start watching the registry for changes.
     base::win::RegKey::ChangeCallback callback =
-        base::Bind(&InputDeviceObserverWin::OnRegistryKeyChanged,
-                   weak_factory_.GetWeakPtr(), registry_key_.get());
-    registry_key_->StartWatching(callback);
+        base::BindOnce(&InputDeviceObserverWin::OnRegistryKeyChanged,
+                       weak_factory_.GetWeakPtr(), registry_key_.get());
+    registry_key_->StartWatching(std::move(callback));
   }
 }
 
@@ -92,10 +96,10 @@ void InputDeviceObserverWin::RemoveObserver(
   observers_.RemoveObserver(observer);
 }
 
-NOTIFY_OBSERVERS_METHOD(NotifyObserversKeyboardDeviceConfigurationChanged(),
-                        OnKeyboardDeviceConfigurationChanged());
+WIN_NOTIFY_OBSERVERS(NotifyObserversKeyboardDeviceConfigurationChanged(),
+                     kKeyboard);
 
-NOTIFY_OBSERVERS_METHOD(NotifyObserversTouchpadDeviceConfigurationChanged(),
-                        OnTouchpadDeviceConfigurationChanged());
+WIN_NOTIFY_OBSERVERS(NotifyObserversTouchpadDeviceConfigurationChanged(),
+                     kTouchpad);
 
 }  // namespace ui

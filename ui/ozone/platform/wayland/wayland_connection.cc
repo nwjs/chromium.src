@@ -35,6 +35,8 @@ constexpr uint32_t kMaxDeviceManagerVersion = 3;
 constexpr uint32_t kMaxWpPresentationVersion = 1;
 constexpr uint32_t kMaxTextInputManagerVersion = 1;
 
+constexpr uint32_t kMinWlOutputVersion = 2;
+
 std::unique_ptr<WaylandDataSource> CreateWaylandDataSource(
     WaylandDataDeviceManager* data_device_manager,
     WaylandConnection* connection) {
@@ -203,25 +205,25 @@ void WaylandConnection::ScheduleBufferSwap(
   }
 }
 
-ClipboardDelegate* WaylandConnection::GetClipboardDelegate() {
+PlatformClipboard* WaylandConnection::GetPlatformClipboard() {
   return this;
 }
 
 void WaylandConnection::OfferClipboardData(
-    const ClipboardDelegate::DataMap& data_map,
-    ClipboardDelegate::OfferDataClosure callback) {
+    const PlatformClipboard::DataMap& data_map,
+    PlatformClipboard::OfferDataClosure callback) {
   if (!data_source_) {
     data_source_ = CreateWaylandDataSource(data_device_manager_.get(), this);
     data_source_->WriteToClipboard(data_map);
   }
-  data_source_->UpdataDataMap(data_map);
+  data_source_->UpdateDataMap(data_map);
   std::move(callback).Run();
 }
 
 void WaylandConnection::RequestClipboardData(
     const std::string& mime_type,
-    ClipboardDelegate::DataMap* data_map,
-    ClipboardDelegate::RequestDataClosure callback) {
+    PlatformClipboard::DataMap* data_map,
+    PlatformClipboard::RequestDataClosure callback) {
   read_clipboard_closure_ = std::move(callback);
 
   DCHECK(data_map);
@@ -289,7 +291,7 @@ void WaylandConnection::ResetPointerFlags() {
 }
 
 void WaylandConnection::GetAvailableMimeTypes(
-    ClipboardDelegate::GetMimeTypesClosure callback) {
+    PlatformClipboard::GetMimeTypesClosure callback) {
   std::move(callback).Run(data_device_->GetAvailableMimeTypes());
 }
 
@@ -418,7 +420,15 @@ void WaylandConnection::Global(void* data,
     xdg_shell_use_unstable_version(connection->shell_.get(),
                                    XDG_SHELL_VERSION_CURRENT);
   } else if (base::EqualsCaseInsensitiveASCII(interface, "wl_output")) {
-    wl::Object<wl_output> output = wl::Bind<wl_output>(registry, name, 1);
+    if (version < kMinWlOutputVersion) {
+      LOG(ERROR)
+          << "Unable to bind to the unsupported wl_output object with version= "
+          << version << ". Minimum supported version is "
+          << kMinWlOutputVersion;
+      return;
+    }
+
+    wl::Object<wl_output> output = wl::Bind<wl_output>(registry, name, version);
     if (!output) {
       LOG(ERROR) << "Failed to bind to wl_output global";
       return;

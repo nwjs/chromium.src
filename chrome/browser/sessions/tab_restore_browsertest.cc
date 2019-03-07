@@ -429,13 +429,7 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, RestoreIntoSameWindow) {
 
 // Open a window with two tabs, close the window, then restore the window.
 // Ensure that the restored window has the expected bounds.
-#if defined(OS_LINUX)
-// Frequently hits "Check failed: is_loading_". See http://crbug.com/871010.
-#define MAYBE_RestoreWindowBounds DISABLED_RestoreWindowBounds
-#else
-#define MAYBE_RestoreWindowBounds RestoreWindowBounds
-#endif
-IN_PROC_BROWSER_TEST_F(TabRestoreTest, MAYBE_RestoreWindowBounds) {
+IN_PROC_BROWSER_TEST_F(TabRestoreTest, RestoreWindowBounds) {
   // Create a browser window with two tabs.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), url1_, WindowOpenDisposition::CURRENT_TAB,
@@ -725,10 +719,9 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, RestoreWindow) {
   EXPECT_EQ(url1_, restored_tab->GetURL());
 }
 
-// https://crbug.com/835305: Timeout flakiness on Win7 Tests (dbg)(1) bot and
+// https://crbug.com/825305: Timeout flakiness on Win7 Tests (dbg)(1) bot and
 // PASS/FAIL flakiness on Linux Chromium OS ASan LSan Tests (1) bot.
-#if defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
-    (defined(OS_WIN) && !defined(NDEBUG))
+#if defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || defined(OS_WIN)
 #define MAYBE_RestoreTabWithSpecialURL DISABLED_RestoreTabWithSpecialURL
 #else
 #define MAYBE_RestoreTabWithSpecialURL RestoreTabWithSpecialURL
@@ -759,7 +752,7 @@ IN_PROC_BROWSER_TEST_F(TabRestoreTest, MAYBE_RestoreTabWithSpecialURL) {
 }
 
 // https://crbug.com/667932: Flakiness on linux_chromium_asan_rel_ng bot.
-// https://crbug.com/835305: Timeout flakiness on Win7 Tests (dbg)(1) bot.
+// https://crbug.com/825305: Timeout flakiness on Win7 Tests (dbg)(1) bot.
 #if defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
     (defined(OS_WIN) && !defined(NDEBUG))
 #define MAYBE_RestoreTabWithSpecialURLOnBack DISABLED_RestoreTabWithSpecialURLOnBack

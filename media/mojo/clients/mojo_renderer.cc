@@ -244,9 +244,14 @@ void MojoRenderer::OnEnded() {
 
 void MojoRenderer::InitiateScopedSurfaceRequest(
     const ReceiveSurfaceRequestTokenCB& receive_request_token_cb) {
+  DCHECK(remote_renderer_.is_bound());
   DVLOG(1) << __func__;
 
-  remote_renderer_->InitiateScopedSurfaceRequest(receive_request_token_cb);
+  if (encountered_error_) {
+    receive_request_token_cb.Run(base::UnguessableToken::Null());
+  } else {
+    remote_renderer_->InitiateScopedSurfaceRequest(receive_request_token_cb);
+  }
 }
 
 void MojoRenderer::OnError() {
@@ -277,6 +282,11 @@ void MojoRenderer::OnDurationChange(base::TimeDelta duration) {
   client_->OnDurationChange(duration);
 }
 
+void MojoRenderer::OnRemotePlayStateChange(media::MediaStatus::State state) {
+  DVLOG(2) << __func__ << ": state [" << static_cast<int>(state) << "]";
+  client_->OnRemotePlayStateChange(state);
+}
+
 void MojoRenderer::OnVideoOpacityChange(bool opaque) {
   DVLOG(2) << __func__ << ": " << opaque;
   DCHECK(task_runner_->BelongsToCurrentThread());
@@ -305,10 +315,10 @@ void MojoRenderer::OnStatisticsUpdate(const PipelineStatistics& stats) {
   client_->OnStatisticsUpdate(stats);
 }
 
-void MojoRenderer::OnWaitingForDecryptionKey() {
+void MojoRenderer::OnWaiting(WaitingReason reason) {
   DVLOG(1) << __func__;
   DCHECK(task_runner_->BelongsToCurrentThread());
-  client_->OnWaitingForDecryptionKey();
+  client_->OnWaiting(reason);
 }
 
 void MojoRenderer::OnConnectionError() {

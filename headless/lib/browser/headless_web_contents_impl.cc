@@ -153,6 +153,7 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
     }
 
     content::NavigationController::LoadURLParams load_url_params(params.url);
+    load_url_params.initiator_origin = params.initiator_origin;
     load_url_params.source_site_instance = params.source_site_instance;
     load_url_params.transition_type = params.transition;
     load_url_params.frame_tree_node_id = params.frame_tree_node_id;
@@ -162,6 +163,7 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
     load_url_params.is_renderer_initiated = params.is_renderer_initiated;
     load_url_params.should_replace_current_entry =
         params.should_replace_current_entry;
+    load_url_params.reload_type = params.reload_type;
 
     if (params.uses_post) {
       load_url_params.load_type =
@@ -271,12 +273,6 @@ void HeadlessWebContentsImpl::InitializeWindow(
 
   browser()->PlatformInitializeWebContents(this);
   SetBounds(initial_bounds);
-
-  if (begin_frame_control_enabled_) {
-    ui::Compositor* compositor = browser()->PlatformGetCompositor(this);
-    DCHECK(compositor);
-    compositor->SetExternalBeginFrameClient(this);
-  }
 }
 
 void HeadlessWebContentsImpl::SetBounds(const gfx::Rect& bounds) {
@@ -311,11 +307,6 @@ HeadlessWebContentsImpl::~HeadlessWebContentsImpl() {
   agent_host_->RemoveObserver(this);
   if (render_process_host_)
     render_process_host_->RemoveObserver(this);
-  if (begin_frame_control_enabled_) {
-    ui::Compositor* compositor = browser()->PlatformGetCompositor(this);
-    DCHECK(compositor);
-    compositor->SetExternalBeginFrameClient(nullptr);
-  }
 }
 
 void HeadlessWebContentsImpl::RenderFrameCreated(
@@ -557,7 +548,8 @@ void HeadlessWebContentsImpl::BeginFrame(
       frame_timeticks, deadline, interval, viz::BeginFrameArgs::NORMAL);
   args.animate_only = animate_only;
 
-  compositor->IssueExternalBeginFrame(args);
+  compositor->context_factory_private()->IssueExternalBeginFrame(compositor,
+                                                                 args);
 }
 
 HeadlessWebContents::Builder::Builder(

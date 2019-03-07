@@ -144,8 +144,16 @@ void AutocompleteMatchToAssistedQuery(
       *type = 6;
       return;
     }
-    case AutocompleteMatchType::CLIPBOARD: {
+    case AutocompleteMatchType::CLIPBOARD_URL: {
       *subtype = 177;
+      return;
+    }
+    case AutocompleteMatchType::CLIPBOARD_TEXT: {
+      *subtype = 176;
+      return;
+    }
+    case AutocompleteMatchType::CLIPBOARD_IMAGE: {
+      *subtype = 327;
       return;
     }
     default: {
@@ -185,7 +193,6 @@ bool IsTrivialAutocompletion(const AutocompleteMatch& match) {
 // Whether this autocomplete match type supports custom descriptions.
 bool AutocompleteMatchHasCustomDescription(const AutocompleteMatch& match) {
   if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_DESKTOP &&
-      OmniboxFieldTrial::IsNewAnswerLayoutEnabled() &&
       match.type == AutocompleteMatchType::CALCULATOR) {
     return true;
   }
@@ -219,11 +226,6 @@ AutocompleteController::AutocompleteController(
     providers_.push_back(new BuiltinProvider(provider_client_.get()));
   if (provider_types & AutocompleteProvider::TYPE_HISTORY_QUICK)
     providers_.push_back(new HistoryQuickProvider(provider_client_.get()));
-  if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL) {
-    history_url_provider_ =
-        new HistoryURLProvider(provider_client_.get(), this);
-    providers_.push_back(history_url_provider_);
-  }
   if (provider_types & AutocompleteProvider::TYPE_KEYWORD) {
     keyword_provider_ = new KeywordProvider(provider_client_.get(), this);
     providers_.push_back(keyword_provider_);
@@ -231,6 +233,29 @@ AutocompleteController::AutocompleteController(
   if (provider_types & AutocompleteProvider::TYPE_SEARCH) {
     search_provider_ = new SearchProvider(provider_client_.get(), this);
     providers_.push_back(search_provider_);
+  }
+  // It's important that the HistoryURLProvider gets added after SearchProvider:
+  // AutocompleteController::Start() calls each providers' Start() function
+  // synchronously in the order they're in in providers_.
+  // - SearchProvider::Start() synchronously queries the history database's
+  //   keyword_search_terms and url table.
+  // - HistoryUrlProvider::Start schedules a background task that also accesses
+  //   the history database.
+  // If both db accesses happen concurrently, TSan complains.
+  // So put HistoryURLProvider later to make sure that SearchProvider is done
+  // doing its thing by the time the HistoryURLProvider task runs.
+  // (And hope that it completes before AutocompleteController::Start() is
+  // called the next time.)
+  // ZeroSuggestProvider and ClipboardURLProvider take a reference to
+  // HistoryURLProvider. If we're going to need either, we should initialize
+  // history_url_provider_.
+  if (provider_types & (AutocompleteProvider::TYPE_HISTORY_URL |
+                        AutocompleteProvider::TYPE_ZERO_SUGGEST |
+                        AutocompleteProvider::TYPE_CLIPBOARD_URL)) {
+    history_url_provider_ =
+        new HistoryURLProvider(provider_client_.get(), this);
+    if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL)
+      providers_.push_back(history_url_provider_);
   }
   if (provider_types & AutocompleteProvider::TYPE_SHORTCUTS)
     providers_.push_back(new ShortcutsProvider(provider_client_.get()));
@@ -624,6 +649,9 @@ void AutocompleteController::UpdateAssociatedKeywords(
 
 void AutocompleteController::UpdateKeywordDescriptions(
     AutocompleteResult* result) {
+  bool show_suffix_on_all_search_suggestions = base::FeatureList::IsEnabled(
+      omnibox::kUIExperimentShowSuffixOnAllSearchSuggestions);
+
   base::string16 last_keyword;
   for (auto i(result->begin()); i != result->end(); ++i) {
     if (AutocompleteMatch::IsSearchType(i->type)) {
@@ -632,7 +660,7 @@ void AutocompleteController::UpdateKeywordDescriptions(
       i->description.clear();
       i->description_class.clear();
       DCHECK(!i->keyword.empty());
-      if (i->keyword != last_keyword) {
+      if (i->keyword != last_keyword || show_suffix_on_all_search_suggestions) {
         const TemplateURL* template_url =
             i->GetTemplateURL(template_url_service_, false);
         if (template_url) {

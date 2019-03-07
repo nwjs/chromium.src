@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <string>
+#include <utility>
+
 #include "chrome/browser/offline_pages/offline_page_request_job.h"
 
 #include "base/logging.h"
@@ -10,6 +13,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/offline_pages/offline_page_utils.h"
 #include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
+#include "components/offline_pages/core/offline_clock.h"
 #include "content/public/browser/resource_request_info.h"
 #include "content/public/common/resource_type.h"
 #include "net/url_request/url_request.h"
@@ -125,7 +129,7 @@ void OfflinePageRequestJob::GetResponseInfo(net::HttpResponseInfo* info) {
   }
 
   info->headers = redirect_headers;
-  info->request_time = base::Time::Now();
+  info->request_time = OfflineTimeNow();
   info->response_time = info->request_time;
 }
 

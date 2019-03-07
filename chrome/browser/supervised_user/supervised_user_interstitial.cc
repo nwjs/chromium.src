@@ -106,8 +106,12 @@ class TabCloser : public content::WebContentsUserData<TabCloser> {
   WebContents* web_contents_;
   base::WeakPtrFactory<TabCloser> weak_ptr_factory_;
 
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
+
   DISALLOW_COPY_AND_ASSIGN(TabCloser);
 };
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(TabCloser)
 
 }  // namespace
 
@@ -183,8 +187,7 @@ void SupervisedUserInterstitial::Init() {
     // is default true. This results in is_navigation_to_different_page()
     // returning true.
     DCHECK(details.is_navigation_to_different_page());
-    const content::NavigationController& controller =
-        web_contents_->GetController();
+    content::NavigationController& controller = web_contents_->GetController();
     details.entry = controller.GetVisibleEntry();
     if (controller.GetLastCommittedEntry()) {
       details.previous_entry_index = controller.GetLastCommittedEntryIndex();

@@ -27,7 +27,7 @@ make_names("font_family_names") {
   output_dir = blink_platform_output_dir
 }
 
-action("runtime_enabled_features") {
+blink_python_runner("runtime_enabled_features") {
   script = "../build/scripts/make_runtime_features.py"
 
   runtime_enabled_features_json5 = "runtime_enabled_features.json5"
@@ -51,7 +51,7 @@ action("runtime_enabled_features") {
   ]
 }
 
-action("color_data") {
+blink_python_runner("color_data") {
   script = "../build/scripts/gperf.py"
 
   color_data_gperf = "color_data.gperf"
@@ -200,7 +200,7 @@ group("blink_platform_public_deps") {
   ]
   public_configs = [ "//third_party/blink/renderer:features" ]
 
-  if (is_android) {
+  if (is_android || is_win) {
     public_deps +=
         [ "//third_party/blink/public/common:font_unique_name_table_proto" ]
   }
@@ -505,6 +505,7 @@ jumbo_component("platform") {
     "exported/file_path_conversion.cc",
     "exported/interface_registry.cc",
     "exported/platform.cc",
+    "exported/platform_media_stream_source.cc",
     "exported/service_registry.cc",
     "exported/url_conversion.cc",
     "exported/web_audio_bus.cc",
@@ -549,14 +550,15 @@ jumbo_component("platform") {
     "exported/web_memory_coordinator.cc",
     "exported/web_mixed_content.cc",
     "exported/web_network_state_notifier.cc",
+    "exported/web_platform_media_stream_track.cc",
     "exported/web_prerender.cc",
     "exported/web_prerendering_support.cc",
     "exported/web_rtc_answer_options.cc",
     "exported/web_rtc_offer_options.cc",
     "exported/web_rtc_peer_connection_handler_client.cc",
-    "exported/web_rtc_rtp_contributing_source.cc",
     "exported/web_rtc_rtp_receiver.cc",
     "exported/web_rtc_rtp_sender.cc",
+    "exported/web_rtc_rtp_source.cc",
     "exported/web_rtc_rtp_transceiver.cc",
     "exported/web_rtc_session_description.cc",
     "exported/web_rtc_session_description_request.cc",
@@ -746,6 +748,8 @@ jumbo_component("platform") {
     "fonts/win/font_fallback_win.cc",
     "fonts/win/font_fallback_win.h",
     "fonts/win/font_platform_data_win.cc",
+    "fonts/win/font_unique_name_lookup_win.cc",
+    "fonts/win/font_unique_name_lookup_win.h",
     "geometry/blend.h",
     "geometry/calculation_value.h",
     "geometry/cg/float_point_cg.cc",
@@ -1091,7 +1095,6 @@ jumbo_component("platform") {
     "graphics/picture_snapshot.h",
     "graphics/placeholder_image.cc",
     "graphics/placeholder_image.h",
-    "graphics/platform_paint_worklet_input.h",
     "graphics/profiling_canvas.cc",
     "graphics/profiling_canvas.h",
     "graphics/replaying_canvas.cc",
@@ -1210,6 +1213,7 @@ jumbo_component("platform") {
     "mojo/bluetooth_struct_traits.h",
     "mojo/canonical_cookie_mojom_traits.cc",
     "mojo/canonical_cookie_mojom_traits.h",
+    "mojo/fetch_api_request_headers_mojom_traits.h",
     "mojo/interface_invalidator.cc",
     "mojo/interface_invalidator.h",
     "mojo/mojo_helper.h",
@@ -1364,7 +1368,6 @@ jumbo_component("platform") {
     "web_mouse_event.cc",
     "web_mouse_wheel_event.cc",
     "web_pointer_event.cc",
-    "web_task_runner.h",
     "web_test_support.cc",
     "web_test_support.h",
     "web_text_input_info.cc",
@@ -1683,6 +1686,7 @@ jumbo_source_set("blink_platform_unittests_sources") {
     "fonts/generic_font_family_settings_test.cc",
     "fonts/mac/font_matcher_mac_test.mm",
     "fonts/opentype/font_settings_test.cc",
+    "fonts/opentype/open_type_caps_support_test.cc",
     "fonts/opentype/open_type_vertical_data_test.cc",
     "fonts/orientation_iterator_test.cc",
     "fonts/script_run_iterator_test.cc",
@@ -1749,7 +1753,6 @@ jumbo_source_set("blink_platform_unittests_sources") {
     "graphics/paint_invalidation_reason_test.cc",
     "graphics/path_test.cc",
     "graphics/placeholder_image_test.cc",
-    "graphics/skia/skia_utils_test.cc",
     "graphics/static_bitmap_image_test.cc",
     "graphics/video_frame_submitter_test.cc",
     "histogram_test.cc",
@@ -1768,6 +1771,7 @@ jumbo_source_set("blink_platform_unittests_sources") {
     "json/json_parser_test.cc",
     "json/json_values_test.cc",
     "lifecycle_context_test.cc",
+    "loader/allowed_by_nosniff_test.cc",
     "loader/cors/cors_test.cc",
     "mac/graphics_context_canvas_test.mm",
     "mac/version_util_mac_test.mm",

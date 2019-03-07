@@ -10,11 +10,12 @@
 #include "third_party/blink/public/platform/web_rtc_stats.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_vector.h"
+#include "third_party/webrtc/api/rtp_parameters.h"
 
 namespace blink {
 
 class WebMediaStreamTrack;
-class WebRTCRtpContributingSource;
+class WebRTCRtpSource;
 
 // Implementations of this interface keep the corresponding WebRTC-layer
 // receiver alive through reference counting. Multiple |WebRTCRtpReceiver|s
@@ -30,10 +31,10 @@ class BLINK_PLATFORM_EXPORT WebRTCRtpReceiver {
   virtual uintptr_t Id() const = 0;
   virtual const WebMediaStreamTrack& Track() const = 0;
   virtual WebVector<WebString> StreamIds() const = 0;
-  virtual WebVector<std::unique_ptr<WebRTCRtpContributingSource>>
-  GetSources() = 0;
+  virtual WebVector<std::unique_ptr<WebRTCRtpSource>> GetSources() = 0;
   virtual void GetStats(std::unique_ptr<blink::WebRTCStatsReportCallback>,
                         RTCStatsFilter) = 0;
+  virtual std::unique_ptr<webrtc::RtpParameters> GetParameters() const = 0;
 };
 
 }  // namespace blink

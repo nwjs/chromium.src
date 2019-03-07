@@ -48,10 +48,10 @@ class CORE_EXPORT HTMLObjectElement final : public HTMLPlugInElement,
 
   HTMLObjectElement(Document&, const CreateElementFlags);
   ~HTMLObjectElement() override;
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   // Returns attributes that should be checked against Trusted Types
-  const HashSet<AtomicString>& GetCheckedAttributeNames() const override;
+  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
 
   const String& ClassId() const { return class_id_; }
 

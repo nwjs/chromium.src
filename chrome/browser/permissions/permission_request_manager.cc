@@ -327,6 +327,9 @@ void PermissionRequestManager::ShowBubble(bool is_reshow) {
   DCHECK(!tab_is_hidden_);
 
   view_ = view_factory_.Run(web_contents(), this);
+  if (!view_)
+    return;
+
   if (!is_reshow)
     PermissionUmaUtil::PermissionPromptShown(requests_);
   NotifyBubbleAdded();
@@ -493,3 +496,5 @@ void PermissionRequestManager::DoAutoResponseForTesting() {
       NOTREACHED();
   }
 }
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(PermissionRequestManager)

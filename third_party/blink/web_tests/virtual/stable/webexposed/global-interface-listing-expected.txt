@@ -2,7 +2,6 @@ This test documents all interface attributes and methods on the global window ob
 
 On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
 
-
 [INTERFACES]
 interface AbortController
     attribute @@toStringTag
@@ -583,6 +582,8 @@ interface CSSStyleSheet : StyleSheet
     method deleteRule
     method insertRule
     method removeRule
+    method replace
+    method replaceSync
 interface CSSStyleValue
     static method parse
     static method parseAll
@@ -711,6 +712,7 @@ interface CanvasRenderingContext2D
     method fill
     method fillRect
     method fillText
+    method getContextAttributes
     method getImageData
     method getLineDash
     method getTransform
@@ -991,6 +993,7 @@ interface DOMMatrixReadOnly
     method rotateFromVector
     method scale
     method scale3d
+    method scaleNonUniform
     method skewX
     method skewY
     method toFloat32Array
@@ -1147,6 +1150,7 @@ interface Document : Node
     attribute @@unscopables
     getter URL
     getter activeElement
+    getter adoptedStyleSheets
     getter alinkColor
     getter all
     getter anchors
@@ -1353,6 +1357,7 @@ interface Document : Node
     method webkitExitFullscreen
     method write
     method writeln
+    setter adoptedStyleSheets
     setter alinkColor
     setter bgColor
     setter body
@@ -1529,6 +1534,7 @@ interface Element : Node
     getter onwebkitfullscreenchange
     getter onwebkitfullscreenerror
     getter outerHTML
+    getter part
     getter prefix
     getter previousElementSibling
     getter scrollHeight
@@ -1604,6 +1610,7 @@ interface Element : Node
     setter onwebkitfullscreenchange
     setter onwebkitfullscreenerror
     setter outerHTML
+    setter part
     setter scrollLeft
     setter scrollTop
     setter slot
@@ -1668,6 +1675,11 @@ interface EventTarget
     method constructor
     method dispatchEvent
     method removeEventListener
+interface External
+    attribute @@toStringTag
+    method AddSearchProvider
+    method IsSearchProviderInstalled
+    method constructor
 interface FederatedCredential : Credential
     attribute @@toStringTag
     getter iconURL
@@ -1776,6 +1788,7 @@ interface Gamepad
 interface GamepadButton
     attribute @@toStringTag
     getter pressed
+    getter touched
     getter value
     method constructor
 interface GamepadEvent : Event
@@ -2661,6 +2674,8 @@ interface HTMLLinkElement : HTMLElement
     getter disabled
     getter href
     getter hreflang
+    getter imageSizes
+    getter imageSrcset
     getter import
     getter integrity
     getter media
@@ -2679,6 +2694,8 @@ interface HTMLLinkElement : HTMLElement
     setter disabled
     setter href
     setter hreflang
+    setter imageSizes
+    setter imageSrcset
     setter integrity
     setter media
     setter referrerPolicy
@@ -3799,6 +3816,7 @@ interface MediaKeys
     attribute @@toStringTag
     method constructor
     method createSession
+    method getStatusForPolicy
     method setServerCertificate
 interface MediaList
     attribute @@toStringTag
@@ -3811,6 +3829,17 @@ interface MediaList
     method item
     method toString
     setter mediaText
+interface MediaMetadata
+    attribute @@toStringTag
+    getter album
+    getter artist
+    getter artwork
+    getter title
+    method constructor
+    setter album
+    setter artist
+    setter artwork
+    setter title
 interface MediaQueryList : EventTarget
     attribute @@toStringTag
     getter matches
@@ -3851,6 +3880,14 @@ interface MediaRecorder : EventTarget
     setter onresume
     setter onstart
     setter onstop
+interface MediaSession
+    attribute @@toStringTag
+    getter metadata
+    getter playbackState
+    method constructor
+    method setActionHandler
+    setter metadata
+    setter playbackState
 interface MediaSettingsRange
     attribute @@toStringTag
     getter max
@@ -4073,6 +4110,7 @@ interface Navigator
     getter maxTouchPoints
     getter mediaCapabilities
     getter mediaDevices
+    getter mediaSession
     getter mimeTypes
     getter onLine
     getter permissions
@@ -4529,6 +4567,7 @@ interface PerformanceNavigationTiming : PerformanceResourceTiming
     method constructor
     method toJSON
 interface PerformanceObserver
+    static getter supportedEntryTypes
     attribute @@toStringTag
     method constructor
     method disconnect
@@ -4881,18 +4920,15 @@ interface RTCPeerConnectionIceEvent : Event
     attribute @@toStringTag
     getter candidate
     method constructor
-interface RTCRtpContributingSource
-    attribute @@toStringTag
-    getter source
-    getter timestamp
-    method constructor
 interface RTCRtpReceiver
     static method getCapabilities
     attribute @@toStringTag
     getter track
     method constructor
     method getContributingSources
+    method getParameters
     method getStats
+    method getSynchronizationSources
 interface RTCRtpSender
     static method getCapabilities
     attribute @@toStringTag
@@ -6304,6 +6340,7 @@ interface ServiceWorkerRegistration : EventTarget
 interface ShadowRoot : DocumentFragment
     attribute @@toStringTag
     getter activeElement
+    getter adoptedStyleSheets
     getter delegatesFocus
     getter fullscreenElement
     getter host
@@ -6316,6 +6353,7 @@ interface ShadowRoot : DocumentFragment
     method elementFromPoint
     method elementsFromPoint
     method getSelection
+    setter adoptedStyleSheets
     setter fullscreenElement
     setter innerHTML
 interface SharedWorker : EventTarget

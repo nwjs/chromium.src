@@ -60,6 +60,61 @@ enum class PrefilledUsernameFillOutcome {
   kMaxValue = kPrefilledUsernameNotOverridden,
 };
 
+// Used in UMA histograms, please do NOT reorder.
+// Metric: "PasswordManager.SendPasswordFormToBrowserProcess".
+// This metrics is relevant for PasswordAutofillAgent::SendPasswordForms method.
+enum class SendPasswordFormToBrowserProcess {
+  // Password form wasn't sent to the browser process.
+  kPasswordFormWasNotSent = 0,
+  // Password form was sent, because only_visible == true.
+  kPasswordFormSentByOnlyVisible = 1,
+  // Password form was sent, because it's newly added form.
+  kPasswordFormSentAsNewlyAdded = 2,
+  // Password form was sent, because the form structure was changed.
+  kPasswordFormSentByStructureChange = 3,
+  // Password form was sent, because there is no form-tag.
+  kPasswordFormSentByNoFormTag = 4,
+  // Password form was sent, because there is no id. this should never happen;
+  // this enum value exists only for checking.
+  kPasswordFormWithoutId = 5,
+  kMaxValue = kPasswordFormWithoutId,
+};
+
+// Used in UMA histogram, please do NOT reorder.
+// Metric: "PasswordManager.FirstRendererFillingResult".
+// This metric records whether the PasswordAutofillAgent succeeded in filling
+// credentials after being instructed to do so by the browser process.
+enum class FillingResult {
+  kSuccess = 0,
+  // The password element to be filled has not been found.
+  kNoPasswordElement = 1,
+  // Filling only happens in iframes, if all parent frames PSL match the
+  // security origin of the iframe containing the password field.
+  kBlockedByFrameHierarchy = 2,
+  // Passwords are not filled into fields that are not editable.
+  kPasswordElementIsNotAutocompleteable = 3,
+  // The username field contains a string that does not match the username of
+  // any available credential.
+  kUsernamePrefilledWithIncompatibleValue = 4,
+  // No credential was filled due to mismatches with the username. This can
+  // happen in a number of cases: In case the username field is empty and
+  // readonly. In case of a username-first-flow where a user's credentials do
+  // contain a username but the form contains only a password field and no
+  // username field. In case of change password forms that contain no username
+  // field. In case the user name is given on a page but only PSL matched
+  // credentials exist for this username. There may be further cases.
+  kFoundNoPasswordForUsername = 5,
+  // Renderer was instructed to wait until user has manually picked a
+  // credential. This happens for example if the session is an incognito
+  // session, the credendial's URL matches the mainframe only via the PSL, the
+  // site is on HTTP, or the form has no current password field.
+  // PasswordManager.FirstWaitForUsernameReason records the root causes.
+  kWaitForUsername = 6,
+  // No fillable elements were found, only possible for old form parser.
+  kNoFillableElementsFound = 7,
+  kMaxValue = kNoFillableElementsFound,
+};
+
 // Names of HTML attributes to show form and field signatures for debugging.
 extern const char kDebugAttributeForFormSignature[];
 extern const char kDebugAttributeForFieldSignature[];
@@ -407,6 +462,13 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // |form_data|.
   void MaybeStoreFallbackData(const PasswordFormFillData& form_data);
 
+  // Records whether filling succeeded for the first attempt to fill on a site.
+  // The logging is a bit conservative: It is possible that user-perceived
+  // navigations (via dynamic HTML sites) not trigger any actual navigations
+  // and therefore, the |recorded_first_filling_result_| never gets reset.
+  void LogFirstFillingResult(const PasswordFormFillData& form_data,
+                             FillingResult result);
+
   // Extracts information about form structure.
   static FormStructureInfo ExtractFormStructureInfo(const FormData& form_data);
   // Checks whether the form structure (amount of elements, element types etc)
@@ -494,6 +556,12 @@ class PasswordAutofillAgent : public content::RenderFrameObserver,
   // structure. Replace FormData with a smaller structure.
   std::map<unsigned /*unique renderer element id*/, FormStructureInfo>
       forms_structure_cache_;
+
+  // Flag to prevent that multiple PasswordManager.FirstRendererFillingResult
+  // UMA metrics are recorded per page load. This is reset on
+  // DidCommitProvisionalLoad() but only for non-same-document-navigations.
+  bool recorded_first_filling_result_ = false;
+
   DISALLOW_COPY_AND_ASSIGN(PasswordAutofillAgent);
 };
 

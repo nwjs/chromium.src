@@ -19,7 +19,6 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "components/viz/common/features.h"
 #include "gpu/command_buffer/common/constants.h"
 #include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/mailbox.h"
@@ -124,19 +123,6 @@ gpu::ContextResult GLES2CommandBufferStub::Initialize(
   // MailboxManagerSync synchronization correctness currently depends on having
   // only a single context. See crbug.com/510243 for details.
   use_virtualized_gl_context_ |= manager->mailbox_manager()->UsesSync();
-
-  const auto& gpu_feature_info = manager->gpu_feature_info();
-  const bool use_oop_rasterization =
-      gpu_feature_info.status_values[GPU_FEATURE_TYPE_OOP_RASTERIZATION] ==
-      gpu::kGpuFeatureStatusEnabled;
-
-  // With OOP-R, SkiaRenderer and Skia DDL, we will only have one GLContext
-  // and share it with RasterDecoders and DisplayCompositor. So it is not
-  // necessary to use virtualized gl context anymore.
-  // TODO(penghuang): Make virtualized gl context work with SkiaRenderer + DDL +
-  // OOPR. https://crbug.com/838899
-  if (features::IsUsingSkiaDeferredDisplayList() && use_oop_rasterization)
-    use_virtualized_gl_context_ = false;
 
   bool offscreen = (surface_handle_ == kNullSurfaceHandle);
   gl::GLSurface* default_surface = manager->default_offscreen_surface();
@@ -244,6 +230,9 @@ gpu::ContextResult GLES2CommandBufferStub::Initialize(
   }
 
   if (context_group_->use_passthrough_cmd_decoder()) {
+    // Virtualized contexts don't work with passthrough command decoder.
+    // See https://crbug.com/914976
+    use_virtualized_gl_context_ = false;
     // When using the passthrough command decoder, only share with other
     // contexts in the explicitly requested share group
     if (share_command_buffer_stub) {
@@ -414,11 +403,8 @@ void GLES2CommandBufferStub::BufferPresented(
     const gfx::PresentationFeedback& feedback) {
   SwapBufferParams params = pending_presented_params_.front();
   pending_presented_params_.pop_front();
-
-  if (ShouldSendBufferPresented(params.flags, feedback.flags)) {
-    Send(new GpuCommandBufferMsg_BufferPresented(route_id_, params.swap_id,
-                                                 feedback));
-  }
+  Send(new GpuCommandBufferMsg_BufferPresented(route_id_, params.swap_id,
+                                               feedback));
 }
 
 void GLES2CommandBufferStub::AddFilter(IPC::MessageFilter* message_filter) {
@@ -441,6 +427,8 @@ void GLES2CommandBufferStub::OnTakeFrontBuffer(const Mailbox& mailbox) {
 
 void GLES2CommandBufferStub::OnReturnFrontBuffer(const Mailbox& mailbox,
                                                  bool is_lost) {
+  // No need to pull texture updates.
+  DCHECK(!context_group_->mailbox_manager()->UsesSync());
   gles2_decoder_->ReturnFrontBuffer(mailbox, is_lost);
 }
 

@@ -6,7 +6,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <fcntl.h>
 #include <linux/net.h>
 #include <sched.h>
 #include <signal.h>
@@ -31,10 +30,17 @@
 #include "sandbox/linux/system_headers/linux_syscalls.h"
 #include "sandbox/linux/system_headers/linux_time.h"
 
-// PNaCl toolchain does not provide sys/ioctl.h header.
+// PNaCl toolchain does not provide sys/ioctl.h and sys/ptrace.h headers.
 #if !defined(OS_NACL_NONSFI)
 #include <sys/ioctl.h>
-#endif
+#include <sys/ptrace.h>
+#if !defined(PTRACE_GET_THREAD_AREA) && defined(OS_LINUX) && \
+    !defined(OS_CHROMEOS)
+// Also include asm/ptrace-abi.h since ptrace.h in older libc (for instance
+// the one in Ubuntu 16.04 LTS) is missing PTRACE_GET_THREAD_AREA.
+#include <asm/ptrace-abi.h>
+#endif  // !PTRACE_GET_THREAD_AREA && OS_LINUX && !OS_CHROMEOS
+#endif  // !OS_NACL_NONSFI
 
 #if defined(OS_ANDROID)
 
@@ -382,5 +388,26 @@ ResultExpr RestrictPrlimit(pid_t target_pid) {
   // Only allow operations for the current process.
   return If(AnyOf(pid == 0, pid == target_pid), Allow()).Else(Error(EPERM));
 }
+
+#if !defined(OS_NACL_NONSFI)
+ResultExpr RestrictPtrace() {
+  const Arg<int> request(0);
+  return Switch(request).CASES((
+#if !defined(__aarch64__)
+        PTRACE_GETREGS,
+        PTRACE_GETFPREGS,
+        PTRACE_GET_THREAD_AREA,
+#endif
+#if defined(__arm__)
+        PTRACE_GETVFPREGS,
+#endif
+        PTRACE_GETREGSET,
+        PTRACE_PEEKDATA,
+        PTRACE_ATTACH,
+        PTRACE_DETACH),
+      Allow())
+      .Default(CrashSIGSYSPtrace());
+}
+#endif  // defined(OS_NACL_NONSFI)
 
 }  // namespace sandbox.

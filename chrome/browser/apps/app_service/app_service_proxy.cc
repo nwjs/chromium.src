@@ -31,14 +31,19 @@ AppServiceProxy::AppServiceProxy(Profile* profile) {
   app_service_->RegisterSubscriber(std::move(subscriber), nullptr);
 
 #if defined(OS_CHROMEOS)
-  // The AppServiceProxy is also a publisher, of built-in apps. That
+  // The AppServiceProxy is also a publisher, of a variety of app types. That
   // responsibility isn't intrinsically part of the AppServiceProxy, but doing
-  // that here is as good a place as any.
+  // that here, for each such app type, is as good a place as any.
   built_in_chrome_os_apps_.Initialize(app_service_, profile);
+  extension_apps_.Initialize(app_service_, profile);
 #endif  // OS_CHROMEOS
 }
 
 AppServiceProxy::~AppServiceProxy() = default;
+
+apps::mojom::AppServicePtr& AppServiceProxy::AppService() {
+  return app_service_;
+}
 
 AppRegistryCache& AppServiceProxy::Cache() {
   return cache_;
@@ -68,9 +73,34 @@ void AppServiceProxy::LoadIcon(
   }
 }
 
-void AppServiceProxy::Launch(const std::string& app_id, int32_t event_flags) {
-  cache_.ForOneApp(app_id, [this, event_flags](const apps::AppUpdate& update) {
-    app_service_->Launch(update.AppType(), update.AppId(), event_flags);
+void AppServiceProxy::Launch(const std::string& app_id,
+                             int32_t event_flags,
+                             apps::mojom::LaunchSource launch_source,
+                             int64_t display_id) {
+  cache_.ForOneApp(app_id, [this, event_flags, launch_source,
+                            display_id](const apps::AppUpdate& update) {
+    app_service_->Launch(update.AppType(), update.AppId(), event_flags,
+                         launch_source, display_id);
+  });
+}
+
+void AppServiceProxy::SetPermission(const std::string& app_id,
+                                    apps::mojom::PermissionPtr permission) {
+  cache_.ForOneApp(app_id, [this, &permission](const apps::AppUpdate& update) {
+    app_service_->SetPermission(update.AppType(), update.AppId(),
+                                std::move(permission));
+  });
+}
+
+void AppServiceProxy::Uninstall(const std::string& app_id) {
+  cache_.ForOneApp(app_id, [this](const apps::AppUpdate& update) {
+    app_service_->Uninstall(update.AppType(), update.AppId());
+  });
+}
+
+void AppServiceProxy::OpenNativeSettings(const std::string& app_id) {
+  cache_.ForOneApp(app_id, [this](const apps::AppUpdate& update) {
+    app_service_->OpenNativeSettings(update.AppType(), update.AppId());
   });
 }
 

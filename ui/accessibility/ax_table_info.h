@@ -6,9 +6,9 @@
 #define UI_ACCESSIBILITY_AX_TABLE_INFO_H_
 
 #include <set>
+#include <unordered_map>
 #include <vector>
 
-#include "base/containers/hash_tables.h"
 #include "ui/accessibility/ax_export.h"
 
 namespace ui {
@@ -80,7 +80,10 @@ class AX_EXPORT AXTableInfo {
   std::vector<AXNode*> extra_mac_nodes;
 
   // Map from each cell's node ID to its index in unique_cell_ids.
-  base::hash_map<int32_t, int32_t> cell_id_to_index;
+  std::unordered_map<int32_t, int32_t> cell_id_to_index;
+
+  // Map from each row's node ID to its row index.
+  std::unordered_map<int32_t, int32_t> row_id_to_index;
 
   // The ARIA row count and column count, if any ARIA table or grid
   // attributes are used in the table at all.

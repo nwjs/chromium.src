@@ -139,7 +139,7 @@ void LayoutTableCell::ColSpanOrRowSpanChanged() {
 
 Length LayoutTableCell::LogicalWidthFromColumns(
     LayoutTableCol* first_col_for_this_cell,
-    Length width_from_style) const {
+    const Length& width_from_style) const {
   DCHECK(first_col_for_this_cell);
   DCHECK_EQ(first_col_for_this_cell,
             Table()
@@ -150,7 +150,7 @@ Length LayoutTableCell::LogicalWidthFromColumns(
   unsigned col_span_count = ColSpan();
   int col_width_sum = 0;
   for (unsigned i = 1; i <= col_span_count; i++) {
-    Length col_width = table_col->StyleRef().LogicalWidth();
+    const Length& col_width = table_col->StyleRef().LogicalWidth();
 
     // Percentage value should be returned only for colSpan == 1.
     // Otherwise we return original width for the cell.
@@ -383,10 +383,8 @@ void LayoutTableCell::SetIsSpanningCollapsedColumn(
 }
 
 void LayoutTableCell::ComputeVisualOverflow(
-    const LayoutRect& previous_visual_overflow_rect,
     bool recompute_floats) {
-  LayoutBlockFlow::ComputeVisualOverflow(previous_visual_overflow_rect,
-                                         recompute_floats);
+  LayoutBlockFlow::ComputeVisualOverflow(recompute_floats);
 
   UpdateCollapsedBorderValues();
   if (!collapsed_border_values_)
@@ -491,14 +489,14 @@ void LayoutTableCell::StyleDidChange(StyleDifference diff,
   if (LayoutTableBoxComponent::DoCellsHaveDirtyWidth(*this, *table, diff,
                                                      *old_style)) {
     if (PreviousCell()) {
-      // TODO(dgrogan) Add a layout test showing that setChildNeedsLayout is
-      // needed instead of setNeedsLayout.
+      // TODO(dgrogan) Add a web test showing that SetChildNeedsLayout is
+      // needed instead of SetNeedsLayout.
       PreviousCell()->SetChildNeedsLayout();
       PreviousCell()->SetPreferredLogicalWidthsDirty(kMarkOnlyThis);
     }
     if (NextCell()) {
-      // TODO(dgrogan) Add a layout test showing that setChildNeedsLayout is
-      // needed instead of setNeedsLayout.
+      // TODO(dgrogan) Add a web test showing that SetChildNeedsLayout is
+      // needed instead of SetNeedsLayout.
       NextCell()->SetChildNeedsLayout();
       NextCell()->SetPreferredLogicalWidthsDirty(kMarkOnlyThis);
     }

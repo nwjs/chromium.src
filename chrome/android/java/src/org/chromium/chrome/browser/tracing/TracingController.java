@@ -17,7 +17,6 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.task.AsyncTask;
-import org.chromium.chrome.R;
 import org.chromium.chrome.browser.preferences.developer.TracingPreferences;
 import org.chromium.content_public.browser.TracingControllerAndroid;
 import org.chromium.ui.widget.Toast;
@@ -75,6 +74,11 @@ public class TracingController {
     private static final long DELETE_AFTER_SHARE_TIMEOUT_MILLIS = 60 * 60 * 1000;
     private static final long UPDATE_BUFFER_USAGE_INTERVAL_MILLIS = 1000;
 
+    // Non-translated strings:
+    private static final String MSG_ERROR_TOAST =
+            "Error occurred while recording Chrome trace, see log for details.";
+    private static final String MSG_SHARE = "Share trace";
+
     private static TracingController sInstance;
 
     // Only set while a trace is in progress to avoid leaking native resources.
@@ -99,6 +103,17 @@ public class TracingController {
             sInstance.initialize();
         }
         return sInstance;
+    }
+
+    /**
+     * Query whether the TracingController instance has been created and initialized. Does not
+     * create the controller instance if it has not been created yet.
+     *
+     * @return |true| if the controller was created and is initialized, |false| otherwise.
+     */
+    public static boolean isInitialized() {
+        if (sInstance == null) return false;
+        return getInstance().getState() != State.INITIALIZING;
     }
 
     private void initialize() {
@@ -280,8 +295,10 @@ public class TracingController {
         shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         Context context = ContextUtils.getApplicationContext();
-        context.startActivity(Intent.createChooser(
-                shareIntent, context.getResources().getString(R.string.tracing_share)));
+        Intent chooser = Intent.createChooser(shareIntent, MSG_SHARE);
+        // We start this activity outside the main activity.
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(chooser);
 
         // Delete the file after an hour. This won't work if the app quits in the meantime, so we
         // also check for old files when TraceController is created.
@@ -349,7 +366,6 @@ public class TracingController {
 
     private void showErrorToast() {
         Context context = ContextUtils.getApplicationContext();
-        Toast.makeText(context, context.getString(R.string.tracing_error_toast), Toast.LENGTH_SHORT)
-                .show();
+        Toast.makeText(context, MSG_ERROR_TOAST, Toast.LENGTH_SHORT).show();
     }
 }

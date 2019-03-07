@@ -13,6 +13,7 @@
 #include <input-timestamps-unstable-v1-server-protocol.h>
 #include <keyboard-configuration-unstable-v1-server-protocol.h>
 #include <keyboard-extension-unstable-v1-server-protocol.h>
+#include <linux-explicit-synchronization-unstable-v1-server-protocol.h>
 #include <linux/input.h>
 #include <notification-shell-unstable-v1-server-protocol.h>
 #include <pointer-gestures-unstable-v1-server-protocol.h>
@@ -44,10 +45,10 @@
 #include "base/cancelable_callback.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "base/macros.h"
 #include "base/memory/free_deleter.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -65,8 +66,6 @@
 #include "components/exo/gaming_seat.h"
 #include "components/exo/gaming_seat_delegate.h"
 #include "components/exo/notification.h"
-#include "components/exo/shared_memory.h"
-#include "components/exo/sub_surface.h"
 #include "components/exo/surface.h"
 #include "components/exo/touch.h"
 #include "components/exo/touch_delegate.h"
@@ -75,21 +74,24 @@
 #include "components/exo/wayland/wayland_display_output.h"
 #include "components/exo/wayland/wayland_input_delegate.h"
 #include "components/exo/wayland/wayland_touch_delegate.h"
+#include "components/exo/wayland/wl_compositor.h"
 #include "components/exo/wayland/wl_output.h"
 #include "components/exo/wayland/wl_seat.h"
+#include "components/exo/wayland/wl_shm.h"
+#include "components/exo/wayland/wl_subcompositor.h"
+#include "components/exo/wayland/zcr_vsync_feedback.h"
 #include "components/exo/wm_helper.h"
 #include "services/viz/public/interfaces/compositing/compositor_frame_sink.mojom.h"
 #include "third_party/skia/include/core/SkRegion.h"
+#include "ui/base/buildflags.h"
 #include "ui/base/class_property.h"
 #include "ui/base/hit_test.h"
-#include "ui/base/ui_features.h"
 #include "ui/compositor/compositor_vsync_manager.h"
 #include "ui/display/display_switches.h"
 #include "ui/display/manager/display_util.h"
 #include "ui/display/manager/managed_display_info.h"
 #include "ui/display/screen.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
-#include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gfx/presentation_feedback.h"
 #include "ui/views/widget/widget.h"
@@ -111,6 +113,7 @@
 #include "components/exo/wayland/zcr_remote_shell.h"
 #include "components/exo/wayland/zcr_stylus_tools.h"
 #include "components/exo/wayland/zwp_input_timestamps_manager.h"
+#include "components/exo/wayland/zwp_linux_explicit_synchronization.h"
 #include "components/exo/wayland/zwp_pointer_gestures.h"
 #include "components/exo/wayland/zwp_text_input_manager.h"
 #include "components/exo/wayland/zxdg_shell.h"
@@ -118,8 +121,9 @@
 #endif
 
 #if defined(USE_OZONE)
-#include <drm_fourcc.h>
 #include <linux-dmabuf-unstable-v1-server-protocol.h>
+
+#include "components/exo/wayland/zwp_linux_dmabuf.h"
 #if defined(OS_CHROMEOS)
 #include "ui/events/ozone/layout/xkb/xkb_keyboard_layout_engine.h"
 #endif
@@ -215,800 +219,6 @@ DEFINE_UI_CLASS_PROPERTY_KEY(bool, kSurfaceHasSecurityKey, false);
 // A property key containing a boolean set to true if a blending object is
 // associated with surface object.
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kSurfaceHasBlendingKey, false);
-
-////////////////////////////////////////////////////////////////////////////////
-// wl_buffer_interface:
-
-void buffer_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-const struct wl_buffer_interface buffer_implementation = {buffer_destroy};
-
-void HandleBufferReleaseCallback(wl_resource* resource) {
-  wl_buffer_send_release(resource);
-  wl_client_flush(wl_resource_get_client(resource));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// wl_surface_interface:
-
-void surface_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-void surface_attach(wl_client* client,
-                    wl_resource* resource,
-                    wl_resource* buffer,
-                    int32_t x,
-                    int32_t y) {
-  // TODO(reveman): Implement buffer offset support.
-  DLOG_IF(WARNING, x || y) << "Unsupported buffer offset: "
-                           << gfx::Point(x, y).ToString();
-
-  GetUserDataAs<Surface>(resource)
-      ->Attach(buffer ? GetUserDataAs<Buffer>(buffer) : nullptr);
-}
-
-void surface_damage(wl_client* client,
-                    wl_resource* resource,
-                    int32_t x,
-                    int32_t y,
-                    int32_t width,
-                    int32_t height) {
-  GetUserDataAs<Surface>(resource)->Damage(gfx::Rect(x, y, width, height));
-}
-
-void HandleSurfaceFrameCallback(wl_resource* resource,
-                                base::TimeTicks frame_time) {
-  if (!frame_time.is_null()) {
-    wl_callback_send_done(resource, TimeTicksToMilliseconds(frame_time));
-    // TODO(reveman): Remove this potentially blocking flush and instead watch
-    // the file descriptor to be ready for write without blocking.
-    wl_client_flush(wl_resource_get_client(resource));
-  }
-  wl_resource_destroy(resource);
-}
-
-void surface_frame(wl_client* client,
-                   wl_resource* resource,
-                   uint32_t callback) {
-  wl_resource* callback_resource =
-      wl_resource_create(client, &wl_callback_interface, 1, callback);
-
-  // base::Unretained is safe as the resource owns the callback.
-  auto cancelable_callback =
-      std::make_unique<base::CancelableCallback<void(base::TimeTicks)>>(
-          base::Bind(&HandleSurfaceFrameCallback,
-                     base::Unretained(callback_resource)));
-
-  GetUserDataAs<Surface>(resource)
-      ->RequestFrameCallback(cancelable_callback->callback());
-
-  SetImplementation(callback_resource, nullptr, std::move(cancelable_callback));
-}
-
-void surface_set_opaque_region(wl_client* client,
-                               wl_resource* resource,
-                               wl_resource* region_resource) {
-  SkRegion region = region_resource ? *GetUserDataAs<SkRegion>(region_resource)
-                                    : SkRegion(SkIRect::MakeEmpty());
-  GetUserDataAs<Surface>(resource)->SetOpaqueRegion(cc::Region(region));
-}
-
-void surface_set_input_region(wl_client* client,
-                              wl_resource* resource,
-                              wl_resource* region_resource) {
-  Surface* surface = GetUserDataAs<Surface>(resource);
-  if (region_resource) {
-    surface->SetInputRegion(
-        cc::Region(*GetUserDataAs<SkRegion>(region_resource)));
-  } else
-    surface->ResetInputRegion();
-}
-
-void surface_commit(wl_client* client, wl_resource* resource) {
-  GetUserDataAs<Surface>(resource)->Commit();
-}
-
-void surface_set_buffer_transform(wl_client* client,
-                                  wl_resource* resource,
-                                  int32_t transform) {
-  Transform buffer_transform;
-  switch (transform) {
-    case WL_OUTPUT_TRANSFORM_NORMAL:
-      buffer_transform = Transform::NORMAL;
-      break;
-    case WL_OUTPUT_TRANSFORM_90:
-      buffer_transform = Transform::ROTATE_90;
-      break;
-    case WL_OUTPUT_TRANSFORM_180:
-      buffer_transform = Transform::ROTATE_180;
-      break;
-    case WL_OUTPUT_TRANSFORM_270:
-      buffer_transform = Transform::ROTATE_270;
-      break;
-    case WL_OUTPUT_TRANSFORM_FLIPPED:
-    case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-    case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-    case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-      NOTIMPLEMENTED();
-      return;
-    default:
-      wl_resource_post_error(resource, WL_SURFACE_ERROR_INVALID_TRANSFORM,
-                             "buffer transform must be one of the values from "
-                             "the wl_output.transform enum ('%d' specified)",
-                             transform);
-      return;
-  }
-
-  GetUserDataAs<Surface>(resource)->SetBufferTransform(buffer_transform);
-}
-
-void surface_set_buffer_scale(wl_client* client,
-                              wl_resource* resource,
-                              int32_t scale) {
-  if (scale < 1) {
-    wl_resource_post_error(resource, WL_SURFACE_ERROR_INVALID_SCALE,
-                           "buffer scale must be at least one "
-                           "('%d' specified)",
-                           scale);
-    return;
-  }
-
-  GetUserDataAs<Surface>(resource)->SetBufferScale(scale);
-}
-
-const struct wl_surface_interface surface_implementation = {
-    surface_destroy,
-    surface_attach,
-    surface_damage,
-    surface_frame,
-    surface_set_opaque_region,
-    surface_set_input_region,
-    surface_commit,
-    surface_set_buffer_transform,
-    surface_set_buffer_scale};
-
-////////////////////////////////////////////////////////////////////////////////
-// wl_region_interface:
-
-void region_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-void region_add(wl_client* client,
-                wl_resource* resource,
-                int32_t x,
-                int32_t y,
-                int32_t width,
-                int32_t height) {
-  GetUserDataAs<SkRegion>(resource)
-      ->op(SkIRect::MakeXYWH(x, y, width, height), SkRegion::kUnion_Op);
-}
-
-static void region_subtract(wl_client* client,
-                            wl_resource* resource,
-                            int32_t x,
-                            int32_t y,
-                            int32_t width,
-                            int32_t height) {
-  GetUserDataAs<SkRegion>(resource)
-      ->op(SkIRect::MakeXYWH(x, y, width, height), SkRegion::kDifference_Op);
-}
-
-const struct wl_region_interface region_implementation = {
-    region_destroy, region_add, region_subtract};
-
-////////////////////////////////////////////////////////////////////////////////
-// wl_compositor_interface:
-
-void compositor_create_surface(wl_client* client,
-                               wl_resource* resource,
-                               uint32_t id) {
-  std::unique_ptr<Surface> surface =
-      GetUserDataAs<Display>(resource)->CreateSurface();
-
-  wl_resource* surface_resource = wl_resource_create(
-      client, &wl_surface_interface, wl_resource_get_version(resource), id);
-
-  // Set the surface resource property for type-checking downcast support.
-  SetSurfaceResource(surface.get(), surface_resource);
-
-  SetImplementation(surface_resource, &surface_implementation,
-                    std::move(surface));
-}
-
-void compositor_create_region(wl_client* client,
-                              wl_resource* resource,
-                              uint32_t id) {
-  wl_resource* region_resource =
-      wl_resource_create(client, &wl_region_interface, 1, id);
-
-  SetImplementation(region_resource, &region_implementation,
-                    base::WrapUnique(new SkRegion));
-}
-
-const struct wl_compositor_interface compositor_implementation = {
-    compositor_create_surface, compositor_create_region};
-
-const uint32_t compositor_version = 3;
-
-void bind_compositor(wl_client* client,
-                     void* data,
-                     uint32_t version,
-                     uint32_t id) {
-  wl_resource* resource =
-      wl_resource_create(client, &wl_compositor_interface,
-                         std::min(version, compositor_version), id);
-
-  wl_resource_set_implementation(resource, &compositor_implementation, data,
-                                 nullptr);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// wl_shm_pool_interface:
-
-const struct shm_supported_format {
-  uint32_t shm_format;
-  gfx::BufferFormat buffer_format;
-} shm_supported_formats[] = {
-    {WL_SHM_FORMAT_XBGR8888, gfx::BufferFormat::RGBX_8888},
-    {WL_SHM_FORMAT_ABGR8888, gfx::BufferFormat::RGBA_8888},
-    {WL_SHM_FORMAT_XRGB8888, gfx::BufferFormat::BGRX_8888},
-    {WL_SHM_FORMAT_ARGB8888, gfx::BufferFormat::BGRA_8888}};
-
-void shm_pool_create_buffer(wl_client* client,
-                            wl_resource* resource,
-                            uint32_t id,
-                            int32_t offset,
-                            int32_t width,
-                            int32_t height,
-                            int32_t stride,
-                            uint32_t format) {
-  const auto* supported_format =
-      std::find_if(shm_supported_formats,
-                   shm_supported_formats + arraysize(shm_supported_formats),
-                   [format](const shm_supported_format& supported_format) {
-                     return supported_format.shm_format == format;
-                   });
-  if (supported_format ==
-      (shm_supported_formats + arraysize(shm_supported_formats))) {
-    wl_resource_post_error(resource, WL_SHM_ERROR_INVALID_FORMAT,
-                           "invalid format 0x%x", format);
-    return;
-  }
-
-  if (offset < 0) {
-    wl_resource_post_error(resource, WL_SHM_ERROR_INVALID_FORMAT,
-                           "invalid offset %d", offset);
-    return;
-  }
-
-  std::unique_ptr<Buffer> buffer =
-      GetUserDataAs<SharedMemory>(resource)->CreateBuffer(
-          gfx::Size(width, height), supported_format->buffer_format, offset,
-          stride);
-  if (!buffer) {
-    wl_resource_post_no_memory(resource);
-    return;
-  }
-
-  wl_resource* buffer_resource =
-      wl_resource_create(client, &wl_buffer_interface, 1, id);
-
-  buffer->set_release_callback(base::Bind(&HandleBufferReleaseCallback,
-                                          base::Unretained(buffer_resource)));
-
-  SetImplementation(buffer_resource, &buffer_implementation, std::move(buffer));
-}
-
-void shm_pool_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-void shm_pool_resize(wl_client* client, wl_resource* resource, int32_t size) {
-  // Nothing to do here.
-}
-
-const struct wl_shm_pool_interface shm_pool_implementation = {
-    shm_pool_create_buffer, shm_pool_destroy, shm_pool_resize};
-
-////////////////////////////////////////////////////////////////////////////////
-// wl_shm_interface:
-
-void shm_create_pool(wl_client* client,
-                     wl_resource* resource,
-                     uint32_t id,
-                     int fd,
-                     int32_t size) {
-  static const auto kMode =
-      base::subtle::PlatformSharedMemoryRegion::Mode::kUnsafe;
-  auto fd_pair = base::subtle::ScopedFDPair(base::ScopedFD(fd),
-                                            base::ScopedFD() /* readonly_fd */);
-  auto guid = base::UnguessableToken::Create();
-  auto platform_shared_memory = base::subtle::PlatformSharedMemoryRegion::Take(
-      std::move(fd_pair), kMode, size, guid);
-  std::unique_ptr<SharedMemory> shared_memory =
-      GetUserDataAs<Display>(resource)->CreateSharedMemory(
-          base::UnsafeSharedMemoryRegion::Deserialize(
-              std::move(platform_shared_memory)));
-  if (!shared_memory) {
-    wl_resource_post_no_memory(resource);
-    return;
-  }
-
-  wl_resource* shm_pool_resource =
-      wl_resource_create(client, &wl_shm_pool_interface, 1, id);
-
-  SetImplementation(shm_pool_resource, &shm_pool_implementation,
-                    std::move(shared_memory));
-}
-
-const struct wl_shm_interface shm_implementation = {shm_create_pool};
-
-void bind_shm(wl_client* client, void* data, uint32_t version, uint32_t id) {
-  wl_resource* resource = wl_resource_create(client, &wl_shm_interface, 1, id);
-
-  wl_resource_set_implementation(resource, &shm_implementation, data, nullptr);
-
-  for (const auto& supported_format : shm_supported_formats)
-    wl_shm_send_format(resource, supported_format.shm_format);
-}
-
-#if defined(USE_OZONE)
-
-////////////////////////////////////////////////////////////////////////////////
-// linux_buffer_params_interface:
-
-const struct dmabuf_supported_format {
-  uint32_t dmabuf_format;
-  gfx::BufferFormat buffer_format;
-} dmabuf_supported_formats[] = {
-    {DRM_FORMAT_RGB565, gfx::BufferFormat::BGR_565},
-    {DRM_FORMAT_XBGR8888, gfx::BufferFormat::RGBX_8888},
-    {DRM_FORMAT_ABGR8888, gfx::BufferFormat::RGBA_8888},
-    {DRM_FORMAT_XRGB8888, gfx::BufferFormat::BGRX_8888},
-    {DRM_FORMAT_ARGB8888, gfx::BufferFormat::BGRA_8888},
-    {DRM_FORMAT_NV12, gfx::BufferFormat::YUV_420_BIPLANAR},
-    {DRM_FORMAT_YVU420, gfx::BufferFormat::YVU_420}};
-
-struct LinuxBufferParams {
-  struct Plane {
-    base::ScopedFD fd;
-    uint32_t stride;
-    uint32_t offset;
-  };
-
-  explicit LinuxBufferParams(Display* display) : display(display) {}
-
-  Display* const display;
-  std::map<uint32_t, Plane> planes;
-};
-
-void linux_buffer_params_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-void linux_buffer_params_add(wl_client* client,
-                             wl_resource* resource,
-                             int32_t fd,
-                             uint32_t plane_idx,
-                             uint32_t offset,
-                             uint32_t stride,
-                             uint32_t modifier_hi,
-                             uint32_t modifier_lo) {
-  LinuxBufferParams* linux_buffer_params =
-      GetUserDataAs<LinuxBufferParams>(resource);
-
-  LinuxBufferParams::Plane plane{base::ScopedFD(fd), stride, offset};
-
-  const auto& inserted = linux_buffer_params->planes.insert(
-      std::pair<uint32_t, LinuxBufferParams::Plane>(plane_idx,
-                                                    std::move(plane)));
-  if (!inserted.second) {  // The plane was already there.
-    wl_resource_post_error(resource, ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_PLANE_SET,
-                           "plane already set");
-  }
-}
-
-bool ValidateLinuxBufferParams(wl_resource* resource,
-                               int32_t width,
-                               int32_t height,
-                               gfx::BufferFormat format,
-                               uint32_t flags) {
-  if (width <= 0 || height <= 0) {
-    wl_resource_post_error(resource,
-                           ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_INVALID_DIMENSIONS,
-                           "invalid width or height");
-    return false;
-  }
-
-  if (flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_INTERLACED) {
-    wl_resource_post_error(resource,
-                           ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_INCOMPLETE,
-                           "flags not supported");
-    return false;
-  }
-
-  LinuxBufferParams* linux_buffer_params =
-      GetUserDataAs<LinuxBufferParams>(resource);
-  size_t num_planes = gfx::NumberOfPlanesForBufferFormat(format);
-
-  for (uint32_t i = 0; i < num_planes; ++i) {
-    auto plane_it = linux_buffer_params->planes.find(i);
-    if (plane_it == linux_buffer_params->planes.end()) {
-      wl_resource_post_error(resource,
-                             ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_INCOMPLETE,
-                             "missing a plane");
-      return false;
-    }
-  }
-
-  if (linux_buffer_params->planes.size() != num_planes) {
-    wl_resource_post_error(resource, ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_PLANE_IDX,
-                           "plane idx out of bounds");
-    return false;
-  }
-
-  return true;
-}
-
-void linux_buffer_params_create(wl_client* client,
-                                wl_resource* resource,
-                                int32_t width,
-                                int32_t height,
-                                uint32_t format,
-                                uint32_t flags) {
-  const auto* supported_format = std::find_if(
-      std::begin(dmabuf_supported_formats), std::end(dmabuf_supported_formats),
-      [format](const dmabuf_supported_format& supported_format) {
-        return supported_format.dmabuf_format == format;
-      });
-  if (supported_format == std::end(dmabuf_supported_formats)) {
-    wl_resource_post_error(resource,
-                           ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_INVALID_FORMAT,
-                           "format not supported");
-    return;
-  }
-
-  if (!ValidateLinuxBufferParams(resource, width, height,
-                                 supported_format->buffer_format, flags))
-    return;
-
-  LinuxBufferParams* linux_buffer_params =
-      GetUserDataAs<LinuxBufferParams>(resource);
-
-  size_t num_planes =
-      gfx::NumberOfPlanesForBufferFormat(supported_format->buffer_format);
-
-  std::vector<gfx::NativePixmapPlane> planes;
-  std::vector<base::ScopedFD> fds;
-
-  for (uint32_t i = 0; i < num_planes; ++i) {
-    auto plane_it = linux_buffer_params->planes.find(i);
-    LinuxBufferParams::Plane& plane = plane_it->second;
-    planes.emplace_back(plane.stride, plane.offset, 0);
-    fds.push_back(std::move(plane.fd));
-  }
-
-  bool y_invert = (flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT) != 0;
-
-  std::unique_ptr<Buffer> buffer =
-      linux_buffer_params->display->CreateLinuxDMABufBuffer(
-          gfx::Size(width, height), supported_format->buffer_format, planes,
-          y_invert, std::move(fds));
-  if (!buffer) {
-    zwp_linux_buffer_params_v1_send_failed(resource);
-    return;
-  }
-
-  wl_resource* buffer_resource =
-      wl_resource_create(client, &wl_buffer_interface, 1, 0);
-
-  buffer->set_release_callback(base::Bind(&HandleBufferReleaseCallback,
-                                          base::Unretained(buffer_resource)));
-
-  SetImplementation(buffer_resource, &buffer_implementation, std::move(buffer));
-
-  zwp_linux_buffer_params_v1_send_created(resource, buffer_resource);
-}
-
-void linux_buffer_params_create_immed(wl_client* client,
-                                      wl_resource* resource,
-                                      uint32_t buffer_id,
-                                      int32_t width,
-                                      int32_t height,
-                                      uint32_t format,
-                                      uint32_t flags) {
-  const auto* supported_format = std::find_if(
-      std::begin(dmabuf_supported_formats), std::end(dmabuf_supported_formats),
-      [format](const dmabuf_supported_format& supported_format) {
-        return supported_format.dmabuf_format == format;
-      });
-  if (supported_format == std::end(dmabuf_supported_formats)) {
-    wl_resource_post_error(resource,
-                           ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_INVALID_FORMAT,
-                           "format not supported");
-    return;
-  }
-
-  if (!ValidateLinuxBufferParams(resource, width, height,
-                                 supported_format->buffer_format, flags))
-    return;
-
-  LinuxBufferParams* linux_buffer_params =
-      GetUserDataAs<LinuxBufferParams>(resource);
-
-  size_t num_planes =
-      gfx::NumberOfPlanesForBufferFormat(supported_format->buffer_format);
-
-  std::vector<gfx::NativePixmapPlane> planes;
-  std::vector<base::ScopedFD> fds;
-
-  for (uint32_t i = 0; i < num_planes; ++i) {
-    auto plane_it = linux_buffer_params->planes.find(i);
-    LinuxBufferParams::Plane& plane = plane_it->second;
-    planes.emplace_back(plane.stride, plane.offset, 0);
-    fds.push_back(std::move(plane.fd));
-  }
-
-  bool y_invert = flags & ZWP_LINUX_BUFFER_PARAMS_V1_FLAGS_Y_INVERT;
-
-  std::unique_ptr<Buffer> buffer =
-      linux_buffer_params->display->CreateLinuxDMABufBuffer(
-          gfx::Size(width, height), supported_format->buffer_format, planes,
-          y_invert, std::move(fds));
-  if (!buffer) {
-    // On import failure in case of a create_immed request, the protocol
-    // allows us to raise a fatal error from zwp_linux_dmabuf_v1 version 2+.
-    wl_resource_post_error(resource,
-                           ZWP_LINUX_BUFFER_PARAMS_V1_ERROR_INVALID_WL_BUFFER,
-                           "dmabuf import failed");
-    return;
-  }
-
-  wl_resource* buffer_resource =
-      wl_resource_create(client, &wl_buffer_interface, 1, buffer_id);
-
-  buffer->set_release_callback(base::Bind(&HandleBufferReleaseCallback,
-                                          base::Unretained(buffer_resource)));
-
-  SetImplementation(buffer_resource, &buffer_implementation, std::move(buffer));
-}
-
-const struct zwp_linux_buffer_params_v1_interface
-    linux_buffer_params_implementation = {
-        linux_buffer_params_destroy, linux_buffer_params_add,
-        linux_buffer_params_create, linux_buffer_params_create_immed};
-
-////////////////////////////////////////////////////////////////////////////////
-// linux_dmabuf_interface:
-
-void linux_dmabuf_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-void linux_dmabuf_create_params(wl_client* client,
-                                wl_resource* resource,
-                                uint32_t id) {
-  std::unique_ptr<LinuxBufferParams> linux_buffer_params =
-      std::make_unique<LinuxBufferParams>(GetUserDataAs<Display>(resource));
-
-  wl_resource* linux_buffer_params_resource =
-      wl_resource_create(client, &zwp_linux_buffer_params_v1_interface,
-                         wl_resource_get_version(resource), id);
-
-  SetImplementation(linux_buffer_params_resource,
-                    &linux_buffer_params_implementation,
-                    std::move(linux_buffer_params));
-}
-
-const struct zwp_linux_dmabuf_v1_interface linux_dmabuf_implementation = {
-    linux_dmabuf_destroy, linux_dmabuf_create_params};
-
-const uint32_t linux_dmabuf_version = 2;
-
-void bind_linux_dmabuf(wl_client* client,
-                       void* data,
-                       uint32_t version,
-                       uint32_t id) {
-  wl_resource* resource =
-      wl_resource_create(client, &zwp_linux_dmabuf_v1_interface,
-                         std::min(version, linux_dmabuf_version), id);
-
-  wl_resource_set_implementation(resource, &linux_dmabuf_implementation, data,
-                                 nullptr);
-
-  for (const auto& supported_format : dmabuf_supported_formats)
-    zwp_linux_dmabuf_v1_send_format(resource, supported_format.dmabuf_format);
-}
-
-#endif
-
-////////////////////////////////////////////////////////////////////////////////
-// wl_subsurface_interface:
-
-void subsurface_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-void subsurface_set_position(wl_client* client,
-                             wl_resource* resource,
-                             int32_t x,
-                             int32_t y) {
-  GetUserDataAs<SubSurface>(resource)->SetPosition(gfx::Point(x, y));
-}
-
-void subsurface_place_above(wl_client* client,
-                            wl_resource* resource,
-                            wl_resource* reference_resource) {
-  GetUserDataAs<SubSurface>(resource)
-      ->PlaceAbove(GetUserDataAs<Surface>(reference_resource));
-}
-
-void subsurface_place_below(wl_client* client,
-                            wl_resource* resource,
-                            wl_resource* sibling_resource) {
-  GetUserDataAs<SubSurface>(resource)
-      ->PlaceBelow(GetUserDataAs<Surface>(sibling_resource));
-}
-
-void subsurface_set_sync(wl_client* client, wl_resource* resource) {
-  GetUserDataAs<SubSurface>(resource)->SetCommitBehavior(true);
-}
-
-void subsurface_set_desync(wl_client* client, wl_resource* resource) {
-  GetUserDataAs<SubSurface>(resource)->SetCommitBehavior(false);
-}
-
-const struct wl_subsurface_interface subsurface_implementation = {
-    subsurface_destroy,     subsurface_set_position, subsurface_place_above,
-    subsurface_place_below, subsurface_set_sync,     subsurface_set_desync};
-
-////////////////////////////////////////////////////////////////////////////////
-// wl_subcompositor_interface:
-
-void subcompositor_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-void subcompositor_get_subsurface(wl_client* client,
-                                  wl_resource* resource,
-                                  uint32_t id,
-                                  wl_resource* surface,
-                                  wl_resource* parent) {
-  std::unique_ptr<SubSurface> subsurface =
-      GetUserDataAs<Display>(resource)->CreateSubSurface(
-          GetUserDataAs<Surface>(surface), GetUserDataAs<Surface>(parent));
-  if (!subsurface) {
-    wl_resource_post_error(resource, WL_SUBCOMPOSITOR_ERROR_BAD_SURFACE,
-                           "invalid surface");
-    return;
-  }
-
-  wl_resource* subsurface_resource =
-      wl_resource_create(client, &wl_subsurface_interface, 1, id);
-
-  SetImplementation(subsurface_resource, &subsurface_implementation,
-                    std::move(subsurface));
-}
-
-const struct wl_subcompositor_interface subcompositor_implementation = {
-    subcompositor_destroy, subcompositor_get_subsurface};
-
-void bind_subcompositor(wl_client* client,
-                        void* data,
-                        uint32_t version,
-                        uint32_t id) {
-  wl_resource* resource =
-      wl_resource_create(client, &wl_subcompositor_interface, 1, id);
-
-  wl_resource_set_implementation(resource, &subcompositor_implementation, data,
-                                 nullptr);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// vsync_timing_interface:
-
-// Implements VSync timing interface by monitoring updates to VSync parameters.
-class VSyncTiming final : public ui::CompositorVSyncManager::Observer {
- public:
-  ~VSyncTiming() override {
-    WMHelper::GetInstance()->RemoveVSyncObserver(this);
-  }
-
-  static std::unique_ptr<VSyncTiming> Create(wl_resource* timing_resource) {
-    std::unique_ptr<VSyncTiming> vsync_timing(new VSyncTiming(timing_resource));
-    // Note: AddObserver() will call OnUpdateVSyncParameters.
-    WMHelper::GetInstance()->AddVSyncObserver(vsync_timing.get());
-    return vsync_timing;
-  }
-
-  // Overridden from ui::CompositorVSyncManager::Observer:
-  void OnUpdateVSyncParameters(base::TimeTicks timebase,
-                               base::TimeDelta interval) override {
-    uint64_t timebase_us = timebase.ToInternalValue();
-    uint64_t interval_us = interval.ToInternalValue();
-
-    // Ignore updates with interval 0.
-    if (!interval_us)
-      return;
-
-    uint64_t offset_us = timebase_us % interval_us;
-
-    // Avoid sending update events if interval did not change.
-    if (interval_us == last_interval_us_) {
-      int64_t offset_delta_us =
-          static_cast<int64_t>(last_offset_us_ - offset_us);
-
-      // Reduce the amount of events by only sending an update if the offset
-      // changed compared to the last offset sent to the client by this amount.
-      const int64_t kOffsetDeltaThresholdInMicroseconds = 25;
-
-      if (std::abs(offset_delta_us) < kOffsetDeltaThresholdInMicroseconds)
-        return;
-    }
-
-    zcr_vsync_timing_v1_send_update(timing_resource_, timebase_us & 0xffffffff,
-                                    timebase_us >> 32, interval_us & 0xffffffff,
-                                    interval_us >> 32);
-    wl_client_flush(wl_resource_get_client(timing_resource_));
-
-    last_interval_us_ = interval_us;
-    last_offset_us_ = offset_us;
-  }
-
- private:
-  explicit VSyncTiming(wl_resource* timing_resource)
-      : timing_resource_(timing_resource) {}
-
-  // The VSync timing resource.
-  wl_resource* const timing_resource_;
-
-  uint64_t last_interval_us_{0};
-  uint64_t last_offset_us_{0};
-
-  DISALLOW_COPY_AND_ASSIGN(VSyncTiming);
-};
-
-void vsync_timing_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-const struct zcr_vsync_timing_v1_interface vsync_timing_implementation = {
-    vsync_timing_destroy};
-
-////////////////////////////////////////////////////////////////////////////////
-// vsync_feedback_interface:
-
-void vsync_feedback_destroy(wl_client* client, wl_resource* resource) {
-  wl_resource_destroy(resource);
-}
-
-void vsync_feedback_get_vsync_timing(wl_client* client,
-                                     wl_resource* resource,
-                                     uint32_t id,
-                                     wl_resource* output) {
-  wl_resource* timing_resource =
-      wl_resource_create(client, &zcr_vsync_timing_v1_interface, 1, id);
-  SetImplementation(timing_resource, &vsync_timing_implementation,
-                    VSyncTiming::Create(timing_resource));
-}
-
-const struct zcr_vsync_feedback_v1_interface vsync_feedback_implementation = {
-    vsync_feedback_destroy, vsync_feedback_get_vsync_timing};
-
-void bind_vsync_feedback(wl_client* client,
-                         void* data,
-                         uint32_t version,
-                         uint32_t id) {
-  wl_resource* resource =
-      wl_resource_create(client, &zcr_vsync_feedback_v1_interface, 1, id);
-
-  wl_resource_set_implementation(resource, &vsync_feedback_implementation,
-                                 nullptr, nullptr);
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // wl_data_source_interface:
@@ -1808,11 +1018,11 @@ void bind_stylus_v2(wl_client* client,
 Server::Server(Display* display)
     : display_(display), wl_display_(wl_display_create()) {
   wl_global_create(wl_display_.get(), &wl_compositor_interface,
-                   compositor_version, display_, bind_compositor);
+                   kWlCompositorVersion, display_, bind_compositor);
   wl_global_create(wl_display_.get(), &wl_shm_interface, 1, display_, bind_shm);
 #if defined(USE_OZONE)
   wl_global_create(wl_display_.get(), &zwp_linux_dmabuf_v1_interface,
-                   linux_dmabuf_version, display_, bind_linux_dmabuf);
+                   kZwpLinuxDmabufVersion, display_, bind_linux_dmabuf);
 #endif
   wl_global_create(wl_display_.get(), &wl_subcompositor_interface, 1, display_,
                    bind_subcompositor);
@@ -1865,6 +1075,9 @@ Server::Server(Display* display)
                    display_, bind_text_input_manager);
   wl_global_create(wl_display_.get(), &zxdg_shell_v6_interface, 1, display_,
                    bind_xdg_shell_v6);
+  wl_global_create(wl_display_.get(),
+                   &zwp_linux_explicit_synchronization_v1_interface, 1,
+                   display_, bind_linux_explicit_synchronization);
 #endif
 
 #if defined(USE_FULLSCREEN_SHELL)

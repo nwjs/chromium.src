@@ -93,6 +93,7 @@ std::unique_ptr<ResourceRequest> ResourceRequest::CreateRedirectRequest(
     const KURL& new_url,
     const AtomicString& new_method,
     const KURL& new_site_for_cookies,
+    scoped_refptr<const SecurityOrigin> new_top_frame_origin,
     const String& new_referrer,
     network::mojom::ReferrerPolicy new_referrer_policy,
     bool skip_service_worker) const {
@@ -101,6 +102,7 @@ std::unique_ptr<ResourceRequest> ResourceRequest::CreateRedirectRequest(
   request->SetRequestorOrigin(RequestorOrigin());
   request->SetHTTPMethod(new_method);
   request->SetSiteForCookies(new_site_for_cookies);
+  request->SetTopFrameOrigin(std::move(new_top_frame_origin));
   String referrer =
       new_referrer.IsEmpty() ? Referrer::NoReferrer() : String(new_referrer);
   // TODO(domfarolino): Stop storing ResourceRequest's generated referrer as a
@@ -126,7 +128,6 @@ std::unique_ptr<ResourceRequest> ResourceRequest::CreateRedirectRequest(
   request->SetCorsPreflightPolicy(CorsPreflightPolicy());
   if (IsAdResource())
     request->SetIsAdResource();
-  request->SetInitiatorCSP(GetInitiatorCSP());
   request->SetUpgradeIfInsecure(UpgradeIfInsecure());
   request->SetIsAutomaticUpgrade(IsAutomaticUpgrade());
   request->SetRequestedWithHeader(GetRequestedWithHeader());
@@ -146,6 +147,14 @@ const KURL& ResourceRequest::Url() const {
 
 void ResourceRequest::SetURL(const KURL& url) {
   url_ = url;
+}
+
+const KURL& ResourceRequest::GetInitialUrlForResourceTiming() const {
+  return initial_url_for_resource_timing_;
+}
+
+void ResourceRequest::SetInitialUrlForResourceTiming(const KURL& url) {
+  initial_url_for_resource_timing_ = url;
 }
 
 void ResourceRequest::RemoveUserAndPassFromURL() {
@@ -179,6 +188,15 @@ const KURL& ResourceRequest::SiteForCookies() const {
 
 void ResourceRequest::SetSiteForCookies(const KURL& site_for_cookies) {
   site_for_cookies_ = site_for_cookies;
+}
+
+const SecurityOrigin* ResourceRequest::TopFrameOrigin() const {
+  return top_frame_origin_.get();
+}
+
+void ResourceRequest::SetTopFrameOrigin(
+    scoped_refptr<const SecurityOrigin> origin) {
+  top_frame_origin_ = std::move(origin);
 }
 
 const AtomicString& ResourceRequest::HttpMethod() const {
@@ -316,10 +334,6 @@ void ResourceRequest::SetExternalRequestStateFromRequestorAddressSpace(
     target_space = mojom::IPAddressSpace::kLocal;
 
   is_external_request_ = requestor_space > target_space;
-}
-
-void ResourceRequest::SetNavigationStartTime(TimeTicks navigation_start) {
-  navigation_start_ = navigation_start;
 }
 
 bool ResourceRequest::IsConditional() const {

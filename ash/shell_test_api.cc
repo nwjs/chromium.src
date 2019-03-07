@@ -11,7 +11,7 @@
 #include "ash/shell.h"
 #include "ash/system/power/backlights_forced_off_setter.h"
 #include "ash/system/power/power_button_controller.h"
-#include "ash/wm/overview/window_selector_controller.h"
+#include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/ws/window_service_owner.h"
@@ -19,6 +19,7 @@
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "services/ws/window_service.h"
 #include "services/ws/window_tree.h"
+#include "ui/events/gesture_detection/gesture_configuration.h"
 
 namespace ash {
 
@@ -113,8 +114,16 @@ void ShellTestApi::ToggleFullscreen(ToggleFullscreenCallback cb) {
 }
 
 void ShellTestApi::ToggleOverviewMode(ToggleOverviewModeCallback cb) {
-  shell_->window_selector_controller()->ToggleOverview();
+  shell_->overview_controller()->ToggleOverview();
   std::move(cb).Run();
+}
+
+void ShellTestApi::AddRemoveDisplay() {
+  shell_->display_manager()->AddRemoveDisplay();
+}
+
+void ShellTestApi::SetMinFlingVelocity(float velocity) {
+  ui::GestureConfiguration::GetInstance()->set_min_fling_velocity(velocity);
 }
 
 }  // namespace ash

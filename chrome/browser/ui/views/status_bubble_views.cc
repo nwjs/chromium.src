@@ -40,13 +40,6 @@
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
-#if defined(OS_CHROMEOS)
-#include "ash/shell.h"                                           // mash-ok
-#include "ash/wm/window_state.h"                                 // mash-ok
-#include "services/ws/public/cpp/property_type_converters.h"     // nogncheck
-#include "services/ws/public/mojom/window_manager.mojom.h"       // nogncheck
-#endif
-
 namespace {
 
 // The alpha and color of the bubble's shadow.
@@ -478,7 +471,7 @@ void StatusBubbleViews::StatusView::OnPaint(gfx::Canvas* canvas) {
   Op(path, stroke_path, kDifference_SkPathOp, &fill_path);
   flags.setStyle(cc::PaintFlags::kFill_Style);
   const SkColor bubble_color =
-      theme_provider_->GetColor(ThemeProperties::COLOR_TOOLBAR);
+      theme_provider_->GetColor(ThemeProperties::COLOR_STATUS_BUBBLE);
   flags.setColor(bubble_color);
   canvas->sk_canvas()->drawPath(fill_path, flags);
 
@@ -498,12 +491,12 @@ void StatusBubbleViews::StatusView::OnPaint(gfx::Canvas* canvas) {
   // Text color is the foreground tab text color at 60% alpha.
   SkColor blended_text_color = color_utils::AlphaBlend(
       theme_provider_->GetColor(ThemeProperties::COLOR_TAB_TEXT), bubble_color,
-      0x99);
+      0.6f);
 
-  canvas->DrawStringRect(
-      text_, GetFont(),
-      color_utils::GetReadableColor(blended_text_color, bubble_color),
-      text_rect);
+  canvas->DrawStringRect(text_, GetFont(),
+                         color_utils::GetColorWithMinimumContrast(
+                             blended_text_color, bubble_color),
+                         text_rect);
 }
 
 
@@ -661,23 +654,11 @@ void StatusBubbleViews::Init() {
     params.parent = frame->GetNativeView();
     params.context = frame->GetNativeWindow();
     params.name = "StatusBubble";
-#if defined(OS_CHROMEOS)
-    params.mus_properties
-        [ws::mojom::WindowManager::kWindowIgnoredByShelf_InitProperty] =
-        mojo::ConvertTo<std::vector<uint8_t>>(true);
-#endif
     popup_->Init(params);
     // We do our own animation and don't want any from the system.
     popup_->SetVisibilityChangedAnimationsEnabled(false);
     popup_->SetOpacity(0.f);
     popup_->SetContentsView(view_);
-#if defined(OS_CHROMEOS)
-    // Mash is handled via mus_properties.
-    if (ash::Shell::HasInstance()) {
-      ash::wm::GetWindowState(popup_->GetNativeWindow())
-          ->set_ignored_by_shelf(true);
-    }
-#endif
     RepositionPopup();
   }
 }

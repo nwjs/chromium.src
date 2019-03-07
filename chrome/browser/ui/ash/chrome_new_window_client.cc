@@ -153,7 +153,7 @@ void ChromeNewWindowClient::NewTab() {
     chrome::NewTab(browser);
   }
 
-  browser->SetFocusToLocationBar(false);
+  browser->SetFocusToLocationBar();
 }
 
 void ChromeNewWindowClient::NewTabWithUrl(const GURL& url,
@@ -244,9 +244,11 @@ void ChromeNewWindowClient::ShowTaskManager() {
   chrome::OpenTaskManager(nullptr);
 }
 
-void ChromeNewWindowClient::OpenFeedbackPage() {
-  chrome::OpenFeedbackDialog(chrome::FindBrowserWithActiveWindow(),
-                             chrome::kFeedbackSourceAsh);
+void ChromeNewWindowClient::OpenFeedbackPage(bool from_assistant) {
+  chrome::FeedbackSource source;
+  source = from_assistant ? chrome::kFeedbackSourceAssistant
+                          : chrome::kFeedbackSourceAsh;
+  chrome::OpenFeedbackDialog(chrome::FindBrowserWithActiveWindow(), source);
 }
 
 void ChromeNewWindowClient::OpenUrlFromArc(const GURL& url) {

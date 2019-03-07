@@ -78,10 +78,20 @@ class WebContentsObserverProxy extends WebContentsObserver {
     @Override
     @CalledByNative
     public void didStartNavigation(
-            String url, boolean isInMainFrame, boolean isSameDocument, boolean isErrorPage) {
+            String url, boolean isInMainFrame, boolean isSameDocument, long navigationHandleProxy) {
         for (mObserversIterator.rewind(); mObserversIterator.hasNext();) {
             mObserversIterator.next().didStartNavigation(
-                    url, isInMainFrame, isSameDocument, isErrorPage);
+                    url, isInMainFrame, isSameDocument, navigationHandleProxy);
+        }
+    }
+
+    @Override
+    @CalledByNative
+    public void didRedirectNavigation(
+            String url, boolean isInMainFrame, long navigationHandleProxy) {
+        for (mObserversIterator.rewind(); mObserversIterator.hasNext();) {
+            mObserversIterator.next().didRedirectNavigation(
+                    url, isInMainFrame, navigationHandleProxy);
         }
     }
 

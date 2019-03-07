@@ -37,11 +37,11 @@ InitiatorCSPInfo::~InitiatorCSPInfo() = default;
 
 bool IsNavigationDownloadAllowed(NavigationDownloadPolicy policy) {
   switch (policy) {
-    case NavigationDownloadPolicy::kAllow:
-      return true;
     case NavigationDownloadPolicy::kDisallowViewSource:
     case NavigationDownloadPolicy::kDisallowInterstitial:
+    case NavigationDownloadPolicy::kDisallowSandbox:
       return false;
+    case NavigationDownloadPolicy::kAllow:
     case NavigationDownloadPolicy::kAllowOpener:
     case NavigationDownloadPolicy::kAllowOpenerNoGesture:
     case NavigationDownloadPolicy::kAllowOpenerCrossOrigin:
@@ -54,6 +54,7 @@ CommonNavigationParams::CommonNavigationParams() = default;
 
 CommonNavigationParams::CommonNavigationParams(
     const GURL& url,
+    const base::Optional<url::Origin>& initiator_origin,
     const Referrer& referrer,
     ui::PageTransition transition,
     FrameMsg_Navigate_Type::Value navigation_type,
@@ -72,6 +73,7 @@ CommonNavigationParams::CommonNavigationParams(
     const std::string& href_translate,
     base::TimeTicks input_start)
     : url(url),
+      initiator_origin(initiator_origin),
       referrer(referrer),
       transition(transition),
       navigation_type(navigation_type),
@@ -101,9 +103,10 @@ CommonNavigationParams::CommonNavigationParams(
 
 CommonNavigationParams::~CommonNavigationParams() = default;
 
-RequestNavigationParams::RequestNavigationParams() = default;
+CommitNavigationParams::CommitNavigationParams() = default;
 
-RequestNavigationParams::RequestNavigationParams(
+CommitNavigationParams::CommitNavigationParams(
+    const base::Optional<url::Origin>& origin_to_commit,
     bool is_overriding_user_agent,
     const std::vector<GURL>& redirects,
     const GURL& original_url,
@@ -119,7 +122,8 @@ RequestNavigationParams::RequestNavigationParams(
     int current_history_list_length,
     bool is_view_source,
     bool should_clear_history_list)
-    : is_overriding_user_agent(is_overriding_user_agent),
+    : origin_to_commit(origin_to_commit),
+      is_overriding_user_agent(is_overriding_user_agent),
       redirects(redirects),
       original_url(original_url),
       original_method(original_method),
@@ -135,9 +139,9 @@ RequestNavigationParams::RequestNavigationParams(
       is_view_source(is_view_source),
       should_clear_history_list(should_clear_history_list) {}
 
-RequestNavigationParams::RequestNavigationParams(
-    const RequestNavigationParams& other) = default;
+CommitNavigationParams::CommitNavigationParams(
+    const CommitNavigationParams& other) = default;
 
-RequestNavigationParams::~RequestNavigationParams() = default;
+CommitNavigationParams::~CommitNavigationParams() = default;
 
 }  // namespace content

@@ -21,22 +21,21 @@
 #include "base/values.h"
 #include "chrome/common/content_restriction.h"
 #include "net/base/escape.h"
+#include "pdf/accessibility.h"
 #include "pdf/pdf.h"
 #include "pdf/pdf_features.h"
 #include "ppapi/c/dev/ppb_cursor_control_dev.h"
 #include "ppapi/c/pp_errors.h"
-#include "ppapi/c/pp_rect.h"
-#include "ppapi/c/private/ppb_instance_private.h"
-#include "ppapi/c/private/ppp_pdf.h"
+#include "ppapi/c/private/ppb_pdf.h"
 #include "ppapi/c/trusted/ppb_url_loader_trusted.h"
 #include "ppapi/cpp/core.h"
 #include "ppapi/cpp/dev/memory_dev.h"
 #include "ppapi/cpp/dev/text_input_dev.h"
 #include "ppapi/cpp/dev/url_util_dev.h"
+#include "ppapi/cpp/input_event.h"
 #include "ppapi/cpp/module.h"
 #include "ppapi/cpp/point.h"
 #include "ppapi/cpp/private/pdf.h"
-#include "ppapi/cpp/private/var_private.h"
 #include "ppapi/cpp/rect.h"
 #include "ppapi/cpp/resource.h"
 #include "ppapi/cpp/url_request_info.h"
@@ -102,6 +101,7 @@ constexpr char kJSPrintType[] = "print";
 // Save (Page -> Plugin)
 constexpr char kJSSaveType[] = "save";
 constexpr char kJSToken[] = "token";
+constexpr char kJSForce[] = "force";
 // Save Data (Plugin -> Page)
 constexpr char kJSSaveDataType[] = "saveData";
 constexpr char kJSFileName[] = "fileName";
@@ -666,11 +666,17 @@ void OutOfProcessInstance::HandleMessage(const pp::Var& message) {
   } else if (type == kJSPrintType) {
     Print();
   } else if (type == kJSSaveType) {
-    if (!dict.Get(pp::Var(kJSToken)).is_string()) {
+    if (!(dict.Get(pp::Var(kJSToken)).is_string() &&
+          dict.Get(pp::Var(kJSForce)).is_bool())) {
       NOTREACHED();
       return;
     }
-    Save(dict.Get(pp::Var(kJSToken)).AsString());
+    const bool force = dict.Get(pp::Var(kJSForce)).AsBool();
+    if (force) {
+      SaveToBuffer(dict.Get(pp::Var(kJSToken)).AsString());
+    } else {
+      SaveToFile(dict.Get(pp::Var(kJSToken)).AsString());
+    }
   } else if (type == kJSRotateClockwiseType) {
     RotateClockwise();
   } else if (type == kJSRotateCounterclockwiseType) {
@@ -931,61 +937,14 @@ void OutOfProcessInstance::LoadAccessibility() {
 }
 
 void OutOfProcessInstance::SendNextAccessibilityPage(int32_t page_index) {
-  int page_count = engine_->GetNumberOfPages();
-  if (page_index < 0 || page_index >= page_count)
-    return;
-
-  int char_count = engine_->GetCharCount(page_index);
-
-  // Treat a char count of -1 (error) as 0 (an empty page), since
-  // other pages might have valid content.
-  if (char_count < 0)
-    char_count = 0;
-
   PP_PrivateAccessibilityPageInfo page_info;
-  page_info.page_index = page_index;
-  page_info.bounds = engine_->GetPageBoundsRect(page_index);
-  page_info.char_count = char_count;
-
-  std::vector<PP_PrivateAccessibilityCharInfo> chars(page_info.char_count);
-  for (uint32_t i = 0; i < page_info.char_count; ++i) {
-    chars[i].unicode_character = engine_->GetCharUnicode(page_index, i);
-  }
-
   std::vector<PP_PrivateAccessibilityTextRunInfo> text_runs;
-  int char_index = 0;
-  while (char_index < char_count) {
-    PP_PrivateAccessibilityTextRunInfo text_run_info;
-    pp::FloatRect bounds;
-    engine_->GetTextRunInfo(page_index, char_index, &text_run_info.len,
-                            &text_run_info.font_size, &bounds);
-    DCHECK_LE(char_index + text_run_info.len,
-              static_cast<uint32_t>(char_count));
-    text_run_info.direction = PP_PRIVATEDIRECTION_LTR;
-    text_run_info.bounds = bounds;
-    text_runs.push_back(text_run_info);
-
-    // We need to provide enough information to draw a bounding box
-    // around any arbitrary text range, but the bounding boxes of characters
-    // we get from PDFium don't necessarily "line up". Walk through the
-    // characters in each text run and let the width of each character be
-    // the difference between the x coordinate of one character and the
-    // x coordinate of the next. The rest of the bounds of each character
-    // can be computed from the bounds of the text run.
-    pp::FloatRect char_bounds = engine_->GetCharBounds(page_index, char_index);
-    for (uint32_t i = 0; i < text_run_info.len - 1; i++) {
-      DCHECK_LT(char_index + i + 1, static_cast<uint32_t>(char_count));
-      pp::FloatRect next_char_bounds =
-          engine_->GetCharBounds(page_index, char_index + i + 1);
-      chars[char_index + i].char_width = next_char_bounds.x() - char_bounds.x();
-      char_bounds = next_char_bounds;
-    }
-    chars[char_index + text_run_info.len - 1].char_width = char_bounds.width();
-
-    char_index += text_run_info.len;
+  std::vector<PP_PrivateAccessibilityCharInfo> chars;
+  if (!GetAccessibilityInfo(engine_.get(), page_index, &page_info, &text_runs,
+                            &chars)) {
+    return;
   }
 
-  page_info.text_run_count = text_runs.size();
   pp::PDF::SetAccessibilityPageInfo(GetPluginInstance(), &page_info,
                                     text_runs.data(), chars.data());
 
@@ -1473,35 +1432,56 @@ void OutOfProcessInstance::GetDocumentPassword(
   PostMessage(message);
 }
 
-void OutOfProcessInstance::Save(const std::string& token) {
-  engine_->KillFormFocus();
+bool OutOfProcessInstance::ShouldSaveEdits() const {
+  return edit_mode_ &&
+         base::FeatureList::IsEnabled(features::kSaveEditedPDFForm);
+}
 
-  if (!base::FeatureList::IsEnabled(features::kSaveEditedPDFForm) ||
-      !edit_mode_) {
-    ConsumeSaveToken(token);
-    pp::PDF::SaveAs(this);
-    return;
-  }
+void OutOfProcessInstance::SaveToBuffer(const std::string& token) {
+  engine_->KillFormFocus();
 
   GURL url(url_);
   std::string file_name = url.ExtractFileName();
   file_name = net::UnescapeURLComponent(file_name, net::UnescapeRule::SPACES);
-  std::vector<uint8_t> data = engine_->GetSaveData();
-
-  if (data.size() == 0u || data.size() > kMaximumSavedFileSize) {
-    // TODO(thestig): Add feedback to the user that a failure occurred.
-    ConsumeSaveToken(token);
-    return;
-  }
 
   pp::VarDictionary message;
   message.Set(kType, kJSSaveDataType);
   message.Set(kJSToken, pp::Var(token));
   message.Set(kJSFileName, pp::Var(file_name));
-  pp::VarArrayBuffer buffer(data.size());
-  std::copy(data.begin(), data.end(), reinterpret_cast<char*>(buffer.Map()));
-  message.Set(kJSDataToSave, buffer);
+  // This will be overwritten if the save is successful.
+  message.Set(kJSDataToSave, pp::Var(pp::Var::Null()));
+
+  if (ShouldSaveEdits()) {
+    std::vector<uint8_t> data = engine_->GetSaveData();
+    if (data.size() > 0 && data.size() <= kMaximumSavedFileSize) {
+      pp::VarArrayBuffer buffer(data.size());
+      std::copy(data.begin(), data.end(),
+                reinterpret_cast<char*>(buffer.Map()));
+      message.Set(kJSDataToSave, buffer);
+    }
+  } else {
+    DCHECK(base::FeatureList::IsEnabled(features::kPDFAnnotations));
+    uint32_t length = engine_->GetLoadedByteSize();
+    if (length > 0 && length <= kMaximumSavedFileSize) {
+      pp::VarArrayBuffer buffer(length);
+      if (engine_->ReadLoadedBytes(length, buffer.Map())) {
+        message.Set(kJSDataToSave, buffer);
+      }
+    }
+  }
+
   PostMessage(message);
+}
+
+void OutOfProcessInstance::SaveToFile(const std::string& token) {
+  if (!ShouldSaveEdits()) {
+    engine_->KillFormFocus();
+    ConsumeSaveToken(token);
+    pp::PDF::SaveAs(this);
+    return;
+  }
+
+  SaveToBuffer(token);
 }
 
 void OutOfProcessInstance::ConsumeSaveToken(const std::string& token) {
@@ -1633,8 +1613,6 @@ OutOfProcessInstance::SearchString(const base::char16* string,
 
   return results;
 }
-
-void OutOfProcessInstance::DocumentPaintOccurred() {}
 
 void OutOfProcessInstance::DocumentLoadComplete(
     const PDFEngine::DocumentFeatures& document_features,

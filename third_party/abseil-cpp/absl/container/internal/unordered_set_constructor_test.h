@@ -29,7 +29,7 @@ namespace container_internal {
 template <class UnordMap>
 class ConstructorTest : public ::testing::Test {};
 
-TYPED_TEST_CASE_P(ConstructorTest);
+TYPED_TEST_SUITE_P(ConstructorTest);
 
 TYPED_TEST_P(ConstructorTest, NoArgs) {
   TypeParam m;
@@ -405,4 +405,5 @@ REGISTER_TYPED_TEST_CASE_P(
 
 }  // namespace container_internal
 }  // namespace absl
+
 #endif  // ABSL_CONTAINER_INTERNAL_UNORDERED_SET_CONSTRUCTOR_TEST_H_

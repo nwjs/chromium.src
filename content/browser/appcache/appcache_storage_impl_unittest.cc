@@ -16,10 +16,10 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/location.h"
-#include "base/macros.h"
 #include "base/message_loop/message_loop.h"
 #include "base/sequenced_task_runner.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/threading/sequenced_task_runner_handle.h"
@@ -28,11 +28,13 @@
 #include "content/browser/appcache/appcache_backend_impl.h"
 #include "content/browser/appcache/appcache_database.h"
 #include "content/browser/appcache/appcache_entry.h"
+#include "content/browser/appcache/appcache_frontend.h"
 #include "content/browser/appcache/appcache_group.h"
 #include "content/browser/appcache/appcache_host.h"
 #include "content/browser/appcache/appcache_interceptor.h"
 #include "content/browser/appcache/appcache_request_handler.h"
 #include "content/browser/appcache/appcache_service_impl.h"
+#include "content/common/appcache_interfaces.h"
 #include "net/base/net_errors.h"
 #include "net/base/request_priority.h"
 #include "net/http/http_response_headers.h"
@@ -44,6 +46,8 @@
 #include "sql/test/test_helpers.h"
 #include "storage/browser/quota/quota_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
+#include "third_party/blink/public/mojom/appcache/appcache_info.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -91,14 +95,14 @@ class MockHttpServer {
         "\n";
 
     if (path == "/manifest") {
-      (*headers) = std::string(manifest_headers, arraysize(manifest_headers));
+      (*headers) = std::string(manifest_headers, base::size(manifest_headers));
       (*body) = "CACHE MANIFEST\n";
     } else if (path == "/empty.html") {
-      (*headers) = std::string(page_headers, arraysize(page_headers));
+      (*headers) = std::string(page_headers, base::size(page_headers));
       (*body) = "";
     } else {
-      (*headers) = std::string(not_found_headers,
-                               arraysize(not_found_headers));
+      (*headers) =
+          std::string(not_found_headers, base::size(not_found_headers));
       (*body) = "";
     }
   }
@@ -169,10 +173,12 @@ class AppCacheStorageImplTest : public testing::Test {
   class MockStorageDelegate : public AppCacheStorage::Delegate {
    public:
     explicit MockStorageDelegate(AppCacheStorageImplTest* test)
-        : loaded_cache_id_(0), stored_group_success_(false),
-          would_exceed_quota_(false), obsoleted_success_(false),
-          found_cache_id_(kAppCacheNoCacheId), test_(test) {
-    }
+        : loaded_cache_id_(0),
+          stored_group_success_(false),
+          would_exceed_quota_(false),
+          obsoleted_success_(false),
+          found_cache_id_(blink::mojom::kAppCacheNoCacheId),
+          test_(test) {}
 
     void OnCacheLoaded(AppCache* cache, int64_t cache_id) override {
       loaded_cache_ = cache;
@@ -962,10 +968,11 @@ class AppCacheStorageImplTest : public testing::Test {
   void Verify_FindNoMainResponse() {
     EXPECT_EQ(kEntryUrl, delegate()->found_url_);
     EXPECT_TRUE(delegate()->found_manifest_url_.is_empty());
-    EXPECT_EQ(kAppCacheNoCacheId, delegate()->found_cache_id_);
-    EXPECT_EQ(kAppCacheNoResponseId, delegate()->found_entry_.response_id());
-    EXPECT_EQ(kAppCacheNoResponseId,
-        delegate()->found_fallback_entry_.response_id());
+    EXPECT_EQ(blink::mojom::kAppCacheNoCacheId, delegate()->found_cache_id_);
+    EXPECT_EQ(blink::mojom::kAppCacheNoResponseId,
+              delegate()->found_entry_.response_id());
+    EXPECT_EQ(blink::mojom::kAppCacheNoResponseId,
+              delegate()->found_fallback_entry_.response_id());
     EXPECT_TRUE(delegate()->found_namespace_entry_url_.is_empty());
     EXPECT_EQ(0, delegate()->found_entry_.types());
     EXPECT_EQ(0, delegate()->found_fallback_entry_.types());
@@ -1225,10 +1232,11 @@ class AppCacheStorageImplTest : public testing::Test {
   void Verify_FindInterceptPatternMatchNegative() {
     EXPECT_EQ(kInterceptPatternTestNegativeUrl, delegate()->found_url_);
     EXPECT_TRUE(delegate()->found_manifest_url_.is_empty());
-    EXPECT_EQ(kAppCacheNoCacheId, delegate()->found_cache_id_);
-    EXPECT_EQ(kAppCacheNoResponseId, delegate()->found_entry_.response_id());
-    EXPECT_EQ(kAppCacheNoResponseId,
-        delegate()->found_fallback_entry_.response_id());
+    EXPECT_EQ(blink::mojom::kAppCacheNoCacheId, delegate()->found_cache_id_);
+    EXPECT_EQ(blink::mojom::kAppCacheNoResponseId,
+              delegate()->found_entry_.response_id());
+    EXPECT_EQ(blink::mojom::kAppCacheNoResponseId,
+              delegate()->found_fallback_entry_.response_id());
     EXPECT_TRUE(delegate()->found_namespace_entry_url_.is_empty());
     EXPECT_EQ(0, delegate()->found_entry_.types());
     EXPECT_EQ(0, delegate()->found_fallback_entry_.types());
@@ -1309,10 +1317,11 @@ class AppCacheStorageImplTest : public testing::Test {
   void Verify_FindFallbackPatternMatchNegative() {
     EXPECT_EQ(kFallbackPatternTestNegativeUrl, delegate()->found_url_);
       EXPECT_TRUE(delegate()->found_manifest_url_.is_empty());
-      EXPECT_EQ(kAppCacheNoCacheId, delegate()->found_cache_id_);
-      EXPECT_EQ(kAppCacheNoResponseId, delegate()->found_entry_.response_id());
-      EXPECT_EQ(kAppCacheNoResponseId,
-          delegate()->found_fallback_entry_.response_id());
+      EXPECT_EQ(blink::mojom::kAppCacheNoCacheId, delegate()->found_cache_id_);
+      EXPECT_EQ(blink::mojom::kAppCacheNoResponseId,
+                delegate()->found_entry_.response_id());
+      EXPECT_EQ(blink::mojom::kAppCacheNoResponseId,
+                delegate()->found_fallback_entry_.response_id());
       EXPECT_TRUE(delegate()->found_namespace_entry_url_.is_empty());
       EXPECT_EQ(0, delegate()->found_entry_.types());
       EXPECT_EQ(0, delegate()->found_fallback_entry_.types());
@@ -1557,11 +1566,12 @@ class AppCacheStorageImplTest : public testing::Test {
   void Verify_ExclusionNotFound(GURL expected_url, int phase) {
     EXPECT_EQ(expected_url, delegate()->found_url_);
     EXPECT_TRUE(delegate()->found_manifest_url_.is_empty());
-    EXPECT_EQ(kAppCacheNoCacheId, delegate()->found_cache_id_);
+    EXPECT_EQ(blink::mojom::kAppCacheNoCacheId, delegate()->found_cache_id_);
     EXPECT_EQ(0, delegate()->found_group_id_);
-    EXPECT_EQ(kAppCacheNoResponseId, delegate()->found_entry_.response_id());
-    EXPECT_EQ(kAppCacheNoResponseId,
-        delegate()->found_fallback_entry_.response_id());
+    EXPECT_EQ(blink::mojom::kAppCacheNoResponseId,
+              delegate()->found_entry_.response_id());
+    EXPECT_EQ(blink::mojom::kAppCacheNoResponseId,
+              delegate()->found_fallback_entry_.response_id());
     EXPECT_TRUE(delegate()->found_namespace_entry_url_.is_empty());
     EXPECT_EQ(0, delegate()->found_entry_.types());
     EXPECT_EQ(0, delegate()->found_fallback_entry_.types());
@@ -1614,17 +1624,19 @@ class AppCacheStorageImplTest : public testing::Test {
    public:
     MockAppCacheFrontend() : error_event_was_raised_(false) {}
 
-    void OnCacheSelected(int host_id, const AppCacheInfo& info) override {}
+    void OnCacheSelected(int host_id,
+                         const blink::mojom::AppCacheInfo& info) override {}
     void OnStatusChanged(const std::vector<int>& host_ids,
-                         AppCacheStatus status) override {}
+                         blink::mojom::AppCacheStatus status) override {}
     void OnEventRaised(const std::vector<int>& host_ids,
-                       AppCacheEventID event_id) override {}
+                       blink::mojom::AppCacheEventID event_id) override {}
     void OnProgressEventRaised(const std::vector<int>& host_ids,
                                const GURL& url,
                                int num_total,
                                int num_complete) override {}
-    void OnErrorEventRaised(const std::vector<int>& host_ids,
-                            const AppCacheErrorDetails& details) override {
+    void OnErrorEventRaised(
+        const std::vector<int>& host_ids,
+        const blink::mojom::AppCacheErrorDetails& details) override {
       error_event_was_raised_ = true;
     }
     void OnLogMessage(int host_id,
@@ -1680,6 +1692,14 @@ class AppCacheStorageImplTest : public testing::Test {
       EXPECT_EQ(static_cast<int>(kCorruptData.length()),
                 base::WriteFile(
                     index_file, kCorruptData.data(), kCorruptData.length()));
+
+      // Also add a corrupt entry file so that simple disk_cache does not try
+      // to automatically recover from the corrupted index.
+      base::FilePath entry_file =
+          disk_cache_directory.AppendASCII("01234567_0");
+      EXPECT_EQ(static_cast<int>(kCorruptData.length()),
+                base::WriteFile(entry_file, kCorruptData.data(),
+                                kCorruptData.length()));
     }
 
     // Create records for a degenerate cached manifest that only contains
@@ -1749,9 +1769,8 @@ class AppCacheStorageImplTest : public testing::Test {
       backend_->RegisterHost(1);
       AppCacheHost* host1 = backend_->GetHost(1);
       const GURL kEmptyPageUrl(MockHttpServer::GetMockUrl("empty.html"));
-      host1->first_party_url_ = kEmptyPageUrl;
-      host1->SelectCache(kEmptyPageUrl,
-                         kAppCacheNoCacheId,
+      host1->SetFirstPartyUrlForTesting(kEmptyPageUrl);
+      host1->SelectCache(kEmptyPageUrl, blink::mojom::kAppCacheNoCacheId,
                          MockHttpServer::GetMockUrl("manifest"));
     } else {
       ASSERT_EQ(CORRUPT_CACHE_ON_LOAD_EXISTING, test_case);

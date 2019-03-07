@@ -6,7 +6,10 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/loader/fetch/console_logger.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/testing/mock_fetch_context.h"
+#include "third_party/blink/renderer/platform/loader/testing/test_resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
 
@@ -44,13 +47,17 @@ class MockClient final : public GarbageCollectedFinalized<MockClient>,
     EXPECT_FALSE(was_run_);
     was_run_ = true;
   }
+  ConsoleLogger* GetConsoleLogger() override { return console_logger_; }
   bool WasRun() { return was_run_; }
 
   void Trace(blink::Visitor* visitor) override {
     ResourceLoadSchedulerClient::Trace(visitor);
+    visitor->Trace(console_logger_);
   }
 
  private:
+  Member<ConsoleLogger> console_logger_ =
+      MakeGarbageCollected<NullConsoleLogger>();
   MockClientDelegate* delegate_;
   bool was_run_ = false;
 };
@@ -60,8 +67,15 @@ class ResourceLoadSchedulerTest : public testing::Test {
   using ThrottleOption = ResourceLoadScheduler::ThrottleOption;
   void SetUp() override {
     DCHECK(RuntimeEnabledFeatures::ResourceLoadSchedulerEnabled());
-    scheduler_ = ResourceLoadScheduler::Create(
-        MockFetchContext::Create(MockFetchContext::kShouldNotLoadNewResource));
+    auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>();
+    properties->SetShouldBlockLoadingMainResource(true);
+    properties->SetShouldBlockLoadingSubResource(true);
+    auto* context = MakeGarbageCollected<MockFetchContext>();
+    MakeGarbageCollected<ResourceFetcher>(
+        ResourceFetcherInit(*properties, context,
+                            base::MakeRefCounted<scheduler::FakeTaskRunner>()));
+    scheduler_ = MakeGarbageCollected<ResourceLoadScheduler>(
+        ResourceLoadScheduler::ThrottlingPolicy::kTight, context);
     Scheduler()->SetOutstandingLimitForTesting(1);
   }
   void TearDown() override { Scheduler()->Shutdown(); }

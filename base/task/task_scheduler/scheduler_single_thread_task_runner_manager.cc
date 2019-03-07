@@ -13,6 +13,7 @@
 #include "base/callback.h"
 #include "base/memory/ptr_util.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/atomic_flag.h"
 #include "base/task/task_scheduler/delayed_task_manager.h"
@@ -103,9 +104,8 @@ class SchedulerWorkerDelegate : public SchedulerWorker::Delegate {
   }
 
   scoped_refptr<Sequence> GetWork(SchedulerWorker* worker) override {
-    std::unique_ptr<PriorityQueue::Transaction> transaction(
-        priority_queue_.BeginTransaction());
-    return transaction->IsEmpty() ? nullptr : transaction->PopSequence();
+    auto transaction = priority_queue_.BeginTransaction();
+    return transaction.IsEmpty() ? nullptr : transaction.PopSequence();
   }
 
   void DidRunTask() override {}
@@ -118,10 +118,9 @@ class SchedulerWorkerDelegate : public SchedulerWorker::Delegate {
   void ReEnqueueSequence(SequenceAndTransaction sequence_and_transaction) {
     const SequenceSortKey sequence_sort_key =
         sequence_and_transaction.transaction.GetSortKey();
-    std::unique_ptr<PriorityQueue::Transaction> transaction(
-        priority_queue_.BeginTransaction());
-    transaction->Push(std::move(sequence_and_transaction.sequence),
-                      sequence_sort_key);
+    auto transaction = priority_queue_.BeginTransaction();
+    transaction.Push(std::move(sequence_and_transaction.sequence),
+                     sequence_sort_key);
   }
 
   TimeDelta GetSleepTimeout() override { return TimeDelta::Max(); }
@@ -212,8 +211,8 @@ class SchedulerWorkerCOMDelegate : public SchedulerWorkerDelegate {
   void WaitForWork(WaitableEvent* wake_up_event) override {
     DCHECK(wake_up_event);
     const TimeDelta sleep_time = GetSleepTimeout();
-    const DWORD milliseconds_wait =
-        sleep_time.is_max() ? INFINITE : sleep_time.InMilliseconds();
+    const DWORD milliseconds_wait = checked_cast<DWORD>(
+        sleep_time.is_max() ? INFINITE : sleep_time.InMilliseconds());
     const HANDLE wake_up_event_handle = wake_up_event->handle();
     MsgWaitForMultipleObjectsEx(1, &wake_up_event_handle, milliseconds_wait,
                                 QS_ALLINPUT, 0);
@@ -373,14 +372,17 @@ SchedulerSingleThreadTaskRunnerManager::SchedulerSingleThreadTaskRunnerManager(
   DCHECK(task_tracker_);
   DCHECK(delayed_task_manager_);
 #if defined(OS_WIN)
-  static_assert(arraysize(shared_com_scheduler_workers_) ==
-                    arraysize(shared_scheduler_workers_),
+  static_assert(std::extent<decltype(shared_com_scheduler_workers_)>() ==
+                    std::extent<decltype(shared_scheduler_workers_)>(),
                 "The size of |shared_com_scheduler_workers_| must match "
                 "|shared_scheduler_workers_|");
-  static_assert(arraysize(shared_com_scheduler_workers_[0]) ==
-                    arraysize(shared_scheduler_workers_[0]),
-                "The size of |shared_com_scheduler_workers_| must match "
-                "|shared_scheduler_workers_|");
+  static_assert(
+      std::extent<std::remove_reference<decltype(
+              shared_com_scheduler_workers_[0])>>() ==
+          std::extent<
+              std::remove_reference<decltype(shared_scheduler_workers_[0])>>(),
+      "The size of |shared_com_scheduler_workers_| must match "
+      "|shared_scheduler_workers_|");
 #endif  // defined(OS_WIN)
   DCHECK(!g_manager_is_alive);
   g_manager_is_alive = true;
@@ -551,7 +553,6 @@ SchedulerSingleThreadTaskRunnerManager::CreateAndRegisterSchedulerWorker(
     const std::string& name,
     SingleThreadTaskRunnerThreadMode thread_mode,
     ThreadPriority priority_hint) {
-  lock_.AssertAcquired();
   int id = next_worker_id_++;
   std::unique_ptr<SchedulerWorkerDelegate> delegate =
       CreateSchedulerWorkerDelegate<DelegateType>(name, id, thread_mode);
@@ -612,8 +613,8 @@ void SchedulerSingleThreadTaskRunnerManager::ReleaseSharedSchedulerWorkers() {
 #endif
   {
     AutoSchedulerLock auto_lock(lock_);
-    for (size_t i = 0; i < arraysize(shared_scheduler_workers_); ++i) {
-      for (size_t j = 0; j < arraysize(shared_scheduler_workers_[i]); ++j) {
+    for (size_t i = 0; i < base::size(shared_scheduler_workers_); ++i) {
+      for (size_t j = 0; j < base::size(shared_scheduler_workers_[i]); ++j) {
         local_shared_scheduler_workers[i][j] = shared_scheduler_workers_[i][j];
         shared_scheduler_workers_[i][j] = nullptr;
 #if defined(OS_WIN)
@@ -625,8 +626,8 @@ void SchedulerSingleThreadTaskRunnerManager::ReleaseSharedSchedulerWorkers() {
     }
   }
 
-  for (size_t i = 0; i < arraysize(local_shared_scheduler_workers); ++i) {
-    for (size_t j = 0; j < arraysize(local_shared_scheduler_workers[i]); ++j) {
+  for (size_t i = 0; i < base::size(local_shared_scheduler_workers); ++i) {
+    for (size_t j = 0; j < base::size(local_shared_scheduler_workers[i]); ++j) {
       if (local_shared_scheduler_workers[i][j])
         UnregisterSchedulerWorker(local_shared_scheduler_workers[i][j]);
 #if defined(OS_WIN)

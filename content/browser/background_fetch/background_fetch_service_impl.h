@@ -14,15 +14,13 @@
 #include "base/memory/ref_counted.h"
 #include "content/browser/background_fetch/background_fetch_context.h"
 #include "content/common/content_export.h"
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
 #include "url/origin.h"
 
 namespace content {
 
 class BackgroundFetchContext;
-class RenderFrameHost;
 class RenderProcessHost;
-struct BackgroundFetchOptions;
 
 class CONTENT_EXPORT BackgroundFetchServiceImpl
     : public blink::mojom::BackgroundFetchService {
@@ -30,7 +28,8 @@ class CONTENT_EXPORT BackgroundFetchServiceImpl
   BackgroundFetchServiceImpl(
       scoped_refptr<BackgroundFetchContext> background_fetch_context,
       url::Origin origin,
-      RenderFrameHost* render_frame_host);
+      int render_frame_tree_node_id,
+      ResourceRequestInfo::WebContentsGetter wc_getter);
   ~BackgroundFetchServiceImpl() override;
 
   static void CreateForWorker(
@@ -47,7 +46,7 @@ class CONTENT_EXPORT BackgroundFetchServiceImpl
   void Fetch(int64_t service_worker_registration_id,
              const std::string& developer_id,
              std::vector<blink::mojom::FetchAPIRequestPtr> requests,
-             const BackgroundFetchOptions& options,
+             blink::mojom::BackgroundFetchOptionsPtr options,
              const SkBitmap& icon,
              blink::mojom::BackgroundFetchUkmDataPtr ukm_data,
              FetchCallback callback) override;
@@ -82,7 +81,8 @@ class CONTENT_EXPORT BackgroundFetchServiceImpl
   static void CreateOnIoThread(
       scoped_refptr<BackgroundFetchContext> background_fetch_context,
       url::Origin origin,
-      RenderFrameHost* render_frame_host,
+      int render_frame_tree_node_id,
+      ResourceRequestInfo::WebContentsGetter wc_getter,
       blink::mojom::BackgroundFetchServiceRequest request);
 
   // Validates and returns whether the |developer_id|, |unique_id|, |requests|
@@ -99,7 +99,8 @@ class CONTENT_EXPORT BackgroundFetchServiceImpl
 
   const url::Origin origin_;
 
-  RenderFrameHost* render_frame_host_;
+  int render_frame_tree_node_id_;
+  ResourceRequestInfo::WebContentsGetter wc_getter_;
 
   DISALLOW_COPY_AND_ASSIGN(BackgroundFetchServiceImpl);
 };

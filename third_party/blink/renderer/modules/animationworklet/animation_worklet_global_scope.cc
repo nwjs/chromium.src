@@ -39,7 +39,8 @@ void UpdateAnimation(Animator* animator,
 AnimationWorkletGlobalScope* AnimationWorkletGlobalScope::Create(
     std::unique_ptr<GlobalScopeCreationParams> creation_params,
     WorkerThread* thread) {
-  return new AnimationWorkletGlobalScope(std::move(creation_params), thread);
+  return MakeGarbageCollected<AnimationWorkletGlobalScope>(
+      std::move(creation_params), thread);
 }
 
 AnimationWorkletGlobalScope::AnimationWorkletGlobalScope(
@@ -191,9 +192,16 @@ void AnimationWorkletGlobalScope::registerAnimator(
     return;
 
   AnimatorDefinition* definition =
-      new AnimatorDefinition(isolate, constructor, animate);
+      MakeGarbageCollected<AnimatorDefinition>(isolate, constructor, animate);
 
   animator_definitions_.Set(name, definition);
+  // TODO(yigu): Currently one animator name is synced back per registration.
+  // Eventually all registered names should be synced in batch once a module
+  // completes its loading in the worklet scope. https://crbug.com/920722.
+  if (AnimationWorkletProxyClient* proxy_client =
+          AnimationWorkletProxyClient::From(Clients())) {
+    proxy_client->SynchronizeAnimatorName(name);
+  }
 }
 
 Animator* AnimationWorkletGlobalScope::CreateInstance(
@@ -220,7 +228,8 @@ Animator* AnimationWorkletGlobalScope::CreateInstance(
            .ToLocal(&instance))
     return nullptr;
 
-  return new Animator(isolate, definition, instance, num_effects);
+  return MakeGarbageCollected<Animator>(isolate, definition, instance,
+                                        num_effects);
 }
 
 AnimatorDefinition* AnimationWorkletGlobalScope::FindDefinitionForTest(

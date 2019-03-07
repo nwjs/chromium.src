@@ -13,7 +13,7 @@
 #include "base/callback_forward.h"
 #include "base/memory/weak_ptr.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/leveldb_proto/proto_database.h"
+#include "components/leveldb_proto/public/proto_database.h"
 
 namespace autofill {
 class StrikeData;
@@ -22,6 +22,10 @@ class StrikeData;
 // the user. Projects can earn strikes in a number of ways; for instance, if a
 // user ignores or declines a prompt, or if a user accepts a prompt but the task
 // fails.
+// This class is a Singleton which contains StrikeData information for all
+// projects. It should not be used directly, but rather by implementing the
+// StrikeDatabaseIntegratorBase (which contains a pointer to StrikeDatabase)
+// for specific projects.
 class StrikeDatabase : public KeyedService {
  public:
   using ClearStrikesCallback = base::RepeatingCallback<void(bool success)>;
@@ -43,19 +47,23 @@ class StrikeDatabase : public KeyedService {
   explicit StrikeDatabase(const base::FilePath& database_dir);
   ~StrikeDatabase() override;
 
-  bool IsMaxStrikesLimitReached(const std::string id);
+  // Increases in-memory cache by |strikes_increase| and updates underlying
+  // ProtoDatabase.
+  int AddStrikes(int strikes_increase, const std::string key);
 
-  // Increments in-memory cache and updates underlying ProtoDatabase.
-  int AddStrike(const std::string id);
+  // Removes |strikes_decrease| in-memory cache strikes, updates
+  // last_update_timestamp, and updates underlying ProtoDatabase.
+  int RemoveStrikes(int strikes_decrease, const std::string key);
 
   // Returns strike count from in-memory cache.
-  int GetStrikes(const std::string id);
+  int GetStrikes(const std::string key);
 
   // Removes all database entries from in-memory cache and underlying
   // ProtoDatabase.
-  void ClearStrikes(const std::string id);
+  void ClearStrikes(const std::string key);
 
  protected:
+  friend class StrikeDatabaseIntegratorBase;
   // Constructor for testing that does not initialize a ProtoDatabase.
   StrikeDatabase();
 
@@ -80,6 +88,10 @@ class StrikeDatabase : public KeyedService {
                            StrikeDatabaseEmptyOnAutofillRemoveEverything);
   FRIEND_TEST_ALL_PREFIXES(CreditCardSaveStrikeDatabaseTest,
                            GetKeyForCreditCardSaveTest);
+  FRIEND_TEST_ALL_PREFIXES(CreditCardSaveStrikeDatabaseTest,
+                           GetIdForCreditCardSaveTest);
+  FRIEND_TEST_ALL_PREFIXES(CreditCardSaveStrikeDatabaseTest,
+                           RemoveExpiredStrikesOnLoadTest);
   friend class StrikeDatabaseTest;
   friend class StrikeDatabaseTester;
 
@@ -89,16 +101,9 @@ class StrikeDatabase : public KeyedService {
       bool success,
       std::unique_ptr<std::map<std::string, StrikeData>> entries);
 
-  // Returns a prefix unique to each project, which will be used to create
-  // database key.
-  virtual std::string GetProjectPrefix() = 0;
-
-  // Returns the maximum number of strikes after which the project's Autofill
-  // opportunity stops being offered.
-  virtual int GetMaxStrikesLimit() = 0;
-
-  // Generates key based on project-specific string identifier.
-  std::string GetKey(const std::string id);
+  // Updates the StrikeData for |key| in the cache and ProtoDatabase to have
+  // |num_stikes|, and the current time as timestamp.
+  void SetStrikeData(const std::string key, int num_strikes);
 
   // Passes the number of strikes for |key| to |outer_callback|. In the case
   // that the database fails to retrieve the strike update or if no entry is

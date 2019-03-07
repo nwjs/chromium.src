@@ -227,6 +227,8 @@ jumbo_source_set("browser_sources") {
     "guest_view/guest_view_events.h",
     "guest_view/mime_handler_view/mime_handler_stream_manager.cc",
     "guest_view/mime_handler_view/mime_handler_stream_manager.h",
+    "guest_view/mime_handler_view/mime_handler_view_attach_helper.cc",
+    "guest_view/mime_handler_view/mime_handler_view_attach_helper.h",
     "guest_view/mime_handler_view/mime_handler_view_constants.cc",
     "guest_view/mime_handler_view/mime_handler_view_constants.h",
     "guest_view/mime_handler_view/mime_handler_view_guest.cc",
@@ -273,6 +275,7 @@ jumbo_source_set("browser_sources") {
     "lazy_background_task_queue_factory.h",
     "lazy_context_id.cc",
     "lazy_context_id.h",
+    "lazy_context_task_queue.cc",
     "lazy_context_task_queue.h",
     "load_monitoring_extension_host_queue.cc",
     "load_monitoring_extension_host_queue.h",
@@ -506,8 +509,12 @@ source_set("browser_tests") {
 
     deps += [
       "//chromeos",
-      "//chromeos:media_perception_proto",
-      "//chromeos:power_manager_proto",
+      "//chromeos/audio",
+      "//chromeos/dbus:media_perception_proto",
+      "//chromeos/dbus:power_manager_proto",
+      "//chromeos/dbus:test_support",
+      "//chromeos/login/login_state",
+      "//chromeos/network",
     ]
   }
 }
@@ -692,8 +699,11 @@ source_set("unit_tests") {
     ]
 
     deps += [
-      "//chromeos:media_perception_proto",
       "//chromeos:test_support",
+      "//chromeos/dbus:media_perception_proto",
+      "//chromeos/dbus:test_support",
+      "//chromeos/login/login_state",
+      "//chromeos/network:test_support",
       "//components/feedback",
       "//extensions/shell:app_shell_lib",
     ]

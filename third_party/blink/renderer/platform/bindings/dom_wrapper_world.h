@@ -45,7 +45,6 @@
 namespace blink {
 
 class DOMDataStore;
-class DOMObjectHolderBase;
 class ScriptWrappable;
 class SecurityOrigin;
 
@@ -122,8 +121,11 @@ class PLATFORM_EXPORT DOMWrapperWorld : public RefCounted<DOMWrapperWorld> {
   // Associates an isolated world (see above for description) with a security
   // origin. XMLHttpRequest instances used in that world will be considered
   // to come from that origin, not the frame's.
-  static void SetIsolatedWorldSecurityOrigin(int world_id,
-                                             scoped_refptr<SecurityOrigin>);
+  // Note: if |security_origin| is null, the security origin stored for the
+  // isolated world is cleared.
+  static void SetIsolatedWorldSecurityOrigin(
+      int world_id,
+      scoped_refptr<SecurityOrigin> security_origin);
   SecurityOrigin* IsolatedWorldSecurityOrigin();
 
   static bool HasWrapperInAnyWorldInMainThread(ScriptWrappable*);
@@ -138,57 +140,8 @@ class PLATFORM_EXPORT DOMWrapperWorld : public RefCounted<DOMWrapperWorld> {
   int GetWorldId() const { return world_id_; }
   DOMDataStore& DomDataStore() const { return *dom_data_store_; }
 
-  template <typename T>
-  void RegisterDOMObjectHolder(v8::Isolate* isolate,
-                               T* object,
-                               v8::Local<v8::Value> wrapper) {
-    RegisterDOMObjectHolderInternal(
-        DOMObjectHolder<T>::Create(isolate, object, wrapper));
-  }
-
  private:
-  class DOMObjectHolderBase {
-    USING_FAST_MALLOC(DOMObjectHolderBase);
-
-   public:
-    DOMObjectHolderBase(v8::Isolate* isolate, v8::Local<v8::Value> wrapper)
-        : wrapper_(isolate, wrapper), world_(nullptr) {}
-    virtual ~DOMObjectHolderBase() = default;
-
-    DOMWrapperWorld* World() const { return world_; }
-    void SetWorld(DOMWrapperWorld* world) { world_ = world; }
-    void SetWeak(v8::WeakCallbackInfo<DOMObjectHolderBase>::Callback callback) {
-      wrapper_.SetWeak(this, callback);
-    }
-
-   private:
-    ScopedPersistent<v8::Value> wrapper_;
-    DOMWrapperWorld* world_;
-  };
-
-  template <typename T>
-  class DOMObjectHolder : public DOMObjectHolderBase {
-   public:
-    static std::unique_ptr<DOMObjectHolder<T>>
-    Create(v8::Isolate* isolate, T* object, v8::Local<v8::Value> wrapper) {
-      return base::WrapUnique(new DOMObjectHolder(isolate, object, wrapper));
-    }
-
-   private:
-    DOMObjectHolder(v8::Isolate* isolate,
-                    T* object,
-                    v8::Local<v8::Value> wrapper)
-        : DOMObjectHolderBase(isolate, wrapper), object_(object) {}
-
-    Persistent<T> object_;
-  };
-
   DOMWrapperWorld(v8::Isolate*, WorldType, int world_id);
-
-  static void WeakCallbackForDOMObjectHolder(
-      const v8::WeakCallbackInfo<DOMObjectHolderBase>&);
-  void RegisterDOMObjectHolderInternal(std::unique_ptr<DOMObjectHolderBase>);
-  void UnregisterDOMObjectHolder(DOMObjectHolderBase*);
 
   static unsigned number_of_non_main_worlds_in_main_thread_;
 
@@ -224,7 +177,6 @@ class PLATFORM_EXPORT DOMWrapperWorld : public RefCounted<DOMWrapperWorld> {
   const WorldType world_type_;
   const int world_id_;
   std::unique_ptr<DOMDataStore> dom_data_store_;
-  HashSet<std::unique_ptr<DOMObjectHolderBase>> dom_object_holders_;
 };
 
 }  // namespace blink

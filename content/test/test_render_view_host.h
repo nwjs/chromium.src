@@ -103,7 +103,7 @@ class TestRenderWidgetHostView : public RenderWidgetHostViewBase,
   void SetNeedsBeginFrames(bool needs_begin_frames) override {}
   void SetWantsAnimateOnlyBeginFrames() override {}
   void TakeFallbackContentFrom(RenderWidgetHostView* view) override;
-  void EnsureSurfaceSynchronizedForLayoutTest() override {}
+  void EnsureSurfaceSynchronizedForWebTest() override {}
 
   // RenderWidgetHostViewBase:
   void InitAsPopup(RenderWidgetHostView* parent_host_view,
@@ -219,7 +219,7 @@ class TestRenderViewHost
   // RenderViewHostImpl, see below.
   void SimulateWasHidden() override;
   void SimulateWasShown() override;
-  WebPreferences TestComputeWebkitPrefs() override;
+  WebPreferences TestComputeWebPreferences() override;
 
   void TestOnUpdateStateWithFile(const base::FilePath& file_path);
 

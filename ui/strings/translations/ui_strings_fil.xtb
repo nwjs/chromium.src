@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{1 araw ang nakalipas}one{# araw ang nakalipas}other{# na araw ang nakalipas}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{1 minuto ang nakalipas}one{# minuto ang nakalipas}other{# na minuto ang nakalipas}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1 minuto}one{# minuto}other{# na minuto}}</translation>
+<translation id="1181037720776840403">Alisin</translation>
 <translation id="1243314992276662751">I-upload</translation>
 <translation id="1269641567813814718">Win</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">Down Arrow</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 araw}one{# araw}other{# na araw}}</translation>
 <translation id="335581015389089642">Pananalita</translation>
+<translation id="3462241349431650993">Kapag itinago ang suhestyong ito, hindi ito muling ipapakita mula sa iyong account sa lahat ng device mo.</translation>
 <translation id="3479552764303398839">Hindi ngayon</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{1 araw na lang ang natitira}one{# araw na lang ang natitira}other{# na araw na lang ang natitira}}</translation>
+<translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">Hanapin ang “<ph name="LOOKUP_STRING" />”</translation>
 <translation id="364720409959344976">Pumili ng Folder na I-a-upload</translation>
 <translation id="3660179305079774227">Up Arrow</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{1 segundo ang nakalipas}one{# segundo ang nakalipas}other{# na segundo ang nakalipas}}</translation>
 <translation id="654149438358937226">I-block ang lahat ng notification</translation>
 <translation id="6567071839949112727">i-click ang ancestor</translation>
+<translation id="6578407462441924264">Walang Pangalan</translation>
 <translation id="6612467943526193239">Upang lumabas sa pag-calibrate pindutin ang Esc.</translation>
 <translation id="6620110761915583480">I-save ang File</translation>
 <translation id="6699343763173986273">Susunod na Track ng Media</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 oras ang nakalipas}one{# oras ang nakalipas}other{# na oras ang nakalipas}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 segundo na lang ang natitira}one{# segundo na lang ang natitira}other{# na segundo na lang ang natitira}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />, Autocomplete</translation>
 <translation id="815598010540052116">Mag-scroll Pababa</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Page Down</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">I-tsek</translation>
 <translation id="8393700583063109961">Ipadala ang mensahe</translation>
 <translation id="8394908167088220973">I-Play/I-Pause ang Media</translation>
+<translation id="8420205633584771378">Alisin ang suhestyong ito?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 taon}one{# taon}other{# na taon}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> File (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> KB/s</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">Button na Bumalik</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> KB</translation>
 <translation id="9002566407876343676">buksan</translation>
-<translation id="9038489124413477075">Walang Pangalan na Folder</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 segundo}one{# segundo}other{# na segundo}}</translation>
 <translation id="9059834730836941392">I-collapse ang notification</translation>
 <translation id="9150735707954472829">Tab</translation>

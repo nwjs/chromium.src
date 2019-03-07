@@ -80,6 +80,8 @@ class COMPONENT_EXPORT(TRACING_CPP) ProducerClient
   // Returns the taskrunner used by Perfetto.
   static base::SequencedTaskRunner* GetTaskRunner();
 
+  void Connect(mojom::PerfettoServicePtr perfetto_service);
+
   // Create the messagepipes that'll be used to connect
   // to the service-side ProducerHost, on the correct
   // sequence. The callback will be called on same sequence
@@ -117,6 +119,8 @@ class COMPONENT_EXPORT(TRACING_CPP) ProducerClient
       perfetto::BufferID target_buffer) override;
   void NotifyFlushComplete(perfetto::FlushRequestID) override;
   perfetto::SharedMemory* shared_memory() const override;
+  void RegisterTraceWriter(uint32_t writer_id, uint32_t target_buffer) override;
+  void UnregisterTraceWriter(uint32_t writer_id) override;
 
   // These ProducerEndpoint functions are only used on the service
   // side and should not be called on the clients.

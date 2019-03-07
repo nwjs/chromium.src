@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{قبل يوم واحد}zero{قبل # من الأيام}two{قبل يومين (#)}few{قبل # أيام}many{قبل # يومًا}other{قبل # من الأيام}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{قبل دقيقة واحدة}zero{قبل # دقيقة}two{قبل دقيقتين (#)}few{قبل # دقائق}many{قبل # دقيقة}other{قبل # دقيقة}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{دقيقة واحدة}zero{# دقيقة}two{دقيقتان (#)}few{# دقائق}many{# دقيقة}other{# دقيقة}}</translation>
+<translation id="1181037720776840403">إزالة</translation>
 <translation id="1243314992276662751">تحميل</translation>
 <translation id="1269641567813814718">الفوز</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">مفتاح سهم  إلى أسفل</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{يوم واحد}zero{# من الأيام}two{يومان (#)}few{# أيام}many{# يومًا}other{# من الأيام}}</translation>
 <translation id="335581015389089642">الحديث</translation>
+<translation id="3462241349431650993">لن يؤدي إخفاء هذا الاقتراح إلى عرضه مرة أخرى من حسابك على جميع أجهزتك.</translation>
 <translation id="3479552764303398839">ليس الآن</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{يتبقى يوم واحد}zero{يتبقى عدد # من الأيام}two{يتبقى يومان (#)}few{يتبقى # أيام}many{يتبقى # يومًا}other{يتبقى # من الأيام}}</translation>
+<translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">البحث عن "<ph name="LOOKUP_STRING" />"</translation>
 <translation id="364720409959344976">حدد مجلدًا للتحميل</translation>
 <translation id="3660179305079774227">مفتاح سهم إلى أعلى</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{قبل ثانية واحدة}zero{قبل # ثانية}two{قبل ثانيتين (#)}few{قبل # ثوانٍ}many{قبل # ثانية}other{قبل # ثانية}}</translation>
 <translation id="654149438358937226">حظر جميع الإشعارات</translation>
 <translation id="6567071839949112727">النقر على العنصر الأصل</translation>
+<translation id="6578407462441924264">بدون اسم</translation>
 <translation id="6612467943526193239">‏للخروج من المعايرة، اضغط على Esc.</translation>
 <translation id="6620110761915583480">حفظ الملف</translation>
 <translation id="6699343763173986273">المقطع الصوتي التالي للوسائط</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{قبل ساعة واحدة}zero{قبل # من الساعات}two{قبل ساعتين (#)}few{قبل # ساعات}many{قبل # ساعة}other{قبل # من الساعات}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{يتبقى ثانية واحدة}zero{يتبقى # من الثواني}two{يتبقى ثانيتان (#)}few{يتبقى # ثوانٍ}many{يتبقى # ثانية}other{يتبقى # من الثواني}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />، الإكمال التلقائي</translation>
 <translation id="815598010540052116">التمرير إلى أسفل</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">صفحة  إلى أسفل</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">الاختيار</translation>
 <translation id="8393700583063109961">إرسال رسالة</translation>
 <translation id="8394908167088220973">تشغيل/إيقاف الوسائط</translation>
+<translation id="8420205633584771378">هل تريد إزالة هذا الاقتراح؟</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{عام واحد}zero{# عام}two{عامان (#)}few{# أعوام}many{# عامًا}other{# عام}}</translation>
 <translation id="8602707065186045623">ملف <ph name="SAVEAS_EXTENSION_TYPE" /> (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> كيلوبايت/ثانية</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">زر الرجوع</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> كيلوبايت</translation>
 <translation id="9002566407876343676">الفتح</translation>
-<translation id="9038489124413477075">مجلد بدون اسم</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{ثانية واحدة}zero{# ثانية}two{ثانيتان (#)}few{# ثوانٍ}many{# ثانية}other{# من الثواني}}</translation>
 <translation id="9059834730836941392">تصغير الإشعار</translation>
 <translation id="9150735707954472829">علامة تبويب</translation>

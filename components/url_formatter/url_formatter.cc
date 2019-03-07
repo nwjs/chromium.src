@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "base/lazy_instance.h"
-#include "base/macros.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/stl_util.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_offset_string_conversions.h"
@@ -63,7 +63,7 @@ class AppendComponentTransform {
 
 class HostComponentTransform : public AppendComponentTransform {
  public:
-  HostComponentTransform(bool trim_trivial_subdomains)
+  explicit HostComponentTransform(bool trim_trivial_subdomains)
       : trim_trivial_subdomains_(trim_trivial_subdomains) {}
 
  private:
@@ -202,7 +202,7 @@ base::string16 FormatViewSourceUrl(
     base::OffsetAdjuster::Adjustments* adjustments) {
   DCHECK(new_parsed);
   const char kViewSource[] = "view-source:";
-  const size_t kViewSourceLength = arraysize(kViewSource) - 1;
+  const size_t kViewSourceLength = base::size(kViewSource) - 1;
 
   // Format the underlying URL and record adjustments.
   const std::string& url_str(url.possibly_invalid_spec());
@@ -365,7 +365,7 @@ IDNConversionStatus IDNToUnicodeOneComponent(const base::char16* comp,
   IDNConversionStatus idn_status = NO_IDN;
   // Only transform if the input can be an IDN component.
   static const base::char16 kIdnPrefix[] = {'x', 'n', '-', '-'};
-  if ((comp_len > arraysize(kIdnPrefix)) &&
+  if ((comp_len > base::size(kIdnPrefix)) &&
       !memcmp(comp, kIdnPrefix, sizeof(kIdnPrefix))) {
     UIDNA* uidna = g_uidna.Get().value;
     DCHECK(uidna != nullptr);
@@ -417,6 +417,7 @@ const FormatUrlType kFormatUrlOmitHTTPS = 1 << 3;
 const FormatUrlType kFormatUrlOmitTrivialSubdomains = 1 << 5;
 const FormatUrlType kFormatUrlTrimAfterHost = 1 << 6;
 const FormatUrlType kFormatUrlOmitFileScheme = 1 << 7;
+const FormatUrlType kFormatUrlOmitMailToScheme = 1 << 8;
 
 const FormatUrlType kFormatUrlOmitDefaults =
     kFormatUrlOmitUsernamePassword | kFormatUrlOmitHTTP |
@@ -607,13 +608,17 @@ base::string16 FormatUrlWithAdjustments(
        ((format_types & kFormatUrlOmitHTTPS) &&
         url.SchemeIs(url::kHttpsScheme)) ||
        ((format_types & kFormatUrlOmitFileScheme) &&
-        url.SchemeIs(url::kFileScheme)));
+        url.SchemeIs(url::kFileScheme)) ||
+       ((format_types & kFormatUrlOmitMailToScheme) &&
+        url.SchemeIs(url::kMailToScheme)));
 
   // If we need to strip out schemes do it after the fact.
   if (strip_scheme) {
     DCHECK(new_parsed->scheme.is_valid());
     size_t scheme_and_separator_len =
-        new_parsed->scheme.len + 3;  // +3 for ://.
+        url.SchemeIs(url::kMailToScheme)
+            ? new_parsed->scheme.len + 1   // +1 for :.
+            : new_parsed->scheme.len + 3;  // +3 for ://.
 #if defined(OS_WIN)
     // Because there's an additional leading slash after the scheme for local
     // files on Windows, we should remove it for URL display when eliding
@@ -680,6 +685,10 @@ base::string16 StripWWWFromHost(const GURL& url) {
 
 Skeletons GetSkeletons(const base::string16& host) {
   return g_idn_spoof_checker.Get().GetSkeletons(host);
+}
+
+std::string LookupSkeletonInTopDomains(const std::string& skeleton) {
+  return g_idn_spoof_checker.Get().LookupSkeletonInTopDomains(skeleton);
 }
 
 }  // namespace url_formatter

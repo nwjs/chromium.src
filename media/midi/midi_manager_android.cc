@@ -50,16 +50,17 @@ MidiManagerAndroid::MidiManagerAndroid(MidiService* service)
     : MidiManager(service) {}
 
 MidiManagerAndroid::~MidiManagerAndroid() {
-  bool result = service()->task_service()->UnbindInstance();
-  CHECK(result);
+  if (!service()->task_service()->UnbindInstance())
+    return;
+
+  // Finalization steps should be implemented after the UnbindInstance() call.
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_MidiManagerAndroid_stop(env, raw_manager_);
 }
 
 void MidiManagerAndroid::StartInitialization() {
-  if (!service()->task_service()->BindInstance()) {
-    NOTREACHED();
-    CompleteInitialization(Result::INITIALIZATION_ERROR);
-    return;
-  }
+  if (!service()->task_service()->BindInstance())
+    return CompleteInitialization(Result::INITIALIZATION_ERROR);
 
   JNIEnv* env = base::android::AttachCurrentThread();
 

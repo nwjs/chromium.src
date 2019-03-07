@@ -45,9 +45,11 @@ void TextPaintTimingDetector::PopulateTraceValue(
     TracedValue& value,
     const TextRecord& first_text_paint,
     unsigned candidate_index) const {
-  value.SetInteger("DOMNodeId", first_text_paint.node_id);
+  value.SetInteger("DOMNodeId", static_cast<int>(first_text_paint.node_id));
+#ifndef NDEBUG
   value.SetString("text", first_text_paint.text);
-  value.SetInteger("size", first_text_paint.first_size);
+#endif
+  value.SetInteger("size", static_cast<int>(first_text_paint.first_size));
   value.SetInteger("candidateIndex", candidate_index);
   value.SetString("frame",
                   IdentifiersFactory::FrameId(&frame_view_->GetFrame()));
@@ -56,7 +58,7 @@ void TextPaintTimingDetector::PopulateTraceValue(
 void TextPaintTimingDetector::OnLargestTextDetected(
     const TextRecord& largest_text_record) {
   largest_text_paint_ = largest_text_record.first_paint_time;
-
+  largest_text_paint_size_ = largest_text_record.first_size;
   std::unique_ptr<TracedValue> value = TracedValue::Create();
   PopulateTraceValue(*value, largest_text_record,
                      largest_text_candidate_index_max_++);
@@ -68,6 +70,7 @@ void TextPaintTimingDetector::OnLargestTextDetected(
 void TextPaintTimingDetector::OnLastTextDetected(
     const TextRecord& last_text_record) {
   last_text_paint_ = last_text_record.first_paint_time;
+  last_text_paint_size_ = last_text_record.first_size;
 
   std::unique_ptr<TracedValue> value = TracedValue::Create();
   PopulateTraceValue(*value, last_text_record,
@@ -86,12 +89,16 @@ void TextPaintTimingDetector::TimerFired(TimerBase* time) {
 void TextPaintTimingDetector::Analyze() {
   TextRecord* largest_text_first_paint = FindLargestPaintCandidate();
   bool new_candidate_detected = false;
+  DCHECK(!largest_text_first_paint ||
+         !largest_text_first_paint->first_paint_time.is_null());
   if (largest_text_first_paint &&
       largest_text_first_paint->first_paint_time != largest_text_paint_) {
     OnLargestTextDetected(*largest_text_first_paint);
     new_candidate_detected = true;
   }
   TextRecord* last_text_first_paint = FindLastPaintCandidate();
+  DCHECK(!last_text_first_paint ||
+         !last_text_first_paint->first_paint_time.is_null());
   if (last_text_first_paint &&
       last_text_first_paint->first_paint_time != last_text_paint_) {
     OnLastTextDetected(*last_text_first_paint);
@@ -117,6 +124,12 @@ void TextPaintTimingDetector::OnPrePaintFinished() {
 }
 
 void TextPaintTimingDetector::NotifyNodeRemoved(DOMNodeId node_id) {
+  if (!is_recording_)
+    return;
+  for (TextRecord& record : texts_to_record_swap_time_) {
+    if (record.node_id == node_id)
+      record.node_id = kInvalidDOMNodeId;
+  }
   if (recorded_text_node_ids_.find(node_id) == recorded_text_node_ids_.end())
     return;
   // We assume that removed nodes' id would not be recycled, and it's expensive
@@ -161,6 +174,8 @@ void TextPaintTimingDetector::ReportSwapTime(
   // that only one or zero callback will be called after one OnPrePaintFinished.
   DCHECK_GT(texts_to_record_swap_time_.size(), 0UL);
   for (TextRecord& record : texts_to_record_swap_time_) {
+    if (record.node_id == kInvalidDOMNodeId)
+      continue;
     record.first_paint_time = timestamp;
     recorded_text_node_ids_.insert(record.node_id);
     largest_text_heap_.push(std::make_unique<TextRecord>(record));
@@ -201,23 +216,27 @@ void TextPaintTimingDetector::RecordText(const LayoutObject& object,
     size_zero_node_ids_.insert(node_id);
   } else {
     // Non-trivial text is found.
-    TextRecord record = {node_id, rect_size, base::TimeTicks(),
-                         ToLayoutText(&object)->GetText()};
+    TextRecord record;
+    record.node_id = node_id;
+    record.first_size = rect_size;
+#ifndef NDEBUG
+    record.text = ToLayoutText(&object)->GetText();
+#endif
     texts_to_record_swap_time_.push_back(record);
   }
 
   if (recorded_text_node_ids_.size() + size_zero_node_ids_.size() +
           texts_to_record_swap_time_.size() >=
       kTextNodeNumberLimit) {
-    Deactivate();
+    TRACE_EVENT_INSTANT2("loading", "TextPaintTimingDetector::OverNodeLimit",
+                         TRACE_EVENT_SCOPE_THREAD, "recorded_node_count",
+                         recorded_text_node_ids_.size(), "size_zero_node_count",
+                         size_zero_node_ids_.size());
+    StopRecordEntries();
   }
 }
 
-void TextPaintTimingDetector::Deactivate() {
-  TRACE_EVENT_INSTANT2("loading", "TextPaintTimingDetector::OverNodeLimit",
-                       TRACE_EVENT_SCOPE_THREAD, "recorded_node_count",
-                       recorded_text_node_ids_.size(), "size_zero_node_count",
-                       size_zero_node_ids_.size());
+void TextPaintTimingDetector::StopRecordEntries() {
   timer_.Stop();
   is_recording_ = false;
 }

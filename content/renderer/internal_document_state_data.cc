@@ -56,6 +56,8 @@ void InternalDocumentStateData::CopyFrom(InternalDocumentStateData* other) {
       other->must_reset_scroll_and_scale_state_;
   cache_policy_override_set_ = other->cache_policy_override_set_;
   cache_policy_override_ = other->cache_policy_override_;
+  effective_connection_type_ = other->effective_connection_type_;
+  previews_state_ = other->previews_state_;
 }
 
 void InternalDocumentStateData::set_navigation_state(

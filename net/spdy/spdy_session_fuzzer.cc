@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/test/fuzzed_data_provider.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/net_errors.h"
@@ -109,7 +109,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
   net::SSLSocketDataProvider ssl_provider(net::ASYNC, net::OK);
   ssl_provider.ssl_info.cert =
-      net::X509Certificate::CreateFromBytes(kCertData, arraysize(kCertData));
+      net::X509Certificate::CreateFromBytes(kCertData, base::size(kCertData));
   CHECK(ssl_provider.ssl_info.cert);
   socket_factory.AddSSLSocketDataProvider(&ssl_provider);
 
@@ -121,6 +121,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   net::ProxyServer direct_connect(net::ProxyServer::Direct());
   net::SpdySessionKey session_key(net::HostPortPair("127.0.0.1", 80),
                                   direct_connect, net::PRIVACY_MODE_DISABLED,
+                                  net::SpdySessionKey::IsProxySession::kFalse,
                                   net::SocketTag());
   base::WeakPtr<net::SpdySession> spdy_session(net::CreateSpdySession(
       http_session.get(), session_key, bound_test_net_log.bound()));

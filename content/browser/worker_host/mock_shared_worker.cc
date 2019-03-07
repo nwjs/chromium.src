@@ -4,9 +4,9 @@
 
 #include "content/browser/worker_host/mock_shared_worker.h"
 
-#include "content/common/url_loader_factory_bundle.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/loader/url_loader_factory_bundle.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -21,7 +21,7 @@ bool CheckEquality(const T& expected, const T& actual) {
 
 }  // namespace
 
-MockSharedWorker::MockSharedWorker(mojom::SharedWorkerRequest request)
+MockSharedWorker::MockSharedWorker(blink::mojom::SharedWorkerRequest request)
     : binding_(this, std::move(request)) {}
 
 MockSharedWorker::~MockSharedWorker() = default;
@@ -75,9 +75,10 @@ MockSharedWorkerFactory::~MockSharedWorkerFactory() = default;
 bool MockSharedWorkerFactory::CheckReceivedCreateSharedWorker(
     const GURL& expected_url,
     const std::string& expected_name,
-    blink::WebContentSecurityPolicyType expected_content_security_policy_type,
-    mojom::SharedWorkerHostPtr* host,
-    mojom::SharedWorkerRequest* request) {
+    blink::mojom::ContentSecurityPolicyType
+        expected_content_security_policy_type,
+    blink::mojom::SharedWorkerHostPtr* host,
+    blink::mojom::SharedWorkerRequest* request) {
   std::unique_ptr<CreateParams> create_params = std::move(create_params_);
   if (!create_params)
     return false;
@@ -96,22 +97,23 @@ bool MockSharedWorkerFactory::CheckReceivedCreateSharedWorker(
 }
 
 void MockSharedWorkerFactory::CreateSharedWorker(
-    mojom::SharedWorkerInfoPtr info,
+    blink::mojom::SharedWorkerInfoPtr info,
     bool pause_on_start,
     const base::UnguessableToken& devtools_worker_token,
     const RendererPreferences& renderer_preferences,
     mojom::RendererPreferenceWatcherRequest preference_watcher_request,
     blink::mojom::WorkerContentSettingsProxyPtr content_settings,
-    mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+    blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
         service_worker_provider_info,
     int appcache_host_id,
     network::mojom::URLLoaderFactoryAssociatedPtrInfo
         main_script_loader_factory,
     blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
-    std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loader_factories,
-    mojom::ControllerServiceWorkerInfoPtr controller_info,
-    mojom::SharedWorkerHostPtr host,
-    mojom::SharedWorkerRequest request,
+    std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+        subresource_loader_factories,
+    blink::mojom::ControllerServiceWorkerInfoPtr controller_info,
+    blink::mojom::SharedWorkerHostPtr host,
+    blink::mojom::SharedWorkerRequest request,
     service_manager::mojom::InterfaceProviderPtr interface_provider) {
   DCHECK(!create_params_);
   create_params_ = std::make_unique<CreateParams>();
@@ -131,7 +133,8 @@ MockSharedWorkerClient::MockSharedWorkerClient() : binding_(this) {}
 
 MockSharedWorkerClient::~MockSharedWorkerClient() = default;
 
-void MockSharedWorkerClient::Bind(mojom::SharedWorkerClientRequest request) {
+void MockSharedWorkerClient::Bind(
+    blink::mojom::SharedWorkerClientRequest request) {
   binding_.Bind(std::move(request));
 }
 

@@ -26,16 +26,12 @@ const base::Feature kEnableSettingsShortcutSearch{
     "EnableSettingsShortcutSearch", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kEnableAppsGridGapFeature{"EnableAppsGridGapFeature",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
-const base::Feature kEnableNewStyleLauncher{"EnableNewStyleLauncher",
-                                            base::FEATURE_ENABLED_BY_DEFAULT};
-const base::Feature kEnableContinueReading{"EnableContinueReading",
-                                           base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kEnableZeroStateSuggestions{
     "EnableZeroStateSuggestions", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kEnableAppListSearchAutocomplete{
-    "EnableAppListSearchAutocomplete", base::FEATURE_DISABLED_BY_DEFAULT};
+    "EnableAppListSearchAutocomplete", base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kEnableAppSearchResultRanker{
-    "EnableAppSearchResultRanker", base::FEATURE_DISABLED_BY_DEFAULT};
+    "EnableAppSearchResultRanker", base::FEATURE_ENABLED_BY_DEFAULT};
 
 bool IsAnswerCardEnabled() {
   // Not using local static variable to allow tests to change this value.
@@ -69,14 +65,6 @@ bool IsSettingsShortcutSearchEnabled() {
 
 bool IsAppsGridGapFeatureEnabled() {
   return base::FeatureList::IsEnabled(kEnableAppsGridGapFeature);
-}
-
-bool IsNewStyleLauncherEnabled() {
-  return base::FeatureList::IsEnabled(kEnableNewStyleLauncher);
-}
-
-bool IsContinueReadingEnabled() {
-  return base::FeatureList::IsEnabled(kEnableContinueReading);
 }
 
 bool IsZeroStateSuggestionsEnabled() {

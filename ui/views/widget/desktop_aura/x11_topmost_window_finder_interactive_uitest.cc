@@ -10,13 +10,11 @@
 #include <memory>
 #include <vector>
 
-#include "base/macros.h"
 #include "base/stl_util.h"
 #include "third_party/skia/include/core/SkRect.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/events/platform/x11/x11_event_source.h"
-#include "ui/gfx/path.h"
 #include "ui/gfx/path_x11.h"
 #include "ui/gfx/x/x11.h"
 #include "ui/gfx/x/x11_atom_cache.h"
@@ -215,7 +213,7 @@ TEST_F(X11TopmostWindowFinderTest, Basic) {
   XID xid3 = window3->GetHost()->GetAcceleratedWidget();
 
   XID xids[] = { xid1, xid2, xid3 };
-  StackingClientListWaiter waiter(xids, arraysize(xids));
+  StackingClientListWaiter waiter(xids, base::size(xids));
   waiter.Wait();
   ui::X11EventSource::GetInstance()->DispatchXEvents();
 
@@ -258,7 +256,7 @@ TEST_F(X11TopmostWindowFinderTest, Minimized) {
   XID xid2 = CreateAndShowXWindow(gfx::Rect(300, 100, 100, 100));
 
   XID xids[] = { xid1, xid2 };
-  StackingClientListWaiter stack_waiter(xids, arraysize(xids));
+  StackingClientListWaiter stack_waiter(xids, base::size(xids));
   stack_waiter.Wait();
   ui::X11EventSource::GetInstance()->DispatchXEvents();
 
@@ -307,7 +305,7 @@ TEST_F(X11TopmostWindowFinderTest, NonRectangular) {
   XShapeCombineRegion(xdisplay(), xid2, ShapeBounding, 0, 0, region2.get(),
                       false);
   XID xids[] = { xid1, xid2 };
-  StackingClientListWaiter stack_waiter(xids, arraysize(xids));
+  StackingClientListWaiter stack_waiter(xids, base::size(xids));
   stack_waiter.Wait();
   ui::X11EventSource::GetInstance()->DispatchXEvents();
 
@@ -338,7 +336,7 @@ TEST_F(X11TopmostWindowFinderTest, NonRectangularEmptyShape) {
   widget1->SetShape(std::move(shape1));
 
   XID xids[] = { xid1 };
-  StackingClientListWaiter stack_waiter(xids, arraysize(xids));
+  StackingClientListWaiter stack_waiter(xids, base::size(xids));
   stack_waiter.Wait();
   ui::X11EventSource::GetInstance()->DispatchXEvents();
 
@@ -361,7 +359,7 @@ TEST_F(X11TopmostWindowFinderTest, NonRectangularNullShape) {
   widget1->SetShape(nullptr);
 
   XID xids[] = { xid1 };
-  StackingClientListWaiter stack_waiter(xids, arraysize(xids));
+  StackingClientListWaiter stack_waiter(xids, base::size(xids));
   stack_waiter.Wait();
   ui::X11EventSource::GetInstance()->DispatchXEvents();
 
@@ -395,7 +393,7 @@ TEST_F(X11TopmostWindowFinderTest, Menu) {
 
   // |menu_xid| is never added to _NET_CLIENT_LIST_STACKING.
   XID xids[] = { xid };
-  StackingClientListWaiter stack_waiter(xids, arraysize(xids));
+  StackingClientListWaiter stack_waiter(xids, base::size(xids));
   stack_waiter.Wait();
 
   EXPECT_EQ(xid, FindTopmostXWindowAt(110, 110));

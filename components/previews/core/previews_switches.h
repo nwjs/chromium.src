@@ -13,6 +13,8 @@ extern const char kIgnorePreviewsBlacklist[];
 extern const char kLitePageServerPreviewHost[];
 extern const char kIgnoreLitePageRedirectOptimizationBlacklist[];
 extern const char kClearLitePageRedirectLocalBlacklist[];
+extern const char kHintsProtoOverride[];
+extern const char kPurgeHintCacheStore[];
 
 }  // namespace switches
 }  // namespace previews

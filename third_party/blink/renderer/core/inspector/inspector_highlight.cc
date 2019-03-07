@@ -5,6 +5,9 @@
 #include "third_party/blink/renderer/core/inspector/inspector_highlight.h"
 
 #include "base/macros.h"
+#include "third_party/blink/renderer/core/css/css_color_value.h"
+#include "third_party/blink/renderer/core/css/css_computed_style_declaration.h"
+#include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
@@ -190,6 +193,60 @@ const ShapeOutsideInfo* ShapeOutsideInfoForNode(Node* node,
   return shape_outside_info;
 }
 
+String ToHEXA(const Color& color) {
+  return String::Format("#%02X%02X%02X%02X", color.Red(), color.Green(),
+                        color.Blue(), color.Alpha());
+}
+
+void AppendStyleInfo(Node* node,
+                     protocol::DictionaryValue* element_info,
+                     const InspectorHighlightContrastInfo& node_contrast) {
+  std::unique_ptr<protocol::DictionaryValue> computed_style =
+      protocol::DictionaryValue::create();
+  CSSStyleDeclaration* style = CSSComputedStyleDeclaration::Create(node, true);
+  Vector<AtomicString> properties;
+
+  // For text nodes, we can show color & font properties.
+  bool has_text_children = false;
+  for (Node* child = node->firstChild(); !has_text_children && child;
+       child = child->nextSibling()) {
+    has_text_children = child->IsTextNode();
+  }
+  if (has_text_children) {
+    properties.push_back("color");
+    properties.push_back("font-family");
+    properties.push_back("font-size");
+    properties.push_back("line-height");
+  }
+
+  properties.push_back("padding");
+  properties.push_back("margin");
+  properties.push_back("background-color");
+
+  for (size_t i = 0; i < properties.size(); ++i) {
+    const CSSValue* value = style->GetPropertyCSSValueInternal(properties[i]);
+    if (!value)
+      continue;
+    if (value->IsColorValue()) {
+      Color color = static_cast<const cssvalue::CSSColorValue*>(value)->Value();
+      computed_style->setString(properties[i], ToHEXA(color));
+    } else {
+      computed_style->setString(properties[i], value->CssText());
+    }
+  }
+  element_info->setValue("style", std::move(computed_style));
+
+  if (!node_contrast.font_size.IsEmpty()) {
+    std::unique_ptr<protocol::DictionaryValue> contrast =
+        protocol::DictionaryValue::create();
+    contrast->setString("fontSize", node_contrast.font_size);
+    contrast->setString("fontWeight", node_contrast.font_weight);
+    contrast->setString("backgroundColor",
+                        ToHEXA(node_contrast.background_color));
+    element_info->setValue("contrast", std::move(contrast));
+  }
+}
+
 std::unique_ptr<protocol::DictionaryValue> BuildElementInfo(Element* element) {
   std::unique_ptr<protocol::DictionaryValue> element_info =
       protocol::DictionaryValue::create();
@@ -236,7 +293,6 @@ std::unique_ptr<protocol::DictionaryValue> BuildElementInfo(Element* element) {
   DOMRect* bounding_box = element->getBoundingClientRect();
   element_info->setString("nodeWidth", String::Number(bounding_box->width()));
   element_info->setString("nodeHeight", String::Number(bounding_box->height()));
-
   return element_info;
 }
 
@@ -250,7 +306,6 @@ std::unique_ptr<protocol::DictionaryValue> BuildTextNodeInfo(Text* text_node) {
   text_info->setString("nodeWidth", bounding_box.Width().ToString());
   text_info->setString("nodeHeight", bounding_box.Height().ToString());
   text_info->setString("tagName", "#text");
-
   return text_info;
 }
 
@@ -335,23 +390,22 @@ InspectorHighlight::InspectorHighlight(float scale)
     : highlight_paths_(protocol::ListValue::create()),
       show_rulers_(false),
       show_extension_lines_(false),
-      display_as_material_(false),
       scale_(scale) {}
 
 InspectorHighlightConfig::InspectorHighlightConfig()
     : show_info(false),
+      show_styles(false),
       show_rulers(false),
-      show_extension_lines(false),
-      display_as_material(false) {}
+      show_extension_lines(false) {}
 
 InspectorHighlight::InspectorHighlight(
     Node* node,
     const InspectorHighlightConfig& highlight_config,
+    const InspectorHighlightContrastInfo& node_contrast,
     bool append_element_info)
     : highlight_paths_(protocol::ListValue::create()),
       show_rulers_(highlight_config.show_rulers),
       show_extension_lines_(highlight_config.show_extension_lines),
-      display_as_material_(highlight_config.display_as_material),
       scale_(1.f) {
   LocalFrameView* frame_view = node->GetDocument().View();
   if (frame_view)
@@ -362,6 +416,8 @@ InspectorHighlight::InspectorHighlight(
     element_info_ = BuildElementInfo(ToElement(node));
   else if (append_element_info && node->IsTextNode())
     element_info_ = BuildTextNodeInfo(ToText(node));
+  if (element_info_ && highlight_config.show_styles)
+    AppendStyleInfo(node, element_info_.get(), node_contrast);
 }
 
 InspectorHighlight::~InspectorHighlight() = default;
@@ -486,7 +542,6 @@ std::unique_ptr<protocol::DictionaryValue> InspectorHighlight::AsProtocolValue()
   object->setBoolean("showExtensionLines", show_extension_lines_);
   if (element_info_)
     object->setValue("elementInfo", element_info_->clone());
-  object->setBoolean("displayAsMaterial", display_as_material_);
   if (grid_info_ && grid_info_->size() > 0)
     object->setValue("gridInfo", grid_info_->clone());
   return object;
@@ -711,9 +766,9 @@ InspectorHighlightConfig InspectorHighlight::DefaultConfig() {
   config.shape = Color(0, 0, 0, 0);
   config.shape_margin = Color(128, 128, 128, 0);
   config.show_info = true;
+  config.show_styles = false;
   config.show_rulers = true;
   config.show_extension_lines = true;
-  config.display_as_material = false;
   config.css_grid = Color(128, 128, 128, 0);
   return config;
 }

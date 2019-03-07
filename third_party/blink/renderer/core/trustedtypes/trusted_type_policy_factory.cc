@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/trustedtypes/trusted_type_policy_factory.h"
 
+#include "third_party/blink/public/platform/web_feature.mojom-shared.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_trusted_html.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_trusted_script.h"
@@ -12,9 +13,10 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/use_counter.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_type_policy.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_hash.h"
 
 namespace blink {
@@ -24,8 +26,10 @@ TrustedTypePolicy* TrustedTypePolicyFactory::createPolicy(
     const TrustedTypePolicyOptions* policy_options,
     bool exposed,
     ExceptionState& exception_state) {
-  if (!GetFrame()
-           ->GetDocument()
+  UseCounter::Count(GetExecutionContext(),
+                    WebFeature::kTrustedTypesCreatePolicy);
+  if (origin_trials::TrustedDOMTypesEnabled(GetExecutionContext()) &&
+      !GetExecutionContext()
            ->GetContentSecurityPolicy()
            ->AllowTrustedTypePolicy(policy_name)) {
     exception_state.ThrowTypeError("Policy " + policy_name + " disallowed.");
@@ -43,6 +47,10 @@ TrustedTypePolicy* TrustedTypePolicyFactory::createPolicy(
                                       "The default policy must be exposed.");
     return nullptr;
   }
+  if (policy_name == "default") {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kTrustedTypesDefaultPolicyUsed);
+  }
   TrustedTypePolicy* policy = TrustedTypePolicy::Create(
       policy_name, const_cast<TrustedTypePolicyOptions*>(policy_options),
       exposed);
@@ -59,8 +67,10 @@ TrustedTypePolicy* TrustedTypePolicyFactory::getExposedPolicy(
   return nullptr;
 }
 
-TrustedTypePolicyFactory::TrustedTypePolicyFactory(LocalFrame* frame)
-    : DOMWindowClient(frame) {}
+TrustedTypePolicyFactory::TrustedTypePolicyFactory(ExecutionContext* context)
+    : ContextClient(context) {
+  UseCounter::Count(context, WebFeature::kTrustedTypesEnabled);
+}
 
 Vector<String> TrustedTypePolicyFactory::getPolicyNames() const {
   Vector<String> policyNames;
@@ -75,11 +85,10 @@ TrustedTypePolicyFactory::GetWrapperTypeInfoFromScriptValue(
     ScriptState* script_state,
     const ScriptValue& script_value) {
   v8::Local<v8::Value> value = script_value.V8Value();
-  v8::Isolate* isolate = script_state->GetIsolate();
   if (value.IsEmpty() || !value->IsObject() ||
-      !V8DOMWrapper::IsWrapper(isolate, value))
+      !V8DOMWrapper::IsWrapper(script_state->GetIsolate(), value))
     return nullptr;
-  v8::Local<v8::Object> object = script_value.V8Value()->ToObject(isolate);
+  v8::Local<v8::Object> object = value.As<v8::Object>();
   return ToWrapperTypeInfo(object);
 }
 
@@ -88,7 +97,7 @@ bool TrustedTypePolicyFactory::isHTML(ScriptState* script_state,
   const WrapperTypeInfo* wrapper_type_info =
       GetWrapperTypeInfoFromScriptValue(script_state, script_value);
   return wrapper_type_info &&
-         wrapper_type_info->Equals(&V8TrustedHTML::wrapper_type_info);
+         wrapper_type_info->Equals(V8TrustedHTML::GetWrapperTypeInfo());
 }
 
 bool TrustedTypePolicyFactory::isScript(ScriptState* script_state,
@@ -96,7 +105,7 @@ bool TrustedTypePolicyFactory::isScript(ScriptState* script_state,
   const WrapperTypeInfo* wrapper_type_info =
       GetWrapperTypeInfoFromScriptValue(script_state, script_value);
   return wrapper_type_info &&
-         wrapper_type_info->Equals(&V8TrustedScript::wrapper_type_info);
+         wrapper_type_info->Equals(V8TrustedScript::GetWrapperTypeInfo());
 }
 
 bool TrustedTypePolicyFactory::isScriptURL(ScriptState* script_state,
@@ -104,7 +113,7 @@ bool TrustedTypePolicyFactory::isScriptURL(ScriptState* script_state,
   const WrapperTypeInfo* wrapper_type_info =
       GetWrapperTypeInfoFromScriptValue(script_state, script_value);
   return wrapper_type_info &&
-         wrapper_type_info->Equals(&V8TrustedScriptURL::wrapper_type_info);
+         wrapper_type_info->Equals(V8TrustedScriptURL::GetWrapperTypeInfo());
 }
 
 bool TrustedTypePolicyFactory::isURL(ScriptState* script_state,
@@ -112,12 +121,20 @@ bool TrustedTypePolicyFactory::isURL(ScriptState* script_state,
   const WrapperTypeInfo* wrapper_type_info =
       GetWrapperTypeInfoFromScriptValue(script_state, script_value);
   return wrapper_type_info &&
-         wrapper_type_info->Equals(&V8TrustedURL::wrapper_type_info);
+         wrapper_type_info->Equals(V8TrustedURL::GetWrapperTypeInfo());
+}
+
+void TrustedTypePolicyFactory::CountTrustedTypeAssignmentError() {
+  if (!hadAssignmentError) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kTrustedTypesAssignmentError);
+    hadAssignmentError = true;
+  }
 }
 
 void TrustedTypePolicyFactory::Trace(blink::Visitor* visitor) {
   ScriptWrappable::Trace(visitor);
-  DOMWindowClient::Trace(visitor);
+  ContextClient::Trace(visitor);
   visitor->Trace(policy_map_);
 }
 

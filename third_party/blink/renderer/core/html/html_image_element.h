@@ -60,7 +60,7 @@ class CORE_EXPORT HTMLImageElement final
   class ViewportChangeListener;
 
   // Returns attributes that should be checked against Trusted Types
-  const HashSet<AtomicString>& GetCheckedAttributeNames() const override;
+  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
 
   static HTMLImageElement* Create(Document&);
   static HTMLImageElement* Create(Document&, const CreateElementFlags);
@@ -72,7 +72,7 @@ class CORE_EXPORT HTMLImageElement final
 
   explicit HTMLImageElement(Document&, bool created_by_parser = false);
   ~HTMLImageElement() override;
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   unsigned width();
   unsigned height();
@@ -165,6 +165,10 @@ class CORE_EXPORT HTMLImageElement final
     }
     return *visible_load_time_metrics_;
   }
+
+  static bool IsDimensionSmallAndAbsoluteForLazyLoad(
+      const String& attribute_value);
+  static bool IsInlineStyleDimensionsSmall(const CSSPropertyValueSet*);
 
  protected:
   // Controls how an image element appears in the layout. See:

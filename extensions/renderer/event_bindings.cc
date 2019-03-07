@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/stl_util.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/render_view.h"
@@ -46,32 +47,32 @@ EventFilteringInfo ParseFromObject(v8::Local<v8::Object> object,
                                    v8::Local<v8::Context> context,
                                    v8::Isolate* isolate) {
   EventFilteringInfo info;
-  v8::Local<v8::String> url(v8::String::NewFromUtf8(isolate, "url"));
+  v8::Local<v8::String> url(v8::String::NewFromUtf8(isolate, "url", v8::NewStringType::kNormal).ToLocalChecked());
   if (object->Has(context, url).FromJust()) {
     v8::Local<v8::Value> url_value(object->Get(url));
     info.url = GURL(*v8::String::Utf8Value(isolate, url_value));
   }
   v8::Local<v8::String> instance_id(
-      v8::String::NewFromUtf8(isolate, "instanceId"));
+                                    v8::String::NewFromUtf8(isolate, "instanceId", v8::NewStringType::kNormal).ToLocalChecked());
   if (object->Has(context, instance_id).FromJust()) {
     v8::Local<v8::Value> instance_id_value(object->Get(instance_id));
     info.instance_id = (instance_id_value->IntegerValue(isolate->GetCurrentContext())).FromJust();
   }
   v8::Local<v8::String> service_type(
-      v8::String::NewFromUtf8(isolate, "serviceType"));
+                                     v8::String::NewFromUtf8(isolate, "serviceType", v8::NewStringType::kNormal).ToLocalChecked());
   if (object->Has(context, service_type).FromJust()) {
     v8::Local<v8::Value> service_type_value(object->Get(service_type));
     info.service_type = std::string(*v8::String::Utf8Value(isolate, service_type_value));
   }
   v8::Local<v8::String> window_types(
-      v8::String::NewFromUtf8(isolate, "windowType"));
+                                     v8::String::NewFromUtf8(isolate, "windowType", v8::NewStringType::kNormal).ToLocalChecked());
   if (object->Has(context, window_types).FromJust()) {
     v8::Local<v8::Value> window_types_value(object->Get(window_types));
     info.window_type = std::string(*v8::String::Utf8Value(isolate, window_types_value));
   }
 
   v8::Local<v8::String> window_exposed(
-      v8::String::NewFromUtf8(isolate, "windowExposedByDefault"));
+                                       v8::String::NewFromUtf8(isolate, "windowExposedByDefault", v8::NewStringType::kNormal).ToLocalChecked());
   if (object->Has(context, window_exposed).FromJust()) {
     v8::Local<v8::Value> window_exposed_value(object->Get(window_exposed));
     info.window_exposed_by_default = (
@@ -152,27 +153,28 @@ void EventBindings::MatchAgainstEventFilter(
 EventBindings::~EventBindings() {}
 
 void EventBindings::AddRoutes() {
+  RouteHandlerFunction("AttachEvent",
+                       base::BindRepeating(&EventBindings::AttachEventHandler,
+                                           base::Unretained(this)));
+  RouteHandlerFunction("DetachEvent",
+                       base::BindRepeating(&EventBindings::DetachEventHandler,
+                                           base::Unretained(this)));
+  RouteHandlerFunction("AttachFilteredEvent",
+                       base::BindRepeating(&EventBindings::AttachFilteredEvent,
+                                           base::Unretained(this)));
   RouteHandlerFunction("MatchAgainstEventFilter",
-                base::Bind(&EventBindings::MatchAgainstEventFilter,
+                base::BindRepeating(&EventBindings::MatchAgainstEventFilter,
                            base::Unretained(this)));
   RouteHandlerFunction(
-      "AttachEvent",
-      base::Bind(&EventBindings::AttachEventHandler, base::Unretained(this)));
-  RouteHandlerFunction(
-      "DetachEvent",
-      base::Bind(&EventBindings::DetachEventHandler, base::Unretained(this)));
-  RouteHandlerFunction(
-      "AttachFilteredEvent",
-      base::Bind(&EventBindings::AttachFilteredEvent, base::Unretained(this)));
-  RouteHandlerFunction("DetachFilteredEvent",
-                       base::Bind(&EventBindings::DetachFilteredEventHandler,
-                                  base::Unretained(this)));
-  RouteHandlerFunction(
-      "AttachUnmanagedEvent",
-      base::Bind(&EventBindings::AttachUnmanagedEvent, base::Unretained(this)));
-  RouteHandlerFunction(
-      "DetachUnmanagedEvent",
-      base::Bind(&EventBindings::DetachUnmanagedEvent, base::Unretained(this)));
+      "DetachFilteredEvent",
+      base::BindRepeating(&EventBindings::DetachFilteredEventHandler,
+                          base::Unretained(this)));
+  RouteHandlerFunction("AttachUnmanagedEvent",
+                       base::BindRepeating(&EventBindings::AttachUnmanagedEvent,
+                                           base::Unretained(this)));
+  RouteHandlerFunction("DetachUnmanagedEvent",
+                       base::BindRepeating(&EventBindings::DetachUnmanagedEvent,
+                                           base::Unretained(this)));
 }
 
 // static
@@ -198,7 +200,7 @@ void EventBindings::DispatchEventInContext(
   };
 
   context->module_system()->CallModuleMethodSafe(
-      kEventBindings, "dispatchEvent", arraysize(v8_args), v8_args);
+      kEventBindings, "dispatchEvent", base::size(v8_args), v8_args);
 }
 
 void EventBindings::AttachEventHandler(

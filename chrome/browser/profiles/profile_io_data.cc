@@ -19,7 +19,6 @@
 #include "base/debug/alias.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -138,7 +137,7 @@
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/settings/cros_settings.h"
 #include "chrome/browser/net/nss_context.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/cryptohome_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/settings/cros_settings_names.h"
@@ -163,11 +162,6 @@
 #if defined(OS_MACOSX)
 #include "net/ssl/client_cert_store_mac.h"
 #endif  // defined(OS_MACOSX)
-
-#if BUILDFLAG(ENABLE_REPORTING)
-#include "net/network_error_logging/network_error_logging_service.h"
-#include "net/reporting/reporting_service.h"
-#endif  // BUILDFLAG(ENABLE_REPORTING)
 
 #if (defined(OS_LINUX) && !defined(OS_CHROMEOS)) || defined(OS_MACOSX)
 #include "chrome/browser/net/trial_comparison_cert_verifier.h"
@@ -451,8 +445,8 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
   // These members are used only for sign in, which is not enabled
   // in incognito mode.  So no need to initialize them.
   if (!IsOffTheRecord()) {
-    google_services_user_account_id_.Init(
-        prefs::kGoogleServicesUserAccountId, pref_service);
+    google_services_user_account_id_.Init(prefs::kGoogleServicesUserAccountId,
+                                          pref_service);
     google_services_user_account_id_.MoveToThread(io_task_runner);
     sync_suppress_start_.Init(syncer::prefs::kSyncSuppressStart, pref_service);
     sync_suppress_start_.MoveToThread(io_task_runner);
@@ -482,8 +476,8 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
   }
 #endif
 
-  incognito_availibility_pref_.Init(
-      prefs::kIncognitoModeAvailability, pref_service);
+  incognito_availibility_pref_.Init(prefs::kIncognitoModeAvailability,
+                                    pref_service);
   incognito_availibility_pref_.MoveToThread(io_task_runner);
 
 #if defined(OS_CHROMEOS)
@@ -496,6 +490,13 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
   // are associated with each ResourceContext because we might post this
   // object to the IO thread after this function.
   BrowserContext::EnsureResourceContextInitialized(profile);
+
+  if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::IO},
+        base::BindOnce(&ProfileIOData::Init, base::Unretained(this), nullptr,
+                       content::URLRequestInterceptorScopedVector()));
+  }
 }
 
 ProfileIOData::MediaRequestContext::MediaRequestContext(const char* name) {
@@ -545,26 +546,7 @@ void ProfileIOData::AppRequestContext::SetJobFactory(
   set_job_factory(job_factory_.get());
 }
 
-#if BUILDFLAG(ENABLE_REPORTING)
-void ProfileIOData::AppRequestContext::SetReportingService(
-    std::unique_ptr<net::ReportingService> reporting_service) {
-  reporting_service_ = std::move(reporting_service);
-  set_reporting_service(reporting_service_.get());
-}
-
-void ProfileIOData::AppRequestContext::SetNetworkErrorLoggingService(
-    std::unique_ptr<net::NetworkErrorLoggingService>
-        network_error_logging_service) {
-  network_error_logging_service_ = std::move(network_error_logging_service);
-  set_network_error_logging_service(network_error_logging_service_.get());
-}
-#endif  // BUILDFLAG(ENABLE_REPORTING)
-
 ProfileIOData::AppRequestContext::~AppRequestContext() {
-#if BUILDFLAG(ENABLE_REPORTING)
-  SetNetworkErrorLoggingService(nullptr);
-  SetReportingService(nullptr);
-#endif  // BUILDFLAG(ENABLE_REPORTING)
   AssertNoURLRequests();
 }
 
@@ -613,7 +595,7 @@ ProfileIOData::~ProfileIOData() {
   for (URLRequestContextMap::const_iterator it =
            app_request_context_map_.begin();
        current_context < kMaxCachedContexts &&
-           it != app_request_context_map_.end();
+       it != app_request_context_map_.end();
        ++it, ++current_context) {
     app_context_cache[current_context] = it->second;
     memcpy(&app_context_vtable_cache[current_context],
@@ -624,7 +606,7 @@ ProfileIOData::~ProfileIOData() {
   for (URLRequestContextMap::const_iterator it =
            isolated_media_request_context_map_.begin();
        current_context < kMaxCachedContexts &&
-           it != isolated_media_request_context_map_.end();
+       it != isolated_media_request_context_map_.end();
        ++it, ++current_context) {
     media_context_cache[current_context] = it->second;
     memcpy(&media_context_vtable_cache[current_context],
@@ -677,7 +659,7 @@ bool ProfileIOData::IsHandledProtocol(const std::string& scheme) {
     url::kFileSystemScheme,
     chrome::kChromeSearchScheme,
   };
-  for (size_t i = 0; i < arraysize(kProtocolList); ++i) {
+  for (size_t i = 0; i < base::size(kProtocolList); ++i) {
     if (scheme == kProtocolList[i])
       return true;
   }
@@ -742,7 +724,6 @@ net::URLRequestContext* ProfileIOData::GetMediaRequestContext() const {
 
 net::URLRequestContext* ProfileIOData::GetIsolatedAppRequestContext(
     IOThread* io_thread,
-    net::URLRequestContext* main_context,
     const StoragePartitionDescriptor& partition_descriptor,
     std::unique_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
         protocol_handler_interceptor,
@@ -753,11 +734,6 @@ net::URLRequestContext* ProfileIOData::GetIsolatedAppRequestContext(
   DCHECK(initialized_);
   if (base::ContainsKey(app_request_context_map_, partition_descriptor))
     return app_request_context_map_[partition_descriptor];
-
-  if (!partition_descriptor.in_memory && !IsOffTheRecord()) {
-    MaybeDeleteMediaCache(
-        partition_descriptor.path.Append(chrome::kMediaCacheDirname));
-  }
 
   // If the network service is enabled, just re-use the same dummy
   // URLRequestContext as for other requests.
@@ -812,8 +788,8 @@ net::URLRequestContext* ProfileIOData::GetIsolatedMediaRequestContext(
                         partition_descriptor)) {
     context = isolated_media_request_context_map_[partition_descriptor];
   } else {
-    context = AcquireIsolatedMediaRequestContext(app_context,
-                                                 partition_descriptor);
+    context =
+        AcquireIsolatedMediaRequestContext(app_context, partition_descriptor);
     isolated_media_request_context_map_[partition_descriptor] = context;
   }
   DCHECK(context);
@@ -856,8 +832,8 @@ std::string ProfileIOData::GetSigninScopedDeviceId() const {
 #endif
 
 bool ProfileIOData::IsOffTheRecord() const {
-  return profile_type() == Profile::INCOGNITO_PROFILE
-      || profile_type() == Profile::GUEST_PROFILE;
+  return profile_type() == Profile::INCOGNITO_PROFILE ||
+         profile_type() == Profile::GUEST_PROFILE;
 }
 
 chrome_browser_net::Predictor* ProfileIOData::GetPredictor() {
@@ -920,9 +896,6 @@ void ProfileIOData::Init(
   DCHECK(!initialized_);
   DCHECK(profile_params_.get());
 
-  IOThread* const io_thread = profile_params_->io_thread;
-  IOThread::Globals* const io_thread_globals = io_thread->globals();
-
   account_consistency_ = profile_params_->account_consistency;
 
   // Take ownership over these parameters.
@@ -949,23 +922,13 @@ void ProfileIOData::Init(
 #endif
 
   if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-    net::URLRequestContextBuilder builder;
-    std::vector<std::unique_ptr<net::URLRequestInterceptor>>
-        url_request_interceptors;
-    url_request_interceptors.emplace_back(
-        std::make_unique<FailingURLRequestInterceptor>());
-    builder.SetInterceptors(std::move(url_request_interceptors));
-    builder.set_network_quality_estimator(
-        io_thread_globals->deprecated_network_quality_estimator.get());
-    builder.set_proxy_resolution_service(
-        net::ProxyResolutionService::CreateDirect());
-    builder.SetCertVerifier(
-        std::make_unique<WrappedCertVerifierForProfileIODataTesting>());
-    main_request_context_owner_ =
-        network::URLRequestContextOwner(nullptr, builder.Build());
-    main_request_context_ =
-        main_request_context_owner_.url_request_context.get();
+    // Do nothing, |main_request_context_| should never be accessed.
   } else {
+    IOThread* const io_thread = profile_params_->io_thread;
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+    IOThread::Globals* const io_thread_globals = io_thread->globals();
+#endif
+
     // Create the main request context.
     std::unique_ptr<network::URLRequestContextBuilderMojo> builder =
         std::make_unique<network::URLRequestContextBuilderMojo>();
@@ -1236,20 +1199,6 @@ std::unique_ptr<net::HttpCache> ProfileIOData::CreateHttpFactory(
   return std::make_unique<net::HttpCache>(
       content::CreateDevToolsNetworkTransactionFactory(shared_session),
       std::move(backend), false /* is_main_cache */);
-}
-
-void ProfileIOData::MaybeDeleteMediaCache(
-    const base::FilePath& media_cache_path) {
-  if (!base::FeatureList::IsEnabled(features::kUseSameCacheForMedia) ||
-      media_cache_path.empty()) {
-    return;
-  }
-  base::PostTaskWithTraits(
-      FROM_HERE,
-      {base::TaskPriority::BEST_EFFORT, base::MayBlock(),
-       base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-      base::BindOnce(base::IgnoreResult(&base::DeleteFile), media_cache_path,
-                     true /* recursive */));
 }
 
 std::unique_ptr<net::NetworkDelegate> ProfileIOData::ConfigureNetworkDelegate(

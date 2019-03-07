@@ -158,6 +158,8 @@ void PlatformNotificationServiceImpl::DisplayPersistentNotification(
     const blink::NotificationResources& notification_resources) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
+  closed_notifications_.erase(notification_id);
+
   // Posted tasks can request notifications to be added, which would cause a
   // crash (see |ScopedKeepAlive|). We just do nothing here, the user would not
   // see the notification anyway, since we are shutting down.
@@ -367,14 +369,10 @@ PlatformNotificationServiceImpl::CreateNotificationFromData(
         gfx::Image::CreateFrom1xBitmap(notification_resources.image));
   }
 
-  // Badges are only supported on Android, primarily because it's the only
-  // platform that makes good use of them in the status bar.
-#if defined(OS_ANDROID)
   // TODO(peter): Handle different screen densities instead of always using the
   // 1x bitmap - crbug.com/585815.
   notification.set_small_image(
       gfx::Image::CreateFrom1xBitmap(notification_resources.badge));
-#endif  // defined(OS_ANDROID)
 
   // Developer supplied action buttons.
   std::vector<message_center::ButtonInfo> buttons;

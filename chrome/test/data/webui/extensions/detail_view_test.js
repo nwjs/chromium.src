@@ -116,10 +116,10 @@ cr.define('extension_detail_view_tests', function() {
       item.set('data.optionsPage', {openInTab: true, url: optionsUrl});
       expectTrue(testIsVisible('#extensions-options'));
 
-      expectFalse(testIsVisible('#extensions-activity-log-link'));
+      expectFalse(testIsVisible('#extensionsActivityLogLink'));
       item.set('showActivityLog', true);
       Polymer.dom.flush();
-      expectTrue(testIsVisible('#extensions-activity-log-link'));
+      expectTrue(testIsVisible('#extensionsActivityLogLink'));
 
       item.set('data.manifestHomePageUrl', 'http://example.com');
       Polymer.dom.flush();
@@ -167,6 +167,7 @@ cr.define('extension_detail_view_tests', function() {
 
       // Ensure that without runtimeHostPermissions data, the sections are
       // hidden.
+      expectTrue(testIsVisible('#no-site-access'));
       expectFalse(testIsVisible('extensions-runtime-host-permissions'));
       expectFalse(testIsVisible('extensions-host-permissions-toggle-list'));
 
@@ -182,6 +183,7 @@ cr.define('extension_detail_view_tests', function() {
       };
       item.set('data.permissions', allSitesPermissions);
       Polymer.dom.flush();
+      expectFalse(testIsVisible('#no-site-access'));
       expectTrue(testIsVisible('extensions-runtime-host-permissions'));
       expectFalse(testIsVisible('extensions-host-permissions-toggle-list'));
 
@@ -198,6 +200,7 @@ cr.define('extension_detail_view_tests', function() {
       };
       item.set('data.permissions', someSitesPermissions);
       Polymer.dom.flush();
+      expectFalse(testIsVisible('#no-site-access'));
       expectFalse(testIsVisible('extensions-runtime-host-permissions'));
       expectTrue(testIsVisible('extensions-host-permissions-toggle-list'));
     });
@@ -247,7 +250,7 @@ cr.define('extension_detail_view_tests', function() {
       // redirect the page back to the details view is in manager.js.
       // Since this behavior does not happen in the testing environment,
       // we test the behavior in manager_test.js.
-      MockInteractions.tap(item.$$('#extensions-activity-log-link'));
+      MockInteractions.tap(item.$$('#extensionsActivityLogLink'));
       expectDeepEquals(
           currentPage,
           {page: Page.ACTIVITY_LOG, extensionId: extensionData.id});

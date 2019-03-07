@@ -37,7 +37,7 @@
 #include "chrome/browser/ui/app_list/arc/arc_pai_starter.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
@@ -60,7 +60,7 @@ namespace arc {
 
 namespace {
 
-// Weak pointer.  This class is owned by ArcServiceManager.
+// Weak pointer.  This class is owned by ArcServiceLauncher.
 ArcSessionManager* g_arc_session_manager = nullptr;
 
 // Allows the session manager to skip creating UI in unit tests.
@@ -438,6 +438,7 @@ void ArcSessionManager::SetProfile(Profile* profile) {
   DCHECK(!profile || !profile_);
   DCHECK(!profile || IsArcAllowedForProfile(profile));
   profile_ = profile;
+  UpdatePersistentUMAState();
 }
 
 void ArcSessionManager::Initialize() {
@@ -609,8 +610,10 @@ void ArcSessionManager::CancelAuthCode() {
 void ArcSessionManager::RecordArcState() {
   // Only record legacy enabled state if ARC is allowed in the first place, so
   // we do not split the ARC population by devices that cannot run ARC.
+  if (should_record_legacy_enabled_state_)
+    UpdateEnabledStateUMA(enabled_state_uma_);
+
   if (IsAllowed()) {
-    UpdateEnabledStateUMA(enable_requested_);
     UpdateEnabledStateByUserTypeUMA(enable_requested_, profile_);
     ArcMetricsService* service =
         ArcMetricsService::GetForBrowserContext(profile_);
@@ -631,7 +634,7 @@ void ArcSessionManager::RecordArcState() {
     return;
   }
 
-  UpdateEnabledStateByUserTypeUMA(enable_requested_, profile);
+  UpdateEnabledStateByUserTypeUMA(enabled_state_uma_, profile);
 }
 
 void ArcSessionManager::RequestEnable() {
@@ -643,6 +646,7 @@ void ArcSessionManager::RequestEnable() {
     return;
   }
   enable_requested_ = true;
+  UpdatePersistentUMAState();
 
   VLOG(1) << "ARC opt-in. Starting ARC session.";
 
@@ -684,7 +688,7 @@ bool ArcSessionManager::RequestEnableImpl() {
   // the initial request.
   // |prefs::kArcProvisioningInitiatedFromOobe| is reset when provisioning is
   // done or ARC is opted out.
-  if (IsArcOobeOptInActive() || IsArcOptInWizardForAssistantActive())
+  if (IsArcOobeOptInActive())
     prefs->SetBoolean(prefs::kArcProvisioningInitiatedFromOobe, true);
 
   // If it is marked that sign in has been successfully done or if Play Store is
@@ -708,10 +712,8 @@ bool ArcSessionManager::RequestEnableImpl() {
     return false;
   }
 
-  if (!pai_starter_ && IsPlayStoreAvailable()) {
-    pai_starter_ =
-        ArcPaiStarter::CreateIfNeeded(profile_, profile_->GetPrefs());
-  }
+  if (!pai_starter_ && IsPlayStoreAvailable())
+    pai_starter_ = ArcPaiStarter::CreateIfNeeded(profile_);
 
   if (!fast_app_reinstall_starter_ && IsPlayStoreAvailable()) {
     fast_app_reinstall_starter_ = ArcFastAppReinstallStarter::CreateIfNeeded(
@@ -753,6 +755,7 @@ void ArcSessionManager::RequestDisable() {
 
   directly_started_ = false;
   enable_requested_ = false;
+  UpdatePersistentUMAState();
   scoped_opt_in_tracker_.reset();
   pai_starter_.reset();
   fast_app_reinstall_starter_.reset();
@@ -828,7 +831,7 @@ void ArcSessionManager::MaybeStartTermsOfServiceNegotiation() {
     return;
   }
 
-  if (IsArcOobeOptInActive() || IsArcOptInWizardForAssistantActive()) {
+  if (IsArcOobeOptInActive()) {
     VLOG(1) << "Use OOBE negotiator.";
     terms_of_service_negotiator_ =
         std::make_unique<ArcTermsOfServiceOobeNegotiator>();
@@ -1178,6 +1181,11 @@ void ArcSessionManager::EmitLoginPromptVisibleCalled() {
     return;
 
   arc_session_runner_->RequestStartMiniInstance();
+}
+
+void ArcSessionManager::UpdatePersistentUMAState() {
+  should_record_legacy_enabled_state_ = IsAllowed();
+  enabled_state_uma_ = enable_requested_;
 }
 
 std::ostream& operator<<(std::ostream& os,

@@ -9,6 +9,7 @@
 #include <new>
 
 #include "base/atomicops.h"
+#include "base/bits.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/process/process_metrics.h"
@@ -161,6 +162,20 @@ ALWAYS_INLINE void* ShimCppNew(size_t size) {
   return ptr;
 }
 
+ALWAYS_INLINE void* ShimCppAlignedNew(size_t size, size_t alignment) {
+  const allocator::AllocatorDispatch* const chain_head = GetChainHead();
+  void* ptr;
+  do {
+    void* context = nullptr;
+#if defined(OS_MACOSX)
+    context = malloc_default_zone();
+#endif
+    ptr = chain_head->alloc_aligned_function(chain_head, alignment, size,
+                                             context);
+  } while (!ptr && CallNewHandler(size));
+  return ptr;
+}
+
 ALWAYS_INLINE void ShimCppDelete(void* address) {
   void* context = nullptr;
 #if defined(OS_MACOSX)
@@ -218,7 +233,7 @@ ALWAYS_INLINE int ShimPosixMemalign(void** res, size_t alignment, size_t size) {
   // posix_memalign is supposed to check the arguments. See tc_posix_memalign()
   // in tc_malloc.cc.
   if (((alignment % sizeof(void*)) != 0) ||
-      ((alignment & (alignment - 1)) != 0) || (alignment == 0)) {
+      !base::bits::IsPowerOfTwo(alignment)) {
     return EINVAL;
   }
   void* ptr = ShimMemalign(alignment, size, nullptr);
@@ -274,6 +289,40 @@ ALWAYS_INLINE void ShimFreeDefiniteSize(void* ptr, size_t size, void* context) {
   const allocator::AllocatorDispatch* const chain_head = GetChainHead();
   return chain_head->free_definite_size_function(chain_head, ptr, size,
                                                  context);
+}
+
+ALWAYS_INLINE void* ShimAlignedMalloc(size_t size,
+                                      size_t alignment,
+                                      void* context) {
+  const allocator::AllocatorDispatch* const chain_head = GetChainHead();
+  void* ptr = nullptr;
+  do {
+    ptr = chain_head->aligned_malloc_function(chain_head, size, alignment,
+                                              context);
+  } while (!ptr && g_call_new_handler_on_malloc_failure &&
+           CallNewHandler(size));
+  return ptr;
+}
+
+ALWAYS_INLINE void* ShimAlignedRealloc(void* address,
+                                       size_t size,
+                                       size_t alignment,
+                                       void* context) {
+  // _aligned_realloc(size == 0) means _aligned_free() and might return a
+  // nullptr. We should not call the std::new_handler in that case, though.
+  const allocator::AllocatorDispatch* const chain_head = GetChainHead();
+  void* ptr = nullptr;
+  do {
+    ptr = chain_head->aligned_realloc_function(chain_head, address, size,
+                                               alignment, context);
+  } while (!ptr && size && g_call_new_handler_on_malloc_failure &&
+           CallNewHandler(size));
+  return ptr;
+}
+
+ALWAYS_INLINE void ShimAlignedFree(void* address, void* context) {
+  const allocator::AllocatorDispatch* const chain_head = GetChainHead();
+  return chain_head->aligned_free_function(chain_head, address, context);
 }
 
 }  // extern "C"

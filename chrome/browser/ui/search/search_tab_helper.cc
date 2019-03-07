@@ -14,6 +14,8 @@
 #include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search/instant_service_factory.h"
 #include "chrome/browser/search/search.h"
+#include "chrome/browser/search/search_suggest/search_suggest_service.h"
+#include "chrome/browser/search/search_suggest/search_suggest_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -27,13 +29,14 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/google/core/common/google_util.h"
 #include "components/omnibox/browser/omnibox_edit_model.h"
 #include "components/omnibox/browser/omnibox_popup_model.h"
 #include "components/omnibox/browser/omnibox_view.h"
 #include "components/search/search.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/driver/sync_service.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
@@ -50,7 +53,7 @@
 namespace {
 
 bool IsCacheableNTP(content::WebContents* contents) {
-  const content::NavigationEntry* entry =
+  content::NavigationEntry* entry =
       contents->GetController().GetLastCommittedEntry();
   return search::NavEntryIsInstantNTP(contents, entry) &&
          entry->GetURL() != chrome::kChromeSearchLocalNtpUrl;
@@ -95,8 +98,8 @@ void RecordNewTabLoadTime(content::WebContents* contents) {
 // disable a feature that should not be shown to users who prefer not to sync
 // their history.
 bool IsHistorySyncEnabled(Profile* profile) {
-  browser_sync::ProfileSyncService* sync =
-      ProfileSyncServiceFactory::GetForProfile(profile);
+  syncer::SyncService* sync =
+      ProfileSyncServiceFactory::GetSyncServiceForProfile(profile);
   return sync && sync->IsSyncFeatureEnabled() &&
          sync->GetUserSettings()->GetChosenDataTypes().Has(syncer::TYPED_URLS);
 }
@@ -115,6 +118,9 @@ SearchTabHelper::SearchTabHelper(content::WebContents* web_contents)
   instant_service_ = InstantServiceFactory::GetForProfile(profile());
   if (instant_service_)
     instant_service_->AddObserver(this);
+
+  search_suggest_service_ =
+      SearchSuggestServiceFactory::GetForProfile(profile());
 }
 
 SearchTabHelper::~SearchTabHelper() {
@@ -455,6 +461,34 @@ const OmniboxView* SearchTabHelper::GetOmniboxView() const {
   return browser->window()->GetLocationBar()->GetOmniboxView();
 }
 
+void SearchTabHelper::OnBlocklistSearchSuggestion(int task_version,
+                                                  long task_id) {
+  if (search_suggest_service_)
+    search_suggest_service_->BlocklistSearchSuggestion(task_version, task_id);
+}
+
+void SearchTabHelper::OnBlocklistSearchSuggestionWithHash(
+    int task_version,
+    long task_id,
+    const uint8_t hash[4]) {
+  if (search_suggest_service_)
+    search_suggest_service_->BlocklistSearchSuggestionWithHash(task_version,
+                                                               task_id, hash);
+}
+
+void SearchTabHelper::OnSearchSuggestionSelected(int task_version,
+                                                 long task_id,
+                                                 const uint8_t hash[4]) {
+  if (search_suggest_service_)
+    search_suggest_service_->SearchSuggestionSelected(task_version, task_id,
+                                                      hash);
+}
+
+void SearchTabHelper::OnOptOutOfSearchSuggestions() {
+  if (search_suggest_service_)
+    search_suggest_service_->OptOutOfSearchSuggestions();
+}
+
 OmniboxView* SearchTabHelper::GetOmniboxView() {
   return const_cast<OmniboxView*>(
       const_cast<const SearchTabHelper*>(this)->GetOmniboxView());
@@ -469,3 +503,5 @@ bool SearchTabHelper::IsInputInProgress() const {
   return omnibox_view && omnibox_view->model()->user_input_in_progress() &&
          omnibox_view->model()->focus_state() == OMNIBOX_FOCUS_VISIBLE;
 }
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(SearchTabHelper)

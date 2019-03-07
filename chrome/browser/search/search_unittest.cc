@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "base/bind.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/browser/search/instant_service.h"
@@ -28,6 +28,7 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/test/navigation_simulator.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -116,7 +117,7 @@ TEST_F(SearchTest, ShouldAssignURLToInstantRenderer) {
       {"https://foo.com/", false, "Instant support was removed"},
   };
 
-  for (size_t i = 0; i < arraysize(kTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kTestCases); ++i) {
     const SearchTestCase& test = kTestCases[i];
     EXPECT_EQ(test.expected_result,
               ShouldAssignURLToInstantRenderer(GURL(test.url), profile()))
@@ -141,7 +142,7 @@ TEST_F(SearchTest, ShouldUseProcessPerSiteForInstantURL) {
       {"https://foo.com/", false, "Non-exact path"},
   };
 
-  for (size_t i = 0; i < arraysize(kTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kTestCases); ++i) {
     const SearchTestCase& test = kTestCases[i];
     EXPECT_EQ(test.expected_result,
               ShouldUseProcessPerSiteForInstantURL(GURL(test.url), profile()))
@@ -178,7 +179,7 @@ const struct ProcessIsolationTestCase {
 };
 
 TEST_F(SearchTest, ProcessIsolation) {
-  for (size_t i = 0; i < arraysize(kProcessIsolationTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kProcessIsolationTestCases); ++i) {
     const ProcessIsolationTestCase& test = kProcessIsolationTestCases[i];
     AddTab(browser(), GURL("chrome://blank"));
     content::WebContents* contents =
@@ -215,7 +216,7 @@ TEST_F(SearchTest, ProcessIsolation) {
 }
 
 TEST_F(SearchTest, ProcessIsolation_RendererInitiated) {
-  for (size_t i = 0; i < arraysize(kProcessIsolationTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kProcessIsolationTestCases); ++i) {
     const ProcessIsolationTestCase& test = kProcessIsolationTestCases[i];
     AddTab(browser(), GURL("chrome://blank"));
     content::WebContents* contents =
@@ -235,14 +236,9 @@ TEST_F(SearchTest, ProcessIsolation_RendererInitiated) {
         contents->GetRenderViewHost();
 
     // Navigate to end URL via a renderer-initiated navigation.
-    content::NavigationController* controller = &contents->GetController();
-    content::NavigationController::LoadURLParams load_params(
-        GURL(test.end_url));
-    load_params.is_renderer_initiated = true;
-    load_params.transition_type = ui::PAGE_TRANSITION_LINK;
+    content::NavigationSimulator::NavigateAndCommitFromDocument(
+        GURL(test.end_url), contents->GetMainFrame());
 
-    controller->LoadURLWithParams(load_params);
-    CommitPendingLoad(controller);
     EXPECT_EQ(test.end_in_instant_process, InInstantProcess(contents))
         << test.description;
 

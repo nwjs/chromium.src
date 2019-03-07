@@ -130,6 +130,12 @@ void RequestSingleCrashUpload(const std::string& local_id);
 
 void DumpWithoutCrashing();
 
+#if defined(OS_LINUX) || defined(OS_ANDROID)
+// Logs message and immediately crashes the current process without triggering a
+// crash dump.
+void CrashWithoutDumping(const std::string& message);
+#endif  // defined(OS_LINUX) || defined(OS_ANDROID)
+
 // Returns the Crashpad database path, only valid in the browser.
 base::FilePath GetCrashpadDatabasePath();
 
@@ -147,6 +153,14 @@ base::FilePath::StringType::const_pointer GetCrashpadDatabasePathImpl();
 // in the current crash report database.
 void DumpProcessWithoutCrashing(task_t task_port);
 #endif
+
+#if defined(OS_ANDROID)
+// This is used by WebView to generate a dump on behalf of the embedding app.
+// This function can only be called from the browser process. Returns `true` on
+// success.
+class CrashReporterClient;
+bool DumpWithoutCrashingForClient(CrashReporterClient* client);
+#endif  // OS_ANDROID
 
 namespace internal {
 

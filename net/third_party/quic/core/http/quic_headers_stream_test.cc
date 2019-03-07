@@ -26,10 +26,10 @@
 #include "net/third_party/quic/test_tools/quic_spdy_session_peer.h"
 #include "net/third_party/quic/test_tools/quic_stream_peer.h"
 #include "net/third_party/quic/test_tools/quic_test_utils.h"
-#include "net/third_party/spdy/core/http2_frame_decoder_adapter.h"
-#include "net/third_party/spdy/core/spdy_alt_svc_wire_format.h"
-#include "net/third_party/spdy/core/spdy_protocol.h"
-#include "net/third_party/spdy/core/spdy_test_utils.h"
+#include "net/third_party/quiche/src/spdy/core/http2_frame_decoder_adapter.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_alt_svc_wire_format.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_protocol.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_test_utils.h"
 
 using spdy::ERROR_CODE_PROTOCOL_ERROR;
 using spdy::SETTINGS_ENABLE_PUSH;
@@ -196,16 +196,20 @@ class QuicHeadersStreamTest : public QuicTestWithParam<TestParams> {
     EXPECT_TRUE(headers_stream_ != nullptr);
     connection_->AdvanceTime(QuicTime::Delta::FromMilliseconds(1));
     client_id_1_ =
-        QuicSpdySessionPeer::GetNthClientInitiatedStreamId(session_, 0);
+        QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(
+            session_, 0);
     client_id_2_ =
-        QuicSpdySessionPeer::GetNthClientInitiatedStreamId(session_, 1);
+        QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(
+            session_, 1);
     client_id_3_ =
-        QuicSpdySessionPeer::GetNthClientInitiatedStreamId(session_, 2);
-    next_stream_id_ = QuicSpdySessionPeer::NextStreamId(session_);
+        QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(
+            session_, 2);
+    next_stream_id_ = QuicSpdySessionPeer::StreamIdDelta(session_);
   }
 
   QuicStreamId GetNthClientInitiatedId(int n) {
-    return QuicSpdySessionPeer::GetNthClientInitiatedStreamId(session_, n);
+    return QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(
+        session_, n);
   }
 
   QuicConsumedData SaveIov(size_t write_length) {

@@ -38,7 +38,7 @@
 #include "chrome/browser/chromeos/accessibility/dictation_chromeos.h"
 #include "chrome/browser/chromeos/accessibility/magnification_manager.h"
 #include "chrome/browser/chromeos/accessibility/select_to_speak_event_handler_delegate.h"
-#include "chrome/browser/chromeos/accessibility/switch_access_event_handler.h"
+#include "chrome/browser/chromeos/accessibility/switch_access_event_handler_delegate.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
@@ -55,7 +55,7 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/browser_resources.h"
 #include "chromeos/audio/chromeos_sounds.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/power_manager_client.h"
 #include "chromeos/dbus/upstart_client.h"
@@ -83,7 +83,7 @@
 #include "mash/public/mojom/launchable.mojom.h"
 #include "media/audio/sounds/sounds_manager.h"
 #include "mojo/public/cpp/bindings/binding.h"
-#include "services/media_session/public/cpp/switches.h"
+#include "services/media_session/public/mojom/constants.mojom.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "ui/accessibility/accessibility_switches.h"
 #include "ui/accessibility/ax_enum_util.h"
@@ -322,6 +322,12 @@ AccessibilityManager::AccessibilityManager()
       ->BindInterface(ash::mojom::kServiceName,
                       &accessibility_focus_ring_controller_);
 
+  // Connect to the media session service.
+  content::ServiceManagerConnection::GetForProcess()
+      ->GetConnector()
+      ->BindInterface(media_session::mojom::kServiceName,
+                      &audio_focus_manager_ptr_);
+
   CrasAudioHandler::Get()->AddAudioObserver(this);
 }
 
@@ -354,6 +360,7 @@ bool AccessibilityManager::ShouldShowAccessibilityMenu() {
         prefs->GetBoolean(ash::prefs::kAccessibilityLargeCursorEnabled) ||
         prefs->GetBoolean(ash::prefs::kAccessibilitySpokenFeedbackEnabled) ||
         prefs->GetBoolean(ash::prefs::kAccessibilitySelectToSpeakEnabled) ||
+        prefs->GetBoolean(ash::prefs::kAccessibilitySwitchAccessEnabled) ||
         prefs->GetBoolean(ash::prefs::kAccessibilityHighContrastEnabled) ||
         prefs->GetBoolean(ash::prefs::kAccessibilityAutoclickEnabled) ||
         prefs->GetBoolean(ash::prefs::kShouldAlwaysShowAccessibilityMenu) ||
@@ -889,22 +896,30 @@ void AccessibilityManager::UpdateSwitchAccessFromPref() {
       return;
     }
     EnableSwitchAccessAfterChromeVoxMetric(false);
+    switch_access_loader_->SetProfile(profile_, base::RepeatingClosure());
   }
 
   if (switch_access_enabled_ == enabled)
     return;
   switch_access_enabled_ = enabled;
 
+  AccessibilityStatusEventDetails details(ACCESSIBILITY_TOGGLE_SWITCH_ACCESS,
+                                          enabled);
+  NotifyAccessibilityStatusChanged(details);
+
   if (enabled) {
+    // Construct a delegate to connect Switch Access and its EventHandler in
+    // ash. Do this before loading Switch Access so the keys_to_capture will
+    // be properly set.
+    switch_access_event_handler_delegate_ =
+        std::make_unique<SwitchAccessEventHandlerDelegate>();
     switch_access_loader_->Load(
         profile_,
         base::BindRepeating(&AccessibilityManager::PostLoadSwitchAccess,
                             weak_ptr_factory_.GetWeakPtr()));
-    switch_access_event_handler_.reset(
-        new chromeos::SwitchAccessEventHandler());
   } else {
     switch_access_loader_->Unload();
-    switch_access_event_handler_.reset(nullptr);
+    switch_access_event_handler_delegate_.reset(nullptr);
   }
 }
 
@@ -1316,11 +1331,8 @@ void AccessibilityManager::PostLoadChromeVox() {
                        base::Unretained(this))));
   }
 
-  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          media_session::switches::kEnableAudioFocus)) {
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        media_session::switches::kEnableAudioFocus);
-  }
+  audio_focus_manager_ptr_->SetEnforcementMode(
+      media_session::mojom::EnforcementMode::kSingleSession);
 }
 
 void AccessibilityManager::PostUnloadChromeVox() {
@@ -1346,6 +1358,9 @@ void AccessibilityManager::PostUnloadChromeVox() {
 
   // Stop speech.
   content::TtsController::GetInstance()->Stop();
+
+  audio_focus_manager_ptr_->SetEnforcementMode(
+      media_session::mojom::EnforcementMode::kDefault);
 }
 
 void AccessibilityManager::PostSwitchChromeVoxProfile() {
@@ -1418,9 +1433,13 @@ void AccessibilityManager::SetKeyboardListenerExtensionId(
     extension_registry_observer_.Add(registry);
 }
 
-void AccessibilityManager::SetSwitchAccessKeys(const std::set<int>& key_codes) {
-  if (switch_access_enabled_)
-    switch_access_event_handler_->SetKeysToCapture(key_codes);
+void AccessibilityManager::HideSwitchAccessMenu() {
+  switch_access_panel_->Hide();
+}
+
+void AccessibilityManager::ShowSwitchAccessMenu(
+    const gfx::Rect& element_bounds) {
+  switch_access_panel_->Show(element_bounds);
 }
 
 bool AccessibilityManager::ToggleDictation() {

@@ -9,8 +9,8 @@
 
 #include "base/bind.h"
 #include "base/location.h"
-#include "base/macros.h"
 #include "base/sequenced_task_runner.h"
+#include "base/stl_util.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/browsing_data/browsing_data_helper.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -36,8 +36,8 @@ class BrowsingDataFileSystemHelperImpl : public BrowsingDataFileSystemHelper {
   // BrowsingDataFileSystemHelper implementation
   explicit BrowsingDataFileSystemHelperImpl(
       storage::FileSystemContext* filesystem_context);
-  void StartFetching(const FetchCallback& callback) override;
-  void DeleteFileSystemOrigin(const GURL& origin) override;
+  void StartFetching(FetchCallback callback) override;
+  void DeleteFileSystemOrigin(const url::Origin& origin) override;
 
  private:
   ~BrowsingDataFileSystemHelperImpl() override;
@@ -45,11 +45,11 @@ class BrowsingDataFileSystemHelperImpl : public BrowsingDataFileSystemHelper {
   // Enumerates all filesystem files, storing the resulting list into
   // file_system_file_ for later use. This must be called on the file
   // task runner.
-  void FetchFileSystemInfoInFileThread(const FetchCallback& callback);
+  void FetchFileSystemInfoInFileThread(FetchCallback callback);
 
   // Deletes all file systems associated with |origin|. This must be called on
   // the file task runner.
-  void DeleteFileSystemOriginInFileThread(const GURL& origin);
+  void DeleteFileSystemOriginInFileThread(const url::Origin& origin);
 
   // Returns the file task runner for the |filesystem_context_|.
   base::SequencedTaskRunner* file_task_runner() {
@@ -72,19 +72,18 @@ BrowsingDataFileSystemHelperImpl::BrowsingDataFileSystemHelperImpl(
 BrowsingDataFileSystemHelperImpl::~BrowsingDataFileSystemHelperImpl() {
 }
 
-void BrowsingDataFileSystemHelperImpl::StartFetching(
-    const FetchCallback& callback) {
+void BrowsingDataFileSystemHelperImpl::StartFetching(FetchCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(!callback.is_null());
   file_task_runner()->PostTask(
       FROM_HERE,
       base::BindOnce(
           &BrowsingDataFileSystemHelperImpl::FetchFileSystemInfoInFileThread,
-          this, callback));
+          this, std::move(callback)));
 }
 
 void BrowsingDataFileSystemHelperImpl::DeleteFileSystemOrigin(
-    const GURL& origin) {
+    const url::Origin& origin) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   file_task_runner()->PostTask(
       FROM_HERE,
@@ -94,7 +93,7 @@ void BrowsingDataFileSystemHelperImpl::DeleteFileSystemOrigin(
 }
 
 void BrowsingDataFileSystemHelperImpl::FetchFileSystemInfoInFileThread(
-    const FetchCallback& callback) {
+    FetchCallback callback) {
   DCHECK(file_task_runner()->RunsTasksInCurrentSequence());
   DCHECK(!callback.is_null());
 
@@ -108,9 +107,8 @@ void BrowsingDataFileSystemHelperImpl::FetchFileSystemInfoInFileThread(
   };
 
   std::list<FileSystemInfo> result;
-  typedef std::map<GURL, FileSystemInfo> OriginInfoMap;
-  OriginInfoMap file_system_info_map;
-  for (size_t i = 0; i < arraysize(types); ++i) {
+  std::map<GURL, FileSystemInfo> file_system_info_map;
+  for (size_t i = 0; i < base::size(types); ++i) {
     storage::FileSystemType type = types[i];
     storage::FileSystemQuotaUtil* quota_util =
         filesystem_context_->GetQuotaUtil(type);
@@ -124,7 +122,8 @@ void BrowsingDataFileSystemHelperImpl::FetchFileSystemInfoInFileThread(
           filesystem_context_.get(), current, type);
       auto inserted =
           file_system_info_map
-              .insert(std::make_pair(current, FileSystemInfo(current)))
+              .insert(std::make_pair(
+                  current, FileSystemInfo(url::Origin::Create(current))))
               .first;
       inserted->second.usage_map[type] = usage;
     }
@@ -134,19 +133,20 @@ void BrowsingDataFileSystemHelperImpl::FetchFileSystemInfoInFileThread(
     result.push_back(iter.second);
 
   base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
-                           base::BindOnce(callback, result));
+                           base::BindOnce(std::move(callback), result));
 }
 
 void BrowsingDataFileSystemHelperImpl::DeleteFileSystemOriginInFileThread(
-    const GURL& origin) {
+    const url::Origin& origin) {
   DCHECK(file_task_runner()->RunsTasksInCurrentSequence());
-  filesystem_context_->DeleteDataForOriginOnFileTaskRunner(origin);
+  filesystem_context_->DeleteDataForOriginOnFileTaskRunner(origin.GetURL());
 }
 
 }  // namespace
 
 BrowsingDataFileSystemHelper::FileSystemInfo::FileSystemInfo(
-    const GURL& origin) : origin(origin) {}
+    const url::Origin& origin)
+    : origin(origin) {}
 
 BrowsingDataFileSystemHelper::FileSystemInfo::FileSystemInfo(
     const FileSystemInfo& other) = default;
@@ -166,7 +166,7 @@ CannedBrowsingDataFileSystemHelper::CannedBrowsingDataFileSystemHelper(
 CannedBrowsingDataFileSystemHelper::~CannedBrowsingDataFileSystemHelper() {}
 
 void CannedBrowsingDataFileSystemHelper::AddFileSystem(
-    const GURL& origin,
+    const url::Origin& origin,
     const storage::FileSystemType type,
     const int64_t size) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -185,7 +185,7 @@ void CannedBrowsingDataFileSystemHelper::AddFileSystem(
   if (duplicate_origin)
     return;
 
-  if (!BrowsingDataHelper::HasWebScheme(origin))
+  if (!BrowsingDataHelper::HasWebScheme(origin.GetURL()))
     return;  // Non-websafe state is not considered browsing data.
 
   FileSystemInfo info(origin);
@@ -206,11 +206,11 @@ size_t CannedBrowsingDataFileSystemHelper::GetFileSystemCount() const {
   return file_system_info_.size();
 }
 
-void CannedBrowsingDataFileSystemHelper::StartFetching(
-    const FetchCallback& callback) {
+void CannedBrowsingDataFileSystemHelper::StartFetching(FetchCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(!callback.is_null());
 
-  base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
-                           base::BindOnce(callback, file_system_info_));
+  base::PostTaskWithTraits(
+      FROM_HERE, {BrowserThread::UI},
+      base::BindOnce(std::move(callback), file_system_info_));
 }

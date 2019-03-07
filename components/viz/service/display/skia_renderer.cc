@@ -12,6 +12,7 @@
 #include "cc/paint/render_surface_filters.h"
 #include "components/viz/common/display/renderer_settings.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
+#include "components/viz/common/frame_sinks/copy_output_util.h"
 #include "components/viz/common/quads/debug_border_draw_quad.h"
 #include "components/viz/common/quads/picture_draw_quad.h"
 #include "components/viz/common/quads/render_pass_draw_quad.h"
@@ -36,6 +37,7 @@
 #include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkOverdrawCanvas.h"
 #include "third_party/skia/include/core/SkPath.h"
+#include "third_party/skia/include/core/SkPixelRef.h"
 #include "third_party/skia/include/core/SkShader.h"
 #include "third_party/skia/include/effects/SkOverdrawColorFilter.h"
 #include "third_party/skia/include/effects/SkShaderMaskFilter.h"
@@ -51,13 +53,14 @@ struct SkiaRenderer::DrawRenderPassDrawQuadParams {
   // The "in" parameters that will be used when apply filters.
   const cc::FilterOperations* filters = nullptr;
 
-  // The "out" parameters returned by filters.
-  // A Skia image that should be sampled from instead of the original
-  // contents.
-  sk_sp<SkImage> filter_image;
-  gfx::Point src_offset;
-  gfx::RectF dst_rect;
-  gfx::RectF tex_coord_rect;
+  // The "out" parameters returned by CalculateRPDQParams.
+  // Root of the calculated image filter DAG to be applied to the render pass.
+  sk_sp<SkImageFilter> image_filter;
+  // Non-null |color_filter| should be applied when render pass is drawn. It is
+  // a portion of the image filter DAG that was separated out because direct
+  // color filter drawing is much faster than a colorFilterImageFilter drawing.
+  // TODO(skbug.com/8700): Delete this after Skia side implementation is done.
+  sk_sp<SkColorFilter> color_filter;
 };
 
 namespace {
@@ -106,11 +109,8 @@ SkiaRenderer::ScopedSkImageBuilder::ScopedSkImageBuilder(
     // to store the new created image later.
     auto& image = skia_renderer->promise_images_[resource_id];
     if (!image) {
-      auto metadata =
-          skia_renderer->lock_set_for_external_use_.LockResource(resource_id);
-      DCHECK(!metadata.mailbox.IsZero());
-      image = skia_renderer->skia_output_surface_->MakePromiseSkImage(
-          std::move(metadata));
+      image = skia_renderer->lock_set_for_external_use_
+                  ->LockResourceAndCreateSkImage(resource_id);
       LOG_IF(ERROR, !image) << "Failed to create the promise sk image.";
     }
     sk_image_ = image.get();
@@ -146,22 +146,22 @@ class SkiaRenderer::ScopedYUVSkImageBuilder {
       const size_t number_of_textures = (is_i420 ? 3 : 2) + (has_alpha ? 1 : 0);
       std::vector<ResourceMetadata> metadatas;
       metadatas.reserve(number_of_textures);
-      auto y_metadata = skia_renderer->lock_set_for_external_use_.LockResource(
+      auto y_metadata = skia_renderer->lock_set_for_external_use_->LockResource(
           quad->y_plane_resource_id());
       metadatas.push_back(std::move(y_metadata));
-      auto u_metadata = skia_renderer->lock_set_for_external_use_.LockResource(
+      auto u_metadata = skia_renderer->lock_set_for_external_use_->LockResource(
           quad->u_plane_resource_id());
       metadatas.push_back(std::move(u_metadata));
       if (is_i420) {
         auto v_metadata =
-            skia_renderer->lock_set_for_external_use_.LockResource(
+            skia_renderer->lock_set_for_external_use_->LockResource(
                 quad->v_plane_resource_id());
         metadatas.push_back(std::move(v_metadata));
       }
 
       if (has_alpha) {
         auto a_metadata =
-            skia_renderer->lock_set_for_external_use_.LockResource(
+            skia_renderer->lock_set_for_external_use_->LockResource(
                 quad->a_plane_resource_id());
         metadatas.push_back(std::move(a_metadata));
       }
@@ -191,8 +191,7 @@ SkiaRenderer::SkiaRenderer(const RendererSettings* settings,
                            DrawMode mode)
     : DirectRenderer(settings, output_surface, resource_provider),
       draw_mode_(mode),
-      skia_output_surface_(skia_output_surface),
-      lock_set_for_external_use_(resource_provider) {
+      skia_output_surface_(skia_output_surface) {
   switch (draw_mode_) {
     case DrawMode::GL: {
       DCHECK(output_surface_);
@@ -214,6 +213,8 @@ SkiaRenderer::SkiaRenderer(const RendererSettings* settings,
     }
     case DrawMode::DDL: {
       DCHECK(skia_output_surface_);
+      lock_set_for_external_use_.emplace(resource_provider,
+                                         skia_output_surface);
       break;
     }
     case DrawMode::SKPRECORD: {
@@ -284,14 +285,12 @@ void SkiaRenderer::FinishDrawingFrame() {
     swap_content_bounds_ = current_frame()->root_content_bounds;
 }
 
-void SkiaRenderer::SwapBuffers(std::vector<ui::LatencyInfo> latency_info,
-                               bool need_presentation_feedback) {
+void SkiaRenderer::SwapBuffers(std::vector<ui::LatencyInfo> latency_info) {
   DCHECK(visible_);
   TRACE_EVENT0("viz,benchmark", "SkiaRenderer::SwapBuffers");
   OutputSurfaceFrame output_frame;
   output_frame.latency_info = std::move(latency_info);
   output_frame.size = surface_size_for_swap_buffers();
-  output_frame.need_presentation_feedback = need_presentation_feedback;
   if (use_swap_with_bounds_) {
     output_frame.content_bounds = std::move(swap_content_bounds_);
   } else if (use_partial_swap_) {
@@ -924,9 +923,24 @@ bool SkiaRenderer::CalculateRPDQParams(sk_sp<SkImage> content,
       *params->filters, gfx::SizeF(content->width(), content->height()));
   auto filter = paint_filter ? paint_filter->cached_sk_filter_ : nullptr;
 
-  // Apply filters to the content texture.
-  // TODO(xing.xu):  Support SkColorFilter here. (https://crbug.com/823182)
+  // If the first imageFilter is a colorFilterImageFilter, pull it off and store
+  // it to be used later. Fall through to allow the remainder of the DAG (if
+  // any) to be applied. Applying the colorFilter as part of the final draw is
+  // much more efficient than applying it as a colorFilterImageFilter. This
+  // optimization would be covered by skbug.com/8700. Delete color_filter
+  // related code after Skia side implementation is done.
+  if (filter) {
+    SkColorFilter* colorfilter_rawptr = nullptr;
+    filter->asColorFilter(&colorfilter_rawptr);
+    sk_sp<SkColorFilter> color_filter(colorfilter_rawptr);
 
+    if (color_filter) {
+      params->color_filter = color_filter;
+      filter = sk_ref_sp(filter->getInput(0));
+    }
+  }
+
+  // If after applying the filter we would be clipped out, skip the draw.
   if (filter) {
     gfx::Rect clip_rect = quad->shared_quad_state->clip_rect;
     if (clip_rect.IsEmpty()) {
@@ -952,22 +966,7 @@ bool SkiaRenderer::CalculateRPDQParams(sk_sp<SkImage> content,
     if (dst_rect.IsEmpty())
       return false;
 
-    SkIPoint offset;
-    SkIRect subset;
-    gfx::RectF src_rect(quad->rect);
-    // TODO(xing.xu): Support flip_texture. (https://crbug.com/822859)
-    params->filter_image = SkiaHelper::ApplyImageFilter(
-        content, src_rect, dst_rect, quad->filters_scale, std::move(filter),
-        &offset, &subset, quad->filters_origin, false);
-    if (!params->filter_image)
-      return false;
-    params->dst_rect =
-        gfx::RectF(src_rect.x() + offset.fX, src_rect.y() + offset.fY,
-                   subset.width(), subset.height());
-    params->src_offset.SetPoint(subset.x(), subset.y());
-    gfx::RectF tex_rect =
-        gfx::RectF(gfx::PointF(params->src_offset), params->dst_rect.size());
-    params->tex_coord_rect = tex_rect;
+    params->image_filter = filter;
   }
   return true;
 }
@@ -1032,16 +1031,15 @@ void SkiaRenderer::DrawRenderPassQuadInternal(const RenderPassDrawQuad* quad,
   if (!can_draw)
     return;
 
-  SkRect content_rect;
-  SkRect dest_visible_rect;
-  if (params.filter_image) {
-    content_rect = RectFToSkRect(params.tex_coord_rect);
-    dest_visible_rect = gfx::RectFToSkRect(params.dst_rect);
-    content_image = params.filter_image;
-  } else {
-    content_rect = RectFToSkRect(quad->tex_coord_rect);
-    dest_visible_rect = gfx::RectToSkRect(quad->visible_rect);
-  }
+  // Add color filter.
+  if (params.color_filter)
+    paint->setColorFilter(params.color_filter);
+  // Add image filter.
+  if (params.image_filter)
+    paint->setImageFilter(params.image_filter);
+
+  SkRect content_rect = RectFToSkRect(quad->tex_coord_rect);
+  SkRect dest_visible_rect = gfx::RectToSkRect(quad->visible_rect);
 
   // Prepare mask.
   ScopedSkImageBuilder mask_image_builder(this, quad->mask_resource_id());
@@ -1065,31 +1063,30 @@ void SkiaRenderer::DrawRenderPassQuadInternal(const RenderPassDrawQuad* quad,
       BackgroundFiltersForPass(quad->render_pass_id);
   // Without backdrop effect.
   if (!ShouldApplyBackgroundFilters(quad, backdrop_filters)) {
-    if (!mask_filter) {
-      // Not mask, so we just draw the context_image directly.
-      current_canvas_->drawImageRect(content_image, content_rect,
-                                     dest_visible_rect, paint);
-      return;
-    }
+    if (mask_filter)
+      paint->setMaskFilter(mask_filter);
 
-    // With mask, we need convert the content_image to a shader, and use
-    // drawRect() with the shader and the mask.
-    paint->setMaskFilter(mask_filter);
-    // Convert the content_image to a shader, and use drawRect() with the
-    // shader.
-    SkMatrix content_to_dest_matrix;
-    content_to_dest_matrix.setRectToRect(content_rect,
-                                         gfx::RectToSkRect(quad->rect),
-                                         SkMatrix::kFill_ScaleToFit);
-    auto shader = content_image->makeShader(&content_to_dest_matrix);
-    paint->setShader(std::move(shader));
-    current_canvas_->drawRect(dest_visible_rect, *paint);
+    // Draw now that all the filters are set up correctly.
+    current_canvas_->drawImageRect(content_image, content_rect,
+                                   dest_visible_rect, paint);
     return;
   }
 
   // Draw render pass with backdrop effects.
+  // Update the backdrop filter to include "regular" filters and opacity.
+  cc::FilterOperations backdrop_filters_plus_effects = *backdrop_filters;
+  if (params.filters) {
+    for (const auto& filter_op : params.filters->operations())
+      backdrop_filters_plus_effects.Append(filter_op);
+  }
+  if (quad->shared_quad_state->opacity < 1.0) {
+    backdrop_filters_plus_effects.Append(
+        cc::FilterOperation::CreateOpacityFilter(
+            quad->shared_quad_state->opacity));
+  }
+
   auto background_paint_filter = cc::RenderSurfaceFilters::BuildImageFilter(
-      *backdrop_filters,
+      backdrop_filters_plus_effects,
       gfx::SizeF(content_image->width(), content_image->height()));
   auto background_image_filter =
       background_paint_filter ? background_paint_filter->cached_sk_filter_
@@ -1120,6 +1117,8 @@ void SkiaRenderer::DrawRenderPassQuadInternal(const RenderPassDrawQuad* quad,
   SkAutoCanvasRestore auto_canvas_restore_for_save_layer(current_canvas_,
                                                          false /* do_save */);
   current_canvas_->saveLayer(rec);
+  // TODO(916317): need to draw the backdrop once first here. Also need to
+  // pull the backdrop-filter bounds rect in and clip the backdrop image.
   current_canvas_->drawImageRect(content_image, content_rect, dest_visible_rect,
                                  paint);
 }
@@ -1142,46 +1141,75 @@ void SkiaRenderer::CopyDrawnRenderPass(
   // TODO(weiliangc): Make copy request work. (crbug.com/644851)
   TRACE_EVENT0("viz", "SkiaRenderer::CopyDrawnRenderPass");
 
-  gfx::Rect copy_rect = current_frame()->current_render_pass->output_rect;
+  // Finalize the source subrect, as the entirety of the RenderPass's output
+  // optionally clamped to the requested copy area. Then, compute the result
+  // rect, which is the selection clamped to the maximum possible result bounds.
+  // If there will be zero pixels of output or the scaling ratio was not
+  // reasonable, do not proceed.
+  gfx::Rect output_rect = current_frame()->current_render_pass->output_rect;
   if (request->has_area())
-    copy_rect.Intersect(request->area());
-
-  if (copy_rect.IsEmpty())
+    output_rect.Intersect(request->area());
+  const gfx::Rect result_bounds =
+      request->is_scaled() ? copy_output::ComputeResultRect(
+                                 gfx::Rect(output_rect.size()),
+                                 request->scale_from(), request->scale_to())
+                           : gfx::Rect(output_rect.size());
+  gfx::Rect result_rect = result_bounds;
+  if (request->has_result_selection())
+    result_rect.Intersect(request->result_selection());
+  if (result_rect.IsEmpty())
     return;
 
-  gfx::Rect window_copy_rect = MoveFromDrawToWindowSpace(copy_rect);
-
-  if (request->result_format() != CopyOutputResult::Format::RGBA_BITMAP ||
-      request->is_scaled() ||
-      (request->has_result_selection() &&
-       request->result_selection() == gfx::Rect(copy_rect.size()))) {
-    // TODO(crbug.com/644851): Complete the implementation for all request
-    // types, scaling, etc.
-    NOTIMPLEMENTED();
-    return;
+  gfx::Rect copy_rect;
+  if (request->is_scaled()) {
+    copy_rect = MoveFromDrawToWindowSpace(output_rect);
+  } else {
+    copy_rect =
+        MoveFromDrawToWindowSpace(result_rect + output_rect.OffsetFromOrigin());
   }
 
   switch (draw_mode_) {
     case DrawMode::DDL: {
       // Root framebuffer uses id 0 in SkiaOutputSurface.
       RenderPassId render_pass_id = 0;
-      // If we are in child render pass and we don't have overdraw, copy the
-      // current render pass.
-      if (root_canvas_ != current_canvas_ && !settings_->show_overdraw_feedback)
-        render_pass_id = current_frame()->current_render_pass->id;
-      skia_output_surface_->CopyOutput(render_pass_id, window_copy_rect,
+      const auto* const render_pass = current_frame()->current_render_pass;
+      if (render_pass != current_frame()->root_render_pass) {
+        render_pass_id = render_pass->id;
+      }
+      skia_output_surface_->CopyOutput(render_pass_id, copy_rect,
+                                       render_pass->color_space, result_rect,
                                        std::move(request));
       break;
     }
     case DrawMode::GL:  // Fallthrough
     case DrawMode::VULKAN: {
+      if (request->result_format() != CopyOutputResult::Format::RGBA_BITMAP ||
+          request->is_scaled() ||
+          (request->has_result_selection() &&
+           request->result_selection() == gfx::Rect(copy_rect.size()))) {
+        // TODO(crbug.com/644851): Complete the implementation for all request
+        // types, scaling, etc.
+        NOTIMPLEMENTED();
+        return;
+      }
       sk_sp<SkImage> copy_image =
           current_surface_->makeImageSnapshot()->makeSubset(
-              RectToSkIRect(window_copy_rect));
+              RectToSkIRect(copy_rect));
 
       // Send copy request by copying into a bitmap.
       SkBitmap bitmap;
       copy_image->asLegacyBitmap(&bitmap);
+      // TODO(crbug.com/795132): Plumb color space throughout SkiaRenderer up to
+      // the SkSurface/SkImage here. Until then, play "musical chairs" with the
+      // SkPixelRef to hack-in the RenderPass's |color_space|.
+      sk_sp<SkPixelRef> pixels(SkSafeRef(bitmap.pixelRef()));
+      SkIPoint origin = bitmap.pixelRefOrigin();
+      bitmap.setInfo(
+          bitmap.info().makeColorSpace(
+              current_frame()
+                  ->current_render_pass->color_space.ToSkColorSpace()),
+          bitmap.rowBytes());
+      bitmap.setPixelRef(std::move(pixels), origin.x(), origin.y());
       request->SendResult(
           std::make_unique<CopyOutputSkBitmapResult>(copy_rect, bitmap));
       break;
@@ -1216,7 +1244,7 @@ void SkiaRenderer::FinishDrawingQuadList() {
       promise_images_.clear();
       yuv_promise_images_.clear();
       gpu::SyncToken sync_token = skia_output_surface_->SubmitPaint();
-      lock_set_for_external_use_.UnlockResources(sync_token);
+      lock_set_for_external_use_->UnlockResources(sync_token);
       break;
     }
     case DrawMode::GL:  // Fallthrough
@@ -1256,10 +1284,6 @@ bool SkiaRenderer::ShouldApplyBackgroundFilters(
   if (!backdrop_filters)
     return false;
   DCHECK(!backdrop_filters->IsEmpty());
-
-  // TODO(hendrikw): Look into allowing background filters to see pixels from
-  // other render targets.  See crbug.com/314867.
-
   return true;
 }
 

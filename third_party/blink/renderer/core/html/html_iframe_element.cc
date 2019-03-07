@@ -51,7 +51,7 @@ inline HTMLIFrameElement::HTMLIFrameElement(Document& document)
 
 DEFINE_NODE_FACTORY(HTMLIFrameElement)
 
-void HTMLIFrameElement::Trace(blink::Visitor* visitor) {
+void HTMLIFrameElement::Trace(Visitor* visitor) {
   visitor->Trace(sandbox_);
   visitor->Trace(policy_);
   HTMLFrameElementBase::Trace(visitor);
@@ -60,11 +60,12 @@ void HTMLIFrameElement::Trace(blink::Visitor* visitor) {
 
 HTMLIFrameElement::~HTMLIFrameElement() = default;
 
-const HashSet<AtomicString>& HTMLIFrameElement::GetCheckedAttributeNames()
+const AttrNameToTrustedType& HTMLIFrameElement::GetCheckedAttributeTypes()
     const {
-  DEFINE_STATIC_LOCAL(HashSet<AtomicString>, attribute_set,
-                      ({"src", "srcdoc"}));
-  return attribute_set;
+  DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
+                      ({{"src", SpecificTrustedType::kTrustedURL},
+                        {"srcdoc", SpecificTrustedType::kTrustedHTML}}));
+  return attribute_map;
 }
 
 void HTMLIFrameElement::SetCollapsed(bool collapse) {
@@ -83,7 +84,7 @@ DOMTokenList* HTMLIFrameElement::sandbox() const {
   return sandbox_.Get();
 }
 
-Policy* HTMLIFrameElement::policy() {
+DOMFeaturePolicy* HTMLIFrameElement::featurePolicy() {
   if (!policy_) {
     policy_ = MakeGarbageCollected<IFramePolicy>(
         &GetDocument(), ContainerPolicy(), GetOriginForFeaturePolicy());

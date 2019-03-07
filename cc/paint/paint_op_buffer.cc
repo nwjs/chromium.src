@@ -302,8 +302,11 @@ size_t SimpleSerialize(const PaintOp* op, void* memory, size_t size) {
   return sizeof(T);
 }
 
-PlaybackParams::PlaybackParams(ImageProvider* image_provider)
+PlaybackParams::PlaybackParams(
+    ImageProvider* image_provider,
+    PaintWorkletImageProvider* paint_worklet_image_provider)
     : image_provider(image_provider),
+      paint_worklet_image_provider(paint_worklet_image_provider),
       original_ctm(SkMatrix::I()),
       custom_callback(CustomDataRasterCallback()),
       did_draw_op_callback(DidDrawOpCallback()) {}
@@ -355,10 +358,14 @@ PaintOp::SerializeOptions& PaintOp::SerializeOptions::operator=(
 PaintOp::DeserializeOptions::DeserializeOptions(
     TransferCacheDeserializeHelper* transfer_cache,
     ServicePaintCache* paint_cache,
-    SkStrikeClient* strike_client)
+    SkStrikeClient* strike_client,
+    std::vector<uint8_t>* scratch_buffer)
     : transfer_cache(transfer_cache),
       paint_cache(paint_cache),
-      strike_client(strike_client) {}
+      strike_client(strike_client),
+      scratch_buffer(scratch_buffer) {
+  DCHECK(scratch_buffer);
+}
 
 size_t AnnotateOp::Serialize(const PaintOp* base_op,
                              void* memory,
@@ -1393,14 +1400,7 @@ void SaveLayerAlphaOp::Raster(const SaveLayerAlphaOp* op,
                               const PlaybackParams& params) {
   // See PaintOp::kUnsetRect
   bool unset = op->bounds.left() == SK_ScalarInfinity;
-  if (op->preserve_lcd_text_requests) {
-    SkPaint paint;
-    paint.setAlpha(op->alpha);
-    canvas->saveLayerPreserveLCDTextRequests(unset ? nullptr : &op->bounds,
-                                             &paint);
-  } else {
-    canvas->saveLayerAlpha(unset ? nullptr : &op->bounds, op->alpha);
-  }
+  canvas->saveLayerAlpha(unset ? nullptr : &op->bounds, op->alpha);
 }
 
 void ScaleOp::Raster(const ScaleOp* op,
@@ -1813,8 +1813,6 @@ bool SaveLayerAlphaOp::AreEqual(const PaintOp* base_left,
   if (!AreSkRectsEqual(left->bounds, right->bounds))
     return false;
   if (left->alpha != right->alpha)
-    return false;
-  if (left->preserve_lcd_text_requests != right->preserve_lcd_text_requests)
     return false;
   return true;
 }
@@ -2387,6 +2385,8 @@ void PaintOpBuffer::Playback(SkCanvas* canvas,
   PlaybackParams new_params(params.image_provider, canvas->getTotalMatrix(),
                             params.custom_callback,
                             params.did_draw_op_callback);
+  // TODO(xidachen): retrieve the PaintRecord stored in PaintWorkletImageCache,
+  // from the PaintWorkletImageProvider in the params.
   for (PlaybackFoldingIterator iter(this, offsets); iter; ++iter) {
     const PaintOp* op = *iter;
 

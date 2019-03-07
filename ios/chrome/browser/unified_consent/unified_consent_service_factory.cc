@@ -4,7 +4,6 @@
 
 #include "ios/chrome/browser/unified_consent/unified_consent_service_factory.h"
 
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/keyed_service/ios/browser_state_dependency_manager.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/unified_consent/feature.h"
@@ -44,7 +43,8 @@ UnifiedConsentServiceFactory::GetForBrowserStateIfExists(
 
 // static
 UnifiedConsentServiceFactory* UnifiedConsentServiceFactory::GetInstance() {
-  return base::Singleton<UnifiedConsentServiceFactory>::get();
+  static base::NoDestructor<UnifiedConsentServiceFactory> instance;
+  return instance.get();
 }
 
 std::unique_ptr<KeyedService>
@@ -53,10 +53,8 @@ UnifiedConsentServiceFactory::BuildServiceInstanceFor(
   ios::ChromeBrowserState* browser_state =
       ios::ChromeBrowserState::FromBrowserState(context);
   PrefService* user_pref_service = browser_state->GetPrefs();
-  PrefService* local_pref_service = GetApplicationContext()->GetLocalState();
   std::unique_ptr<unified_consent::UnifiedConsentServiceClient> service_client =
-      std::make_unique<UnifiedConsentServiceClientImpl>(user_pref_service,
-                                                        local_pref_service);
+      std::make_unique<UnifiedConsentServiceClientImpl>();
 
   identity::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForBrowserState(browser_state);

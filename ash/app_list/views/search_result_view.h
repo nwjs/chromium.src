@@ -56,11 +56,7 @@ class APP_LIST_EXPORT SearchResultView
   ~SearchResultView() override;
 
   // Sets/gets SearchResult displayed by this view.
-  void SetResult(SearchResult* result);
-  SearchResult* result() { return result_; }
-
-  // Clears reference to SearchResult but don't schedule repaint.
-  void ClearResultNoRepaint();
+  void OnResultChanged() override;
 
   // Clears the selected action.
   void ClearSelectedAction();
@@ -73,6 +69,8 @@ class APP_LIST_EXPORT SearchResultView
   // AppListMenuModelAdapter::Delegate overrides:
   void ExecuteCommand(int command_id, int event_flags) override;
 
+  bool selected() const { return selected_; }
+
  private:
   friend class app_list::test::SearchResultListViewTest;
 
@@ -84,6 +82,9 @@ class APP_LIST_EXPORT SearchResultView
   void CreateTitleRenderText();
   void CreateDetailsRenderText();
 
+  // Callback for query suggstion removal confirmation.
+  void OnQueryRemovalAccepted(bool accepted, int event_flags);
+
   // views::View overrides:
   const char* GetClassName() const override;
   gfx::Size CalculatePreferredSize() const override;
@@ -93,6 +94,11 @@ class APP_LIST_EXPORT SearchResultView
   void PaintButtonContents(gfx::Canvas* canvas) override;
   void OnFocus() override;
   void OnBlur() override;
+  void OnMouseEntered(const ui::MouseEvent& event) override;
+  void OnMouseExited(const ui::MouseEvent& event) override;
+
+  // ui::EventHandler overrides:
+  void OnGestureEvent(ui::GestureEvent* event) override;
 
   // views::ButtonListener overrides:
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
@@ -113,7 +119,6 @@ class APP_LIST_EXPORT SearchResultView
   void OnIsInstallingChanged() override;
   void OnPercentDownloadedChanged() override;
   void OnItemInstalled() override;
-  void OnResultDestroying() override;
 
   void SetIconImage(const gfx::ImageSkia& source,
                     views::ImageView* const icon,
@@ -121,8 +126,7 @@ class APP_LIST_EXPORT SearchResultView
 
   // SearchResultActionsViewDelegate overrides:
   void OnSearchResultActionActivated(size_t index, int event_flags) override;
-
-  SearchResult* result_ = nullptr;  // Owned by SearchModel::SearchResults.
+  bool IsSearchResultHoveredOrSelected() override;
 
   bool is_last_result_ = false;
 
@@ -142,6 +146,8 @@ class APP_LIST_EXPORT SearchResultView
 
   // Whether this view is selected.
   bool selected_ = false;
+  // Whether the removal confirmation dialog is invoked by long press touch.
+  bool confirm_remove_by_long_press_ = false;
 
   base::WeakPtrFactory<SearchResultView> weak_ptr_factory_;
 

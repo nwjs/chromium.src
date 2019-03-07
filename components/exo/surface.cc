@@ -15,6 +15,7 @@
 #include "base/trace_event/traced_value.h"
 #include "cc/trees/layer_tree_frame_sink.h"
 #include "components/exo/buffer.h"
+#include "components/exo/shell_surface_util.h"
 #include "components/exo/surface_delegate.h"
 #include "components/exo/surface_observer.h"
 #include "components/exo/wm_helper.h"
@@ -27,9 +28,11 @@
 #include "components/viz/service/surfaces/surface_manager.h"
 #include "services/ws/public/mojom/window_tree_constants.mojom.h"
 #include "third_party/khronos/GLES2/gl2.h"
+#include "third_party/skia/include/core/SkPath.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/drag_drop_delegate.h"
 #include "ui/aura/window_delegate.h"
+#include "ui/aura/window_occlusion_tracker.h"
 #include "ui/aura/window_targeter.h"
 #include "ui/base/class_property.h"
 #include "ui/base/cursor/cursor.h"
@@ -41,7 +44,6 @@
 #include "ui/gfx/geometry/safe_integer_conversions.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #include "ui/gfx/gpu_memory_buffer.h"
-#include "ui/gfx/path.h"
 #include "ui/gfx/presentation_feedback.h"
 #include "ui/gfx/transform_util.h"
 #include "ui/views/widget/widget.h"
@@ -141,8 +143,12 @@ class CustomWindowDelegate : public aura::WindowDelegate {
   void OnWindowDestroying(aura::Window* window) override {}
   void OnWindowDestroyed(aura::Window* window) override { delete this; }
   void OnWindowTargetVisibilityChanged(bool visible) override {}
+  void OnWindowOcclusionChanged(aura::Window::OcclusionState occlusion_state,
+                                const SkRegion& occluded_region) override {
+    surface_->OnWindowOcclusionChanged();
+  }
   bool HasHitTestMask() const override { return true; }
-  void GetHitTestMask(gfx::Path* mask) const override {
+  void GetHitTestMask(SkPath* mask) const override {
     surface_->GetHitTestMask(mask);
   }
   void OnKeyEvent(ui::KeyEvent* event) override {
@@ -183,6 +189,19 @@ class CustomWindowTargeter : public aura::WindowTargeter {
  private:
   DISALLOW_COPY_AND_ASSIGN(CustomWindowTargeter);
 };
+
+const std::string& GetApplicationId(aura::Window* window) {
+  static const std::string empty_app_id;
+  if (!window)
+    return empty_app_id;
+  while (window) {
+    const std::string* app_id = exo::GetShellApplicationId(window);
+    if (app_id)
+      return *app_id;
+    window = window->parent();
+  }
+  return empty_app_id;
+}
 
 }  // namespace
 
@@ -226,9 +245,9 @@ Surface* Surface::AsSurface(const aura::Window* window) {
 }
 
 void Surface::Attach(Buffer* buffer) {
-  TRACE_EVENT1("exo", "Surface::Attach", "buffer",
-               buffer ? buffer->GetSize().ToString() : "null");
-
+  TRACE_EVENT2("exo", "Surface::Attach", "buffer_id",
+               buffer ? buffer->gfx_buffer() : nullptr, "app_id",
+               GetApplicationId(window_.get()));
   has_pending_contents_ = true;
   pending_buffer_.Reset(buffer ? buffer->AsWeakPtr() : base::WeakPtr<Buffer>());
 }
@@ -492,6 +511,7 @@ void Surface::Commit() {
 }
 
 void Surface::CommitSurfaceHierarchy(bool synchronized) {
+  TRACE_EVENT0("exo", "Surface::CommitSurfaceHierarchy");
   if (needs_commit_surface_ && (synchronized || !IsSynchronized())) {
     needs_commit_surface_ = false;
     synchronized = true;
@@ -678,7 +698,7 @@ bool Surface::HitTest(const gfx::Point& point) const {
   return hit_test_region_.Contains(point);
 }
 
-void Surface::GetHitTestMask(gfx::Path* mask) const {
+void Surface::GetHitTestMask(SkPath* mask) const {
   hit_test_region_.GetBoundaryPath(mask);
 }
 
@@ -729,6 +749,15 @@ bool Surface::FillsBoundsOpaquely() const {
   return !current_resource_has_alpha_ ||
          state_.blend_mode == SkBlendMode::kSrc ||
          state_.opaque_region.Contains(gfx::Rect(content_size_));
+}
+
+void Surface::SetOcclusionTracking(bool tracking) {
+  is_tracking_occlusion_ = tracking;
+  // TODO(edcourtney): Currently, it doesn't seem to be possible to stop
+  // tracking the occlusion state once started, but it would be nice to stop if
+  // the tracked occlusion region becomes empty.
+  if (is_tracking_occlusion_)
+    window()->TrackOcclusionState();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -951,6 +980,14 @@ void Surface::UpdateContentSize() {
     content_size_ = content_size;
     window_->SetBounds(gfx::Rect(window_->bounds().origin(), content_size_));
   }
+}
+
+void Surface::OnWindowOcclusionChanged() {
+  if (!is_tracking_occlusion_)
+    return;
+
+  for (SurfaceObserver& observer : observers_)
+    observer.OnWindowOcclusionChanged(this);
 }
 
 }  // namespace exo

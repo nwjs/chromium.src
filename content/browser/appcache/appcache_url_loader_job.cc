@@ -13,6 +13,7 @@
 #include "content/public/common/resource_type.h"
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/net_adapters.h"
+#include "third_party/blink/public/mojom/appcache/appcache_info.mojom.h"
 
 namespace content {
 
@@ -106,9 +107,8 @@ base::WeakPtr<AppCacheURLLoaderJob> AppCacheURLLoaderJob::GetDerivedWeakPtr() {
 }
 
 void AppCacheURLLoaderJob::FollowRedirect(
-    const base::Optional<std::vector<std::string>>&
-        to_be_removed_request_headers,
-    const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
+    const std::vector<std::string>& modified_headers,
+    const net::HttpRequestHeaders& removed_headers,
     const base::Optional<GURL>& new_url) {
   NOTREACHED() << "appcache never produces redirects";
 }
@@ -150,7 +150,7 @@ AppCacheURLLoaderJob::AppCacheURLLoaderJob(
     NavigationLoaderInterceptor::LoaderCallback loader_callback)
     : storage_(storage->GetWeakPtr()),
       start_time_tick_(base::TimeTicks::Now()),
-      cache_id_(kAppCacheNoCacheId),
+      cache_id_(blink::mojom::kAppCacheNoCacheId),
       is_fallback_(false),
       binding_(this),
       writable_handle_watcher_(FROM_HERE,

@@ -50,7 +50,8 @@ using extensions::Extension;
 using extensions::PrinterProviderAPI;
 using extensions::PrinterProviderPrintJob;
 using extensions::TestExtensionEnvironment;
-using printing::PwgRasterConverter;
+
+namespace printing {
 
 namespace {
 
@@ -210,12 +211,12 @@ void RecordPrintersDone(bool* is_done_out) {
 // Increases |*call_count| and records values returned by StartGetCapability.
 void RecordCapability(size_t* call_count,
                       std::unique_ptr<base::DictionaryValue>* capability_out,
-                      std::unique_ptr<base::DictionaryValue> capability) {
+                      base::Value capability) {
   ++(*call_count);
   const base::Value* capabilities = nullptr;
-  if (capability) {
-    capabilities = capability->FindKeyOfType(printing::kSettingCapabilities,
-                                             base::Value::Type::DICTIONARY);
+  if (capability.is_dict()) {
+    capabilities = capability.FindKeyOfType(kSettingCapabilities,
+                                            base::Value::Type::DICTIONARY);
   }
   *capability_out =
       capabilities ? base::DictionaryValue::From(
@@ -282,8 +283,8 @@ class FakePwgRasterConverter : public PwgRasterConverter {
   // PwgRasterConverter implementation. It writes |data| to shared memory.
   // Also, remembers conversion and bitmap settings passed into the method.
   void Start(const base::RefCountedMemory* data,
-             const printing::PdfRenderSettings& conversion_settings,
-             const printing::PwgRasterSettings& bitmap_settings,
+             const PdfRenderSettings& conversion_settings,
+             const PwgRasterSettings& bitmap_settings,
              ResultCallback callback) override {
     base::ReadOnlySharedMemoryRegion invalid_pwg_region;
     if (fail_conversion_) {
@@ -308,17 +309,15 @@ class FakePwgRasterConverter : public PwgRasterConverter {
   // Makes |Start| method always return an error.
   void FailConversion() { fail_conversion_ = true; }
 
-  const printing::PdfRenderSettings& conversion_settings() const {
+  const PdfRenderSettings& conversion_settings() const {
     return conversion_settings_;
   }
 
-  const printing::PwgRasterSettings& bitmap_settings() const {
-    return bitmap_settings_;
-  }
+  const PwgRasterSettings& bitmap_settings() const { return bitmap_settings_; }
 
  private:
-  printing::PdfRenderSettings conversion_settings_;
-  printing::PwgRasterSettings bitmap_settings_;
+  PdfRenderSettings conversion_settings_;
+  PwgRasterSettings bitmap_settings_;
   bool fail_conversion_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(FakePwgRasterConverter);
@@ -778,13 +777,13 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg) {
   ASSERT_TRUE(fake_api);
   ASSERT_EQ(1u, fake_api->pending_print_count());
 
-  EXPECT_EQ(printing::TRANSFORM_NORMAL,
+  EXPECT_EQ(TRANSFORM_NORMAL,
             pwg_raster_converter_->bitmap_settings().odd_page_transform);
   EXPECT_FALSE(pwg_raster_converter_->bitmap_settings().rotate_all_pages);
   EXPECT_FALSE(pwg_raster_converter_->bitmap_settings().reverse_page_order);
   EXPECT_TRUE(pwg_raster_converter_->bitmap_settings().use_color);
 
-  EXPECT_EQ(gfx::Size(printing::kDefaultPdfDpi, printing::kDefaultPdfDpi),
+  EXPECT_EQ(gfx::Size(kDefaultPdfDpi, kDefaultPdfDpi),
             pwg_raster_converter_->conversion_settings().dpi);
   EXPECT_TRUE(pwg_raster_converter_->conversion_settings().autorotate);
   // size = vertically_oriented_size * vertical_dpi / points_per_inch x
@@ -832,7 +831,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg_NonDefaultSettings) {
   ASSERT_TRUE(fake_api);
   ASSERT_EQ(1u, fake_api->pending_print_count());
 
-  EXPECT_EQ(printing::TRANSFORM_FLIP_VERTICAL,
+  EXPECT_EQ(TRANSFORM_FLIP_VERTICAL,
             pwg_raster_converter_->bitmap_settings().odd_page_transform);
   EXPECT_TRUE(pwg_raster_converter_->bitmap_settings().rotate_all_pages);
   EXPECT_TRUE(pwg_raster_converter_->bitmap_settings().reverse_page_order);
@@ -998,3 +997,5 @@ TEST_F(ExtensionPrinterHandlerTest, GrantUsbPrinterAccess_Reset) {
   EXPECT_EQ(0u, call_count);
   EXPECT_FALSE(printer_info.get());
 }
+
+}  // namespace printing

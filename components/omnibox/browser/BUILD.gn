@@ -5,9 +5,9 @@
 import("//build/buildflag_header.gni")
 import("//build/config/jumbo.gni")
 import("//build/config/ui.gni")
+import("//components/vector_icons/vector_icons.gni")
 import("//device/vr/buildflags/buildflags.gni")
 import("//third_party/protobuf/proto_library.gni")
-import("//components/vector_icons/vector_icons.gni")
 
 if (is_android) {
   import("//build/config/android/rules.gni")
@@ -130,6 +130,8 @@ jumbo_static_library("browser") {
     "omnibox_client.h",
     "omnibox_controller.cc",
     "omnibox_controller.h",
+    "omnibox_controller_emitter.cc",
+    "omnibox_controller_emitter.h",
     "omnibox_edit_controller.cc",
     "omnibox_edit_controller.h",
     "omnibox_edit_model.cc",
@@ -156,8 +158,6 @@ jumbo_static_library("browser") {
     "omnibox_pref_names.h",
     "omnibox_view.cc",
     "omnibox_view.h",
-    "query_in_omnibox.cc",
-    "query_in_omnibox.h",
     "scored_history_match.cc",
     "scored_history_match.h",
     "search_provider.cc",
@@ -228,6 +228,7 @@ jumbo_static_library("browser") {
     "//skia",
     "//sql",
     "//third_party/protobuf:protobuf_lite",
+    "//third_party/re2",
     "//ui/base",
     "//ui/gfx",
   ]
@@ -238,6 +239,10 @@ jumbo_static_library("browser") {
 
   if (is_android) {
     deps += [ ":jni_headers" ]
+  }
+
+  if (!is_ios) {
+    deps += [ "//components/keyed_service/content" ]
   }
 }
 
@@ -376,11 +381,11 @@ source_set("unit_tests") {
     "omnibox_controller_unittest.cc",
     "omnibox_edit_model_unittest.cc",
     "omnibox_field_trial_unittest.cc",
+    "omnibox_pedal_implementations_unittest.cc",
     "omnibox_pedal_provider_unittest.cc",
     "omnibox_pedal_unittest.cc",
     "omnibox_popup_model_unittest.cc",
     "omnibox_view_unittest.cc",
-    "query_in_omnibox_unittest.cc",
     "scored_history_match_unittest.cc",
     "search_suggestion_parser_unittest.cc",
     "shortcuts_backend_unittest.cc",

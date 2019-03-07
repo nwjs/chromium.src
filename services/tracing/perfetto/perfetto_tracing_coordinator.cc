@@ -69,8 +69,11 @@ class PerfettoTracingCoordinator::TracingSession {
 };
 
 PerfettoTracingCoordinator::PerfettoTracingCoordinator(
-    AgentRegistry* agent_registry)
-    : Coordinator(agent_registry), binding_(this), weak_factory_(this) {
+    AgentRegistry* agent_registry,
+    base::RepeatingClosure on_disconnect_callback)
+    : Coordinator(agent_registry, std::move(on_disconnect_callback)),
+      binding_(this),
+      weak_factory_(this) {
   DETACH_FROM_SEQUENCE(sequence_checker_);
 }
 
@@ -81,6 +84,8 @@ PerfettoTracingCoordinator::~PerfettoTracingCoordinator() {
 void PerfettoTracingCoordinator::OnClientConnectionError() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   tracing_session_.reset();
+  binding_.Close();
+  Coordinator::OnClientConnectionError();
 }
 
 void PerfettoTracingCoordinator::BindCoordinatorRequest(
@@ -100,13 +105,11 @@ void PerfettoTracingCoordinator::BindOnSequence(
                      base::Unretained(this)));
 }
 
-void PerfettoTracingCoordinator::StartTracing(const std::string& config,
-                                              StartTracingCallback callback) {
+void PerfettoTracingCoordinator::StartTracing(const std::string& config) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   tracing_session_ = std::make_unique<TracingSession>(
       config, base::BindOnce(&PerfettoTracingCoordinator::OnTracingOverCallback,
                              weak_factory_.GetWeakPtr()));
-  std::move(callback).Run(true);
 }
 
 void PerfettoTracingCoordinator::OnTracingOverCallback() {

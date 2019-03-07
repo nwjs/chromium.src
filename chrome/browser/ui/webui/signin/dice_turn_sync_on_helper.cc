@@ -10,6 +10,8 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/no_destructor.h"
+#include "base/observer_list.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "chrome/browser/browser_process.h"
@@ -18,34 +20,114 @@
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/webui/signin/dice_turn_sync_on_helper_delegate_impl.h"
 #include "chrome/browser/ui/webui/signin/signin_utils_desktop.h"
 #include "chrome/browser/unified_consent/unified_consent_service_factory.h"
-#include "components/browser_sync/profile_sync_service.h"
+#include "components/keyed_service/content/browser_context_keyed_service_shutdown_notifier_factory.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/account_info.h"
-#include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/profile_oauth2_token_service.h"
+#include "components/signin/core/browser/device_id_helper.h"
 #include "components/signin/core/browser/signin_metrics.h"
 #include "components/signin/core/browser/signin_pref_names.h"
 #include "components/sync/base/sync_prefs.h"
+#include "components/sync/driver/sync_service.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "components/unified_consent/feature.h"
 #include "components/unified_consent/unified_consent_service.h"
 #include "content/public/browser/storage_partition.h"
+#include "services/identity/public/cpp/accounts_mutator.h"
+#include "services/identity/public/cpp/identity_manager.h"
+#include "services/identity/public/cpp/primary_account_mutator.h"
 
 namespace {
 
-AccountInfo GetAccountInfo(Profile* profile, const std::string& account_id) {
-  return AccountTrackerServiceFactory::GetForProfile(profile)->GetAccountInfo(
-      account_id);
+// A helper class to watch profile lifetime.
+class DiceTurnSyncOnHelperShutdownNotifierFactory
+    : public BrowserContextKeyedServiceShutdownNotifierFactory {
+ public:
+  static DiceTurnSyncOnHelperShutdownNotifierFactory* GetInstance() {
+    static base::NoDestructor<DiceTurnSyncOnHelperShutdownNotifierFactory>
+        factory;
+    return factory.get();
+  }
+
+ private:
+  friend class base::NoDestructor<DiceTurnSyncOnHelperShutdownNotifierFactory>;
+
+  DiceTurnSyncOnHelperShutdownNotifierFactory()
+      : BrowserContextKeyedServiceShutdownNotifierFactory(
+            "DiceTurnSyncOnHelperShutdownNotifier") {
+    DependsOn(IdentityManagerFactory::GetInstance());
+    DependsOn(ProfileSyncServiceFactory::GetInstance());
+    DependsOn(UnifiedConsentServiceFactory::GetInstance());
+    DependsOn(policy::UserPolicySigninServiceFactory::GetInstance());
+  }
+  ~DiceTurnSyncOnHelperShutdownNotifierFactory() override {}
+
+  DISALLOW_COPY_AND_ASSIGN(DiceTurnSyncOnHelperShutdownNotifierFactory);
+};
+
+AccountInfo GetAccountInfo(identity::IdentityManager* identity_manager,
+                           const std::string& account_id) {
+  auto maybe_account_info =
+      identity_manager->FindAccountInfoForAccountWithRefreshTokenByAccountId(
+          account_id);
+  return maybe_account_info.has_value() ? maybe_account_info.value()
+                                        : AccountInfo();
 }
+
+class TokensLoadedCallbackRunner : public identity::IdentityManager::Observer {
+ public:
+  // Calls |callback| when tokens are loaded.
+  static void RunWhenLoaded(Profile* profile,
+                            base::OnceCallback<void(Profile*)> callback) {
+    auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
+    if (identity_manager->AreRefreshTokensLoaded()) {
+      std::move(callback).Run(profile);
+      return;
+    }
+    // TokensLoadedCallbackRunner deletes itself after running the callback.
+    new TokensLoadedCallbackRunner(
+        identity_manager,
+        DiceTurnSyncOnHelperShutdownNotifierFactory::GetInstance()->Get(
+            profile),
+        base::BindOnce(std::move(callback), profile));
+  }
+
+ private:
+  TokensLoadedCallbackRunner(identity::IdentityManager* identity_manager,
+                             KeyedServiceShutdownNotifier* shutdown_notifier,
+                             base::OnceClosure callback)
+      : identity_manager_(identity_manager),
+        scoped_identity_manager_observer_(this),
+        callback_(std::move(callback)),
+        shutdown_subscription_(shutdown_notifier->Subscribe(
+            base::Bind(&TokensLoadedCallbackRunner::OnShutdown,
+                       base::Unretained(this)))) {
+    DCHECK(!identity_manager_->AreRefreshTokensLoaded());
+    scoped_identity_manager_observer_.Add(identity_manager_);
+  }
+
+  // identity::IdentityManager::Observer implementation:
+  void OnRefreshTokensLoaded() override {
+    std::move(callback_).Run();
+    delete this;
+  }
+
+  void OnShutdown() { delete this; }
+
+  identity::IdentityManager* identity_manager_;
+  ScopedObserver<identity::IdentityManager, TokensLoadedCallbackRunner>
+      scoped_identity_manager_observer_;
+  base::OnceClosure callback_;
+  std::unique_ptr<KeyedServiceShutdownNotifier::Subscription>
+      shutdown_subscription_;
+};
 
 }  // namespace
 
@@ -59,18 +141,22 @@ DiceTurnSyncOnHelper::DiceTurnSyncOnHelper(
     std::unique_ptr<Delegate> delegate)
     : delegate_(std::move(delegate)),
       profile_(profile),
-      signin_manager_(SigninManagerFactory::GetForProfile(profile)),
-      token_service_(ProfileOAuth2TokenServiceFactory::GetForProfile(profile)),
+      identity_manager_(IdentityManagerFactory::GetForProfile(profile)),
       signin_access_point_(signin_access_point),
       signin_promo_action_(signin_promo_action),
       signin_reason_(signin_reason),
       signin_aborted_mode_(signin_aborted_mode),
-      account_info_(GetAccountInfo(profile, account_id)),
+      account_info_(GetAccountInfo(identity_manager_, account_id)),
+      shutdown_subscription_(
+          DiceTurnSyncOnHelperShutdownNotifierFactory::GetInstance()
+              ->Get(profile)
+              ->Subscribe(base::Bind(&DiceTurnSyncOnHelper::AbortAndDelete,
+                                     base::Unretained(this)))),
       weak_pointer_factory_(this) {
   DCHECK(delegate_);
   DCHECK(profile_);
   // Should not start syncing if the profile is already authenticated
-  DCHECK(!signin_manager_->IsAuthenticated());
+  DCHECK(!identity_manager_->HasPrimaryAccount());
 
   // Force sign-in uses the modal sign-in flow.
   DCHECK(!signin_util::IsForceSigninEnabled());
@@ -88,7 +174,7 @@ DiceTurnSyncOnHelper::DiceTurnSyncOnHelper(
     // Do not self-destruct synchronously in the constructor.
     base::SequencedTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, base::BindOnce(&DiceTurnSyncOnHelper::AbortAndDelete,
-                                  base::Unretained(this)));
+                                  weak_pointer_factory_.GetWeakPtr()));
     return;
   }
 
@@ -194,7 +280,7 @@ void DiceTurnSyncOnHelper::OnEnterpriseAccountConfirmation(
 }
 
 void DiceTurnSyncOnHelper::TurnSyncOnWithProfileMode(ProfileMode profile_mode) {
-  // Make sure the syncing is requested, otherwise the SigninManager
+  // Make sure the syncing is requested, otherwise the IdentityManager
   // will not be able to complete successfully.
   syncer::SyncPrefs sync_prefs(profile_->GetPrefs());
   sync_prefs.SetSyncRequested(true);
@@ -263,7 +349,7 @@ void DiceTurnSyncOnHelper::LoadPolicyWithCachedCredentials() {
 void DiceTurnSyncOnHelper::OnPolicyFetchComplete(bool success) {
   // For now, we allow signin to complete even if the policy fetch fails. If
   // we ever want to change this behavior, we could call
-  // SigninManager::SignOut() here instead.
+  // PrimaryAccountMutator::ClearPrimaryAccount() here instead.
   DLOG_IF(ERROR, !success) << "Error fetching policy for user";
   DVLOG_IF(1, success) << "Policy fetch successful - completing signin";
   SigninAndShowSyncConfirmationUI();
@@ -278,13 +364,12 @@ void DiceTurnSyncOnHelper::CreateNewSignedInProfile() {
   ProfileManager::CreateMultiProfileAsync(
       base::UTF8ToUTF16(account_info_.email),
       profiles::GetDefaultAvatarIconUrl(icon_index),
-      base::BindRepeating(&DiceTurnSyncOnHelper::CompleteInitForNewProfile,
+      base::BindRepeating(&DiceTurnSyncOnHelper::OnNewProfileCreated,
                           weak_pointer_factory_.GetWeakPtr()));
 }
 
-void DiceTurnSyncOnHelper::CompleteInitForNewProfile(
-    Profile* new_profile,
-    Profile::CreateStatus status) {
+void DiceTurnSyncOnHelper::OnNewProfileCreated(Profile* new_profile,
+                                               Profile::CreateStatus status) {
   DCHECK_NE(profile_, new_profile);
 
   // TODO(atwilson): On error, unregister the client to release the DMToken
@@ -298,9 +383,10 @@ void DiceTurnSyncOnHelper::CompleteInitForNewProfile(
       // Ignore this, wait for profile to be initialized.
       break;
     case Profile::CREATE_STATUS_INITIALIZED:
-      // The user needs to sign in to the new profile in order to enable sync.
-      delegate_->ShowSigninPageInNewProfile(new_profile, account_info_.email);
-      AbortAndDelete();
+      TokensLoadedCallbackRunner::RunWhenLoaded(
+          new_profile,
+          base::BindOnce(&DiceTurnSyncOnHelper::OnNewProfileTokensLoaded,
+                         weak_pointer_factory_.GetWeakPtr()));
       break;
     case Profile::CREATE_STATUS_REMOTE_FAIL:
     case Profile::CREATE_STATUS_CANCELED:
@@ -312,22 +398,49 @@ void DiceTurnSyncOnHelper::CompleteInitForNewProfile(
   }
 }
 
-browser_sync::ProfileSyncService*
-DiceTurnSyncOnHelper::GetProfileSyncService() {
+syncer::SyncService* DiceTurnSyncOnHelper::GetSyncService() {
   return profile_->IsSyncAllowed()
-             ? ProfileSyncServiceFactory::GetForProfile(profile_)
+             ? ProfileSyncServiceFactory::GetSyncServiceForProfile(profile_)
              : nullptr;
+}
+
+void DiceTurnSyncOnHelper::OnNewProfileTokensLoaded(Profile* new_profile) {
+  // This deletes the token locally, even in KEEP_ACCOUNT mode.
+  auto* accounts_mutator = identity_manager_->GetAccountsMutator();
+  auto* new_profile_accounts_mutator =
+      IdentityManagerFactory::GetForProfile(new_profile)->GetAccountsMutator();
+  accounts_mutator->MoveAccount(new_profile_accounts_mutator,
+                                account_info_.account_id);
+  // Reset the device ID from the source profile: the exported token is linked
+  // to the device ID of the current profile on the server. Reset the device ID
+  // of the current profile to avoid tying it with the new profile. See
+  // https://crbug.com/813928#c16
+  signin::RecreateSigninScopedDeviceId(profile_->GetPrefs());
+
+  SwitchToProfile(new_profile);
+  DCHECK_EQ(profile_, new_profile);
+
+  if (!dm_token_.empty()) {
+    // Load policy for the just-created profile - once policy has finished
+    // loading the signin process will complete.
+    DCHECK(!client_id_.empty());
+    LoadPolicyWithCachedCredentials();
+  } else {
+    // No policy to load - simply complete the signin process.
+    SigninAndShowSyncConfirmationUI();
+  }
 }
 
 void DiceTurnSyncOnHelper::SigninAndShowSyncConfirmationUI() {
   // Signin.
-  signin_manager_->OnExternalSigninCompleted(account_info_.email);
+  auto* primary_account_mutator = identity_manager_->GetPrimaryAccountMutator();
+  primary_account_mutator->SetPrimaryAccount(account_info_.account_id);
   signin_metrics::LogSigninAccessPointCompleted(signin_access_point_,
                                                 signin_promo_action_);
   signin_metrics::LogSigninReason(signin_reason_);
   base::RecordAction(base::UserMetricsAction("Signin_Signin_Succeed"));
 
-  browser_sync::ProfileSyncService* sync_service = GetProfileSyncService();
+  syncer::SyncService* sync_service = GetSyncService();
   if (sync_service) {
     // Take a SyncSetupInProgressHandle, so that the UI code can use
     // IsFirstSyncSetupInProgress() as a way to know if there is a signin in
@@ -338,15 +451,16 @@ void DiceTurnSyncOnHelper::SigninAndShowSyncConfirmationUI() {
         !policy::BrowserPolicyConnector::IsNonEnterpriseUser(
             account_info_.email);
     if (is_enterprise_user &&
-        SyncStartupTracker::GetSyncServiceState(profile_) ==
+        SyncStartupTracker::GetSyncServiceState(sync_service) ==
             SyncStartupTracker::SYNC_STARTUP_PENDING) {
       // For enterprise users it is important to wait until sync is initialized
-      // so that the confirmation UI can be
-      // aware of startup errors. This is needed to make sure that the sync
-      // confirmation dialog is shown only after the sync service had a chance
-      // to check whether sync was disabled by admin.
+      // so that the confirmation UI can be aware of startup errors. This is
+      // needed to make sure that the sync confirmation dialog is shown only
+      // after the sync service had a chance to check whether sync was disabled
+      // by admin.
       // See http://crbug.com/812546
-      sync_startup_tracker_.reset(new SyncStartupTracker(profile_, this));
+      sync_startup_tracker_ =
+          std::make_unique<SyncStartupTracker>(sync_service, this);
       return;
     }
   }
@@ -384,7 +498,7 @@ void DiceTurnSyncOnHelper::FinishSyncSetupAndDelete(
       delegate_->ShowSyncSettings();
       break;
     case LoginUIService::SYNC_WITH_DEFAULT_SETTINGS: {
-      browser_sync::ProfileSyncService* sync_service = GetProfileSyncService();
+      syncer::SyncService* sync_service = GetSyncService();
       if (sync_service)
         sync_service->GetUserSettings()->SetFirstSetupComplete();
       if (consent_service)
@@ -392,7 +506,11 @@ void DiceTurnSyncOnHelper::FinishSyncSetupAndDelete(
       break;
     }
     case LoginUIService::ABORT_SIGNIN:
-      signin_manager_->SignOutAndKeepAllAccounts(
+      auto* primary_account_mutator =
+          identity_manager_->GetPrimaryAccountMutator();
+      DCHECK(primary_account_mutator);
+      primary_account_mutator->ClearPrimaryAccount(
+          identity::PrimaryAccountMutator::ClearAccountsAction::kKeepAll,
           signin_metrics::ABORT_SIGNIN,
           signin_metrics::SignoutDelete::IGNORE_METRIC);
       AbortAndDelete();
@@ -401,11 +519,28 @@ void DiceTurnSyncOnHelper::FinishSyncSetupAndDelete(
   delete this;
 }
 
+void DiceTurnSyncOnHelper::SwitchToProfile(Profile* new_profile) {
+  DCHECK(!sync_blocker_);
+  DCHECK(!sync_startup_tracker_);
+  profile_ = new_profile;
+  identity_manager_ = IdentityManagerFactory::GetForProfile(profile_);
+  shutdown_subscription_ =
+      DiceTurnSyncOnHelperShutdownNotifierFactory::GetInstance()
+          ->Get(profile_)
+          ->Subscribe(base::Bind(&DiceTurnSyncOnHelper::AbortAndDelete,
+                                 base::Unretained(this)));
+  delegate_->SwitchToProfile(new_profile);
+  // Since this is a fresh profile, it's better to remove the token if the user
+  // aborts the signin.
+  signin_aborted_mode_ = SigninAbortedMode::REMOVE_ACCOUNT;
+}
+
 void DiceTurnSyncOnHelper::AbortAndDelete() {
   if (signin_aborted_mode_ == SigninAbortedMode::REMOVE_ACCOUNT) {
     // Revoke the token, and the AccountReconcilor and/or the Gaia server will
     // take care of invalidating the cookies.
-    token_service_->RevokeCredentials(
+    auto* accounts_mutator = identity_manager_->GetAccountsMutator();
+    accounts_mutator->RemoveAccount(
         account_info_.account_id,
         signin_metrics::SourceForRefreshTokenOperation::
             kDiceTurnOnSyncHelper_Abort);

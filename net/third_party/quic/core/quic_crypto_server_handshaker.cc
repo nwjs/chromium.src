@@ -184,6 +184,8 @@ void QuicCryptoServerHandshaker::
       // retransmitted.
       session()->connection()->EnableSavingCryptoPackets();
     }
+    session()->connection()->set_fully_pad_crypto_hadshake_packets(
+        crypto_config_->pad_rej());
     SendHandshakeMessage(*reply);
 
     if (reply->tag() == kSREJ) {
@@ -233,6 +235,8 @@ void QuicCryptoServerHandshaker::
       std::move(crypto_negotiated_params_->initial_crypters.decrypter));
   session()->connection()->SetDiversificationNonce(*diversification_nonce);
 
+  session()->connection()->set_fully_pad_crypto_hadshake_packets(
+      crypto_config_->pad_shlo());
   SendHandshakeMessage(*reply);
 
   session()->connection()->SetEncrypter(
@@ -460,7 +464,7 @@ void QuicCryptoServerHandshaker::ValidateCallback::Run(
 QuicConnectionId QuicCryptoServerHandshaker::GenerateConnectionIdForReject(
     bool use_stateless_rejects) {
   if (!use_stateless_rejects) {
-    return 0;
+    return EmptyQuicConnectionId();
   }
   return helper_->GenerateConnectionIdForReject(
       session()->connection()->connection_id());

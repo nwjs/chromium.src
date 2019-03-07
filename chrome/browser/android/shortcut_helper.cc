@@ -299,12 +299,12 @@ SkBitmap ShortcutHelper::FinalizeLauncherIconInBackground(
 }
 
 // static
-std::string ShortcutHelper::QueryWebApkPackage(const GURL& url) {
+std::string ShortcutHelper::QueryFirstWebApkPackage(const GURL& url) {
   JNIEnv* env = base::android::AttachCurrentThread();
   ScopedJavaLocalRef<jstring> java_url =
       base::android::ConvertUTF8ToJavaString(env, url.spec());
   ScopedJavaLocalRef<jstring> java_webapk_package_name =
-      Java_ShortcutHelper_queryWebApkPackage(env, java_url);
+      Java_ShortcutHelper_queryFirstWebApkPackage(env, java_url);
 
   std::string webapk_package_name = "";
   if (java_webapk_package_name.obj()) {
@@ -318,7 +318,7 @@ std::string ShortcutHelper::QueryWebApkPackage(const GURL& url) {
 bool ShortcutHelper::IsWebApkInstalled(content::BrowserContext* browser_context,
                                        const GURL& start_url,
                                        const GURL& manifest_url) {
-  return !QueryWebApkPackage(start_url).empty() ||
+  return !QueryFirstWebApkPackage(start_url).empty() ||
          WebApkInstallService::Get(browser_context)
              ->IsInstallInProgress(manifest_url);
 }
@@ -347,7 +347,6 @@ void ShortcutHelper::RetrieveWebApks(const WebApkInfoCallback& callback) {
 // webapp-capable site; otherwise, |splash_image_callback| will have never been
 // allocated and doesn't need to be run or deleted.
 void JNI_ShortcutHelper_OnWebappDataStored(JNIEnv* env,
-                                           const JavaParamRef<jclass>& clazz,
                                            jlong jsplash_image_callback) {
   DCHECK(jsplash_image_callback);
   base::Closure* splash_image_callback =
@@ -358,7 +357,6 @@ void JNI_ShortcutHelper_OnWebappDataStored(JNIEnv* env,
 
 void JNI_ShortcutHelper_OnWebApksRetrieved(
     JNIEnv* env,
-    const JavaParamRef<jclass>& clazz,
     const jlong jcallback_pointer,
     const JavaParamRef<jobjectArray>& jnames,
     const JavaParamRef<jobjectArray>& jshort_names,

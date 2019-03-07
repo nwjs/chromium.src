@@ -73,13 +73,14 @@
 
   const Promise = global.Promise;
   const thenPromise = v8.uncurryThis(Promise.prototype.then);
-  const Promise_resolve = Promise.resolve.bind(Promise);
-  const Promise_reject = Promise.reject.bind(Promise);
 
   // From CommonOperations.js
   const {
     _queue,
     _queueTotalSize,
+    createPromise,
+    createRejectedPromise,
+    createResolvedPromise,
     hasOwnPropertyNoThrow,
     rejectPromise,
     resolvePromise,
@@ -218,7 +219,7 @@
   function WritableStreamAbort(stream, reason) {
     const state = stream[_stateAndFlags] & STATE_MASK;
     if (state === CLOSED || state === ERRORED) {
-      return Promise_resolve(undefined);
+      return createResolvedPromise(undefined);
     }
     if (stream[_pendingAbortRequest] !== undefined) {
       return stream[_pendingAbortRequest].promise;
@@ -232,7 +233,7 @@
       reason = undefined;
     }
 
-    const promise = v8.createPromise();
+    const promise = createPromise();
     stream[_pendingAbortRequest] = {promise, reason, wasAlreadyErroring};
 
     if (!wasAlreadyErroring) {
@@ -248,7 +249,7 @@
     //        '! IsWritableStreamLocked(writer) is true.');
     // assert((stream[_stateAndFlags] & STATE_MASK) === WRITABLE,
     //        'stream.[[state]] is "writable".');
-    const promise = v8.createPromise();
+    const promise = createPromise();
     stream[_writeRequests].push(promise);
     return promise;
   }
@@ -455,7 +456,7 @@
     if (writer !== undefined &&
         backpressure !== Boolean(stream[_stateAndFlags] & BACKPRESSURE_FLAG)) {
       if (backpressure) {
-        writer[_readyPromise] = v8.createPromise();
+        writer[_readyPromise] = createPromise();
       } else {
         // assert(!backpressure, '_backpressure_ is *false*.');
         resolvePromise(writer[_readyPromise], undefined);
@@ -559,33 +560,33 @@
         case WRITABLE: {
           if (!WritableStreamCloseQueuedOrInFlight(stream) &&
               stream[_stateAndFlags] & BACKPRESSURE_FLAG) {
-            this[_readyPromise] = v8.createPromise();
+            this[_readyPromise] = createPromise();
           } else {
-            this[_readyPromise] = Promise_resolve(undefined);
+            this[_readyPromise] = createResolvedPromise(undefined);
           }
-          this[_closedPromise] = v8.createPromise();
+          this[_closedPromise] = createPromise();
           break;
         }
 
         case ERRORING: {
-          this[_readyPromise] = Promise_reject(stream[_storedError]);
+          this[_readyPromise] = createRejectedPromise(stream[_storedError]);
           markPromiseAsHandled(this[_readyPromise]);
-          this[_closedPromise] = v8.createPromise();
+          this[_closedPromise] = createPromise();
           break;
         }
 
         case CLOSED: {
-          this[_readyPromise] = Promise_resolve(undefined);
-          this[_closedPromise] = Promise_resolve(undefined);
+          this[_readyPromise] = createResolvedPromise(undefined);
+          this[_closedPromise] = createResolvedPromise(undefined);
           break;
         }
 
         default: {
           // assert(state === ERRORED, '_state_ is `"errored"`.');
           const storedError = stream[_storedError];
-          this[_readyPromise] = Promise_reject(storedError);
+          this[_readyPromise] = createRejectedPromise(storedError);
           markPromiseAsHandled(this[_readyPromise]);
-          this[_closedPromise] = Promise_reject(storedError);
+          this[_closedPromise] = createRejectedPromise(storedError);
           markPromiseAsHandled(this[_closedPromise]);
           break;
         }
@@ -594,7 +595,8 @@
 
     get closed() {
       if (!IsWritableStreamDefaultWriter(this)) {
-        return Promise_reject(new TypeError(streamErrors.illegalInvocation));
+        return createRejectedPromise(
+            new TypeError(streamErrors.illegalInvocation));
       }
       return this[_closedPromise];
     }
@@ -611,31 +613,36 @@
 
     get ready() {
       if (!IsWritableStreamDefaultWriter(this)) {
-        return Promise_reject(new TypeError(streamErrors.illegalInvocation));
+        return createRejectedPromise(
+            new TypeError(streamErrors.illegalInvocation));
       }
       return this[_readyPromise];
     }
 
     abort(reason) {
       if (!IsWritableStreamDefaultWriter(this)) {
-        return Promise_reject(new TypeError(streamErrors.illegalInvocation));
+        return createRejectedPromise(
+            new TypeError(streamErrors.illegalInvocation));
       }
       if (this[_ownerWritableStream] === undefined) {
-        return Promise_reject(createWriterLockReleasedError(verbAborted));
+        return createRejectedPromise(
+            createWriterLockReleasedError(verbAborted));
       }
       return WritableStreamDefaultWriterAbort(this, reason);
     }
 
     close() {
       if (!IsWritableStreamDefaultWriter(this)) {
-        return Promise_reject(new TypeError(streamErrors.illegalInvocation));
+        return createRejectedPromise(
+            new TypeError(streamErrors.illegalInvocation));
       }
       const stream = this[_ownerWritableStream];
       if (stream === undefined) {
-        return Promise_reject(createWriterLockReleasedError(verbClosed));
+        return createRejectedPromise(createWriterLockReleasedError(verbClosed));
       }
       if (WritableStreamCloseQueuedOrInFlight(stream)) {
-        return Promise_reject(new TypeError(errCloseCloseRequestedStream));
+        return createRejectedPromise(
+            new TypeError(errCloseCloseRequestedStream));
       }
       return WritableStreamDefaultWriterClose(this);
     }
@@ -655,10 +662,12 @@
 
     write(chunk) {
       if (!IsWritableStreamDefaultWriter(this)) {
-        return Promise_reject(new TypeError(streamErrors.illegalInvocation));
+        return createRejectedPromise(
+            new TypeError(streamErrors.illegalInvocation));
       }
       if (this[_ownerWritableStream] === undefined) {
-        return Promise_reject(createWriterLockReleasedError(verbWrittenTo));
+        return createRejectedPromise(
+            createWriterLockReleasedError(verbWrittenTo));
       }
       return WritableStreamDefaultWriterWrite(this, chunk);
     }
@@ -682,7 +691,7 @@
     // assert(stream !== undefined, 'stream is not undefined.');
     const state = stream[_stateAndFlags] & STATE_MASK;
     if (state === CLOSED || state === ERRORED) {
-      return Promise_reject(
+      return createRejectedPromise(
           createCannotActionOnStateStreamError('close', state));
     }
 
@@ -690,7 +699,7 @@
     //        '_state_ is `"writable"` or `"erroring"`.');
     // assert(!WritableStreamCloseQueuedOrInFlight(stream),
     //        '! WritableStreamCloseQueuedOrInFlight(_stream_) is *false*.');
-    const promise = v8.createPromise();
+    const promise = createPromise();
     stream[_closeRequest] = promise;
 
     if ((stream[_stateAndFlags] & BACKPRESSURE_FLAG) && state === WRITABLE) {
@@ -705,10 +714,10 @@
     // assert(stream !== undefined, 'stream is not undefined.');
     const state = stream[_stateAndFlags] & STATE_MASK;
     if (WritableStreamCloseQueuedOrInFlight(stream) || state === CLOSED) {
-      return Promise_resolve(undefined);
+      return createResolvedPromise(undefined);
     }
     if (state === ERRORED) {
-      return Promise_reject(stream[_storedError]);
+      return createRejectedPromise(stream[_storedError]);
     }
 
     // assert(state === WRITABLE || state === ERRORING,
@@ -722,7 +731,7 @@
     if (promiseState(writer[_closedPromise]) === v8.kPROMISE_PENDING) {
       rejectPromise(writer[_closedPromise], error);
     } else {
-      writer[_closedPromise] = Promise_reject(error);
+      writer[_closedPromise] = createRejectedPromise(error);
     }
     markPromiseAsHandled(writer[_closedPromise]);
   }
@@ -733,7 +742,7 @@
     if (promiseState(writer[_readyPromise]) === v8.kPROMISE_PENDING) {
       rejectPromise(writer[_readyPromise], error);
     } else {
-      writer[_readyPromise] = Promise_reject(error);
+      writer[_readyPromise] = createRejectedPromise(error);
     }
     markPromiseAsHandled(writer[_readyPromise]);
   }
@@ -773,22 +782,23 @@
     const chunkSize =
           WritableStreamDefaultControllerGetChunkSize(controller, chunk);
     if (stream !== writer[_ownerWritableStream]) {
-      return Promise_reject(createWriterLockReleasedError(verbWrittenTo));
+      return createRejectedPromise(
+          createWriterLockReleasedError(verbWrittenTo));
     }
     const state = stream[_stateAndFlags] & STATE_MASK;
     if (state === ERRORED) {
-      return Promise_reject(stream[_storedError]);
+      return createRejectedPromise(stream[_storedError]);
     }
     if (WritableStreamCloseQueuedOrInFlight(stream)) {
-      return Promise_reject(new TypeError(
+      return createRejectedPromise(new TypeError(
           templateErrorCannotActionOnStateStream('write to', 'closing')));
     }
     if (state === CLOSED) {
-      return Promise_reject(
+      return createRejectedPromise(
           createCannotActionOnStateStreamError('write to', CLOSED));
     }
     if (state === ERRORING) {
-      return Promise_reject(stream[_storedError]);
+      return createRejectedPromise(stream[_storedError]);
     }
     // assert(state === WRITABLE, '_state_ is `"writable"`');
     const promise = WritableStreamAddWriteRequest(stream);
@@ -878,7 +888,7 @@
           WritableStreamDefaultControllerGetBackpressure(controller);
     WritableStreamUpdateBackpressure(stream, backpressure);
     const startResult = startAlgorithm();
-    const startPromise = Promise_resolve(startResult);
+    const startPromise = createResolvedPromise(startResult);
     thenPromise(
         startPromise,
         () => {

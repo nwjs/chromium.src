@@ -2,7 +2,6 @@ This test documents all interface attributes and methods on DedicatedWorkerGloba
 
 On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
 
-
 Starting worker: resources/global-interface-listing-worker.js
 [Worker] [INTERFACES]
 [Worker] interface AbortController
@@ -16,16 +15,17 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter onabort
 [Worker]     method constructor
 [Worker]     setter onabort
-[Worker] interface BackgroundFetchFetch
-[Worker]     attribute @@toStringTag
-[Worker]     getter request
-[Worker]     method constructor
 [Worker] interface BackgroundFetchManager
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker]     method fetch
 [Worker]     method get
 [Worker]     method getIds
+[Worker] interface BackgroundFetchRecord
+[Worker]     attribute @@toStringTag
+[Worker]     getter request
+[Worker]     getter responseReady
+[Worker]     method constructor
 [Worker] interface BackgroundFetchRegistration : EventTarget
 [Worker]     attribute @@toStringTag
 [Worker]     getter downloadTotal
@@ -39,6 +39,8 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter uploaded
 [Worker]     method abort
 [Worker]     method constructor
+[Worker]     method match
+[Worker]     method matchAll
 [Worker]     setter onprogress
 [Worker] interface BarcodeDetector
 [Worker]     attribute @@toStringTag
@@ -253,6 +255,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method rotateFromVector
 [Worker]     method scale
 [Worker]     method scale3d
+[Worker]     method scaleNonUniform
 [Worker]     method skewX
 [Worker]     method skewY
 [Worker]     method toFloat32Array
@@ -327,6 +330,14 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     attribute PERSISTENT
 [Worker]     attribute TEMPORARY
+[Worker]     method constructor
+[Worker] interface ErrorEvent : Event
+[Worker]     attribute @@toStringTag
+[Worker]     getter colno
+[Worker]     getter error
+[Worker]     getter filename
+[Worker]     getter lineno
+[Worker]     getter message
 [Worker]     method constructor
 [Worker] interface Event
 [Worker]     attribute @@toStringTag
@@ -614,6 +625,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter oncomplete
 [Worker]     getter onerror
 [Worker]     method abort
+[Worker]     method commit
 [Worker]     method constructor
 [Worker]     method objectStore
 [Worker]     setter onabort
@@ -626,6 +638,16 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter newVersion
 [Worker]     getter oldVersion
 [Worker]     method constructor
+[Worker] interface IdleManager
+[Worker]     attribute @@toStringTag
+[Worker]     method constructor
+[Worker]     method query
+[Worker] interface IdleStatus : EventTarget
+[Worker]     attribute @@toStringTag
+[Worker]     getter onchange
+[Worker]     getter state
+[Worker]     method constructor
+[Worker]     setter onchange
 [Worker] interface ImageBitmap
 [Worker]     attribute @@toStringTag
 [Worker]     getter height
@@ -893,9 +915,11 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method set
 [Worker] interface Performance : EventTarget
 [Worker]     attribute @@toStringTag
+[Worker]     getter onelementtimingbufferfull
 [Worker]     getter oneventtimingbufferfull
 [Worker]     getter onresourcetimingbufferfull
 [Worker]     getter timeOrigin
+[Worker]     method clearElementTimings
 [Worker]     method clearEventTimings
 [Worker]     method clearMarks
 [Worker]     method clearMeasures
@@ -907,9 +931,11 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method mark
 [Worker]     method measure
 [Worker]     method now
+[Worker]     method setElementTimingBufferMaxSize
 [Worker]     method setEventTimingBufferMaxSize
 [Worker]     method setResourceTimingBufferSize
 [Worker]     method toJSON
+[Worker]     setter onelementtimingbufferfull
 [Worker]     setter oneventtimingbufferfull
 [Worker]     setter onresourcetimingbufferfull
 [Worker] interface PerformanceEntry
@@ -927,6 +953,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker] interface PerformanceObserver
+[Worker]     static getter supportedEntryTypes
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker]     method disconnect
@@ -1158,6 +1185,9 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     getter readable
 [Worker]     getter writable
+[Worker]     method constructor
+[Worker] interface TrustedTypePolicyFactory
+[Worker]     attribute @@toStringTag
 [Worker]     method constructor
 [Worker] interface URL
 [Worker]     static method createObjectURL
@@ -2068,6 +2098,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method isVertexArray
 [Worker]     method lineWidth
 [Worker]     method linkProgram
+[Worker]     method makeXRCompatible
 [Worker]     method memoryBarrier
 [Worker]     method memoryBarrierByRegion
 [Worker]     method pauseTransformFeedback
@@ -2082,7 +2113,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method samplerParameterf
 [Worker]     method samplerParameteri
 [Worker]     method scissor
-[Worker]     method setCompatibleXRDevice
 [Worker]     method shaderSource
 [Worker]     method stencilFunc
 [Worker]     method stencilFuncSeparate
@@ -2861,6 +2891,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method isVertexArray
 [Worker]     method lineWidth
 [Worker]     method linkProgram
+[Worker]     method makeXRCompatible
 [Worker]     method pauseTransformFeedback
 [Worker]     method pixelStorei
 [Worker]     method polygonOffset
@@ -2873,7 +2904,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method samplerParameterf
 [Worker]     method samplerParameteri
 [Worker]     method scissor
-[Worker]     method setCompatibleXRDevice
 [Worker]     method shaderSource
 [Worker]     method stencilFunc
 [Worker]     method stencilFuncSeparate
@@ -3355,13 +3385,13 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method isTexture
 [Worker]     method lineWidth
 [Worker]     method linkProgram
+[Worker]     method makeXRCompatible
 [Worker]     method pixelStorei
 [Worker]     method polygonOffset
 [Worker]     method readPixels
 [Worker]     method renderbufferStorage
 [Worker]     method sampleCoverage
 [Worker]     method scissor
-[Worker]     method setCompatibleXRDevice
 [Worker]     method shaderSource
 [Worker]     method stencilFunc
 [Worker]     method stencilFuncSeparate
@@ -3474,6 +3504,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter location
 [Worker]     getter navigator
 [Worker]     getter onerror
+[Worker]     getter onlanguagechange
 [Worker]     getter onrejectionhandled
 [Worker]     getter onunhandledrejection
 [Worker]     getter origin
@@ -3493,6 +3524,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method setInterval
 [Worker]     method setTimeout
 [Worker]     setter onerror
+[Worker]     setter onlanguagechange
 [Worker]     setter onrejectionhandled
 [Worker]     setter onunhandledrejection
 [Worker]     setter origin
@@ -3518,6 +3550,9 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter connection
 [Worker]     getter deviceMemory
 [Worker]     getter hardwareConcurrency
+[Worker]     getter idle
+[Worker]     getter language
+[Worker]     getter languages
 [Worker]     getter locks
 [Worker]     getter onLine
 [Worker]     getter permissions

@@ -22,9 +22,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/web/web_heap.h"
-#include "third_party/webrtc/api/peerconnectioninterface.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
 #include "third_party/webrtc/api/test/mock_peerconnectioninterface.h"
-#include "third_party/webrtc/media/base/fakemediaengine.h"
+#include "third_party/webrtc/media/base/fake_media_engine.h"
 
 using ::testing::Return;
 
@@ -244,7 +244,7 @@ class WebRtcSetDescriptionObserverHandlerTest
         blink::WebString::FromUTF8("local_audio_track"), false);
     MediaStreamAudioSource* audio_source = new MediaStreamAudioSource(true);
     // Takes ownership of |audio_source|.
-    web_source.SetExtraData(audio_source);
+    web_source.SetPlatformSource(base::WrapUnique(audio_source));
 
     blink::WebMediaStreamTrack web_track;
     web_track.Initialize(web_source.Id(), web_source);

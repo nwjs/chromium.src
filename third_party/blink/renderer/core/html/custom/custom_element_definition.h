@@ -41,7 +41,7 @@ class CORE_EXPORT CustomElementDefinition
 
   virtual ~CustomElementDefinition();
 
-  virtual void Trace(blink::Visitor*);
+  virtual void Trace(Visitor*);
   const char* NameInHeapSnapshot() const override {
     return "CustomElementDefinition";
   }
@@ -67,7 +67,7 @@ class CORE_EXPORT CustomElementDefinition
                              const QualifiedName&,
                              const CreateElementFlags);
 
-  void Upgrade(Element*);
+  void Upgrade(Element&);
 
   virtual bool HasConnectedCallback() const = 0;
   virtual bool HasDisconnectedCallback() const = 0;
@@ -75,30 +75,32 @@ class CORE_EXPORT CustomElementDefinition
   bool HasAttributeChangedCallback(const QualifiedName&) const;
   bool HasStyleAttributeChangedCallback() const;
   virtual bool HasFormAssociatedCallback() const = 0;
+  virtual bool HasFormResetCallback() const = 0;
   virtual bool HasDisabledStateChangedCallback() const = 0;
 
-  virtual void RunConnectedCallback(Element*) = 0;
-  virtual void RunDisconnectedCallback(Element*) = 0;
-  virtual void RunAdoptedCallback(Element*,
-                                  Document* old_owner,
-                                  Document* new_owner) = 0;
-  virtual void RunAttributeChangedCallback(Element*,
+  virtual void RunConnectedCallback(Element&) = 0;
+  virtual void RunDisconnectedCallback(Element&) = 0;
+  virtual void RunAdoptedCallback(Element&,
+                                  Document& old_owner,
+                                  Document& new_owner) = 0;
+  virtual void RunAttributeChangedCallback(Element&,
                                            const QualifiedName&,
                                            const AtomicString& old_value,
                                            const AtomicString& new_value) = 0;
-  virtual void RunFormAssociatedCallback(Element* element,
+  virtual void RunFormAssociatedCallback(Element& element,
                                          HTMLFormElement* nullable_form) = 0;
-  virtual void RunDisabledStateChangedCallback(Element* element,
+  virtual void RunFormResetCallback(Element& element) = 0;
+  virtual void RunDisabledStateChangedCallback(Element& element,
                                                bool is_disabled) = 0;
 
-  void EnqueueUpgradeReaction(Element*,
+  void EnqueueUpgradeReaction(Element&,
                               bool upgrade_invisible_elements = false);
-  void EnqueueConnectedCallback(Element*);
-  void EnqueueDisconnectedCallback(Element*);
-  void EnqueueAdoptedCallback(Element*,
-                              Document* old_owner,
-                              Document* new_owner);
-  void EnqueueAttributeChangedCallback(Element*,
+  void EnqueueConnectedCallback(Element&);
+  void EnqueueDisconnectedCallback(Element&);
+  void EnqueueAdoptedCallback(Element&,
+                              Document& old_owner,
+                              Document& new_owner);
+  void EnqueueAttributeChangedCallback(Element&,
                                        const QualifiedName&,
                                        const AtomicString& old_value,
                                        const AtomicString& new_value);
@@ -123,7 +125,7 @@ class CORE_EXPORT CustomElementDefinition
     DISALLOW_COPY_AND_ASSIGN(ConstructionStackScope);
 
    public:
-    ConstructionStackScope(CustomElementDefinition*, Element*);
+    ConstructionStackScope(CustomElementDefinition&, Element&);
     ~ConstructionStackScope();
 
    private:
@@ -142,7 +144,7 @@ class CORE_EXPORT CustomElementDefinition
 
   void AddDefaultStylesTo(Element&);
 
-  virtual bool RunConstructor(Element*) = 0;
+  virtual bool RunConstructor(Element&) = 0;
 
   static void CheckConstructorResult(Element*,
                                      Document&,
@@ -160,7 +162,7 @@ class CORE_EXPORT CustomElementDefinition
 
   HeapVector<Member<CSSStyleSheet>> default_style_sheets_;
 
-  void EnqueueAttributeChangedCallbackForAllAttributes(Element*);
+  void EnqueueAttributeChangedCallbackForAllAttributes(Element&);
 
   DISALLOW_COPY_AND_ASSIGN(CustomElementDefinition);
 };

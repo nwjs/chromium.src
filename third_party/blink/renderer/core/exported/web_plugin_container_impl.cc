@@ -172,14 +172,15 @@ void WebPluginContainerImpl::Paint(GraphicsContext& context,
   if (!cull_rect.Intersects(FrameRect()))
     return;
 
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() && layer_) {
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() && layer_) {
     layer_->SetOffsetToTransformParent(
         gfx::Vector2dF(frame_rect_.X(), frame_rect_.Y()));
     layer_->SetBounds(gfx::Size(frame_rect_.Size()));
     layer_->SetIsDrawable(true);
-    // With Slimming Paint v2, composited plugins should have their layers
-    // inserted rather than invoking WebPlugin::paint.
+    // When compositing is after paint, composited plugins should have their
+    // layers inserted rather than invoking WebPlugin::paint.
     RecordForeignLayer(context, DisplayItem::kForeignLayerPlugin, layer_);
+    ParentFrameView().SetPaintArtifactCompositorNeedsUpdate();
     return;
   }
 
@@ -547,7 +548,8 @@ WebString WebPluginContainerImpl::ExecuteScriptURL(const WebURL& url,
   const KURL& kurl = url;
   DCHECK(kurl.ProtocolIs("javascript"));
 
-  String script = DecodeURLEscapeSequences(kurl.GetString());
+  String script = DecodeURLEscapeSequences(kurl.GetString(),
+                                           DecodeURLMode::kUTF8OrIsomorphic);
 
   if (!element_->GetDocument().GetContentSecurityPolicy()->AllowJavaScriptURLs(
           element_, script, element_->GetDocument().Url(), OrdinalNumber())) {

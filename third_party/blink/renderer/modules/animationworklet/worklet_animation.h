@@ -72,6 +72,7 @@ class MODULES_EXPORT WorkletAnimation : public WorkletAnimationBase,
 
   AnimationTimeline* timeline() { return timeline_; }
   String playState();
+  double currentTime(bool& is_null);
   void play(ExceptionState& exception_state);
   void cancel();
 
@@ -118,9 +119,15 @@ class MODULES_EXPORT WorkletAnimation : public WorkletAnimationBase,
   }
   bool IsActiveAnimation() const override;
 
+  bool NeedsPeek(base::TimeDelta current_time);
+
   void UpdateInputState(AnimationWorkletDispatcherInput* input_state) override;
   void SetOutputState(
       const AnimationWorkletOutput::AnimationState& state) override;
+
+  void SetRunningOnMainThreadForTesting(bool running_on_main_thread) {
+    running_on_main_thread_ = running_on_main_thread;
+  }
 
   void Trace(blink::Visitor*) override;
 
@@ -145,7 +152,7 @@ class MODULES_EXPORT WorkletAnimation : public WorkletAnimationBase,
   void SetPlayState(const Animation::AnimationPlayState& state) {
     play_state_ = state;
   }
-  base::Optional<double> CurrentTime() const;
+  base::Optional<base::TimeDelta> CurrentTime() const;
 
   unsigned sequence_number_;
 
@@ -154,12 +161,13 @@ class MODULES_EXPORT WorkletAnimation : public WorkletAnimationBase,
   const String animator_name_;
   Animation::AnimationPlayState play_state_;
   Animation::AnimationPlayState last_play_state_;
-  // Start time in ms.
   base::Optional<base::TimeDelta> start_time_;
   Vector<base::Optional<base::TimeDelta>> local_times_;
   // We use this to skip updating if current time has not changed since last
   // update.
   base::Optional<base::TimeDelta> last_current_time_;
+  // Time the main thread sends a peek request.
+  base::Optional<base::TimeDelta> last_peek_request_time_;
 
   Member<Document> document_;
 

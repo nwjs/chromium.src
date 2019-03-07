@@ -513,7 +513,8 @@ bool PasswordStore::InitOnBackgroundSequence(
   if (base::FeatureList::IsEnabled(switches::kSyncUSSPasswords)) {
     sync_bridge_.reset(new PasswordSyncBridge(
         std::make_unique<syncer::ClientTagBasedModelTypeProcessor>(
-            syncer::PASSWORDS, base::DoNothing())));
+            syncer::PASSWORDS, base::DoNothing()),
+        /*password_store_sync=*/this));
   } else {
     DCHECK(!syncable_service_);
     syncable_service_.reset(new PasswordSyncableService(this));
@@ -584,6 +585,8 @@ void PasswordStore::NotifyLoginsChanged(
     observers_->Notify(FROM_HERE, &Observer::OnLoginsChanged, changes);
     if (syncable_service_)
       syncable_service_->ActOnPasswordStoreChanges(changes);
+    if (sync_bridge_)
+      sync_bridge_->ActOnPasswordStoreChanges(changes);
 // TODO(crbug.com/706392): Fix password reuse detection for Android.
 #if defined(SYNC_PASSWORD_REUSE_DETECTION_ENABLED)
     if (reuse_detector_)
@@ -667,36 +670,55 @@ void PasswordStore::Schedule(
       base::BindOnce(func, this, std::move(request)));
 }
 
-void PasswordStore::WrapModificationTask(ModificationTask task) {
-  PasswordStoreChangeList changes = task.Run();
-  NotifyLoginsChanged(changes);
-}
-
 void PasswordStore::AddLoginInternal(const PasswordForm& form) {
   SCOPED_UMA_HISTOGRAM_TIMER("PasswordManager.StorePerformance.AddLogin");
+  BeginTransaction();
   PasswordStoreChangeList changes = AddLoginImpl(form);
   NotifyLoginsChanged(changes);
+  // Sync metadata get updated in NotifyLoginsChanged(). Therefore,
+  // CommitTransaction() must be called after NotifyLoginsChanged(), because
+  // sync codebase needs to update metadata atomically together with the login
+  // data.
+  CommitTransaction();
 }
 
 void PasswordStore::UpdateLoginInternal(const PasswordForm& form) {
   SCOPED_UMA_HISTOGRAM_TIMER("PasswordManager.StorePerformance.UpdateLogin");
+  BeginTransaction();
   PasswordStoreChangeList changes = UpdateLoginImpl(form);
   NotifyLoginsChanged(changes);
+  // Sync metadata get updated in NotifyLoginsChanged(). Therefore,
+  // CommitTransaction() must be called after NotifyLoginsChanged(), because
+  // sync codebase needs to update metadata atomically together with the login
+  // data.
+  CommitTransaction();
 }
 
 void PasswordStore::RemoveLoginInternal(const PasswordForm& form) {
   SCOPED_UMA_HISTOGRAM_TIMER("PasswordManager.StorePerformance.RemoveLogin");
+  BeginTransaction();
   PasswordStoreChangeList changes = RemoveLoginImpl(form);
   NotifyLoginsChanged(changes);
+  // Sync metadata get updated in NotifyLoginsChanged(). Therefore,
+  // CommitTransaction() must be called after NotifyLoginsChanged(), because
+  // sync codebase needs to update metadata atomically together with the login
+  // data.
+  CommitTransaction();
 }
 
 void PasswordStore::UpdateLoginWithPrimaryKeyInternal(
     const PasswordForm& new_form,
     const PasswordForm& old_primary_key) {
+  BeginTransaction();
   PasswordStoreChangeList all_changes = RemoveLoginImpl(old_primary_key);
   PasswordStoreChangeList changes = AddLoginImpl(new_form);
   all_changes.insert(all_changes.end(), changes.begin(), changes.end());
   NotifyLoginsChanged(all_changes);
+  // Sync metadata get updated in NotifyLoginsChanged(). Therefore,
+  // CommitTransaction() must be called after NotifyLoginsChanged(), because
+  // sync codebase needs to update metadata atomically together with the login
+  // data.
+  CommitTransaction();
 }
 
 void PasswordStore::RemoveLoginsByURLAndTimeInternal(
@@ -704,9 +726,15 @@ void PasswordStore::RemoveLoginsByURLAndTimeInternal(
     base::Time delete_begin,
     base::Time delete_end,
     const base::Closure& completion) {
+  BeginTransaction();
   PasswordStoreChangeList changes =
       RemoveLoginsByURLAndTimeImpl(url_filter, delete_begin, delete_end);
   NotifyLoginsChanged(changes);
+  // Sync metadata get updated in NotifyLoginsChanged(). Therefore,
+  // CommitTransaction() must be called after NotifyLoginsChanged(), because
+  // sync codebase needs to update metadata atomically together with the login
+  // data.
+  CommitTransaction();
   if (!completion.is_null())
     main_task_runner_->PostTask(FROM_HERE, completion);
 }
@@ -715,18 +743,30 @@ void PasswordStore::RemoveLoginsCreatedBetweenInternal(
     base::Time delete_begin,
     base::Time delete_end,
     const base::Closure& completion) {
+  BeginTransaction();
   PasswordStoreChangeList changes =
       RemoveLoginsCreatedBetweenImpl(delete_begin, delete_end);
   NotifyLoginsChanged(changes);
+  // Sync metadata get updated in NotifyLoginsChanged(). Therefore,
+  // CommitTransaction() must be called after NotifyLoginsChanged(), because
+  // sync codebase needs to update metadata atomically together with the login
+  // data.
+  CommitTransaction();
   if (!completion.is_null())
     main_task_runner_->PostTask(FROM_HERE, completion);
 }
 
 void PasswordStore::RemoveLoginsSyncedBetweenInternal(base::Time delete_begin,
                                                       base::Time delete_end) {
+  BeginTransaction();
   PasswordStoreChangeList changes =
       RemoveLoginsSyncedBetweenImpl(delete_begin, delete_end);
   NotifyLoginsChanged(changes);
+  // Sync metadata get updated in NotifyLoginsChanged(). Therefore,
+  // CommitTransaction() must be called after NotifyLoginsChanged(), because
+  // sync codebase needs to update metadata atomically together with the login
+  // data.
+  CommitTransaction();
 }
 
 void PasswordStore::RemoveStatisticsByOriginAndTimeInternal(
@@ -909,6 +949,7 @@ void PasswordStore::UpdateAffiliatedWebLoginsImpl(
     const PasswordForm& updated_android_form,
     const std::vector<std::string>& affiliated_web_realms) {
   DCHECK(background_task_runner_->RunsTasksInCurrentSequence());
+  BeginTransaction();
   PasswordStoreChangeList all_changes;
   for (const std::string& affiliated_web_realm : affiliated_web_realms) {
     std::vector<std::unique_ptr<PasswordForm>> web_logins(FillMatchingLogins(
@@ -983,6 +1024,11 @@ void PasswordStore::UpdateAffiliatedWebLoginsImpl(
     }
   }
   NotifyLoginsChanged(all_changes);
+  // Sync metadata get updated in NotifyLoginsChanged(). Therefore,
+  // CommitTransaction() must be called after NotifyLoginsChanged(), because
+  // sync codebase needs to update metadata atomically together with the login
+  // data.
+  CommitTransaction();
 }
 
 void PasswordStore::ScheduleUpdateAffiliatedWebLoginsImpl(

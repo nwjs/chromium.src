@@ -43,6 +43,7 @@ class GLES2Interface;
 namespace viz {
 class ContextProvider;
 class SharedBitmapManager;
+class SkiaOutputSurface;
 
 // This class provides abstractions for receiving and using resources from other
 // modules/threads/processes. It abstracts away GL textures vs GpuMemoryBuffers
@@ -185,14 +186,22 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
     DISALLOW_COPY_AND_ASSIGN(ScopedReadLockSkImage);
   };
 
-  // Maintains set of lock for external use.
+  // Maintains set of resources locked for external use by SkiaRenderer.
   class VIZ_SERVICE_EXPORT LockSetForExternalUse {
    public:
-    explicit LockSetForExternalUse(DisplayResourceProvider* resource_provider);
+    // There should be at most one instance of this class per
+    // |resource_provider|. Both |resource_provider| and |client| outlive this
+    // class.
+    LockSetForExternalUse(DisplayResourceProvider* resource_provider,
+                          SkiaOutputSurface* client);
     ~LockSetForExternalUse();
 
     // Lock a resource for external use.
     ResourceMetadata LockResource(ResourceId resource_id);
+
+    // Lock a resource and create a SkImage from it by using
+    // Client::CreateImage.
+    sk_sp<SkImage> LockResourceAndCreateSkImage(ResourceId resource_id);
 
     // Unlock all locked resources with a |sync_token|.
     // See UnlockForExternalUse for the detail. All resources must be unlocked
@@ -469,7 +478,10 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
 
   ResourceMap resources_;
   ChildMap children_;
-  base::flat_map<ResourceId, sk_sp<SkImage>> resource_sk_image_;
+  base::flat_map<ResourceId, sk_sp<SkImage>> resource_sk_images_;
+  // If set, all |resource_sk_images_| were created with this client.
+  SkiaOutputSurface* external_use_client_ = nullptr;
+
   base::flat_map<int, std::vector<ResourceId>> batched_returning_resources_;
   scoped_refptr<ResourceFence> current_read_lock_fence_;
   // Keep track of whether deleted resources should be batched up or returned

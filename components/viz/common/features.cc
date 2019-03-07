@@ -26,8 +26,15 @@ const base::Feature kEnableSurfaceSynchronization{
 // Enables running the display compositor as part of the viz service in the GPU
 // process. This is also referred to as out-of-process display compositor
 // (OOP-D).
+// TODO(dnicoara): Look at enabling Chromecast support when ChromeOS support is
+// ready.
+#if defined(OS_CHROMEOS) || defined(IS_CHROMECAST) || defined(OS_ANDROID)
 const base::Feature kVizDisplayCompositor{"VizDisplayCompositor",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
+#else
+const base::Feature kVizDisplayCompositor{"VizDisplayCompositor",
+                                          base::FEATURE_ENABLED_BY_DEFAULT};
+#endif
 
 // Enables running the Viz-assisted hit-test logic.
 const base::Feature kEnableVizHitTestDrawQuad{"VizHitTestDrawQuad",
@@ -35,10 +42,6 @@ const base::Feature kEnableVizHitTestDrawQuad{"VizHitTestDrawQuad",
 
 const base::Feature kEnableVizHitTestSurfaceLayer{
     "VizHitTestSurfaceLayer", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Use the Skia deferred display list.
-const base::Feature kUseSkiaDeferredDisplayList{
-    "UseSkiaDeferredDisplayList", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Use the SkiaRenderer.
 const base::Feature kUseSkiaRenderer{"UseSkiaRenderer",
@@ -62,6 +65,8 @@ bool IsVizHitTestingDebugEnabled() {
 }
 
 bool IsVizHitTestingDrawQuadEnabled() {
+  if (IsVizHitTestingSurfaceLayerEnabled())
+    return false;
   return base::FeatureList::IsEnabled(kEnableVizHitTestDrawQuad) ||
          base::FeatureList::IsEnabled(kVizDisplayCompositor);
 }
@@ -72,12 +77,9 @@ bool IsVizHitTestingEnabled() {
 }
 
 bool IsVizHitTestingSurfaceLayerEnabled() {
-  // TODO(riajiang): Check kVizDisplayCompositor feature when it works with
-  // that config.
-  return (base::CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kUseVizHitTestSurfaceLayer) ||
-          base::FeatureList::IsEnabled(kEnableVizHitTestSurfaceLayer)) &&
-         !IsVizHitTestingDrawQuadEnabled();
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+             switches::kUseVizHitTestSurfaceLayer) ||
+         base::FeatureList::IsEnabled(kEnableVizHitTestSurfaceLayer);
 }
 
 bool IsDrawOcclusionEnabled() {
@@ -91,12 +93,6 @@ bool IsUsingSkiaRenderer() {
 bool IsRecordingSkPicture() {
   return IsUsingSkiaRenderer() &&
          base::FeatureList::IsEnabled(kRecordSkPicture);
-}
-
-bool IsUsingSkiaDeferredDisplayList() {
-  return IsUsingSkiaRenderer() &&
-         base::FeatureList::IsEnabled(kUseSkiaDeferredDisplayList) &&
-         base::FeatureList::IsEnabled(kVizDisplayCompositor);
 }
 
 }  // namespace features

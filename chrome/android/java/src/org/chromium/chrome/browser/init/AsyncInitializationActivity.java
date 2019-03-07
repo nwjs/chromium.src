@@ -40,7 +40,6 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
 import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.firstrun.FirstRunFlowSequencer;
-import org.chromium.chrome.browser.modaldialog.ModalDialogManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tabmodel.DocumentModeAssassin;
 import org.chromium.chrome.browser.upgrade.UpgradeActivity;
@@ -49,6 +48,7 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.display.DisplayUtil;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 
 import java.lang.reflect.Field;
 
@@ -302,7 +302,7 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
 
         if (requiresFirstRunToBeCompleted(intent)
                 && FirstRunFlowSequencer.launch(this, intent, false /* requiresBroadcast */,
-                           shouldPreferLightweightFre(intent))) {
+                        shouldPreferLightweightFre(intent))) {
             abortLaunch(LaunchIntentDispatcher.Action.FINISH_ACTIVITY_REMOVE_TASK);
             return;
         }
@@ -440,7 +440,7 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
     /**
      * @return The saved bundle for the last recorded state.
      */
-    protected Bundle getSavedInstanceState() {
+    public Bundle getSavedInstanceState() {
         return mSavedInstanceState;
     }
 
@@ -643,6 +643,16 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         if (mWindowAndroid != null) mWindowAndroid.saveInstanceState(outState);
+
+        mLifecycleDispatcher.dispatchOnSaveInstanceState(outState);
+    }
+
+    @CallSuper
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+
+        mLifecycleDispatcher.dispatchOnWindowFocusChanged(hasFocus);
     }
 
     /**

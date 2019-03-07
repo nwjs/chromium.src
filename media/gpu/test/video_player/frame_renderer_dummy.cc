@@ -8,8 +8,10 @@
 #include <vector>
 
 #include "base/memory/ptr_util.h"
+#if defined(USE_OZONE)
 #include "ui/ozone/public/ozone_gpu_test_helper.h"
 #include "ui/ozone/public/ozone_platform.h"
+#endif
 
 #define VLOGF(level) VLOG(level) << __func__ << "(): "
 
@@ -34,7 +36,7 @@ std::unique_ptr<FrameRendererDummy> FrameRendererDummy::Create() {
 }
 
 bool FrameRendererDummy::Initialize() {
-#ifdef USE_OZONE
+#if defined(USE_OZONE)
   // Initialize Ozone. This is necessary even though we are not doing any actual
   // rendering. If not initialized a crash will occur when assigning picture
   // buffers, even when passing 0 as texture ID.
@@ -60,7 +62,7 @@ bool FrameRendererDummy::Initialize() {
 }
 
 void FrameRendererDummy::Destroy() {
-#ifdef USE_OZONE
+#if defined(USE_OZONE)
   gpu_helper_.reset();
 #endif
 }
@@ -80,34 +82,8 @@ gl::GLContext* FrameRendererDummy::GetGLContext() {
   return nullptr;
 }
 
-void FrameRendererDummy::CreatePictureBuffers(size_t requested_num_of_buffers,
-                                              VideoPixelFormat pixel_format,
-                                              const gfx::Size& size,
-                                              uint32_t texture_target,
-                                              PictureBuffersCreatedCB cb) {
+void FrameRendererDummy::RenderFrame(scoped_refptr<VideoFrame> video_frame) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  std::vector<PictureBuffer> buffers;
-  for (size_t i = 0; i < requested_num_of_buffers; ++i) {
-    buffers.emplace_back(GetNextPictureBufferId(), size);
-  }
-
-  std::move(cb).Run(std::move(buffers));
-}
-
-void FrameRendererDummy::RenderPicture(const Picture& picture,
-                                       PictureRenderedCB cb) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  std::move(cb).Run();
-}
-
-int32_t FrameRendererDummy::GetNextPictureBufferId() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // The picture buffer ID should always be positive, negative values are
-  // reserved for uninitialized buffers.
-  next_picture_buffer_id_ = (next_picture_buffer_id_ + 1) & 0x7FFFFFFF;
-  return next_picture_buffer_id_;
 }
 
 }  // namespace test

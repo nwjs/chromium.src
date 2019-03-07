@@ -55,10 +55,6 @@ class BrowserPluginDelegate;
 struct WebPluginInfo;
 }
 
-namespace error_page {
-class Error;
-}
-
 namespace network_hints {
 class PrescientNetworkingDispatcher;
 }
@@ -80,26 +76,6 @@ class WebCacheImpl;
 }
 
 class WebRtcLoggingMessageFilter;
-
-namespace internal {
-
-extern const char kFlashYouTubeRewriteUMA[];
-
-// Used for UMA. Values should not be reorderer or reused.
-// SUCCESS refers to an embed properly rewritten. SUCCESS_PARAMS_REWRITE refers
-// to an embed rewritten with the params fixed. SUCCESS_ENABLEJSAPI refers to
-// a rewritten embed even though the JS API was enabled (Chrome Android only).
-// FAILURE_ENABLEJSAPI indicates the embed was not rewritten because the
-// JS API was enabled.
-enum YouTubeRewriteStatus {
-  SUCCESS = 0,
-  SUCCESS_PARAMS_REWRITE = 1,
-  SUCCESS_ENABLEJSAPI = 2,
-  FAILURE_ENABLEJSAPI = 3,
-  NUM_PLUGIN_ERROR  // should be kept last
-};
-
-}  // namespace internal
 
 class ChromeContentRendererClient
     : public content::ContentRendererClient,
@@ -137,18 +113,19 @@ class ChromeContentRendererClient
                                const GURL& url) override;
   bool ShouldTrackUseCounter(const GURL& url) override;
   void PrepareErrorPage(content::RenderFrame* render_frame,
-                        const blink::WebURLRequest& failed_request,
                         const blink::WebURLError& error,
+                        const std::string& http_method,
+                        bool ignoring_cache,
                         std::string* error_html) override;
-  void PrepareErrorPageForHttpStatusError(
-      content::RenderFrame* render_frame,
-      const blink::WebURLRequest& failed_request,
-      const GURL& unreachable_url,
-      int http_status,
-      std::string* error_html) override;
+  void PrepareErrorPageForHttpStatusError(content::RenderFrame* render_frame,
+                                          const GURL& unreachable_url,
+                                          const std::string& http_method,
+                                          bool ignoring_cache,
+                                          int http_status,
+                                          std::string* error_html) override;
 
-  void GetErrorDescription(const blink::WebURLRequest& failed_request,
-                           const blink::WebURLError& error,
+  void GetErrorDescription(const blink::WebURLError& error,
+                           const std::string& http_method,
                            base::string16* error_description) override;
 
   bool DeferMediaLoad(content::RenderFrame* render_frame,
@@ -177,8 +154,7 @@ class ChromeContentRendererClient
                                      size_t length) override;
   bool IsLinkVisited(unsigned long long link_hash) override;
   blink::WebPrescientNetworking* GetPrescientNetworking() override;
-  bool ShouldOverrideVisibilityAsPrerender(
-      const content::RenderFrame* render_frame) override;
+  bool IsPrerenderingFrame(const content::RenderFrame* render_frame) override;
   bool IsExternalPepperPlugin(const std::string& module_name) override;
   bool IsOriginIsolatedPepperPlugin(const base::FilePath& plugin_path) override;
   std::unique_ptr<content::WebSocketHandshakeThrottleProvider>
@@ -186,7 +162,7 @@ class ChromeContentRendererClient
   std::unique_ptr<blink::WebSpeechSynthesizer> OverrideSpeechSynthesizer(
       blink::WebSpeechSynthesizerClient* client) override;
   bool ShouldReportDetailedMessageForSource(
-      const base::string16& source) const override;
+      const base::string16& source) override;
   std::unique_ptr<blink::WebContentSettingsClient>
   CreateWorkerContentSettingsClient(
       content::RenderFrame* render_frame) override;
@@ -196,7 +172,6 @@ class ChromeContentRendererClient
   bool IsKeySystemsUpdateNeeded() override;
   bool IsPluginAllowedToUseDevChannelAPIs() override;
   bool IsPluginAllowedToUseCameraDeviceAPI(const GURL& url) override;
-  bool IsPluginAllowedToUseCompositorAPI(const GURL& url) override;
   content::BrowserPluginDelegate* CreateBrowserPluginDelegate(
       content::RenderFrame* render_frame,
       const content::WebPluginInfo& info,
@@ -244,6 +219,7 @@ class ChromeContentRendererClient
   blink::WebFrame* FindFrame(blink::WebLocalFrame* relative_to_frame,
                              const std::string& name) override;
   bool IsSafeRedirectTarget(const GURL& url) override;
+  void DidSetUserAgent(const std::string& user_agent) override;
 
 #if BUILDFLAG(ENABLE_PLUGINS)
   static chrome::mojom::PluginInfoHostAssociatedPtr& GetPluginInfoHost();
@@ -268,6 +244,8 @@ class ChromeContentRendererClient
     return prerender_dispatcher_.get();
   }
 
+  base::WeakPtr<ChromeRenderThreadObserver> GetChromeObserver() const;
+
  private:
   FRIEND_TEST_ALL_PREFIXES(ChromeContentRendererClientTest, NaClRestriction);
   FRIEND_TEST_ALL_PREFIXES(ChromeContentRendererClientTest,
@@ -284,15 +262,6 @@ class ChromeContentRendererClient
   // service_manager::LocalInterfaceProvider:
   void GetInterface(const std::string& name,
                     mojo::ScopedMessagePipeHandle request_handle) override;
-
-  void PrepareErrorPageInternal(content::RenderFrame* render_frame,
-                                const blink::WebURLRequest& failed_request,
-                                const error_page::Error& error,
-                                std::string* error_html);
-
-  void GetErrorDescriptionInternal(const blink::WebURLRequest& failed_request,
-                                   const error_page::Error& error,
-                                   base::string16* error_description);
 
   // Time at which this object was created. This is very close to the time at
   // which the RendererMain function was entered.
@@ -337,7 +306,6 @@ class ChromeContentRendererClient
 #endif
 #if BUILDFLAG(ENABLE_PLUGINS)
   std::set<std::string> allowed_camera_device_origins_;
-  std::set<std::string> allowed_compositor_origins_;
 #endif
 
 #if defined(OS_WIN)

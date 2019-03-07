@@ -304,7 +304,8 @@ std::string SanitizeFrontendQueryParam(
   if (key == "dockSide" && value == "undocked")
     return value;
 
-  if (key == "panel" && (value == "elements" || value == "console"))
+  if (key == "panel" &&
+      (value == "elements" || value == "console" || value == "sources"))
     return value;
 
   if (key == "remoteBase")
@@ -544,8 +545,8 @@ DevToolsUIBindings::DevToolsUIBindings(content::WebContents* web_contents)
       web_contents_);
 
   // Register on-load actions.
-  embedder_message_dispatcher_.reset(
-      DevToolsEmbedderMessageDispatcher::CreateForDevToolsFrontend(this));
+  embedder_message_dispatcher_ =
+      DevToolsEmbedderMessageDispatcher::CreateForDevToolsFrontend(this);
 }
 
 DevToolsUIBindings::~DevToolsUIBindings() {
@@ -1383,10 +1384,10 @@ void DevToolsUIBindings::ReadyToCommitNavigation(
       if (!opener_bindings || !opener_bindings->frontend_host_)
         return;
     }
-    frontend_host_.reset(content::DevToolsFrontendHost::Create(
+    frontend_host_ = content::DevToolsFrontendHost::Create(
         navigation_handle->GetRenderFrameHost(),
         base::Bind(&DevToolsUIBindings::HandleMessageFromDevToolsFrontend,
-                   base::Unretained(this))));
+                   base::Unretained(this)));
     return;
   }
 

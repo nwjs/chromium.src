@@ -31,7 +31,6 @@
 #ifndef THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FRAME_WIDGET_H_
 #define THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FRAME_WIDGET_H_
 
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-shared.h"
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
 #include "third_party/blink/public/platform/web_touch_action.h"
@@ -57,24 +56,6 @@ class WebFrameWidget : public WebWidget {
   BLINK_EXPORT static WebFrameWidget* CreateForChildLocalRoot(
       WebWidgetClient*,
       WebLocalFrame* local_root);
-
-  // Overrides the WebFrameWidget's background and base background color. You
-  // can use this to enforce a transparent background, which is useful if you
-  // want to have some custom background rendered behind the widget.
-  virtual void SetBackgroundColorOverride(SkColor) = 0;
-  virtual void ClearBackgroundColorOverride() = 0;
-  virtual void SetBaseBackgroundColorOverride(SkColor) = 0;
-  virtual void ClearBaseBackgroundColorOverride() = 0;
-
-  // Sets the base color used for this WebFrameWidget's background. This is in
-  // effect the default background color used for pages with no
-  // background-color style in effect, or used as the alpha-blended basis for
-  // any pages with translucent background-color style. (For pages with opaque
-  // background-color style, this property is effectively ignored).
-  // Setting this takes effect for the currently loaded page, if any, and
-  // persists across subsequent navigations. Defaults to white prior to the
-  // first call to this method.
-  virtual void SetBaseBackgroundColor(SkColor) = 0;
 
   // Returns the local root of this WebFrameWidget.
   virtual WebLocalFrame* LocalRoot() const = 0;
@@ -147,6 +128,10 @@ class WebFrameWidget : public WebWidget {
   // inside) this widget into view. The scrolling might end with a final zooming
   // into the editable region which is performed in the main frame process.
   virtual bool ScrollFocusedEditableElementIntoView() = 0;
+
+  // This function provides zooming for find in page results when browsing with
+  // page autosize.
+  virtual void ZoomToFindInPageRect(const WebRect& rect_in_root_frame) = 0;
 };
 
 }  // namespace blink

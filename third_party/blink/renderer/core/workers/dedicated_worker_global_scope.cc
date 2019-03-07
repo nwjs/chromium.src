@@ -65,10 +65,6 @@ const AtomicString& DedicatedWorkerGlobalScope::InterfaceName() const {
   return event_target_names::kDedicatedWorkerGlobalScope;
 }
 
-bool DedicatedWorkerGlobalScope::IsNestedWorker() const {
-  return static_cast<DedicatedWorkerThread*>(GetThread())->IsNestedWorker();
-}
-
 // https://html.spec.whatwg.org/multipage/workers.html#worker-processing-model
 void DedicatedWorkerGlobalScope::ImportModuleScript(
     const KURL& module_url_record,
@@ -138,6 +134,11 @@ DedicatedWorkerObjectProxy& DedicatedWorkerGlobalScope::WorkerObjectProxy()
 
 void DedicatedWorkerGlobalScope::Trace(blink::Visitor* visitor) {
   WorkerGlobalScope::Trace(visitor);
+}
+
+mojom::RequestContextType
+DedicatedWorkerGlobalScope::GetDestinationForMainScript() {
+  return mojom::RequestContextType::WORKER;
 }
 
 }  // namespace blink

@@ -18,6 +18,7 @@
 #include "components/invalidation/public/object_id_invalidation_map.h"
 #include "components/sync/base/get_session_name.h"
 #include "components/sync/base/invalidation_adapter.h"
+#include "components/sync/base/sync_base_switches.h"
 #include "components/sync/device_info/local_device_info_provider_impl.h"
 #include "components/sync/engine/cycle/commit_counters.h"
 #include "components/sync/engine/cycle/status_counters.h"
@@ -30,6 +31,7 @@
 #include "components/sync/engine/sync_manager.h"
 #include "components/sync/engine/sync_manager_factory.h"
 #include "components/sync/syncable/directory.h"
+#include "components/sync/syncable/user_share.h"
 
 // Helper macros to log with the syncer thread name; useful when there
 // are multiple syncers involved.
@@ -49,6 +51,18 @@ namespace {
 void BindFetcherToDataTracker(net::URLFetcher* fetcher) {
   data_use_measurement::DataUseUserData::AttachToFetcher(
       fetcher, data_use_measurement::DataUseUserData::SYNC);
+}
+
+void RecordPerModelTypeInvalidation(int model_type, bool is_grouped) {
+  UMA_HISTOGRAM_ENUMERATION("Sync.InvalidationPerModelType", model_type,
+                            static_cast<int>(syncer::MODEL_TYPE_COUNT));
+  if (!is_grouped) {
+    // When recording metrics it's important to distinguish between
+    // many/one case, since "many" aka grouped case is only common in
+    // the deprecated implementation.
+    UMA_HISTOGRAM_ENUMERATION("Sync.NonGroupedInvalidation", model_type,
+                              static_cast<int>(syncer::MODEL_TYPE_COUNT));
+  }
 }
 
 }  // namespace
@@ -250,9 +264,8 @@ void SyncBackendHostCore::DoOnIncomingInvalidation(
       DLOG(WARNING) << "Notification has invalid id: "
                     << ObjectIdToString(object_id);
     } else {
-      UMA_HISTOGRAM_ENUMERATION("Sync.InvalidationPerModelType",
-                                ModelTypeToHistogramInt(type),
-                                static_cast<int>(MODEL_TYPE_COUNT));
+      bool is_grouped = (ids.size() != 1);
+      RecordPerModelTypeInvalidation(ModelTypeToHistogramInt(type), is_grouped);
       SingleObjectInvalidationSet invalidation_set =
           invalidation_map.ForObject(object_id);
       for (Invalidation invalidation : invalidation_set) {
@@ -265,6 +278,11 @@ void SyncBackendHostCore::DoOnIncomingInvalidation(
                    << invalidation.version() << ", last seen version was "
                    << last_invalidation->second;
           continue;
+        }
+        if (!is_grouped && !invalidation.is_unknown_version()) {
+          UMA_HISTOGRAM_ENUMERATION("Sync.NonGroupedInvalidationKnownVersion",
+                                    ModelTypeToHistogramInt(type),
+                                    static_cast<int>(MODEL_TYPE_COUNT));
         }
         std::unique_ptr<InvalidationInterface> inv_adapter(
             new InvalidationAdapter(invalidation));
@@ -388,7 +406,8 @@ void SyncBackendHostCore::DoInitialProcessControlTypes() {
   // which is called at the end of every sync cycle.
   // TODO(zea): eventually add an experiment handler and initialize it here.
 
-  if (!sync_manager_->GetUserShare()) {  // Null in some tests.
+  const UserShare* user_share = sync_manager_->GetUserShare();
+  if (!user_share) {  // Null in some tests.
     DVLOG(1) << "Skipping initialization of DeviceInfo";
     host_.Call(FROM_HERE,
                &SyncBackendHostImpl::HandleInitializationFailureOnFrontendLoop);
@@ -402,12 +421,15 @@ void SyncBackendHostCore::DoInitialProcessControlTypes() {
     return;
   }
 
+  DCHECK_EQ(user_share->directory->cache_guid(), sync_manager_->cache_guid());
   host_.Call(FROM_HERE,
              &SyncBackendHostImpl::HandleInitializationSuccessOnFrontendLoop,
              registrar_->GetLastConfiguredTypes(), js_backend_,
              debug_info_listener_,
              base::Passed(sync_manager_->GetModelTypeConnectorProxy()),
-             sync_manager_->cache_guid(), GetSessionNameBlocking());
+             sync_manager_->cache_guid(), GetSessionNameBlocking(),
+             user_share->directory->store_birthday(),
+             user_share->directory->bag_of_chips());
 
   js_backend_.Reset();
   debug_info_listener_.Reset();
@@ -599,6 +621,16 @@ void SyncBackendHostCore::DoOnCookieJarChanged(bool account_mismatch,
                &SyncBackendHostImpl::OnCookieJarChangedDoneOnFrontendLoop,
                callback);
   }
+}
+
+void SyncBackendHostCore::DoOnInvalidatorClientIdChange(
+    const std::string& client_id) {
+  if (base::FeatureList::IsEnabled(switches::kSyncE2ELatencyMeasurement)) {
+    // Don't populate the ID, if client participates in latency measurement
+    // experiment.
+    return;
+  }
+  sync_manager_->UpdateInvalidationClientId(client_id);
 }
 
 bool SyncBackendHostCore::HasUnsyncedItemsForTest() const {

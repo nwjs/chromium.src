@@ -12,13 +12,13 @@
 const TEN_SECONDS = 10000; // 10k ms in ten seconds
 const ONE_MINUTE = 60000; // 60k ms in one minute
 
-let testName = "XRFrame getDevicePose updates on the next frame";
+let testName = "XRFrame getViewerPose updates on the next frame";
 
 let fakeDeviceInitParams = { supportsImmersive:true };
 
 let requestSessionOptions = [
   { outputContext: getOutputContext() },
-  { immersive: true },
+  { mode: 'immersive-vr' },
 ];
 
 let testFunction = function(session, t, fakeDeviceController) {
@@ -37,8 +37,8 @@ let testFunction = function(session, t, fakeDeviceController) {
     viewMatrix: VALID_VIEW_MATRIX
   }]);
 
-  return session.requestFrameOfReference("eye-level")
-    .then((frameOfRef) => new Promise((resolve, reject) => {
+  return session.requestReferenceSpace({ type: "stationary", subtype: "eye-level" })
+    .then((referenceSpace) => new Promise((resolve, reject) => {
       let counter = 0;
       let windowFrameTime = 0;
       let frameTime = 0;

@@ -34,7 +34,6 @@
 #include "services/service_manager/public/cpp/connector.h"
 #include "services/service_manager/public/cpp/constants.h"
 #include "services/service_manager/public/cpp/service.h"
-#include "services/service_manager/public/cpp/service_context.h"
 #include "services/service_manager/public/mojom/connector.mojom.h"
 #include "services/service_manager/public/mojom/service.mojom.h"
 #include "services/service_manager/public/mojom/service_control.mojom.h"
@@ -246,7 +245,12 @@ class ServiceManager::Instance
       return false;
 
     const InterfaceProviderSpec& source_spec = source->GetConnectionSpec();
-    if (!AllowsInterface(params->source(), source_spec, identity_,
+    bool bindable_on_any_service =
+        source->options_.interfaces_bindable_on_any_service.count(
+            params->interface_name()) > 0;
+
+    if (!bindable_on_any_service &&
+        !AllowsInterface(params->source(), source_spec, identity_,
                          GetConnectionSpec(), params->interface_name())) {
       params->set_response_data(mojom::ConnectResult::ACCESS_DENIED, identity_);
       return false;
@@ -602,6 +606,7 @@ class ServiceManager::Instance
     }
 
     if (allow_any_application_ ||
+        !options_.interfaces_bindable_on_any_service.empty() ||
         connection_spec.requires.find(target_filter.service_name()) !=
             connection_spec.requires.end()) {
       return mojom::ConnectResult::SUCCEEDED;
@@ -707,33 +712,6 @@ class ServiceManager::Instance
   base::WeakPtrFactory<Instance> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(Instance);
-};
-
-class ServiceManager::ServiceImpl : public Service {
- public:
-  explicit ServiceImpl(ServiceManager* service_manager)
-      : service_manager_(service_manager) {}
-  ~ServiceImpl() override {}
-
-  // Service:
-  void OnBindInterface(const BindSourceInfo& source_info,
-                       const std::string& interface_name,
-                       mojo::ScopedMessagePipeHandle interface_pipe) override {
-    // The only interface ServiceManager exposes is mojom::ServiceManager, and
-    // access to this interface is brokered by a policy specific to each caller,
-    // managed by the caller's instance. Here we look to see who's calling,
-    // and forward to the caller's instance to continue.
-    Instance* instance =
-        service_manager_->GetExistingInstance(source_info.identity);
-    DCHECK(instance);
-    instance->OnBindInterface(source_info, interface_name,
-                              std::move(interface_pipe));
-  }
-
- private:
-  ServiceManager* const service_manager_;
-
-  DISALLOW_COPY_AND_ASSIGN(ServiceImpl);
 };
 
 // A container of Instances that stores them with an Identity and an
@@ -974,13 +952,11 @@ class ServiceManager::IdentityToInstanceMap {
 
 ServiceManager::ServiceManager(std::unique_ptr<ServiceProcessLauncherFactory>
                                    service_process_launcher_factory,
-                               std::unique_ptr<base::Value> catalog_contents,
-                               catalog::ManifestProvider* manifest_provider)
-    : catalog_(std::move(catalog_contents), manifest_provider),
+                               const std::vector<Manifest>& manifests)
+    : catalog_(manifests),
       identity_to_instance_(std::make_unique<IdentityToInstanceMap>()),
       service_process_launcher_factory_(
-          std::move(service_process_launcher_factory)),
-      weak_ptr_factory_(this) {
+          std::move(service_process_launcher_factory)) {
   InterfaceProviderSpec spec;
   spec.provides[kCapability_ServiceManager].insert(
       "service_manager.mojom.ServiceManager");
@@ -993,11 +969,25 @@ ServiceManager::ServiceManager(std::unique_ptr<ServiceProcessLauncherFactory>
       std::move(specs), catalog::ServiceOptions());
 
   mojom::ServicePtr service;
-  service_context_.reset(new ServiceContext(std::make_unique<ServiceImpl>(this),
-                                            mojo::MakeRequest(&service)));
+  service_binding_.Bind(mojo::MakeRequest(&service));
   service_manager_instance_->StartWithService(std::move(service));
 
-  InitCatalog(catalog_.TakeService());
+  InterfaceProviderSpec catalog_spec;
+  catalog_spec.provides["directory"].insert("filesystem.mojom.Directory");
+  catalog_spec.provides["catalog:catalog"].insert("catalog.mojom.Catalog");
+  catalog_spec.provides["control"].insert("catalog.mojom.CatalogControl");
+  InterfaceProviderSpecMap catalog_specs;
+  catalog_specs[mojom::kServiceManager_ConnectorSpec] = std::move(catalog_spec);
+
+  Identity id{catalog::mojom::kServiceName, kSystemInstanceGroup, base::Token{},
+              base::Token::CreateRandom()};
+  Instance* instance =
+      CreateInstance(id, InstanceType::kSingleton, std::move(catalog_specs),
+                     catalog::ServiceOptions());
+
+  mojom::ServicePtr catalog_service;
+  catalog_.BindServiceRequest(mojo::MakeRequest(&catalog_service));
+  instance->StartWithService(std::move(catalog_service));
 }
 
 ServiceManager::~ServiceManager() {
@@ -1252,27 +1242,6 @@ void ServiceManager::RegisterService(
   Connect(std::move(params));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// ServiceManager, private:
-
-void ServiceManager::InitCatalog(mojom::ServicePtr catalog) {
-  // TODO(beng): It'd be great to build this from the manifest, however there's
-  //             a bit of a chicken-and-egg problem.
-  InterfaceProviderSpec spec;
-  spec.provides["directory"].insert("filesystem.mojom.Directory");
-  spec.provides["catalog:catalog"].insert("catalog.mojom.Catalog");
-  spec.provides["control"].insert("catalog.mojom.CatalogControl");
-  InterfaceProviderSpecMap specs;
-  specs[mojom::kServiceManager_ConnectorSpec] = std::move(spec);
-
-  Identity id{catalog::mojom::kServiceName, kSystemInstanceGroup, base::Token{},
-              base::Token::CreateRandom()};
-  Instance* instance =
-      CreateInstance(id, InstanceType::kSingleton, std::move(specs),
-                     catalog::ServiceOptions());
-  instance->StartWithService(std::move(catalog));
-}
-
 void ServiceManager::OnInstanceError(Instance* instance) {
   // We never clean up the ServiceManager's own instance.
   if (instance == service_manager_instance_)
@@ -1408,6 +1377,20 @@ void ServiceManager::OnServiceFactoryLost(const ServiceFilter& which) {
 
 base::WeakPtr<ServiceManager> ServiceManager::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+void ServiceManager::OnBindInterface(
+    const BindSourceInfo& source_info,
+    const std::string& interface_name,
+    mojo::ScopedMessagePipeHandle interface_pipe) {
+  // The only interface ServiceManager exposes is mojom::ServiceManager, and
+  // access to this interface is brokered by a policy specific to each caller,
+  // managed by the caller's instance. Here we look to see who's calling,
+  // and forward to the caller's instance to continue.
+  Instance* instance = GetExistingInstance(source_info.identity);
+  DCHECK(instance);
+  instance->OnBindInterface(source_info, interface_name,
+                            std::move(interface_pipe));
 }
 
 }  // namespace service_manager

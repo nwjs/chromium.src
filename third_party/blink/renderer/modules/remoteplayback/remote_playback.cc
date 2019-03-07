@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
+#include "third_party/blink/renderer/core/html/media/remote_playback_observer.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
@@ -72,12 +73,19 @@ bool IsBackgroundAvailabilityMonitoringDisabled() {
 }  // anonymous namespace
 
 // static
-RemotePlayback* RemotePlayback::Create(HTMLMediaElement& element) {
-  return MakeGarbageCollected<RemotePlayback>(element);
+RemotePlayback& RemotePlayback::From(HTMLMediaElement& element) {
+  RemotePlayback* self =
+      static_cast<RemotePlayback*>(RemotePlaybackController::From(element));
+  if (!self) {
+    self = MakeGarbageCollected<RemotePlayback>(element);
+    RemotePlaybackController::ProvideTo(element, self);
+  }
+  return *self;
 }
 
 RemotePlayback::RemotePlayback(HTMLMediaElement& element)
     : ContextLifecycleObserver(element.GetExecutionContext()),
+      RemotePlaybackController(element),
       state_(element.IsPlayingRemotely()
                  ? WebRemotePlaybackState::kConnected
                  : WebRemotePlaybackState::kDisconnected),
@@ -108,7 +116,8 @@ ScriptPromise RemotePlayback::watchAvailability(
     return promise;
   }
 
-  int id = WatchAvailabilityInternal(new AvailabilityCallbackWrapper(callback));
+  int id = WatchAvailabilityInternal(
+      MakeGarbageCollected<AvailabilityCallbackWrapper>(callback));
   if (id == kWatchAvailabilityNotSupported) {
     resolver->Reject(DOMException::Create(
         DOMExceptionCode::kNotSupportedError,
@@ -380,6 +389,9 @@ void RemotePlayback::StateChanged(WebRemotePlaybackState state) {
       }
       break;
   }
+
+  for (auto observer : observers_)
+    observer->OnRemotePlaybackStateChanged(state_);
 }
 
 void RemotePlayback::AvailabilityChanged(
@@ -395,6 +407,9 @@ void RemotePlayback::AvailabilityChanged(
 
   for (auto& callback : availability_callbacks_.Values())
     callback->Run(this, new_availability);
+
+  for (auto observer : observers_)
+    observer->OnRemotePlaybackAvailabilityChanged(availability_);
 }
 
 void RemotePlayback::PromptCancelled() {
@@ -433,6 +448,14 @@ void RemotePlayback::SourceChanged(const WebURL& source,
 
 WebString RemotePlayback::GetPresentationId() {
   return presentation_id_;
+}
+
+void RemotePlayback::AddObserver(RemotePlaybackObserver* observer) {
+  observers_.insert(observer);
+}
+
+void RemotePlayback::RemoveObserver(RemotePlaybackObserver* observer) {
+  observers_.erase(observer);
 }
 
 bool RemotePlayback::RemotePlaybackAvailable() const {
@@ -622,8 +645,10 @@ void RemotePlayback::Trace(blink::Visitor* visitor) {
   visitor->Trace(availability_callbacks_);
   visitor->Trace(prompt_promise_resolver_);
   visitor->Trace(media_element_);
+  visitor->Trace(observers_);
   EventTargetWithInlineData::Trace(visitor);
   ContextLifecycleObserver::Trace(visitor);
+  RemotePlaybackController::Trace(visitor);
 }
 
 }  // namespace blink

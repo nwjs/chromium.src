@@ -69,12 +69,12 @@ class SwitchAccess {
   }
 
   /**
-   * Jump to the context menu.
+   * Open and jump to the Switch Access menu.
    * @override
    */
-  enterContextMenu() {
+  enterMenu() {
     if (this.navigationManager_)
-      this.navigationManager_.enterContextMenu();
+      this.navigationManager_.enterMenu();
   }
 
   /**
@@ -131,6 +131,21 @@ class SwitchAccess {
    */
   getDefaultKeyCodeFor(command) {
     return this.commands_.getDefaultKeyCodeFor(command);
+  }
+
+  /**
+   * Forwards the keycodes received from keyPressed events to |callback|.
+   * @param {function(number)} callback
+   */
+  listenForKeycodes(callback) {
+    this.keyboardHandler_.listenForKeycodes(callback);
+  }
+
+  /**
+   * Stops forwarding keycodes.
+   */
+  stopListeningForKeycodes() {
+    this.keyboardHandler_.stopListeningForKeycodes();
   }
 
   /**

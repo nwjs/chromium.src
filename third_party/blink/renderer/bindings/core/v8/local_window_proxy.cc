@@ -73,8 +73,18 @@ void LocalWindowProxy::Trace(blink::Visitor* visitor) {
 
 void LocalWindowProxy::DisposeContext(Lifecycle next_status,
                                       FrameReuseStatus frame_reuse_status) {
-  DCHECK(next_status == Lifecycle::kGlobalObjectIsDetached ||
+  DCHECK(next_status == Lifecycle::kForciblyPurgeV8Memory ||
+         next_status == Lifecycle::kGlobalObjectIsDetached ||
          next_status == Lifecycle::kFrameIsDetached);
+
+  // If the current lifecycle is kForciblyPurgeV8Memory, the next state should
+  // be kGlobalObjectIsDetached. The necessary operations are already done in
+  // kForciblyPurgeMemory and thus can return here.
+  if (lifecycle_ == Lifecycle::kForciblyPurgeV8Memory) {
+    DCHECK(next_status == Lifecycle::kGlobalObjectIsDetached);
+    lifecycle_ = next_status;
+    return;
+  }
 
   if (lifecycle_ != Lifecycle::kContextIsInitialized)
     return;
@@ -86,8 +96,8 @@ void LocalWindowProxy::DisposeContext(Lifecycle next_status,
   // it returns.
   GetFrame()->Client()->WillReleaseScriptContext(context, world_->GetWorldId());
   MainThreadDebugger::Instance()->ContextWillBeDestroyed(script_state_);
-
-  if (next_status == Lifecycle::kGlobalObjectIsDetached) {
+  if (next_status == Lifecycle::kForciblyPurgeV8Memory ||
+      next_status == Lifecycle::kGlobalObjectIsDetached) {
     // Clean up state on the global proxy, which will be reused.
     if (!global_proxy_.IsEmpty()) {
       CHECK(global_proxy_ == context->Global());
@@ -132,6 +142,9 @@ void LocalWindowProxy::Initialize() {
       ("Blink.Binding.InitializeNonMainLocalWindowProxy", 0, 10000000, 50));
   ScopedUsHistogramTimer timer(GetFrame()->IsMainFrame() ? main_frame_hist
                                                          : non_main_frame_hist);
+  // TODO(alph): Remove this temporary code for debugging
+  // https://crbug.com/728693.
+  CHECK(!GetFrame()->IsProvisional());
 
   ScriptForbiddenScope::AllowUserAgentScript allow_script;
   // Inspector may request V8 interruption to process DevTools protocol

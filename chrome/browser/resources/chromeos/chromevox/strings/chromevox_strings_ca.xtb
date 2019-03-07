@@ -54,6 +54,7 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="1346059596910821859">Consell</translation>
 <translation id="1346748346194534595">A la dreta</translation>
 <translation id="135978014023467274">ChromeVox s'ha actualitzat a la versió 63</translation>
+<translation id="1360699455582016846">Fes clic a l'element que hi ha a sota de la tecla d'encaminament <ph name="ROUTING_KEY_NUMBER" /></translation>
 <translation id="136718599399906424">Fila següent de la taula</translation>
 <translation id="1377925789329510816">Aquest és l'últim encapçalament. Prem Cerca+H per anar al primer o Cerca+Maj+H per anar al segon de la pàgina.</translation>
 <translation id="1383876407941801731">Cerca</translation>
@@ -104,6 +105,7 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="1828385960365606039">Maig</translation>
 <translation id="1834891354138622109">Columna</translation>
 <translation id="1845944666972354496">Fes doble toc per activar</translation>
+<translation id="1846771122725914429">Pantalla braille amb connexió Bluetooth</translation>
 <translation id="1865601187525349519">Fi del text</translation>
 <translation id="1876229593313240038">document</translation>
 <translation id="188130072164734898">Diu en veu alta la data i l'hora actuals.</translation>
@@ -111,6 +113,7 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="1905379170753160525">Mostra la llista de capçaleres.</translation>
 <translation id="1912556590115083156">vlnk</translation>
 <translation id="1913761808037590218">#ed</translation>
+<translation id="1914635379910604678">Acord <ph name="DOT" /></translation>
 <translation id="1954623340234317532">Control de la setmana de l'any</translation>
 <translation id="1964135212174907577">Objecte següent</translation>
 <translation id="1969092762068865084">Juliol</translation>
@@ -265,6 +268,7 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="316542773973815724">Navegació</translation>
 <translation id="3172700825913348768">{COUNT,plural, =1{espai}other{# espais}}</translation>
 <translation id="320961988183078793">s'ha introduït <ph name="TYPE" /></translation>
+<translation id="3218691001991391708">enganxa <ph name="TEXT" />.</translation>
 <translation id="3223701887221307104"><ph name="NAME" />, pestanya</translation>
 <translation id="3226035351387556942">chk</translation>
 <translation id="3229375994964697375">Enllaç visitat</translation>
@@ -284,48 +288,6 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="3322936298410871309">Capçalera del nivell 1 anterior</translation>
 <translation id="3323447499041942178">Quadre de text</translation>
 <translation id="3338224621010291843">Control lliscant <ph name="VALUE" /> <ph name="NAME" /></translation>
-<translation id="3353420241558113817">{"ar": "Àrab",
-        "bg": "Búlgar",
-        "ca": "Català",
-        "cs": "Txec",
-        "da": "Danès",
-        "de": "Alemany",
-        "de_CH": "Alemany (Suïssa)",
-        "de_DE": "Alemany (Alemanya)",
-        "el": "Grec",
-        "en": "Anglès",
-        "en_CA": "Anglès (Canadà)",
-        "en_GB": "Anglès (Regne Unit)",
-        "en_US": "Anglès (Estats Units)",
-        "es": "Espanyol",
-        "et": "Estonià",
-        "fr": "Francès",
-        "fr_CA": "Francès (Canadà)",
-        "fr_FR": "Francès (França)",
-        "fi": "Finès",
-        "he": "Hebreu",
-        "hi": "Hindi",
-        "hr": "Croata",
-        "hu": "Hongarès",
-        "is": "Islandès",
-        "it": "Italià",
-        "ko": "Coreà",
-        "lt": "Lituà",
-        "lv": "Letó",
-        "nb": "Noruec Bokmål",
-        "nl": "Neerlandès",
-        "pl": "Polonès",
-        "pt": "Portuguès",
-        "ro": "Romanès",
-        "ru": "Rus",
-        "sk": "Eslovac",
-        "sl": "Eslovè",
-        "sr": "Serbi",
-        "sv": "Suec",
-        "tr": "Turc",
-        "vi": "Vietnamita",
-        "zh": "Xinès",
-        "zh_TW": "Xinès (han tradicional)"}</translation>
 <translation id="335581015389089642">Veu</translation>
 <translation id="3359142382821736686">seprtr</translation>
 <translation id="3374537878095184207">{COUNT,plural, =1{més}other{# signes més}}</translation>
@@ -335,7 +297,6 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="3392045790598181549"><ph name="NAME" />, element de menú</translation>
 <translation id="3393605254399152980">Arrossega un dit per sentir què estàs tocant</translation>
 <translation id="3406283310380167331">Mostra la llista de formularis.</translation>
-<translation id="3423495725743882470">fila $1, columna $2</translation>
 <translation id="3457000393508828486">S'ha premut parcialment.</translation>
 <translation id="3458865416877308321"><ph name="NAME" />, desactiva</translation>
 <translation id="3462439746547587373"><ph name="NAME" />, botó</translation>
@@ -343,12 +304,14 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="3468959318854349468">Sense títol</translation>
 <translation id="3473644018603298796">control lliscant <ph name="COUNT" /></translation>
 <translation id="3486232535569802404">De <ph name="V1" /> a <ph name="V2" /></translation>
+<translation id="3490765818161916458">Quadrícula de llista</translation>
 <translation id="3492609944033322585">{COUNT,plural, =1{claudàtor de tancament}other{# claudàtors de tancament}}</translation>
 <translation id="3493915602752813531">No hi ha cap ancoratge més.</translation>
 <translation id="3494946239022273294">mnuitm</translation>
 <translation id="3497063866483065785">{COUNT,plural, =1{signe d'interrogació}other{# signes d'interrogació}}</translation>
 <translation id="3514822174137761109">{COUNT,plural, =1{accent circumflex}other{# accents circumflexos}}</translation>
 <translation id="352577523970648069">Un camp de text que es pot editar</translation>
+<translation id="3549141990712742152">retalla <ph name="TEXT" />.</translation>
 <translation id="3549680091535286226">Toca amb 2 dits per aturar temporalment la veu</translation>
 <translation id="3568702578574425662"><ph name="NAME" />, casella de selecció no activada</translation>
 <translation id="3589661172894441357">Glossari</translation>
@@ -374,13 +337,13 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="3795836767122514678">+{COUNT,plural, =1{#}other{#}}</translation>
 <translation id="3801735343383419236">Llista de compleció automàtica</translation>
 <translation id="3810838688059735925">Vídeo</translation>
-<translation id="3812237531158591503">enganxa $1.</translation>
 <translation id="3816633764618089385">Fitxer multimèdia següent</translation>
 <translation id="3819376190738087562">No hi ha cap salt.</translation>
 <translation id="385383972552776628">Obre la pàgina d'opcions</translation>
 <translation id="3856075812838139784">Només de lectura</translation>
 <translation id="3887576927692165210">ed</translation>
 <translation id="3897092660631435901">Menú</translation>
+<translation id="3907138069015388678">llstquadríc</translation>
 <translation id="3909320334364316587">Capçalera del nivell 6 anterior</translation>
 <translation id="3914173277599553213">Obligatori</translation>
 <translation id="3914732343065571127">Referència d'ordres de ChromeVox</translation>
@@ -488,6 +451,7 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="4763480195061959176">vídeo</translation>
 <translation id="4764692524839457597">opció predeterminada</translation>
 <translation id="479989351350248267">cerca</translation>
+<translation id="4804818685124855865">Desconnecta</translation>
 <translation id="481165870889056555">Presenta el títol de la pàgina actual</translation>
 <translation id="4826415162591436065">Navega cap endavant.</translation>
 <translation id="4826604887384865800">Salt següent</translation>
@@ -529,6 +493,7 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="5020651427400641814">Activa el registre de veu</translation>
 <translation id="5041394372352067729">Mou la pantalla Braille a la part superior de la pàgina.</translation>
 <translation id="5042770794184672516">Augmenta el volum de la veu.</translation>
+<translation id="5042992464904238023">Contingut web</translation>
 <translation id="5050015258024679800">Capçalera del nivell 4 anterior</translation>
 <translation id="5054047268577924192">Element de la llista anterior</translation>
 <translation id="5075936896689244141">Mapa de teclat Next</translation>
@@ -557,6 +522,7 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="5291783959063340370">Objecte</translation>
 <translation id="5302089807023311274">Referència bibliogràfica</translation>
 <translation id="5304943142864553931"><ph name="TITLE" />, pestanya</translation>
+<translation id="5308380583665731573">Connecta</translation>
 <translation id="5310788376443009632">s'ha suprimit:</translation>
 <translation id="5320727453979144100">S'ha activat el mode persistent.</translation>
 <translation id="5321085947096604457">{COUNT,plural, =1{coma}other{# comes}}</translation>
@@ -574,7 +540,6 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="5402791055281059602">Una alerta modal</translation>
 <translation id="5407530583102765689">{COUNT,plural, =1{punt i coma}other{# punts i coma}}</translation>
 <translation id="5411891038905756502">No hi ha cap punt de salt anterior.</translation>
-<translation id="5417034931411865818">Fes clic a l'element que hi ha a sota de la tecla d'encaminament $1</translation>
 <translation id="5435274640623994081">Activa el registre de sons</translation>
 <translation id="5436105723448703439">{COUNT,plural, =1{menor que}other{# símbols menor que}}</translation>
 <translation id="5444587279251314700">(activa)</translation>
@@ -645,6 +610,7 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="5887397643266327462">Subtítols en braille activats.</translation>
 <translation id="5891934789323004067">Taula</translation>
 <translation id="5899860758576822363">Reprodueix a un volum més baix quan ChromeVox parli</translation>
+<translation id="5906974869830879618">Introdueix un PIN</translation>
 <translation id="5921587111466148855">Capítol</translation>
 <translation id="5937336320314038555">{COUNT,plural, =1{signe igual}other{# signes igual}}</translation>
 <translation id="5939518447894949180">Restableix</translation>
@@ -671,8 +637,8 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="6122013438240733403">botó</translation>
 <translation id="6129953537138746214">Espai</translation>
 <translation id="6132506484792346370">Un quadre de llista o combinat</translation>
-<translation id="6138576064440631958">Acord: $1</translation>
 <translation id="6142308968191113180">Capçalera 4</translation>
+<translation id="6158882249329863701">fila <ph name="TABLECELLROWINDEX" /> columna <ph name="TABLECELLCOLUMNINDEX" /></translation>
 <translation id="6164829606128959761">comptador</translation>
 <translation id="6169420925157477918">Imatge amb descripció llarga</translation>
 <translation id="6186305613600865047">Ves a la part inferior de la pàgina.</translation>
@@ -688,16 +654,17 @@ Si has acabat el tutorial, fes servir ChromeVox per desplaçar-te fins al botó 
 <translation id="6307969636681130414">Premut</translation>
 <translation id="6322856989298155004">Sons</translation>
 <translation id="6324551002951139333">S'ha detectat un error gramatical.</translation>
+<translation id="6325241889020214828">copia <ph name="TEXT" />.</translation>
 <translation id="6348657800373377022">Quadre combinat</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{pic}other{# pics}}</translation>
 <translation id="6355910664415701303">No hi ha cap element de llista anterior.</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">Capçalera anterior</translation>
-<translation id="6378565991815958969">copia $1.</translation>
 <translation id="6385591741672306837">columna</translation>
 <translation id="6387719785439924554">complement</translation>
 <translation id="6411426777058107714">No hi ha cap botó d'opció anterior.</translation>
 <translation id="6414968628640960377">Element diferent anterior.</translation>
+<translation id="6417265370957905582">Assistent de Google</translation>
 <translation id="641759969622533235">{COUNT,plural, =1{dos punts}other{# dos punts}}</translation>
 <translation id="6438968337250688271"><ph name="NAME" />, menú</translation>
 <translation id="6444046323172968959">Diàleg d'alerta</translation>
@@ -773,6 +740,7 @@ Per obrir el menú del navegador Chrome, prem Alt+F.</translation>
 <translation id="712735679809149106">retorn de paraules</translation>
 <translation id="713824876195128146">Cita de bloc següent</translation>
 <translation id="7143034430156387447">Alterna entre braille de sis i vuit punts</translation>
+<translation id="7143207342074048698">S'està connectant</translation>
 <translation id="7157306005867877619">Resum</translation>
 <translation id="7161425887892204659">Fi de la coincidència de text</translation>
 <translation id="7161771961008409533">Botó emergent</translation>
@@ -876,6 +844,89 @@ Per obrir el menú del navegador Chrome, prem Alt+F.</translation>
 <translation id="8037651341025652929">Conclusió</translation>
 <translation id="8042761080832772327">Edició de text, entrada de cerca</translation>
 <translation id="8049189770492311300">Temporitzador</translation>
+<translation id="8056782883599416672">{"ar": "àrab",
+        "as": "assamès",
+        "aw": "awadhi",
+        "be": "bengalí",
+        "bg": "búlgar",
+        "bh": "bihari",
+        "bo": "tibetà",
+        "br": "braj",
+        "ca": "català",
+        "ckb": "sorani",
+        "cs": "txec",
+        "cy": "gal·lès",
+        "da": "danès",
+        "de": "alemany",
+        "de_CH": "alemany (Suïssa)",
+        "de_DE": "alemany (Alemanya)",
+        "dra": "dravídic",
+        "el": "grec",
+        "en": "anglès",
+        "en_CA": "anglès (Canadà)",
+        "en_GB": "anglès (Regne Unit)",
+        "en_US": "anglès (Estats Units)",
+        "eo": "esperanto",
+        "es": "espanyol",
+        "et": "estonià",
+        "fa": "persa",
+        "fr": "francès",
+        "fr_CA": "francès (Canadà)",
+        "fr_FR": "francès (França)",
+        "fi": "finès",
+        "ga": "gaèlic irlandès",
+        "gd": "gaèlic",
+        "gon": "gondi",
+        "gu": "gujarati",
+        "he": "hebreu",
+        "hi": "hindi",
+        "hr": "croat",
+        "hu": "hongarès",
+        "hy": "armeni",
+        "is": "islandès",
+        "it": "italià",
+        "iu": "inuit",
+        "ka": "kannada",
+        "kh": "khasi",
+        "ko": "coreà",
+        "kok": "concani",
+        "kru": "uràon",
+        "ks": "caixmiri",
+        "lt": "lituà",
+        "lv": "letó",
+        "mao": "maori",
+        "ml": "malaiàlam",
+        "mt": "maltès",
+        "mwr": "marwari",
+        "mn": "mongol",
+        "mun": "munda",
+        "nb": "noruec bokmål",
+        "ne": "nepalí",
+        "nl": "neerlandès",
+        "no": "noruec",
+        "or": "oriya",
+        "pi": "pali",
+        "pl": "polonès",
+        "pt": "portuguès",
+        "pu": "panjabi",
+        "ro": "romanès",
+        "ru": "rus",
+        "sa": "sànscrit",
+        "si": "sindhi",
+        "sin": "singalès",
+        "sk": "eslovac",
+        "sl": "eslovè",
+        "sr": "serbi",
+        "sv": "suec",
+        "ta": "tàmil",
+        "te": "telugu",
+        "tr": "turc",
+        "tsn": "afrikaans",
+        "uk": "ucraïnès",
+        "ur": "urdú",
+        "vi": "vietnamita",
+        "zh": "xinès",
+        "zh_TW": "xinès (han tradicional)"}</translation>
 <translation id="8065607967589909823">La selecció és</translation>
 <translation id="8066678206530322333">Bàner</translation>
 <translation id="8076492880354921740">Pestanyes</translation>
@@ -885,6 +936,7 @@ Per obrir el menú del navegador Chrome, prem Alt+F.</translation>
 <translation id="8153880621934657047">No sou dins la taula.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{ratlla baixa}other{# ratlles baixes}}</translation>
 <translation id="8179976553408161302">Retorn</translation>
+<translation id="8183813379996435469">Detecta i canvia automàticament l'idioma de ChromeVox.</translation>
 <translation id="8184828902145951186">fila</translation>
 <translation id="8186185314313222077">activa la pantalla completa</translation>
 <translation id="8199231515320852133">Presenta les capçaleres de la cel·la actual.</translation>
@@ -892,7 +944,6 @@ Per obrir el menú del navegador Chrome, prem Alt+F.</translation>
 <translation id="820469951249669083">Ves a la fila següent</translation>
 <translation id="8215202828671303819">Selecció múltiple</translation>
 <translation id="826825447994856889">Introducció</translation>
-<translation id="826991282343985864">f$1c$2</translation>
 <translation id="8276439074553447000">Ves a l'element enfocable anterior</translation>
 <translation id="8278417001922463147">No hi ha cap article anterior.</translation>
 <translation id="8283603667300770666">Camp de formulari següent</translation>
@@ -960,7 +1011,9 @@ Per obrir el menú del navegador Chrome, prem Alt+F.</translation>
 <translation id="8937112856099038376">intlnk</translation>
 <translation id="8940925288729953902">Tecles modificadores</translation>
 <translation id="8943175951035496220">No hi ha cap cel·la a la dreta.</translation>
+<translation id="8946628535652548639">r<ph name="TABLECELLROWINDEX" />c<ph name="TABLECELLCOLUMNINDEX" /></translation>
 <translation id="8978496506222343566">tltip</translation>
+<translation id="8986362086234534611">Oblida</translation>
 <translation id="900114243503212879">fitxer</translation>
 <translation id="9027462562263121875">No hi ha cap taula.</translation>
 <translation id="9040132695316389094">Capçalera 1</translation>
@@ -973,7 +1026,6 @@ Per obrir el menú del navegador Chrome, prem Alt+F.</translation>
 <translation id="9082874451376019682">No hi ha cap control lliscant anterior.</translation>
 <translation id="9087707351856729768">Escriu alguna cosa per emplenar el camp automàticament.</translation>
 <translation id="9089864840575085222">Retorn de l'escriptura del cicle</translation>
-<translation id="9105227991373418255">retalla $1.</translation>
 <translation id="9107530006868467849">No hi ha cap widget multimèdia anterior.</translation>
 <translation id="9108370397979208512">matemàtiques</translation>
 <translation id="9108589040018540527">scbr</translation>
@@ -994,6 +1046,7 @@ Per obrir el menú del navegador Chrome, prem Alt+F.</translation>
 <translation id="948171205378458592">Disminueix la velocitat de la veu.</translation>
 <translation id="958854023026327378">Fes lliscar un dit cap avall</translation>
 <translation id="962913030769097253">Capçalera del nivell 1 següent</translation>
+<translation id="966588271015727539">Selecciona una pantalla braille amb connexió Bluetooth</translation>
 <translation id="973955474346881951">Activa o desactiva el mode persistent</translation>
 <translation id="976849232629612000">No hi ha elements.</translation>
 <translation id="995852680044449248">Inici del ratllat</translation>

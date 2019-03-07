@@ -664,10 +664,12 @@ bool AXLayoutObject::ComputeAccessibilityIsIgnored(
   // Find out if this element is inside of a label element.  If so, it may be
   // ignored because it's the label for a checkbox or radio button.
   AXObject* control_object = CorrespondingControlForLabelElement();
+  HTMLLabelElement* label = LabelElementContainer();
   if (control_object && control_object->IsCheckboxOrRadio() &&
-      control_object->NameFromLabelElement()) {
+      control_object->NameFromLabelElement() &&
+      AccessibleNode::GetPropertyOrARIAAttribute(
+          label, AOMStringProperty::kRole) == g_null_atom) {
     if (ignored_reasons) {
-      HTMLLabelElement* label = LabelElementContainer();
       if (label && label != GetNode()) {
         AXObject* label_ax_object = AXObjectCache().GetOrCreate(label);
         ignored_reasons->push_back(
@@ -2089,6 +2091,7 @@ void AXLayoutObject::AddChildren() {
   AddRemoteSVGChildren();
   AddTableChildren();
   AddInlineTextBoxChildren(false);
+  AddValidationMessageChild();
   AddAccessibleNodeChildren();
 
   for (const auto& child : children_) {
@@ -2562,6 +2565,18 @@ bool AXLayoutObject::OnNativeSetValueAction(const String& string) {
     return true;
   }
 
+  if (HasContentEditableAttributeSet()) {
+    ExceptionState exception_state(v8::Isolate::GetCurrent(),
+                                   ExceptionState::kExecutionContext, nullptr,
+                                   nullptr);
+    ToHTMLElement(GetNode())->setInnerText(string, exception_state);
+    if (exception_state.HadException()) {
+      exception_state.ClearException();
+      return false;
+    }
+    return true;
+  }
+
   return false;
 }
 
@@ -2765,6 +2780,30 @@ void AXLayoutObject::AddInlineTextBoxChildren(bool force) {
     if (!ax_object->AccessibilityIsIgnored())
       children_.push_back(ax_object);
   }
+}
+
+void AXLayoutObject::AddValidationMessageChild() {
+  if (!IsWebArea())
+    return;
+  AXObject* ax_object = AXObjectCache().ValidationMessageObjectIfVisible();
+  if (ax_object)
+    children_.push_back(ax_object);
+}
+
+AXObject* AXLayoutObject::ErrorMessage() const {
+  // Check for aria-errormessage.
+  Element* existing_error_message =
+      GetAOMPropertyOrARIAAttribute(AOMRelationProperty::kErrorMessage);
+  if (existing_error_message)
+    return AXObjectCache().GetOrCreate(existing_error_message);
+
+  // Check for visible validationMessage. This can only be visible for a focused
+  // control. Corollary: if there is a visible validationMessage alert box, then
+  // it is related to the current focus.
+  if (this != AXObjectCache().FocusedObject())
+    return nullptr;
+
+  return AXObjectCache().ValidationMessageObjectIfVisible();
 }
 
 void AXLayoutObject::LineBreaks(Vector<int>& line_breaks) const {

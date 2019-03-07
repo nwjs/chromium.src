@@ -44,7 +44,7 @@ typedef testing::StrictMock<testing::MockFunction<void(int)>>
 class MockWebSocketChannel : public WebSocketChannel {
  public:
   static MockWebSocketChannel* Create() {
-    return new testing::StrictMock<MockWebSocketChannel>();
+    return MakeGarbageCollected<testing::StrictMock<MockWebSocketChannel>>();
   }
 
   ~MockWebSocketChannel() override = default;
@@ -81,10 +81,15 @@ class DOMWebSocketWithMockChannel final : public DOMWebSocket {
  public:
   static DOMWebSocketWithMockChannel* Create(ExecutionContext* context) {
     DOMWebSocketWithMockChannel* websocket =
-        new DOMWebSocketWithMockChannel(context);
+        MakeGarbageCollected<DOMWebSocketWithMockChannel>(context);
     websocket->PauseIfNeeded();
     return websocket;
   }
+
+  explicit DOMWebSocketWithMockChannel(ExecutionContext* context)
+      : DOMWebSocket(context),
+        channel_(MockWebSocketChannel::Create()),
+        has_created_channel_(false) {}
 
   MockWebSocketChannel* Channel() { return channel_.Get(); }
 
@@ -101,11 +106,6 @@ class DOMWebSocketWithMockChannel final : public DOMWebSocket {
   }
 
  private:
-  explicit DOMWebSocketWithMockChannel(ExecutionContext* context)
-      : DOMWebSocket(context),
-        channel_(MockWebSocketChannel::Create()),
-        has_created_channel_(false) {}
-
   Member<MockWebSocketChannel> channel_;
   bool has_created_channel_;
 };
@@ -280,7 +280,8 @@ TEST(DOMWebSocketTest, mixedContentAutoUpgrade) {
                 Connect(KURL("wss://example.com/endpoint"), String()))
         .WillOnce(Return(true));
   }
-  scope.GetDocument().SetURL(KURL("https://example.com"));
+  scope.GetDocument().SetSecurityOrigin(
+      SecurityOrigin::Create(KURL("https://example.com")));
   scope.GetDocument().SetInsecureRequestPolicy(kLeaveInsecureRequestsAlone);
   websocket_scope.Socket().Connect("ws://example.com/endpoint",
                                    Vector<String>(), scope.GetExceptionState());

@@ -3,7 +3,6 @@
 <link rel="import" href="chrome://resources/cr_elements/cr_radio_button/cr_radio_button.html">
 <link rel="import" href="chrome://resources/cr_elements/cr_radio_group/cr_radio_group.html">
 <link rel="import" href="chrome://resources/cr_elements/cr_input/cr_input.html">
-<link rel="import" href="../data/document_info.html">
 <link rel="import" href="../print_preview_utils.html">
 <link rel="import" href="input_behavior.html">
 <link rel="import" href="print_preview_shared_css.html">
@@ -23,11 +22,11 @@
         --cr-input-error-display: none;
       }
 
-      :host([error-state_='1']) #customRadioButton,
-      :host([error-state_='2']) #customRadioButton {
-        /* Margin = -1 * error height = -1 * (16px + 2 lines * line-height) */
+      :host #customRadioButton {
         --cr-radio-button-disc: {
-          margin-top: calc(-16px - 2 * .75rem);
+          align-self: baseline;
+          /* Margin = (38px row height - 16px disc size) / 2 */
+          margin-top: 11px;
         };
       }
 
@@ -54,6 +53,7 @@
               on-click="onCustomRadioClick_"
               aria-label="$i18n{optionCustomPages}">
             <cr-input id="pageSettingsCustomInput" type="text"
+                aria-label="$i18n{printPagesLabel}"
                 data-timeout-delay="500" on-keydown="onKeydown_"
                 disabled$="[[controlsDisabled_]]" spellcheck="false"
                 on-focus="onCustomInputFocus_" on-blur="onCustomInputBlur_"
@@ -61,8 +61,7 @@
                 tabindex="[[computeTabIndex_(optionSelected_)]]"
                 placeholder="$i18n{examplePageRangeText}"
                 invalid="[[hasError_]]"
-                error-message="[[getHintMessage_(errorState_,
-                    documentInfo.pageCount)]]">
+                error-message="[[getHintMessage_(errorState_, pageCount)]]">
             </cr-input>
           </cr-radio-button>
         </cr-radio-group>

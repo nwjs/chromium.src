@@ -33,6 +33,7 @@
 
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d.h"
 
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 
 #include "third_party/blink/public/platform/platform.h"
@@ -53,6 +54,7 @@
 #include "third_party/blink/renderer/core/layout/hit_test_canvas_result.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_style.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/hit_region.h"
 #include "third_party/blink/renderer/modules/canvas/canvas2d/path_2d.h"
@@ -506,9 +508,8 @@ void CanvasRenderingContext2D::setFont(const String& new_font) {
     HashMap<String, Font>::iterator i =
         fonts_resolved_using_current_style_.find(new_font);
     if (i != fonts_resolved_using_current_style_.end()) {
-      DCHECK(font_lru_list_.Contains(new_font));
-      font_lru_list_.erase(new_font);
-      font_lru_list_.insert(new_font);
+      auto add_result = font_lru_list_.PrependOrMoveToFirst(new_font);
+      DCHECK(!add_result.is_new_entry);
       ModifiableState().SetFont(i->value, Host()->GetFontSelector());
     } else {
       MutableCSSPropertyValueSet* parsed_style =
@@ -539,8 +540,8 @@ void CanvasRenderingContext2D::setFont(const String& new_font) {
       Font final_font(final_description);
 
       fonts_resolved_using_current_style_.insert(new_font, final_font);
-      DCHECK(!font_lru_list_.Contains(new_font));
-      font_lru_list_.insert(new_font);
+      auto add_result = font_lru_list_.PrependOrMoveToFirst(new_font);
+      DCHECK(add_result.is_new_entry);
       PruneLocalFontCache(canvas_font_cache->HardMaxFonts());  // hard limit
       should_prune_local_font_cache_ = true;  // apply soft limit
       ModifiableState().SetFont(final_font, Host()->GetFontSelector());
@@ -584,8 +585,8 @@ void CanvasRenderingContext2D::PruneLocalFontCache(size_t target_size) {
     return;
   }
   while (font_lru_list_.size() > target_size) {
-    fonts_resolved_using_current_style_.erase(font_lru_list_.front());
-    font_lru_list_.RemoveFirst();
+    fonts_resolved_using_current_style_.erase(font_lru_list_.back());
+    font_lru_list_.pop_back();
   }
 }
 
@@ -936,8 +937,12 @@ CanvasRenderingContext2D::getContextAttributes() const {
   CanvasRenderingContext2DSettings* settings =
       CanvasRenderingContext2DSettings::Create();
   settings->setAlpha(CreationAttributes().alpha);
-  settings->setColorSpace(ColorSpaceAsString());
-  settings->setPixelFormat(PixelFormatAsString());
+  if (RuntimeEnabledFeatures::CanvasColorManagementEnabled()) {
+    settings->setColorSpace(ColorSpaceAsString());
+    settings->setPixelFormat(PixelFormatAsString());
+  }
+  if (origin_trials::LowLatencyCanvasEnabled(&canvas()->GetDocument()))
+    settings->setLowLatency(canvas()->LowLatencyEnabled());
   return settings;
 }
 
@@ -1103,6 +1108,9 @@ unsigned CanvasRenderingContext2D::HitRegionsCount() const {
 }
 
 void CanvasRenderingContext2D::DisableAcceleration() {
+  if (base::FeatureList::IsEnabled(features::kAlwaysAccelerateCanvas)) {
+    NOTREACHED();
+  }
   canvas()->DisableAcceleration();
 }
 

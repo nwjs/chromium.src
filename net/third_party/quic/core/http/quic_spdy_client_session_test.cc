@@ -58,11 +58,14 @@ class TestQuicSpdyClientSession : public QuicSpdyClientSession {
                               push_promise_index) {}
 
   std::unique_ptr<QuicSpdyClientStream> CreateClientStream() override {
-    return QuicMakeUnique<MockQuicSpdyClientStream>(GetNextOutgoingStreamId(),
-                                                    this, BIDIRECTIONAL);
+    return QuicMakeUnique<MockQuicSpdyClientStream>(
+        GetNextOutgoingBidirectionalStreamId(), this, BIDIRECTIONAL);
   }
 
   MockQuicSpdyClientStream* CreateIncomingStream(QuicStreamId id) override {
+    if (!ShouldCreateIncomingStream(id)) {
+      return nullptr;
+    }
     MockQuicSpdyClientStream* stream =
         new MockQuicSpdyClientStream(id, this, READ_UNIDIRECTIONAL);
     ActivateStream(QuicWrapUnique(stream));
@@ -106,9 +109,11 @@ class QuicSpdyClientSessionTest : public QuicTestWithParam<ParsedQuicVersion> {
     push_promise_[":scheme"] = "https";
     promise_url_ = SpdyUtils::GetPromisedUrlFromHeaders(push_promise_);
     promised_stream_id_ =
-        QuicSpdySessionPeer::GetNthServerInitiatedStreamId(*session_, 0);
+        QuicSpdySessionPeer::GetNthServerInitiatedUnidirectionalStreamId(
+            *session_, 0);
     associated_stream_id_ =
-        QuicSpdySessionPeer::GetNthClientInitiatedStreamId(*session_, 0);
+        QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(
+            *session_, 0);
   }
 
   // The function ensures that A) the max stream id frames get properly deleted
@@ -277,7 +282,8 @@ TEST_P(QuicSpdyClientSessionTest, MaxNumStreamsWithRst) {
     // Note that this is to be the second stream created, but GetNth... starts
     // numbering at 0 (the first stream is 0, second is 1...)
     QuicMaxStreamIdFrame frame(
-        0, QuicSpdySessionPeer::GetNthClientInitiatedStreamId(*session_, 1));
+        0, QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(
+               *session_, 1));
     session_->OnMaxStreamIdFrame(frame);
   }
   stream = session_->CreateOutgoingBidirectionalStream();
@@ -345,7 +351,8 @@ TEST_P(QuicSpdyClientSessionTest, ResetAndTrailers) {
     // Note that this is to be the second stream created, but GetNth... starts
     // numbering at 0 (the first stream is 0, second is 1...)
     QuicMaxStreamIdFrame frame(
-        0, QuicSpdySessionPeer::GetNthClientInitiatedStreamId(*session_, 1));
+        0, QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(
+               *session_, 1));
     session_->OnMaxStreamIdFrame(frame);
   }
   stream = session_->CreateOutgoingBidirectionalStream();
@@ -447,6 +454,10 @@ TEST_P(QuicSpdyClientSessionTest, InvalidPacketReceived) {
   QuicReceivedPacket valid_packet(buf, 2, QuicTime::Zero(), false);
   // Close connection shouldn't be called.
   EXPECT_CALL(*connection_, CloseConnection(_, _, _)).Times(0);
+  if (connection_->transport_version() == QUIC_VERSION_99) {
+    // Illegal fixed bit value.
+    EXPECT_CALL(*connection_, OnError(_)).Times(1);
+  }
   session_->ProcessUdpPacket(client_address, server_address, valid_packet);
 
   // Verify that a non-decryptable packet doesn't close the connection.
@@ -454,9 +465,9 @@ TEST_P(QuicSpdyClientSessionTest, InvalidPacketReceived) {
       QuicConnectionPeer::GetFramer(connection_), connection_id);
   ParsedQuicVersionVector versions = SupportedVersions(GetParam());
   std::unique_ptr<QuicEncryptedPacket> packet(ConstructEncryptedPacket(
-      connection_id, 0, false, false, 100, "data", PACKET_0BYTE_CONNECTION_ID,
-      PACKET_0BYTE_CONNECTION_ID, PACKET_4BYTE_PACKET_NUMBER, &versions,
-      Perspective::IS_SERVER));
+      connection_id, EmptyQuicConnectionId(), false, false, 100, "data",
+      PACKET_0BYTE_CONNECTION_ID, PACKET_0BYTE_CONNECTION_ID,
+      PACKET_4BYTE_PACKET_NUMBER, &versions, Perspective::IS_SERVER));
   std::unique_ptr<QuicReceivedPacket> received(
       ConstructReceivedPacket(*packet, QuicTime::Zero()));
   // Change the last byte of the encrypted data.
@@ -482,9 +493,9 @@ TEST_P(QuicSpdyClientSessionTest, InvalidFramedPacketReceived) {
       QuicConnectionPeer::GetFramer(connection_), connection_id);
   ParsedQuicVersionVector versions = {GetParam()};
   std::unique_ptr<QuicEncryptedPacket> packet(ConstructMisFramedEncryptedPacket(
-      connection_id, 0, false, false, 100, "data", PACKET_0BYTE_CONNECTION_ID,
-      PACKET_0BYTE_CONNECTION_ID, PACKET_4BYTE_PACKET_NUMBER, &versions,
-      Perspective::IS_SERVER));
+      connection_id, EmptyQuicConnectionId(), false, false, 100, "data",
+      PACKET_0BYTE_CONNECTION_ID, PACKET_0BYTE_CONNECTION_ID,
+      PACKET_4BYTE_PACKET_NUMBER, &versions, Perspective::IS_SERVER));
   std::unique_ptr<QuicReceivedPacket> received(
       ConstructReceivedPacket(*packet, QuicTime::Zero()));
   EXPECT_CALL(*connection_, CloseConnection(_, _, _)).Times(1);
@@ -528,7 +539,7 @@ TEST_P(QuicSpdyClientSessionTest, PushPromiseOutOfOrder) {
   EXPECT_CALL(*stream, OnPromiseHeaderList(promised_stream_id_, _, _));
   session_->OnPromiseHeaderList(associated_stream_id_, promised_stream_id_, 0,
                                 QuicHeaderList());
-  associated_stream_id_ += 2;
+  associated_stream_id_ += QuicSpdySessionPeer::StreamIdDelta(*session_);
   EXPECT_CALL(*connection_,
               CloseConnection(QUIC_INVALID_STREAM_ID,
                               "Received push stream id lesser or equal to the"
@@ -547,7 +558,8 @@ TEST_P(QuicSpdyClientSessionTest, PushPromiseOutgoingStreamId) {
 
   // Promise an illegal (outgoing) stream id.
   promised_stream_id_ =
-      QuicSpdySessionPeer::GetNthClientInitiatedStreamId(*session_, 0);
+      QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(*session_,
+                                                                      0);
   EXPECT_CALL(
       *connection_,
       CloseConnection(QUIC_INVALID_STREAM_ID,
@@ -603,7 +615,7 @@ TEST_P(QuicSpdyClientSessionTest, PushPromiseDuplicateUrl) {
   EXPECT_NE(session_->GetPromisedById(promised_stream_id_), nullptr);
   EXPECT_NE(session_->GetPromisedByUrl(promise_url_), nullptr);
 
-  promised_stream_id_ += 2;
+  promised_stream_id_ += QuicSpdySessionPeer::StreamIdDelta(*session_);
   EXPECT_CALL(*connection_, SendControlFrame(_));
   EXPECT_CALL(*connection_,
               OnStreamReset(promised_stream_id_, QUIC_DUPLICATE_PROMISE_URL));
@@ -619,7 +631,8 @@ TEST_P(QuicSpdyClientSessionTest, ReceivingPromiseEnhanceYourCalm) {
   for (size_t i = 0u; i < session_->get_max_promises(); i++) {
     push_promise_[":path"] = QuicStringPrintf("/bar%zu", i);
 
-    QuicStreamId id = promised_stream_id_ + i * 2;
+    QuicStreamId id =
+        promised_stream_id_ + i * QuicSpdySessionPeer::StreamIdDelta(*session_);
 
     EXPECT_TRUE(
         session_->HandlePromised(associated_stream_id_, id, push_promise_));
@@ -634,7 +647,8 @@ TEST_P(QuicSpdyClientSessionTest, ReceivingPromiseEnhanceYourCalm) {
   int i = session_->get_max_promises();
   push_promise_[":path"] = QuicStringPrintf("/bar%d", i);
 
-  QuicStreamId id = promised_stream_id_ + i * 2;
+  QuicStreamId id =
+      promised_stream_id_ + i * QuicSpdySessionPeer::StreamIdDelta(*session_);
   EXPECT_CALL(*connection_, SendControlFrame(_));
   EXPECT_CALL(*connection_, OnStreamReset(id, QUIC_REFUSED_STREAM));
   EXPECT_FALSE(
@@ -757,6 +771,18 @@ TEST_P(QuicSpdyClientSessionTest, PushPromiseInvalidHost) {
 
   EXPECT_EQ(session_->GetPromisedById(promised_stream_id_), nullptr);
   EXPECT_EQ(session_->GetPromisedByUrl(promise_url_), nullptr);
+}
+
+TEST_P(QuicSpdyClientSessionTest,
+       TryToCreateServerInitiatedBidirectionalStream) {
+  if (connection_->transport_version() == QUIC_VERSION_99) {
+    EXPECT_CALL(*connection_, CloseConnection(QUIC_INVALID_STREAM_ID, _, _));
+  } else {
+    EXPECT_CALL(*connection_, CloseConnection(_, _, _)).Times(0);
+  }
+  session_->GetOrCreateStream(
+      QuicSpdySessionPeer::GetNthServerInitiatedBidirectionalStreamId(*session_,
+                                                                      0));
 }
 
 }  // namespace

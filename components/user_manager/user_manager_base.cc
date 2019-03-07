@@ -4,8 +4,8 @@
 
 #include "components/user_manager/user_manager_base.h"
 
-#include <memory>
 #include <stddef.h>
+#include <memory>
 #include <set>
 #include <utility>
 
@@ -71,8 +71,8 @@ const char kLastActiveUser[] = "LastActiveUser";
 // one regular user logging out and a different regular user logging in.
 const int kLogoutToLoginDelayMaxSec = 1800;
 
-// This reads integer vaule from kUserType Local State preference and
-// interpretes it as UserType. It is used in initial users load.
+// This reads integer value from kUserType Local State preference and
+// interprets it as UserType. It is used in initial users load.
 UserType GetStoredUserType(const base::DictionaryValue* prefs_user_types,
                            const AccountId& account_id) {
   const base::Value* stored_user_type = prefs_user_types->FindKey(
@@ -91,6 +91,10 @@ UserType GetStoredUserType(const base::DictionaryValue* prefs_user_types,
 }
 
 }  // namespace
+
+// Feature that hides Supervised Users.
+const base::Feature kHideSupervisedUsers{"HideSupervisedUsers",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
 // static
 void UserManagerBase::RegisterPrefs(PrefRegistrySimple* registry) {
@@ -828,6 +832,8 @@ void UserManagerBase::EnsureUsersLoaded() {
        it != regular_users.end(); ++it) {
     User* user = nullptr;
     if (IsSupervisedAccountId(*it)) {
+      if (base::FeatureList::IsEnabled(kHideSupervisedUsers))
+        continue;
       user = User::CreateSupervisedUser(*it);
     } else {
       user = User::CreateRegularUser(*it,
@@ -950,6 +956,12 @@ void UserManagerBase::RegularUserLoggedInAsEphemeral(
   known_user::SetIsEphemeralUser(active_user_->GetAccountId(), true);
 }
 
+void UserManagerBase::NotifyActiveUserChanged(const User* active_user) {
+  DCHECK(!task_runner_ || task_runner_->RunsTasksInCurrentSequence());
+  for (auto& observer : session_state_observer_list_)
+    observer.ActiveUserChanged(active_user);
+}
+
 void UserManagerBase::NotifyOnLogin() {
   DCHECK(!task_runner_ || task_runner_->RunsTasksInCurrentSequence());
 
@@ -1042,12 +1054,6 @@ User* UserManagerBase::RemoveRegularOrSupervisedUserFromList(
   if (notify)
     OnUserRemoved(account_id);
   return user;
-}
-
-void UserManagerBase::NotifyActiveUserChanged(const User* active_user) {
-  DCHECK(!task_runner_ || task_runner_->RunsTasksInCurrentSequence());
-  for (auto& observer : session_state_observer_list_)
-    observer.ActiveUserChanged(active_user);
 }
 
 void UserManagerBase::NotifyUserAddedToSession(const User* added_user,

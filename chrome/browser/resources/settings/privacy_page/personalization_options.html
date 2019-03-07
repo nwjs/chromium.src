@@ -5,6 +5,7 @@
 <link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
 <link rel="import" href="../controls/settings_toggle_button.html">
 <link rel="import" href="../lifetime_browser_proxy.html">
+<link rel="import" href="../people_page/sync_browser_proxy.html">
 <link rel="import" href="../route.html">
 <link rel="import" href="../settings_shared_css.html">
 <link rel="import" href="privacy_page_browser_proxy.html">
@@ -26,12 +27,6 @@
         pref="{{prefs.search.suggest_enabled}}"
         label="$i18n{searchSuggestPref}"
         sub-label="$i18n{searchSuggestPrefDesc}">
-    </settings-toggle-button>
-    <settings-toggle-button hidden="[[!pageVisibility.networkPrediction]]"
-        pref="{{prefs.net.network_prediction_options}}"
-        label="$i18n{networkPredictionEnabled}"
-        sub-label="$i18n{networkPredictionEnabledDesc}"
-        numeric-unchecked-value="[[networkPredictionEnum_.NEVER]]">
     </settings-toggle-button>
     <settings-toggle-button pref="{{prefs.alternate_error_pages.enabled}}"
         label="$i18n{linkDoctorPref}"
@@ -82,6 +77,14 @@
         hidden="[[!showSpellCheckControl_(prefs.spellcheck.dictionaries)]]">
     </settings-toggle-button>
 </if><!-- _google_chrome -->
+    <template is="dom-if" if="[[shouldShowDriveSuggest_(unifiedConsentEnabled,
+        syncStatus, syncStatus.signedIn, syncStatus.statusAction)]]" restamp>
+      <settings-toggle-button id="driveSuggestControl"
+          pref="{{prefs.documentsuggest.enabled}}"
+          label="$i18n{driveSuggestPref}"
+          sub-label="$i18n{driveSuggestPrefDesc}">
+      </settings-toggle-button>
+    </template>
   </template>
   <script src="personalization_options.js"></script>
 </dom-module>

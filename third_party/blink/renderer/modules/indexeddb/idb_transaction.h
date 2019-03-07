@@ -120,6 +120,8 @@ class MODULES_EXPORT IDBTransaction final
   bool IsVersionChange() const {
     return mode_ == mojom::IDBTransactionMode::VersionChange;
   }
+  int64_t NumErrorsHandled() const { return num_errors_handled_; }
+  void IncrementNumErrorsHandled() { ++num_errors_handled_; }
 
   // Implement the IDBTransaction IDL
   const String& mode() const;
@@ -128,6 +130,7 @@ class MODULES_EXPORT IDBTransaction final
   DOMException* error() const { return error_; }
   IDBObjectStore* objectStore(const String& name, ExceptionState&);
   void abort(ExceptionState&);
+  void commit(ExceptionState&);
 
   void RegisterRequest(IDBRequest*);
   void UnregisterRequest(IDBRequest*);
@@ -224,6 +227,7 @@ class MODULES_EXPORT IDBTransaction final
 
   State state_ = kActive;
   bool has_pending_activity_ = true;
+  int64_t num_errors_handled_ = 0;
   Member<DOMException> error_;
 
   HeapListHashSet<Member<IDBRequest>> request_list_;

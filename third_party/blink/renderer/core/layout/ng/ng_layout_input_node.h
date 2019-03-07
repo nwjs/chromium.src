@@ -54,8 +54,17 @@ class CORE_EXPORT NGLayoutInputNode {
     // When adding new values, ensure type_ below has enough bits.
   };
 
+  static NGLayoutInputNode Create(LayoutBox* box, NGLayoutInputNodeType type) {
+    // This function should create an instance of the subclass. This works
+    // because subclasses are not virtual and do not add fields.
+    return NGLayoutInputNode(box, type);
+  }
+
   NGLayoutInputNode(std::nullptr_t) : box_(nullptr), type_(kBlock) {}
 
+  NGLayoutInputNodeType Type() const {
+    return static_cast<NGLayoutInputNodeType>(type_);
+  }
   bool IsInline() const { return type_ == kInline; }
   bool IsBlock() const { return type_ == kBlock; }
 
@@ -73,7 +82,7 @@ class CORE_EXPORT NGLayoutInputNode {
   }
   bool IsBody() const { return IsBlock() && box_->IsBody(); }
   bool IsDocumentElement() const { return box_->IsDocumentElement(); }
-  bool IsFlexItem() const { return IsBlock() && box_->IsFlexItem(); }
+  bool IsFlexItem() const { return IsBlock() && box_->IsFlexItemIncludingNG(); }
   bool ShouldBeConsideredAsReplaced() const {
     return box_->ShouldBeConsideredAsReplaced();
   }
@@ -130,11 +139,8 @@ class CORE_EXPORT NGLayoutInputNode {
 
   // Returns intrinsic sizing information for replaced elements.
   // ComputeReplacedSize can use it to compute actual replaced size.
-  // The function arguments return values from LegacyLayout intrinsic size
-  // computations: LayoutReplaced::IntrinsicSizingInfo,
-  // and LayoutReplaced::IntrinsicSize.
-  void IntrinsicSize(NGLogicalSize* default_intrinsic_size,
-                     base::Optional<LayoutUnit>* computed_inline_size,
+  // Corresponds to Legacy's LayoutReplaced::IntrinsicSizingInfo.
+  void IntrinsicSize(base::Optional<LayoutUnit>* computed_inline_size,
                      base::Optional<LayoutUnit>* computed_block_size,
                      NGLogicalSize* aspect_ratio) const;
 

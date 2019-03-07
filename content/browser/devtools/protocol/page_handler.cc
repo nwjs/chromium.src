@@ -591,6 +591,20 @@ Response PageHandler::NavigateToHistoryEntry(int entry_id) {
   return Response::InvalidParams("No entry with passed id");
 }
 
+static bool ReturnTrue(NavigationEntry* entry) {
+  return true;
+}
+
+Response PageHandler::ResetNavigationHistory() {
+  WebContentsImpl* web_contents = GetWebContents();
+  if (!web_contents)
+    return Response::InternalError();
+
+  NavigationController& controller = web_contents->GetController();
+  controller.DeleteNavigationEntries(base::BindRepeating(&ReturnTrue));
+  return Response::OK();
+}
+
 void PageHandler::CaptureSnapshot(
     Maybe<std::string> format,
     std::unique_ptr<CaptureSnapshotCallback> callback) {
@@ -612,6 +626,18 @@ void PageHandler::CaptureScreenshot(
       !host_->GetRenderWidgetHost()->GetView()) {
     callback->sendFailure(Response::InternalError());
     return;
+  }
+  if (clip.isJust()) {
+    if (clip.fromJust()->GetWidth() == 0) {
+      callback->sendFailure(
+          Response::Error("Cannot take screenshot with 0 width."));
+      return;
+    }
+    if (clip.fromJust()->GetHeight() == 0) {
+      callback->sendFailure(
+          Response::Error("Cannot take screenshot with 0 height."));
+      return;
+    }
   }
 
   RenderWidgetHostImpl* widget_host = host_->GetRenderWidgetHost();
@@ -686,6 +712,10 @@ void PageHandler::CaptureScreenshot(
     modified_params.viewport_offset.x = clip.fromJust()->GetX();
     modified_params.viewport_offset.y = clip.fromJust()->GetY();
     modified_params.viewport_scale = clip.fromJust()->GetScale() * dpfactor;
+    if (IsUseZoomForDSFEnabled()) {
+      modified_params.viewport_offset.x *= screen_info.device_scale_factor;
+      modified_params.viewport_offset.y *= screen_info.device_scale_factor;
+    }
   }
 
   // We use WebDeviceEmulationParams to either emulate, set viewport or both.
@@ -839,14 +869,6 @@ Response PageHandler::HandleJavaScriptDialog(bool accept,
     }
   }
 
-  return Response::OK();
-}
-
-Response PageHandler::RequestAppBanner() {
-  WebContentsImpl* web_contents = GetWebContents();
-  if (!web_contents || !web_contents->GetDelegate())
-    return Response::InternalError();
-  web_contents->GetDelegate()->RequestAppBannerFromDevTools(web_contents);
   return Response::OK();
 }
 

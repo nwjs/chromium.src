@@ -48,14 +48,9 @@ const char FontFaceSetDocument::kSupplementName[] = "FontFaceSetDocument";
 
 FontFaceSetDocument::FontFaceSetDocument(Document& document)
     : FontFaceSet(document), Supplement<Document>(document) {
-  PauseIfNeeded();
 }
 
 FontFaceSetDocument::~FontFaceSetDocument() = default;
-
-Document* FontFaceSetDocument::GetDocument() const {
-  return To<Document>(GetExecutionContext());
-}
 
 bool FontFaceSetDocument::InActiveContext() const {
   ExecutionContext* context = GetExecutionContext();

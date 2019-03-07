@@ -171,10 +171,15 @@ bool QuicDataWriter::WritePaddingBytes(size_t count) {
   return WriteRepeatedByte(0x00, count);
 }
 
-bool QuicDataWriter::WriteConnectionId(uint64_t connection_id) {
-  connection_id = QuicEndian::HostToNet64(connection_id);
+bool QuicDataWriter::WriteConnectionId(QuicConnectionId connection_id,
+                                       Perspective perspective) {
+  if (!QuicConnectionIdSupportsVariableLength(perspective)) {
+    uint64_t connection_id64 =
+        QuicEndian::HostToNet64(QuicConnectionIdToUInt64(connection_id));
 
-  return WriteBytes(&connection_id, sizeof(connection_id));
+    return WriteBytes(&connection_id64, sizeof(connection_id64));
+  }
+  return WriteBytes(connection_id.data(), connection_id.length());
 }
 
 bool QuicDataWriter::WriteTag(uint32_t tag) {

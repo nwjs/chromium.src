@@ -706,10 +706,10 @@ class CORE_EXPORT Node : public EventTarget {
 
   // Wrapper for nodes that don't have a layoutObject, but still cache the style
   // (like HTMLOptionElement).
-  inline ComputedStyle* MutableComputedStyle() const;
-  inline const ComputedStyle* GetComputedStyle() const;
-  inline const ComputedStyle* ParentComputedStyle() const;
-  inline const ComputedStyle& ComputedStyleRef() const;
+  ComputedStyle* MutableComputedStyle() const;
+  const ComputedStyle* GetComputedStyle() const;
+  const ComputedStyle* ParentComputedStyle() const;
+  const ComputedStyle& ComputedStyleRef() const;
 
   const ComputedStyle* EnsureComputedStyle(
       PseudoId pseudo_element_specifier = kPseudoIdNone) {
@@ -796,8 +796,6 @@ class CORE_EXPORT Node : public EventTarget {
   unsigned short compareDocumentPosition(
       const Node*,
       ShadowTreesTreatment = kTreatShadowTreesAsDisconnected) const;
-
-  Node* ToNode() final;
 
   const AtomicString& InterfaceName() const override;
   ExecutionContext* GetExecutionContext() const final;
@@ -888,7 +886,7 @@ class CORE_EXPORT Node : public EventTarget {
   // If the node is a plugin, then this returns its WebPluginContainer.
   WebPluginContainerImpl* GetWebPluginContainer() const;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   enum NodeFlags {
@@ -1022,6 +1020,8 @@ class CORE_EXPORT Node : public EventTarget {
   // per-thread.
   virtual String DebugNodeName() const;
 
+  Node* ToNode() final;
+
   bool IsUserActionElementActive() const;
   bool IsUserActionElementInActiveChain() const;
   bool IsUserActionElementDragged() const;
@@ -1106,7 +1106,7 @@ DEFINE_COMPARISON_OPERATORS_WITH_REFERENCES(Node)
 
 #define DECLARE_NODE_FACTORY(T) static T* Create(Document&)
 #define DEFINE_NODE_FACTORY(T) \
-  T* T::Create(Document& document) { return new T(document); }
+  T* T::Create(Document& document) { return MakeGarbageCollected<T>(document); }
 
 CORE_EXPORT std::ostream& operator<<(std::ostream&, const Node&);
 CORE_EXPORT std::ostream& operator<<(std::ostream&, const Node*);

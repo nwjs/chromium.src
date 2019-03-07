@@ -17,10 +17,9 @@
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "base/strings/string16.h"
-#include "content/shell/test_runner/layout_test_runtime_flags.h"
 #include "content/shell/test_runner/test_runner_export.h"
 #include "content/shell/test_runner/web_test_runner.h"
-#include "media/midi/midi_service.mojom.h"
+#include "content/shell/test_runner/web_test_runtime_flags.h"
 #include "third_party/blink/public/platform/web_effective_connection_type.h"
 #include "third_party/blink/public/platform/web_image.h"
 #include "v8/include/v8.h"
@@ -62,7 +61,7 @@ class WebTestDelegate;
 // 2. It manages global test state.  Example:
 //    - Tracking topLoadingFrame that can finish the test when it loads.
 //    - WorkQueue holding load requests from the TestInterfaces
-//    - LayoutTestRuntimeFlags
+//    - WebTestRuntimeFlags
 class TestRunner : public WebTestRunner {
  public:
   explicit TestRunner(TestInterfaces*);
@@ -92,7 +91,7 @@ class TestRunner : public WebTestRunner {
   bool DumpPixelsAsync(
       blink::WebLocalFrame* frame,
       base::OnceCallback<void(const SkBitmap&)> callback) override;
-  void ReplicateLayoutTestRuntimeFlagsChanges(
+  void ReplicateWebTestRuntimeFlagsChanges(
       const base::DictionaryValue& changed_values) override;
   bool HasCustomTextDump(std::string* custom_text_dump) const override;
   bool ShouldDumpBackForwardList() const override;
@@ -159,16 +158,12 @@ class TestRunner : public WebTestRunner {
   void setDragImage(const SkBitmap& drag_image);
   bool shouldDumpNavigationPolicy() const;
 
-  midi::mojom::Result midiAccessorResult();
-
   bool ShouldDumpConsoleMessages() const;
   // Controls whether console messages produced by the page are dumped
   // to test output.
   void SetDumpConsoleMessages(bool value);
 
   bool ShouldDumpJavaScriptDialogs() const;
-
-  void SetShouldUseInnerTextDump(bool value);
 
   blink::WebEffectiveConnectionType effective_connection_type() const {
     return effective_connection_type_;
@@ -243,7 +238,7 @@ class TestRunner : public WebTestRunner {
   void SetCloseRemainingWindowsWhenComplete(bool close_remaining_windows);
   void ResetTestHelperControllers();
 
-  // Allows layout tests to manage origins' allow list.
+  // Allows web tests to manage origins' allow list.
   void AddOriginAccessAllowListEntry(const std::string& source_origin,
                                      const std::string& destination_protocol,
                                      const std::string& destination_host,
@@ -387,9 +382,12 @@ class TestRunner : public WebTestRunner {
   // Sets up a mock DocumentSubresourceFilter to disallow subsequent subresource
   // loads within the current document with the given path |suffixes|. The
   // filter is created and injected even if |suffixes| is empty. If |suffixes|
-  // contains the empty string, all subresource loads will be disallowed.
+  // contains the empty string, all subresource loads will be disallowed. If
+  // |block_subresources| is false, matching resources will not be blocked but
+  // instead marked as matching a disallowed resource.
   void SetDisallowedSubresourcePathSuffixes(
-      const std::vector<std::string>& suffixes);
+      const std::vector<std::string>& suffixes,
+      bool block_subresources);
 
   // This function sets a flag that tells the test runner to dump all
   // the lines of descriptive text about spellcheck execution.
@@ -459,7 +457,7 @@ class TestRunner : public WebTestRunner {
   // Inspect chooser state
   bool IsChooserShown();
 
-  // Allows layout tests to exec scripts at WebInspector side.
+  // Allows web tests to exec scripts at WebInspector side.
   void EvaluateInWebInspector(int call_id, const std::string& script);
 
   // Clears all databases.
@@ -489,9 +487,6 @@ class TestRunner : public WebTestRunner {
   // Resets between tests.
   void SetPOSIXLocale(const std::string& locale);
 
-  // MIDI function to control permission handling.
-  void SetMIDIAccessorResult(midi::mojom::Result result);
-
   // Simulates a click on a Web Notification.
   void SimulateWebNotificationClick(
       const std::string& title,
@@ -501,9 +496,9 @@ class TestRunner : public WebTestRunner {
   // Simulates closing a Web Notification.
   void SimulateWebNotificationClose(const std::string& title, bool by_user);
 
-  // Takes care of notifying the delegate after a change to layout test runtime
+  // Takes care of notifying the delegate after a change to web test runtime
   // flags.
-  void OnLayoutTestRuntimeFlagsChanged();
+  void OnWebTestRuntimeFlagsChanged();
 
   ///////////////////////////////////////////////////////////////////////////
   // Internal helpers
@@ -536,7 +531,7 @@ class TestRunner : public WebTestRunner {
   int web_history_item_count_;
 
   // Flags controlling what content gets dumped as a layout text result.
-  LayoutTestRuntimeFlags layout_test_runtime_flags_;
+  WebTestRuntimeFlags web_test_runtime_flags_;
 
   // If true, the test runner will output a base64 encoded WAVE file.
   bool dump_as_audio_;
@@ -552,9 +547,6 @@ class TestRunner : public WebTestRunner {
   // If true and test_repaint_ is true as well, pixel dump will be produced as
   // a series of 1px-wide, view-tall paints across the width of the view.
   bool sweep_horizontally_;
-
-  // startSession() result of MockWebMIDIAccessor for testing.
-  midi::mojom::Result midi_accessor_result_;
 
   std::set<std::string> http_headers_to_clear_;
 
@@ -595,7 +587,7 @@ class TestRunner : public WebTestRunner {
   // This does not include most "ordinary" animations, such as CSS animations.
   bool animation_requires_raster_;
 
-  // An effective connection type settable by layout tests.
+  // An effective connection type settable by web tests.
   blink::WebEffectiveConnectionType effective_connection_type_;
 
   // Forces v8 compilation cache to be disabled (used for inspector tests).

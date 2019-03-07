@@ -25,6 +25,7 @@
 #include "chrome/browser/chromeos/login/enrollment/mock_auto_enrollment_check_screen.h"
 #include "chrome/browser/chromeos/login/enrollment/mock_enrollment_screen.h"
 #include "chrome/browser/chromeos/login/existing_user_controller.h"
+#include "chrome/browser/chromeos/login/login_shelf_test_helper.h"
 #include "chrome/browser/chromeos/login/login_wizard.h"
 #include "chrome/browser/chromeos/login/oobe_screen.h"
 #include "chrome/browser/chromeos/login/screens/device_disabled_screen.h"
@@ -37,6 +38,7 @@
 #include "chrome/browser/chromeos/login/screens/mock_enable_debugging_screen.h"
 #include "chrome/browser/chromeos/login/screens/mock_eula_screen.h"
 #include "chrome/browser/chromeos/login/screens/mock_network_screen.h"
+#include "chrome/browser/chromeos/login/screens/mock_supervision_transition_screen.h"
 #include "chrome/browser/chromeos/login/screens/mock_update_screen.h"
 #include "chrome/browser/chromeos/login/screens/mock_welcome_screen.h"
 #include "chrome/browser/chromeos/login/screens/mock_wrong_hwid_screen.h"
@@ -63,11 +65,12 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/testing_profile.h"
 #include "chromeos/audio/cras_audio_handler.h"
-#include "chromeos/chromeos_switches.h"
-#include "chromeos/chromeos_test_utils.h"
-#include "chromeos/dbus/dbus_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
+#include "chromeos/dbus/constants/dbus_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/fake_cryptohome_client.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
 #include "chromeos/dbus/fake_shill_manager_client.h"
 #include "chromeos/dbus/fake_system_clock_client.h"
@@ -77,12 +80,15 @@
 #include "chromeos/settings/timezone_settings.h"
 #include "chromeos/system/fake_statistics_provider.h"
 #include "chromeos/system/statistics_provider.h"
+#include "chromeos/test/chromeos_test_utils.h"
 #include "chromeos/timezone/timezone_request.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/pref_service_factory.h"
 #include "components/prefs/testing_pref_store.h"
+#include "components/session_manager/core/session_manager.h"
+#include "components/session_manager/session_manager_types.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_utils.h"
@@ -358,6 +364,10 @@ class WizardControllerTest : public InProcessBrowserTest {
     ShowLoginWizard(OobeScreen::SCREEN_TEST_NO_WINDOW);
   }
 
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitch(switches::kLoginManager);
+  }
+
   ErrorScreen* GetErrorScreen() {
     return static_cast<BaseScreenDelegate*>(
                WizardController::default_controller())
@@ -474,6 +484,68 @@ IN_PROC_BROWSER_TEST_F(WizardControllerTest, VolumeIsAdjustedForChromeVox) {
   ASSERT_FALSE(cras->IsOutputMuted());
   ASSERT_EQ(WizardController::kMinAudibleOutputVolumePercent,
             cras->GetOutputVolumePercent());
+}
+
+class WizardControllerSupervisionTransitionOobeTest
+    : public WizardControllerTest {
+ protected:
+  WizardControllerSupervisionTransitionOobeTest() = default;
+
+  void SetUpOnMainThread() override {
+    WizardControllerTest::SetUpOnMainThread();
+    // Setup existing user session and profile.
+    const AccountId test_account_id_ =
+        AccountId::FromUserEmailGaiaId("test@gmail.com", "123456");
+    session_manager::SessionManager::Get()->CreateSession(
+        test_account_id_, test_account_id_.GetUserEmail(),
+        /* is_child= */ false);
+    ProfileHelper::Get()->GetProfileByUserIdHashForTest(
+        test_account_id_.GetUserEmail());
+    // Pretend OOBE was complete.
+    StartupUtils::MarkOobeCompleted();
+
+    WizardController::default_controller()->is_official_build_ = true;
+    MOCK(mock_supervision_transition_screen_,
+         OobeScreen::SCREEN_SUPERVISION_TRANSITION,
+         MockSupervisionTransitionScreen, MockSupervisionTransitionScreenView);
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitch(switches::kLoginManager);
+    command_line->AppendSwitchASCII(switches::kLoginProfile,
+                                    TestingProfile::kTestUserProfileDir);
+  }
+
+  void OnSupervisionTransitionFinished() {
+    WizardController::default_controller()->OnExit(
+        ScreenExitCode::SUPERVISION_TRANSITION_FINISHED);
+  }
+
+  MockOutShowHide<MockSupervisionTransitionScreen,
+                  MockSupervisionTransitionScreenView>*
+      mock_supervision_transition_screen_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(WizardControllerSupervisionTransitionOobeTest);
+};
+
+// Tests that when supervision transition screen finishes, session
+// proceeds to ACTIVE state.
+IN_PROC_BROWSER_TEST_F(WizardControllerSupervisionTransitionOobeTest,
+                       SupervisionTransitionScreenFinished) {
+  EXPECT_CALL(*mock_supervision_transition_screen_, Show()).Times(1);
+  ASSERT_NE(session_manager::SessionManager::Get()->session_state(),
+            session_manager::SessionState::ACTIVE);
+  // Start from login screen.
+  LoginDisplayHost::default_host()->StartSignInScreen(LoginScreenContext());
+  // Advance to supervision transition screen.
+  WizardController::default_controller()->AdvanceToScreen(
+      OobeScreen::SCREEN_SUPERVISION_TRANSITION);
+  CheckCurrentScreen(OobeScreen::SCREEN_SUPERVISION_TRANSITION);
+  OnSupervisionTransitionFinished();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(session_manager::SessionManager::Get()->session_state(),
+            session_manager::SessionState::ACTIVE);
 }
 
 class TimeZoneTestRunner {
@@ -625,8 +697,8 @@ class WizardControllerFlowTest : public WizardControllerTest {
           }
         }));
 
-    // Check visibility of the header bar.
-    ASSERT_FALSE(JSExecuteBooleanExpression("$('login-header-bar').hidden"));
+    LoginShelfTestHelper shelf_helper;
+    ASSERT_TRUE(shelf_helper.IsLoginShelfShown());
 
     EXPECT_CALL(*mock_welcome_screen_, Hide()).Times(1);
     EXPECT_CALL(*mock_welcome_screen_, SetConfiguration(IsNull(), _)).Times(1);
@@ -634,9 +706,8 @@ class WizardControllerFlowTest : public WizardControllerTest {
     OnExit(ScreenExitCode::NETWORK_CONNECTED);
 
     CheckCurrentScreen(OobeScreen::SCREEN_OOBE_EULA);
-
-    // Header bar should still be visible.
-    ASSERT_FALSE(JSExecuteBooleanExpression("$('login-header-bar').hidden"));
+    // Login shelf should still be visible.
+    EXPECT_TRUE(shelf_helper.IsLoginShelfShown());
 
     EXPECT_CALL(*mock_eula_screen_, Hide()).Times(1);
     EXPECT_CALL(*mock_update_screen_, StartNetworkCheck()).Times(1);
@@ -840,7 +911,7 @@ IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest, ControlFlowSkipUpdateEnroll) {
   EXPECT_CALL(*mock_update_screen_, Show()).Times(0);
   WizardController::default_controller()->SkipUpdateEnrollAfterEula();
   EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(
+              SetEnrollmentConfig(
                   mock_enrollment_screen_,
                   EnrollmentModeMatches(policy::EnrollmentConfig::MODE_MANUAL)))
       .Times(1);
@@ -887,7 +958,7 @@ IN_PROC_BROWSER_TEST_F(WizardControllerFlowTest,
   CheckCurrentScreen(OobeScreen::SCREEN_OOBE_WELCOME);
   EXPECT_CALL(*mock_update_screen_, StartNetworkCheck()).Times(0);
   EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(
+              SetEnrollmentConfig(
                   mock_enrollment_screen_,
                   EnrollmentModeMatches(policy::EnrollmentConfig::MODE_MANUAL)))
       .Times(1);
@@ -986,7 +1057,9 @@ INSTANTIATE_TEST_CASE_P(
 
 class WizardControllerDeviceStateTest : public WizardControllerFlowTest {
  protected:
-  WizardControllerDeviceStateTest() {
+  WizardControllerDeviceStateTest()
+      : fake_cryptohome_client_(nullptr),
+        fake_session_manager_client_(nullptr) {
     fake_statistics_provider_.SetMachineStatistic(
         system::kSerialNumberKeyForTest, "test");
     fake_statistics_provider_.SetMachineStatistic(system::kActivateDateKey,
@@ -1009,10 +1082,32 @@ class WizardControllerDeviceStateTest : public WizardControllerFlowTest {
     loop.Run();
   }
 
+  void SetUpInProcessBrowserTestFixture() override {
+    WizardControllerFlowTest::SetUpInProcessBrowserTestFixture();
+
+    fake_cryptohome_client_ = new FakeCryptohomeClient();
+    DBusThreadManager::GetSetterForTesting()->SetCryptohomeClient(
+        std::unique_ptr<CryptohomeClient>(fake_cryptohome_client_));
+    fake_session_manager_client_ = new FakeSessionManagerClient(
+        FakeSessionManagerClient::PolicyStorageType::kOnDisk);
+    DBusThreadManager::GetSetterForTesting()->SetSessionManagerClient(
+        std::unique_ptr<SessionManagerClient>(fake_session_manager_client_));
+  }
+
   void SetUpOnMainThread() override {
     WizardControllerFlowTest::SetUpOnMainThread();
 
     histogram_tester_ = std::make_unique<base::HistogramTester>();
+
+    // Initialize the FakeShillManagerClient. This does not happen
+    // automatically because of the |DBusThreadManager::GetSetterForTesting|
+    // call in |SetUpInProcessBrowserTestFixture|. See https://crbug.com/847422.
+    // TODO(pmarko): Find a way for FakeShillManagerClient to be initialized
+    // automatically (https://crbug.com/847422).
+    DBusThreadManager::Get()
+        ->GetShillManagerClient()
+        ->GetTestInterface()
+        ->SetupDefaultEnvironment();
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -1030,6 +1125,10 @@ class WizardControllerDeviceStateTest : public WizardControllerFlowTest {
   system::ScopedFakeStatisticsProvider fake_statistics_provider_;
 
   base::HistogramTester* histogram_tester() { return histogram_tester_.get(); }
+
+ protected:
+  FakeCryptohomeClient* fake_cryptohome_client_;
+  FakeSessionManagerClient* fake_session_manager_client_;
 
  private:
   ScopedStubInstallAttributes test_install_attributes_{
@@ -1075,10 +1174,22 @@ IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateTest,
   mock_auto_enrollment_check_screen_->RealShow();
   EXPECT_EQ(policy::AUTO_ENROLLMENT_STATE_NO_ENROLLMENT,
             auto_enrollment_controller()->state());
+  EXPECT_EQ(1,
+            fake_cryptohome_client_
+                ->remove_firmware_management_parameters_from_tpm_call_count());
+  EXPECT_EQ(1, fake_session_manager_client_
+                   ->clear_forced_re_enrollment_vpd_call_count());
 }
 
+// TODO(https://crbug.com/911661) Flaky time outs on Linux Chromium OS ASan
+// LSan bot.
+#if defined(ADDRESS_SANITIZER)
+#define MAYBE_ControlFlowDeviceDisabled DISABLED_ControlFlowDeviceDisabled
+#else
+#define MAYBE_ControlFlowDeviceDisabled ControlFlowDeviceDisabled
+#endif
 IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateTest,
-                       ControlFlowDeviceDisabled) {
+                       MAYBE_ControlFlowDeviceDisabled) {
   CheckCurrentScreen(OobeScreen::SCREEN_OOBE_WELCOME);
   EXPECT_CALL(*mock_welcome_screen_, Hide()).Times(1);
   EXPECT_CALL(*mock_welcome_screen_, SetConfiguration(IsNull(), _)).Times(1);
@@ -1131,6 +1242,12 @@ IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateTest,
   // Make sure the device disabled screen is shown.
   CheckCurrentScreen(OobeScreen::SCREEN_DEVICE_DISABLED);
 
+  EXPECT_EQ(0,
+            fake_cryptohome_client_
+                ->remove_firmware_management_parameters_from_tpm_call_count());
+  EXPECT_EQ(0, fake_session_manager_client_
+                   ->clear_forced_re_enrollment_vpd_call_count());
+
   EXPECT_FALSE(StartupUtils::IsOobeCompleted());
 }
 
@@ -1160,14 +1277,17 @@ class WizardControllerDeviceStateExplicitRequirementTest
   DISALLOW_COPY_AND_ASSIGN(WizardControllerDeviceStateExplicitRequirementTest);
 };
 
-// Tets the control flow for Forced Re-Enrollment. First, a connection error
+// Test the control flow for Forced Re-Enrollment. First, a connection error
 // occurs, leading to a network error screen. On the network error screen, the
 // test verifies that the user may enter a guest session if FRE was not
 // explicitly required, and that the user may not enter a guest session if FRE
 // was explicitly required. Then, a retyr is performed and FRE indicates that
 // the device should be enrolled.
+//
+// TODO(https://crbug.com/911154) Flaky time outs on Linux Chromium OS ASan
+// LSan bot.
 IN_PROC_BROWSER_TEST_P(WizardControllerDeviceStateExplicitRequirementTest,
-                       ControlFlowForcedReEnrollment) {
+                       DISABLED_ControlFlowForcedReEnrollment) {
   CheckCurrentScreen(OobeScreen::SCREEN_OOBE_WELCOME);
   EXPECT_CALL(*mock_welcome_screen_, Hide()).Times(1);
   EXPECT_CALL(*mock_welcome_screen_, SetConfiguration(IsNull(), _)).Times(1);
@@ -1213,9 +1333,19 @@ IN_PROC_BROWSER_TEST_P(WizardControllerDeviceStateExplicitRequirementTest,
     // (because the check_enrollment VPD key was set to "1", making FRE
     // explicitly required).
     EXPECT_EQ("none", JSExecuteStringExpression(guest_session_link_display));
+    EXPECT_EQ(
+        0, fake_cryptohome_client_
+               ->remove_firmware_management_parameters_from_tpm_call_count());
+    EXPECT_EQ(0, fake_session_manager_client_
+                     ->clear_forced_re_enrollment_vpd_call_count());
   } else {
     // Check that guest sign-in is allowed if FRE was not explicitly required.
     EXPECT_EQ("block", JSExecuteStringExpression(guest_session_link_display));
+    EXPECT_EQ(
+        1, fake_cryptohome_client_
+               ->remove_firmware_management_parameters_from_tpm_call_count());
+    EXPECT_EQ(1, fake_session_manager_client_
+                     ->clear_forced_re_enrollment_vpd_call_count());
   }
 
   base::DictionaryValue device_state;
@@ -1224,10 +1354,11 @@ IN_PROC_BROWSER_TEST_P(WizardControllerDeviceStateExplicitRequirementTest,
   g_browser_process->local_state()->Set(prefs::kServerBackedDeviceState,
                                         device_state);
   EXPECT_CALL(*mock_enrollment_screen_, Show()).Times(1);
-  EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(mock_enrollment_screen_,
-                            EnrollmentModeMatches(
-                                policy::EnrollmentConfig::MODE_SERVER_FORCED)))
+  EXPECT_CALL(
+      *mock_enrollment_screen_->view(),
+      SetEnrollmentConfig(
+          mock_enrollment_screen_,
+          EnrollmentModeMatches(policy::EnrollmentConfig::MODE_SERVER_FORCED)))
       .Times(1);
   OnExit(ScreenExitCode::ENTERPRISE_AUTO_ENROLLMENT_CHECK_COMPLETED);
 
@@ -1318,9 +1449,9 @@ IN_PROC_BROWSER_TEST_P(WizardControllerDeviceStateExplicitRequirementTest,
     EXPECT_CALL(*mock_enrollment_screen_, Show()).Times(1);
     EXPECT_CALL(
         *mock_enrollment_screen_->view(),
-        SetParameters(mock_enrollment_screen_,
-                      EnrollmentModeMatches(
-                          policy::EnrollmentConfig::MODE_SERVER_FORCED)))
+        SetEnrollmentConfig(mock_enrollment_screen_,
+                            EnrollmentModeMatches(
+                                policy::EnrollmentConfig::MODE_SERVER_FORCED)))
         .Times(1);
     fake_auto_enrollment_client->SetState(
         policy::AUTO_ENROLLMENT_STATE_TRIGGER_ENROLLMENT);
@@ -1333,6 +1464,11 @@ IN_PROC_BROWSER_TEST_P(WizardControllerDeviceStateExplicitRequirementTest,
     OnExit(ScreenExitCode::ENTERPRISE_ENROLLMENT_COMPLETED);
 
     EXPECT_TRUE(StartupUtils::IsOobeCompleted());
+    EXPECT_EQ(
+        0, fake_cryptohome_client_
+               ->remove_firmware_management_parameters_from_tpm_call_count());
+    EXPECT_EQ(0, fake_session_manager_client_
+                     ->clear_forced_re_enrollment_vpd_call_count());
   } else {
     // Don't expect that the auto enrollment screen will be hidden, because
     // OOBE is exited from the auto enrollment screen. Instead only expect
@@ -1349,6 +1485,11 @@ IN_PROC_BROWSER_TEST_P(WizardControllerDeviceStateExplicitRequirementTest,
 
     EXPECT_TRUE(StartupUtils::IsOobeCompleted());
     login_screen_waiter.Wait();
+    EXPECT_EQ(
+        0, fake_cryptohome_client_
+               ->remove_firmware_management_parameters_from_tpm_call_count());
+    EXPECT_EQ(0, fake_session_manager_client_
+                     ->clear_forced_re_enrollment_vpd_call_count());
   }
 }
 
@@ -1371,20 +1512,6 @@ class WizardControllerDeviceStateWithInitialEnrollmentTest
     system_clock_client_ = system_clock_client.get();
     DBusThreadManager::GetSetterForTesting()->SetSystemClockClient(
         std::move(system_clock_client));
-  }
-
-  void SetUpOnMainThread() override {
-    WizardControllerDeviceStateTest::SetUpOnMainThread();
-
-    // Initialize the FakeShillManagerClient. This does not happen
-    // automatically because of the |DBusThreadManager::GetSetterForTesting|
-    // call in |SetUpInProcessBrowserTestFixture|. See https://crbug.com/847422.
-    // TODO(pmarko): Find a way for FakeShillManagerClient to be initialized
-    // automatically (https://crbug.com/847422).
-    DBusThreadManager::Get()
-        ->GetShillManagerClient()
-        ->GetTestInterface()
-        ->SetupDefaultEnvironment();
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -1453,10 +1580,11 @@ IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateWithInitialEnrollmentTest,
   g_browser_process->local_state()->Set(prefs::kServerBackedDeviceState,
                                         device_state);
   EXPECT_CALL(*mock_enrollment_screen_, Show()).Times(1);
-  EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(mock_enrollment_screen_,
-                            EnrollmentModeMatches(
-                                policy::EnrollmentConfig::MODE_SERVER_FORCED)))
+  EXPECT_CALL(
+      *mock_enrollment_screen_->view(),
+      SetEnrollmentConfig(
+          mock_enrollment_screen_,
+          EnrollmentModeMatches(policy::EnrollmentConfig::MODE_SERVER_FORCED)))
       .Times(1);
   OnExit(ScreenExitCode::ENTERPRISE_AUTO_ENROLLMENT_CHECK_COMPLETED);
 
@@ -1544,10 +1672,11 @@ IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateWithInitialEnrollmentTest,
   g_browser_process->local_state()->Set(prefs::kServerBackedDeviceState,
                                         device_state);
   EXPECT_CALL(*mock_enrollment_screen_, Show()).Times(1);
-  EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(mock_enrollment_screen_,
-                            EnrollmentModeMatches(
-                                policy::EnrollmentConfig::MODE_SERVER_FORCED)))
+  EXPECT_CALL(
+      *mock_enrollment_screen_->view(),
+      SetEnrollmentConfig(
+          mock_enrollment_screen_,
+          EnrollmentModeMatches(policy::EnrollmentConfig::MODE_SERVER_FORCED)))
       .Times(1);
   fake_auto_enrollment_client->SetState(
       policy::AUTO_ENROLLMENT_STATE_TRIGGER_ENROLLMENT);
@@ -1784,10 +1913,11 @@ IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateWithInitialEnrollmentTest,
   EXPECT_CALL(*mock_auto_enrollment_check_screen_, Hide()).Times(1);
   EXPECT_CALL(*mock_enrollment_screen_, Show()).Times(1);
 
-  EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(mock_enrollment_screen_,
-                            EnrollmentModeMatches(
-                                policy::EnrollmentConfig::MODE_SERVER_FORCED)))
+  EXPECT_CALL(
+      *mock_enrollment_screen_->view(),
+      SetEnrollmentConfig(
+          mock_enrollment_screen_,
+          EnrollmentModeMatches(policy::EnrollmentConfig::MODE_SERVER_FORCED)))
       .Times(1);
   OnExit(ScreenExitCode::ENTERPRISE_AUTO_ENROLLMENT_CHECK_COMPLETED);
   ResetAutoEnrollmentCheckScreen();
@@ -1848,7 +1978,8 @@ IN_PROC_BROWSER_TEST_F(WizardControllerDeviceStateWithInitialEnrollmentTest,
 
 class WizardControllerBrokenLocalStateTest : public WizardControllerTest {
  protected:
-  WizardControllerBrokenLocalStateTest() : fake_session_manager_client_(NULL) {}
+  WizardControllerBrokenLocalStateTest()
+      : fake_session_manager_client_(nullptr) {}
 
   ~WizardControllerBrokenLocalStateTest() override {}
 
@@ -1973,10 +2104,11 @@ class WizardControllerKioskFlowTest : public WizardControllerFlowTest {
 
 IN_PROC_BROWSER_TEST_F(WizardControllerKioskFlowTest,
                        ControlFlowKioskForcedEnrollment) {
-  EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(mock_enrollment_screen_,
-                            EnrollmentModeMatches(
-                                policy::EnrollmentConfig::MODE_LOCAL_FORCED)))
+  EXPECT_CALL(
+      *mock_enrollment_screen_->view(),
+      SetEnrollmentConfig(
+          mock_enrollment_screen_,
+          EnrollmentModeMatches(policy::EnrollmentConfig::MODE_LOCAL_FORCED)))
       .Times(1);
   CheckCurrentScreen(OobeScreen::SCREEN_OOBE_WELCOME);
   EXPECT_CALL(*mock_welcome_screen_, Hide()).Times(1);
@@ -2019,10 +2151,11 @@ IN_PROC_BROWSER_TEST_F(WizardControllerKioskFlowTest,
 
 IN_PROC_BROWSER_TEST_F(WizardControllerKioskFlowTest,
                        ControlFlowEnrollmentBack) {
-  EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(mock_enrollment_screen_,
-                            EnrollmentModeMatches(
-                                policy::EnrollmentConfig::MODE_LOCAL_FORCED)))
+  EXPECT_CALL(
+      *mock_enrollment_screen_->view(),
+      SetEnrollmentConfig(
+          mock_enrollment_screen_,
+          EnrollmentModeMatches(policy::EnrollmentConfig::MODE_LOCAL_FORCED)))
       .Times(1);
 
   CheckCurrentScreen(OobeScreen::SCREEN_OOBE_WELCOME);
@@ -2559,7 +2692,7 @@ IN_PROC_BROWSER_TEST_F(WizardControllerOobeResumeTest,
       OobeScreen::SCREEN_OOBE_WELCOME);
   CheckCurrentScreen(OobeScreen::SCREEN_OOBE_WELCOME);
   EXPECT_CALL(*mock_enrollment_screen_->view(),
-              SetParameters(
+              SetEnrollmentConfig(
                   mock_enrollment_screen_,
                   EnrollmentModeMatches(policy::EnrollmentConfig::MODE_MANUAL)))
       .Times(1);
@@ -2660,9 +2793,6 @@ IN_PROC_BROWSER_TEST_F(WizardControllerOobeConfigurationTest,
 // TODO(merkulova): Add tests for bluetooth HID detection screen variations when
 // UI and logic is ready. http://crbug.com/127016
 
-// TODO(dzhioev): Add tests for controller/host pairing flow.
-// http://crbug.com/375191
-
 // TODO(khmel): Add tests for ARC OptIn flow.
 // http://crbug.com/651144
 
@@ -2683,7 +2813,7 @@ IN_PROC_BROWSER_TEST_F(WizardControllerOobeConfigurationTest,
 
 // TODO(khorimoto): Add tests for MultiDevice Setup UI.
 
-static_assert(static_cast<int>(ScreenExitCode::EXIT_CODES_COUNT) == 50,
+static_assert(static_cast<int>(ScreenExitCode::EXIT_CODES_COUNT) == 51,
               "tests for new control flow are missing");
 
 }  // namespace chromeos

@@ -37,8 +37,7 @@ namespace fileManagerPrivateInternal {
   callback GetLinuxPackageInfoCallback =
       void(fileManagerPrivate.LinuxPackageInfo linux_package_info);
   callback InstallLinuxPackageCallback =
-      void(fileManagerPrivate.InstallLinuxPackageResponse response,
-           optional DOMString failure_reason);
+      void(fileManagerPrivate.InstallLinuxPackageResponse response);
   callback GetThumbnailCallback = void(DOMString ThumbnailDataUrl);
 
   interface Functions {
@@ -106,6 +105,7 @@ namespace fileManagerPrivateInternal {
                                GetRecentFilesCallback callback);
     static void sharePathsWithCrostini(DOMString[] urls, boolean persist,
                                       SimpleCallback callback);
+    static void unsharePathWithCrostini(DOMString url, SimpleCallback callback);
     static void getCrostiniSharedPaths(
         GetCrostiniSharedPathsCallback callback);
     static void getLinuxPackageInfo(DOMString url,

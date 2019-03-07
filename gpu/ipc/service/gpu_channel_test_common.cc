@@ -36,13 +36,16 @@ class TestGpuChannelManagerDelegate : public GpuChannelManagerDelegate {
   void StoreShaderToDisk(int32_t client_id,
                          const std::string& key,
                          const std::string& shader) override {}
-  void ExitProcess() override {}
+  void MaybeExitOnContextLost() override { is_exiting_ = true; }
+  bool IsExiting() const override { return is_exiting_; }
 #if defined(OS_WIN)
   void SendCreatedChildWindow(SurfaceHandle parent_window,
                               SurfaceHandle child_window) override {}
 #endif
 
  private:
+  bool is_exiting_ = false;
+
   DISALLOW_COPY_AND_ASSIGN(TestGpuChannelManagerDelegate);
 };
 
@@ -68,7 +71,8 @@ GpuChannelTestCommon::GpuChannelTestCommon(
       task_runner_.get(), io_task_runner_.get(), scheduler_.get(),
       sync_point_manager_.get(), nullptr, /* gpu_memory_buffer_factory */
       std::move(feature_info), GpuProcessActivityFlags(),
-      gl::init::CreateOffscreenGLSurface(gfx::Size())));
+      gl::init::CreateOffscreenGLSurface(gfx::Size()),
+      nullptr /* image_decode_accelerator_worker */));
 }
 
 GpuChannelTestCommon::~GpuChannelTestCommon() {

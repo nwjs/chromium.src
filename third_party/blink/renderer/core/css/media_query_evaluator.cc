@@ -32,6 +32,7 @@
 #include "third_party/blink/public/common/manifest/web_display_mode.h"
 #include "third_party/blink/public/platform/pointer_properties.h"
 #include "third_party/blink/public/platform/shape_properties.h"
+#include "third_party/blink/public/platform/web_color_scheme.h"
 #include "third_party/blink/renderer/core/css/css_primitive_value.h"
 #include "third_party/blink/renderer/core/css/css_resolution_units.h"
 #include "third_party/blink/renderer/core/css/css_to_length_conversion_data.h"
@@ -701,6 +702,22 @@ static bool PointerMediaFeatureEval(const MediaQueryExpValue& value,
          (pointer == kPointerTypeFine && value.id == CSSValueFine);
 }
 
+static bool PrefersReducedMotionMediaFeatureEval(
+    const MediaQueryExpValue& value,
+    MediaFeaturePrefix,
+    const MediaValues& media_values) {
+  // If the value is not valid, this was passed without an argument. In that
+  // case, it implicitly resolves to 'reduce'.
+  if (!value.IsValid())
+    return media_values.PrefersReducedMotion();
+
+  if (!value.is_id)
+    return false;
+
+  return (value.id == CSSValueNoPreference) ^
+         media_values.PrefersReducedMotion();
+}
+
 static bool ShapeMediaFeatureEval(const MediaQueryExpValue& value,
                                   MediaFeaturePrefix,
                                   const MediaValues& media_values) {
@@ -807,6 +824,26 @@ static bool ColorGamutMediaFeatureEval(const MediaQueryExpValue& value,
   // This is for some compilers that do not understand that it can't be reached.
   NOTREACHED();
   return false;
+}
+
+static bool PrefersColorSchemeMediaFeatureEval(
+    const MediaQueryExpValue& value,
+    MediaFeaturePrefix,
+    const MediaValues& media_values) {
+  WebColorScheme preferred_scheme = media_values.PreferredColorScheme();
+
+  if (!value.IsValid())
+    return preferred_scheme != WebColorScheme::kNoPreference;
+
+  if (!value.is_id)
+    return false;
+
+  return (preferred_scheme == WebColorScheme::kNoPreference &&
+          value.id == CSSValueNoPreference) ||
+         (preferred_scheme == WebColorScheme::kDark &&
+          value.id == CSSValueDark) ||
+         (preferred_scheme == WebColorScheme::kLight &&
+          value.id == CSSValueLight);
 }
 
 void MediaQueryEvaluator::Init() {

@@ -11,13 +11,12 @@
 #include "third_party/blink/renderer/core/dom/document_parser.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/platform/bindings/v8_private_property.h"
 #include "third_party/blink/renderer/platform/instance_counters.h"
 
 namespace blink {
 
-JSBasedEventListener::JSBasedEventListener(ListenerType listener_type)
-    : EventListener(listener_type) {
-  DCHECK(IsJSBased());
+JSBasedEventListener::JSBasedEventListener() {
   if (IsMainThread()) {
     InstanceCounters::IncrementCounter(
         InstanceCounters::kJSEventListenerCounter);
@@ -84,10 +83,11 @@ void JSBasedEventListener::Invoke(
       return;
   }
 
-  ScriptState* script_state_of_listener = GetScriptState();
-  DCHECK(script_state_of_listener);
+  ScriptState* script_state_of_listener = GetScriptStateOrReportError("invoke");
+  if (!script_state_of_listener)
+    return;  // The error is already reported.
   if (!script_state_of_listener->ContextIsValid())
-    return;
+    return;  // Silently fail.
 
   ScriptState::Scope listener_script_state_scope(script_state_of_listener);
 

@@ -22,6 +22,7 @@
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_registration.h"
 #include "content/common/service_worker/service_worker_types.h"
+#include "content/common/service_worker/service_worker_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "url/gurl.h"
@@ -170,20 +171,19 @@ BackgroundFetchTestBase::CreateRequestWithProvidedResponse(
   request->method = method;
   request->is_reload = false;
   request->referrer = blink::mojom::Referrer::New();
-  request->headers = base::flat_map<std::string, std::string>();
+  request->headers = {};
   return request;
 }
 
-std::unique_ptr<BackgroundFetchRegistration>
+blink::mojom::BackgroundFetchRegistrationPtr
 BackgroundFetchTestBase::CreateBackgroundFetchRegistration(
     const std::string& developer_id,
     const std::string& unique_id,
     blink::mojom::BackgroundFetchResult result,
     blink::mojom::BackgroundFetchFailureReason failure_reason) {
-  auto registration = std::make_unique<BackgroundFetchRegistration>(
-      developer_id, unique_id, 0 /* upload_total */, 0 /* uploaded */,
-      0 /* download_total */, 0 /* downloaded */, result, failure_reason);
-  return registration;
+  return blink::mojom::BackgroundFetchRegistration::New(
+      developer_id, unique_id, /* upload_total= */ 0, /* uploaded= */ 0,
+      /* download_total= */ 0, /* downloaded= */ 0, result, failure_reason);
 }
 
 }  // namespace content

@@ -9,15 +9,10 @@
 
 #import "ios/chrome/browser/ui/infobars/infobar_container_consumer.h"
 
-@protocol InfobarPositioner;
-
-// ViewController that contains all Infobars. It can contain various at the
-// same time but only the top most one will be visible.
+// TODO(crbug.com/1372916): PLACEHOLDER Work in Progress class for the new
+// InfobarUI. ViewController that contains all Infobars.
 @interface InfobarContainerViewController
-    : UIViewController<InfobarContainerConsumer>
-
-// The delegate used to position the InfoBarContainer in the view.
-@property(nonatomic, weak) id<InfobarPositioner> positioner;
+    : UIViewController <InfobarContainerConsumer>
 
 @end
 

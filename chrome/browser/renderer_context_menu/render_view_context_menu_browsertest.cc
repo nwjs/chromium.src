@@ -78,7 +78,6 @@
 #include "third_party/blink/public/web/web_context_menu_data.h"
 #include "ui/base/emoji/emoji_panel_helper.h"
 #include "ui/base/models/menu_model.h"
-#include "ui/base/ui_base_features.h"
 
 #if defined(OS_CHROMEOS)
 #include "ash/public/cpp/window_properties.h"
@@ -522,10 +521,7 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, ContextMenuForCanvas) {
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
-                       ContextMenuForEmojiPanel_Enabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kEnableEmojiContextMenu);
-
+                       ContextMenuForEmojiPanel_Editable) {
   content::ContextMenuParams params;
   params.is_editable = true;
 
@@ -539,10 +535,7 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
-                       ContextMenuForEmojiPanel_Enabled_NonEditable) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kEnableEmojiContextMenu);
-
+                       ContextMenuForEmojiPanel_NonEditable) {
   content::ContextMenuParams params;
   params.is_editable = false;
 
@@ -555,10 +548,23 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
   EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_EMOJI));
 }
 
+// Executing the emoji panel item with no associated browser should not crash.
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
-                       ContextMenuForEmojiPanel_Disabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(features::kEnableEmojiContextMenu);
+                       ContextMenuForEmojiPanel_NullBrowserCrash) {
+  std::unique_ptr<content::WebContents> detached_web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->profile()));
+  TestRenderViewContextMenu menu(detached_web_contents->GetMainFrame(), {});
+  menu.Init();
+  menu.ExecuteCommand(IDC_CONTENT_CONTEXT_EMOJI, 0);
+}
+
+// Only Chrome OS supports emoji panel callbacks.
+#if defined(OS_CHROMEOS)
+IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
+                       ContextMenuForEmojiPanel_NoCallback) {
+  // Reset the emoji callback.
+  ui::SetShowEmojiKeyboardCallback(base::RepeatingClosure());
 
   content::ContextMenuParams params;
   params.is_editable = true;
@@ -568,9 +574,10 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
       params);
   menu.Init();
 
-  // If the feature is disabled, the emoji context menu should never be present.
+  // If there's no callback, the emoji context menu should not be present.
   EXPECT_FALSE(menu.IsItemPresent(IDC_CONTENT_CONTEXT_EMOJI));
 }
+#endif  // defined(OS_CHROMEOS)
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, CopyLinkTextMouse) {
   std::unique_ptr<TestRenderViewContextMenu> menu = CreateContextMenu(

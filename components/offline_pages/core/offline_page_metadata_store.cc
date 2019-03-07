@@ -411,7 +411,7 @@ void OfflinePageMetadataStore::InitializeInternal(
   if (!last_closing_time_.is_null()) {
     ReportStoreEvent(OfflinePagesStoreEvent::kReopened);
     UMA_HISTOGRAM_CUSTOM_TIMES("OfflinePages.SQLStorage.TimeFromCloseToOpen",
-                               base::Time::Now() - last_closing_time_,
+                               base::TimeTicks::Now() - last_closing_time_,
                                base::TimeDelta::FromMilliseconds(10),
                                base::TimeDelta::FromMinutes(10),
                                50 /* buckets */);
@@ -466,7 +466,7 @@ void OfflinePageMetadataStore::CloseInternal() {
   }
   TRACE_EVENT_ASYNC_STEP_PAST0("offline_pages", "Metadata Store", this, "Open");
 
-  last_closing_time_ = base::Time::Now();
+  last_closing_time_ = base::TimeTicks::Now();
   ReportStoreEvent(OfflinePagesStoreEvent::kClosed);
 
   state_ = StoreState::NOT_LOADED;

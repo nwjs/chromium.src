@@ -182,9 +182,9 @@ void PermissionsUpdater::NetworkPermissionsUpdateHelper::
 
   // After an asynchronous call below, the helper will call
   // NotifyPermissionsUpdated if the profile is still valid.
-  content::BrowserContext::SetCorsOriginAccessListsForOrigin(
-      browser_context, url::Origin::Create(extension->url()),
-      std::move(allow_list), CreateCorsOriginAccessBlockList(*extension),
+  browser_context->SetCorsOriginAccessListForOrigin(
+      url::Origin::Create(extension->url()), std::move(allow_list),
+      CreateCorsOriginAccessBlockList(*extension),
       base::BindOnce(&NetworkPermissionsUpdateHelper::OnOriginAccessUpdated,
                      helper->weak_factory_.GetWeakPtr()));
 }
@@ -237,12 +237,10 @@ void PermissionsUpdater::GrantOptionalPermissions(
     const Extension& extension,
     const PermissionSet& permissions,
     base::OnceClosure completion_callback) {
-  // TODO(devlin): Ideally, we'd have this CHECK in place, but unit tests are
-  // currently violating it.
-  // CHECK(PermissionsParser::GetOptionalPermissions(&extension).Contains(
-  //     permissions))
-  //     << "Cannot add optional permissions that are not "
-  //     << "specified in the manifest.";
+  CHECK(PermissionsParser::GetOptionalPermissions(&extension)
+            .Contains(permissions))
+      << "Cannot add optional permissions that are not "
+      << "specified in the manifest.";
 
   // Granted optional permissions are stored in both the granted permissions (so
   // we don't later disable the extension when we check the active permissions
@@ -304,10 +302,10 @@ void PermissionsUpdater::RevokeOptionalPermissions(
     base::OnceClosure completion_callback) {
   // TODO(devlin): Ideally, we'd have this CHECK in place, but unit tests are
   // currently violating it.
-  // CHECK(PermissionsParser::GetOptionalPermissions(&extension).Contains(
-  //     permissions))
-  //     << "Cannot remove optional permissions that are not "
-  //     << "specified in the manifest.";
+  CHECK(PermissionsParser::GetOptionalPermissions(&extension)
+            .Contains(permissions))
+      << "Cannot remove optional permissions that are not "
+      << "specified in the manifest.";
 
   // Revoked optional permissions are removed from granted and runtime-granted
   // permissions only if the user, and not the extension, removed them. This
@@ -355,8 +353,8 @@ void PermissionsUpdater::RevokeRuntimePermissions(
   if (needs_adjustment) {
     // Tedious, because PermissionSets are const. :(
     active_permissions_to_remove = std::make_unique<PermissionSet>(
-        active_permissions_to_remove->apis(),
-        active_permissions_to_remove->manifest_permissions(),
+        active_permissions_to_remove->apis().Clone(),
+        active_permissions_to_remove->manifest_permissions().Clone(),
         URLPatternSet(removable_explicit_hosts),
         active_permissions_to_remove->scriptable_hosts());
   }
@@ -597,9 +595,9 @@ void PermissionsUpdater::NotifyPermissionsUpdated(
       extension->permissions_data()->UsesDefaultPolicyHostRestrictions();
   if (!params.uses_default_policy_host_restrictions) {
     params.policy_blocked_hosts =
-        extension->permissions_data()->policy_blocked_hosts();
+        extension->permissions_data()->policy_blocked_hosts().Clone();
     params.policy_allowed_hosts =
-        extension->permissions_data()->policy_allowed_hosts();
+        extension->permissions_data()->policy_allowed_hosts().Clone();
   }
 
   // Send the new permissions to the renderers.
@@ -639,8 +637,8 @@ void PermissionsUpdater::NotifyDefaultPolicyHostRestrictionsUpdated(
   Profile* profile = Profile::FromBrowserContext(browser_context_);
 
   ExtensionMsg_UpdateDefaultPolicyHostRestrictions_Params params;
-  params.default_policy_blocked_hosts = default_runtime_blocked_hosts;
-  params.default_policy_allowed_hosts = default_runtime_allowed_hosts;
+  params.default_policy_blocked_hosts = default_runtime_blocked_hosts.Clone();
+  params.default_policy_allowed_hosts = default_runtime_allowed_hosts.Clone();
 
   // Send the new policy to the renderers.
   for (RenderProcessHost::iterator host_iterator(

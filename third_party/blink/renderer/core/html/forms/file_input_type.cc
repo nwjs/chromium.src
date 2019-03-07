@@ -75,7 +75,7 @@ InputType* FileInputType::Create(HTMLInputElement& element) {
   return MakeGarbageCollected<FileInputType>(element);
 }
 
-void FileInputType::Trace(blink::Visitor* visitor) {
+void FileInputType::Trace(Visitor* visitor) {
   visitor->Trace(file_list_);
   KeyboardClickableInputTypeView::Trace(visitor);
   InputType::Trace(visitor);
@@ -142,7 +142,7 @@ void FileInputType::RestoreFormControlState(const FormControlState& state) {
   FileList* file_list = FileList::Create();
   for (const auto& file : file_vector)
     file_list->Append(file);
-  SetFiles(file_list);
+  SetFilesAndDispatchEvents(file_list);
 }
 
 void FileInputType::AppendToFormData(FormData& form_data) const {
@@ -196,13 +196,12 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
                                input.FastHasAttribute(kCaptureAttr);
     params.requestor = document.Url();
     params.initial_path = base::FilePath::FromUTF8Unsafe(input.nwworkingdir().GetString().Utf8().data());
-    if (input.FastHasAttribute(kNwsaveasAttr)) {
+    if (input.FastHasAttribute(kNwsaveasAttr))
       params.mode = FileChooserParams::Mode::kSave;
-      params.default_file_name = base::FilePath::FromUTF8Unsafe(input.nwsaveas().Utf8().data());
-    }
+    params.initial_value = base::FilePath::FromUTF8Unsafe(input.nwsaveas().Utf8().data());
     params.extract_directory = input.FastHasAttribute(kWebkitdirectoryAttr);
     if (params.selected_files.size() > 0)
-      params.default_file_name = params.selected_files[0];
+      params.initial_value = params.selected_files[0];
     if (input.FastHasAttribute(kNwdirectorydescAttr))
       params.title = input.FastGetAttribute(kNwdirectorydescAttr);
 
@@ -370,9 +369,9 @@ void FileInputType::MultipleAttributeChanged() {
                 : WebLocalizedString::kFileButtonChooseFileLabel)));
 }
 
-void FileInputType::SetFiles(FileList* files) {
+bool FileInputType::SetFiles(FileList* files) {
   if (!files)
-    return;
+    return false;
 
   bool files_changed = false;
   if (files->length() != file_list_->length()) {
@@ -394,7 +393,11 @@ void FileInputType::SetFiles(FileList* files) {
   if (GetElement().GetLayoutObject())
     GetElement().GetLayoutObject()->SetShouldDoFullPaintInvalidation();
 
-  if (files_changed) {
+  return files_changed;
+}
+
+void FileInputType::SetFilesAndDispatchEvents(FileList* files) {
+  if (SetFiles(files)) {
     // This call may cause destruction of this instance.
     // input instance is safe since it is ref-counted.
     GetElement().DispatchInputEvent();
@@ -420,7 +423,7 @@ void FileInputType::FilesChosen(FileChooserFileInfoList files,
     }
     ++i;
   }
-  SetFiles(CreateFileList(files, base_dir));
+  SetFilesAndDispatchEvents(CreateFileList(files, base_dir));
   if (HasConnectedFileChooser())
     DisconnectFileChooser();
 }

@@ -10,9 +10,9 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/events/event_listener.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
-#include "third_party/blink/renderer/core/dom/pausable_object.h"
 #include "third_party/blink/renderer/core/messaging/message_port.h"
 #include "third_party/blink/renderer/core/workers/abstract_worker.h"
+#include "third_party/blink/renderer/core/workers/global_scope_creation_params.h"
 #include "third_party/blink/renderer/core/workers/worker_options.h"
 #include "third_party/blink/renderer/platform/graphics/begin_frame_provider.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
@@ -31,7 +31,6 @@ class PostMessageOptions;
 class ScriptState;
 class WorkerClassicScriptLoader;
 class WorkerClients;
-struct GlobalScopeCreationParams;
 
 // Implementation of the Worker interface defined in the WebWorker HTML spec:
 // https://html.spec.whatwg.org/multipage/workers.html#worker
@@ -76,6 +75,8 @@ class CORE_EXPORT DedicatedWorker final
   // (via AbstractWorker -> EventTargetWithInlineData -> EventTarget).
   bool HasPendingActivity() const final;
 
+  void DispatchErrorEventForScriptFetchFailure();
+
   // Returns the name specified by WorkerOptions.
   const String Name() const;
 
@@ -89,6 +90,7 @@ class CORE_EXPORT DedicatedWorker final
 
   std::unique_ptr<GlobalScopeCreationParams> CreateGlobalScopeCreationParams(
       const KURL& script_url,
+      OffMainThreadWorkerScriptFetchOption,
       network::mojom::ReferrerPolicy);
 
   WorkerClients* CreateWorkerClients();

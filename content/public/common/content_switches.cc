@@ -96,6 +96,11 @@ const char kDisableBackgroundTimerThrottling[] =
 // features.
 const char kDisableBlinkFeatures[]          = "disable-blink-features";
 
+// Enable Web Bluetooth Scanning
+// This switch enables Web Bluetooth Scanning without any
+// permission prompt for testing.
+const char kEnableWebBluetoothScanning[] = "enable-web-bluetooth-scanning";
+
 // Disables compositor Ukm recording in browser tests.
 // TODO(khushalsagar): Remove once crbug.com/761524 is resolved.
 const char kDisableCompositorUkmForTests[] = "disable-compositor-ukm-for-tests";
@@ -266,7 +271,7 @@ const char kDisableResourceScheduler[] = "disable-resource-scheduler";
 const char kDisableSharedWorkers[]          = "disable-shared-workers";
 
 // Do not use runtime-detected high-end CPU optimizations in Skia.  This is
-// useful for forcing a baseline code path for e.g. layout tests.
+// useful for forcing a baseline code path for e.g. web tests.
 const char kDisableSkiaRuntimeOpts[]        = "disable-skia-runtime-opts";
 
 // Disable smooth scrolling for testing.
@@ -340,10 +345,6 @@ const char kEnablePreferCompositingToLCDText[] =
 // features.
 const char kEnableBlinkFeatures[]           = "enable-blink-features";
 
-// This is now an alias of "--enable-blink-features=BlinkGenPropertyTrees".
-// TODO(pdr): This flag is redundant and should be removed.
-const char kEnableBlinkGenPropertyTrees[] = "enable-blink-gen-property-trees";
-
 // Enables Web Platform features that are in development.
 const char kEnableExperimentalWebPlatformFeatures[] =
     "enable-experimental-web-platform-features";
@@ -407,11 +408,6 @@ const char kEnableServiceBinaryLauncher[] = "enable-service-binary-launcher";
 // Enables the Skia benchmarking extension
 const char kEnableSkiaBenchmarking[]        = "enable-skia-benchmarking";
 
-// Enables slimming paint phase 2: https://www.chromium.org/blink/slimming-paint
-// This is now an alias of "--enable-blink-features=SlimmingPaintV2".
-// TODO(pdr): This flag is redundant should be removed.
-const char kEnableSlimmingPaintV2[]         = "enable-slimming-paint-v2";
-
 // On platforms that support it, enables smooth scroll animation.
 const char kEnableSmoothScrolling[]         = "enable-smooth-scrolling";
 
@@ -428,7 +424,7 @@ const char kEnableStrictMixedContentChecking[] =
 const char kEnableStrictPowerfulFeatureRestrictions[] =
     "enable-strict-powerful-feature-restrictions";
 
-// Enabled threaded compositing for layout tests.
+// Enabled threaded compositing for web tests.
 const char kEnableThreadedCompositing[]     = "enable-threaded-compositing";
 
 // Enable tracing during the execution of browser tests.
@@ -473,10 +469,6 @@ const char kEnableWebVR[] = "enable-webvr";
 
 // Enable rasterizer that writes directly to GPU memory associated with tiles.
 const char kEnableZeroCopy[]                = "enable-zero-copy";
-
-// Explicitly allows additional ports using a comma-separated list of port
-// numbers.
-const char kExplicitlyAllowedPorts[]        = "explicitly-allowed-ports";
 
 // Handle to the shared memory segment containing field trial state that is to
 // be shared between processes. The argument to this switch is the handle id
@@ -758,13 +750,6 @@ const char kSamplingHeapProfiler[]          = "sampling-heap-profiler";
 // Causes the process to run as a sandbox IPC subprocess.
 const char kSandboxIPCProcess[]             = "sandbox-ipc";
 
-// Causes the renderer to keep an old document's cached resources alive until
-// the specified point in the next document's lifecycle.
-// By default, no explicit attempt to keep the resources alive is made, though
-// that doesn't necessarily mean they will be GCed promptly.
-const char kSavePreviousDocumentResources[] =
-    "save-previous-document-resources";
-
 // Visibly render a border around paint rects in the web page to help debug
 // and study painting behavior.
 const char kShowPaintRects[]                = "show-paint-rects";
@@ -801,6 +786,11 @@ const char kSitePerProcess[]                = "site-per-process";
 // on desktop since M67.  The name of the switch is preserved for
 // backcompatibility of chrome://flags.
 const char kDisableSiteIsolation[] = "disable-site-isolation-trials";
+
+// Just like kDisableSiteIsolation, but doesn't show the "stability and security
+// will suffer" butter bar warning.
+const char kDisableSiteIsolationForPolicy[] =
+    "disable-site-isolation-for-policy";
 
 // Specifies if the browser should start in fullscreen mode, like if the user
 // had pressed F11 right after startup.

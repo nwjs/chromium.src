@@ -14,13 +14,13 @@
 #include "base/macros.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/worker_host/shared_worker_host.h"
-#include "content/common/service_worker/service_worker_provider.mojom.h"
-#include "content/common/shared_worker/shared_worker_connector.mojom.h"
 #include "content/common/shared_worker/shared_worker_factory.mojom.h"
 #include "content/public/browser/shared_worker_service.h"
 #include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
-#include "third_party/blink/public/mojom/shared_worker/worker_main_script_load_params.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_connector.mojom.h"
+#include "third_party/blink/public/mojom/worker/worker_main_script_load_params.mojom.h"
 
 namespace blink {
 class MessagePortChannel;
@@ -58,8 +58,8 @@ class CONTENT_EXPORT SharedWorkerServiceImpl : public SharedWorkerService {
   void ConnectToWorker(
       int process_id,
       int frame_id,
-      mojom::SharedWorkerInfoPtr info,
-      mojom::SharedWorkerClientPtr client,
+      blink::mojom::SharedWorkerInfoPtr info,
+      blink::mojom::SharedWorkerClientPtr client,
       blink::mojom::SharedWorkerCreationContextType creation_context_type,
       const blink::MessagePortChannel& port,
       scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory);
@@ -75,7 +75,7 @@ class CONTENT_EXPORT SharedWorkerServiceImpl : public SharedWorkerService {
 
   void CreateWorker(
       std::unique_ptr<SharedWorkerInstance> instance,
-      mojom::SharedWorkerClientPtr client,
+      blink::mojom::SharedWorkerClientPtr client,
       int process_id,
       int frame_id,
       const blink::MessagePortChannel& message_port,
@@ -83,30 +83,32 @@ class CONTENT_EXPORT SharedWorkerServiceImpl : public SharedWorkerService {
   void DidCreateScriptLoader(
       std::unique_ptr<SharedWorkerInstance> instance,
       base::WeakPtr<SharedWorkerHost> host,
-      mojom::SharedWorkerClientPtr client,
+      blink::mojom::SharedWorkerClientPtr client,
       int process_id,
       int frame_id,
       const blink::MessagePortChannel& message_port,
-      mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+      blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
           service_worker_provider_info,
       network::mojom::URLLoaderFactoryAssociatedPtrInfo
           main_script_loader_factory,
-      std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loader_factories,
+      std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+          subresource_loader_factories,
       blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
       base::Optional<SubresourceLoaderParams> subresource_loader_params,
       bool success);
   void StartWorker(
       std::unique_ptr<SharedWorkerInstance> instance,
       base::WeakPtr<SharedWorkerHost> host,
-      mojom::SharedWorkerClientPtr client,
+      blink::mojom::SharedWorkerClientPtr client,
       int process_id,
       int frame_id,
       const blink::MessagePortChannel& message_port,
-      mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+      blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
           service_worker_provider_info,
       network::mojom::URLLoaderFactoryAssociatedPtrInfo
           main_script_loader_factory,
-      std::unique_ptr<URLLoaderFactoryBundleInfo> subresource_loader_factories,
+      std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
+          subresource_loader_factories,
       blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
       base::Optional<SubresourceLoaderParams> subresource_loader_params);
 

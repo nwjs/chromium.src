@@ -92,28 +92,17 @@ void FileAnalyzer::Start(const base::FilePath& target_path,
 
   results_.type = download_type_util::GetDownloadType(target_path_);
 
-  if (target_path_.MatchesExtension(FILE_PATH_LITERAL(".zip"))) {
+  DownloadFileType::InspectionType inspection_type =
+      FileTypePolicies::GetInstance()
+          ->PolicyForFile(target_path_)
+          .inspection_type();
+
+  if (inspection_type == DownloadFileType::ZIP) {
     StartExtractZipFeatures();
-  } else if (target_path_.MatchesExtension(FILE_PATH_LITERAL(".rar"))) {
+  } else if (inspection_type == DownloadFileType::RAR) {
     StartExtractRarFeatures();
 #if defined(OS_MACOSX)
-  } else if (target_path_.MatchesExtension(FILE_PATH_LITERAL(".dmg")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".img")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".iso")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".smi")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".cdr")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".dart")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".dc42")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".diskcopy42")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".dmgpart")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".dvdr")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".imgpart")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".ndif")) ||
-             target_path_.MatchesExtension(
-                 FILE_PATH_LITERAL(".sparsebundle")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".sparseimage")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".toast")) ||
-             target_path_.MatchesExtension(FILE_PATH_LITERAL(".udif"))) {
+  } else if (inspection_type == DownloadFileType::DMG) {
     StartExtractDmgFeatures();
 #endif
   } else {
@@ -122,7 +111,7 @@ void FileAnalyzer::Start(const base::FilePath& target_path,
     // archive-type extension, then calls ExtractFileOrDmgFeatures() with
     // result.
     base::PostTaskWithTraitsAndReplyWithResult(
-        FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+        FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
         base::BindOnce(DiskImageTypeSnifferMac::IsAppleDiskImage, tmp_path_),
         base::BindOnce(&FileAnalyzer::ExtractFileOrDmgFeatures,
                        weakptr_factory_.GetWeakPtr()));
@@ -137,7 +126,7 @@ void FileAnalyzer::StartExtractFileFeatures() {
 
   base::PostTaskWithTraitsAndReplyWithResult(
       FROM_HERE,
-      {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+      {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
        base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce(&ExtractFileFeatures, binary_feature_extractor_,
                      tmp_path_),
@@ -195,6 +184,16 @@ void FileAnalyzer::OnZipAnalysisFinished(
                       base::TimeTicks::Now() - zip_analysis_start_time_);
   for (const auto& file_name : archive_results.archived_archive_filenames)
     RecordArchivedArchiveFileExtensionType(file_name);
+
+  int64_t uma_file_type =
+      FileTypePolicies::GetInstance()->UmaValueForFile(target_path_);
+  if (archive_results.success) {
+    base::UmaHistogramSparse("SBClientDownload.ZipFileSuccessByType",
+                             uma_file_type);
+  } else {
+    base::UmaHistogramSparse("SBClientDownload.ZipFileFailureByType",
+                             uma_file_type);
+  }
 
   if (!results_.archived_executable) {
     if (archive_results.has_archive) {
@@ -276,29 +275,14 @@ void FileAnalyzer::StartExtractDmgFeatures() {
 
   // Directly use 'dmg' extension since download file may not have any
   // extension, but has still been deemed a DMG through file type sniffing.
-  base::File file(tmp_path_, base::File::FLAG_OPEN | base::File::FLAG_READ);
-  if (!file.IsValid()) {
-    std::move(callback_).Run(std::move(results_));
-    return;
-  }
-  int64_t size = file.GetLength();
-
-  bool too_big_to_unpack =
-      base::checked_cast<uint64_t>(size) >
-      FileTypePolicies::GetInstance()->GetMaxFileSizeToAnalyze("dmg");
-  UMA_HISTOGRAM_BOOLEAN("SBClientDownload.DmgTooBigToUnpack",
-                        too_big_to_unpack);
-  if (too_big_to_unpack) {
-    std::move(callback_).Run(std::move(results_));
-  } else {
-    dmg_analyzer_ = new SandboxedDMGAnalyzer(
-        tmp_path_,
-        base::BindRepeating(&FileAnalyzer::OnDmgAnalysisFinished,
-                            weakptr_factory_.GetWeakPtr()),
-        content::ServiceManagerConnection::GetForProcess()->GetConnector());
-    dmg_analyzer_->Start();
-    dmg_analysis_start_time_ = base::TimeTicks::Now();
-  }
+  dmg_analyzer_ = new SandboxedDMGAnalyzer(
+      tmp_path_,
+      FileTypePolicies::GetInstance()->GetMaxFileSizeToAnalyze("dmg"),
+      base::BindRepeating(&FileAnalyzer::OnDmgAnalysisFinished,
+                          weakptr_factory_.GetWeakPtr()),
+      content::ServiceManagerConnection::GetForProcess()->GetConnector());
+  dmg_analyzer_->Start();
+  dmg_analysis_start_time_ = base::TimeTicks::Now();
 }
 
 void FileAnalyzer::ExtractFileOrDmgFeatures(

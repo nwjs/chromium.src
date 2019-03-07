@@ -57,9 +57,9 @@ class PLATFORM_EXPORT SurfaceLayerBridge
   // Implementation of WebSurfaceLayerBridge.
   cc::Layer* GetCcLayer() const override;
   const viz::FrameSinkId& GetFrameSinkId() const override;
-  void ClearSurfaceId() override;
   void SetContentsOpaque(bool) override;
   void CreateSurfaceLayer() override;
+  void ClearObserver() override;
 
   const viz::SurfaceId& GetSurfaceId() const override {
     return current_surface_id_;

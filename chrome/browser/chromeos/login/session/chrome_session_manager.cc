@@ -40,7 +40,7 @@
 #include "chrome/browser/ui/app_list/app_list_client_impl.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
@@ -141,8 +141,7 @@ void StartUserSession(Profile* user_profile, const std::string& login_user_id) {
 
     ProfileHelper::Get()->ProfileStartup(user_profile);
 
-    if (lock_screen_apps::StateController::IsEnabled())
-      lock_screen_apps::StateController::Get()->SetPrimaryProfile(user_profile);
+    lock_screen_apps::StateController::Get()->SetPrimaryProfile(user_profile);
 
     if (user->GetType() == user_manager::USER_TYPE_REGULAR) {
       // App install logs are uploaded via the user's communication channel with
@@ -199,6 +198,7 @@ void StartUserSession(Profile* user_profile, const std::string& login_user_id) {
   tpm_firmware_update::ShowNotificationIfNeeded(user_profile);
   ArcTermsOfServiceScreen::MaybeLaunchArcSettings(user_profile);
   SyncConsentScreen::MaybeLaunchSyncConsentSettings(user_profile);
+  UserSessionManager::GetInstance()->StartAccountManagerMigration(user_profile);
 }
 
 }  // namespace

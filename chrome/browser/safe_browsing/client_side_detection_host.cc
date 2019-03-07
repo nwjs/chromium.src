@@ -337,9 +337,9 @@ class ClientSideDetectionHost::ShouldClassifyUrlRequest
 };
 
 // static
-ClientSideDetectionHost* ClientSideDetectionHost::Create(
+std::unique_ptr<ClientSideDetectionHost> ClientSideDetectionHost::Create(
     WebContents* tab) {
-  return new ClientSideDetectionHost(tab);
+  return base::WrapUnique(new ClientSideDetectionHost(tab));
 }
 
 ClientSideDetectionHost::ClientSideDetectionHost(WebContents* tab)
@@ -750,7 +750,7 @@ bool ClientSideDetectionHost::DidShowSBInterstitial() const {
   // GetLastCommittedEntry is correct here. GetNavigationEntryForResource cannot
   // be used since it may no longer be valid (eg, if the UnsafeResource was for
   // a blocking main page load which was then proceeded through).
-  const NavigationEntry* nav_entry =
+  NavigationEntry* nav_entry =
       web_contents()->GetController().GetLastCommittedEntry();
   return (nav_entry && nav_entry->GetUniqueID() == unsafe_unique_page_id_);
 }

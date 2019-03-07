@@ -92,22 +92,14 @@ BrowserView* GetSourceBrowserViewInTabDragging() {
 class BrowserTabStripController::TabContextMenuContents
     : public ui::SimpleMenuModel::Delegate {
  public:
-  TabContextMenuContents(Tab* tab,
-                         BrowserTabStripController* controller)
-      : tab_(tab),
-        controller_(controller),
-        last_command_(TabStripModel::CommandFirst) {
+  TabContextMenuContents(Tab* tab, BrowserTabStripController* controller)
+      : tab_(tab), controller_(controller) {
     model_.reset(new TabMenuModel(
         this, controller->model_,
         controller->tabstrip_->GetModelIndexOfTab(tab)));
     menu_runner_.reset(new views::MenuRunner(
         model_.get(),
         views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU));
-  }
-
-  ~TabContextMenuContents() override {
-    if (controller_)
-      controller_->tabstrip_->StopAllHighlighting();
   }
 
   void Cancel() {
@@ -136,23 +128,12 @@ class BrowserTabStripController::TabContextMenuContents
                                                             accelerator) :
         false;
   }
-  void CommandIdHighlighted(int command_id) override {
-    controller_->StopHighlightTabsForCommand(last_command_, tab_);
-    last_command_ = static_cast<TabStripModel::ContextMenuCommand>(command_id);
-    controller_->StartHighlightTabsForCommand(last_command_, tab_);
-  }
   void ExecuteCommand(int command_id, int event_flags) override {
     // Executing the command destroys |this|, and can also end up destroying
     // |controller_|. So stop the highlights before executing the command.
-    controller_->tabstrip_->StopAllHighlighting();
     controller_->ExecuteCommandForTab(
         static_cast<TabStripModel::ContextMenuCommand>(command_id),
         tab_);
-  }
-
-  void MenuClosed(ui::SimpleMenuModel* /*source*/) override {
-    if (controller_)
-      controller_->tabstrip_->StopAllHighlighting();
   }
 
  private:
@@ -164,10 +145,6 @@ class BrowserTabStripController::TabContextMenuContents
 
   // A pointer back to our hosting controller, for command state information.
   BrowserTabStripController* controller_;
-
-  // The last command that was selected, so that we can start/stop highlighting
-  // appropriately as the user moves through the menu.
-  TabStripModel::ContextMenuCommand last_command_;
 
   DISALLOW_COPY_AND_ASSIGN(TabContextMenuContents);
 };
@@ -274,6 +251,27 @@ void BrowserTabStripController::ToggleSelected(int model_index) {
 
 void BrowserTabStripController::AddSelectionFromAnchorTo(int model_index) {
   model_->AddSelectionFromAnchorTo(model_index);
+}
+
+bool BrowserTabStripController::BeforeCloseTab(int model_index,
+                                               CloseTabSource source) {
+  // Only consider pausing the close operation if this is the last remaining
+  // tab (since otherwise closing it won't close the browser window).
+  if (GetCount() > 1)
+    return true;
+
+  // Closing this tab will close the current window. See if the browser wants to
+  // prompt the user before the browser is allowed to close.
+  const Browser::WarnBeforeClosingResult result =
+      browser_view_->browser()->MaybeWarnBeforeClosing(base::BindOnce(
+          [](TabStrip* tab_strip, int model_index, CloseTabSource source,
+             Browser::WarnBeforeClosingResult result) {
+            if (result == Browser::WarnBeforeClosingResult::kOkToClose)
+              tab_strip->CloseTab(tab_strip->tab_at(model_index), source);
+          },
+          base::Unretained(tabstrip_), model_index, source));
+
+  return result == Browser::WarnBeforeClosingResult::kOkToClose;
 }
 
 void BrowserTabStripController::CloseTab(int model_index,
@@ -566,7 +564,6 @@ TabRendererData BrowserTabStripController::TabRendererDataFromModel(
   TabRendererData data;
   TabUIHelper* tab_ui_helper = TabUIHelper::FromWebContents(contents);
   data.favicon = tab_ui_helper->GetFavicon().AsImageSkia();
-  data.load_progress = contents->GetLoadProgress();
   data.network_state = TabNetworkStateForWebContents(contents);
   data.title = tab_ui_helper->GetTitle();
   data.url = contents->GetURL();
@@ -585,33 +582,6 @@ void BrowserTabStripController::SetTabDataAt(content::WebContents* web_contents,
   tabstrip_->SetTabData(
       model_index,
       TabRendererDataFromModel(web_contents, model_index, EXISTING_TAB));
-}
-
-void BrowserTabStripController::StartHighlightTabsForCommand(
-    TabStripModel::ContextMenuCommand command_id,
-    Tab* tab) {
-  if (command_id == TabStripModel::CommandCloseOtherTabs ||
-      command_id == TabStripModel::CommandCloseTabsToRight) {
-    int model_index = tabstrip_->GetModelIndexOfTab(tab);
-    if (IsValidIndex(model_index)) {
-      std::vector<int> indices =
-          model_->GetIndicesClosedByCommand(model_index, command_id);
-      for (std::vector<int>::const_iterator i(indices.begin());
-           i != indices.end(); ++i) {
-        tabstrip_->StartHighlight(*i);
-      }
-    }
-  }
-}
-
-void BrowserTabStripController::StopHighlightTabsForCommand(
-    TabStripModel::ContextMenuCommand command_id,
-    Tab* tab) {
-  if (command_id == TabStripModel::CommandCloseTabsToRight ||
-      command_id == TabStripModel::CommandCloseOtherTabs) {
-    // Just tell all Tabs to stop pulsing - it's safe.
-    tabstrip_->StopAllHighlighting();
-  }
 }
 
 void BrowserTabStripController::AddTab(WebContents* contents,

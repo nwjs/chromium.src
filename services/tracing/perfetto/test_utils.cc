@@ -128,7 +128,7 @@ MockConsumer::MockConsumer(std::string data_source_name,
                            PacketReceivedCallback packet_received_callback)
     : packet_received_callback_(packet_received_callback),
       data_source_name_(data_source_name) {
-  consumer_endpoint_ = service->ConnectConsumer(this);
+  consumer_endpoint_ = service->ConnectConsumer(this, /*uid=*/0);
 }
 
 MockConsumer::~MockConsumer() = default;
@@ -173,6 +173,11 @@ void MockConsumer::OnTraceData(std::vector<perfetto::TracePacket> packets,
   }
 
   packet_received_callback_(has_more);
+}
+
+void MockConsumer::OnDetach(bool /*success*/) {}
+void MockConsumer::OnAttach(bool /*success*/, const perfetto::TraceConfig&) {}
+void MockConsumer::OnTraceStats(bool /*success*/, const perfetto::TraceStats&) {
 }
 
 MockProducerHost::MockProducerHost(

@@ -161,6 +161,7 @@ class CORE_EXPORT InspectorDOMAgent final
       protocol::Maybe<int> node_id,
       protocol::Maybe<int> backend_node_id,
       protocol::Maybe<String> object_group,
+      protocol::Maybe<int> execution_context_id,
       std::unique_ptr<v8_inspector::protocol::Runtime::API::RemoteObject>*)
       override;
   protocol::Response getAttributes(
@@ -215,6 +216,9 @@ class CORE_EXPORT InspectorDOMAgent final
   protocol::Response getFrameOwner(const String& frame_id,
                                    int* backend_node_id,
                                    protocol::Maybe<int>* node_id) override;
+
+  protocol::Response getFileInfo(const String& object_id,
+                                 String* path) override;
 
   bool Enabled() const;
   void ReleaseDanglingNodes();

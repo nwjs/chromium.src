@@ -23,20 +23,20 @@ using content::StorageUsageInfo;
 namespace {
 
 void GetAllOriginsInfoForServiceWorkerCallback(
-    const BrowsingDataServiceWorkerHelper::FetchCallback& callback,
+    BrowsingDataServiceWorkerHelper::FetchCallback callback,
     const std::vector<StorageUsageInfo>& origins) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   DCHECK(!callback.is_null());
 
   std::list<StorageUsageInfo> result;
   for (const StorageUsageInfo& origin : origins) {
-    if (!BrowsingDataHelper::HasWebScheme(origin.origin))
+    if (!BrowsingDataHelper::HasWebScheme(origin.origin.GetURL()))
       continue;  // Non-websafe state is not considered browsing data.
     result.push_back(origin);
   }
 
   base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
-                           base::BindOnce(callback, result));
+                           base::BindOnce(std::move(callback), result));
 }
 
 }  // namespace
@@ -49,15 +49,14 @@ BrowsingDataServiceWorkerHelper::BrowsingDataServiceWorkerHelper(
 
 BrowsingDataServiceWorkerHelper::~BrowsingDataServiceWorkerHelper() {}
 
-void BrowsingDataServiceWorkerHelper::StartFetching(
-    const FetchCallback& callback) {
+void BrowsingDataServiceWorkerHelper::StartFetching(FetchCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(!callback.is_null());
   base::PostTaskWithTraits(
       FROM_HERE, {BrowserThread::IO},
       base::BindOnce(&BrowsingDataServiceWorkerHelper::
                          FetchServiceWorkerUsageInfoOnIOThread,
-                     this, callback));
+                     this, std::move(callback)));
 }
 
 void BrowsingDataServiceWorkerHelper::DeleteServiceWorkers(const GURL& origin) {
@@ -70,12 +69,12 @@ void BrowsingDataServiceWorkerHelper::DeleteServiceWorkers(const GURL& origin) {
 }
 
 void BrowsingDataServiceWorkerHelper::FetchServiceWorkerUsageInfoOnIOThread(
-    const FetchCallback& callback) {
+    FetchCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   DCHECK(!callback.is_null());
 
-  service_worker_context_->GetAllOriginsInfo(
-      base::BindOnce(&GetAllOriginsInfoForServiceWorkerCallback, callback));
+  service_worker_context_->GetAllOriginsInfo(base::BindOnce(
+      &GetAllOriginsInfoForServiceWorkerCallback, std::move(callback)));
 }
 
 void BrowsingDataServiceWorkerHelper::DeleteServiceWorkersOnIOThread(
@@ -140,18 +139,19 @@ CannedBrowsingDataServiceWorkerHelper::GetServiceWorkerUsageInfo() const {
 }
 
 void CannedBrowsingDataServiceWorkerHelper::StartFetching(
-    const FetchCallback& callback) {
+    FetchCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK(!callback.is_null());
 
   std::list<StorageUsageInfo> result;
   for (const PendingServiceWorkerUsageInfo& pending_info :
        pending_service_worker_info_) {
-    result.emplace_back(pending_info.origin, 0, base::Time());
+    result.emplace_back(url::Origin::Create(pending_info.origin), 0,
+                        base::Time());
   }
 
   base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
-                           base::BindOnce(callback, result));
+                           base::BindOnce(std::move(callback), result));
 }
 
 void CannedBrowsingDataServiceWorkerHelper::DeleteServiceWorkers(

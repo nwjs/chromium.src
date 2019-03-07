@@ -202,6 +202,14 @@ static const gfx::Transform& Transform(LayerImpl* layer) {
   return layer->test_properties()->transform;
 }
 
+static const gfx::PointF& Position(Layer* layer) {
+  return layer->position();
+}
+
+static const gfx::PointF& Position(LayerImpl* layer) {
+  return layer->test_properties()->position;
+}
+
 // Methods to query state from the AnimationHost ----------------------
 template <typename LayerType>
 bool OpacityIsAnimating(const MutatorHost& host, LayerType* layer) {
@@ -472,8 +480,8 @@ bool PropertyTreeBuilderContext<LayerType>::AddTransformNodeIfNeeded(
 
   if (!requires_node) {
     data_for_children->should_flatten |= ShouldFlattenTransform(layer);
-    gfx::Vector2dF local_offset = layer->position().OffsetFromOrigin() +
-                                  Transform(layer).To2dTranslation();
+    gfx::Vector2dF local_offset =
+        Position(layer).OffsetFromOrigin() + Transform(layer).To2dTranslation();
     gfx::Vector2dF source_to_parent;
     if (source_index != parent_index) {
       gfx::Transform to_parent;
@@ -537,13 +545,15 @@ bool PropertyTreeBuilderContext<LayerType>::AddTransformNodeIfNeeded(
   if (is_root) {
     float page_scale_factor_for_root =
         is_page_scale_layer ? page_scale_factor_ : 1.f;
+    // SetRootTransformsAndScales will be incorrect if the root layer has
+    // non-zero position, so ensure it is zero.
+    DCHECK(Position(layer).IsOrigin());
     transform_tree_.SetRootTransformsAndScales(
         transform_tree_.device_scale_factor(), page_scale_factor_for_root,
-        device_transform_, layer->position());
+        device_transform_);
   } else {
     node->source_offset = source_offset;
-    node->update_post_local_transform(layer->position(),
-                                      TransformOrigin(layer));
+    node->update_post_local_transform(Position(layer), TransformOrigin(layer));
   }
 
   if (is_overscroll_elasticity_layer) {
@@ -746,6 +756,14 @@ static inline const FilterOperations& BackdropFilters(Layer* layer) {
 
 static inline const FilterOperations& BackdropFilters(LayerImpl* layer) {
   return layer->test_properties()->backdrop_filters;
+}
+
+static inline const gfx::RectF& BackdropFilterBounds(Layer* layer) {
+  return layer->backdrop_filter_bounds();
+}
+
+static inline const gfx::RectF& BackdropFilterBounds(LayerImpl* layer) {
+  return layer->test_properties()->backdrop_filter_bounds;
 }
 
 static inline float BackdropFilterQuality(Layer* layer) {
@@ -970,7 +988,8 @@ bool PropertyTreeBuilderContext<LayerType>::AddEffectNodeIfNeeded(
 
   bool requires_node =
       is_root || has_transparency || has_potential_opacity_animation ||
-      has_non_axis_aligned_clip || should_create_render_surface;
+      has_potential_filter_animation || has_non_axis_aligned_clip ||
+      should_create_render_surface;
 
   int parent_id = data_from_ancestor.effect_tree_parent;
 
@@ -992,6 +1011,7 @@ bool PropertyTreeBuilderContext<LayerType>::AddEffectNodeIfNeeded(
   node->has_copy_request = HasCopyRequest(layer);
   node->filters = Filters(layer);
   node->backdrop_filters = BackdropFilters(layer);
+  node->backdrop_filter_bounds = BackdropFilterBounds(layer);
   node->backdrop_filter_quality = BackdropFilterQuality(layer);
   node->filters_origin = FiltersOrigin(layer);
   node->trilinear_filtering = TrilinearFiltering(layer);
@@ -1070,7 +1090,7 @@ bool PropertyTreeBuilderContext<LayerType>::AddEffectNodeIfNeeded(
 }
 
 static inline bool UserScrollableHorizontal(Layer* layer) {
-  return layer->user_scrollable_horizontal();
+  return layer->GetUserScrollableHorizontal();
 }
 
 static inline bool UserScrollableHorizontal(LayerImpl* layer) {
@@ -1078,7 +1098,7 @@ static inline bool UserScrollableHorizontal(LayerImpl* layer) {
 }
 
 static inline bool UserScrollableVertical(Layer* layer) {
-  return layer->user_scrollable_vertical();
+  return layer->GetUserScrollableVertical();
 }
 
 static inline bool UserScrollableVertical(LayerImpl* layer) {
@@ -1103,6 +1123,14 @@ static inline const base::Optional<SnapContainerData>& GetSnapContainerData(
   return layer->test_properties()->snap_container_data;
 }
 
+static inline uint32_t MainThreadScrollingReasons(Layer* layer) {
+  return layer->GetMainThreadScrollingReasons();
+}
+
+static inline uint32_t MainThreadScrollingReasons(LayerImpl* layer) {
+  return layer->test_properties()->main_thread_scrolling_reasons;
+}
+
 template <typename LayerType>
 void SetHasTransformNode(LayerType* layer, bool val) {
   layer->SetHasTransformNode(val);
@@ -1119,8 +1147,7 @@ void PropertyTreeBuilderContext<LayerType>::AddScrollNodeIfNeeded(
   bool scrollable = layer->scrollable();
   bool contains_non_fast_scrollable_region =
       !layer->non_fast_scrollable_region().IsEmpty();
-  uint32_t main_thread_scrolling_reasons =
-      layer->main_thread_scrolling_reasons();
+  uint32_t main_thread_scrolling_reasons = MainThreadScrollingReasons(layer);
 
   bool scroll_node_uninheritable_criteria =
       is_root || scrollable || contains_non_fast_scrollable_region;
@@ -1347,9 +1374,11 @@ void PropertyTreeBuilderContext<LayerType>::BuildPropertyTrees(
     clip_tree_.SetViewportClip(gfx::RectF(viewport));
     float page_scale_factor_for_root =
         page_scale_is_root_layer ? page_scale_factor_ : 1.f;
+    // SetRootTransformsAndScales will be incorrect if the root layer has
+    // non-zero position, so ensure it is zero.
+    DCHECK(Position(root_layer_).IsOrigin());
     transform_tree_.SetRootTransformsAndScales(
-        device_scale_factor, page_scale_factor_for_root, device_transform_,
-        root_layer_->position());
+        device_scale_factor, page_scale_factor_for_root, device_transform_);
     return;
   }
 

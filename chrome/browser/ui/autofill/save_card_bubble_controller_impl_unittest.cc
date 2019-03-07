@@ -27,7 +27,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/user_prefs/user_prefs.h"
-#include "content/public/browser/navigation_handle.h"
+#include "content/public/test/mock_navigation_handle.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -56,11 +56,9 @@ class TestSaveCardBubbleControllerImpl : public SaveCardBubbleControllerImpl {
   }
 
   void SimulateNavigation() {
-    content::RenderFrameHost* rfh = web_contents()->GetMainFrame();
-    std::unique_ptr<content::NavigationHandle> navigation_handle =
-        content::NavigationHandle::CreateNavigationHandleForTesting(
-            GURL(), rfh, true);
-    // Destructor calls DidFinishNavigation.
+    content::MockNavigationHandle handle;
+    handle.set_has_committed(true);
+    DidFinishNavigation(&handle);
   }
 
  protected:
@@ -176,9 +174,11 @@ class SaveCardBubbleControllerImplTest : public BrowserWithTestWindowTest {
   };
 
   static void UploadSaveCardCallback(
+      AutofillClient::SaveCardOfferUserDecision user_decision,
       const AutofillClient::UserProvidedCardDetails&
           user_provided_card_details) {}
-  static void LocalSaveCardCallback() {}
+  static void LocalSaveCardCallback(
+      AutofillClient::SaveCardOfferUserDecision user_decision) {}
 
   DISALLOW_COPY_AND_ASSIGN(SaveCardBubbleControllerImplTest);
 };

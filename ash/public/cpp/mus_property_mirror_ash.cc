@@ -40,9 +40,6 @@ void MusPropertyMirrorAsh::MirrorPropertyFromWidgetWindowToRootWindow(
     root_window->SetProperty(
         kBlockedForAssistantSnapshotKey,
         window->GetProperty(kBlockedForAssistantSnapshotKey));
-  } else if (key == kPanelAttachedKey) {
-    bool value = window->GetProperty(kPanelAttachedKey);
-    root_window->SetProperty(kPanelAttachedKey, value);
   } else if (key == kShelfItemTypeKey) {
     int32_t value = window->GetProperty(kShelfItemTypeKey);
     root_window->SetProperty(kShelfItemTypeKey, value);
@@ -100,6 +97,9 @@ void MusPropertyMirrorAsh::MirrorPropertyFromWidgetWindowToRootWindow(
                              window->GetProperty(kImmersiveWindowType));
   } else if (key == ui::kChildAXTreeID) {
     MirrorOwnedProperty(window, root_window, ui::kChildAXTreeID);
+  } else if (key == kWindowPipTypeKey) {
+    root_window->SetProperty(kWindowPipTypeKey,
+                             window->GetProperty(kWindowPipTypeKey));
   } else if (key == wm::kWindowVisibilityAnimationDurationKey) {
     root_window->SetProperty(
         wm::kWindowVisibilityAnimationDurationKey,

@@ -55,6 +55,11 @@ GURL CreateLocalizedGURL(const std::string& url) {
 
 // Utilities -------------------------------------------------------------------
 
+GURL CreateAssistantQueryDeepLink(const std::string& query) {
+  return net::AppendOrReplaceQueryParameter(GURL(kAssistantQueryPrefix),
+                                            kQueryParamKey, query);
+}
+
 GURL CreateAssistantSettingsDeepLink() {
   return GURL(kAssistantSettingsPrefix);
 }
@@ -100,7 +105,9 @@ base::Optional<std::string> GetDeepLinkParam(
   const auto it = params.find(key);
   return it != params.end()
              ? base::Optional<std::string>(net::UnescapeURLComponent(
-                   it->second, net::UnescapeRule::REPLACE_PLUS_WITH_SPACE))
+                   it->second,
+                   net::UnescapeRule::URL_SPECIAL_CHARS_EXCEPT_PATH_SEPARATORS |
+                       net::UnescapeRule::REPLACE_PLUS_WITH_SPACE))
              : base::nullopt;
 }
 

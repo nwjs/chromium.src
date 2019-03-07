@@ -47,7 +47,7 @@
 #include "ui/aura/env_observer.h"
 #include "ui/aura/window.h"
 #include "ui/base/clipboard/clipboard.h"
-#include "ui/base/test/test_clipboard.h"
+#include "ui/base/clipboard/test/test_clipboard.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/background.h"
@@ -766,11 +766,8 @@ class BookmarkBarViewTest5 : public BookmarkBarViewEventTestBase {
 
   GURL url_dragging_;
 };
-// flaky on Windows: https://crbug.com/400578
-// flaky on ChromeOS: https://crbug.com/758210
-#if !defined(OS_WIN) && !defined(OS_CHROMEOS)
-VIEW_TEST(BookmarkBarViewTest5, DND)
-#endif
+// Flaky: https://crbug.com/758210
+VIEW_TEST(BookmarkBarViewTest5, DISABLED_DND)
 
 // Tests holding mouse down on overflow button, dragging such that menu pops up
 // then selecting an item.

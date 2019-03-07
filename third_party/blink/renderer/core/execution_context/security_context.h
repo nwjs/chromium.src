@@ -32,7 +32,6 @@
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/sandbox_flags.h"
-#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
@@ -103,9 +102,11 @@ class CORE_EXPORT SecurityContext : public GarbageCollectedMixin {
   mojom::IPAddressSpace AddressSpace() const { return address_space_; }
   String addressSpaceForBindings() const;
 
-  void SetRequireTrustedTypes() { require_safe_types_ = true; }
-  bool RequireTrustedTypes() const { return require_safe_types_; }
+  void SetRequireTrustedTypes();
+  bool RequireTrustedTypes() const;
+  void SetRequireTrustedTypesForTesting();  // Skips sanity checks.
 
+  // https://w3c.github.io/webappsec-upgrade-insecure-requests/#upgrade-insecure-navigations-set
   void SetInsecureNavigationsSet(const std::vector<unsigned>& set) {
     insecure_navigations_to_upgrade_.clear();
     for (unsigned hash : set)
@@ -118,6 +119,7 @@ class CORE_EXPORT SecurityContext : public GarbageCollectedMixin {
     return &insecure_navigations_to_upgrade_;
   }
 
+  // https://w3c.github.io/webappsec-upgrade-insecure-requests/#insecure-requests-policy
   virtual void SetInsecureRequestPolicy(WebInsecureRequestPolicy policy) {
     insecure_request_policy_ = policy;
   }
@@ -138,6 +140,10 @@ class CORE_EXPORT SecurityContext : public GarbageCollectedMixin {
   void InitializeFeaturePolicy(const ParsedFeaturePolicy& parsed_header,
                                const ParsedFeaturePolicy& container_policy,
                                const FeaturePolicy* parent_feature_policy);
+  void AddReportOnlyFeaturePolicy(
+      const ParsedFeaturePolicy& parsed_report_only_header,
+      const ParsedFeaturePolicy& container_policy,
+      const FeaturePolicy* parent_feature_policy);
 
   // Tests whether the policy-controlled feature is enabled in this frame.
   // Optionally sends a report to any registered reporting observers or
@@ -149,6 +155,8 @@ class CORE_EXPORT SecurityContext : public GarbageCollectedMixin {
       ReportOptions report_on_failure = ReportOptions::kDoNotReport,
       const String& message = g_empty_string) const;
   FeatureEnabledState GetFeatureEnabledState(mojom::FeaturePolicyFeature) const;
+  virtual void CountPotentialFeaturePolicyViolation(
+      mojom::FeaturePolicyFeature) const {}
   virtual void ReportFeaturePolicyViolation(
       mojom::FeaturePolicyFeature,
       mojom::FeaturePolicyDisposition,

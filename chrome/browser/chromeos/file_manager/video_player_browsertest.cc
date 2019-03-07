@@ -4,7 +4,7 @@
 
 #include "chrome/browser/chromeos/file_manager/file_manager_browsertest_base.h"
 
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 
 namespace file_manager {
 
@@ -70,6 +70,12 @@ IN_PROC_BROWSER_TEST_F(VideoPlayerBrowserTest, CheckInitialElements) {
 
 IN_PROC_BROWSER_TEST_F(VideoPlayerBrowserTest, ClickControlButtons) {
   set_test_case_name("clickControlButtons");
+  StartTest();
+}
+
+// Flaky see https://crbug.com/921418.
+IN_PROC_BROWSER_TEST_F(VideoPlayerBrowserTest, DISABLED_NativeMediaKey) {
+  set_test_case_name("mediaKeyNative");
   StartTest();
 }
 

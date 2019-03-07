@@ -189,20 +189,32 @@
     </message>
   </if>
 
+  <if expr="not is_android">
+    <message name="IDS_AUTOFILL_POPUP_ACCESSIBLE_NODE_DATA" desc="The accessibility text to speak when we display an autofill popup.">
+      Autofill
+    </message>
+    <message name="IDS_AUTOFILL_FIELD_LABEL_PHONE" desc="The label of the Phone entry in a settings-like UI to enter a phone number.">
+      Phone
+    </message>
+    <message name="IDS_AUTOFILL_FIELD_LABEL_BILLING_ADDRESS" desc="Title of the field representing the billing address of a credit card.">
+      Billing Address
+    </message>
+  </if>
+
   <!-- Autofill save credit card bubble or infobar prompt -->
   <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_ACCEPT" desc="Text to show for the Autofill save credit card prompt accept button. The prompt can be either a bubble or an infobar.">
     Save
   </message>
-  <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_NEXT" desc="Text to show for the Autofill upload save credit card prompt accept button when more information (e.g., CVC) is needed in order to save the card.">
-    Next
-  </message>
   <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_CONFIRM" desc="Text to show for the Autofill upload save credit card prompt accept button when more information (e.g., CVC) was needed in order to save the card and was entered.">
     Confirm
+  </message>
+  <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_CONTINUE" desc="Text to show for the Autofill upload save credit card prompt accept button when more information (e.g., CVC) was needed in order to save the card and was entered.">
+    Continue
   </message>
   <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_TITLE_LOCAL" desc="Title text for the Autofill save card prompt when the card is to be saved locally. The prompt can be either a bubble or an infobar.">
     Save card?
   </message>
-  <message name="IDS_AUTOFILL_NAME_FIX_FLOW_PROMPT_SAVE_CARD" desc="Text to show for the Autofill save credit card prompt card holder name fix flow button.">
+  <message name="IDS_AUTOFILL_NAME_FIX_FLOW_PROMPT_SAVE_CARD" desc="Text to show for the Autofill save credit card prompt card holder name fix flow button." formatter_data="android_java">
     Save card
   </message>
   <if expr="is_linux and not chromeos">
@@ -250,14 +262,14 @@
   <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_CARDHOLDER_NAME" desc="The label text for the cardholder name textfield.">
     Cardholder name
   </message>
-  <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_CARDHOLDER_NAME_TOOLTIP" desc="The tooltip text for the cardholder name textfield." formatter_data="android_java">
-    This name is from your Google Account.
+  <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_CARDHOLDER_NAME_TOOLTIP" desc="The tooltip text for the cardholder name textfield. Note that the translation should not have period" formatter_data="android_java">
+    This name is from your Google Account
   </message>
   <message name="IDS_AUTOFILL_SAVE_CARD_CARDHOLDER_NAME_FIX_FLOW_HEADER" desc="Header for the cardholder name fix flow.">
     Confirm name
   </message>
   <message name="IDS_AUTOFILL_SAVE_CARD_PROMPT_UPLOAD_EXPLANATION_TOOLTIP" desc="The tooltip hover text that explains why credit card upload to Google Payments is being offered.">
-    Chrome is offering to save your cards to your Google Account because you are signed in. You can change this behavior in settings.
+    Chrome is offering to save your cards in your Google Account because you are signed in. You can change this behavior in settings.
   </message>
 
   <!-- Autofill Local card migration bubble or dialog -->
@@ -292,10 +304,10 @@
     <message name="IDS_AUTOFILL_LOCAL_CARD_MIGRATION_DIALOG_CHECKBOX_UNCHECK_WARNING" desc="The warning text, after the user unchecks the checkbox, to indicate this card will still be saved on this device only, not to Google account.">
       Saved on this device only
     </message>
-    <message name="IDS_AUTOFILL_LOCAL_CARD_MIGRATION_DIALOG_MESSAGE_OFFER" desc="The body text for a dialog that offers to migrate local cards into the cloud. [ICU Syntax]">
+    <message name="IDS_AUTOFILL_LOCAL_CARD_MIGRATION_DIALOG_MESSAGE_OFFER" desc="The body text for a dialog that offers to migrate local cards into the cloud. [CHAR-LIMIT=NONE] [ICU Syntax]">
       {NUM_CARDS, plural,
-      =1 {You'll be able to use it when you're signed in. This card and its billing address will be saved in your Google Account.}
-      other {You'll be able to use them when you're signed in. These cards and their billing addresses will be saved in your Google Account.}}
+      =1 {This card and its billing address will be saved. You'll be able to use it when signed in to <ph name="USER_EMAIL">$1<ex>user@gmail.com</ex></ph>.}
+      other {These cards and their billing addresses will be saved. You'll be able to use them when signed in to <ph name="USER_EMAIL">$1<ex>user@gmail.com</ex></ph>.}}
     </message>
     <message name="IDS_AUTOFILL_LOCAL_CARD_MIGRATION_DIALOG_MESSAGE_DONE" desc="The body text for a dialog shown after the user accepts another dialog that offers to migrate local cards into the cloud and all cards are successfully migrated. [ICU Syntax]">
       {NUM_CARDS, plural,
@@ -491,6 +503,12 @@
       </message>
       <message name="IDS_AUTOFILL_PAYMENT_METHODS" desc="Title for the list of saved payment methods that can be used to fill in forms. Also used as the title for the Autofill settings page that allows user to manage their list of saved payment methods and Autofill preferences for payment methods. Sentence-Cased." formatter_data="android_java">
         Payment methods
+      </message>
+      <message name="IDS_AUTOFILL_LOCAL_PAYMENT_METHODS" desc="Title for the list of saved local payment methods that can be used to fill in forms. Sentence-Cased.">
+        On this device
+      </message>
+      <message name="IDS_AUTOFILL_SERVER_PAYMENT_METHODS" desc="Title for the list of saved server payment methods that can be used to fill in forms. Sentence-Cased.">
+        In your Google Account
       </message>
       <message name="IDS_AUTOFILL_ENABLE_PROFILES_TOGGLE_LABEL" desc="Label for a toggle that allows users to control whether addresses should be saved and forms should be autofilled with them. Sentence-Cased." formatter_data="android_java">
         Save and fill addresses

@@ -109,15 +109,6 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
       std::unique_ptr<WebMediaPlayerParams> params);
   ~WebMediaPlayerImpl() override;
 
-  // Destroys |demuxer| and records a UMA for the time taken to destroy it.
-  // |task_runner| is the expected runner on which this method is called, and is
-  // used as a parameter to ensure a scheduled task bound to this method is run
-  // (to prevent uncontrolled |demuxer| destruction if |task_runner| has no
-  // other references before such task is executed.)
-  static void DemuxerDestructionHelper(
-      scoped_refptr<base::SingleThreadTaskRunner> task_runner,
-      std::unique_ptr<Demuxer> demuxer);
-
   // WebSurfaceLayerBridgeObserver implementation.
   void OnWebLayerUpdated() override;
   void RegisterContentsLayer(cc::Layer* layer) override;
@@ -180,6 +171,8 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   double Duration() const override;
   virtual double timelineOffset() const;
   double CurrentTime() const override;
+
+  bool PausedWhenHidden() const override;
 
   // Internal states of loading and network.
   // TODO(hclam): Ask the pipeline about the state rather than having reading
@@ -293,6 +286,11 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   bool DidLazyLoad() const override;
   void OnBecameVisible() override;
+  bool IsOpaque() const override;
+
+  bool IsBackgroundMediaSuspendEnabled() const {
+    return is_background_suspend_enabled_;
+  }
 
   // Called from WebMediaPlayerCast.
   // TODO(hubbe): WMPI_CAST make private.
@@ -349,7 +347,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void OnDurationChange() override;
   void OnAddTextTrack(const TextTrackConfig& config,
                       const AddTextTrackDoneCB& done_cb) override;
-  void OnWaitingForDecryptionKey() override;
+  void OnWaiting(WaitingReason reason) override;
   void OnAudioConfigChange(const AudioDecoderConfig& config) override;
   void OnVideoConfigChange(const VideoDecoderConfig& config) override;
   void OnVideoNaturalSizeChange(const gfx::Size& size) override;
@@ -357,11 +355,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void OnVideoAverageKeyframeDistanceUpdate() override;
   void OnAudioDecoderChange(const std::string& name) override;
   void OnVideoDecoderChange(const std::string& name) override;
-
-  // When we lose the context_provider, we destroy the CompositorFrameSink to
-  // prevent frames from being submitted. The current surface_ids become
-  // invalid.
-  void OnFrameSinkDestroyed();
+  void OnRemotePlayStateChange(MediaStatus::State state) override;
 
   // Actually seek. Avoids causing |should_notify_time_changed_| to be set when
   // |time_updated| is false.
@@ -735,7 +729,8 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   //
   // |demuxer_| will contain the appropriate demuxer based on which resource
   // load strategy we're using.
-  std::unique_ptr<MultibufferDataSource> data_source_;
+  MultibufferDataSource* mb_data_source_ = nullptr;
+  std::unique_ptr<DataSource> data_source_;
   std::unique_ptr<Demuxer> demuxer_;
   ChunkDemuxer* chunk_demuxer_ = nullptr;
 
@@ -974,6 +969,17 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
 
   // True if StartPipeline() completed a lazy load startup.
   bool did_lazy_load_ = false;
+
+  // Whether the renderer should automatically suspend media playback in
+  // background tabs.
+  bool is_background_suspend_enabled_ = false;
+
+  // If disabled, video will be auto paused when in background. Affects the
+  // value of ShouldPauseVideoWhenHidden().
+  bool is_background_video_playback_enabled_ = true;
+
+  // Whether background video optimization is supported on current platform.
+  bool is_background_video_track_optimization_supported_ = true;
 
   DISALLOW_COPY_AND_ASSIGN(WebMediaPlayerImpl);
 };

@@ -146,6 +146,10 @@ class TestNetworkContext : public mojom::NetworkContext {
   void CreateHostResolver(
       const base::Optional<net::DnsConfigOverrides>& config_overrides,
       mojom::HostResolverRequest request) override {}
+  void NotifyExternalCacheHit(
+      const GURL& url,
+      const std::string& http_method,
+      const base::Optional<url::Origin>& top_frame_origin) override {}
   void WriteCacheMetadata(const GURL& url,
                           net::RequestPriority priority,
                           base::Time expected_response_time,
@@ -202,6 +206,9 @@ class TestNetworkContext : public mojom::NetworkContext {
       AddDomainReliabilityContextForTestingCallback callback) override {}
   void ForceDomainReliabilityUploadsForTesting(
       ForceDomainReliabilityUploadsForTestingCallback callback) override {}
+  void SaveHttpAuthCache(SaveHttpAuthCacheCallback callback) override {}
+  void LoadHttpAuthCache(const base::UnguessableToken& cache_key,
+                         LoadHttpAuthCacheCallback callback) override {}
   void LookupBasicAuthCredentials(
       const GURL& url,
       LookupBasicAuthCredentialsCallback callback) override {}

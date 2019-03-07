@@ -15,6 +15,7 @@ import android.support.v7.widget.RecyclerView;
 import android.util.JsonWriter;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -38,7 +39,6 @@ import org.chromium.ui.ContactsPickerListener;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -101,9 +101,10 @@ public class ContactsPickerDialogTest
     // ContactsPickerDialog.ContactsPickerListener:
 
     @Override
-    public void onContactsPickerUserAction(@ContactsPickerAction int action, String contacts) {
+    public void onContactsPickerUserAction(@ContactsPickerAction int action, String contactsJson,
+            List<ContactsPickerListener.Contact> contacts) {
         mLastActionRecorded = action;
-        mLastSelectedContacts = contacts;
+        mLastSelectedContacts = contactsJson;
         onActionCallback.notifyCalled();
     }
 
@@ -119,15 +120,16 @@ public class ContactsPickerDialogTest
         return (RecyclerView) mDialog.findViewById(R.id.recycler_view);
     }
 
-    private ContactsPickerDialog createDialog(
-            final boolean multiselect, final List<String> mimeTypes) throws Exception {
+    private ContactsPickerDialog createDialog(final boolean multiselect, final boolean includeNames,
+            final boolean includeEmails, final boolean includeTel) throws Exception {
         final ContactsPickerDialog dialog =
                 ThreadUtils.runOnUiThreadBlocking(new Callable<ContactsPickerDialog>() {
                     @Override
                     public ContactsPickerDialog call() {
                         final ContactsPickerDialog dialog =
                                 new ContactsPickerDialog(mActivityTestRule.getActivity(),
-                                        ContactsPickerDialogTest.this, multiselect, mimeTypes);
+                                        ContactsPickerDialogTest.this, multiselect, includeNames,
+                                        includeEmails, includeTel, "example.com");
                         dialog.show();
                         return dialog;
                     }
@@ -141,20 +143,32 @@ public class ContactsPickerDialogTest
         return dialog;
     }
 
+    /**
+     * Clicks a single view in the RecyclerView that occupies slot |position|. Note that even though
+     * the first entry in the RecyclerView is a Select All checkbox, this function automatically
+     * skips past it. This way, calling clickView for |position| 0 will click the first Contact in
+     * the list (and not the Select All checkbox).
+     * @param position The position of the item to click (zero-based), or -1 if the intention is to
+     *                 toggle the Select All checkbox.
+     * @param expectedSelectionCount The expected selection count after the view has been clicked.
+     * @param expectSelection True if the clicked-on view should become selected.
+     */
     private void clickView(final int position, final int expectedSelectionCount,
             final boolean expectSelection) throws Exception {
         RecyclerView recyclerView = getRecyclerView();
-        RecyclerViewTestUtils.scrollToView(recyclerView, position);
+        RecyclerViewTestUtils.scrollToView(recyclerView, position + 1);
 
         int callCount = onSelectionCallback.getCallCount();
         TestTouchUtils.performClickOnMainSync(InstrumentationRegistry.getInstrumentation(),
-                recyclerView.findViewHolderForAdapterPosition(position).itemView);
+                recyclerView.findViewHolderForAdapterPosition(position + 1).itemView);
         onSelectionCallback.waitForCallback(callCount, 1);
 
         // Validate the correct selection took place.
-        Assert.assertEquals(expectedSelectionCount, mCurrentContactSelection.size());
-        Assert.assertEquals(
-                expectSelection, mSelectionDelegate.isItemSelected(mTestContacts.get(position)));
+        if (position != -1) {
+            Assert.assertEquals(expectedSelectionCount, mCurrentContactSelection.size());
+            Assert.assertEquals(expectSelection,
+                    mSelectionDelegate.isItemSelected(mTestContacts.get(position)));
+        }
     }
 
     private void clickDone() throws Exception {
@@ -180,15 +194,16 @@ public class ContactsPickerDialogTest
         Assert.assertEquals(ContactsPickerAction.CANCEL, mLastActionRecorded);
     }
 
-    private void clickActionButton(final int expectedSelectionCount,
+    private void toggleSelectAll(final int expectedSelectionCount,
             final @ContactsPickerAction int expectedAction) throws Exception {
         mLastActionRecorded = ContactsPickerAction.NUM_ENTRIES;
 
-        ContactsPickerToolbar toolbar =
-                (ContactsPickerToolbar) mDialog.findViewById(R.id.action_bar);
-        View action = toolbar.findViewById(R.id.action);
         int callCount = onActionCallback.getCallCount();
-        TestTouchUtils.performClickOnMainSync(InstrumentationRegistry.getInstrumentation(), action);
+
+        // The clickView function automatically skips the Select All checkbox, which is the first
+        // item in the list. Compensate for that by passing in -1.
+        clickView(-1, expectedSelectionCount,
+                expectedAction == ContactsPickerAction.CONTACTS_SELECTED);
         onActionCallback.waitForCallback(callCount, 1);
         Assert.assertEquals(expectedSelectionCount, mSelectionDelegate.getSelectedItems().size());
         Assert.assertEquals(expectedAction, mLastActionRecorded);
@@ -225,8 +240,33 @@ public class ContactsPickerDialogTest
 
     @Test
     @LargeTest
+    public void testOriginString() throws Throwable {
+        createDialog(/* multiselect = */ true, /* includeNames = */ true,
+                /* includeEmails = */ true,
+                /* includeTel = */ true);
+        Assert.assertTrue(mDialog.isShowing());
+
+        RecyclerView recyclerView = getRecyclerView();
+        RecyclerViewTestUtils.waitForView(recyclerView, 0);
+        View view = recyclerView.getLayoutManager().findViewByPosition(0);
+        Assert.assertNotNull(view);
+        Assert.assertTrue(view instanceof TopView);
+        TopView topView = (TopView) view;
+        Assert.assertNotNull(topView);
+        TextView explanation = (TextView) topView.findViewById(R.id.explanation);
+        Assert.assertNotNull(explanation);
+        Assert.assertEquals(explanation.getText(),
+                "The contacts you select below will be shared with the website example.com.");
+
+        dismissDialog();
+    }
+
+    @Test
+    @LargeTest
     public void testNoSelection() throws Throwable {
-        createDialog(/* multiselect = */ false, Arrays.asList("image/*"));
+        createDialog(/* multiselect = */ false, /* includeNames = */ true,
+                /* includeEmails = */ true,
+                /* includeTel = */ true);
         Assert.assertTrue(mDialog.isShowing());
 
         int expectedSelectionCount = 1;
@@ -242,7 +282,9 @@ public class ContactsPickerDialogTest
     @Test
     @LargeTest
     public void testSingleSelectionContacts() throws Throwable {
-        createDialog(/* multiselect = */ false, Arrays.asList("image/*"));
+        createDialog(/* multiselect = */ false, /* includeNames = */ true,
+                /* includeEmails = */ true,
+                /* includeTel = */ true);
         Assert.assertTrue(mDialog.isShowing());
 
         // Expected selection count is 1 because clicking on a new view deselects other.
@@ -266,7 +308,9 @@ public class ContactsPickerDialogTest
     @Test
     @LargeTest
     public void testMultiSelectionContacts() throws Throwable {
-        createDialog(/* multiselect = */ true, Arrays.asList("image/*"));
+        createDialog(/* multiselect = */ true, /* includeNames = */ true,
+                /* includeEmails = */ true,
+                /* includeTel = */ true);
         Assert.assertTrue(mDialog.isShowing());
 
         // Multi-selection is enabled, so each click is counted.
@@ -293,46 +337,38 @@ public class ContactsPickerDialogTest
     @Test
     @LargeTest
     public void testSelectAll() throws Throwable {
-        createDialog(/* multiselect = */ true, Arrays.asList("image/*"));
+        createDialog(/* multiselect = */ true, /* includeNames = */ true,
+                /* includeEmails = */ true,
+                /* includeTel = */ true);
         Assert.assertTrue(mDialog.isShowing());
 
-        ContactsPickerToolbar toolbar =
-                (ContactsPickerToolbar) mDialog.findViewById(R.id.action_bar);
-        View action = toolbar.findViewById(R.id.action);
-        Assert.assertEquals(View.VISIBLE, action.getVisibility());
-
-        clickActionButton(6, ContactsPickerAction.SELECT_ALL);
-        clickActionButton(0, ContactsPickerAction.UNDO_SELECT_ALL);
+        toggleSelectAll(6, ContactsPickerAction.SELECT_ALL);
+        toggleSelectAll(0, ContactsPickerAction.UNDO_SELECT_ALL);
 
         // Manually select one item.
-        int expectedSelectionCount = 0;
-        clickView(0, ++expectedSelectionCount, /* expectSelection = */ true);
+        clickView(0, /* expectedSelectionCount = */ 1, /* expectSelection = */ true);
 
-        clickActionButton(6, ContactsPickerAction.SELECT_ALL);
-        clickActionButton(1, ContactsPickerAction.UNDO_SELECT_ALL);
+        toggleSelectAll(6, ContactsPickerAction.SELECT_ALL);
+        toggleSelectAll(0, ContactsPickerAction.UNDO_SELECT_ALL);
 
         // Select the rest of the items manually.
+        int expectedSelectionCount = 0;
         clickView(1, ++expectedSelectionCount, /* expectSelection = */ true);
         clickView(2, ++expectedSelectionCount, /* expectSelection = */ true);
         clickView(3, ++expectedSelectionCount, /* expectSelection = */ true);
         clickView(4, ++expectedSelectionCount, /* expectSelection = */ true);
         clickView(5, ++expectedSelectionCount, /* expectSelection = */ true);
 
-        // Select all should no longer be visible (nothing left to select).
-        Assert.assertEquals(View.GONE, action.getVisibility());
-
-        // Deselect one item. The Select All button should re-appear.
-        clickView(5, --expectedSelectionCount, /* expectSelection = */ false);
-        Assert.assertEquals(View.VISIBLE, action.getVisibility());
-
-        clickActionButton(6, ContactsPickerAction.SELECT_ALL);
-        clickActionButton(5, ContactsPickerAction.UNDO_SELECT_ALL);
+        toggleSelectAll(6, ContactsPickerAction.SELECT_ALL);
+        toggleSelectAll(0, ContactsPickerAction.UNDO_SELECT_ALL);
     }
 
     @Test
     @LargeTest
     public void testNoSearchStringNoCrash() throws Throwable {
-        createDialog(/* multiselect = */ true, Arrays.asList("image/*"));
+        createDialog(/* multiselect = */ true, /* includeNames = */ true,
+                /* includeEmails = */ true,
+                /* includeTel = */ true);
         Assert.assertTrue(mDialog.isShowing());
 
         clickSearchButton();

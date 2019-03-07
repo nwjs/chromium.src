@@ -25,7 +25,7 @@ import org.chromium.chrome.browser.download.ChromeDownloadDelegate;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.util.UrlUtilities;
@@ -223,7 +223,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
 
     @Override
     public void onOpenInEphemeralTab(String url, String title) {
-        mTab.getActivity().getEphemeralTabPanel().requestOpenPanel(url, title);
+        mTab.getActivity().getEphemeralTabPanel().requestOpenPanel(url, title, mTab.isIncognito());
     }
 
     @Override
@@ -243,7 +243,7 @@ public class TabContextMenuItemDelegate implements ContextMenuItemDelegate {
             if (packageManager.queryIntentActivities(chromeIntent, 0).isEmpty()) return;
         }
 
-        // For "Open in Chrome" from the context menu in FullscreenActivity we want to bypass
+        // For "Open in Chrome" from the context menu in WebappActivity we want to bypass
         // CustomTab, and this flag ensures we open in TabbedChrome.
         chromeIntent.putExtra(LaunchIntentDispatcher.EXTRA_IS_ALLOWED_TO_RETURN_TO_PARENT, false);
 

@@ -18,14 +18,12 @@
 #include "chrome/common/origin_trials/chrome_origin_trial_policy.h"
 #include "components/nacl/common/buildflags.h"
 #include "content/public/common/content_client.h"
+#include "pdf/buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 #include "content/public/common/pepper_plugin_info.h"
 #endif
-
-// Returns the user agent of Chrome.
-std::string GetUserAgent();
 
 class ChromeContentClient : public content::ContentClient {
  public:
@@ -58,12 +56,14 @@ class ChromeContentClient : public content::ContentClient {
       content::PepperPluginInfo::PPP_ShutdownModuleFunc shutdown_module);
 #endif
 
-#if BUILDFLAG(ENABLE_PLUGINS)
+#if BUILDFLAG(ENABLE_PLUGINS) && BUILDFLAG(ENABLE_PDF)
   static void SetPDFEntryFunctions(
       content::PepperPluginInfo::GetInterfaceFunc get_interface,
       content::PepperPluginInfo::PPP_InitializeModuleFunc initialize_module,
       content::PepperPluginInfo::PPP_ShutdownModuleFunc shutdown_module);
+#endif
 
+#if BUILDFLAG(ENABLE_PLUGINS)
   // This returns the most recent plugin based on the plugin versions. In the
   // event of a tie, a debug plugin will be considered more recent than a
   // non-debug plugin.
@@ -84,8 +84,6 @@ class ChromeContentClient : public content::ContentClient {
       std::vector<media::CdmHostFilePath>* cdm_host_file_paths) override;
 
   void AddAdditionalSchemes(Schemes* schemes) override;
-  std::string GetProduct() const override;
-  std::string GetUserAgent() const override;
   base::string16 GetLocalizedString(int message_id) const override;
   base::StringPiece GetDataResource(
       int resource_id,

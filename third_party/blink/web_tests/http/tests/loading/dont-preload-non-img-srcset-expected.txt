@@ -12,6 +12,7 @@ main frame - didFinishDocumentLoadForFrame
 main frame - didHandleOnloadEventsForFrame
 main frame - didFinishLoadForFrame
 main frame - didStartProvisionalLoadForFrame
+main frame - didStartProvisionalLoadForFrame
 main frame - didCommitLoadForFrame
 frame "<!--framePath //<!--frame0-->-->" - didReceiveTitle: 
 frame "<!--framePath //<!--frame0-->-->" - didStartProvisionalLoadForFrame
@@ -30,5 +31,6 @@ PASS internals.isPreloaded('resources/empty.js'); is false
 PASS successfullyParsed is true
 
 TEST COMPLETE
+
 This test passes if the image is preloaded, but none of the non-img elements with a srcset attribute is.
  

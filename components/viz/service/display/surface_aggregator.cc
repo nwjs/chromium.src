@@ -325,12 +325,13 @@ void SurfaceAggregator::EmitSurfaceContent(
 
     RenderPassId remapped_pass_id = RemapPassId(source.id, surface_id);
 
-    copy_pass->SetAll(
-        remapped_pass_id, source.output_rect, source.output_rect,
-        source.transform_to_root_target, source.filters,
-        source.backdrop_filters, blending_color_space_,
-        source.has_transparent_background, source.cache_render_pass,
-        source.has_damage_from_contributing_content, source.generate_mipmap);
+    copy_pass->SetAll(remapped_pass_id, source.output_rect, source.output_rect,
+                      source.transform_to_root_target, source.filters,
+                      source.backdrop_filters, source.backdrop_filter_bounds,
+                      blending_color_space_, source.has_transparent_background,
+                      source.cache_render_pass,
+                      source.has_damage_from_contributing_content,
+                      source.generate_mipmap);
 
     MoveMatchingRequests(source.id, &copy_requests, &copy_pass->copy_requests);
 
@@ -410,8 +411,7 @@ void SurfaceAggregator::EmitSurfaceContent(
         gfx::ScaleToEnclosingRect(source_sqs->visible_quad_layer_rect,
                                   layer_to_content_scale_x,
                                   layer_to_content_scale_y),
-        clip_rect, dest_pass, layer_to_content_scale_x,
-        layer_to_content_scale_y);
+        clip_rect, dest_pass);
 
     gfx::Rect scaled_rect(gfx::ScaleToEnclosingRect(
         source_rect, layer_to_content_scale_x, layer_to_content_scale_y));
@@ -474,7 +474,7 @@ void SurfaceAggregator::EmitGutterQuadsIfNecessary(
     SharedQuadState* shared_quad_state = CopyAndScaleSharedQuadState(
         primary_shared_quad_state,
         primary_shared_quad_state->quad_to_target_transform, target_transform,
-        right_gutter_rect, right_gutter_rect, clip_rect, dest_pass, 1.0f, 1.0f);
+        right_gutter_rect, right_gutter_rect, clip_rect, dest_pass);
 
     auto* right_gutter =
         dest_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
@@ -490,8 +490,7 @@ void SurfaceAggregator::EmitGutterQuadsIfNecessary(
     SharedQuadState* shared_quad_state = CopyAndScaleSharedQuadState(
         primary_shared_quad_state,
         primary_shared_quad_state->quad_to_target_transform, target_transform,
-        bottom_gutter_rect, bottom_gutter_rect, clip_rect, dest_pass, 1.0f,
-        1.0f);
+        bottom_gutter_rect, bottom_gutter_rect, clip_rect, dest_pass);
 
     auto* bottom_gutter =
         dest_pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
@@ -548,7 +547,7 @@ SharedQuadState* SurfaceAggregator::CopySharedQuadState(
   return CopyAndScaleSharedQuadState(
       source_sqs, source_sqs->quad_to_target_transform, target_transform,
       source_sqs->quad_layer_rect, source_sqs->visible_quad_layer_rect,
-      clip_rect, dest_render_pass, 1.0f, 1.0f);
+      clip_rect, dest_render_pass);
 }
 
 SharedQuadState* SurfaceAggregator::CopyAndScaleSharedQuadState(
@@ -558,9 +557,7 @@ SharedQuadState* SurfaceAggregator::CopyAndScaleSharedQuadState(
     const gfx::Rect& quad_layer_rect,
     const gfx::Rect& visible_quad_layer_rect,
     const ClipData& clip_rect,
-    RenderPass* dest_render_pass,
-    float x_scale,
-    float y_scale) {
+    RenderPass* dest_render_pass) {
   auto* shared_quad_state = dest_render_pass->CreateAndAppendSharedQuadState();
   ClipData new_clip_rect = CalculateClipRect(
       clip_rect, ClipData(source_sqs->is_clipped, source_sqs->clip_rect),
@@ -638,8 +635,7 @@ void SurfaceAggregator::CopyQuadsToPass(
         const SharedQuadState* dest_shared_quad_state = CopySharedQuadState(
             quad->shared_quad_state, target_transform, clip_rect, dest_pass);
         last_copied_source_shared_quad_state = quad->shared_quad_state;
-        if (aggregate_only_damaged_ && !has_copy_requests_ &&
-            !has_cached_render_passes_) {
+        if (ignore_undamaged) {
           damage_rect_in_quad_space_valid = CalculateQuadSpaceDamageRect(
               dest_shared_quad_state->quad_to_target_transform,
               dest_pass->transform_to_root_target, root_damage_rect_,
@@ -729,12 +725,13 @@ void SurfaceAggregator::CopyPasses(const CompositorFrame& frame,
     RenderPassId remapped_pass_id =
         RemapPassId(source.id, surface->surface_id());
 
-    copy_pass->SetAll(
-        remapped_pass_id, source.output_rect, source.output_rect,
-        source.transform_to_root_target, source.filters,
-        source.backdrop_filters, blending_color_space_,
-        source.has_transparent_background, source.cache_render_pass,
-        source.has_damage_from_contributing_content, source.generate_mipmap);
+    copy_pass->SetAll(remapped_pass_id, source.output_rect, source.output_rect,
+                      source.transform_to_root_target, source.filters,
+                      source.backdrop_filters, source.backdrop_filter_bounds,
+                      blending_color_space_, source.has_transparent_background,
+                      source.cache_render_pass,
+                      source.has_damage_from_contributing_content,
+                      source.generate_mipmap);
 
     CopyQuadsToPass(source.quad_list, source.shared_quad_state_list,
                     frame.device_scale_factor(), child_to_parent_map,
@@ -1115,6 +1112,7 @@ CompositorFrame SurfaceAggregator::Aggregate(
 
   Surface* surface = manager_->GetSurfaceForId(surface_id);
   DCHECK(surface);
+  DCHECK(contained_surfaces_.empty());
   contained_surfaces_[surface_id] = surface->GetActiveFrameIndex();
 
   LocalSurfaceId& local_surface_id =
@@ -1142,6 +1140,7 @@ CompositorFrame SurfaceAggregator::Aggregate(
   valid_surfaces_.clear();
   has_cached_render_passes_ = false;
   damage_ranges_.clear();
+  DCHECK(referenced_surfaces_.empty());
   PrewalkResult prewalk_result;
   root_damage_rect_ =
       PrewalkTree(surface, false, 0, true /* will_draw */, &prewalk_result);
@@ -1150,7 +1149,6 @@ CompositorFrame SurfaceAggregator::Aggregate(
   frame.metadata.may_contain_video = prewalk_result.may_contain_video;
 
   CopyUndrawnSurfaces(&prewalk_result);
-  undrawn_surfaces_ = std::move(prewalk_result.undrawn_surfaces);
   referenced_surfaces_.insert(surface_id);
   CopyPasses(root_surface_frame, surface);
   // CopyPasses may have mutated container, need to re-query to erase.

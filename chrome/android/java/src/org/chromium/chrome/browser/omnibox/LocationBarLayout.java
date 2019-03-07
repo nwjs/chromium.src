@@ -31,6 +31,7 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.WindowDelegate;
@@ -46,7 +47,6 @@ import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
 import org.chromium.chrome.browser.omnibox.status.StatusViewCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator.AutocompleteDelegate;
-import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestion;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsList;
 import org.chromium.chrome.browser.preferences.privacy.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -55,6 +55,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.top.ToolbarActionModeCallback;
+import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -70,7 +71,7 @@ import java.util.List;
  */
 public class LocationBarLayout extends FrameLayout
         implements OnClickListener, LocationBar, AutocompleteDelegate, FakeboxDelegate,
-                   LocationBarVoiceRecognitionHandler.Delegate, StatusViewCoordinator.Delegate {
+                   LocationBarVoiceRecognitionHandler.Delegate {
     private static final String TAG = "cr_LocationBar";
 
     protected ImageButton mDeleteButton;
@@ -156,6 +157,7 @@ public class LocationBarLayout extends FrameLayout
         mDeleteButton = findViewById(R.id.delete_button);
 
         mUrlBar = findViewById(R.id.url_bar);
+
         mUrlCoordinator = new UrlBarCoordinator((UrlBar) mUrlBar);
         mUrlCoordinator.setDelegate(this);
 
@@ -199,8 +201,10 @@ public class LocationBarLayout extends FrameLayout
 
         setLayoutTransition(null);
 
-        mStatusViewCoordinator = new StatusViewCoordinator(mIsTablet, this, this);
+        mStatusViewCoordinator =
+                new StatusViewCoordinator(mIsTablet, findViewById(R.id.location_bar_status));
 
+        updateShouldAnimateIconChanges();
         mUrlBar.setOnKeyListener(new UrlBarKeyListener());
 
         // mLocationBar's direction is tied to this UrlBar's text direction. Icons inside the
@@ -244,14 +248,14 @@ public class LocationBarLayout extends FrameLayout
     }
 
     @Override
-    public void initializeControls(WindowDelegate windowDelegate,
-            WindowAndroid windowAndroid) {
+    public void initializeControls(WindowDelegate windowDelegate, WindowAndroid windowAndroid,
+            ActivityTabProvider provider) {
         mWindowDelegate = windowDelegate;
         mWindowAndroid = windowAndroid;
 
         mUrlCoordinator.setWindowDelegate(windowDelegate);
-        mStatusViewCoordinator.setWindowAndroid(windowAndroid);
         mAutocompleteCoordinator.setWindowAndroid(windowAndroid);
+        mAutocompleteCoordinator.setActivityTabProvider(provider);
     }
 
     /**
@@ -302,9 +306,22 @@ public class LocationBarLayout extends FrameLayout
         updateMicButtonVisibility(mUrlFocusChangePercent);
     }
 
-    @Override
-    public boolean shouldAnimateIconChanges() {
-        return mUrlHasFocus;
+    /**
+     * Evaluate state and update child components' animations.
+     *
+     * This call and all overrides should invoke `notifyShouldAnimateIconChanges(boolean)` with a
+     * computed boolean value toggling animation support in child components.
+     */
+    protected void updateShouldAnimateIconChanges() {
+        notifyShouldAnimateIconChanges(mUrlHasFocus);
+    }
+
+    /**
+     * Toggle child components animations.
+     * @param shouldAnimate Boolean flag indicating whether animations should be enabled.
+     */
+    protected void notifyShouldAnimateIconChanges(boolean shouldAnimate) {
+        mStatusViewCoordinator.setShouldAnimateIconChanges(shouldAnimate);
     }
 
     /**
@@ -316,8 +333,7 @@ public class LocationBarLayout extends FrameLayout
         // This will only be called once at least one tab exists, and the tab model is told to
         // update its state. During Chrome initialization the tab model update happens after the
         // call to onNativeLibraryReady, so this assert will not fire.
-        assert mNativeInitialized
-                : "Setting Autocomplete Profile before native side initialized";
+        assert mNativeInitialized : "Setting Autocomplete Profile before native side initialized";
         mAutocompleteCoordinator.setAutocompleteProfile(profile);
         mOmniboxPrerender.initializeForProfile(profile);
     }
@@ -340,6 +356,11 @@ public class LocationBarLayout extends FrameLayout
     @Override
     public boolean isUrlBarFocused() {
         return mUrlHasFocus;
+    }
+
+    @Override
+    public void clearOmniboxFocus() {
+        setUrlBarFocus(false);
     }
 
     @Override
@@ -381,6 +402,24 @@ public class LocationBarLayout extends FrameLayout
         }
 
         if (!inProgress) {
+            // The accessibility bounding box is not properly updated when focusing the Omnibox
+            // from the NTP fakebox.  Clearing/re-requesting focus triggers the bounding box to
+            // be recalculated.
+            if (didFocusUrlFromFakebox() && !inProgress && mUrlHasFocus
+                    && AccessibilityUtil.isAccessibilityEnabled()) {
+                String existingText = mUrlCoordinator.getTextWithoutAutocomplete();
+                mUrlBar.clearFocus();
+                mUrlBar.requestFocus();
+                // Existing text (e.g. if the user pasted via the fakebox) from the fake box
+                // should be restored after toggling the focus.
+                if (!TextUtils.isEmpty(existingText)) {
+                    mUrlCoordinator.setUrlBarData(UrlBarData.forNonUrlText(existingText),
+                            UrlBar.ScrollType.NO_SCROLL,
+                            UrlBarCoordinator.SelectionState.SELECT_END);
+                    mAutocompleteCoordinator.onTextChangedForAutocomplete();
+                }
+            }
+
             for (UrlFocusChangeListener listener : mUrlFocusChangeListeners) {
                 listener.onUrlAnimationFinished(mUrlHasFocus);
             }
@@ -394,7 +433,7 @@ public class LocationBarLayout extends FrameLayout
     public void onUrlFocusChange(boolean hasFocus) {
         mUrlHasFocus = hasFocus;
         updateButtonVisibility();
-        updateNavigationButton();
+        updateShouldAnimateIconChanges();
 
         if (hasFocus) {
             if (mNativeInitialized) RecordUserAction.record("FocusLocation");
@@ -467,7 +506,6 @@ public class LocationBarLayout extends FrameLayout
     @Override
     public void onUrlTextChanged() {
         updateButtonVisibility();
-        updateNavigationButton();
     }
 
     @Override
@@ -544,36 +582,12 @@ public class LocationBarLayout extends FrameLayout
         return mToolbarDataProvider;
     }
 
-    private static @StatusViewCoordinator.NavigationButtonType
-    int suggestionTypeToNavigationButtonType(OmniboxSuggestion suggestion) {
-        if (suggestion.isUrlSuggestion()) {
-            return StatusViewCoordinator.NavigationButtonType.PAGE;
-        } else {
-            return StatusViewCoordinator.NavigationButtonType.MAGNIFIER;
-        }
-    }
-
-    // Updates the navigation button based on the URL string
-    private void updateNavigationButton() {
-        @StatusViewCoordinator.NavigationButtonType
-        int type = StatusViewCoordinator.NavigationButtonType.EMPTY;
-        if (mIsTablet && mAutocompleteCoordinator.getSuggestionCount() > 0) {
-            // If there are suggestions showing, show the icon for the default suggestion.
-            type = suggestionTypeToNavigationButtonType(
-                    mAutocompleteCoordinator.getSuggestionAt(0));
-        } else if (mIsTablet) {
-            type = StatusViewCoordinator.NavigationButtonType.PAGE;
-        }
-
-        mStatusViewCoordinator.setNavigationButtonType(type);
-    }
-
     /**
      * Updates the security icon displayed in the LocationBar.
      */
     @Override
-    public void updateSecurityIcon() {
-        mStatusViewCoordinator.updateSecurityIcon();
+    public void updateStatusIcon() {
+        mStatusViewCoordinator.updateStatusIcon();
         // Update the URL in case the scheme change triggers a URL emphasis change.
         setUrlToPageUrl();
     }
@@ -613,21 +627,21 @@ public class LocationBarLayout extends FrameLayout
                 int widthMeasureSpec;
                 int heightMeasureSpec;
                 if (childLayoutParams.width == LayoutParams.WRAP_CONTENT) {
-                    widthMeasureSpec = MeasureSpec.makeMeasureSpec(
-                            getMeasuredWidth(), MeasureSpec.AT_MOST);
+                    widthMeasureSpec =
+                            MeasureSpec.makeMeasureSpec(getMeasuredWidth(), MeasureSpec.AT_MOST);
                 } else if (childLayoutParams.width == LayoutParams.MATCH_PARENT) {
-                    widthMeasureSpec = MeasureSpec.makeMeasureSpec(
-                            getMeasuredWidth(), MeasureSpec.EXACTLY);
+                    widthMeasureSpec =
+                            MeasureSpec.makeMeasureSpec(getMeasuredWidth(), MeasureSpec.EXACTLY);
                 } else {
                     widthMeasureSpec = MeasureSpec.makeMeasureSpec(
                             childLayoutParams.width, MeasureSpec.EXACTLY);
                 }
                 if (childLayoutParams.height == LayoutParams.WRAP_CONTENT) {
-                    heightMeasureSpec = MeasureSpec.makeMeasureSpec(
-                            getMeasuredHeight(), MeasureSpec.AT_MOST);
+                    heightMeasureSpec =
+                            MeasureSpec.makeMeasureSpec(getMeasuredHeight(), MeasureSpec.AT_MOST);
                 } else if (childLayoutParams.height == LayoutParams.MATCH_PARENT) {
-                    heightMeasureSpec = MeasureSpec.makeMeasureSpec(
-                            getMeasuredHeight(), MeasureSpec.EXACTLY);
+                    heightMeasureSpec =
+                            MeasureSpec.makeMeasureSpec(getMeasuredHeight(), MeasureSpec.EXACTLY);
                 } else {
                     heightMeasureSpec = MeasureSpec.makeMeasureSpec(
                             childLayoutParams.height, MeasureSpec.EXACTLY);
@@ -680,14 +694,12 @@ public class LocationBarLayout extends FrameLayout
     }
 
     @Override
-    public void onSuggestionsHidden() {
-        updateNavigationButton();
-    }
-
-    @Override
     public void hideKeyboard() {
         getWindowAndroid().getKeyboardDelegate().hideKeyboard(mUrlBar);
     }
+
+    @Override
+    public void onSuggestionsHidden() {}
 
     @Override
     public void onSuggestionsChanged(String autocompleteText) {
@@ -701,9 +713,6 @@ public class LocationBarLayout extends FrameLayout
         if (mUrlFocusedWithoutAnimations && mUrlHasFocus) {
             handleUrlFocusAnimation(mUrlHasFocus);
         }
-
-        // Update the navigation button to show the default suggestion's icon.
-        updateNavigationButton();
 
         if (mNativeInitialized
                 && !CommandLine.getInstance().hasSwitch(ChromeSwitches.DISABLE_INSTANT)
@@ -772,7 +781,6 @@ public class LocationBarLayout extends FrameLayout
             }
         });
     }
-
 
     @Override
     public void onClick(View v) {
@@ -937,8 +945,7 @@ public class LocationBarLayout extends FrameLayout
     @Override
     public void updateLoadingState(boolean updateUrl) {
         if (updateUrl) setUrlToPageUrl();
-        updateNavigationButton();
-        mStatusViewCoordinator.updateSecurityIcon();
+        mStatusViewCoordinator.updateStatusIcon();
     }
 
     /** @return The current active {@link Tab}. */
@@ -962,7 +969,7 @@ public class LocationBarLayout extends FrameLayout
     }
 
     @Override
-    public void setUnfocusedWidth(float unfocusedWidth) {
+    public void setUnfocusedWidth(int unfocusedWidth) {
         mStatusViewCoordinator.setUnfocusedLocationBarWidth(unfocusedWidth);
     }
 
@@ -1007,7 +1014,8 @@ public class LocationBarLayout extends FrameLayout
      */
     @Override
     public void updateVisualsForState() {
-        if (updateUseDarkColors()) mStatusViewCoordinator.setUseDarkColors(mUseDarkColors);
+        updateUseDarkColors();
+
         int id = mUseDarkColors ? R.color.dark_mode_tint : R.color.light_mode_tint;
         ColorStateList colorStateList = AppCompatResources.getColorStateList(getContext(), id);
         ApiCompatibilityUtils.setImageTintList(mMicButton, colorStateList);
@@ -1019,6 +1027,7 @@ public class LocationBarLayout extends FrameLayout
             setUrlToPageUrl();
         }
 
+        mStatusViewCoordinator.setUseDarkColors(mUseDarkColors);
         mAutocompleteCoordinator.updateVisualsForState(mUseDarkColors);
     }
 
@@ -1059,10 +1068,10 @@ public class LocationBarLayout extends FrameLayout
     }
 
     @Override
-    public void setTitleToPageTitle() { }
+    public void setTitleToPageTitle() {}
 
     @Override
-    public void setShowTitle(boolean showTitle) { }
+    public void setShowTitle(boolean showTitle) {}
 
     @Override
     public WindowAndroid getWindowAndroid() {

@@ -79,6 +79,8 @@ class BasicLockAcquireAndWaitThread : public SimpleThread {
   DISALLOW_COPY_AND_ASSIGN(BasicLockAcquireAndWaitThread);
 };
 
+}  // namespace
+
 TEST(TaskSchedulerLock, Basic) {
   SchedulerLock lock;
   BasicLockTestThread thread(&lock);
@@ -342,6 +344,35 @@ TEST(TaskSchedulerLock, AcquireUniversalPredecessorAfterUniversalPredecessor) {
   });
 }
 
+TEST(TaskSchedulerLock, AssertNoLockHeldOnCurrentThread) {
+  // AssertNoLockHeldOnCurrentThread() shouldn't fail when no lock is acquired.
+  SchedulerLock::AssertNoLockHeldOnCurrentThread();
+
+  // AssertNoLockHeldOnCurrentThread() should fail when a lock is acquired.
+  SchedulerLock lock;
+  {
+    AutoSchedulerLock auto_lock(lock);
+    EXPECT_DCHECK_DEATH({ SchedulerLock::AssertNoLockHeldOnCurrentThread(); });
+  }
+}
+
+namespace {
+
+class MemberGuardedByLock {
+ public:
+  SchedulerLock lock_;
+  int value GUARDED_BY(lock_) = 0;
+};
+
 }  // namespace
+
+TEST(TaskSchedulerLock, AnnotateAcquiredLockAlias) {
+  MemberGuardedByLock member_guarded_by_lock;
+  SchedulerLock* acquired = &member_guarded_by_lock.lock_;
+  AutoSchedulerLock auto_lock(*acquired);
+  AnnotateAcquiredLockAlias annotate(*acquired, member_guarded_by_lock.lock_);
+  member_guarded_by_lock.value = 42;  // Doesn't compile without |annotate|.
+}
+
 }  // namespace internal
 }  // namespace base

@@ -11,7 +11,7 @@
 #include <string>
 
 #include "base/callback.h"
-#include "storage/browser/storage_browser_export.h"
+#include "base/component_export.h"
 #include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
 #include "url/origin.h"
 
@@ -23,7 +23,7 @@ namespace storage {
 // the quota manager, by calling QuotaManager::RegisterClient().
 //
 // All the methods will be called on the IO thread in the browser.
-class STORAGE_EXPORT QuotaClient {
+class COMPONENT_EXPORT(STORAGE_BROWSER) QuotaClient {
  public:
   using GetUsageCallback = base::OnceCallback<void(int64_t usage)>;
   using GetOriginsCallback =
@@ -76,6 +76,12 @@ class STORAGE_EXPORT QuotaClient {
   virtual void DeleteOriginData(const url::Origin& origin,
                                 blink::mojom::StorageType type,
                                 DeletionCallback callback) = 0;
+
+  // Called by the QuotaManager.
+  // This can be implemented if a QuotaClient would like to perform a cleanup
+  // step after major deletions.
+  virtual void PerformStorageCleanup(blink::mojom::StorageType type,
+                                     base::OnceClosure callback);
 
   virtual bool DoesSupport(blink::mojom::StorageType type) const = 0;
 };

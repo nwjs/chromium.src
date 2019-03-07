@@ -49,6 +49,7 @@
 #include "chrome/renderer/chrome_render_view_observer.h"
 #include "chrome/renderer/content_settings_observer.h"
 #include "chrome/renderer/loadtimes_extension_bindings.h"
+#include "chrome/renderer/media/flash_embed_rewrite.h"
 #include "chrome/renderer/media/webrtc_logging_message_filter.h"
 #include "chrome/renderer/net/net_error_helper.h"
 #include "chrome/renderer/net_benchmarking_extension.h"
@@ -81,7 +82,6 @@
 #include "components/network_hints/renderer/prescient_networking_dispatcher.h"
 #include "components/pdf/renderer/pepper_pdf_host.h"
 #include "components/safe_browsing/renderer/threat_dom_details.h"
-#include "components/services/heap_profiling/public/cpp/allocator_shim.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "components/startup_metric_utils/common/startup_metric.mojom.h"
 #include "components/subresource_filter/content/renderer/subresource_filter_agent.h"
@@ -114,8 +114,7 @@
 #include "services/service_manager/public/cpp/connector.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/platform/scheduler/web_renderer_process_type.h"
 #include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_cache.h"
@@ -224,25 +223,11 @@ using content::WebPluginInfo;
 using content::WebPluginMimeType;
 using extensions::Extension;
 
-namespace internal {
-const char kFlashYouTubeRewriteUMA[] = "Plugin.Flash.YouTubeRewrite";
-}  // namespace internal
-
 namespace {
-
-void RecordYouTubeRewriteUMA(internal::YouTubeRewriteStatus status) {
-  UMA_HISTOGRAM_ENUMERATION(internal::kFlashYouTubeRewriteUMA, status,
-                            internal::NUM_PLUGIN_ERROR);
-}
 
 // Whitelist PPAPI for Android Runtime for Chromium. (See crbug.com/383937)
 #if BUILDFLAG(ENABLE_PLUGINS)
 const char* const kPredefinedAllowedCameraDeviceOrigins[] = {
-  "6EAED1924DB611B6EEF2A664BD077BE7EAD33B8F",
-  "4EB74897CB187C7633357C2FE832E0AD6A44883A"
-};
-
-const char* const kPredefinedAllowedCompositorOrigins[] = {
   "6EAED1924DB611B6EEF2A664BD077BE7EAD33B8F",
   "4EB74897CB187C7633357C2FE832E0AD6A44883A"
 };
@@ -362,15 +347,7 @@ ChromeContentRendererClient::ChromeContentRendererClient()
 #if BUILDFLAG(ENABLE_PLUGINS)
   for (const char* origin : kPredefinedAllowedCameraDeviceOrigins)
     allowed_camera_device_origins_.insert(origin);
-  for (const char* origin : kPredefinedAllowedCompositorOrigins)
-    allowed_compositor_origins_.insert(origin);
 #endif
-#if BUILDFLAG(ENABLE_PRINTING)
-  printing::SetAgent(GetUserAgent());
-#endif
-
-  heap_profiling::SetGCHeapAllocationHookFunctions(
-      &blink::WebHeap::SetAllocationHook, &blink::WebHeap::SetFreeHook);
 }
 
 ChromeContentRendererClient::~ChromeContentRendererClient() = default;
@@ -884,7 +861,7 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
                   "Portable Native Client must not be disabled in about:flags.";
             }
             frame->AddMessageToConsole(WebConsoleMessage(
-                WebConsoleMessage::kLevelError, error_message));
+                blink::mojom::ConsoleMessageLevel::kError, error_message));
             placeholder = create_blocked_plugin(
                 IDR_BLOCKED_PLUGIN_HTML,
 #if defined(OS_CHROMEOS)
@@ -1108,10 +1085,7 @@ bool ChromeContentRendererClient::IsNaClAllowed(
     bool is_nacl_unrestricted,
     const Extension* extension,
     WebPluginParams* params) {
-  // Temporarily allow these whitelisted apps and WebUIs to use NaCl.
-  bool is_whitelisted_web_ui =
-      app_url.spec() == chrome::kChromeUIAppListStartPageURL;
-
+  // Temporarily allow these whitelisted apps to use NaCl.
   bool is_invoked_by_webstore_installed_extension = false;
   bool is_extension_unrestricted = false;
   bool is_extension_force_installed = false;
@@ -1143,7 +1117,6 @@ bool ChromeContentRendererClient::IsNaClAllowed(
   //     context (hosted app URL or chrome-extension:// scheme).
   //  5) --enable-nacl is set.
   bool is_nacl_allowed_by_location =
-      is_whitelisted_web_ui ||
       AppCategorizer::IsWhitelistedApp(manifest_url, app_url) ||
       is_extension_unrestricted ||
       is_extension_force_installed ||
@@ -1188,58 +1161,39 @@ bool ChromeContentRendererClient::ShouldTrackUseCounter(const GURL& url) {
 
 void ChromeContentRendererClient::PrepareErrorPage(
     content::RenderFrame* render_frame,
-    const WebURLRequest& failed_request,
     const blink::WebURLError& web_error,
+    const std::string& http_method,
+    bool ignoring_cache,
     std::string* error_html) {
-  PrepareErrorPageInternal(
-      render_frame, failed_request,
-      error_page::Error::NetError(web_error.url(), web_error.reason(),
-                                  web_error.has_copy_in_cache()),
-      error_html);
+  NetErrorHelper::Get(render_frame)
+      ->PrepareErrorPage(
+          error_page::Error::NetError(web_error.url(), web_error.reason(),
+                                      web_error.has_copy_in_cache()),
+          http_method == "POST", ignoring_cache, error_html);
 }
 
 void ChromeContentRendererClient::PrepareErrorPageForHttpStatusError(
     content::RenderFrame* render_frame,
-    const WebURLRequest& failed_request,
     const GURL& unreachable_url,
+    const std::string& http_method,
+    bool ignoring_cache,
     int http_status,
     std::string* error_html) {
-  PrepareErrorPageInternal(
-      render_frame, failed_request,
-      error_page::Error::HttpError(unreachable_url, http_status), error_html);
+  NetErrorHelper::Get(render_frame)
+      ->PrepareErrorPage(
+          error_page::Error::HttpError(unreachable_url, http_status),
+          http_method == "POST", ignoring_cache, error_html);
 }
 
 void ChromeContentRendererClient::GetErrorDescription(
-    const blink::WebURLRequest& failed_request,
-    const blink::WebURLError& error,
+    const blink::WebURLError& web_error,
+    const std::string& http_method,
     base::string16* error_description) {
-  GetErrorDescriptionInternal(
-      failed_request,
-      error_page::Error::NetError(error.url(), error.reason(),
-                                  error.has_copy_in_cache()),
-      error_description);
-}
-
-void ChromeContentRendererClient::PrepareErrorPageInternal(
-    content::RenderFrame* render_frame,
-    const WebURLRequest& failed_request,
-    const error_page::Error& error,
-    std::string* error_html) {
-  bool is_post = failed_request.HttpMethod().Ascii() == "POST";
-  bool is_ignoring_cache =
-      failed_request.GetCacheMode() == FetchCacheMode::kBypassCache;
-  NetErrorHelper::Get(render_frame)
-      ->PrepareErrorPage(error, is_post, is_ignoring_cache, error_html);
-}
-
-void ChromeContentRendererClient::GetErrorDescriptionInternal(
-    const blink::WebURLRequest& failed_request,
-    const error_page::Error& error,
-    base::string16* error_description) {
-  bool is_post = failed_request.HttpMethod().Ascii() == "POST";
+  error_page::Error error = error_page::Error::NetError(
+      web_error.url(), web_error.reason(), web_error.has_copy_in_cache());
   if (error_description) {
     *error_description = error_page::LocalizedError::GetErrorDetails(
-        error.domain(), error.reason(), is_post);
+        error.domain(), error.reason(), http_method == "POST");
   }
 }
 
@@ -1345,14 +1299,8 @@ void ChromeContentRendererClient::WillSendRequest(
   if (search_box) {
     // Note: this GURL copy could be avoided if host() were added to WebURL.
     GURL gurl(url);
-    SearchBox::ImageSourceType type = SearchBox::NONE;
     if (gurl.host_piece() == chrome::kChromeUIFaviconHost)
-      type = SearchBox::FAVICON;
-    else if (gurl.host_piece() == chrome::kChromeUIThumbnailHost)
-      type = SearchBox::THUMB;
-
-    if (type != SearchBox::NONE)
-      search_box->GenerateImageURLFromTransientURL(url, type, new_url);
+      search_box->GenerateImageURLFromTransientURL(url, new_url);
   }
 #endif  // !defined(OS_ANDROID)
 }
@@ -1379,7 +1327,7 @@ ChromeContentRendererClient::GetPrescientNetworking() {
   return prescient_networking_dispatcher_.get();
 }
 
-bool ChromeContentRendererClient::ShouldOverrideVisibilityAsPrerender(
+bool ChromeContentRendererClient::IsPrerenderingFrame(
     const content::RenderFrame* render_frame) {
   return prerender::PrerenderHelper::IsPrerendering(render_frame);
 }
@@ -1413,6 +1361,11 @@ void ChromeContentRendererClient::InitSpellCheck() {
 }
 #endif
 
+base::WeakPtr<ChromeRenderThreadObserver>
+ChromeContentRendererClient::GetChromeObserver() const {
+  return chrome_observer_->GetWeakPtr();
+}
+
 std::unique_ptr<content::WebSocketHandshakeThrottleProvider>
 ChromeContentRendererClient::CreateWebSocketHandshakeThrottleProvider() {
   return std::make_unique<WebSocketHandshakeThrottleProviderImpl>();
@@ -1434,7 +1387,7 @@ bool ChromeContentRendererClient::IsKeySystemsUpdateNeeded() {
 }
 
 bool ChromeContentRendererClient::ShouldReportDetailedMessageForSource(
-    const base::string16& source) const {
+    const base::string16& source) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   return extensions::IsSourceFromAnExtension(source);
 #else
@@ -1478,22 +1431,6 @@ bool ChromeContentRendererClient::IsPluginAllowedToUseCameraDeviceAPI(
 #endif
 
   return false;
-}
-
-bool ChromeContentRendererClient::IsPluginAllowedToUseCompositorAPI(
-    const GURL& url) {
-#if BUILDFLAG(ENABLE_PLUGINS) && BUILDFLAG(ENABLE_EXTENSIONS)
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnablePepperTesting))
-    return true;
-  if (IsExtensionOrSharedModuleWhitelisted(url, allowed_compositor_origins_))
-    return true;
-
-  version_info::Channel channel = chrome::GetChannel();
-  return channel <= version_info::Channel::DEV;
-#else
-  return false;
-#endif
 }
 
 content::BrowserPluginDelegate*
@@ -1648,57 +1585,7 @@ GURL ChromeContentRendererClient::OverrideFlashEmbedWithHTML(const GURL& url) {
   if (!url.is_valid())
     return GURL();
 
-  // We'll only modify YouTube Flash embeds. The URLs can be recognized since
-  // they're in the following form: youtube.com/v/VIDEO_ID. So, we check to see
-  // if the given URL does follow that format.
-  if (!url.DomainIs("youtube.com") && !url.DomainIs("youtube-nocookie.com"))
-    return GURL();
-  if (url.path().find("/v/") != 0)
-    return GURL();
-
-  std::string url_str = url.spec();
-  internal::YouTubeRewriteStatus result = internal::NUM_PLUGIN_ERROR;
-
-  // If the website is using an invalid YouTube URL, we'll try and
-  // fix the URL by ensuring that if there are multiple parameters,
-  // the parameter string begins with a "?" and then follows with a "&"
-  // for each subsequent parameter. We do this because the Flash video player
-  // has some URL correction capabilities so we don't want this move to HTML5
-  // to break webpages that used to work.
-  size_t index = url_str.find_first_of("&?");
-  bool invalid_url = index != std::string::npos && url_str.at(index) == '&';
-
-  if (invalid_url) {
-    // ? should appear first before all parameters
-    url_str.replace(index, 1, "?");
-
-    // Replace all instances of ? (after the first) with &
-    for (size_t pos = index + 1;
-         (pos = url_str.find("?", pos)) != std::string::npos; pos += 1) {
-      url_str.replace(pos, 1, "&");
-    }
-  }
-
-  GURL corrected_url = GURL(url_str);
-  // Chrome used to only rewrite embeds with enablejsapi=1 on mobile for
-  // backward compatibility but with Flash embeds deprecated by YouTube, they
-  // are rewritten on all platforms. However, a different result is used in
-  // order to keep track of how popular they are.
-  if (corrected_url.query().find("enablejsapi=1") != std::string::npos)
-    result = internal::SUCCESS_ENABLEJSAPI;
-
-  // Change the path to use the YouTube HTML5 API
-  std::string path = corrected_url.path();
-  path.replace(path.find("/v/"), 3, "/embed/");
-
-  url::Replacements<char> r;
-  r.SetPath(path.c_str(), url::Component(0, path.length()));
-
-  if (result == internal::NUM_PLUGIN_ERROR)
-    result = invalid_url ? internal::SUCCESS_PARAMS_REWRITE : internal::SUCCESS;
-
-  RecordYouTubeRewriteUMA(result);
-  return corrected_url.ReplaceComponents(r);
+  return FlashEmbedRewrite::RewriteFlashEmbedURL(url);
 }
 
 std::unique_ptr<base::TaskScheduler::InitParams>
@@ -1756,4 +1643,11 @@ bool ChromeContentRendererClient::IsSafeRedirectTarget(const GURL& url) {
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
   return true;
+}
+
+void ChromeContentRendererClient::DidSetUserAgent(
+    const std::string& user_agent) {
+#if BUILDFLAG(ENABLE_PRINTING)
+  printing::SetAgent(user_agent);
+#endif
 }

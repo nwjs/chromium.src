@@ -25,8 +25,8 @@
 #include "third_party/blink/public/platform/web_rtc_void_request.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/web_heap.h"
+#include "third_party/webrtc/api/stats/rtc_stats_report.h"
 #include "third_party/webrtc/api/stats/rtcstats_objects.h"
-#include "third_party/webrtc/api/stats/rtcstatsreport.h"
 #include "third_party/webrtc/api/test/mock_rtpsender.h"
 
 using ::testing::_;
@@ -72,7 +72,7 @@ class RTCRtpSenderTest : public ::testing::Test {
         blink::WebString::FromUTF8("local_audio_track"), false);
     MediaStreamAudioSource* audio_source = new MediaStreamAudioSource(true);
     // Takes ownership of |audio_source|.
-    web_source.SetExtraData(audio_source);
+    web_source.SetPlatformSource(base::WrapUnique(audio_source));
     blink::WebMediaStreamTrack web_track;
     web_track.Initialize(web_source.Id(), web_source);
     audio_source->ConnectToTrack(web_track);

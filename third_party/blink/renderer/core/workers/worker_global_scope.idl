@@ -36,12 +36,12 @@
 
     // TODO(foolip): onerror should be an OnErrorEventHandler.
     attribute EventHandler onerror;
-    // attribute EventHandler onlanguagechange;
+    attribute EventHandler onlanguagechange;
     // attribute EventHandler onoffline;
     // attribute EventHandler ononline;
 
     // https://html.spec.whatwg.org/#apis-available-to-workers
-    [RaisesException] void importScripts(DOMString... urls);
+    [RaisesException] void importScripts(ScriptURLString... urls);
     [CallWith=ScriptState] any importNWBin(ArrayBuffer buffer);
     readonly attribute WorkerNavigator navigator;
 

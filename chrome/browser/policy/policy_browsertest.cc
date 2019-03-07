@@ -23,7 +23,6 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
-#include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop/message_loop.h"
@@ -33,6 +32,7 @@
 #include "base/metrics/statistics_recorder.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
@@ -86,7 +86,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resource_coordinator/tab_load_tracker_test_support.h"
 #include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
-#include "chrome/browser/search/ntp_features.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ssl/ssl_blocking_page.h"
@@ -160,6 +159,7 @@
 #include "components/security_interstitials/content/security_interstitial_page.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/security_interstitials/core/controller_client.h"
+#include "components/signin/core/browser/account_info.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/browser/translate_infobar_delegate.h"
@@ -273,11 +273,11 @@
 #include "chrome/browser/chromeos/policy/user_policy_test_helper.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/chromeos/system/timezone_resolver_manager.h"
-#include "chrome/browser/ui/ash/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/ash/chrome_screenshot_grabber.h"
 #include "chrome/browser/ui/ash/chrome_screenshot_grabber_test_observer.h"
+#include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chromeos/audio/cras_audio_handler.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_prefs.h"
@@ -817,7 +817,7 @@ class PolicyTest : public InProcessBrowserTest {
   }
 
   void SetShouldRequireCTForTesting(bool* required) {
-    if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+    if (content::IsOutOfProcessNetworkService()) {
       network::mojom::NetworkServiceTestPtr network_service_test;
       content::ServiceManagerConnection::GetForProcess()
           ->GetConnector()
@@ -895,6 +895,9 @@ class PolicyTest : public InProcessBrowserTest {
     installer->set_allow_silent_install(true);
     installer->set_install_cause(extension_misc::INSTALL_CAUSE_UPDATE);
     installer->set_creation_flags(extensions::Extension::FROM_WEBSTORE);
+    installer->set_off_store_install_allow_reason(
+        extensions::CrxInstaller::OffStoreInstallAllowReason::
+            OffStoreInstallAllowedInTest);
 
     content::WindowedNotificationObserver observer(
         extensions::NOTIFICATION_CRX_INSTALLER_DONE,
@@ -1111,6 +1114,8 @@ class PolicyTest : public InProcessBrowserTest {
   MockConfigurationPolicyProvider provider_;
   std::unique_ptr<extensions::ExtensionCacheFake> test_extension_cache_;
   extensions::ScopedIgnoreContentVerifierForTest ignore_content_verifier_;
+  extensions::ExtensionUpdater::ScopedSkipScheduledCheckForTest
+      skip_scheduled_extension_checks_;
 };
 
 // A subclass of PolicyTest that runs each test with the old interstitial code
@@ -2807,9 +2812,6 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ExtensionMinimumVersionRequired) {
   extensions::ExtensionPrefs* extension_prefs =
       extensions::ExtensionPrefs::Get(browser()->profile());
 
-  // Explicitly stop the timer to avoid all scheduled extension auto-updates.
-  service->updater()->StopTimerForTesting();
-
   // Install the extension.
   EXPECT_TRUE(InstallExtension(kGoodV1CrxName));
   EXPECT_TRUE(registry->enabled_extensions().Contains(kGoodCrxId));
@@ -2879,9 +2881,6 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, ExtensionMinimumVersionRequiredAlt) {
       extensions::ExtensionRegistry::Get(browser()->profile());
   extensions::ExtensionPrefs* extension_prefs =
       extensions::ExtensionPrefs::Get(browser()->profile());
-
-  // Explicitly stop the timer to avoid all scheduled extension auto-updates.
-  service->updater()->StopTimerForTesting();
 
   // Set the policy to require an even higher minimum version this time.
   {
@@ -3290,7 +3289,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, URLBlacklist) {
   FlushBlacklistPolicy();
   // All bbb.com URLs are blocked, and "aaa.com" is still unblocked.
   CheckCanOpenURL(browser(), kURLS[0]);
-  for (size_t i = 1; i < arraysize(kURLS); ++i)
+  for (size_t i = 1; i < base::size(kURLS); ++i)
     CheckURLIsBlocked(browser(), kURLS[i]);
 
   // Whitelist some sites of bbb.com.
@@ -3337,7 +3336,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, URLBlacklistIncognito) {
   FlushBlacklistPolicy();
   // All bbb.com URLs are blocked, and "aaa.com" is still unblocked.
   CheckCanOpenURL(incognito_browser, kURLS[0]);
-  for (size_t i = 1; i < arraysize(kURLS); ++i)
+  for (size_t i = 1; i < base::size(kURLS); ++i)
     CheckURLIsBlocked(incognito_browser, kURLS[i]);
 
   // Whitelist some sites of bbb.com.
@@ -3956,6 +3955,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, VirtualKeyboardEnabled) {
                POLICY_SCOPE_USER, POLICY_SOURCE_CLOUD,
                std::make_unique<base::Value>(true), nullptr);
   UpdateProviderPolicy(policies);
+  keyboard_client->FlushForTesting();
   EXPECT_TRUE(keyboard_client->is_keyboard_enabled());
   ClearEnableFlag(keyboard::mojom::KeyboardEnableFlag::kTouchEnabled);
   EXPECT_TRUE(keyboard_client->is_keyboard_enabled());
@@ -3966,6 +3966,7 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, VirtualKeyboardEnabled) {
                POLICY_SCOPE_USER, POLICY_SOURCE_CLOUD,
                std::make_unique<base::Value>(false), nullptr);
   UpdateProviderPolicy(policies);
+  keyboard_client->FlushForTesting();
   EXPECT_FALSE(keyboard_client->is_keyboard_enabled());
   SetEnableFlag(keyboard::mojom::KeyboardEnableFlag::kTouchEnabled);
   EXPECT_FALSE(keyboard_client->is_keyboard_enabled());
@@ -4024,13 +4025,13 @@ class RestoreOnStartupPolicyTest
     base::PostTaskWithTraits(
         FROM_HERE, {BrowserThread::IO},
         base::BindOnce(RedirectHostsToTestData, kRestoredURLs,
-                       arraysize(kRestoredURLs)));
+                       base::size(kRestoredURLs)));
   }
 
   void ListOfURLs() {
     // Verifies that policy can set the startup pages to a list of URLs.
     base::ListValue urls;
-    for (size_t i = 0; i < arraysize(kRestoredURLs); ++i) {
+    for (size_t i = 0; i < base::size(kRestoredURLs); ++i) {
       urls.AppendString(kRestoredURLs[i]);
       expected_urls_.push_back(GURL(kRestoredURLs[i]));
     }
@@ -4068,7 +4069,7 @@ class RestoreOnStartupPolicyTest
         nullptr);
     provider_.UpdateChromePolicy(policies);
     // This should restore the tabs opened at PRE_RunTest below.
-    for (size_t i = 0; i < arraysize(kRestoredURLs); ++i)
+    for (size_t i = 0; i < base::size(kRestoredURLs); ++i)
       expected_urls_.push_back(GURL(kRestoredURLs[i]));
   }
 
@@ -4089,7 +4090,7 @@ class RestoreOnStartupPolicyTest
     // This should restore the tabs opened at PRE_RunTest below, yet all should
     // be blocked.
     blocked_ = true;
-    for (size_t i = 0; i < arraysize(kRestoredURLs); ++i)
+    for (size_t i = 0; i < base::size(kRestoredURLs); ++i)
       expected_urls_.emplace_back(kRestoredURLs[i]);
   }
 
@@ -4115,7 +4116,7 @@ IN_PROC_BROWSER_TEST_P(RestoreOnStartupPolicyTest, PRE_RunTest) {
   // Most policy settings override this, except kPrefValueLast which enforces
   // a restore.
   ui_test_utils::NavigateToURL(browser(), GURL(kRestoredURLs[0]));
-  for (size_t i = 1; i < arraysize(kRestoredURLs); ++i) {
+  for (size_t i = 1; i < base::size(kRestoredURLs); ++i) {
     content::WindowedNotificationObserver observer(
         content::NOTIFICATION_LOAD_STOP,
         content::NotificationService::AllSources());
@@ -4209,12 +4210,9 @@ class PolicyWebStoreIconTest : public PolicyTest {
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     PolicyTest::SetUpCommandLine(command_line);
-    // Force to enable the new tab page material design flag
-    scoped_feature_list.InitAndEnableFeature(features::kNtpIcons);
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list;
   DISALLOW_COPY_AND_ASSIGN(PolicyWebStoreIconTest);
 };
 
@@ -4257,10 +4255,6 @@ IN_PROC_BROWSER_TEST_F(PolicyWebStoreIconTest, NTPWebStoreIconShown) {
   // applies. See WebStoreIconPolicyTest.NTPWebStoreIconHidden for verification
   // when a policy is in effect.
 
-  // Force to enable the new tab page material design flag
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(features::kNtpIcons);
-
   // Open new tab page and look for the web store icons.
   content::WebContents* active_tab =
       local_ntp_test_utils::OpenNewTab(browser(), GURL("about:blank"));
@@ -4292,12 +4286,9 @@ class PolicyWebStoreIconHiddenTest : public PolicyTest {
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     PolicyTest::SetUpCommandLine(command_line);
-    // Force to enable the new tab page material design flag
-    scoped_feature_list.InitAndEnableFeature(features::kNtpIcons);
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list;
   DISALLOW_COPY_AND_ASSIGN(PolicyWebStoreIconHiddenTest);
 };
 
@@ -4349,8 +4340,8 @@ class MediaStreamDevicesControllerBrowserTest
   void TearDownOnMainThread() override { prompt_factory_.reset(); }
 
   content::MediaStreamRequest CreateRequest(
-      content::MediaStreamType audio_request_type,
-      content::MediaStreamType video_request_type) {
+      blink::MediaStreamType audio_request_type,
+      blink::MediaStreamType video_request_type) {
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
     EXPECT_EQ(request_url_,
@@ -4359,7 +4350,7 @@ class MediaStreamDevicesControllerBrowserTest
     int render_frame_id = web_contents->GetMainFrame()->GetRoutingID();
     return content::MediaStreamRequest(
         render_process_id, render_frame_id, 0, request_url_.GetOrigin(), false,
-        content::MEDIA_DEVICE_ACCESS, std::string(), std::string(),
+        blink::MEDIA_DEVICE_ACCESS, std::string(), std::string(),
         audio_request_type, video_request_type, false);
   }
 
@@ -4394,8 +4385,8 @@ class MediaStreamDevicesControllerBrowserTest
     }
   }
 
-  void Accept(const content::MediaStreamDevices& devices,
-              content::MediaStreamRequestResult result,
+  void Accept(const blink::MediaStreamDevices& devices,
+              blink::MediaStreamRequestResult result,
               std::unique_ptr<content::MediaStreamUI> ui) {
     if (policy_value_ || request_url_allowed_via_whitelist_) {
       ASSERT_EQ(1U, devices.size());
@@ -4407,7 +4398,7 @@ class MediaStreamDevicesControllerBrowserTest
 
   void FinishAudioTest() {
     content::MediaStreamRequest request(CreateRequest(
-        content::MEDIA_DEVICE_AUDIO_CAPTURE, content::MEDIA_NO_SERVICE));
+        blink::MEDIA_DEVICE_AUDIO_CAPTURE, blink::MEDIA_NO_SERVICE));
     // TODO(raymes): Test MEDIA_DEVICE_OPEN (Pepper) which grants both webcam
     // and microphone permissions at the same time.
     MediaStreamDevicesController::RequestPermissions(
@@ -4419,7 +4410,7 @@ class MediaStreamDevicesControllerBrowserTest
 
   void FinishVideoTest() {
     content::MediaStreamRequest request(CreateRequest(
-        content::MEDIA_NO_SERVICE, content::MEDIA_DEVICE_VIDEO_CAPTURE));
+        blink::MEDIA_NO_SERVICE, blink::MEDIA_DEVICE_VIDEO_CAPTURE));
     // TODO(raymes): Test MEDIA_DEVICE_OPEN (Pepper) which grants both webcam
     // and microphone permissions at the same time.
     MediaStreamDevicesController::RequestPermissions(
@@ -4438,9 +4429,9 @@ class MediaStreamDevicesControllerBrowserTest
 
 IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
                        AudioCaptureAllowed) {
-  content::MediaStreamDevices audio_devices;
-  content::MediaStreamDevice fake_audio_device(
-      content::MEDIA_DEVICE_AUDIO_CAPTURE, "fake_dev", "Fake Audio Device");
+  blink::MediaStreamDevices audio_devices;
+  blink::MediaStreamDevice fake_audio_device(blink::MEDIA_DEVICE_AUDIO_CAPTURE,
+                                             "fake_dev", "Fake Audio Device");
   audio_devices.push_back(fake_audio_device);
 
   PolicyMap policies;
@@ -4461,9 +4452,9 @@ IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
                        AudioCaptureAllowedUrls) {
-  content::MediaStreamDevices audio_devices;
-  content::MediaStreamDevice fake_audio_device(
-      content::MEDIA_DEVICE_AUDIO_CAPTURE, "fake_dev", "Fake Audio Device");
+  blink::MediaStreamDevices audio_devices;
+  blink::MediaStreamDevice fake_audio_device(blink::MEDIA_DEVICE_AUDIO_CAPTURE,
+                                             "fake_dev", "Fake Audio Device");
   audio_devices.push_back(fake_audio_device);
 
   const char* allow_pattern[] = {
@@ -4474,7 +4465,7 @@ IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
       nullptr,
   };
 
-  for (size_t i = 0; i < arraysize(allow_pattern); ++i) {
+  for (size_t i = 0; i < base::size(allow_pattern); ++i) {
     PolicyMap policies;
     ConfigurePolicyMap(&policies, key::kAudioCaptureAllowed,
                        key::kAudioCaptureAllowedUrls, allow_pattern[i]);
@@ -4496,9 +4487,9 @@ IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
                        VideoCaptureAllowed) {
-  content::MediaStreamDevices video_devices;
-  content::MediaStreamDevice fake_video_device(
-      content::MEDIA_DEVICE_VIDEO_CAPTURE, "fake_dev", "Fake Video Device");
+  blink::MediaStreamDevices video_devices;
+  blink::MediaStreamDevice fake_video_device(blink::MEDIA_DEVICE_VIDEO_CAPTURE,
+                                             "fake_dev", "Fake Video Device");
   video_devices.push_back(fake_video_device);
 
   PolicyMap policies;
@@ -4519,9 +4510,9 @@ IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
                        VideoCaptureAllowedUrls) {
-  content::MediaStreamDevices video_devices;
-  content::MediaStreamDevice fake_video_device(
-      content::MEDIA_DEVICE_VIDEO_CAPTURE, "fake_dev", "Fake Video Device");
+  blink::MediaStreamDevices video_devices;
+  blink::MediaStreamDevice fake_video_device(blink::MEDIA_DEVICE_VIDEO_CAPTURE,
+                                             "fake_dev", "Fake Video Device");
   video_devices.push_back(fake_video_device);
 
   const char* allow_pattern[] = {
@@ -4532,7 +4523,7 @@ IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
       nullptr,
   };
 
-  for (size_t i = 0; i < arraysize(allow_pattern); ++i) {
+  for (size_t i = 0; i < base::size(allow_pattern); ++i) {
     PolicyMap policies;
     ConfigurePolicyMap(&policies, key::kVideoCaptureAllowed,
                        key::kVideoCaptureAllowedUrls, allow_pattern[i]);
@@ -6442,6 +6433,82 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, WebUsbAllowDevicesForUrls) {
   UpdateProviderPolicy(policies);
 
   EXPECT_FALSE(context->HasDevicePermission(kTestUrl, kTestUrl, *device_info));
+}
+
+// Handler for embedded http-server, returns a small page with javascript
+// variable and a link to increment it. It's for JavascriptBlacklistable test.
+std::unique_ptr<net::test_server::HttpResponse> JSIncrementerPageHandler(
+    const net::test_server::HttpRequest& request) {
+  if (request.relative_url != "/test.html") {
+    return std::unique_ptr<net::test_server::HttpResponse>();
+  }
+
+  std::unique_ptr<net::test_server::BasicHttpResponse> http_response(
+      new net::test_server::BasicHttpResponse());
+  http_response->set_code(net::HTTP_OK);
+  http_response->set_content(
+      "<head><script type=\"text/javascript\">\n"
+      "<!--\n"
+      "var value = 1;"
+      "var increment = function() {"
+      "  value = value + 1;"
+      "};\n"
+      "//-->\n"
+      "</script></head><body>"
+      "<a id='link' href=\"javascript:increment();\">click</a>"
+      "</body>");
+  http_response->set_content_type("text/html");
+  return http_response;
+}
+
+// Fetch value from page generated by JSIncrementerPageHandler.
+int JSIncrementerFetch(content::WebContents* contents) {
+  int result;
+  EXPECT_TRUE(content::ExecuteScriptAndExtractInt(
+      contents, "domAutomationController.send(value);", &result));
+  return result;
+}
+
+// Tests that javascript-links are handled properly according to blacklist
+// settings, bug 913334.
+IN_PROC_BROWSER_TEST_F(PolicyTest, JavascriptBlacklistable) {
+  embedded_test_server()->RegisterRequestHandler(
+      base::BindRepeating(&JSIncrementerPageHandler));
+  ASSERT_TRUE(embedded_test_server()->Start());
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ui_test_utils::NavigateToURL(browser(),
+                               embedded_test_server()->GetURL("/test.html"));
+
+  EXPECT_EQ(JSIncrementerFetch(contents), 1);
+
+  // Without blacklist policy value is incremented properly.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("javascript:increment()"),
+      WindowOpenDisposition::CURRENT_TAB, ui_test_utils::BROWSER_TEST_NONE);
+
+  EXPECT_EQ(JSIncrementerFetch(contents), 2);
+
+  // Create and apply a policy.
+  base::ListValue blacklist;
+  blacklist.AppendString("javascript://*");
+  PolicyMap policies;
+  policies.Set(key::kURLBlacklist, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
+               POLICY_SOURCE_CLOUD, blacklist.CreateDeepCopy(), nullptr);
+  UpdateProviderPolicy(policies);
+  FlushBlacklistPolicy();
+
+  // After applying policy javascript url's don't work any more, value leaves
+  // unchanged.
+  ui_test_utils::NavigateToURLWithDisposition(
+      browser(), GURL("javascript:increment()"),
+      WindowOpenDisposition::CURRENT_TAB, ui_test_utils::BROWSER_TEST_NONE);
+  EXPECT_EQ(JSIncrementerFetch(contents), 2);
+
+  // But in-page links still work even if they are javascript-links.
+  EXPECT_TRUE(content::ExecuteScript(
+      contents, "document.getElementById('link').click();"));
+  EXPECT_EQ(JSIncrementerFetch(contents), 3);
 }
 
 // Similar to PolicyTest but sets the WebAppInstallForceList policy before the

@@ -15,6 +15,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/iaccessible2/ia2_api_all.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/platform/ax_platform_node_base.h"
 #include "ui/accessibility/platform/ax_platform_node_unittest.h"
 #include "ui/accessibility/platform/ax_platform_node_win.h"
 #include "ui/accessibility/platform/test_ax_node_wrapper.h"
@@ -34,22 +35,87 @@ ScopedVariant SELF(CHILDID_SELF);
 
 }  // namespace
 
+// Helper macros for testing UIAutomation property values and maintain
+// correct stack tracing and failure causality.
+//
+// WARNING: These aren't intended to be generic EXPECT_BSTR_EQ macros
+// as the logic is specific to extracting and comparing UIA property
+// values.
+#define EXPECT_UIA_VALUE_EQ(node, property_id, expectedVariant) \
+  do {                                                          \
+    ScopedVariant actual;                                       \
+    ASSERT_HRESULT_SUCCEEDED(                                   \
+        node->GetPropertyValue(property_id, actual.Receive())); \
+    EXPECT_EQ(0, expectedVariant.Compare(actual));              \
+  } while (false)
+
+#define EXPECT_UIA_BSTR_EQ(node, property_id, expected)                  \
+  do {                                                                   \
+    ScopedVariant expectedVariant(expected);                             \
+    ASSERT_EQ(VT_BSTR, expectedVariant.type());                          \
+    ASSERT_NE(nullptr, expectedVariant.ptr()->bstrVal);                  \
+    ScopedVariant actual;                                                \
+    ASSERT_HRESULT_SUCCEEDED(                                            \
+        node->GetPropertyValue(property_id, actual.Receive()));          \
+    ASSERT_EQ(VT_BSTR, actual.type());                                   \
+    ASSERT_NE(nullptr, actual.ptr()->bstrVal);                           \
+    EXPECT_STREQ(expectedVariant.ptr()->bstrVal, actual.ptr()->bstrVal); \
+  } while (false)
+
+#define EXPECT_UIA_BOOL_EQ(node, property_id, expected)               \
+  do {                                                                \
+    ScopedVariant expectedVariant(expected, VT_BOOL);                 \
+    ASSERT_EQ(VT_BOOL, expectedVariant.type());                       \
+    ScopedVariant actual;                                             \
+    ASSERT_HRESULT_SUCCEEDED(                                         \
+        node->GetPropertyValue(property_id, actual.Receive()));       \
+    EXPECT_EQ(expectedVariant.ptr()->boolVal, actual.ptr()->boolVal); \
+  } while (false)
+
+#define EXPECT_UIA_INT_EQ(node, property_id, expected)              \
+  do {                                                              \
+    ScopedVariant expectedVariant(expected, VT_I4);                 \
+    ASSERT_EQ(VT_I4, expectedVariant.type());                       \
+    ScopedVariant actual;                                           \
+    ASSERT_HRESULT_SUCCEEDED(                                       \
+        node->GetPropertyValue(property_id, actual.Receive()));     \
+    EXPECT_EQ(expectedVariant.ptr()->intVal, actual.ptr()->intVal); \
+  } while (false)
+
 class AXPlatformNodeWinTest : public ui::AXPlatformNodeTest {
  public:
   AXPlatformNodeWinTest() {}
   ~AXPlatformNodeWinTest() override {}
 
-  void SetUp() override {
-    win::CreateATLModuleIfNeeded();
-  }
+  void SetUp() override { win::CreateATLModuleIfNeeded(); }
 
   void TearDown() override {
     // Destroy the tree and make sure we're not leaking any objects.
     tree_.reset(nullptr);
-    ASSERT_EQ(0U, AXPlatformNodeWin::GetInstanceCountForTesting());
+    ASSERT_EQ(0U, AXPlatformNodeBase::GetInstanceCountForTesting());
   }
 
  protected:
+  template <typename T>
+  ComPtr<T> QueryInterfaceFromNode(AXNode* node) {
+    const TestAXNodeWrapper* wrapper =
+        TestAXNodeWrapper::GetOrCreate(tree_.get(), node);
+    if (!wrapper)
+      return ComPtr<T>();
+
+    AXPlatformNode* ax_platform_node = wrapper->ax_platform_node();
+    ComPtr<T> result;
+    EXPECT_HRESULT_SUCCEEDED(
+        ax_platform_node->GetNativeViewAccessible()->QueryInterface(__uuidof(T),
+                                                                    &result));
+
+    return result;
+  }
+
+  ComPtr<IRawElementProviderSimple> GetRootIRawElementProviderSimple() {
+    return QueryInterfaceFromNode<IRawElementProviderSimple>(GetRootNode());
+  }
+
   ComPtr<IAccessible> IAccessibleFromNode(AXNode* node) {
     TestAXNodeWrapper* wrapper =
         TestAXNodeWrapper::GetOrCreate(tree_.get(), node);
@@ -2275,8 +2341,8 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessible2GetGroupPosition) {
   LONG level, similar, position;
   EXPECT_EQ(S_OK, iaccessible2->get_groupPosition(&level, &similar, &position));
   EXPECT_EQ(1, level);
-  EXPECT_EQ(1, similar);
-  EXPECT_EQ(1, position);
+  EXPECT_EQ(0, similar);
+  EXPECT_EQ(0, position);
 
   EXPECT_EQ(E_INVALIDARG,
             iaccessible2->get_groupPosition(nullptr, nullptr, nullptr));
@@ -2577,6 +2643,204 @@ TEST_F(AXPlatformNodeWinTest,
   LONG offset;
   EXPECT_HRESULT_SUCCEEDED(text_field->get_caretOffset(&offset));
   EXPECT_EQ(2, offset);
+}
+
+TEST_F(AXPlatformNodeWinTest, TestUIAGetPropertySimple) {
+  AXNodeData root;
+  root.SetName("fake name");
+  root.AddStringAttribute(ax::mojom::StringAttribute::kAccessKey, "Ctrl+Q");
+  root.AddStringAttribute(ax::mojom::StringAttribute::kKeyShortcuts, "Alt+F4");
+  root.AddStringAttribute(ax::mojom::StringAttribute::kDescription,
+                          "fake description");
+  root.AddStringAttribute(ax::mojom::StringAttribute::kRoleDescription,
+                          "role description");
+  root.AddIntAttribute(ax::mojom::IntAttribute::kPosInSet, 1);
+  root.AddIntAttribute(ax::mojom::IntAttribute::kSetSize, 2);
+  root.AddIntAttribute(ax::mojom::IntAttribute::kInvalidState, 1);
+  root.role = ax::mojom::Role::kMarquee;
+
+  Init(root);
+
+  ComPtr<IRawElementProviderSimple> root_node =
+      GetRootIRawElementProviderSimple();
+  ScopedVariant uia_id;
+  ASSERT_HRESULT_SUCCEEDED(root_node->GetPropertyValue(
+      UIA_AutomationIdPropertyId, uia_id.Receive()));
+  EXPECT_UIA_BSTR_EQ(root_node, UIA_AutomationIdPropertyId,
+                     uia_id.ptr()->bstrVal);
+  EXPECT_UIA_BSTR_EQ(root_node, UIA_AriaRolePropertyId, L"marquee");
+  EXPECT_UIA_BSTR_EQ(root_node, UIA_AriaPropertiesPropertyId,
+                     L"expanded=false;multiline=false;multiselectable=false;"
+                     L"posinset=1;required=false;setsize=2");
+  EXPECT_UIA_INT_EQ(root_node, UIA_ControlTypePropertyId,
+                    int{UIA_TextControlTypeId});
+  EXPECT_UIA_INT_EQ(root_node, UIA_OrientationPropertyId,
+                    int{OrientationType_None});
+  EXPECT_UIA_BOOL_EQ(root_node, UIA_IsRequiredForFormPropertyId, false);
+  EXPECT_UIA_BOOL_EQ(root_node, UIA_IsDataValidForFormPropertyId, true);
+}
+
+TEST_F(AXPlatformNodeWinTest, TestUIAErrorHandling) {
+  AXNodeData root;
+  Init(root);
+
+  ComPtr<IRawElementProviderSimple> simple_provider =
+      GetRootIRawElementProviderSimple();
+  ComPtr<IGridItemProvider> grid_item_provider =
+      QueryInterfaceFromNode<IGridItemProvider>(GetRootNode());
+  ComPtr<IGridProvider> grid_provider =
+      QueryInterfaceFromNode<IGridProvider>(GetRootNode());
+  ComPtr<IScrollItemProvider> scroll_item_provider =
+      QueryInterfaceFromNode<IScrollItemProvider>(GetRootNode());
+  ComPtr<IScrollProvider> scroll_provider =
+      QueryInterfaceFromNode<IScrollProvider>(GetRootNode());
+  ComPtr<ISelectionItemProvider> selection_item_provider =
+      QueryInterfaceFromNode<ISelectionItemProvider>(GetRootNode());
+  ComPtr<ISelectionProvider> selection_provider =
+      QueryInterfaceFromNode<ISelectionProvider>(GetRootNode());
+  ComPtr<ITableItemProvider> table_item_provider =
+      QueryInterfaceFromNode<ITableItemProvider>(GetRootNode());
+  ComPtr<ITableProvider> table_provider =
+      QueryInterfaceFromNode<ITableProvider>(GetRootNode());
+  ComPtr<IExpandCollapseProvider> expand_collapse_provider =
+      QueryInterfaceFromNode<IExpandCollapseProvider>(GetRootNode());
+  ComPtr<IToggleProvider> toggle_provider =
+      QueryInterfaceFromNode<IToggleProvider>(GetRootNode());
+  ComPtr<IValueProvider> value_provider =
+      QueryInterfaceFromNode<IValueProvider>(GetRootNode());
+  ComPtr<IRangeValueProvider> range_value_provider =
+      QueryInterfaceFromNode<IRangeValueProvider>(GetRootNode());
+
+  tree_.reset(new AXTree());
+
+  // IGridItemProvider
+  int int_result = 0;
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            grid_item_provider->get_Column(&int_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            grid_item_provider->get_ColumnSpan(&int_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            grid_item_provider->get_Row(&int_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            grid_item_provider->get_RowSpan(&int_result));
+
+  // IExpandCollapseProvider
+  ExpandCollapseState expand_collapse_state;
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            expand_collapse_provider->Collapse());
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            expand_collapse_provider->Expand());
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            expand_collapse_provider->get_ExpandCollapseState(
+                &expand_collapse_state));
+
+  // IGridProvider
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            grid_provider->GetItem(0, 0, simple_provider.GetAddressOf()));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            grid_provider->get_RowCount(&int_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            grid_provider->get_ColumnCount(&int_result));
+
+  // IScrollItemProvider
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            scroll_item_provider->ScrollIntoView());
+
+  // IScrollProvider
+  BOOL bool_result = TRUE;
+  double double_result = 3.14;
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            scroll_provider->SetScrollPercent(0, 0));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            scroll_provider->get_HorizontallyScrollable(&bool_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            scroll_provider->get_HorizontalScrollPercent(&double_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            scroll_provider->get_HorizontalViewSize(&double_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            scroll_provider->get_VerticallyScrollable(&bool_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            scroll_provider->get_VerticalScrollPercent(&double_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            scroll_provider->get_VerticalViewSize(&double_result));
+
+  // ISelectionItemProvider
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            selection_item_provider->AddToSelection());
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            selection_item_provider->RemoveFromSelection());
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            selection_item_provider->Select());
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            selection_item_provider->get_IsSelected(&bool_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            selection_item_provider->get_SelectionContainer(
+                simple_provider.GetAddressOf()));
+
+  // ISelectionProvider
+  SAFEARRAY* array_result = nullptr;
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            selection_provider->GetSelection(&array_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            selection_provider->get_CanSelectMultiple(&bool_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            selection_provider->get_IsSelectionRequired(&bool_result));
+
+  // ITableItemProvider
+  RowOrColumnMajor row_or_column_major_result;
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            table_item_provider->GetColumnHeaderItems(&array_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            table_item_provider->GetRowHeaderItems(&array_result));
+
+  // ITableProvider
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            table_provider->GetColumnHeaders(&array_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            table_provider->GetRowHeaders(&array_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            table_provider->get_RowOrColumnMajor(&row_or_column_major_result));
+
+  // IRawElementProviderSimple
+  ScopedVariant variant;
+  ComPtr<IUnknown> unknown;
+  ProviderOptions options;
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            simple_provider->GetPatternProvider(UIA_WindowPatternId,
+                                                unknown.GetAddressOf()));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            simple_provider->GetPropertyValue(UIA_FrameworkIdPropertyId,
+                                              variant.Receive()));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            simple_provider->get_ProviderOptions(&options));
+
+  // IValueProvider
+  ScopedBstr bstr_value;
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            value_provider->SetValue(L"3.14"));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            value_provider->get_Value(bstr_value.Receive()));
+
+  // IRangeValueProvider
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            range_value_provider->SetValue(double_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            range_value_provider->get_LargeChange(&double_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            range_value_provider->get_Maximum(&double_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            range_value_provider->get_Minimum(&double_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            range_value_provider->get_SmallChange(&double_result));
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            range_value_provider->get_Value(&double_result));
+
+  // IToggleProvider
+  ToggleState toggle_state;
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            toggle_provider->Toggle());
+  EXPECT_EQ(static_cast<HRESULT>(UIA_E_ELEMENTNOTAVAILABLE),
+            toggle_provider->get_ToggleState(&toggle_state));
 }
 
 }  // namespace ui

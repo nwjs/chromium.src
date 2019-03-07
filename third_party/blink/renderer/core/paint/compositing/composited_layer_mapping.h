@@ -215,6 +215,7 @@ class CORE_EXPORT CompositedLayerMapping final : public GraphicsLayerClient {
   bool ShouldThrottleRendering() const override;
   bool IsTrackingRasterInvalidations() const override;
   void SetOverlayScrollbarsHidden(bool) override;
+  void SetPaintArtifactCompositorNeedsUpdate() const override;
 
 #if DCHECK_IS_ON()
   void VerifyNotPainting() override;
@@ -421,7 +422,7 @@ class CORE_EXPORT CompositedLayerMapping final : public GraphicsLayerClient {
   void UpdateScrollParent(const PaintLayer*);
   void UpdateClipParent(const PaintLayer* scroll_parent);
   bool UpdateSquashingLayers(bool needs_squashing_layers);
-  void UpdateDrawsContent();
+  void UpdateDrawsContentAndPaintsHitTest();
   void UpdateChildrenTransform();
   void UpdateCompositedBounds();
   void UpdateOverscrollBehavior();

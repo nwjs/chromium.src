@@ -17,6 +17,8 @@ if (!is_android) {
   _protocol_generated = [
     "protocol/browser.cc",
     "protocol/browser.h",
+    "protocol/cast.cc",
+    "protocol/cast.h",
     "protocol/forward.h",
     "protocol/page.cc",
     "protocol/page.h",
@@ -141,6 +143,8 @@ static_library("devtools") {
       "device/usb/android_usb_device.h",
       "device/usb/android_usb_socket.cc",
       "device/usb/android_usb_socket.h",
+      "device/usb/usb_device_manager_helper.cc",
+      "device/usb/usb_device_manager_helper.h",
       "device/usb/usb_device_provider.cc",
       "device/usb/usb_device_provider.h",
       "devtools_auto_opener.cc",
@@ -196,6 +200,8 @@ static_library("devtools") {
     sources += [
       "protocol/browser_handler.cc",
       "protocol/browser_handler.h",
+      "protocol/cast_handler.cc",
+      "protocol/cast_handler.h",
       "protocol/page_handler.cc",
       "protocol/page_handler.h",
       "protocol/target_handler.cc",

@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/dom_key.h"
@@ -206,14 +206,6 @@ KeyboardCode NonLocatedToLocatedKeyboardCode(KeyboardCode key_code,
       return IsRightSideDomCode(dom_code) ? VKEY_RMENU : VKEY_LMENU;
     case VKEY_LWIN:
       return IsRightSideDomCode(dom_code) ? VKEY_RWIN : VKEY_LWIN;
-    default:
-      return NonLocatedToLocatedKeypadKeyboardCode(key_code, dom_code);
-  }
-}
-
-KeyboardCode NonLocatedToLocatedKeypadKeyboardCode(KeyboardCode key_code,
-                                                   DomCode dom_code) {
-  switch (key_code) {
     case VKEY_0:
       return (dom_code == DomCode::NUMPAD0) ? VKEY_NUMPAD0 : VKEY_0;
     case VKEY_1:
@@ -254,7 +246,7 @@ DomCode UsLayoutKeyboardCodeToDomCode(KeyboardCode key_code) {
 
 KeyboardCode DomCodeToUsLayoutKeyboardCode(DomCode dom_code) {
   const DomCodeToKeyboardCodeEntry* end =
-      kDomCodeToKeyboardCodeMap + arraysize(kDomCodeToKeyboardCodeMap);
+      kDomCodeToKeyboardCodeMap + base::size(kDomCodeToKeyboardCodeMap);
   const DomCodeToKeyboardCodeEntry* found = std::lower_bound(
       kDomCodeToKeyboardCodeMap, end, dom_code,
       [](const DomCodeToKeyboardCodeEntry& a, DomCode b) {

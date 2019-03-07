@@ -89,7 +89,6 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   void UpdateLifecycle(LifecycleUpdate requested_update,
                        LifecycleUpdateReason reason) override;
   void PaintContent(cc::PaintCanvas*, const WebRect&) override;
-  void LayoutAndPaintAsync(base::OnceClosure callback) override;
   void CompositeAndReadbackAsync(
       base::OnceCallback<void(const SkBitmap&)> callback) override;
   void ThemeChanged() override;
@@ -101,7 +100,6 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   void ApplyViewportChanges(const ApplyViewportChangesArgs&) override;
   void MouseCaptureLost() override;
   void SetFocus(bool enable) override;
-  SkColor BackgroundColor() const override;
   bool SelectionBounds(WebRect& anchor, WebRect& focus) const override;
   bool IsAcceleratedCompositingActive() const override;
   void WillCloseLayerTreeView() override;
@@ -113,11 +111,6 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   WebURL GetURLForDebugTrace() override;
 
   // WebFrameWidget implementation.
-  void SetBackgroundColorOverride(SkColor) override;
-  void ClearBackgroundColorOverride() override;
-  void SetBaseBackgroundColorOverride(SkColor) override;
-  void ClearBaseBackgroundColorOverride() override;
-  void SetBaseBackgroundColor(SkColor) override;
   WebInputMethodController* GetActiveWebInputMethodController() const override;
   bool ScrollFocusedEditableElementIntoView() override;
 
@@ -138,7 +131,6 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   void Initialize() override;
   void SetLayerTreeView(WebLayerTreeView*) override;
   bool ForSubframe() const override { return true; }
-  void ScheduleAnimation() override;
   void IntrinsicSizingInfoChanged(const IntrinsicSizingInfo&) override;
   void DidCreateLocalRootView() override;
 
@@ -147,6 +139,7 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
   WebLayerTreeView* GetLayerTreeView() const override;
   CompositorAnimationHost* AnimationHost() const override;
   HitTestResult CoreHitTestResultAt(const gfx::Point&) override;
+  void ZoomToFindInPageRect(const WebRect& rect_in_root_frame) override;
 
   // Exposed for the purpose of overriding device metrics.
   void SendResizeEventAndRepaint();
@@ -160,8 +153,6 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
     return root_graphics_layer_;
   };
 
-  Color BaseBackgroundColor() const;
-
   void Trace(blink::Visitor*) override;
 
  private:
@@ -173,8 +164,6 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
 
   void SetIsAcceleratedCompositingActive(bool);
   void UpdateLayerTreeViewport();
-  void UpdateLayerTreeBackgroundColor();
-  void UpdateBaseBackgroundColor();
 
   // PageWidgetEventHandler functions
   void HandleMouseLeave(LocalFrame&, const WebMouseEvent&) override;
@@ -222,17 +211,10 @@ class WebFrameWidgetImpl final : public WebFrameWidgetBase,
 
   bool did_suspend_parsing_ = false;
 
-  bool background_color_override_enabled_;
-  SkColor background_color_override_;
-  bool base_background_color_override_enabled_;
-  SkColor base_background_color_override_;
-
   // TODO(ekaramad): Can we remove this and make sure IME events are not called
   // when there is no page focus?
   // Represents whether or not this object should process incoming IME events.
   bool ime_accept_events_;
-
-  SkColor base_background_color_;
 
   SelfKeepAlive<WebFrameWidgetImpl> self_keep_alive_;
 };

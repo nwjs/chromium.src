@@ -48,10 +48,15 @@ bool ReadGestureData(ui::mojom::EventDataView* event,
   if (!event->ReadGestureData<ui::mojom::GestureDataPtr>(&gesture_data))
     return false;
 
+  ui::GestureEventDetails details(ConvertTo<ui::EventType>(event->action()));
+  details.set_device_type(gesture_data->device_type);
+  if (details.type() == ui::ET_GESTURE_PINCH_UPDATE)
+    details.set_scale(gesture_data->scale);
+
   *out = std::make_unique<ui::GestureEvent>(
       gesture_data->location->relative_location.x(),
       gesture_data->location->relative_location.y(), event->flags(), time_stamp,
-      ui::GestureEventDetails(ConvertTo<ui::EventType>(event->action())));
+      details);
   return true;
 }
 
@@ -117,6 +122,14 @@ ui::mojom::EventType TypeConverter<ui::mojom::EventType,
       return ui::mojom::EventType::KEY_RELEASED;
     case ui::ET_GESTURE_TAP:
       return ui::mojom::EventType::GESTURE_TAP;
+    case ui::ET_GESTURE_SWIPE:
+      return ui::mojom::EventType::GESTURE_SWIPE;
+    case ui::ET_GESTURE_PINCH_BEGIN:
+      return ui::mojom::EventType::GESTURE_PINCH_BEGIN;
+    case ui::ET_GESTURE_PINCH_END:
+      return ui::mojom::EventType::GESTURE_PINCH_END;
+    case ui::ET_GESTURE_PINCH_UPDATE:
+      return ui::mojom::EventType::GESTURE_PINCH_UPDATE;
     case ui::ET_SCROLL:
       return ui::mojom::EventType::SCROLL;
     case ui::ET_SCROLL_FLING_START:
@@ -169,6 +182,14 @@ ui::EventType TypeConverter<ui::EventType, ui::mojom::EventType>::Convert(
       return ui::ET_KEY_RELEASED;
     case ui::mojom::EventType::GESTURE_TAP:
       return ui::ET_GESTURE_TAP;
+    case ui::mojom::EventType::GESTURE_SWIPE:
+      return ui::ET_GESTURE_SWIPE;
+    case ui::mojom::EventType::GESTURE_PINCH_BEGIN:
+      return ui::ET_GESTURE_PINCH_BEGIN;
+    case ui::mojom::EventType::GESTURE_PINCH_END:
+      return ui::ET_GESTURE_PINCH_END;
+    case ui::mojom::EventType::GESTURE_PINCH_UPDATE:
+      return ui::ET_GESTURE_PINCH_UPDATE;
     case ui::mojom::EventType::SCROLL:
       return ui::ET_SCROLL;
     case ui::mojom::EventType::SCROLL_FLING_START:
@@ -241,15 +262,11 @@ StructTraits<ui::mojom::EventDataView, EventUniquePtr>::key_data(
 
   const ui::KeyEvent* key_event = event->AsKeyEvent();
   ui::mojom::KeyDataPtr key_data(ui::mojom::KeyData::New());
-  key_data->key_code = key_event->GetConflatedWindowsKeyCode();
-  key_data->native_key_code =
-      ui::KeycodeConverter::DomCodeToNativeKeycode(key_event->code());
+
+  key_data->key_code = static_cast<int32_t>(key_event->key_code());
   key_data->is_char = key_event->is_char();
-  key_data->character = key_event->GetCharacter();
-  key_data->windows_key_code = static_cast<ui::mojom::KeyboardCode>(
-      key_event->GetLocatedWindowsKeyboardCode());
-  key_data->text = key_event->GetText();
-  key_data->unmodified_text = key_event->GetUnmodifiedText();
+  key_data->dom_code = static_cast<uint32_t>(key_event->code());
+  key_data->dom_key = static_cast<int32_t>(key_event->GetDomKey());
   return key_data;
 }
 
@@ -277,8 +294,13 @@ StructTraits<ui::mojom::EventDataView, EventUniquePtr>::gesture_data(
   if (!event->IsGestureEvent())
     return nullptr;
 
+  const ui::GestureEvent* gesture_event = event->AsGestureEvent();
   ui::mojom::GestureDataPtr gesture_data(ui::mojom::GestureData::New());
-  gesture_data->location = CreateLocationData(event->AsLocatedEvent());
+  gesture_data->location = CreateLocationData(gesture_event);
+  gesture_data->device_type = gesture_event->details().device_type();
+  gesture_data->scale = (event->type() == ui::ET_GESTURE_PINCH_UPDATE)
+                            ? gesture_event->details().scale()
+                            : 1.f;
   return gesture_data;
 }
 
@@ -341,22 +363,39 @@ bool StructTraits<ui::mojom::EventDataView, EventUniquePtr>::Read(
       if (!event.ReadKeyData<ui::mojom::KeyDataPtr>(&key_data))
         return false;
 
-      if (key_data->is_char) {
-        *out = std::make_unique<ui::KeyEvent>(
-            static_cast<base::char16>(key_data->character),
-            static_cast<ui::KeyboardCode>(key_data->key_code),
-            ui::DomCode::NONE, event.flags(), time_stamp);
-      } else {
-        *out = std::make_unique<ui::KeyEvent>(
-            event.action() == ui::mojom::EventType::KEY_PRESSED
-                ? ui::ET_KEY_PRESSED
-                : ui::ET_KEY_RELEASED,
-            static_cast<ui::KeyboardCode>(key_data->key_code), event.flags(),
-            time_stamp);
+      base::Optional<ui::DomKey> dom_key =
+          ui::DomKey::FromBase(key_data->dom_key);
+      if (!dom_key)
+        return false;
+
+      if (!key_data->is_char &&
+          (key_data->key_code < 0 || key_data->key_code > 255)) {
+        return false;
       }
+      if (event.flags() > ui::EF_MAX_KEY_EVENT_FLAGS_VALUE)
+        return false;
+
+      const ui::KeyboardCode key_code =
+          static_cast<ui::KeyboardCode>(key_data->key_code);
+      // Deserialization uses UsbKeycodeToDomCode() rather than a direct cast
+      // to ensure the value is valid. Invalid values are mapped to
+      // DomCode::NONE.
+      const ui::DomCode dom_code =
+          ui::KeycodeConverter::UsbKeycodeToDomCode(key_data->dom_code);
+      const ui::EventType event_type =
+          (event.action() == ui::mojom::EventType::KEY_PRESSED)
+              ? ui::ET_KEY_PRESSED
+              : ui::ET_KEY_RELEASED;
+      *out = std::make_unique<ui::KeyEvent>(event_type, key_code, dom_code,
+                                            event.flags(), *dom_key, time_stamp,
+                                            key_data->is_char);
       break;
     }
     case ui::mojom::EventType::GESTURE_TAP:
+    case ui::mojom::EventType::GESTURE_SWIPE:
+    case ui::mojom::EventType::GESTURE_PINCH_BEGIN:
+    case ui::mojom::EventType::GESTURE_PINCH_END:
+    case ui::mojom::EventType::GESTURE_PINCH_UPDATE:
       if (!ReadGestureData(&event, time_stamp, out))
         return false;
       break;

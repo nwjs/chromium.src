@@ -11,6 +11,8 @@ source_set("sync") {
     # BUILD.gn depedency.
     "consent_auditor_factory.cc",
     "consent_auditor_factory.h",
+    "device_info_sync_service_factory.h",
+    "device_info_sync_service_factory.mm",
     "ios_chrome_sync_client.h",
     "ios_chrome_sync_client.mm",
     "ios_chrome_synced_tab_delegate.h",
@@ -21,8 +23,8 @@ source_set("sync") {
     "model_type_store_service_factory.h",
     "profile_sync_service_factory.cc",
     "profile_sync_service_factory.h",
-    "session_sync_service_factory.cc",
     "session_sync_service_factory.h",
+    "session_sync_service_factory.mm",
     "sync_observer_bridge.h",
     "sync_observer_bridge.mm",
     "sync_setup_service.cc",
@@ -108,6 +110,7 @@ source_set("test_support") {
     "//ios/chrome/browser/signin",
     "//ios/chrome/common",
     "//ios/web",
+    "//ui/base",
   ]
   public_deps = [
     "//testing/gmock",

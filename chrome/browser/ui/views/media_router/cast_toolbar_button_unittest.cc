@@ -17,7 +17,6 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/vector_icons/vector_icons.h"
-#include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/events/base_event_utils.h"
@@ -69,17 +68,20 @@ class CastToolbarButtonTest : public ChromeViewsTestBase {
 
   void SetUp() override {
     ChromeViewsTestBase::SetUp();
+
+    profile_ = std::make_unique<TestingProfile>();
+
     MediaRouterFactory::GetInstance()->SetTestingFactory(
-        &profile_, base::BindRepeating(&MockMediaRouter::Create));
+        profile_.get(), base::BindRepeating(&MockMediaRouter::Create));
     MediaRouterUIServiceFactory::GetInstance()->SetTestingFactory(
-        &profile_, base::BindRepeating(&BuildUIService));
+        profile_.get(), base::BindRepeating(&BuildUIService));
 
     window_ = std::make_unique<TestBrowserWindow>();
-    Browser::CreateParams browser_params(&profile_, true);
+    Browser::CreateParams browser_params(profile_.get(), true);
     browser_params.window = window_.get();
     browser_ = std::make_unique<Browser>(browser_params);
     MediaRouter* media_router =
-        MediaRouterFactory::GetApiForBrowserContext(&profile_);
+        MediaRouterFactory::GetApiForBrowserContext(profile_.get());
     auto context_menu = std::make_unique<MediaRouterContextualMenu>(
         browser_.get(), true, false, &context_menu_observer_);
     button_ = std::make_unique<CastToolbarButton>(browser_.get(), media_router,
@@ -90,6 +92,7 @@ class CastToolbarButtonTest : public ChromeViewsTestBase {
     button_.reset();
     browser_.reset();
     window_.reset();
+    profile_.reset();
     ChromeViewsTestBase::TearDown();
   }
 
@@ -98,12 +101,11 @@ class CastToolbarButtonTest : public ChromeViewsTestBase {
     return gfx::Image(button_->GetImage(views::Button::STATE_NORMAL));
   }
 
-  content::TestBrowserThreadBundle thread_bundle_;
   std::unique_ptr<BrowserWindow> window_;
   std::unique_ptr<Browser> browser_;
   std::unique_ptr<CastToolbarButton> button_;
   MockContextMenuObserver context_menu_observer_;
-  TestingProfile profile_;
+  std::unique_ptr<TestingProfile> profile_;
 
   const gfx::Image idle_icon_ =
       gfx::Image(gfx::CreateVectorIcon(vector_icons::kMediaRouterIdleIcon,

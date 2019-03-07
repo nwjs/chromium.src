@@ -7,6 +7,7 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_registrar.h"
 #include "base/android/jni_utils.h"
+#include "base/stl_util.h"
 #include "chrome/app/android/chrome_android_initializer.h"
 #include "content/public/app/content_jni_onload.h"
 #include "device/vr/buildflags/buildflags.h"
@@ -22,7 +23,7 @@ namespace android {
 // These VR native functions are not handled by the automatic registration, so
 // they are manually registered here.
 #if BUILDFLAG(ENABLE_VR)
-static base::android::RegistrationMethod kChromeRegisteredMethods[] = {
+static const base::android::RegistrationMethod kChromeRegisteredMethods[] = {
     {"DisplaySynchronizer",
      DisplaySynchronizer::RegisterDisplaySynchronizerNatives},
     {"GvrApi", GvrApi::RegisterGvrApiNatives},
@@ -35,7 +36,7 @@ bool OnJNIOnLoadRegisterJNI(JNIEnv* env) {
   // Register manually when on the browser process.
   if (!base::android::IsSelectiveJniRegistrationEnabled(env)) {
     return RegisterNativeMethods(env, kChromeRegisteredMethods,
-                                 arraysize(kChromeRegisteredMethods));
+                                 base::size(kChromeRegisteredMethods));
   }
 #endif
   return true;

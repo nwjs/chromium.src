@@ -79,7 +79,7 @@ ScriptedIdleTaskController::V8IdleTask::V8IdleTask(
     V8IdleRequestCallback* callback)
     : callback_(callback) {}
 
-void ScriptedIdleTaskController::V8IdleTask::Trace(blink::Visitor* visitor) {
+void ScriptedIdleTaskController::V8IdleTask::Trace(Visitor* visitor) {
   visitor->Trace(callback_);
   ScriptedIdleTaskController::IdleTask::Trace(visitor);
 }
@@ -99,7 +99,7 @@ ScriptedIdleTaskController::ScriptedIdleTaskController(
 
 ScriptedIdleTaskController::~ScriptedIdleTaskController() = default;
 
-void ScriptedIdleTaskController::Trace(blink::Visitor* visitor) {
+void ScriptedIdleTaskController::Trace(Visitor* visitor) {
   visitor->Trace(idle_tasks_);
   PausableObject::Trace(visitor);
 }
@@ -226,11 +226,11 @@ void ScriptedIdleTaskController::ContextDestroyed(ExecutionContext*) {
   idle_tasks_.clear();
 }
 
-void ScriptedIdleTaskController::Pause() {
+void ScriptedIdleTaskController::ContextPaused(PauseState) {
   paused_ = true;
 }
 
-void ScriptedIdleTaskController::Unpause() {
+void ScriptedIdleTaskController::ContextUnpaused() {
   DCHECK(paused_);
   paused_ = false;
 

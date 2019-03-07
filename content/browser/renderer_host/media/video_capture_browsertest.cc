@@ -63,9 +63,9 @@ class MockVideoCaptureControllerEventHandler
 
 class MockMediaStreamProviderListener : public MediaStreamProviderListener {
  public:
-  MOCK_METHOD2(Opened, void(MediaStreamType, int));
-  MOCK_METHOD2(Closed, void(MediaStreamType, int));
-  MOCK_METHOD2(Aborted, void(MediaStreamType, int));
+  MOCK_METHOD2(Opened, void(blink::MediaStreamType, int));
+  MOCK_METHOD2(Closed, void(blink::MediaStreamType, int));
+  MOCK_METHOD2(Aborted, void(blink::MediaStreamType, int));
 };
 
 using DeviceIndex = size_t;
@@ -185,8 +185,8 @@ class VideoCaptureBrowserTest : public ContentBrowserTest,
       const media::VideoCaptureDeviceDescriptors& descriptors) {
     ASSERT_TRUE(params_.device_index_to_use < descriptors.size());
     const auto& descriptor = descriptors[params_.device_index_to_use];
-    MediaStreamDevice media_stream_device(
-        MEDIA_DEVICE_VIDEO_CAPTURE, descriptor.device_id,
+    blink::MediaStreamDevice media_stream_device(
+        blink::MEDIA_DEVICE_VIDEO_CAPTURE, descriptor.device_id,
         descriptor.display_name(), descriptor.facing);
     session_id_ = video_capture_manager_->Open(media_stream_device);
     media::VideoCaptureParams capture_params;
@@ -227,14 +227,6 @@ class VideoCaptureBrowserTest : public ContentBrowserTest,
 };
 
 IN_PROC_BROWSER_TEST_P(VideoCaptureBrowserTest, StartAndImmediatelyStop) {
-#if defined(OS_ANDROID)
-  // Mojo video capture is currently not supported on Android.
-  // TODO(chfremer): Remove this as soon as https://crbug.com/720500 is
-  // resolved.
-  if (params_.use_mojo_service)
-    return;
-#endif
-
   SetUpRequiringBrowserMainLoopOnMainThread();
   base::RunLoop run_loop;
   auto quit_run_loop_on_current_thread_cb =
@@ -261,17 +253,6 @@ IN_PROC_BROWSER_TEST_P(VideoCaptureBrowserTest, StartAndImmediatelyStop) {
 #endif
 IN_PROC_BROWSER_TEST_P(VideoCaptureBrowserTest,
                        MAYBE_ReceiveFramesFromFakeCaptureDevice) {
-#if defined(OS_ANDROID)
-  // TODO(chfremer): This test case is flaky on Android. Find out cause of
-  // flakiness and then re-enable. See https://crbug.com/709039.
-  if (params_.exercise_accelerated_jpeg_decoding)
-    return;
-  // Mojo video capture is currently not supported on Android
-  // TODO(chfremer): Remove this as soon as https://crbug.com/720500 is
-  // resolved.
-  if (params_.use_mojo_service)
-    return;
-#endif
   // Only fake device with index 2 delivers MJPEG.
   if (params_.exercise_accelerated_jpeg_decoding &&
       params_.device_index_to_use != 2) {

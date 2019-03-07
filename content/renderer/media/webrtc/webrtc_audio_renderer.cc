@@ -25,7 +25,7 @@
 #include "media/base/audio_parameters.h"
 #include "media/base/sample_rates.h"
 #include "third_party/blink/public/platform/web_media_stream_track.h"
-#include "third_party/webrtc/api/mediastreaminterface.h"
+#include "third_party/webrtc/api/media_stream_interface.h"
 
 namespace content {
 
@@ -120,23 +120,18 @@ class SharedAudioRenderer : public MediaStreamAudioRenderer {
     on_play_state_changed_.Run(media_stream_, &playing_state_);
   }
 
-  media::OutputDeviceInfo GetOutputDeviceInfo() override {
-    DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-    return delegate_->GetOutputDeviceInfo();
-  }
-
   void SwitchOutputDevice(const std::string& device_id,
                           media::OutputDeviceStatusCB callback) override {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
     return delegate_->SwitchOutputDevice(device_id, std::move(callback));
   }
 
-  base::TimeDelta GetCurrentRenderTime() const override {
+  base::TimeDelta GetCurrentRenderTime() override {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
     return delegate_->GetCurrentRenderTime();
   }
 
-  bool IsLocalRenderer() const override {
+  bool IsLocalRenderer() override {
     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
     return delegate_->IsLocalRenderer();
   }
@@ -352,18 +347,13 @@ void WebRtcAudioRenderer::SetVolume(float volume) {
   OnPlayStateChanged(media_stream_, &playing_state_);
 }
 
-media::OutputDeviceInfo WebRtcAudioRenderer::GetOutputDeviceInfo() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  return sink_ ? sink_->GetOutputDeviceInfo() : media::OutputDeviceInfo();
-}
-
-base::TimeDelta WebRtcAudioRenderer::GetCurrentRenderTime() const {
+base::TimeDelta WebRtcAudioRenderer::GetCurrentRenderTime() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   base::AutoLock auto_lock(lock_);
   return current_time_;
 }
 
-bool WebRtcAudioRenderer::IsLocalRenderer() const {
+bool WebRtcAudioRenderer::IsLocalRenderer() {
   return false;
 }
 

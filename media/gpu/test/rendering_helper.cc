@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <memory>
 #include <numeric>
+#include <utility>
 #include <vector>
 
 #include "base/bind.h"
@@ -16,16 +17,15 @@
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
-#include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/stringize_macros.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "media/gpu/test/texture_ref.h"
-#include "media/gpu/test/video_decode_accelerator_unittest_helpers.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gl/gl_context.h"
 #include "ui/gl/gl_implementation.h"
@@ -50,7 +50,7 @@ void CreateShader(GLuint program, GLenum type, const char* source, int size) {
   glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
   if (!result) {
     char log[4096];
-    glGetShaderInfoLog(shader, arraysize(log), NULL, log);
+    glGetShaderInfoLog(shader, base::size(log), NULL, log);
     LOG(FATAL) << log;
   }
   glAttachShader(program, shader);
@@ -260,15 +260,15 @@ void RenderingHelper::Initialize(const RenderingHelperParams& params,
 #endif
   program_ = glCreateProgram();
   CreateShader(program_, GL_VERTEX_SHADER, kVertexShader,
-               arraysize(kVertexShader));
+               base::size(kVertexShader));
   CreateShader(program_, GL_FRAGMENT_SHADER, kFragmentShader,
-               arraysize(kFragmentShader));
+               base::size(kFragmentShader));
   glLinkProgram(program_);
   int result = GL_FALSE;
   glGetProgramiv(program_, GL_LINK_STATUS, &result);
   if (!result) {
     char log[4096];
-    glGetShaderInfoLog(program_, arraysize(log), NULL, log);
+    glGetShaderInfoLog(program_, base::size(log), NULL, log);
     LOG(FATAL) << log;
   }
   glUseProgram(program_);

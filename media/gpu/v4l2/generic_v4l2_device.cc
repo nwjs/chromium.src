@@ -19,8 +19,8 @@
 #include <memory>
 
 #include "base/files/scoped_file.h"
-#include "base/macros.h"
 #include "base/posix/eintr_wrapper.h"
+#include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
@@ -208,9 +208,9 @@ bool GenericV4L2Device::CanCreateEGLImageFrom(uint32_t v4l2_pixfmt) {
 
   return std::find(
              kEGLImageDrmFmtsSupported,
-             kEGLImageDrmFmtsSupported + arraysize(kEGLImageDrmFmtsSupported),
+             kEGLImageDrmFmtsSupported + base::size(kEGLImageDrmFmtsSupported),
              V4L2PixFmtToDrmFormat(v4l2_pixfmt)) !=
-         kEGLImageDrmFmtsSupported + arraysize(kEGLImageDrmFmtsSupported);
+         kEGLImageDrmFmtsSupported + base::size(kEGLImageDrmFmtsSupported);
 }
 
 EGLImageKHR GenericV4L2Device::CreateEGLImage(
@@ -332,19 +332,15 @@ scoped_refptr<gl::GLImage> GenericV4L2Device::CreateGLImage(
   }
 
   gfx::BufferFormat buffer_format = gfx::BufferFormat::BGRA_8888;
-  unsigned internal_format = GL_BGRA_EXT;
   switch (fourcc) {
     case DRM_FORMAT_ARGB8888:
       buffer_format = gfx::BufferFormat::BGRA_8888;
-      internal_format = GL_BGRA_EXT;
       break;
     case DRM_FORMAT_NV12:
       buffer_format = gfx::BufferFormat::YUV_420_BIPLANAR;
-      internal_format = GL_RGB_YCBCR_420V_CHROMIUM;
       break;
     case DRM_FORMAT_YVU420:
       buffer_format = gfx::BufferFormat::YVU_420;
-      internal_format = GL_RGB_YCRCB_420_CHROMIUM;
       break;
     default:
       NOTREACHED();
@@ -358,9 +354,9 @@ scoped_refptr<gl::GLImage> GenericV4L2Device::CreateGLImage(
 
   DCHECK(pixmap);
 
-  scoped_refptr<gl::GLImageNativePixmap> image(
-      new gl::GLImageNativePixmap(size, internal_format));
-  bool ret = image->Initialize(pixmap.get(), buffer_format);
+  auto image =
+      base::MakeRefCounted<gl::GLImageNativePixmap>(size, buffer_format);
+  bool ret = image->Initialize(pixmap.get());
   DCHECK(ret);
   return image;
 }
@@ -379,11 +375,11 @@ GLenum GenericV4L2Device::GetTextureTarget() {
   return GL_TEXTURE_EXTERNAL_OES;
 }
 
-uint32_t GenericV4L2Device::PreferredInputFormat(Type type) {
+std::vector<uint32_t> GenericV4L2Device::PreferredInputFormat(Type type) {
   if (type == Type::kEncoder)
-    return V4L2_PIX_FMT_NV12M;
+    return {V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_NV12};
 
-  return 0;
+  return {};
 }
 
 std::vector<uint32_t> GenericV4L2Device::GetSupportedImageProcessorPixelformats(

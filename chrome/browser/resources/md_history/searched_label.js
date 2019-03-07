@@ -21,7 +21,10 @@ Polymer({
    * @private
    */
   setSearchedTextToBold_: function() {
-    let i = 0;
+    if (this.title === undefined) {
+      return;
+    }
+
     const titleText = this.title;
 
     if (this.searchTerm == '' || this.searchTerm == null) {
@@ -30,19 +33,22 @@ Polymer({
     }
 
     const re = new RegExp(quoteString(this.searchTerm), 'gim');
+    let i = 0;
     let match;
     this.textContent = '';
     while (match = re.exec(titleText)) {
-      if (match.index > i)
+      if (match.index > i) {
         this.appendChild(
             document.createTextNode(titleText.slice(i, match.index)));
+      }
       i = re.lastIndex;
       // Mark the highlighted text in bold.
       const b = document.createElement('b');
       b.textContent = titleText.substring(match.index, i);
       this.appendChild(b);
     }
-    if (i < titleText.length)
+    if (i < titleText.length) {
       this.appendChild(document.createTextNode(titleText.slice(i)));
+    }
   },
 });

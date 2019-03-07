@@ -11,7 +11,7 @@
 #include "chrome/browser/vr/model/capturing_state_model.h"
 #include "chrome/browser/vr/model/web_vr_model.h"
 #include "chrome/browser/vr/ui_unsupported_mode.h"
-#include "chrome/browser/vr/vr_export.h"
+#include "chrome/browser/vr/vr_base_export.h"
 #include "components/security_state/core/security_state.h"
 
 namespace base {
@@ -28,7 +28,7 @@ struct LocationBarState;
 // The browser communicates state changes to the VR UI via this interface.
 // A GL thread would also implement this interface to provide a convenient way
 // to call these methods from the main thread.
-class VR_EXPORT BrowserUiInterface {
+class VR_BASE_EXPORT BrowserUiInterface {
  public:
   virtual ~BrowserUiInterface() {}
 
@@ -46,6 +46,8 @@ class VR_EXPORT BrowserUiInterface {
       const CapturingStateModel& potential_capturing) = 0;
   virtual void ShowExitVrPrompt(UiUnsupportedMode reason) = 0;
   virtual void SetSpeechRecognitionEnabled(bool enabled) = 0;
+  virtual void SetHasOrCanRequestRecordAudioPermission(
+      bool has_or_can_request_record_audio) = 0;
   virtual void SetRecognitionResult(const base::string16& result) = 0;
   virtual void OnSpeechRecognitionStateChanged(int new_state) = 0;
   virtual void SetOmniboxSuggestions(

@@ -28,6 +28,7 @@
 #include "third_party/icu/source/common/unicode/ubidi.h"
 #include "third_party/icu/source/common/unicode/utf16.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "third_party/skia/include/core/SkFontMetrics.h"
 #include "third_party/skia/include/core/SkTypeface.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/decorated_text.h"
@@ -195,10 +196,10 @@ size_t FindRunBreakingCharacter(const base::string16& text,
 // Consider 3 characters with the script values {Kana}, {Hira, Kana}, {Kana}.
 // Without script extensions only the first script in each set would be taken
 // into account, resulting in 3 runs where 1 would be enough.
-int ScriptInterval(const base::string16& text,
-                   size_t start,
-                   size_t length,
-                   UScriptCode* script) {
+size_t ScriptInterval(const base::string16& text,
+                      size_t start,
+                      size_t length,
+                      UScriptCode* script) {
   DCHECK_GT(length, 0U);
 
   UScriptCode scripts[kMaxScripts] = { USCRIPT_INVALID_CODE };
@@ -490,12 +491,12 @@ class HarfBuzzLineBreaker {
     line->segments.push_back(segment);
     line->size.set_width(line->size.width() + segment.width());
 
-    SkPaint paint;
-    paint.setTypeface(run.font_params.skia_face);
-    paint.setTextSize(SkIntToScalar(run.font_params.font_size));
-    paint.setAntiAlias(run.font_params.render_params.antialiasing);
+    SkFont font(run.font_params.skia_face, run.font_params.font_size);
+    font.setEdging(run.font_params.render_params.antialiasing
+                       ? SkFont::Edging::kAntiAlias
+                       : SkFont::Edging::kAlias);
     SkFontMetrics metrics;
-    paint.getFontMetrics(&metrics);
+    font.getMetrics(&metrics);
 
     // max_descent_ is y-down, fDescent is y-down, baseline_offset is y-down
     max_descent_ = std::max(max_descent_,
@@ -1100,9 +1101,9 @@ void ShapeRunWithFont(const ShapeRunWithFontInput& in,
   // Note that the value of the |item_offset| argument (here specified as
   // |in.range.start()|) does affect the result, so we will have to adjust
   // the computed offsets.
-  hb_buffer_add_utf16(buffer,
-                      reinterpret_cast<const uint16_t*>(in.text.c_str()),
-                      in.text.length(), in.range.start(), in.range.length());
+  hb_buffer_add_utf16(
+      buffer, reinterpret_cast<const uint16_t*>(in.text.c_str()),
+      static_cast<int>(in.text.length()), in.range.start(), in.range.length());
   hb_buffer_set_script(buffer, ICUScriptToHBScript(in.script));
   hb_buffer_set_direction(buffer,
                           in.is_rtl ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
@@ -1215,7 +1216,9 @@ SizeF RenderTextHarfBuzz::GetStringSizeF() {
   return total_size_;
 }
 
-SelectionModel RenderTextHarfBuzz::FindCursorPosition(const Point& view_point) {
+SelectionModel RenderTextHarfBuzz::FindCursorPosition(
+    const Point& view_point,
+    const Point& drag_origin) {
   EnsureLayout();
   DCHECK(!lines().empty());
 
@@ -1225,7 +1228,9 @@ SelectionModel RenderTextHarfBuzz::FindCursorPosition(const Point& view_point) {
   if (RenderText::kDragToEndIfOutsideVerticalBounds && !multiline() &&
       (line_index < 0 || line_index >= static_cast<int>(lines().size()))) {
     SelectionModel selection_start = GetSelectionModelForSelectionStart();
-    bool left = view_point.x() < GetCursorBounds(selection_start, true).x();
+    int edge = drag_origin.x() == 0 ? GetCursorBounds(selection_start, true).x()
+                                    : drag_origin.x();
+    bool left = view_point.x() < edge;
     return EdgeSelectionModel(left ? CURSOR_LEFT : CURSOR_RIGHT);
   }
   // Otherwise, clamp |line_index| to a valid value or drag to logical ends.
@@ -1731,12 +1736,12 @@ void RenderTextHarfBuzz::ItemizeTextToRuns(
     Range run_range;
     internal::TextRunHarfBuzz::FontParams font_params(primary_font);
     run_range.set_start(run_break);
-    font_params.italic = style.style(ITALIC);
+    font_params.italic = style.style(TEXT_STYLE_ITALIC);
     font_params.baseline_type = style.baseline();
     font_params.font_size = style.font_size_override();
-    font_params.strike = style.style(STRIKE);
-    font_params.underline = style.style(UNDERLINE);
-    font_params.heavy_underline = style.style(HEAVY_UNDERLINE);
+    font_params.strike = style.style(TEXT_STYLE_STRIKE);
+    font_params.underline = style.style(TEXT_STYLE_UNDERLINE);
+    font_params.heavy_underline = style.style(TEXT_STYLE_HEAVY_UNDERLINE);
     font_params.weight = style.weight();
     int32_t script_item_break = 0;
     bidi_iterator.GetLogicalRun(run_break, &script_item_break,

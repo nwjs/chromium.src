@@ -65,15 +65,15 @@ bookmarks::BookmarkModel* OmniboxClient::GetBookmarkModel() {
   return nullptr;
 }
 
+OmniboxControllerEmitter* OmniboxClient::GetOmniboxControllerEmitter() {
+  return nullptr;
+}
+
 TemplateURLService* OmniboxClient::GetTemplateURLService() {
   return nullptr;
 }
 
 AutocompleteClassifier* OmniboxClient::GetAutocompleteClassifier() {
-  return nullptr;
-}
-
-QueryInOmnibox* OmniboxClient::GetQueryInOmnibox() {
   return nullptr;
 }
 

@@ -50,10 +50,8 @@ process_version_rc_template("chrome_watcher_resources") {
 shared_library("chrome_watcher") {
   output_name = "nw_watcher"
   sources = [
-    "chrome_watcher_main.cc",
-  ]
-  inputs = [
     "chrome_watcher.def",
+    "chrome_watcher_main.cc",
   ]
   deps = [
     ":chrome_watcher_resources",
@@ -67,7 +65,6 @@ shared_library("chrome_watcher") {
     "//components/browser_watcher",
     "//content/public/common:static_switches",
   ]
-  ldflags = [ "/DEF:" + rebase_path("chrome_watcher.def", root_build_dir) ]
   configs -= [ "//build/config/win:console" ]
   configs += [ "//build/config/win:windowed" ]
 }

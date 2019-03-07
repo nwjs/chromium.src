@@ -71,12 +71,12 @@ void CaptureAccessHandlerBase::UpdateMediaRequestState(
     int render_process_id,
     int render_frame_id,
     int page_request_id,
-    content::MediaStreamType stream_type,
+    blink::MediaStreamType stream_type,
     content::MediaRequestState state) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if ((stream_type != content::MEDIA_GUM_DESKTOP_VIDEO_CAPTURE) &&
-      (stream_type != content::MEDIA_GUM_TAB_VIDEO_CAPTURE) &&
-      (stream_type != content::MEDIA_DISPLAY_VIDEO_CAPTURE))
+  if ((stream_type != blink::MEDIA_GUM_DESKTOP_VIDEO_CAPTURE) &&
+      (stream_type != blink::MEDIA_GUM_TAB_VIDEO_CAPTURE) &&
+      (stream_type != blink::MEDIA_DISPLAY_VIDEO_CAPTURE))
     return;
 
   if (state == content::MEDIA_REQUEST_STATE_DONE) {
@@ -147,14 +147,15 @@ bool CaptureAccessHandlerBase::IsInsecureCapturingInProgress(
   return false;
 }
 
-void CaptureAccessHandlerBase::UpdateCapturingLinkSecured(int render_process_id,
-                                                          int render_frame_id,
-                                                          int page_request_id,
-                                                          bool is_secure) {
+void CaptureAccessHandlerBase::UpdateVideoScreenCaptureStatus(
+    int render_process_id,
+    int render_frame_id,
+    int page_request_id,
+    bool is_secure) {
   auto it = FindSession(render_process_id, render_frame_id, page_request_id);
   if (it != sessions_.end()) {
     it->is_capturing_link_secure = is_secure;
-    DVLOG(2) << "UpdateCapturingLinkSecured:"
+    DVLOG(2) << "UpdateVideoScreenCaptureStatus:"
              << " render_process_id: " << render_process_id
              << " render_frame_id: " << render_frame_id
              << " page_request_id: " << page_request_id

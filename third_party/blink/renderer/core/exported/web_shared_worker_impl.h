@@ -39,10 +39,10 @@
 #include "base/memory/weak_ptr.h"
 #include "services/service_manager/public/mojom/interface_provider.mojom-blink.h"
 #include "third_party/blink/public/common/privacy_preferences.h"
+#include "third_party/blink/public/mojom/csp/content_security_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/net/ip_address_space.mojom-shared.h"
-#include "third_party/blink/public/platform/web_content_security_policy.h"
+#include "third_party/blink/public/mojom/worker/worker_content_settings_proxy.mojom-blink.h"
 #include "third_party/blink/public/web/web_shared_worker_client.h"
-#include "third_party/blink/public/web/worker_content_settings_proxy.mojom-blink.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/exported/worker_shadow_page.h"
 #include "third_party/blink/renderer/core/workers/shared_worker_reporting_proxy.h"
@@ -93,7 +93,7 @@ class CORE_EXPORT WebSharedWorkerImpl final : public WebSharedWorker,
       const WebURL&,
       const WebString& name,
       const WebString& content_security_policy,
-      WebContentSecurityPolicyType,
+      mojom::ContentSecurityPolicyType,
       mojom::IPAddressSpace,
       const base::UnguessableToken& devtools_worker_token,
       PrivacyPreferences privacy_preferences,
@@ -122,6 +122,10 @@ class CORE_EXPORT WebSharedWorkerImpl final : public WebSharedWorker,
   void DidReceiveScriptLoaderResponse();
   void OnScriptLoaderFinished();
   void ContinueOnScriptLoaderFinished();
+  void StartWorkerThread(std::unique_ptr<GlobalScopeCreationParams>,
+                         const KURL& script_response_url,
+                         const String& source_code);
+  WorkerClients* CreateWorkerClients();
 
   void ConnectTaskOnWorkerThread(MessagePortChannel);
 

@@ -17,8 +17,7 @@ component("lib") {
     "//ash:ash_unittests",
   ]
   public = [
-    "host_event_dispatcher.h",
-    "host_event_queue.h",
+    "event_queue.h",
     "ids.h",
     "window_delegate_impl.h",
     "window_manager_interface.h",
@@ -29,6 +28,7 @@ component("lib") {
     "window_tree.h",
     "window_tree_binding.h",
     "window_tree_factory.h",
+    "window_utils.h",
   ]
   sources = [
     "client_change.cc",
@@ -46,23 +46,23 @@ component("lib") {
     "event_observer_helper.cc",
     "event_observer_helper.h",
     "event_queue.cc",
-    "event_queue.h",
     "focus_handler.cc",
     "focus_handler.h",
-    "host_event_queue.cc",
     "injected_event_handler.cc",
     "injected_event_handler.h",
+    "proxy_window.cc",
+    "proxy_window.h",
     "remoting_event_injector.cc",
     "remoting_event_injector.h",
     "screen_provider.cc",
     "screen_provider.h",
-    "server_window.cc",
-    "server_window.h",
     "topmost_window_observer.cc",
     "topmost_window_observer.h",
     "user_activity_monitor.cc",
     "user_activity_monitor.h",
     "window_delegate_impl.cc",
+    "window_occlusion_change_builder.cc",
+    "window_occlusion_change_builder.h",
     "window_properties.cc",
     "window_server_test_impl.cc",
     "window_server_test_impl.h",
@@ -71,6 +71,7 @@ component("lib") {
     "window_tree.cc",
     "window_tree_binding.cc",
     "window_tree_factory.cc",
+    "window_utils.cc",
   ]
 
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
@@ -84,15 +85,22 @@ component("lib") {
     "//services/ws/input_devices",
     "//services/ws/public/mojom",
     "//ui/aura",
+    "//ui/aura_extra:window_position_in_root_monitor",
     "//ui/base/mojo:lib",
     "//ui/wm",
     "//ui/wm/public",
   ]
 
   deps = [
+    "//components/viz/common",
     "//services/ws/public/cpp",
     "//services/ws/public/cpp/host",
+    "//skia",
   ]
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
 
   defines = [ "IS_WINDOW_SERVICE_IMPL" ]
 }
@@ -132,12 +140,10 @@ static_library("test_support") {
     "event_queue_test_helper.h",
     "event_test_utils.cc",
     "event_test_utils.h",
-    "server_window_test_helper.cc",
-    "server_window_test_helper.h",
+    "proxy_window_test_helper.cc",
+    "proxy_window_test_helper.h",
     "test_change_tracker.cc",
     "test_change_tracker.h",
-    "test_host_event_dispatcher.cc",
-    "test_host_event_dispatcher.h",
     "test_screen_provider_observer.cc",
     "test_screen_provider_observer.h",
     "test_window_service_delegate.cc",
@@ -212,8 +218,8 @@ source_set("tests") {
     "event_queue_unittest.cc",
     "focus_handler_unittest.cc",
     "injected_event_handler_unittest.cc",
+    "proxy_window_unittest.cc",
     "screen_provider_unittest.cc",
-    "server_window_unittest.cc",
     "topmost_window_observer_unittest.cc",
     "user_activity_monitor_unittest.cc",
     "window_delegate_impl_unittest.cc",

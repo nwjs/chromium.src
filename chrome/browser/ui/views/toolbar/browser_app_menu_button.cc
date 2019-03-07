@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 
+#include <set>
+
 #include "base/location.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/single_thread_task_runner.h"
@@ -34,12 +36,24 @@
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/animation/ink_drop_highlight.h"
+#include "ui/views/animation/ink_drop_state.h"
 #include "ui/views/controls/button/label_button_border.h"
 #include "ui/views/metrics.h"
+#include "ui/views/view.h"
+#include "ui/views/view_properties.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/ui/ash/chrome_keyboard_controller_client.h"
+#include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #endif  // defined(OS_CHROMEOS)
+
+namespace {
+
+// Button background and icon color for in-product help promos.
+// TODO(collinbaker): https://crbug.com/909747 handle themed toolbar colors, and
+// maybe move this into theme system.
+constexpr SkColor kFeaturePromoHighlightColor = gfx::kGoogleBlue600;
+
+}  // namespace
 
 // static
 bool BrowserAppMenuButton::g_open_app_immediately_for_testing = false;
@@ -47,12 +61,16 @@ bool BrowserAppMenuButton::g_open_app_immediately_for_testing = false;
 BrowserAppMenuButton::BrowserAppMenuButton(ToolbarView* toolbar_view)
     : AppMenuButton(toolbar_view), toolbar_view_(toolbar_view) {
   SetInkDropMode(InkDropMode::ON);
-  SetFocusPainter(nullptr);
   SetHorizontalAlignment(gfx::ALIGN_CENTER);
 
   set_ink_drop_visible_opacity(kToolbarInkDropVisibleOpacity);
 
   md_observer_.Add(ui::MaterialDesignController::GetInstance());
+
+  // Because we're using the internal padding to keep track of the changes we
+  // make to the leading margin to handle Fitts' Law, it's easier to just
+  // allocate the property once and modify the value.
+  SetProperty(views::kInternalPaddingKey, new gfx::Insets());
   UpdateBorder();
 }
 
@@ -62,20 +80,32 @@ void BrowserAppMenuButton::SetTypeAndSeverity(
     AppMenuIconController::TypeAndSeverity type_and_severity) {
   type_and_severity_ = type_and_severity;
 
-  SetTooltipText(
-      type_and_severity_.severity == AppMenuIconController::Severity::NONE
-          ? l10n_util::GetStringUTF16(IDS_APPMENU_TOOLTIP)
-          : l10n_util::GetStringUTF16(IDS_APPMENU_TOOLTIP_UPDATE_AVAILABLE));
+  int message_id;
+  if (type_and_severity.severity == AppMenuIconController::Severity::NONE) {
+    message_id = IDS_APPMENU_TOOLTIP;
+  } else if (type_and_severity.type ==
+             AppMenuIconController::IconType::UPGRADE_NOTIFICATION) {
+    message_id = IDS_APPMENU_TOOLTIP_UPDATE_AVAILABLE;
+  } else {
+    message_id = IDS_APPMENU_TOOLTIP_ALERT;
+  }
+  SetTooltipText(l10n_util::GetStringUTF16(message_id));
   UpdateIcon();
 }
 
-void BrowserAppMenuButton::SetIsProminent(bool is_prominent) {
-  if (is_prominent) {
-    SetBackground(views::CreateSolidBackground(GetNativeTheme()->GetSystemColor(
-        ui::NativeTheme::kColorId_ProminentButtonColor)));
-  } else {
-    SetBackground(nullptr);
-  }
+void BrowserAppMenuButton::SetPromoIsShowing(bool promo_is_showing) {
+  if (promo_is_showing_ == promo_is_showing)
+    return;
+
+  promo_is_showing_ = promo_is_showing;
+  // We override GetInkDropBaseColor below in the |promo_is_showing_| case. This
+  // sets the ink drop into the activated state, which will highlight it in the
+  // desired color.
+  GetInkDrop()->AnimateToState(promo_is_showing_
+                                   ? views::InkDropState::ACTIVATED
+                                   : views::InkDropState::HIDDEN);
+
+  UpdateIcon();
   SchedulePaint();
 }
 
@@ -118,8 +148,10 @@ void BrowserAppMenuButton::UpdateIcon() {
   const ui::NativeTheme* native_theme = GetNativeTheme();
   switch (type_and_severity_.severity) {
     case AppMenuIconController::Severity::NONE:
-      severity_color = GetThemeProvider()->GetColor(
-          ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+      severity_color = promo_is_showing_
+                           ? kFeaturePromoHighlightColor
+                           : GetThemeProvider()->GetColor(
+                                 ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
       break;
     case AppMenuIconController::Severity::LOW:
       severity_color = native_theme->GetSystemColor(
@@ -158,9 +190,10 @@ void BrowserAppMenuButton::UpdateIcon() {
 }
 
 void BrowserAppMenuButton::SetTrailingMargin(int margin) {
-  if (margin == margin_trailing_)
+  gfx::Insets* const internal_padding = GetProperty(views::kInternalPaddingKey);
+  if (internal_padding->right() == margin)
     return;
-  margin_trailing_ = margin;
+  internal_padding->set_right(margin);
   UpdateBorder();
   InvalidateLayout();
 }
@@ -177,12 +210,12 @@ const char* BrowserAppMenuButton::GetClassName() const {
 
 void BrowserAppMenuButton::UpdateBorder() {
   SetBorder(views::CreateEmptyBorder(GetLayoutInsets(TOOLBAR_BUTTON) +
-                                     gfx::Insets(0, 0, 0, margin_trailing_)));
+                                     *GetProperty(views::kInternalPaddingKey)));
 }
 
 void BrowserAppMenuButton::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   // TODO(pbos): Consolidate with ToolbarButton::OnBoundsChanged.
-  SetToolbarButtonHighlightPath(this, gfx::Insets(0, 0, 0, margin_trailing_));
+  SetToolbarButtonHighlightPath(this, *GetProperty(views::kInternalPaddingKey));
 
   AppMenuButton::OnBoundsChanged(previous_bounds);
 }
@@ -190,7 +223,7 @@ void BrowserAppMenuButton::OnBoundsChanged(const gfx::Rect& previous_bounds) {
 gfx::Rect BrowserAppMenuButton::GetAnchorBoundsInScreen() const {
   gfx::Rect bounds = GetBoundsInScreen();
   gfx::Insets insets =
-      GetToolbarInkDropInsets(this, gfx::Insets(0, 0, 0, margin_trailing_));
+      GetToolbarInkDropInsets(this, *GetProperty(views::kInternalPaddingKey));
   // If the button is extended, don't inset the trailing edge. The anchored menu
   // should extend to the screen edge as well so the menu is easier to hit
   // (Fitts's law).
@@ -205,7 +238,7 @@ gfx::Rect BrowserAppMenuButton::GetAnchorBoundsInScreen() const {
 
 bool BrowserAppMenuButton::GetDropFormats(
     int* formats,
-    std::set<ui::Clipboard::FormatType>* format_types) {
+    std::set<ui::ClipboardFormatType>* format_types) {
   return BrowserActionDragData::GetDropFormats(format_types);
 }
 
@@ -243,11 +276,12 @@ int BrowserAppMenuButton::OnPerformDrop(const ui::DropTargetEvent& event) {
   return ui::DragDropTypes::DRAG_MOVE;
 }
 
-std::unique_ptr<views::InkDrop> BrowserAppMenuButton::CreateInkDrop() {
-  return CreateToolbarInkDrop(this);
-}
-
 std::unique_ptr<views::InkDropHighlight>
 BrowserAppMenuButton::CreateInkDropHighlight() const {
   return CreateToolbarInkDropHighlight(this);
+}
+
+SkColor BrowserAppMenuButton::GetInkDropBaseColor() const {
+  return promo_is_showing_ ? kFeaturePromoHighlightColor
+                           : AppMenuButton::GetInkDropBaseColor();
 }

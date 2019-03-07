@@ -11,6 +11,7 @@
 #include "build/build_config.h"
 #include "cc/input/touch_action.h"
 #include "content/public/common/console_message_level.h"
+#include "content/public/common/drop_data.h"
 #include "content/public/common/referrer.h"
 #include "content/public/common/renderer_preferences.h"
 #include "content/public/common/web_preferences.h"
@@ -19,6 +20,7 @@
 #include "services/network/public/cpp/network_ipc_param_traits.h"
 #include "services/network/public/mojom/referrer_policy.mojom.h"
 #include "third_party/blink/public/platform/modules/permissions/permission_status.mojom.h"
+#include "third_party/blink/public/platform/web_drag_operation.h"
 #include "third_party/blink/public/platform/web_history_scroll_restoration_type.h"
 #include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_rect.h"
@@ -30,6 +32,7 @@
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_relative_bounds.h"
 #include "ui/accessibility/ax_tree_update.h"
+#include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/ipc/geometry/gfx_param_traits.h"
@@ -62,8 +65,6 @@ IPC_ENUM_TRAITS_MAX_VALUE(WindowOpenDisposition,
                           WindowOpenDisposition::MAX_VALUE)
 IPC_ENUM_TRAITS_MAX_VALUE(content::V8CacheOptions,
                           content::V8_CACHE_OPTIONS_LAST)
-IPC_ENUM_TRAITS_MAX_VALUE(content::SavePreviousDocumentResources,
-                          content::SavePreviousDocumentResources::LAST)
 IPC_ENUM_TRAITS_MIN_MAX_VALUE(ui::PointerType,
                               ui::POINTER_TYPE_FIRST,
                               ui::POINTER_TYPE_LAST)
@@ -127,7 +128,6 @@ IPC_STRUCT_TRAITS_BEGIN(content::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(dns_prefetching_enabled)
   IPC_STRUCT_TRAITS_MEMBER(data_saver_enabled)
   IPC_STRUCT_TRAITS_MEMBER(data_saver_holdback_web_api_enabled)
-  IPC_STRUCT_TRAITS_MEMBER(data_saver_holdback_media_api_enabled)
   IPC_STRUCT_TRAITS_MEMBER(local_storage_enabled)
   IPC_STRUCT_TRAITS_MEMBER(databases_enabled)
   IPC_STRUCT_TRAITS_MEMBER(application_cache_enabled)
@@ -165,6 +165,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(strictly_block_blockable_mixed_content)
   IPC_STRUCT_TRAITS_MEMBER(block_mixed_plugin_content)
   IPC_STRUCT_TRAITS_MEMBER(enable_scroll_animator)
+  IPC_STRUCT_TRAITS_MEMBER(prefers_reduced_motion)
   IPC_STRUCT_TRAITS_MEMBER(password_echo_enabled)
   IPC_STRUCT_TRAITS_MEMBER(should_clear_document_background)
   IPC_STRUCT_TRAITS_MEMBER(touch_event_feature_detection_enabled)
@@ -195,16 +196,17 @@ IPC_STRUCT_TRAITS_BEGIN(content::WebPreferences)
   IPC_STRUCT_TRAITS_MEMBER(accelerated_video_decode_enabled)
   IPC_STRUCT_TRAITS_MEMBER(animation_policy)
   IPC_STRUCT_TRAITS_MEMBER(user_gesture_required_for_presentation)
+  IPC_STRUCT_TRAITS_MEMBER(text_track_background_color)
   IPC_STRUCT_TRAITS_MEMBER(text_track_margin_percentage)
-  IPC_STRUCT_TRAITS_MEMBER(save_previous_document_resources)
+  IPC_STRUCT_TRAITS_MEMBER(text_track_text_color)
   IPC_STRUCT_TRAITS_MEMBER(text_autosizing_enabled)
   IPC_STRUCT_TRAITS_MEMBER(double_tap_to_zoom_enabled)
+  IPC_STRUCT_TRAITS_MEMBER(web_app_scope)
 #if defined(OS_ANDROID)
   IPC_STRUCT_TRAITS_MEMBER(font_scale_factor)
   IPC_STRUCT_TRAITS_MEMBER(device_scale_adjustment)
   IPC_STRUCT_TRAITS_MEMBER(force_enable_zoom)
   IPC_STRUCT_TRAITS_MEMBER(fullscreen_supported)
-  IPC_STRUCT_TRAITS_MEMBER(media_playback_gesture_whitelist_scope)
   IPC_STRUCT_TRAITS_MEMBER(default_video_poster_url)
   IPC_STRUCT_TRAITS_MEMBER(support_deprecated_target_density_dpi)
   IPC_STRUCT_TRAITS_MEMBER(use_legacy_background_size_shorthand_behavior)
@@ -344,6 +346,49 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
 #endif
   IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_doc_start)
   IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_doc_end)
+IPC_STRUCT_TRAITS_END()
+
+IPC_ENUM_TRAITS(blink::WebDragOperation)  // Bitmask.
+IPC_ENUM_TRAITS_MAX_VALUE(ui::DragDropTypes::DragEventSource,
+                          ui::DragDropTypes::DRAG_EVENT_SOURCE_LAST)
+IPC_ENUM_TRAITS_MAX_VALUE(content::DropData::Kind,
+                          content::DropData::Kind::LAST)
+
+IPC_STRUCT_TRAITS_BEGIN(ui::FileInfo)
+  IPC_STRUCT_TRAITS_MEMBER(path)
+  IPC_STRUCT_TRAITS_MEMBER(display_name)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(content::DropData)
+  IPC_STRUCT_TRAITS_MEMBER(key_modifiers)
+  IPC_STRUCT_TRAITS_MEMBER(url)
+  IPC_STRUCT_TRAITS_MEMBER(url_title)
+  IPC_STRUCT_TRAITS_MEMBER(download_metadata)
+  IPC_STRUCT_TRAITS_MEMBER(referrer_policy)
+  IPC_STRUCT_TRAITS_MEMBER(filenames)
+  IPC_STRUCT_TRAITS_MEMBER(filesystem_id)
+  IPC_STRUCT_TRAITS_MEMBER(file_system_files)
+  IPC_STRUCT_TRAITS_MEMBER(text)
+  IPC_STRUCT_TRAITS_MEMBER(html)
+  IPC_STRUCT_TRAITS_MEMBER(html_base_url)
+  IPC_STRUCT_TRAITS_MEMBER(file_contents)
+  IPC_STRUCT_TRAITS_MEMBER(file_contents_source_url)
+  IPC_STRUCT_TRAITS_MEMBER(file_contents_filename_extension)
+  IPC_STRUCT_TRAITS_MEMBER(file_contents_content_disposition)
+  IPC_STRUCT_TRAITS_MEMBER(custom_data)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(content::DropData::FileSystemFileInfo)
+  IPC_STRUCT_TRAITS_MEMBER(url)
+  IPC_STRUCT_TRAITS_MEMBER(size)
+  IPC_STRUCT_TRAITS_MEMBER(filesystem_id)
+IPC_STRUCT_TRAITS_END()
+
+IPC_STRUCT_TRAITS_BEGIN(content::DropData::Metadata)
+  IPC_STRUCT_TRAITS_MEMBER(kind)
+  IPC_STRUCT_TRAITS_MEMBER(mime_type)
+  IPC_STRUCT_TRAITS_MEMBER(filename)
+  IPC_STRUCT_TRAITS_MEMBER(file_system_url)
 IPC_STRUCT_TRAITS_END()
 
 #endif  // CONTENT_PUBLIC_COMMON_COMMON_PARAM_TRAITS_MACROS_H_

@@ -302,7 +302,8 @@
       "2B6C6A4A5940017146F3E58B7F90116206E84685",  // http://crbug.com/642141
       "B6C2EFAB3EC3BF6EF03701408B6B09A67B2D0069",  // http://crbug.com/642141
       "96FF2FFA5C9173C76D47184B3E86D267B37781DE",  // http://crbug.com/642141
-      "0136FCB13DB29FD5CD442F56E59E53B61F1DF96F"   // http://crbug.com/642141
+      "0136FCB13DB29FD5CD442F56E59E53B61F1DF96F",  // http://crbug.com/642141
+      "CBCC42ABED43A4B58FE3810E62AFFA010EB0349F"   // PDF Viewer
     ]
   }],
   "fileSystem.directory": {
@@ -362,7 +363,7 @@
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app", "platform_app"]
   },
-  "lockScreen": [{
+  "lockScreen": {
     "channel": "stable",
     "extension_types": ["platform_app"],
     "platforms": ["chromeos"],
@@ -370,13 +371,7 @@
       "6F9C741B8E0E546652134F1138DF0284A7C9B21E",  // http://crbug.com/728309
       "47448626CB266C60AA2404E4EB426E025DF497DF"   // http://crbug.com/728309
     ]
-  }, {
-    // TODO(tbarzic): Remove this once the apps in the white-list can be used
-    // to test lock screen note taking.
-    "channel": "dev",
-    "extension_types": ["platform_app"],
-    "platforms": ["chromeos"]
-  }],
+  },
   "mediaPerceptionPrivate": [{
     "channel": "stable",
     "extension_types": ["platform_app"],

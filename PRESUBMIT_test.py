@@ -1377,11 +1377,11 @@ class ForwardDeclarationTest(unittest.TestCase):
   def testBlinkHeaders(self):
     mock_input_api = MockInputApi()
     mock_input_api.files = [
-      MockAffectedFile('third_party/WebKit/header.h', [
+      MockAffectedFile('third_party/blink/header.h', [
         'class DummyClass;',
         'struct DummyStruct;',
       ]),
-      MockAffectedFile('third_party\\WebKit\\header.h', [
+      MockAffectedFile('third_party\\blink\\header.h', [
         'class DummyClass;',
         'struct DummyStruct;',
       ])
@@ -1445,7 +1445,7 @@ class RelativeIncludesTest(unittest.TestCase):
   def testRelativeIncludeWebKitProducesError(self):
     mock_input_api = MockInputApi()
     mock_input_api.files = [
-      MockAffectedFile('third_party/WebKit/test.cpp',
+      MockAffectedFile('third_party/blink/test.cpp',
                        ['#include "../header.h']),
     ]
 
@@ -1682,8 +1682,8 @@ class CorrectProductNameInMessagesTest(unittest.TestCase):
         'chrome/app/chromium_strings.grd:8' in warnings[1].items[1])
 
 
-class MojoManifestOwnerTest(unittest.TestCase):
-  def testMojoManifestChangeNeedsSecurityOwner(self):
+class ServiceManifestOwnerTest(unittest.TestCase):
+  def testServiceManifestJsonChangeNeedsSecurityOwner(self):
     mock_input_api = MockInputApi()
     mock_input_api.files = [
       MockAffectedFile('services/goat/manifest.json',
@@ -1706,7 +1706,7 @@ class MojoManifestOwnerTest(unittest.TestCase):
 
     # No warning if already covered by an OWNERS rule.
 
-  def testNonManifestChangesDoNotRequireSecurityOwner(self):
+  def testNonManifestJsonChangesDoNotRequireSecurityOwner(self):
     mock_input_api = MockInputApi()
     mock_input_api.files = [
       MockAffectedFile('services/goat/species.json',
@@ -1717,6 +1717,34 @@ class MojoManifestOwnerTest(unittest.TestCase):
                          ']',
                        ])
     ]
+    mock_output_api = MockOutputApi()
+    errors = PRESUBMIT._CheckIpcOwners(
+        mock_input_api, mock_output_api)
+    self.assertEqual([], errors)
+
+  def testServiceManifestChangeNeedsSecurityOwner(self):
+    mock_input_api = MockInputApi()
+    mock_input_api.files = [
+      MockAffectedFile('services/goat/public/cpp/manifest.cc',
+                       [
+                         '#include "services/goat/public/cpp/manifest.h"',
+                         'const service_manager::Manifest& GetManifest() {}',
+                       ])]
+    mock_output_api = MockOutputApi()
+    errors = PRESUBMIT._CheckIpcOwners(
+        mock_input_api, mock_output_api)
+    self.assertEqual(1, len(errors))
+    self.assertEqual(
+        'Found OWNERS files that need to be updated for IPC security review ' +
+        'coverage.\nPlease update the OWNERS files below:', errors[0].message)
+
+  def testNonServiceManifestSourceChangesDoNotRequireSecurityOwner(self):
+    mock_input_api = MockInputApi()
+    mock_input_api.files = [
+      MockAffectedFile('some/non/service/thing/foo_manifest.cc',
+                       [
+                         'const char kNoEnforcement[] = "not a manifest!";',
+                       ])]
     mock_output_api = MockOutputApi()
     errors = PRESUBMIT._CheckIpcOwners(
         mock_input_api, mock_output_api)
@@ -1996,9 +2024,10 @@ class TranslationScreenshotsTest(unittest.TestCase):
                                                       MockOutputApi())
     self.assertEqual(1, len(warnings))
     self.assertEqual(self.GENERATE_SIGNATURES_MESSAGE, warnings[0].message)
-    self.assertEqual(
-      ['test_grd/IDS_TEST1.png.sha1', 'test_grd/IDS_TEST2.png.sha1'],
-      warnings[0].items)
+    self.assertEqual([
+        os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
+        os.path.join('test_grd', 'IDS_TEST2.png.sha1')
+    ], warnings[0].items)
 
     input_api = self.makeInputApi([
       MockAffectedFile('test.grd', self.NEW_GRD_CONTENTS2,
@@ -2007,46 +2036,72 @@ class TranslationScreenshotsTest(unittest.TestCase):
                                                       MockOutputApi())
     self.assertEqual(1, len(warnings))
     self.assertEqual(self.GENERATE_SIGNATURES_MESSAGE, warnings[0].message)
-    self.assertEqual(['test_grd/IDS_TEST2.png.sha1'], warnings[0].items)
+    self.assertEqual([os.path.join('test_grd', 'IDS_TEST2.png.sha1')],
+                     warnings[0].items)
 
 
   def testUnnecessaryScreenshots(self):
     # CL added a single message and added the png file, but not the sha1 file.
     input_api = self.makeInputApi([
-      MockAffectedFile('test.grd', self.NEW_GRD_CONTENTS1,
-                       self.OLD_GRD_CONTENTS, action='M'),
-      MockAffectedFile('test_grd/IDS_TEST1.png', 'binary', action='A')])
+        MockAffectedFile(
+            'test.grd',
+            self.NEW_GRD_CONTENTS1,
+            self.OLD_GRD_CONTENTS,
+            action='M'),
+        MockAffectedFile(
+            os.path.join('test_grd', 'IDS_TEST1.png'), 'binary', action='A')
+    ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual(2, len(warnings))
     self.assertEqual(self.DO_NOT_UPLOAD_PNG_MESSAGE, warnings[0].message)
-    self.assertEqual(['test_grd/IDS_TEST1.png'], warnings[0].items)
+    self.assertEqual([os.path.join('test_grd', 'IDS_TEST1.png')],
+                     warnings[0].items)
     self.assertEqual(self.GENERATE_SIGNATURES_MESSAGE, warnings[1].message)
-    self.assertEqual(['test_grd/IDS_TEST1.png.sha1'], warnings[1].items)
+    self.assertEqual([os.path.join('test_grd', 'IDS_TEST1.png.sha1')],
+                     warnings[1].items)
 
     # CL added two messages, one has a png. Expect two messages:
     # - One for the unnecessary png.
     # - Another one for missing .sha1 files.
     input_api = self.makeInputApi([
-      MockAffectedFile('test.grd', self.NEW_GRD_CONTENTS2,
-                       self.OLD_GRD_CONTENTS, action='M'),
-      MockAffectedFile('test_grd/IDS_TEST1.png', 'binary', action='A')])
+        MockAffectedFile(
+            'test.grd',
+            self.NEW_GRD_CONTENTS2,
+            self.OLD_GRD_CONTENTS,
+            action='M'),
+        MockAffectedFile(
+            os.path.join('test_grd', 'IDS_TEST1.png'), 'binary', action='A')
+    ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual(2, len(warnings))
     self.assertEqual(self.DO_NOT_UPLOAD_PNG_MESSAGE, warnings[0].message)
-    self.assertEqual(['test_grd/IDS_TEST1.png'], warnings[0].items)
+    self.assertEqual([os.path.join('test_grd', 'IDS_TEST1.png')],
+                     warnings[0].items)
     self.assertEqual(self.GENERATE_SIGNATURES_MESSAGE, warnings[1].message)
-    self.assertEqual(['test_grd/IDS_TEST1.png.sha1',
-                      'test_grd/IDS_TEST2.png.sha1'], warnings[1].items)
+    self.assertEqual([
+        os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
+        os.path.join('test_grd', 'IDS_TEST2.png.sha1')
+    ], warnings[1].items)
 
   def testScreenshotsWithSha1(self):
     # CL added two messages and their corresponding .sha1 files. No warnings.
     input_api = self.makeInputApi([
-      MockAffectedFile('test.grd', self.NEW_GRD_CONTENTS2,
-                       self.OLD_GRD_CONTENTS, action='M'),
-      MockFile('test_grd/IDS_TEST1.png.sha1', 'binary', action='A'),
-      MockFile('test_grd/IDS_TEST2.png.sha1', 'binary', action='A')])
+        MockAffectedFile(
+            'test.grd',
+            self.NEW_GRD_CONTENTS2,
+            self.OLD_GRD_CONTENTS,
+            action='M'),
+        MockFile(
+            os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
+            'binary',
+            action='A'),
+        MockFile(
+            os.path.join('test_grd', 'IDS_TEST2.png.sha1'),
+            'binary',
+            action='A')
+    ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual([], warnings)
@@ -2055,36 +2110,60 @@ class TranslationScreenshotsTest(unittest.TestCase):
     # Swap old contents with new contents, remove IDS_TEST1 and IDS_TEST2. The
     # sha1 files associated with the messages should also be removed by the CL.
     input_api = self.makeInputApi([
-      MockAffectedFile('test.grd', self.OLD_GRD_CONTENTS,
-                       self.NEW_GRD_CONTENTS2, action='M'),
-      MockFile('test_grd/IDS_TEST1.png.sha1', 'binary', ""),
-      MockFile('test_grd/IDS_TEST2.png.sha1', 'binary', "")])
+        MockAffectedFile(
+            'test.grd',
+            self.OLD_GRD_CONTENTS,
+            self.NEW_GRD_CONTENTS2,
+            action='M'),
+        MockFile(os.path.join('test_grd', 'IDS_TEST1.png.sha1'), 'binary', ""),
+        MockFile(os.path.join('test_grd', 'IDS_TEST2.png.sha1'), 'binary', "")
+    ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual(1, len(warnings))
     self.assertEqual(self.REMOVE_SIGNATURES_MESSAGE, warnings[0].message)
-    self.assertEqual(['test_grd/IDS_TEST1.png.sha1',
-                      'test_grd/IDS_TEST2.png.sha1'], warnings[0].items)
+    self.assertEqual([
+        os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
+        os.path.join('test_grd', 'IDS_TEST2.png.sha1')
+    ], warnings[0].items)
 
     # Same as above, but this time one of the .sha1 files is removed.
     input_api = self.makeInputApi([
-      MockAffectedFile('test.grd', self.OLD_GRD_CONTENTS,
-                       self.NEW_GRD_CONTENTS2, action='M'),
-      MockFile('test_grd/IDS_TEST1.png.sha1', 'binary', ''),
-      MockAffectedFile('test_grd/IDS_TEST2.png.sha1',
-                       '', 'old_contents', action='D')])
+        MockAffectedFile(
+            'test.grd',
+            self.OLD_GRD_CONTENTS,
+            self.NEW_GRD_CONTENTS2,
+            action='M'),
+        MockFile(os.path.join('test_grd', 'IDS_TEST1.png.sha1'), 'binary', ''),
+        MockAffectedFile(
+            os.path.join('test_grd', 'IDS_TEST2.png.sha1'),
+            '',
+            'old_contents',
+            action='D')
+    ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual(1, len(warnings))
     self.assertEqual(self.REMOVE_SIGNATURES_MESSAGE, warnings[0].message)
-    self.assertEqual(['test_grd/IDS_TEST1.png.sha1'], warnings[0].items)
+    self.assertEqual([os.path.join('test_grd', 'IDS_TEST1.png.sha1')],
+                     warnings[0].items)
 
     # Remove both sha1 files. No presubmit warnings.
     input_api = self.makeInputApi([
-      MockAffectedFile('test.grd', self.OLD_GRD_CONTENTS,
-                       self.NEW_GRD_CONTENTS2, action='M'),
-      MockFile('test_grd/IDS_TEST1.png.sha1', 'binary', action='D'),
-      MockFile('test_grd/IDS_TEST2.png.sha1', 'binary', action='D')])
+        MockAffectedFile(
+            'test.grd',
+            self.OLD_GRD_CONTENTS,
+            self.NEW_GRD_CONTENTS2,
+            action='M'),
+        MockFile(
+            os.path.join('test_grd', 'IDS_TEST1.png.sha1'),
+            'binary',
+            action='D'),
+        MockFile(
+            os.path.join('test_grd', 'IDS_TEST2.png.sha1'),
+            'binary',
+            action='D')
+    ])
     warnings = PRESUBMIT._CheckTranslationScreenshots(input_api,
                                                       MockOutputApi())
     self.assertEqual([], warnings)

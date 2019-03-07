@@ -53,12 +53,19 @@ class SingleClientStandaloneTransportSyncTest : public SyncTest {
   DISALLOW_COPY_AND_ASSIGN(SingleClientStandaloneTransportSyncTest);
 };
 
-IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
-                       DoesNotStartSyncWithFeatureDisabled) {
-  base::test::ScopedFeatureList disable_standalone_transport;
-  disable_standalone_transport.InitAndDisableFeature(
-      switches::kSyncStandaloneTransport);
+class SingleClientStandaloneTransportFeatureDisabledSyncTest : public SyncTest {
+ public:
+  SingleClientStandaloneTransportFeatureDisabledSyncTest()
+      : SyncTest(SINGLE_CLIENT) {
+    features_.InitAndDisableFeature(switches::kSyncStandaloneTransport);
+  }
 
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportFeatureDisabledSyncTest,
+                       DoesNotStartSyncWithFeatureDisabled) {
   ASSERT_TRUE(SetupClients()) << "SetupClients() failed.";
 
   // Since standalone transport is disabled, signing in should *not* start the
@@ -85,8 +92,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   EXPECT_EQ(syncer::SyncService::TransportState::INITIALIZING,
             GetSyncService(0)->GetTransportState());
 
-  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  EXPECT_TRUE(GetClient(0)->AwaitSyncTransportActive());
 
   EXPECT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
@@ -109,8 +115,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   EXPECT_EQ(syncer::SyncService::TransportState::START_DEFERRED,
             GetSyncService(0)->GetTransportState());
 
-  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  EXPECT_TRUE(GetClient(0)->AwaitSyncTransportActive());
 
   EXPECT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
@@ -151,8 +156,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   // Turn off Sync-the-feature by user choice. The machinery should start up
   // again in transport-only mode.
   GetSyncService(0)->GetUserSettings()->SetSyncRequested(false);
-  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  EXPECT_TRUE(GetClient(0)->AwaitSyncTransportActive());
 
   EXPECT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
@@ -166,8 +170,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
 
   // Finally, turn Sync-the-feature on again.
   GetSyncService(0)->GetUserSettings()->SetSyncRequested(true);
-  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion());
   EXPECT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
   EXPECT_TRUE(GetSyncService(0)->IsSyncFeatureEnabled());
@@ -210,8 +213,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
   EXPECT_NE(syncer::SyncService::TransportState::DISABLED,
             GetSyncService(0)->GetTransportState());
 
-  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  EXPECT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   EXPECT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
   EXPECT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());

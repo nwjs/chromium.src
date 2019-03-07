@@ -20,7 +20,7 @@
 namespace {
 
 // The default size of an overflow button in pixels.
-constexpr int kDefaultButtonSize = 36;
+constexpr int kDefaultButtonSize = 48;
 
 const char kOverflowContainerWithSubtitleCSSClass[] = "with-subtitle";
 const char kOverflowSubtitleCSSClass[] = "subtitle";
@@ -127,6 +127,10 @@ void MediaControlInputElement::RemoveOverflowSubtitleElement() {
   overflow_menu_subtitle_ = nullptr;
 }
 
+bool MediaControlInputElement::OverflowElementIsWanted() {
+  return overflow_element_ && overflow_element_->IsWanted();
+}
+
 void MediaControlInputElement::SetOverflowElementIsWanted(bool wanted) {
   if (!overflow_element_)
     return;
@@ -199,8 +203,15 @@ void MediaControlInputElement::UpdateShownState() {
 }
 
 void MediaControlInputElement::DefaultEventHandler(Event& event) {
-  if (event.type() == event_type_names::kClick)
+  if (event.type() == event_type_names::kClick ||
+      event.type() == event_type_names::kGesturetap) {
     MaybeRecordInteracted();
+  }
+
+  // Unhover the element if the hover is triggered by a tap on
+  // a touch screen device to avoid showing hover circle indefinitely.
+  if (event.IsGestureEvent() && IsHovered())
+    SetHovered(false);
 
   HTMLInputElement::DefaultEventHandler(event);
 }

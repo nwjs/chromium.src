@@ -10,7 +10,6 @@
 #include "ash/ash_export.h"
 #include "ash/shelf/shelf_control_button.h"
 #include "base/macros.h"
-#include "ui/views/controls/button/image_button.h"
 
 namespace ash {
 
@@ -19,11 +18,11 @@ namespace ash {
 // in/out of the icon matches the movement of ShelfView's items.
 class ASH_EXPORT BackButton : public ShelfControlButton {
  public:
-  BackButton();
+  explicit BackButton(ShelfView* shelf_view);
   ~BackButton() override;
 
  protected:
-  // views::ImageButton:
+  // views::Button:
   void OnGestureEvent(ui::GestureEvent* event) override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
   void OnMouseReleased(const ui::MouseEvent& event) override;

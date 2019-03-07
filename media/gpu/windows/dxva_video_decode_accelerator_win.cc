@@ -32,7 +32,6 @@
 #include "base/files/file_path.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/memory/shared_memory.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
@@ -270,27 +269,27 @@ bool IsLegacyGPU(ID3D11Device* device) {
 bool IsResolutionSupportedForDevice(const gfx::Size& resolution_to_test,
                                     const GUID& decoder_guid,
                                     ID3D11VideoDevice* video_device) {
-  D3D11_VIDEO_DECODER_DESC desc = {};
-  desc.Guid = decoder_guid;
-  desc.SampleWidth = resolution_to_test.width();
-  desc.SampleHeight = resolution_to_test.height();
-  desc.OutputFormat = DXGI_FORMAT_NV12;
-  UINT config_count = 0;
-  HRESULT hr = video_device->GetVideoDecoderConfigCount(&desc, &config_count);
-  if (FAILED(hr) || config_count == 0)
-    return false;
+  D3D11_VIDEO_DECODER_DESC desc = {
+      decoder_guid,                 // Guid
+      resolution_to_test.width(),   // SampleWidth
+      resolution_to_test.height(),  // SampleHeight
+      DXGI_FORMAT_NV12              // OutputFormat
+  };
 
-  D3D11_VIDEO_DECODER_CONFIG config = {};
-  hr = video_device->GetVideoDecoderConfig(&desc, 0, &config);
-  UMA_HISTOGRAM_BOOLEAN("Media.DXVAVDA.GetDecoderConfigStatus", SUCCEEDED(hr));
-  if (FAILED(hr))
-    return false;
-
-  Microsoft::WRL::ComPtr<ID3D11VideoDecoder> video_decoder;
-  hr = video_device->CreateVideoDecoder(&desc, &config,
-                                        video_decoder.GetAddressOf());
-  UMA_HISTOGRAM_BOOLEAN("Media.DXVAVDA.CreateDecoderStatus", !!video_decoder);
-  return !!video_decoder;
+  // We've chosen the least expensive test for identifying if a given resolution
+  // is supported. Actually creating the VideoDecoder instance only fails ~0.4%
+  // of the time and the outcome is that we will offer support and then
+  // immediately fall back to software; e.g., playback still works. Since these
+  // calls can take hundreds of milliseconds to complete and are often executed
+  // during startup, this seems a reasonably trade off.
+  //
+  // See the deprecated histograms Media.DXVAVDA.GetDecoderConfigStatus which
+  // succeeds 100% of the time and Media.DXVAVDA.CreateDecoderStatus which
+  // only succeeds 99.6% of the time (in a 28 day aggregation).
+  UINT config_count;
+  return SUCCEEDED(
+             video_device->GetVideoDecoderConfigCount(&desc, &config_count)) &&
+         config_count > 0;
 }
 
 // Returns a tuple of (LandscapeMax, PortraitMax). If landscape maximum can not
@@ -840,6 +839,8 @@ bool DXVAVideoDecodeAccelerator::Initialize(const Config& config,
 
   RETURN_ON_FAILURE(InitDecoder(config.profile), "Failed to initialize decoder",
                     false);
+  // Record this after we see if it works.
+  UMA_HISTOGRAM_BOOLEAN("Media.DXVAVDA.UseD3D11", use_dx11_);
 
   RETURN_ON_FAILURE(GetStreamsInfoAndBufferReqs(),
                     "Failed to get input/output stream info.", false);
@@ -1052,7 +1053,7 @@ bool DXVAVideoDecodeAccelerator::CreateDX11DevManager() {
     flags |= D3D11_CREATE_DEVICE_DEBUG;
 
     hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags,
-                           feature_levels, arraysize(feature_levels),
+                           feature_levels, base::size(feature_levels),
                            D3D11_SDK_VERSION, d3d11_device_.GetAddressOf(),
                            &feature_level_out,
                            d3d11_device_context_.GetAddressOf());
@@ -1066,7 +1067,7 @@ bool DXVAVideoDecodeAccelerator::CreateDX11DevManager() {
 #endif
     if (!d3d11_device_context_) {
       hr = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags,
-                             feature_levels, arraysize(feature_levels),
+                             feature_levels, base::size(feature_levels),
                              D3D11_SDK_VERSION, d3d11_device_.GetAddressOf(),
                              &feature_level_out,
                              d3d11_device_context_.GetAddressOf());
@@ -1187,7 +1188,7 @@ void DXVAVideoDecodeAccelerator::AssignPictureBuffers(
   // Copy the picture buffers provided by the client to the available list,
   // and mark these buffers as available for use.
   for (size_t buffer_index = 0; buffer_index < buffers.size(); ++buffer_index) {
-    linked_ptr<DXVAPictureBuffer> picture_buffer =
+    std::unique_ptr<DXVAPictureBuffer> picture_buffer =
         DXVAPictureBuffer::Create(*this, buffers[buffer_index], egl_config_);
     RETURN_AND_NOTIFY_ON_FAILURE(picture_buffer.get(),
                                  "Failed to allocate picture buffer",
@@ -1202,10 +1203,10 @@ void DXVAVideoDecodeAccelerator::AssignPictureBuffers(
       }
     }
 
-    bool inserted =
-        output_picture_buffers_
-            .insert(std::make_pair(buffers[buffer_index].id(), picture_buffer))
-            .second;
+    bool inserted = output_picture_buffers_
+                        .insert(std::make_pair(buffers[buffer_index].id(),
+                                               std::move(picture_buffer)))
+                        .second;
     DCHECK(inserted);
   }
 
@@ -1475,7 +1476,8 @@ DXVAVideoDecodeAccelerator::GetSupportedProfiles(
               max_vpx_resolutions.first, video_device.Get(),
               {D3D11_DECODER_PROFILE_VP9_VLD_PROFILE0},
               {gfx::Size(4096, 2160), gfx::Size(4096, 2304),
-               gfx::Size(7680, 4320)});
+               gfx::Size(7680, 4320), gfx::Size(8192, 4320),
+               gfx::Size(8192, 8192)});
         }
       }
     }
@@ -2481,7 +2483,7 @@ void DXVAVideoDecodeAccelerator::DismissStaleBuffers(bool force) {
     } else {
       // Move to |stale_output_picture_buffers_| for deferred deletion.
       stale_output_picture_buffers_.insert(
-          std::make_pair(index->first, index->second));
+          std::make_pair(index->first, std::move(index->second)));
     }
   }
 
@@ -2977,10 +2979,8 @@ bool DXVAVideoDecodeAccelerator::InitializeID3D11VideoProcessor(
           PictureBufferMechanism::DELAYED_COPY_TO_NV12) {
     // If we're copying NV12 textures, make sure we set the same
     // color space on input and output.
-    D3D11_VIDEO_PROCESSOR_COLOR_SPACE d3d11_color_space = {0};
-    d3d11_color_space.RGB_Range = 1;
-    d3d11_color_space.Nominal_Range = D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_0_255;
-
+    const auto d3d11_color_space =
+        gfx::ColorSpaceWin::GetD3D11ColorSpace(color_space);
     video_context_->VideoProcessorSetOutputColorSpace(d3d11_processor_.Get(),
                                                       &d3d11_color_space);
 

@@ -17,7 +17,7 @@
 #include "net/base/network_interfaces.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/p2p_socket_type.h"
-#include "third_party/webrtc/rtc_base/asyncpacketsocket.h"
+#include "third_party/webrtc/rtc_base/async_packet_socket.h"
 
 #ifndef INTERNAL_SERVICES_NETWORK_PUBLIC_CPP_P2P_PARAM_TRAITS_H_
 #define INTERNAL_SERVICES_NETWORK_PUBLIC_CPP_P2P_PARAM_TRAITS_H_
@@ -64,14 +64,6 @@ IPC_ENUM_TRAITS_MAX_VALUE(net::NetworkChangeNotifier::ConnectionType,
 IPC_ENUM_TRAITS_MIN_MAX_VALUE(rtc::DiffServCodePoint,
                               rtc::DSCP_NO_CHANGE,
                               rtc::DSCP_CS7)
-
-IPC_STRUCT_TRAITS_BEGIN(net::NetworkInterface)
-  IPC_STRUCT_TRAITS_MEMBER(name)
-  IPC_STRUCT_TRAITS_MEMBER(type)
-  IPC_STRUCT_TRAITS_MEMBER(address)
-  IPC_STRUCT_TRAITS_MEMBER(prefix_length)
-  IPC_STRUCT_TRAITS_MEMBER(ip_address_attributes)
-IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(rtc::PacketTimeUpdateParams)
   IPC_STRUCT_TRAITS_MEMBER(rtp_sendtime_extension_id)

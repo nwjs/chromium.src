@@ -15,7 +15,6 @@
 #include "base/command_line.h"
 #include "base/guid.h"
 #include "base/json/json_reader.h"
-#include "base/macros.h"
 #include "base/process/kill.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
@@ -42,6 +41,7 @@
 #include "content/browser/frame_host/cross_process_frame_connector.h"
 #include "content/browser/frame_host/frame_tree_node.h"
 #include "content/browser/frame_host/interstitial_page_impl.h"
+#include "content/browser/frame_host/navigation_handle_impl.h"
 #include "content/browser/frame_host/render_frame_host_impl.h"
 #include "content/browser/frame_host/render_widget_host_view_guest.h"
 #include "content/browser/renderer_host/input/synthetic_touchscreen_pinch_gesture.h"
@@ -114,8 +114,8 @@
 #include "third_party/blink/public/mojom/filesystem/file_system.mojom.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/clipboard/test/test_clipboard.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/base/test/test_clipboard.h"
 #include "ui/compositor/test/draw_waiter_for_test.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/gesture_detection/gesture_configuration.h"
@@ -557,8 +557,8 @@ class CommitOriginInterceptor : public DidCommitProvisionalLoadInterceptor {
   bool WillDispatchDidCommitProvisionalLoad(
       RenderFrameHost* render_frame_host,
       ::FrameHostMsg_DidCommitProvisionalLoad_Params* params,
-      service_manager::mojom::InterfaceProviderRequest*
-          interface_provider_request) override {
+      mojom::DidCommitProvisionalLoadInterfaceParamsPtr& interface_params)
+      override {
     if (params->url == target_url_) {
       params->url = new_url_;
       params->origin = new_origin_;
@@ -1708,12 +1708,7 @@ bool ExecuteWebUIResourceTest(WebContents* web_contents,
   bool should_wait_flag =
       base::CommandLine::ForCurrentProcess()->HasSwitch(kWaitForDebuggerWebUI);
 
-  const std::string debugger_port =
-      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-          ::switches::kRemoteDebuggingPort);
-
-  // Only wait if there is a debugger port, so user can issue go() command.
-  if (should_wait_flag && !debugger_port.empty()) {
+  if (should_wait_flag) {
     ExecuteScriptAsync(
         web_contents,
         "window.waitUser = true; "
@@ -1829,18 +1824,18 @@ void WaitForInterstitialAttach(content::WebContents* web_contents) {
 }
 
 void WaitForInterstitialDetach(content::WebContents* web_contents) {
-  RunTaskAndWaitForInterstitialDetach(web_contents, base::Closure());
+  RunTaskAndWaitForInterstitialDetach(web_contents, base::OnceClosure());
 }
 
 void RunTaskAndWaitForInterstitialDetach(content::WebContents* web_contents,
-                                         const base::Closure& task) {
+                                         base::OnceClosure task) {
   if (!web_contents || !web_contents->ShowingInterstitialPage())
     return;
   base::RunLoop run_loop;
   InterstitialObserver observer(web_contents, base::OnceClosure(),
                                 run_loop.QuitClosure());
   if (!task.is_null())
-    task.Run();
+    std::move(task).Run();
   // At this point, web_contents may have been deleted.
   run_loop.Run();
 }
@@ -2373,7 +2368,7 @@ void RenderFrameSubmissionObserver::WaitForPageScaleFactor(
     const float tolerance) {
   while (std::abs(render_frame_metadata_provider_->LastRenderFrameMetadata()
                       .page_scale_factor -
-                  expected_page_scale_factor) < tolerance) {
+                  expected_page_scale_factor) > tolerance) {
     WaitForMetadataChange();
   }
 }
@@ -2383,7 +2378,7 @@ void RenderFrameSubmissionObserver::WaitForExternalPageScaleFactor(
     const float tolerance) {
   while (std::abs(render_frame_metadata_provider_->LastRenderFrameMetadata()
                       .external_page_scale_factor -
-                  expected_external_page_scale_factor) < tolerance) {
+                  expected_external_page_scale_factor) > tolerance) {
     WaitForMetadataChange();
   }
 }
@@ -2707,7 +2702,7 @@ void TestNavigationManager::DidStartNavigation(NavigationHandle* handle) {
   if (!ShouldMonitorNavigation(handle))
     return;
 
-  handle_ = handle;
+  handle_ = static_cast<NavigationHandleImpl*>(handle);
   std::unique_ptr<NavigationThrottle> throttle(
       new TestNavigationManagerThrottle(
           handle_, base::Bind(&TestNavigationManager::OnWillStartRequest,
@@ -3116,7 +3111,7 @@ const uint32_t
 SynchronizeVisualPropertiesMessageFilter::
     SynchronizeVisualPropertiesMessageFilter()
     : content::BrowserMessageFilter(kMessageClassesToFilter,
-                                    arraysize(kMessageClassesToFilter)),
+                                    base::size(kMessageClassesToFilter)),
       screen_space_rect_run_loop_(std::make_unique<base::RunLoop>()),
       screen_space_rect_received_(false) {}
 

@@ -123,14 +123,14 @@ class TabsAddedNotificationObserver
 };
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
-class ScopedPreviewTestingDelegate : PrintPreviewUI::TestingDelegate {
+class ScopedPreviewTestingDelegate : printing::PrintPreviewUI::TestingDelegate {
  public:
   ScopedPreviewTestingDelegate() {
-    PrintPreviewUI::SetDelegateForTesting(this);
+    printing::PrintPreviewUI::SetDelegateForTesting(this);
   }
 
   ~ScopedPreviewTestingDelegate() {
-    PrintPreviewUI::SetDelegateForTesting(NULL);
+    printing::PrintPreviewUI::SetDelegateForTesting(NULL);
   }
 
   // PrintPreviewUI::TestingDelegate implementation.
@@ -1381,6 +1381,11 @@ IN_PROC_BROWSER_TEST_F(PlatformAppBrowserTest,
 
   WebContents* web_contents = GetFirstAppWindowWebContents();
   ASSERT_TRUE(web_contents);
+
+  // Ensure the compositor thread is aware of the wheel listener.
+  content::MainThreadFrameObserver synchronize_threads(
+      web_contents->GetRenderWidgetHostView()->GetRenderWidgetHost());
+  synchronize_threads.Wait();
 
   ExtensionTestMessageListener synthetic_wheel_listener("Seen wheel event",
                                                         false);

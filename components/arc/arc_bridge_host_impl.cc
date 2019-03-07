@@ -46,6 +46,12 @@ void ArcBridgeHostImpl::OnAppInstanceReady(mojom::AppInstancePtr app_ptr) {
   OnInstanceReady(arc_bridge_service_->app(), std::move(app_ptr));
 }
 
+void ArcBridgeHostImpl::OnAppPermissionsInstanceReady(
+    mojom::AppPermissionsInstancePtr app_permissions_ptr) {
+  OnInstanceReady(arc_bridge_service_->app_permissions(),
+                  std::move(app_permissions_ptr));
+}
+
 void ArcBridgeHostImpl::OnAppfuseInstanceReady(
     mojom::AppfuseInstancePtr appfuse_ptr) {
   OnInstanceReady(arc_bridge_service_->appfuse(), std::move(appfuse_ptr));
@@ -258,14 +264,12 @@ void ArcBridgeHostImpl::OnVideoInstanceReady(
 
 void ArcBridgeHostImpl::OnVoiceInteractionArcHomeInstanceReady(
     mojom::VoiceInteractionArcHomeInstancePtr home_ptr) {
-  OnInstanceReady(arc_bridge_service_->voice_interaction_arc_home(),
-                  std::move(home_ptr));
+  NOTREACHED();
 }
 
 void ArcBridgeHostImpl::OnVoiceInteractionFrameworkInstanceReady(
     mojom::VoiceInteractionFrameworkInstancePtr framework_ptr) {
-  OnInstanceReady(arc_bridge_service_->voice_interaction_framework(),
-                  std::move(framework_ptr));
+  NOTREACHED();
 }
 
 void ArcBridgeHostImpl::OnVolumeMounterInstanceReady(

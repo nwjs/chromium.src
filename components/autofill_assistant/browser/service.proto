@@ -5,6 +5,8 @@
 syntax = "proto2";
 
 option optimize_for = LITE_RUNTIME;
+option java_package = "org.chromium.chrome.browser.autofill_assistant.proto";
+option java_multiple_files = true;
 
 package autofill_assistant;
 
@@ -156,6 +158,11 @@ message FormValueMatchProto {
   // Required. The selector associated to the form element whose value should be
   // checked.
   optional ElementReferenceProto element = 1;
+
+  // Optional value. If specified, the element value must match the given value,
+  // even if it's empty. If not specified, we just check that the element value
+  // is non empty.
+  optional string value = 2;
 }
 
 enum PolicyType {
@@ -292,10 +299,61 @@ message ProcessedActionProto {
 
 enum ProcessedActionStatusProto {
   UNKNOWN_ACTION_STATUS = 0;
+
+  // Element could not be found.
   ELEMENT_RESOLUTION_FAILED = 1;
+
+  // The action was applied successfully.
   ACTION_APPLIED = 2;
+
+  // The action failed (generic error).
   OTHER_ACTION_STATUS = 3;
+
+  // The action failed to get payment information.
   PAYMENT_REQUEST_ERROR = 4;
+
+  // Server asked the client to execute an unknown or unsupported action.
+  UNSUPPORTED_ACTION = 5;
+
+  // The action decided to fallback to manual mode, stopping the script.
+  //
+  // This can happen:
+  // - if an autofill action or an update details action cancels the script,
+  //   possibly, not necessarily, as a result of a user action.
+  // - if an interrupt explicitly stops the main script, for wait for dom
+  MANUAL_FALLBACK = 6;
+
+  // The WaitForDom action failed because an interrupt that ran during
+  // that action failed.
+  INTERRUPT_FAILED = 7;
+
+  // The script was canceled by the user, while it was running.
+  //
+  // This only report such events that happen while a script is running. It can
+  // affect any action. It is a signal that the action or script ran in an
+  // abnormal situation and its outcome cannot be trusted.
+  USER_ABORTED_ACTION = 8;
+}
+
+// The pseudo type values come from
+// https://chromedevtools.github.io/devtools-protocol/tot/DOM#type-PseudoType.
+enum PseudoType {
+  UNDEFINED = 0;
+  FIRST_LINE = 1;
+  FIRST_LETTER = 2;
+  BEFORE = 3;
+  AFTER = 4;
+  BACKDROP = 5;
+  SELECTION = 6;
+  FIRST_LINE_INHERITED = 7;
+  SCROLLBAR = 8;
+  SCROLLBAR_THUMB = 9;
+  SCROLLBAR_BUTTON = 10;
+  SCROLLBAR_TRACK = 11;
+  SCROLLBAR_TRACK_PIECE = 12;
+  SCROLLBAR_CORNER = 13;
+  RESIZER = 14;
+  INPUT_LIST_BUTTON = 15;
 }
 
 // A reference to an unique element on the page, possibly nested in frames.
@@ -306,6 +364,11 @@ message ElementReferenceProto {
   // APIs are free to reject element references that do not refer to unique
   // elements (i.e. resolve to more than one element on the page).
   repeated string selectors = 2;
+
+  // An optional pseudo type. This pseudo type is associated to the final
+  // element matched by |selector|, which means that we currently don't handle
+  // matching an element inside a pseudo element.
+  optional PseudoType pseudo_type = 3;
 }
 
 // Contain all arguments to perform a click.
@@ -335,7 +398,29 @@ message FocusElementProto {
   optional string title = 2;
 
   // Restrict interaction to the area spanned by the given elements.
-  repeated ElementReferenceProto touchable_element_area = 5;
+  //
+  // Deprecated: use touchable_element_area instead. Ignored if
+  // touchable_element_area is non-empty.
+  repeated ElementReferenceProto deprecated_touchable_elements = 5;
+
+  // Restrict interaction to a series of rectangular areas.
+  optional ElementAreaProto touchable_element_area = 6;
+}
+
+// An area made up of rectangles whole border are made defined by the position
+// of a given set of elements.
+message ElementAreaProto {
+  // A rectangle, drawn by one or more elements.
+  //
+  // The rectangle is the smallest rectangle that includes all listed elements.
+  message Rectangle {
+    repeated ElementReferenceProto elements = 1;
+
+    // If true, the width of the rectangle always corresponds to the width of
+    // the screen.
+    optional bool full_width = 2;
+  }
+  repeated Rectangle rectangles = 1;
 }
 
 message AutofillStrings {
@@ -390,9 +475,6 @@ message UseAddressProto {
   // An optional list of fields that should be filled by this action.
   repeated RequiredField required_fields = 6;
 
-  // If set to false, clear the overlay for the duration of the action.
-  optional bool show_overlay = 7 [default = true];
-
   optional AutofillStrings strings = 8;
 }
 
@@ -404,9 +486,6 @@ message UseCreditCardProto {
 
   // A reference to the card number field in the form that should be filled.
   optional ElementReferenceProto form_field_element = 3;
-
-  // If set to false, clear the overlay for the duration of the action.
-  optional bool show_overlay = 5 [default = true];
 
   optional AutofillStrings strings = 8;
 }
@@ -485,6 +564,9 @@ message PromptProto {
     // Server payload originally sent by the server. This should
     // be transmitted as-is by the client without interpreting.
     optional bytes server_payload = 5;
+
+    // The chip is only visible if the given element exists.
+    optional ElementReferenceProto show_only_if_element_exists = 6;
   }
   repeated Choice choices = 4;
 }
@@ -552,6 +634,17 @@ message DateTimeProto {
   optional TimeProto time = 2;
 }
 
+message DetailsChanges {
+  // Whether the changes require user approval.
+  optional bool user_approval_required = 1;
+
+  // Whether the title should be highlighted.
+  optional bool highlight_title = 2;
+
+  // Whether the date should be highlighted.
+  optional bool highlight_date = 3;
+}
+
 message DetailsProto {
   optional string title = 1;
 
@@ -564,11 +657,18 @@ message DetailsProto {
   // Mid that comes from Knowledge Graph. Uniquely identify the object that this
   // proto describes.
   optional string m_id = 5;
+
+  // Price label containing the total amount and the currency to pay, formatted
+  // in the client's locale (e.g., $123.00).
+  optional string total_price = 6;
 }
 
 // Show contextual information.
 message ShowDetailsProto {
   optional DetailsProto details = 1;
+
+  // Flags indicating which parts of the details (if any) have changed.
+  optional DetailsChanges change_flags = 2;
 }
 
 // Set the value of an form element.

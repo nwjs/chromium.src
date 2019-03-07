@@ -107,10 +107,10 @@ void SchedulerHelper::SetObserver(Observer* observer) {
   sequence_manager_->SetObserver(this);
 }
 
-void SchedulerHelper::SweepCanceledDelayedTasks() {
+void SchedulerHelper::ReclaimMemory() {
   CheckOnValidThread();
   DCHECK(sequence_manager_);
-  sequence_manager_->SweepCanceledDelayedTasks();
+  sequence_manager_->ReclaimMemory();
 }
 
 TimeDomain* SchedulerHelper::real_time_domain() const {
@@ -173,7 +173,7 @@ double SchedulerHelper::GetSamplingRateForRecordingCPUTime() const {
 bool SchedulerHelper::HasCPUTimingForEachTask() const {
   if (sequence_manager_) {
     return sequence_manager_->GetMetricRecordingSettings()
-        .records_cpu_time_for_each_task;
+        .records_cpu_time_for_all_tasks();
   }
   return false;
 }

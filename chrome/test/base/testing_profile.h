@@ -246,7 +246,9 @@ class TestingProfile : public Profile {
       const base::FilePath& partition_path) override;
 #endif  // !defined(OS_ANDROID)
   scoped_refptr<base::SequencedTaskRunner> GetIOTaskRunner() override;
-  bool IsOffTheRecord() const override;
+  // Do not override IsOffTheRecord to turn a normal profile into an incognito
+  // profile dynamically.
+  bool IsOffTheRecord() const final;
   content::DownloadManagerDelegate* GetDownloadManagerDelegate() override;
   content::ResourceContext* GetResourceContext() override;
   content::BrowserPluginGuestManager* GetGuestManager() override;
@@ -254,6 +256,8 @@ class TestingProfile : public Profile {
   content::PushMessagingService* GetPushMessagingService() override;
   content::SSLHostStateDelegate* GetSSLHostStateDelegate() override;
   content::PermissionControllerDelegate* GetPermissionControllerDelegate()
+      override;
+  content::ClientHintsControllerDelegate* GetClientHintsControllerDelegate()
       override;
   content::BackgroundFetchDelegate* GetBackgroundFetchDelegate() override;
   content::BackgroundSyncController* GetBackgroundSyncController() override;
@@ -271,29 +275,17 @@ class TestingProfile : public Profile {
   net::URLRequestContextGetter* CreateMediaRequestContextForStoragePartition(
       const base::FilePath& partition_path,
       bool in_memory) override;
+  void SetCorsOriginAccessListForOrigin(
+      const url::Origin& source_origin,
+      std::vector<network::mojom::CorsOriginPatternPtr> allow_patterns,
+      std::vector<network::mojom::CorsOriginPatternPtr> block_patterns,
+      base::OnceClosure closure) override;
 
   TestingProfile* AsTestingProfile() override;
 
   // Profile
   std::string GetProfileUserName() const override;
   ProfileType GetProfileType() const override;
-
-  // DEPRECATED, because it's fragile to change a profile from non-incognito
-  // to incognito after the ProfileKeyedServices have been created (some
-  // ProfileKeyedServices either should not exist in incognito mode, or will
-  // crash when they try to get references to other services they depend on,
-  // but do not exist in incognito mode).
-  // TODO(atwilson): Remove this API (http://crbug.com/277296).
-  //
-  // Changes a profile's to/from incognito mode temporarily - profile will be
-  // returned to non-incognito before destruction to allow services to
-  // properly shutdown. This is only supported for legacy tests - new tests
-  // should create a true incognito profile using Builder::SetIncognito() or
-  // by using the TestingProfile constructor that allows setting the incognito
-  // flag.
-  void ForceIncognito(bool force_incognito) {
-    force_incognito_ = force_incognito;
-  }
 
   Profile* GetOffTheRecordProfile() override;
   void DestroyOffTheRecordProfile() override {}
@@ -403,7 +395,6 @@ class TestingProfile : public Profile {
   // handler.
   network::mojom::NetworkContextRequest network_context_request_;
 
-  bool force_incognito_;
   std::unique_ptr<Profile> incognito_profile_;
   TestingProfile* original_profile_;
 

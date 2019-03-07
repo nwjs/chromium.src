@@ -455,6 +455,7 @@
     "bidi-override",
     "blink",
     "both",
+    "break-spaces",
     "close-quote",
     "embed",
     "fixed",
@@ -1196,5 +1197,15 @@
     // pan-up,
     // pan-down
     // none
+
+    // (prefers-*:) media features
+    "no-preference",
+
+    // (prefers-color-scheme:) media feature
+    "dark",
+    "light",
+
+    // (prefers-reduced-motion:) media feature
+    "reduce",
   ],
 }

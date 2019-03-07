@@ -8,6 +8,7 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "net/base/completion_once_callback.h"
 #include "net/base/io_buffer.h"
 #include "net/base/test_completion_callback.h"
@@ -16,6 +17,7 @@
 #include "net/socket/socket_tag.h"
 #include "net/socket/socket_test_util.h"
 #include "net/socket/transport_client_socket_pool.h"
+#include "net/socket/transport_connect_job.h"
 #include "net/test/gtest_util.h"
 #include "net/test/test_with_scoped_task_environment.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
@@ -34,13 +36,13 @@ namespace net {
 namespace {
 
 const char kMsg1[] = "\0hello!\xff";
-const int kLen1 = arraysize(kMsg1);
+const int kLen1 = base::size(kMsg1);
 const char kMsg2[] = "\0a2345678\0";
-const int kLen2 = arraysize(kMsg2);
+const int kLen2 = base::size(kMsg2);
 const char kMsg3[] = "bye!";
-const int kLen3 = arraysize(kMsg3);
+const int kLen3 = base::size(kMsg3);
 const char kMsg4[] = "supercalifragilisticexpialidocious";
-const int kLen4 = arraysize(kMsg4);
+const int kLen4 = base::size(kMsg4);
 
 // Helper class for starting the next operation operation reentrantly after the
 // previous operation completed asynchronously. When OnIOComplete is called,
@@ -231,7 +233,7 @@ class SequencedSocketDataTest : public TestWithScopedTaskEnvironment {
   std::unique_ptr<SequencedSocketData> data_;
 
   const HostPortPair endpoint_;
-  scoped_refptr<TransportSocketParams> tcp_params_;
+  scoped_refptr<TransportClientSocketPool::SocketParams> tcp_params_;
   MockClientSocketFactory socket_factory_;
   MockTransportClientSocketPool socket_pool_;
   ClientSocketHandle connection_;
@@ -244,11 +246,12 @@ SequencedSocketDataTest::SequencedSocketDataTest()
     : sock_(nullptr),
       connect_data_(SYNCHRONOUS, OK),
       endpoint_("www.google.com", 443),
-      tcp_params_(new TransportSocketParams(
-          endpoint_,
-          false,
-          OnHostResolutionCallback(),
-          TransportSocketParams::COMBINE_CONNECT_AND_WRITE_DEFAULT)),
+      tcp_params_(TransportClientSocketPool::SocketParams::
+                      CreateFromTransportSocketParams(
+                          base::MakeRefCounted<TransportSocketParams>(
+                              endpoint_,
+                              false,
+                              OnHostResolutionCallback()))),
       socket_pool_(10, 10, &socket_factory_),
       expect_eof_(true) {}
 
@@ -678,7 +681,7 @@ TEST_F(SequencedSocketDataTest, SingleSyncWriteTooSmall) {
       "Expected: (data.length()) >= (expected_data.length())",
       "Value of: actual_data == expected_data\n  Actual: false\nExpected: true",
       "Expected equality of these values:\n  rv"};
-  ASSERT_EQ(arraysize(kExpectedFailures),
+  ASSERT_EQ(base::size(kExpectedFailures),
             static_cast<size_t>(gtest_failures.size()));
 
   for (int i = 0; i < gtest_failures.size(); ++i) {

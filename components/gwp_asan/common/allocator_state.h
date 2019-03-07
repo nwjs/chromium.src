@@ -25,9 +25,6 @@
 #ifndef COMPONENTS_GWP_ASAN_COMMON_ALLOCATOR_STATE_H_
 #define COMPONENTS_GWP_ASAN_COMMON_ALLOCATOR_STATE_H_
 
-#include <atomic>
-
-#include "base/debug/stack_trace.h"
 #include "base/threading/platform_thread.h"
 
 namespace gwp_asan {
@@ -38,7 +35,9 @@ class GuardedPageAllocator;
 class AllocatorState {
  public:
   // Maximum number of pages this class can allocate.
-  static constexpr size_t kGpaMaxPages = 64;
+  static constexpr size_t kGpaMaxPages = 128;
+  // Maximum number of stack trace frames to collect.
+  static constexpr size_t kMaxStackFrames = 60;
 
   enum class ErrorType {
     kUseAfterFree = 0,
@@ -61,10 +60,12 @@ class AllocatorState {
       // (De)allocation thread id or base::kInvalidThreadId if no (de)allocation
       // occurred.
       base::PlatformThreadId tid = base::kInvalidThreadId;
-      // Pointer to stack trace addresses or null if no (de)allocation occurred.
-      uintptr_t trace_addr = 0;
-      // Stack trace length or 0 if no (de)allocation occurred.
+      // Stack trace contents.
+      uintptr_t trace[kMaxStackFrames];
+      // Stack trace length.
       size_t trace_len = 0;
+      // Whether a stack trace has been collected for this (de)allocation.
+      bool trace_collected = false;
     };
 
     // Size of the allocation
@@ -96,13 +97,12 @@ class AllocatorState {
   // This method is meant to be called from the crash handler with a validated
   // AllocatorState object read from the crashed process. This method checks if
   // exception_address is an address in the GWP-ASan region, and writes the
-  // error type and slot metadata to the provided arguments if so.
+  // address of the SlotMetadata to the provided arguments if so.
   //
   // Returns an enum indicating an error, unrelated exception, or a GWP-ASan
-  // exception (with slot and error_type filled out.)
+  // exception (with slot_address filled out.)
   GetMetadataReturnType GetMetadataForAddress(uintptr_t exception_address,
-                                              SlotMetadata* slot,
-                                              ErrorType* error_type) const;
+                                              uintptr_t* slot_address) const;
 
   // Returns the likely error type given an exception address and whether its
   // previously been allocated and deallocated.
@@ -122,18 +122,19 @@ class AllocatorState {
   uintptr_t SlotToAddr(size_t slot) const;
   size_t AddrToSlot(uintptr_t addr) const;
 
-  // Information about every allocation, including its size, offset, and
-  // pointers to the allocation/deallocation stack traces (if present.)
-  SlotMetadata data[kGpaMaxPages] = {};
-
   uintptr_t pages_base_addr = 0;  // Points to start of mapped region.
   uintptr_t pages_end_addr = 0;   // Points to the end of mapped region.
   uintptr_t first_page_addr = 0;  // Points to first allocatable page.
-  size_t num_pages = 0;  // Number of pages mapped (excluding guard pages).
-  size_t page_size = 0;  // Page size.
+  size_t total_pages = 0;         // Size of the page pool to allocate from.
+  size_t page_size = 0;           // Page size.
+
+  // Pointer to an array of metadata about every allocation, including its size,
+  // offset, and pointers to the allocation/deallocation stack traces (if
+  // present.)
+  uintptr_t slot_metadata = 0;
 
   // Set to true if a double free has occurred.
-  std::atomic<bool> double_free_detected{false};
+  bool double_free_detected = false;
 
   DISALLOW_COPY_AND_ASSIGN(AllocatorState);
 };

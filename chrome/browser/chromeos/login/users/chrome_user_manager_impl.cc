@@ -50,6 +50,7 @@
 #include "chrome/browser/chromeos/login/users/multi_profile_user_controller.h"
 #include "chrome/browser/chromeos/login/users/supervised_user_manager_impl.h"
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
+#include "chrome/browser/chromeos/policy/device_network_configuration_updater.h"
 #include "chrome/browser/chromeos/printing/external_printers.h"
 #include "chrome/browser/chromeos/printing/external_printers_factory.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
@@ -68,23 +69,26 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/async_method_caller.h"
 #include "chromeos/cryptohome/cryptohome_util.h"
 #include "chromeos/dbus/cryptohome/rpc.pb.h"
 #include "chromeos/dbus/dbus_method_call_status.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/upstart_client.h"
-#include "chromeos/login/login_state.h"
+#include "chromeos/login/login_state/login_state.h"
+#include "chromeos/network/proxy/proxy_config_service_impl.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "chromeos/timezone/timezone_resolver.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_util.h"
 #include "components/crash/core/common/crash_key.h"
+#include "components/policy/core/common/policy_details.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/proxy_config/proxy_prefs.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/remove_user_delegate.h"
@@ -95,6 +99,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/common/service_manager_connection.h"
+#include "extensions/browser/device_local_account_util.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -127,11 +132,6 @@ constexpr char kBluetoothLoggingUpstartJob[] = "bluetoothlog";
 // If the service doesn't exist or the policy is not set, enable managed
 // session by default.
 constexpr bool kManagedSessionEnabledByDefault = true;
-
-bool FakeOwnership() {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kStubCrosSettings);
-}
 
 std::string FullyCanonicalize(const std::string& email) {
   return gaia::CanonicalizeEmail(gaia::SanitizeEmail(email));
@@ -222,6 +222,95 @@ bool IsManagedSessionEnabled(policy::DeviceLocalAccountPolicyBroker* broker) {
   if (!entry)
     return kManagedSessionEnabledByDefault;
   return entry->value && entry->value->GetBool();
+}
+
+const base::Value::ListStorage* GetListPolicyValue(
+    const policy::PolicyMap& policy_map,
+    const char* policy_key) {
+  const policy::PolicyMap::Entry* entry = policy_map.Get(policy_key);
+  if (!entry || !entry->value || !entry->value->is_list())
+    return nullptr;
+
+  return &entry->value->GetList();
+}
+
+bool IsPacHttpsUrlStrippingDisabled(
+    policy::DeviceLocalAccountPolicyBroker* broker) {
+  const policy::PolicyMap::Entry* entry =
+      broker->core()->store()->policy_map().Get(
+          policy::key::kPacHttpsUrlStrippingEnabled);
+  // Policy is enabled and it's value is set to 'false'.
+  return entry && entry->value && !entry->value->GetBool();
+}
+
+bool AreRiskyPoliciesUsed(policy::DeviceLocalAccountPolicyBroker* broker) {
+  const policy::PolicyMap& policy_map = broker->core()->store()->policy_map();
+  for (const auto& it : policy_map) {
+    const policy::PolicyDetails* policy_details =
+        policy::GetChromePolicyDetails(it.first);
+    if (!policy_details)
+      continue;
+    for (policy::RiskTag risk_tag : policy_details->risk_tags) {
+      if (risk_tag == policy::RISK_TAG_WEBSITE_SHARING) {
+        VLOG(1) << "Considering managed session risky because " << it.first
+                << " policy was enabled by admin.";
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool IsProxyUsed(const PrefService* local_state_prefs) {
+  std::unique_ptr<ProxyConfigDictionary> proxy_config =
+      ProxyConfigServiceImpl::GetActiveProxyConfigDictionary(
+          ProfileHelper::Get()->GetSigninProfile()->GetPrefs(),
+          local_state_prefs);
+  ProxyPrefs::ProxyMode mode;
+  if (!proxy_config || !proxy_config->GetMode(&mode))
+    return false;
+  return mode != ProxyPrefs::MODE_DIRECT;
+}
+
+bool AreRiskyExtensionsForceInstalled(
+    policy::DeviceLocalAccountPolicyBroker* broker) {
+  const policy::PolicyMap& policy_map = broker->core()->store()->policy_map();
+
+  const base::Value::ListStorage* forcelist =
+      GetListPolicyValue(policy_map, policy::key::kExtensionInstallForcelist);
+
+  // Extension is risky if it's present in force-installed extensions and is not
+  // whitelisted for public sessions.
+
+  if (!forcelist || forcelist->empty())
+    return false;
+
+  for (const base::Value& extension : *forcelist) {
+    if (!extension.is_string())
+      continue;
+
+    // Each extension entry contains an extension id and optional update URL
+    // separated by ';'.
+    std::vector<std::string> extension_items =
+        base::SplitString(extension.GetString(), ";", base::TRIM_WHITESPACE,
+                          base::SPLIT_WANT_NONEMPTY);
+    if (extension_items.empty())
+      continue;
+
+    // If current force-installed extension is not whitelisted for public
+    // sessions, consider the extension risky.
+    if (!extensions::IsWhitelistedForPublicSession(extension_items[0]))
+      return true;
+  }
+  return false;
+}
+
+bool AreForcedNetworkCertificatesInstalled() {
+  return !g_browser_process->platform_part()
+              ->browser_policy_connector_chromeos()
+              ->GetDeviceNetworkConfigurationUpdater()
+              ->GetAllAuthorityCertificates()
+              .empty();
 }
 
 }  // namespace
@@ -644,7 +733,8 @@ void ChromeUserManagerImpl::OnExternalDataCleared(const std::string& policy,
 void ChromeUserManagerImpl::OnExternalDataFetched(
     const std::string& policy,
     const std::string& user_id,
-    std::unique_ptr<std::string> data) {
+    std::unique_ptr<std::string> data,
+    const base::FilePath& file_path) {
   const AccountId account_id = user_manager::known_user::GetAccountId(
       user_id, std::string() /* id */, AccountType::UNKNOWN);
   if (policy == policy::key::kUserAvatarImage) {
@@ -864,13 +954,6 @@ void ChromeUserManagerImpl::RegularUserLoggedIn(
 
   MaybeStartBluetoothLogging(account_id);
 
-  if (FakeOwnership()) {
-    std::string owner_email;
-    chromeos::CrosSettings::Get()->GetString(chromeos::kDeviceOwner,
-                                             &owner_email);
-    if (owner_email == account_id.GetUserEmail())
-      SetOwnerId(account_id);
-  }
   GetUserImageManager(account_id)->UserLoggedIn(IsCurrentUserNew(), false);
   WallpaperControllerClient::Get()->ShowUserWallpaper(account_id);
 
@@ -1437,7 +1520,12 @@ bool ChromeUserManagerImpl::IsManagedSessionEnabledForUser(
 
 bool ChromeUserManagerImpl::IsFullManagementDisclosureNeeded(
     policy::DeviceLocalAccountPolicyBroker* broker) const {
-  return IsManagedSessionEnabled(broker);
+  return IsManagedSessionEnabled(broker) &&
+         (IsPacHttpsUrlStrippingDisabled(broker) ||
+          AreRiskyPoliciesUsed(broker) ||
+          AreRiskyExtensionsForceInstalled(broker) ||
+          AreForcedNetworkCertificatesInstalled() ||
+          IsProxyUsed(GetLocalState()));
 }
 
 void ChromeUserManagerImpl::AddReportingUser(const AccountId& account_id) {

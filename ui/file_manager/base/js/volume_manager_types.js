@@ -15,7 +15,8 @@ var VolumeManagerCommon = {};
 var AllowedPaths = {
   NATIVE_PATH: 'nativePath',
   NATIVE_OR_DRIVE_PATH: 'nativeOrDrivePath',
-  ANY_PATH: 'anyPath'
+  ANY_PATH: 'anyPath',
+  ANY_PATH_OR_URL: 'anyPathOrUrl',
 };
 
 /**
@@ -92,12 +93,18 @@ VolumeManagerCommon.RootType = {
   // Root for media views.
   MEDIA_VIEW: 'media_view',
 
+  // Root for documents providers.
+  DOCUMENTS_PROVIDER: 'documents_provider',
+
   // Fake root for the mixed "Recent" view.
   RECENT: 'recent',
 
   // 'Google Drive' fake parent entry of 'My Drive', 'Shared with me' and
   // 'Offline'.
   DRIVE_FAKE_ROOT: 'drive_fake_root',
+
+  // 'Add new services' menu item.
+  DEPRECATED_ADD_NEW_SERVICES_MENU: 'deprecated_add_new_services_menu',
 
   // Root for crostini 'Linux files'.
   CROSTINI: 'crostini',
@@ -129,27 +136,29 @@ Object.freeze(VolumeManagerCommon.RootType);
  * @const
  */
 VolumeManagerCommon.RootTypesForUMA = [
-  VolumeManagerCommon.RootType.DOWNLOADS,
-  VolumeManagerCommon.RootType.ARCHIVE,
-  VolumeManagerCommon.RootType.REMOVABLE,
-  VolumeManagerCommon.RootType.DRIVE,
-  VolumeManagerCommon.RootType.TEAM_DRIVES_GRAND_ROOT,
-  VolumeManagerCommon.RootType.TEAM_DRIVE,
-  VolumeManagerCommon.RootType.MTP,
-  VolumeManagerCommon.RootType.PROVIDED,
-  VolumeManagerCommon.RootType.DRIVE_OTHER,
-  VolumeManagerCommon.RootType.DRIVE_OFFLINE,
-  VolumeManagerCommon.RootType.DRIVE_SHARED_WITH_ME,
-  VolumeManagerCommon.RootType.DRIVE_RECENT,
-  VolumeManagerCommon.RootType.MEDIA_VIEW,
-  VolumeManagerCommon.RootType.RECENT,
-  VolumeManagerCommon.RootType.DRIVE_FAKE_ROOT,
-  VolumeManagerCommon.RootType.CROSTINI,
-  VolumeManagerCommon.RootType.ANDROID_FILES,
-  VolumeManagerCommon.RootType.MY_FILES,
-  VolumeManagerCommon.RootType.COMPUTERS_GRAND_ROOT,
-  VolumeManagerCommon.RootType.COMPUTER,
-  VolumeManagerCommon.RootType.EXTERNAL_MEDIA,
+  VolumeManagerCommon.RootType.DOWNLOADS,                         // 0
+  VolumeManagerCommon.RootType.ARCHIVE,                           // 1
+  VolumeManagerCommon.RootType.REMOVABLE,                         // 2
+  VolumeManagerCommon.RootType.DRIVE,                             // 3
+  VolumeManagerCommon.RootType.TEAM_DRIVES_GRAND_ROOT,            // 4
+  VolumeManagerCommon.RootType.TEAM_DRIVE,                        // 5
+  VolumeManagerCommon.RootType.MTP,                               // 6
+  VolumeManagerCommon.RootType.PROVIDED,                          // 7
+  VolumeManagerCommon.RootType.DRIVE_OTHER,                       // 8
+  VolumeManagerCommon.RootType.DRIVE_OFFLINE,                     // 9
+  VolumeManagerCommon.RootType.DRIVE_SHARED_WITH_ME,              // 10
+  VolumeManagerCommon.RootType.DRIVE_RECENT,                      // 11
+  VolumeManagerCommon.RootType.MEDIA_VIEW,                        // 12
+  VolumeManagerCommon.RootType.RECENT,                            // 13
+  VolumeManagerCommon.RootType.DRIVE_FAKE_ROOT,                   // 14
+  VolumeManagerCommon.RootType.DEPRECATED_ADD_NEW_SERVICES_MENU,  // 15
+  VolumeManagerCommon.RootType.CROSTINI,                          // 16
+  VolumeManagerCommon.RootType.ANDROID_FILES,                     // 17
+  VolumeManagerCommon.RootType.MY_FILES,                          // 18
+  VolumeManagerCommon.RootType.COMPUTERS_GRAND_ROOT,              // 19
+  VolumeManagerCommon.RootType.COMPUTER,                          // 20
+  VolumeManagerCommon.RootType.EXTERNAL_MEDIA,                    // 21
+  VolumeManagerCommon.RootType.DOCUMENTS_PROVIDER,                // 22
 ];
 console.assert(
     Object.keys(VolumeManagerCommon.RootType).length ===
@@ -230,6 +239,7 @@ VolumeManagerCommon.VolumeType = {
   MTP: 'mtp',
   PROVIDED: 'provided',
   MEDIA_VIEW: 'media_view',
+  DOCUMENTS_PROVIDER: 'documents_provider',
   CROSTINI: 'crostini',
   ANDROID_FILES: 'android_files',
   MY_FILES: 'my_files',
@@ -294,6 +304,8 @@ VolumeManagerCommon.getVolumeTypeFromRootType = function(rootType) {
       return VolumeManagerCommon.VolumeType.PROVIDED;
     case VolumeManagerCommon.RootType.MEDIA_VIEW:
       return VolumeManagerCommon.VolumeType.MEDIA_VIEW;
+    case VolumeManagerCommon.RootType.DOCUMENTS_PROVIDER:
+      return VolumeManagerCommon.VolumeType.DOCUMENTS_PROVIDER;
     case VolumeManagerCommon.RootType.CROSTINI:
       return VolumeManagerCommon.VolumeType.CROSTINI;
     case VolumeManagerCommon.RootType.ANDROID_FILES:
@@ -322,6 +334,8 @@ VolumeManagerCommon.getRootTypeFromVolumeType = function(volumeType) {
       return VolumeManagerCommon.RootType.DRIVE;
     case VolumeManagerCommon.VolumeType.MEDIA_VIEW:
       return VolumeManagerCommon.RootType.MEDIA_VIEW;
+    case VolumeManagerCommon.VolumeType.DOCUMENTS_PROVIDER:
+      return VolumeManagerCommon.RootType.DOCUMENTS_PROVIDER;
     case VolumeManagerCommon.VolumeType.MTP:
       return VolumeManagerCommon.RootType.MTP;
     case VolumeManagerCommon.VolumeType.MY_FILES:

@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/callback.h"
 #include "base/containers/circular_deque.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
@@ -21,8 +22,8 @@
 #include "google_apis/gaia/gaia_auth_consumer.h"
 #include "google_apis/gaia/gaia_auth_fetcher.h"
 #include "google_apis/gaia/gaia_auth_util.h"
+#include "google_apis/gaia/oauth2_token_service.h"
 #include "google_apis/gaia/oauth_multilogin_result.h"
-#include "google_apis/gaia/ubertoken_fetcher.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "net/base/backoff_entry.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
@@ -30,14 +31,16 @@
 class GaiaAuthFetcher;
 class GaiaCookieRequest;
 class GoogleServiceAuthError;
-class OAuth2TokenService;
 
 namespace network {
 class SharedURLLoaderFactory;
 class SimpleURLLoader;
-}
+}  // namespace network
 
 namespace signin {
+
+class UbertokenFetcherImpl;
+
 // The maximum number of retries for a fetcher used in this class.
 constexpr int kMaxFetcherRetries = 8;
 
@@ -68,7 +71,6 @@ struct MultiloginParameters {
 // lifetime of this object, when the first call is made to AddAccountToCookie.
 class GaiaCookieManagerService : public KeyedService,
                                  public GaiaAuthConsumer,
-                                 public UbertokenConsumer,
                                  public network::mojom::CookieChangeListener,
                                  public OAuth2TokenService::Consumer {
  public:
@@ -214,6 +216,20 @@ class GaiaCookieManagerService : public KeyedService,
 
   GaiaCookieManagerService(OAuth2TokenService* token_service,
                            SigninClient* signin_client);
+
+  // Creates a GaiaCookieManagerService that uses the provided
+  // |shared_url_loader_factory_getter| to determine the SharedUrlLoaderFactory
+  // used for cookie-related requests.
+  // Note: SharedUrlLoaderFactory is passed via callback, so that if the
+  // callback has side-effects (e.g. network initialization), they do not occur
+  // until the first time GaiaCookieManagerService::GetSharedUrlLoaderFactory is
+  // called.
+  GaiaCookieManagerService(
+      OAuth2TokenService* token_service,
+      SigninClient* signin_client,
+      base::RepeatingCallback<scoped_refptr<network::SharedURLLoaderFactory>()>
+          shared_url_loader_factory_getter);
+
   ~GaiaCookieManagerService() override;
 
   void InitCookieListener();
@@ -286,12 +302,13 @@ class GaiaCookieManagerService : public KeyedService,
   }
 
   // Returns a non-NULL pointer to its instance of net::BackoffEntry
-  const net::BackoffEntry* GetBackoffEntry() {
-    return &fetcher_backoff_;
-  }
+  const net::BackoffEntry* GetBackoffEntry() { return &fetcher_backoff_; }
 
-  // Can be overridden by tests.
-  virtual scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory();
+  scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory();
+
+  // Ubertoken fetch completion callback. Called by unittests directly.
+  void OnUbertokenFetchComplete(GoogleServiceAuthError error,
+                                const std::string& uber_token);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(GaiaCookieManagerServiceTest,
@@ -313,10 +330,6 @@ class GaiaCookieManagerService : public KeyedService,
   void OnCookieChange(const net::CanonicalCookie& cookie,
                       network::mojom::CookieChangeCause cause) override;
   void OnCookieListenerConnectionError();
-
-  // Overridden from UbertokenConsumer.
-  void OnUbertokenSuccess(const std::string& token) override;
-  void OnUbertokenFailure(const GoogleServiceAuthError& error) override;
 
   // Overridden from OAuth2TokenService::Consumer.
   void OnGetTokenSuccess(
@@ -388,8 +401,11 @@ class GaiaCookieManagerService : public KeyedService,
 
   OAuth2TokenService* token_service_;
   SigninClient* signin_client_;
+
+  base::RepeatingCallback<scoped_refptr<network::SharedURLLoaderFactory>()>
+      shared_url_loader_factory_getter_;
   std::unique_ptr<GaiaAuthFetcher> gaia_auth_fetcher_;
-  std::unique_ptr<UbertokenFetcher> uber_token_fetcher_;
+  std::unique_ptr<signin::UbertokenFetcherImpl> uber_token_fetcher_;
   ExternalCcResultFetcher external_cc_result_fetcher_;
 
   // If the GaiaAuthFetcher or SimpleURLLoader fails, retry with exponential

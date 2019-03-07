@@ -25,7 +25,7 @@
 #include "net/third_party/quic/test_tools/crypto_test_utils.h"
 #include "net/third_party/quic/test_tools/quic_config_peer.h"
 #include "net/third_party/quic/test_tools/quic_connection_peer.h"
-#include "net/third_party/spdy/core/spdy_frame_builder.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_frame_builder.h"
 #include "third_party/boringssl/src/include/openssl/sha.h"
 
 using testing::_;
@@ -33,6 +33,34 @@ using testing::Invoke;
 
 namespace quic {
 namespace test {
+
+QuicConnectionId TestConnectionId() {
+  // Chosen by fair dice roll.
+  // Guaranteed to be random.
+  return TestConnectionId(42);
+}
+
+QuicConnectionId TestConnectionId(uint64_t connection_number) {
+  if (!QuicConnectionIdUseNetworkByteOrder()) {
+    return QuicConnectionIdFromUInt64(connection_number);
+  }
+  const uint64_t connection_id64_net =
+      QuicEndian::HostToNet64(connection_number);
+  return QuicConnectionId(reinterpret_cast<const char*>(&connection_id64_net),
+                          sizeof(connection_id64_net));
+}
+
+uint64_t TestConnectionIdToUInt64(QuicConnectionId connection_id) {
+  if (!QuicConnectionIdUseNetworkByteOrder()) {
+    return QuicConnectionIdToUInt64(connection_id);
+  }
+  DCHECK_EQ(connection_id.length(), kQuicDefaultConnectionIdLength);
+  uint64_t connection_id64_net = 0;
+  memcpy(&connection_id64_net, connection_id.data(),
+         std::min<size_t>(static_cast<size_t>(connection_id.length()),
+                          sizeof(connection_id64_net)));
+  return QuicEndian::NetToHost64(connection_id64_net);
+}
 
 QuicAckFrame InitAckFrame(const std::vector<QuicAckBlock>& ack_blocks) {
   DCHECK_GT(ack_blocks.size(), 0u);
@@ -51,12 +79,12 @@ QuicAckFrame InitAckFrame(const std::vector<QuicAckBlock>& ack_blocks) {
   return ack;
 }
 
-QuicAckFrame InitAckFrame(QuicPacketNumber largest_acked) {
+QuicAckFrame InitAckFrame(uint64_t largest_acked) {
   return InitAckFrame({{1, largest_acked + 1}});
 }
 
 QuicAckFrame MakeAckFrameWithAckBlocks(size_t num_ack_blocks,
-                                       QuicPacketNumber least_unacked) {
+                                       uint64_t least_unacked) {
   QuicAckFrame ack;
   ack.largest_acked = 2 * num_ack_blocks + least_unacked;
   // Add enough received packets to get num_ack_blocks ack blocks.
@@ -341,7 +369,7 @@ void MockQuicConnectionHelper::AdvanceTime(QuicTime::Delta delta) {
 MockQuicConnection::MockQuicConnection(MockQuicConnectionHelper* helper,
                                        MockAlarmFactory* alarm_factory,
                                        Perspective perspective)
-    : MockQuicConnection(QuicEndian::NetToHost64(kTestConnectionId),
+    : MockQuicConnection(TestConnectionId(),
                          QuicSocketAddress(TestPeerIPAddress(), kTestPort),
                          helper,
                          alarm_factory,
@@ -352,7 +380,7 @@ MockQuicConnection::MockQuicConnection(QuicSocketAddress address,
                                        MockQuicConnectionHelper* helper,
                                        MockAlarmFactory* alarm_factory,
                                        Perspective perspective)
-    : MockQuicConnection(QuicEndian::NetToHost64(kTestConnectionId),
+    : MockQuicConnection(TestConnectionId(),
                          address,
                          helper,
                          alarm_factory,
@@ -375,7 +403,7 @@ MockQuicConnection::MockQuicConnection(
     MockAlarmFactory* alarm_factory,
     Perspective perspective,
     const ParsedQuicVersionVector& supported_versions)
-    : MockQuicConnection(QuicEndian::NetToHost64(kTestConnectionId),
+    : MockQuicConnection(TestConnectionId(),
                          QuicSocketAddress(TestPeerIPAddress(), kTestPort),
                          helper,
                          alarm_factory,
@@ -573,8 +601,8 @@ TestQuicSpdyServerSession::TestQuicSpdyServerSession(
                             compressed_certs_cache) {
   Initialize();
   ON_CALL(helper_, GenerateConnectionIdForReject(_))
-      .WillByDefault(
-          testing::Return(connection->random_generator()->RandUint64()));
+      .WillByDefault(testing::Return(
+          QuicUtils::CreateRandomConnectionId(connection->random_generator())));
   ON_CALL(helper_, CanAcceptClientHello(_, _, _, _, _))
       .WillByDefault(testing::Return(true));
 }
@@ -758,7 +786,7 @@ QuicEncryptedPacket* ConstructEncryptedPacket(
     QuicConnectionId source_connection_id,
     bool version_flag,
     bool reset_flag,
-    QuicPacketNumber packet_number,
+    uint64_t packet_number,
     const QuicString& data) {
   return ConstructEncryptedPacket(
       destination_connection_id, source_connection_id, version_flag, reset_flag,
@@ -771,7 +799,7 @@ QuicEncryptedPacket* ConstructEncryptedPacket(
     QuicConnectionId source_connection_id,
     bool version_flag,
     bool reset_flag,
-    QuicPacketNumber packet_number,
+    uint64_t packet_number,
     const QuicString& data,
     QuicConnectionIdLength destination_connection_id_length,
     QuicConnectionIdLength source_connection_id_length,
@@ -787,7 +815,7 @@ QuicEncryptedPacket* ConstructEncryptedPacket(
     QuicConnectionId source_connection_id,
     bool version_flag,
     bool reset_flag,
-    QuicPacketNumber packet_number,
+    uint64_t packet_number,
     const QuicString& data,
     QuicConnectionIdLength destination_connection_id_length,
     QuicConnectionIdLength source_connection_id_length,
@@ -804,7 +832,7 @@ QuicEncryptedPacket* ConstructEncryptedPacket(
     QuicConnectionId source_connection_id,
     bool version_flag,
     bool reset_flag,
-    QuicPacketNumber packet_number,
+    uint64_t packet_number,
     const QuicString& data,
     QuicConnectionIdLength destination_connection_id_length,
     QuicConnectionIdLength source_connection_id_length,
@@ -856,7 +884,7 @@ QuicEncryptedPacket* ConstructMisFramedEncryptedPacket(
     QuicConnectionId source_connection_id,
     bool version_flag,
     bool reset_flag,
-    QuicPacketNumber packet_number,
+    uint64_t packet_number,
     const QuicString& data,
     QuicConnectionIdLength destination_connection_id_length,
     QuicConnectionIdLength source_connection_id_length,
@@ -1078,19 +1106,31 @@ void CreateServerSessionForTest(
 }
 
 QuicStreamId NextStreamId(QuicTransportVersion version) {
-  // TODO(ckrasic) - when version for http stream pairs re-lands, this
-  // will be conditional.
-  return 2;
+  return QuicUtils::StreamIdDelta(version);
 }
 
-QuicStreamId GetNthClientInitiatedStreamId(QuicTransportVersion version,
-                                           int n) {
-  return (version == QUIC_VERSION_99 ? 4 : 5) + NextStreamId(version) * n;
+QuicStreamId GetNthClientInitiatedBidirectionalStreamId(
+    QuicTransportVersion version,
+    int n) {
+  return QuicUtils::GetFirstBidirectionalStreamId(version,
+                                                  Perspective::IS_CLIENT) +
+         NextStreamId(version) * (n + 1);
 }
 
-QuicStreamId GetNthServerInitiatedStreamId(QuicTransportVersion version,
-                                           int n) {
-  return (version == QUIC_VERSION_99 ? 1 : 2) + NextStreamId(version) * n;
+QuicStreamId GetNthServerInitiatedUnidirectionalStreamId(
+    QuicTransportVersion version,
+    int n) {
+  return QuicUtils::GetFirstUnidirectionalStreamId(version,
+                                                   Perspective::IS_SERVER) +
+         NextStreamId(version) * n;
+}
+
+StreamType DetermineStreamType(QuicStreamId id,
+                               QuicTransportVersion version,
+                               bool is_incoming,
+                               StreamType default_type) {
+  return version == QUIC_VERSION_99 ? QuicUtils::GetStreamType(id, is_incoming)
+                                    : default_type;
 }
 
 }  // namespace test

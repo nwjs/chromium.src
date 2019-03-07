@@ -48,7 +48,7 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
 
   AtkRole GetAtkRole();
   void GetAtkState(AtkStateSet* state_set);
-  void GetAtkRelations(AtkRelationSet* atk_relation_set);
+  AtkRelationSet* GetAtkRelations();
   void GetExtents(gint* x, gint* y, gint* width, gint* height,
                   AtkCoordType coord_type);
   void GetPosition(gint* x, gint* y, AtkCoordType coord_type);
@@ -64,8 +64,6 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
   void SetExtentsRelativeToAtkCoordinateType(
       gint* x, gint* y, gint* width, gint* height,
       AtkCoordType coord_type);
-
-  static AXPlatformNodeAuraLinux* GetFromUniqueId(int32_t unique_id);
 
   // AtkDocument helpers
   const gchar* GetDocumentAttributeValue(const gchar* attribute) const;
@@ -83,9 +81,13 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
   void OnFocused();
   void OnWindowActivated();
   void OnWindowDeactivated();
+  void OnMenuPopupStart();
+  void OnMenuPopupHide();
+  void OnMenuPopupEnd();
   void OnSelected();
   void OnValueChanged();
 
+  bool SupportsSelectionWithAtkSelection();
   bool SelectionAndFocusAreTheSame();
 
   // AXPlatformNode overrides.
@@ -128,6 +130,7 @@ class AX_EXPORT AXPlatformNodeAuraLinux : public AXPlatformNodeBase {
   GType GetAccessibilityGType();
   AtkObject* CreateAtkObject();
   void DestroyAtkObjects();
+  void AddRelationToSet(AtkRelationSet*, AtkRelationType, int target_id);
 
   // The AtkStateType for a checkable node can vary depending on the role.
   AtkStateType GetAtkStateTypeForCheckableNode();

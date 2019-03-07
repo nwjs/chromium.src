@@ -7,6 +7,7 @@
 #include "net/third_party/quic/core/crypto/quic_random.h"
 #include "net/third_party/quic/core/http/spdy_utils.h"
 #include "net/third_party/quic/core/quic_server_id.h"
+#include "net/third_party/quic/core/quic_utils.h"
 #include "net/third_party/quic/core/tls_client_handshaker.h"
 #include "net/third_party/quic/platform/api/quic_flags.h"
 #include "net/third_party/quic/platform/api/quic_logging.h"
@@ -308,8 +309,8 @@ QuicErrorCode QuicClientBase::connection_error() const {
 
 QuicConnectionId QuicClientBase::GetNextConnectionId() {
   QuicConnectionId server_designated_id = GetNextServerDesignatedConnectionId();
-  return server_designated_id ? server_designated_id
-                              : GenerateNewConnectionId();
+  return !server_designated_id.IsEmpty() ? server_designated_id
+                                         : GenerateNewConnectionId();
 }
 
 QuicConnectionId QuicClientBase::GetNextServerDesignatedConnectionId() {
@@ -321,11 +322,11 @@ QuicConnectionId QuicClientBase::GetNextServerDesignatedConnectionId() {
                            << "unexpected nullptr.";
   return cached->has_server_designated_connection_id()
              ? cached->GetNextServerDesignatedConnectionId()
-             : 0;
+             : EmptyQuicConnectionId();
 }
 
 QuicConnectionId QuicClientBase::GenerateNewConnectionId() {
-  return QuicRandom::GetInstance()->RandUint64();
+  return QuicUtils::CreateRandomConnectionId(Perspective::IS_CLIENT);
 }
 
 bool QuicClientBase::CanReconnectWithDifferentVersion(

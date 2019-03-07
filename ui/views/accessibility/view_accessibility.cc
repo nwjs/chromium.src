@@ -10,7 +10,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
-#include "ui/base/ui_features.h"
+#include "ui/base/buildflags.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 
@@ -90,6 +90,7 @@ std::unique_ptr<AXVirtualView> ViewAccessibility::RemoveVirtualChildView(
       std::move(virtual_children_[cur_index]);
   virtual_children_.erase(virtual_children_.begin() + cur_index);
   child->set_parent_view(nullptr);
+  child->UnsetPopulateDataCallback();
   if (focused_virtual_child_ && child->Contains(focused_virtual_child_))
     focused_virtual_child_ = nullptr;
   return child;
@@ -167,6 +168,9 @@ void ViewAccessibility::GetAccessibleNodeData(ui::AXNodeData* data) const {
   }
 
   data->relative_bounds.bounds = gfx::RectF(view_->GetBoundsInScreen());
+  if (!custom_data_.relative_bounds.bounds.IsEmpty())
+    data->relative_bounds.bounds = custom_data_.relative_bounds.bounds;
+
   data->AddStringAttribute(ax::mojom::StringAttribute::kClassName,
                            view_->GetClassName());
 
@@ -216,6 +220,10 @@ void ViewAccessibility::OverrideIsLeaf(bool value) {
 
 void ViewAccessibility::OverrideIsIgnored(bool value) {
   is_ignored_ = value;
+}
+
+void ViewAccessibility::OverrideBounds(const gfx::RectF& bounds) {
+  custom_data_.relative_bounds.bounds = bounds;
 }
 
 gfx::NativeViewAccessible ViewAccessibility::GetNativeObject() {

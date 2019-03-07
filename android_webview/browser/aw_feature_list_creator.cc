@@ -47,10 +47,11 @@ namespace {
 // These prefs go in the JsonPrefStore, and will persist across runs. Other
 // prefs go in the InMemoryPrefStore, and will be lost when the process ends.
 const char* const kPersistentPrefsWhitelist[] = {
-    // Random seed value for variation's entropy providers, used to assign
+    // Random seed values for variation's entropy providers, used to assign
     // experiment groups.
     metrics::prefs::kMetricsLowEntropySource,
     // Used by CachingPermutedEntropyProvider to cache generated values.
+    // TODO(crbug/912368): Remove this.
     variations::prefs::kVariationsPermutedEntropyCache,
 };
 
@@ -156,15 +157,19 @@ void AwFeatureListCreator::SetUpFieldTrials() {
 
   // Populate FieldTrialList. Since low_entropy_provider is null, it will fall
   // back to the provider we previously gave to FieldTrialList, which is a low
-  // entropy provider. We only want one low entropy provider, because multiple
-  // CachingPermutedEntropyProvider objects would all try to cache their values
-  // in the same pref store, overwriting each other's.
+  // entropy provider.
   variations_field_trial_creator_->SetupFieldTrials(
       cc::switches::kEnableGpuBenchmarking, switches::kEnableFeatures,
       switches::kDisableFeatures, unforceable_field_trials,
       std::vector<std::string>(), /*low_entropy_provider=*/nullptr,
       std::make_unique<base::FeatureList>(), aw_field_trials_.get(),
       &ignored_safe_seed_manager);
+
+  // Activate a study which exercises permanent-consistency, to test the launch
+  // of permanent-consistency support in WebView.
+  // TODO(crbug/917537): Remove this after m73.
+  base::FieldTrialList::FindFullName("AndroidWebViewConsistencyTest");
+  base::FieldTrialList::FindFullName("AndroidWebViewSessionConsistencyTest");
 }
 
 void AwFeatureListCreator::CreateFeatureListAndFieldTrials() {

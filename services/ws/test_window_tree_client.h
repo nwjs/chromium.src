@@ -144,23 +144,26 @@ class TestWindowTreeClient : public mojom::WindowTreeClient,
       const std::string& name,
       const base::Optional<std::vector<uint8_t>>& new_data) override;
   void OnWindowFocused(Id focused_window_id) override;
-  void OnWindowCursorChanged(Id window_id, ui::CursorData cursor) override;
+  void OnWindowCursorChanged(Id window_id, ui::Cursor cursor) override;
   void OnDragDropStart(const base::flat_map<std::string, std::vector<uint8_t>>&
                            drag_data) override;
   void OnDragEnter(Id window,
                    uint32_t key_state,
-                   const gfx::Point& position,
+                   const gfx::PointF& location_in_root,
+                   const gfx::PointF& location,
                    uint32_t effect_bitmask,
                    OnDragEnterCallback callback) override;
   void OnDragOver(Id window,
                   uint32_t key_state,
-                  const gfx::Point& position,
+                  const gfx::PointF& location_in_root,
+                  const gfx::PointF& location,
                   uint32_t effect_bitmask,
                   OnDragOverCallback callback) override;
   void OnDragLeave(Id window) override;
   void OnCompleteDrop(Id window,
                       uint32_t key_state,
-                      const gfx::Point& position,
+                      const gfx::PointF& location_in_root,
+                      const gfx::PointF& location,
                       uint32_t effect_bitmask,
                       OnCompleteDropCallback callback) override;
   void OnPerformDragDropCompleted(uint32_t change_id,
@@ -172,8 +175,8 @@ class TestWindowTreeClient : public mojom::WindowTreeClient,
   void RequestClose(Id window_id) override;
   void GetScreenProviderObserver(
       mojom::ScreenProviderObserverAssociatedRequest observer) override;
-  void OnOcclusionStateChanged(Id window_id,
-                               mojom::OcclusionState occlusion_state) override;
+  void OnOcclusionStatesChanged(const base::flat_map<Id, mojom::OcclusionState>&
+                                    occlusion_changes) override;
 
  protected:
   TestChangeTracker tracker_;

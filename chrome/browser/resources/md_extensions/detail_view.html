@@ -24,6 +24,7 @@
 <link rel="import" href="navigation_helper.html">
 <link rel="import" href="runtime_host_permissions.html">
 <link rel="import" href="shared_style.html">
+<link rel="import" href="shared_vars.html">
 <link rel="import" href="strings.html">
 <link rel="import" href="toggle_row.html">
 
@@ -31,7 +32,7 @@
   <template>
     <style include="iron-flex cr-shared-style cr-icons action-link paper-button-style shared-style">
       :host {
-        --iron-icon-fill-color: var(--google-grey-refresh-700);
+        --iron-icon-fill-color: var(--cr-secondary-text-color);
         display: block;
         height: 100%;
       }
@@ -53,6 +54,10 @@
         color: var(--google-blue-500);
       }
 
+      :host-context([dark]) #enable-section .enabled-text {
+        color: var(--google-blue-refresh-300);
+      }
+
       #icon {
         height: 24px;
         margin-inline-end: 12px;
@@ -65,23 +70,15 @@
         @apply --cr-title-text;
       }
 
-      #learn-more-link {
-        color: var(--google-blue-700);
-        text-decoration: none;
-      }
-
-      .three-line {
-        min-height: var(--cr-section-three-line-min-height);
-      }
-
       .section {
         @apply --cr-section;
       }
 
       .section.block {
+        box-sizing: border-box;
         display: block;
-        padding-bottom: 16px;
-        padding-top: 16px;
+        padding-bottom: var(--cr-section-vertical-padding);
+        padding-top: var(--cr-section-vertical-padding);
       }
 
       .section.continuation {
@@ -96,10 +93,6 @@
         border: none;
       }
 
-      .section-title {
-        margin-bottom: 12px;
-      }
-
       .section-content {
         color: var(--cr-secondary-text-color);
       }
@@ -109,27 +102,26 @@
       }
 
       .inspectable-view {
-        color: var(--google-blue-700);
         height: 20px;
         width: auto;  /* override the default button size of 24x24 */
       }
 
-      .warning .action-button {
+      :host-context(html:not([dark])) .warning .action-button {
         background: white;
         color: var(--google-blue-500);
       }
 
-      #reload-button {
+      :host-context(html:not([dark])) #reload-button {
         color: var(--google-blue-500);
       }
 
       .warning span {
-        color: var(--google-red-700);
+        color: var(--error-color);
         flex: 1;
       }
 
       .warning-icon {
-        --iron-icon-fill-color: var(--google-red-700);
+        --iron-icon-fill-color: var(--error-color);
         flex-shrink: 0;
         height: 18px;
         margin-inline-end: 8px;
@@ -147,8 +139,11 @@
 
       extensions-toggle-row {
         @apply --cr-section;
+        box-sizing: border-box;
+        padding-bottom: var(--cr-section-vertical-padding);
         padding-inline-end: 0;
         padding-inline-start: 0;
+        padding-top: var(--cr-section-vertical-padding);
         --toggle-row-label-padding: var(--cr-section-padding);
       }
 
@@ -184,7 +179,7 @@
           <span id="name">[[data.name]]</span>
         </div>
         <div class="section continuation control-line" id="enable-section">
-          <span class$="{{computeEnabledStyle_(data.state)}}">
+          <span class$="[[computeEnabledStyle_(data.state)]]">
             [[computeEnabledText_(data.state, '$i18nPolymer{itemOn}',
                 '$i18nPolymer{itemOff}')]]
           </span>
@@ -226,8 +221,7 @@
             <iron-icon class="warning-icon" icon="cr:warning"></iron-icon>
             <span>
               $i18n{itemSuspiciousInstall}
-              <a target="_blank" id="learn-more-link"
-                  href="$i18n{suspiciousInstallHelpUrl}">
+              <a target="_blank" href="$i18n{suspiciousInstallHelpUrl}">
                 $i18n{learnMore}
               </a>
             </span>
@@ -315,6 +309,15 @@
                 </li>
               </template>
             </ul>
+          </div>
+        </div>
+        <div class="section block">
+          <div class="section-title">$i18n{itemSiteAccess}</div>
+          <div class="section-content">
+            <span id="no-site-access"
+                hidden$="[[showSiteAccessContent_(data.*)]]">
+              $i18n{itemSiteAccessEmpty}
+            </span>
             <template is="dom-if"
                 if="[[showFreeformRuntimeHostPermissions_(data.*)]]">
               <extensions-runtime-host-permissions
@@ -351,7 +354,7 @@
             <template is="dom-if"
               if="[[shouldShowIncognitoOption_(
                   data.incognitoAccess.isEnabled, incognitoAvailable)]]">
-              <extensions-toggle-row id="allow-incognito" class="three-line"
+              <extensions-toggle-row id="allow-incognito"
                   checked="[[data.incognitoAccess.isActive]]"
                   on-change="onAllowIncognitoChange_">
                 <div>
@@ -383,7 +386,7 @@
             on-click="onExtensionOptionsTap_">
         </cr-link-row>
         <cr-link-row class="hr" icon-class="subpage-arrow"
-            id="extensions-activity-log-link" hidden$="[[!showActivityLog]]"
+            id="extensionsActivityLogLink" hidden$="[[!showActivityLog]]"
             label="$i18n{viewActivityLog}" on-click="onActivityLogTap_">
         </cr-link-row>
         <cr-link-row class="hr" hidden="[[!data.manifestHomePageUrl.length]]"

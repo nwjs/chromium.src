@@ -436,12 +436,12 @@ CORE_EXPORT bool HasCallableIteratorSymbol(v8::Isolate*,
                                            v8::Local<v8::Value>,
                                            ExceptionState&);
 
-CORE_EXPORT v8::Isolate* ToIsolate(const ExecutionContext*);
 CORE_EXPORT v8::Isolate* ToIsolate(const LocalFrame*);
 
 CORE_EXPORT DOMWindow* ToDOMWindow(v8::Isolate*, v8::Local<v8::Value>);
 CORE_EXPORT LocalDOMWindow* ToLocalDOMWindow(v8::Local<v8::Context>);
 LocalDOMWindow* EnteredDOMWindow(v8::Isolate*);
+LocalDOMWindow* IncumbentDOMWindow(v8::Isolate*);
 CORE_EXPORT LocalDOMWindow* CurrentDOMWindow(v8::Isolate*);
 CORE_EXPORT ExecutionContext* ToExecutionContext(v8::Local<v8::Context>);
 CORE_EXPORT void RegisterToExecutionContextForModules(ExecutionContext* (

@@ -26,7 +26,6 @@
 #include "content/renderer/media/audio/mock_audio_device_factory.h"
 #include "content/renderer/media/stream/media_stream_audio_source.h"
 #include "content/renderer/media/stream/media_stream_audio_track.h"
-#include "content/renderer/media/stream/media_stream_source.h"
 #include "content/renderer/media/stream/media_stream_video_track.h"
 #include "content/renderer/media/stream/mock_constraint_factory.h"
 #include "content/renderer/media/stream/mock_media_stream_video_source.h"
@@ -39,6 +38,7 @@
 #include "content/renderer/media/webrtc/rtc_stats.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/platform/modules/mediastream/platform_media_stream_source.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/platform/web_media_constraints.h"
 #include "third_party/blink/public/platform/web_media_stream.h"
@@ -57,9 +57,9 @@
 #include "third_party/blink/public/platform/web_rtc_void_request.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/web/web_heap.h"
-#include "third_party/webrtc/api/peerconnectioninterface.h"
-#include "third_party/webrtc/api/rtpreceiverinterface.h"
-#include "third_party/webrtc/stats/test/rtcteststats.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
+#include "third_party/webrtc/api/rtp_receiver_interface.h"
+#include "third_party/webrtc/stats/test/rtc_test_stats.h"
 
 static const char kDummySdp[] = "dummy sdp";
 static const char kDummySdpType[] = "dummy type";
@@ -319,17 +319,18 @@ class RTCPeerConnectionHandlerTest : public ::testing::Test {
     ProcessedLocalAudioSource* const audio_source =
         new ProcessedLocalAudioSource(
             -1 /* consumer_render_frame_id is N/A for non-browser tests */,
-            MediaStreamDevice(MEDIA_DEVICE_AUDIO_CAPTURE, "mock_device_id",
-                              "Mock device",
-                              media::AudioParameters::kAudioCDSampleRate,
-                              media::CHANNEL_LAYOUT_STEREO,
-                              media::AudioParameters::kAudioCDSampleRate / 100),
+            blink::MediaStreamDevice(
+                blink::MEDIA_DEVICE_AUDIO_CAPTURE, "mock_device_id",
+                "Mock device", media::AudioParameters::kAudioCDSampleRate,
+                media::CHANNEL_LAYOUT_STEREO,
+                media::AudioParameters::kAudioCDSampleRate / 100),
             false /* hotword_enabled */, false /* disable_local_echo */,
             AudioProcessingProperties(),
             base::Bind(&RTCPeerConnectionHandlerTest::OnAudioSourceStarted),
             mock_dependency_factory_.get());
     audio_source->SetAllowInvalidRenderFrameIdForTesting(true);
-    blink_audio_source.SetExtraData(audio_source);  // Takes ownership.
+    blink_audio_source.SetPlatformSource(
+        base::WrapUnique(audio_source));  // Takes ownership.
 
     blink::WebMediaStreamSource video_source;
     video_source.Initialize(blink::WebString::FromUTF8(video_track_label),
@@ -338,7 +339,7 @@ class RTCPeerConnectionHandlerTest : public ::testing::Test {
                             false /* remote */);
     MockMediaStreamVideoSource* native_video_source =
         new MockMediaStreamVideoSource();
-    video_source.SetExtraData(native_video_source);
+    video_source.SetPlatformSource(base::WrapUnique(native_video_source));
 
     blink::WebVector<blink::WebMediaStreamTrack> audio_tracks(
         static_cast<size_t>(1));
@@ -389,8 +390,8 @@ class RTCPeerConnectionHandlerTest : public ::testing::Test {
       MediaStreamVideoTrack::GetVideoTrack(track)->Stop();
   }
 
-  static void OnAudioSourceStarted(MediaStreamSource* source,
-                                   MediaStreamRequestResult result,
+  static void OnAudioSourceStarted(blink::WebPlatformMediaStreamSource* source,
+                                   blink::MediaStreamRequestResult result,
                                    const blink::WebString& result_name) {}
 
   bool AddStream(const blink::WebMediaStream& web_stream) {
@@ -844,7 +845,7 @@ TEST_F(RTCPeerConnectionHandlerTest, addStreamWithStoppedAudioAndVideoTrack) {
       local_stream.VideoTracks();
   MediaStreamVideoSource* native_video_source =
       static_cast<MediaStreamVideoSource*>(
-          video_tracks[0].Source().GetExtraData());
+          video_tracks[0].Source().GetPlatformSource());
   native_video_source->StopSource();
 
   EXPECT_TRUE(AddStream(local_stream));

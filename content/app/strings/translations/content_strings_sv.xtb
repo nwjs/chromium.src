@@ -19,6 +19,7 @@
 <translation id="1591562245178063882">Den här månaden</translation>
 <translation id="1637811476055996098">Välj filer</translation>
 <translation id="1650423536718072820">utvalt citat</translation>
+<translation id="1727886345390570319">dölj textningsmenyn</translation>
 <translation id="1729654308190250600">Ange en e-postadress som inte är tom.</translation>
 <translation id="1758486001363313524">Annat ...</translation>
 <translation id="1806710327868736751">varningsdialogruta</translation>
@@ -96,6 +97,7 @@
 <translation id="4413860115965805769">menyknapp</translation>
 <translation id="4446524499724042288">hänvisning till ordlista</translation>
 <translation id="4522570452068850558">Info</translation>
+<translation id="4542388879936266156">tid som återstår: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">formulär</translation>
 <translation id="4661075872484491155">träd</translation>
 <translation id="4664250907885839816">En del efter <ph name="ATSIGN" /> får inte innehålla symbolen <ph name="INVALIDCHARACTER" />.</translation>
@@ -147,6 +149,7 @@
 <translation id="6213469881011901533">ordlista</translation>
 <translation id="6398862346408813489">Visa panelen för val av månad</translation>
 <translation id="6404546809543547843">tidsreglage för ljud</translation>
+<translation id="6443871981718447451">visa textningsmenyn</translation>
 <translation id="6453774872122745852">författarens tack</translation>
 <translation id="648732519525291180">tidsväljare</translation>
 <translation id="6550675742724504774">Alternativ</translation>
@@ -162,7 +165,6 @@
 <translation id="6820355525329141109">Det gick inte att läsa in plugin-programmet.</translation>
 <translation id="6820615603175220800">bibliografisk referens</translation>
 <translation id="6843725295806269523">ljud av</translation>
-<translation id="6853785296079745596">dölj textning</translation>
 <translation id="6885760532393684712">katalog</translation>
 <translation id="689129560213475294">kolofon</translation>
 <translation id="6934078000481955284">citatblock</translation>
@@ -171,7 +173,6 @@
 <translation id="6989848892321993519">Lägg till minst <ph name="MIN_CHARACTERS" /> tecken (för närvarande har du angett 1 tecken).</translation>
 <translation id="709897737746224366">Matcha det format som anges.</translation>
 <translation id="7139483182332611405">företal</translation>
-<translation id="7223624360433298498">förfluten tid</translation>
 <translation id="7263440858009898357">Välj ett alternativ i listan.</translation>
 <translation id="727747134524199931">kolumnrubrik</translation>
 <translation id="7353453495576941748">erkännande</translation>
@@ -186,7 +187,6 @@
 <translation id="7661956066982048809">grafiskt dokument</translation>
 <translation id="7673697353781729403">Timmar</translation>
 <translation id="7681220483256441252">index</translation>
-<translation id="7720026100085573005">återstående tid</translation>
 <translation id="7740050170769002709">HTML-innehåll</translation>
 <translation id="7750228210027921155">Bild-i-bild</translation>
 <translation id="7789962463072032349">paus</translation>
@@ -201,6 +201,7 @@
 <translation id="8199524924445686405">åååå</translation>
 <translation id="8284326494547611709">Textning</translation>
 <translation id="835897206747267392">Ogiltigt värde.</translation>
+<translation id="8403857369060869934">tid som gått: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">del</translation>
 <translation id="8433900881053900389">verktygsfält</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> filer</translation>
@@ -225,7 +226,6 @@
 <translation id="8987927404178983737">Månad</translation>
 <translation id="901493112792887934">aktuell tid i sekunder</translation>
 <translation id="9048119486235211610">navigering</translation>
-<translation id="9050748414552849310">visa textning</translation>
 <translation id="9062295712474918030">dokument</translation>
 <translation id="9093215626363556771">avsluta bild-i-bild-läge</translation>
 <translation id="9108370397979208512">matte</translation>

@@ -20,12 +20,11 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/arc/arc_bridge_service.h"
 #include "components/arc/common/accessibility_helper.mojom.h"
 #include "components/exo/shell_surface.h"
 #include "components/exo/shell_surface_util.h"
-#include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/window.h"
 #include "ui/display/display.h"
@@ -177,7 +176,6 @@ class ArcAccessibilityHelperBridgeTest : public ChromeViewsTestBase {
       arc_notification_surface_manager_;
 
  private:
-  content::TestBrowserThreadBundle thread_bundle_;
   std::unique_ptr<TestingProfile> testing_profile_;
   std::unique_ptr<ArcBridgeService> bridge_service_;
   std::unique_ptr<TestArcAccessibilityHelperBridge>

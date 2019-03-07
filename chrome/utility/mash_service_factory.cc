@@ -11,7 +11,7 @@
 #include "ash/components/quick_launch/quick_launch_application.h"
 #include "ash/components/shortcut_viewer/public/mojom/shortcut_viewer.mojom.h"
 #include "ash/components/shortcut_viewer/shortcut_viewer_application.h"
-#include "ash/components/tap_visualizer/public/mojom/constants.mojom.h"
+#include "ash/components/tap_visualizer/public/mojom/tap_visualizer.mojom.h"
 #include "ash/components/tap_visualizer/tap_visualizer_app.h"
 #include "ash/public/interfaces/constants.mojom.h"
 #include "base/bind.h"
@@ -35,26 +35,16 @@ enum class MashService {
   kMaxValue = kFontDeprecated,
 };
 
-using ServiceFactoryFunction = std::unique_ptr<service_manager::Service>();
-
-void RegisterMashService(
-    content::ContentUtilityClient::StaticServiceMap* services,
-    const std::string& name,
-    ServiceFactoryFunction factory_function) {
-  service_manager::EmbeddedServiceInfo service_info;
-  service_info.factory = base::BindRepeating(factory_function);
-  services->emplace(name, service_info);
-}
-
 // Wrapper function so we only have one copy of histogram macro generated code.
 void RecordMashServiceLaunch(MashService service) {
   UMA_HISTOGRAM_ENUMERATION("Launch.MashService", service);
 }
 
-std::unique_ptr<service_manager::Service> CreateAshService() {
+std::unique_ptr<service_manager::Service> CreateAshService(
+    service_manager::mojom::ServiceRequest request) {
   RecordMashServiceLaunch(MashService::kAsh);
   logging::SetLogPrefix("ash");
-  return std::make_unique<ash::AshService>();
+  return std::make_unique<ash::AshService>(std::move(request));
 }
 
 std::unique_ptr<service_manager::Service> CreateQuickLaunchService(
@@ -65,17 +55,19 @@ std::unique_ptr<service_manager::Service> CreateQuickLaunchService(
       std::move(request));
 }
 
-std::unique_ptr<service_manager::Service> CreateShortcutViewerApp() {
+std::unique_ptr<service_manager::Service> CreateShortcutViewerApp(
+    service_manager::mojom::ServiceRequest request) {
   RecordMashServiceLaunch(MashService::kShortcutViewer);
   logging::SetLogPrefix("shortcut");
-  return std::make_unique<
-      keyboard_shortcut_viewer::ShortcutViewerApplication>();
+  return std::make_unique<keyboard_shortcut_viewer::ShortcutViewerApplication>(
+      std::move(request));
 }
 
-std::unique_ptr<service_manager::Service> CreateTapVisualizerApp() {
+std::unique_ptr<service_manager::Service> CreateTapVisualizerApp(
+    service_manager::mojom::ServiceRequest request) {
   RecordMashServiceLaunch(MashService::kTapVisualizer);
   logging::SetLogPrefix("tap");
-  return std::make_unique<tap_visualizer::TapVisualizerApp>();
+  return std::make_unique<tap_visualizer::TapVisualizerApp>(std::move(request));
 }
 
 }  // namespace
@@ -84,23 +76,21 @@ MashServiceFactory::MashServiceFactory() = default;
 
 MashServiceFactory::~MashServiceFactory() = default;
 
-void MashServiceFactory::RegisterOutOfProcessServices(
-    content::ContentUtilityClient::StaticServiceMap* services) {
-  RegisterMashService(services, ash::mojom::kServiceName, &CreateAshService);
-  RegisterMashService(services, shortcut_viewer::mojom::kServiceName,
-                      &CreateShortcutViewerApp);
-  RegisterMashService(services, tap_visualizer::mojom::kServiceName,
-                      &CreateTapVisualizerApp);
-
-  keyboard_shortcut_viewer::ShortcutViewerApplication::RegisterForTraceEvents();
-}
-
 std::unique_ptr<service_manager::Service>
 MashServiceFactory::HandleServiceRequest(
     const std::string& service_name,
     service_manager::mojom::ServiceRequest request) {
+  if (service_name == ash::mojom::kServiceName)
+    return CreateAshService(std::move(request));
   if (service_name == quick_launch::mojom::kServiceName)
     return CreateQuickLaunchService(std::move(request));
+  if (service_name == shortcut_viewer::mojom::kServiceName) {
+    keyboard_shortcut_viewer::ShortcutViewerApplication ::
+        RegisterForTraceEvents();
+    return CreateShortcutViewerApp(std::move(request));
+  }
+  if (service_name == tap_visualizer::mojom::kServiceName)
+    return CreateTapVisualizerApp(std::move(request));
 
   return nullptr;
 }

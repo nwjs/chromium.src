@@ -8,8 +8,8 @@
 
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/memory/ptr_util.h"
+#include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
@@ -255,6 +255,9 @@ TEST_F(WindowTreeClientTest, SetBoundsFailedLocalSurfaceId) {
   Window window(nullptr);
   window.Init(ui::LAYER_NOT_DRAWN);
   WindowPortMusTestHelper(&window).SimulateEmbedding();
+  // SimulateEmbedding() generates a bounds change.
+  ASSERT_TRUE(
+      window_tree()->AckSingleChangeOfType(WindowTreeChangeType::BOUNDS, true));
 
   const gfx::Rect original_bounds(window.bounds());
   const viz::LocalSurfaceId original_local_surface_id(
@@ -265,14 +268,19 @@ TEST_F(WindowTreeClientTest, SetBoundsFailedLocalSurfaceId) {
   EXPECT_EQ(new_bounds, window.bounds());
   WindowMus* window_mus = WindowMus::Get(&window);
   ASSERT_NE(nullptr, window_mus);
-  EXPECT_TRUE(window_mus->GetLocalSurfaceIdAllocation().IsValid());
+  ASSERT_TRUE(window_mus->GetLocalSurfaceIdAllocation().IsValid());
+  const viz::LocalSurfaceId new_surface_id =
+      window_mus->GetLocalSurfaceIdAllocation().local_surface_id();
 
   // Reverting the change should also revert the viz::LocalSurfaceId.
   ASSERT_TRUE(window_tree()->AckSingleChangeOfType(WindowTreeChangeType::BOUNDS,
                                                    false));
   EXPECT_EQ(original_bounds, window.bounds());
-  EXPECT_EQ(original_local_surface_id,
+  // Whenever the bounds changes a new LocalSurfaceId needs to be allocated.
+  EXPECT_NE(new_surface_id,
             window.GetLocalSurfaceIdAllocation().local_surface_id());
+  EXPECT_EQ(1u,
+            window_tree()->GetChangeCountForType(WindowTreeChangeType::BOUNDS));
 }
 
 INSTANTIATE_TEST_CASE_P(/* no prefix */,
@@ -283,14 +291,15 @@ INSTANTIATE_TEST_CASE_P(/* no prefix */,
 TEST_P(WindowTreeClientTestSurfaceSync, ClientSurfaceEmbedderCreated) {
   Window window(nullptr);
   window.Init(ui::LAYER_NOT_DRAWN);
-  WindowPortMusTestHelper(&window).SimulateEmbedding();
 
-  WindowPortMus* window_port_mus = WindowPortMus::Get(&window);
-  ASSERT_NE(nullptr, window_port_mus);
+  WindowPortMusTestHelper window_test_helper(&window);
 
-  // A ClientSurfaceEmbedder is only created once there is bounds and a
-  // FrameSinkId.
-  EXPECT_EQ(nullptr, window_port_mus->client_surface_embedder());
+  // A ClientSurfaceEmbedder is only created once there is an embedding.
+  ClientSurfaceEmbedder* client_surface_embedder =
+      window_test_helper.GetClientSurfaceEmbedder();
+  EXPECT_EQ(nullptr, client_surface_embedder);
+  window_test_helper.SimulateEmbedding();
+
   gfx::Rect new_bounds(gfx::Rect(0, 0, 100, 100));
   ASSERT_NE(new_bounds, window.bounds());
   window.SetBounds(new_bounds);
@@ -298,8 +307,7 @@ TEST_P(WindowTreeClientTestSurfaceSync, ClientSurfaceEmbedderCreated) {
   EXPECT_TRUE(WindowMus::Get(&window)->GetLocalSurfaceIdAllocation().IsValid());
 
   // Once the bounds have been set, the ClientSurfaceEmbedder should be created.
-  ClientSurfaceEmbedder* client_surface_embedder =
-      window_port_mus->client_surface_embedder();
+  client_surface_embedder = window_test_helper.GetClientSurfaceEmbedder();
   ASSERT_NE(nullptr, client_surface_embedder);
 
   EXPECT_EQ(nullptr, client_surface_embedder->BottomGutterForTesting());
@@ -462,8 +470,7 @@ TEST_F(WindowTreeClientTest, FocusFromServer) {
 
 // Simulates a bounds change, and while the bounds change is in flight the
 // server replies with a new bounds and the original bounds change fails.
-// The server bounds change takes hold along with the associated
-// viz::LocalSurfaceId.
+// The server bounds change takes hold.
 TEST_F(WindowTreeClientTest, SetBoundsFailedWithPendingChange) {
   aura::Window root_window(nullptr);
   root_window.Init(ui::LAYER_NOT_DRAWN);
@@ -492,15 +499,12 @@ TEST_F(WindowTreeClientTest, SetBoundsFailedWithPendingChange) {
   ASSERT_TRUE(window_tree()->AckSingleChangeOfType(WindowTreeChangeType::BOUNDS,
                                                    false));
   EXPECT_EQ(server_changed_bounds, root_window.bounds());
-  EXPECT_EQ(server_changed_local_surface_id,
-            root_window_mus->GetLocalSurfaceIdAllocation().local_surface_id());
 
   // Simulate server changing back to original bounds. Should take immediately.
   window_tree_client()->OnWindowBoundsChanged(server_id(&root_window),
                                               server_changed_bounds,
                                               original_bounds, base::nullopt);
   EXPECT_EQ(original_bounds, root_window.bounds());
-  EXPECT_FALSE(root_window_mus->GetLocalSurfaceIdAllocation().IsValid());
 }
 
 TEST_F(WindowTreeClientTest, TwoInFlightBoundsChangesBothCanceled) {
@@ -2307,7 +2311,7 @@ TEST_F(WindowTreeClientTest, ModalTypeSuccess) {
   // MODAL_TYPE_NONE, and make sure it succeeds each time.
   ui::ModalType kModalTypes[] = {ui::MODAL_TYPE_WINDOW, ui::MODAL_TYPE_SYSTEM,
                                  ui::MODAL_TYPE_NONE};
-  for (size_t i = 0; i < arraysize(kModalTypes); i++) {
+  for (size_t i = 0; i < base::size(kModalTypes); i++) {
     window.SetProperty(client::kModalKey, kModalTypes[i]);
     // Ack change as succeeding.
     ASSERT_TRUE(window_tree()->AckSingleChangeOfType(
@@ -2585,8 +2589,8 @@ TEST_F(WindowTreeClientTest, PerformWindowMove) {
 
   WindowTreeHostMus* host_mus = static_cast<WindowTreeHostMus*>(host());
   host_mus->PerformWindowMove(
-      ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
-      base::Bind(&OnWindowMoveDone, &call_count, &last_result));
+      host_mus->window(), ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
+      base::BindOnce(&OnWindowMoveDone, &call_count, &last_result));
   EXPECT_EQ(0, call_count);
 
   window_tree()->AckAllChanges();
@@ -2594,8 +2598,8 @@ TEST_F(WindowTreeClientTest, PerformWindowMove) {
   EXPECT_TRUE(last_result);
 
   host_mus->PerformWindowMove(
-      ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
-      base::Bind(&OnWindowMoveDone, &call_count, &last_result));
+      host_mus->window(), ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
+      base::BindOnce(&OnWindowMoveDone, &call_count, &last_result));
   window_tree()->AckAllChangesOfType(WindowTreeChangeType::OTHER, false);
   EXPECT_EQ(2, call_count);
   EXPECT_FALSE(last_result);
@@ -2611,8 +2615,8 @@ TEST_F(WindowTreeClientTest, PerformWindowMoveDoneAfterDelete) {
   window_tree()->AckAllChanges();
 
   host_mus->PerformWindowMove(
-      ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
-      base::Bind(&OnWindowMoveDone, &call_count, &last_result));
+      host_mus->window(), ws::mojom::MoveLoopSource::MOUSE, gfx::Point(),
+      base::BindOnce(&OnWindowMoveDone, &call_count, &last_result));
   EXPECT_EQ(0, call_count);
 
   host_mus.reset();
@@ -2620,6 +2624,32 @@ TEST_F(WindowTreeClientTest, PerformWindowMoveDoneAfterDelete) {
 
   EXPECT_EQ(1, call_count);
   EXPECT_TRUE(last_result);
+}
+
+TEST_F(WindowTreeClientTest, PerformWindowMoveTransferEvents) {
+  int call_count = 0;
+  bool last_result = false;
+
+  aura::Window* window = CreateNormalWindow(10, host()->window(), nullptr);
+  WindowTreeHostMus* host_mus = static_cast<WindowTreeHostMus*>(host());
+  window->SetCapture();
+  host_mus->PerformWindowMove(
+      window, ws::mojom::MoveLoopSource::TOUCH, gfx::Point(),
+      base::BindOnce(&OnWindowMoveDone, &call_count, &last_result));
+  EXPECT_EQ(0, call_count);
+  EXPECT_EQ(WindowPortMus::Get(window)->server_id(),
+            window_tree()->last_transfer_current());
+  EXPECT_EQ(WindowPortMus::Get(host_mus->window())->server_id(),
+            window_tree()->last_transfer_new());
+  EXPECT_FALSE(window->HasCapture());
+
+  window_tree()->AckAllChanges();
+  EXPECT_EQ(1, call_count);
+  EXPECT_TRUE(last_result);
+  EXPECT_EQ(WindowPortMus::Get(host_mus->window())->server_id(),
+            window_tree()->last_transfer_current());
+  EXPECT_EQ(WindowPortMus::Get(window)->server_id(),
+            window_tree()->last_transfer_new());
 }
 
 // Verifies occlusion state from server is applied to underlying window.
@@ -2666,8 +2696,8 @@ TEST_F(WindowTreeClientTest, OcclusionStateFromServer) {
       window.Hide();
     }
 
-    window_tree_client()->OnOcclusionStateChanged(
-        server_id(&window), test.changed_state_from_server);
+    window_tree_client()->OnOcclusionStatesChanged(
+        {{server_id(&window), test.changed_state_from_server}});
     EXPECT_EQ(test.expected_state, window.occlusion_state()) << test.name;
   }
 }

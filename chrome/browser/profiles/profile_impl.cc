@@ -11,11 +11,13 @@
 #include <utility>
 #include <vector>
 
+#include "base/barrier_closure.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/environment.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
@@ -43,6 +45,7 @@
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate_factory.h"
 #include "chrome/browser/chrome_notification_types.h"
+#include "chrome/browser/client_hints/client_hints_factory.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/data_use_measurement/page_load_capping/page_load_capping_service.h"
@@ -104,6 +107,7 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/gcm_driver/gcm_profile_service.h"
+#include "components/history/core/common/pref_names.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/language/core/common/locale_util.h"
@@ -123,6 +127,7 @@
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/permission_type.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/shared_cors_origin_access_list.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/common/content_constants.h"
@@ -141,14 +146,15 @@
 #include "ui/base/l10n/l10n_util.h"
 
 #if defined(OS_CHROMEOS)
+#include "chrome/browser/chromeos/android_sms/android_sms_app_manager.h"
+#include "chrome/browser/chromeos/android_sms/android_sms_pairing_state_tracker_impl.h"
+#include "chrome/browser/chromeos/android_sms/android_sms_service_factory.h"
 #include "chrome/browser/chromeos/arc/arc_service_launcher.h"
 #include "chrome/browser/chromeos/authpolicy/auth_policy_credentials_manager.h"
 #include "chrome/browser/chromeos/cryptauth/gcm_device_info_provider_impl.h"
 #include "chrome/browser/chromeos/device_sync/device_sync_client_factory.h"
 #include "chrome/browser/chromeos/locale_change_guard.h"
 #include "chrome/browser/chromeos/login/session/user_session_manager.h"
-#include "chrome/browser/chromeos/multidevice_setup/android_sms_app_helper_delegate_impl.h"
-#include "chrome/browser/chromeos/multidevice_setup/android_sms_pairing_state_tracker_impl.h"
 #include "chrome/browser/chromeos/multidevice_setup/auth_token_validator_factory.h"
 #include "chrome/browser/chromeos/multidevice_setup/auth_token_validator_impl.h"
 #include "chrome/browser/chromeos/multidevice_setup/oobe_completion_tracker_factory.h"
@@ -163,7 +169,6 @@
 #include "chromeos/account_manager/account_manager.h"
 #include "chromeos/account_manager/account_manager_factory.h"
 #include "chromeos/assistant/buildflags.h"
-#include "chromeos/chromeos_features.h"
 #include "chromeos/services/device_sync/device_sync_service.h"
 #include "chromeos/services/device_sync/public/mojom/constants.mojom.h"
 #include "chromeos/services/multidevice_setup/multidevice_setup_service.h"
@@ -318,12 +323,51 @@ bool LocaleNotChanged(const std::string& pref_locale,
 }
 #endif  // defined(OS_CHROMEOS)
 
-#if !defined(OS_ANDROID)
-std::unique_ptr<service_manager::Service> CreateAppService(Profile* profile) {
-  // TODO(crbug.com/826982): use |profile| to fetch existing registries.
-  return std::make_unique<apps::AppService>();
-}
-#endif
+// A class used to make an asynchronous Mojo call with cloned patterns for each
+// StoragePartition iteration. |this| instance will be destructed when all
+// existing asynchronous Mojo calls made in SetLists() are done, and |closure|
+// will be invoked on destructing |this|.
+class CorsOriginPatternSetter
+    : public base::RefCounted<CorsOriginPatternSetter> {
+ public:
+  CorsOriginPatternSetter(
+      const url::Origin& source_origin,
+      std::vector<network::mojom::CorsOriginPatternPtr> allow_patterns,
+      std::vector<network::mojom::CorsOriginPatternPtr> block_patterns,
+      base::OnceClosure closure)
+      : source_origin_(source_origin),
+        allow_patterns_(std::move(allow_patterns)),
+        block_patterns_(std::move(block_patterns)),
+        closure_(std::move(closure)) {}
+
+  void SetLists(content::StoragePartition* partition) {
+    partition->GetNetworkContext()->SetCorsOriginAccessListsForOrigin(
+        source_origin_, ClonePatterns(allow_patterns_),
+        ClonePatterns(block_patterns_),
+        base::BindOnce([](scoped_refptr<CorsOriginPatternSetter> setter) {},
+                       base::RetainedRef(this)));
+  }
+
+  static std::vector<network::mojom::CorsOriginPatternPtr> ClonePatterns(
+      const std::vector<network::mojom::CorsOriginPatternPtr>& patterns) {
+    std::vector<network::mojom::CorsOriginPatternPtr> cloned_patterns;
+    cloned_patterns.reserve(patterns.size());
+    for (const auto& item : patterns)
+      cloned_patterns.push_back(item.Clone());
+    return cloned_patterns;
+  }
+
+ private:
+  friend class base::RefCounted<CorsOriginPatternSetter>;
+
+  ~CorsOriginPatternSetter() { std::move(closure_).Run(); }
+
+  const url::Origin source_origin_;
+  const std::vector<network::mojom::CorsOriginPatternPtr> allow_patterns_;
+  const std::vector<network::mojom::CorsOriginPatternPtr> block_patterns_;
+
+  base::OnceClosure closure_;
+};
 
 }  // namespace
 
@@ -425,23 +469,17 @@ void ProfileImpl::RegisterProfilePrefs(
 
 #if BUILDFLAG(ENABLE_PRINTING)
   registry->RegisterBooleanPref(prefs::kPrintingEnabled, true);
-#if defined(OS_CHROMEOS)
-  registry->RegisterIntegerPref(prefs::kPrintingAllowedColorModes, 0);
-  registry->RegisterIntegerPref(prefs::kPrintingAllowedDuplexModes, 0);
-  registry->RegisterListPref(prefs::kPrintingAllowedPageSizes);
-  registry->RegisterIntegerPref(prefs::kPrintingColorDefault, 0);
-  registry->RegisterIntegerPref(prefs::kPrintingDuplexDefault, 0);
-  registry->RegisterDictionaryPref(prefs::kPrintingSizeDefault);
-  registry->RegisterBooleanPref(
-      prefs::kOobeMarketingOptInScreenFinished, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-#endif  // defined(OS_CHROMEOS)
 #endif  // BUILDFLAG(ENABLE_PRINTING)
   registry->RegisterBooleanPref(prefs::kPrintPreviewDisabled, false);
   registry->RegisterStringPref(
       prefs::kPrintPreviewDefaultDestinationSelectionRules, std::string());
   registry->RegisterBooleanPref(prefs::kForceEphemeralProfiles, false);
   registry->RegisterBooleanPref(prefs::kEnableMediaRouter, true);
+#if defined(OS_CHROMEOS)
+  registry->RegisterBooleanPref(
+      prefs::kOobeMarketingOptInScreenFinished, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+#endif  // defined(OS_CHROMEOS)
 #if !defined(OS_ANDROID)
   registry->RegisterBooleanPref(prefs::kShowCastIconInToolbar, false);
 #endif  // !defined(OS_ANDROID)
@@ -463,7 +501,9 @@ ProfileImpl::ProfileImpl(
       last_session_exit_type_(EXIT_NORMAL),
       start_time_(base::Time::Now()),
       delegate_(delegate),
-      reporting_permissions_checker_factory_(this) {
+      reporting_permissions_checker_factory_(this),
+      shared_cors_origin_access_list_(
+          content::SharedCorsOriginAccessList::Create()) {
   TRACE_EVENT0("browser,startup", "ProfileImpl::ctor")
   DCHECK(!path.empty()) << "Using an empty path will attempt to write "
                         << "profile files to the root directory!";
@@ -712,17 +752,6 @@ void ProfileImpl::DoFinalInit() {
   }
 #endif
 
-  if (delegate_) {
-    TRACE_EVENT0("browser", "ProfileImpl::DoFileInit:DelegateOnProfileCreated")
-    delegate_->OnProfileCreated(this, true, IsNewProfile());
-  }
-
-  {
-    SCOPED_UMA_HISTOGRAM_TIMER("Profile.NotifyProfileCreatedTime");
-    content::NotificationService::current()->Notify(
-        chrome::NOTIFICATION_PROFILE_CREATED, content::Source<Profile>(this),
-        content::NotificationService::NoDetails());
-  }
 #if !defined(OS_CHROMEOS)
   // Listen for bookmark model load, to bootstrap the sync service.
   // On CrOS sync service will be initialized after sign in.
@@ -739,8 +768,22 @@ void ProfileImpl::DoFinalInit() {
   signin_ui_util::InitializePrefsForProfile(this);
 #endif
 
+  io_data_.InitializeDataReductionProxy();
+
   content::URLDataSource::Add(this,
                               std::make_unique<PrefsInternalsSource>(this));
+
+  if (delegate_) {
+    TRACE_EVENT0("browser", "ProfileImpl::DoFileInit:DelegateOnProfileCreated")
+    delegate_->OnProfileCreated(this, true, IsNewProfile());
+  }
+
+  {
+    SCOPED_UMA_HISTOGRAM_TIMER("Profile.NotifyProfileCreatedTime");
+    content::NotificationService::current()->Notify(
+        chrome::NOTIFICATION_PROFILE_CREATED, content::Source<Profile>(this),
+        content::NotificationService::NoDetails());
+  }
 }
 
 base::FilePath ProfileImpl::last_selected_directory() {
@@ -1116,6 +1159,11 @@ ProfileImpl::GetPermissionControllerDelegate() {
   return PermissionManagerFactory::GetForProfile(this);
 }
 
+content::ClientHintsControllerDelegate*
+ProfileImpl::GetClientHintsControllerDelegate() {
+  return ClientHintsFactory::GetForBrowserContext(this);
+}
+
 content::BackgroundFetchDelegate* ProfileImpl::GetBackgroundFetchDelegate() {
   return BackgroundFetchDelegateFactory::GetForProfile(this);
 }
@@ -1160,39 +1208,56 @@ ProfileImpl::CreateMediaRequestContextForStoragePartition(
       .get();
 }
 
-void ProfileImpl::RegisterInProcessServices(StaticServiceMap* services) {
-#if defined(OS_CHROMEOS)
-  if (base::FeatureList::IsEnabled(chromeos::features::kMultiDeviceApi)) {
-    service_manager::EmbeddedServiceInfo info;
-    info.task_runner = base::ThreadTaskRunnerHandle::Get();
-    info.factory = base::BindRepeating(&ProfileImpl::CreateDeviceSyncService,
-                                       base::Unretained(this));
-    services->emplace(chromeos::device_sync::mojom::kServiceName, info);
-  }
+void ProfileImpl::SetCorsOriginAccessListForOrigin(
+    const url::Origin& source_origin,
+    std::vector<network::mojom::CorsOriginPatternPtr> allow_patterns,
+    std::vector<network::mojom::CorsOriginPatternPtr> block_patterns,
+    base::OnceClosure closure) {
+  if (!base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+    shared_cors_origin_access_list_->SetForOrigin(
+        source_origin, std::move(allow_patterns), std::move(block_patterns),
+        std::move(closure));
+  } else {
+    auto barrier_closure = BarrierClosure(3, std::move(closure));
 
-  if (base::FeatureList::IsEnabled(
-          chromeos::features::kEnableUnifiedMultiDeviceSetup) &&
-      base::FeatureList::IsEnabled(chromeos::features::kMultiDeviceApi)) {
-    service_manager::EmbeddedServiceInfo info;
-    info.task_runner = base::ThreadTaskRunnerHandle::Get();
-    info.factory = base::BindRepeating(
-        &ProfileImpl::CreateMultiDeviceSetupService, base::Unretained(this));
-    services->emplace(chromeos::multidevice_setup::mojom::kServiceName, info);
-  }
+    // Keep profile storage partitions' NetworkContexts synchronized.
+    auto profile_setter = base::MakeRefCounted<CorsOriginPatternSetter>(
+        source_origin, CorsOriginPatternSetter::ClonePatterns(allow_patterns),
+        CorsOriginPatternSetter::ClonePatterns(block_patterns),
+        barrier_closure);
+    ForEachStoragePartition(
+        this, base::BindRepeating(&CorsOriginPatternSetter::SetLists,
+                                  base::RetainedRef(profile_setter.get())));
 
-#endif
+    // Keep incognito storage partitions' NetworkContexts synchronized.
+    if (HasOffTheRecordProfile()) {
+      auto off_the_record_setter =
+          base::MakeRefCounted<CorsOriginPatternSetter>(
+              source_origin,
+              CorsOriginPatternSetter::ClonePatterns(allow_patterns),
+              CorsOriginPatternSetter::ClonePatterns(block_patterns),
+              barrier_closure);
+      ForEachStoragePartition(
+          GetOffTheRecordProfile(),
+          base::BindRepeating(&CorsOriginPatternSetter::SetLists,
+                              base::RetainedRef(off_the_record_setter.get())));
+    } else {
+      // Release unused closure reference.
+      barrier_closure.Run();
+    }
 
-#if !defined(OS_ANDROID)
-  if (base::FeatureList::IsEnabled(features::kAppService)) {
-    // Binding the App Service here means that its preferences will be stored in
-    // the primary Preferences file for this profile.
-    service_manager::EmbeddedServiceInfo info;
-    info.task_runner = base::ThreadTaskRunnerHandle::Get();
-    info.factory =
-        base::BindRepeating(&CreateAppService, base::Unretained(this));
-    services->emplace(apps::mojom::kServiceName, info);
+    // Keep the per-profile access list up to date so that we can use this to
+    // restore NetworkContext settings at anytime, e.g. on restarting the
+    // network service.
+    shared_cors_origin_access_list_->SetForOrigin(
+        source_origin, std::move(allow_patterns), std::move(block_patterns),
+        barrier_closure);
   }
-#endif
+}
+
+const content::SharedCorsOriginAccessList*
+ProfileImpl::GetSharedCorsOriginAccessList() const {
+  return shared_cors_origin_access_list_.get();
 }
 
 std::unique_ptr<service_manager::Service> ProfileImpl::HandleServiceRequest(
@@ -1211,7 +1276,43 @@ std::unique_ptr<service_manager::Service> ProfileImpl::HandleServiceRequest(
         ->CreatePrefService(std::move(request));
   }
 
+#if !defined(OS_ANDROID)
+  if (service_name == apps::mojom::kServiceName) {
+    // TODO(crbug.com/826982): Use the current profile to fetch existing
+    // registries.
+    return std::make_unique<apps::AppService>(std::move(request));
+  }
+#endif  // !defined(OS_ANDROID)
+
 #if defined(OS_CHROMEOS)
+  if (service_name == chromeos::device_sync::mojom::kServiceName) {
+    return std::make_unique<chromeos::device_sync::DeviceSyncService>(
+        IdentityManagerFactory::GetForProfile(this),
+        gcm::GCMProfileServiceFactory::GetForProfile(this)->driver(),
+        chromeos::GcmDeviceInfoProviderImpl::GetInstance(),
+        GetURLLoaderFactory(), std::move(request));
+  }
+
+  if (service_name == chromeos::multidevice_setup::mojom::kServiceName) {
+    chromeos::android_sms::AndroidSmsService* android_sms_service =
+        chromeos::android_sms::AndroidSmsServiceFactory::GetForBrowserContext(
+            this);
+    return std::make_unique<
+        chromeos::multidevice_setup::MultiDeviceSetupService>(
+        std::move(request), GetPrefs(),
+        chromeos::device_sync::DeviceSyncClientFactory::GetForProfile(this),
+        chromeos::multidevice_setup::AuthTokenValidatorFactory ::GetForProfile(
+            this),
+        chromeos::multidevice_setup::OobeCompletionTrackerFactory::
+            GetForProfile(this),
+        android_sms_service ? android_sms_service->android_sms_app_manager()
+                            : nullptr,
+        android_sms_service
+            ? android_sms_service->android_sms_pairing_state_tracker()
+            : nullptr,
+        chromeos::GcmDeviceInfoProviderImpl::GetInstance());
+  }
+
 #if BUILDFLAG(ENABLE_CROS_ASSISTANT)
   if (service_name == chromeos::assistant::mojom::kServiceName) {
     return std::make_unique<chromeos::assistant::Service>(
@@ -1219,8 +1320,9 @@ std::unique_ptr<service_manager::Service> ProfileImpl::HandleServiceRequest(
         base::CreateSingleThreadTaskRunnerWithTraits(
             {content::BrowserThread::IO}));
   }
-#endif
-#endif
+#endif  // BUILDFLAG(ENABLE_CROS_ASSISTANT)
+
+#endif  // defined(OS_CHROMEOS)
 
   return nullptr;
 }
@@ -1454,31 +1556,3 @@ void ProfileImpl::GetMediaCacheParameters(base::FilePath* cache_path,
 
   *max_size = prefs_->GetInteger(prefs::kMediaCacheSize);
 }
-
-#if defined(OS_CHROMEOS)
-std::unique_ptr<service_manager::Service>
-ProfileImpl::CreateDeviceSyncService() {
-  return std::make_unique<chromeos::device_sync::DeviceSyncService>(
-      IdentityManagerFactory::GetForProfile(this),
-      gcm::GCMProfileServiceFactory::GetForProfile(this)->driver(),
-      chromeos::GcmDeviceInfoProviderImpl::GetInstance(),
-      GetURLLoaderFactory());
-}
-
-std::unique_ptr<service_manager::Service>
-ProfileImpl::CreateMultiDeviceSetupService() {
-  return std::make_unique<chromeos::multidevice_setup::MultiDeviceSetupService>(
-      GetPrefs(),
-      chromeos::device_sync::DeviceSyncClientFactory::GetForProfile(this),
-      chromeos::multidevice_setup::AuthTokenValidatorFactory::GetForProfile(
-          this),
-      chromeos::multidevice_setup::OobeCompletionTrackerFactory::GetForProfile(
-          this),
-      std::make_unique<
-          chromeos::multidevice_setup::AndroidSmsAppHelperDelegateImpl>(this),
-      std::make_unique<
-          chromeos::multidevice_setup::AndroidSmsPairingStateTrackerImpl>(this),
-      chromeos::GcmDeviceInfoProviderImpl::GetInstance());
-}
-
-#endif  // defined(OS_CHROMEOS)

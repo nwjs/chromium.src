@@ -11,6 +11,7 @@
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
+#include "chrome/browser/signin/fake_profile_oauth2_token_service_builder.h"
 #include "chrome/browser/signin/fake_signin_manager_builder.h"
 #include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/signin/signin_manager_factory.h"
@@ -20,12 +21,11 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/profile_oauth2_token_service.h"
+#include "components/signin/core/browser/fake_profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "components/sync_preferences/pref_service_syncable.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "google_apis/gaia/google_service_auth_error.h"
-#include "google_apis/gaia/oauth2_token_service_delegate.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace {
@@ -57,6 +57,9 @@ class SigninProfileAttributesUpdaterTest : public testing::Test {
     testing_factories.emplace_back(
         ChromeSigninClientFactory::GetInstance(),
         base::BindRepeating(&signin::BuildTestSigninClient));
+    testing_factories.emplace_back(
+        ProfileOAuth2TokenServiceFactory::GetInstance(),
+        base::BindRepeating(&BuildFakeProfileOAuth2TokenService));
 #if defined(OS_CHROMEOS)
     testing_factories.emplace_back(
         SigninManagerFactory::GetInstance(),
@@ -111,8 +114,9 @@ TEST_F(SigninProfileAttributesUpdaterTest, AuthError) {
 
   AccountTrackerService* account_tracker =
       AccountTrackerServiceFactory::GetForProfile(profile_);
-  ProfileOAuth2TokenService* token_service =
-      ProfileOAuth2TokenServiceFactory::GetForProfile(profile_);
+  FakeProfileOAuth2TokenService* token_service =
+      static_cast<FakeProfileOAuth2TokenService*>(
+          ProfileOAuth2TokenServiceFactory::GetForProfile(profile_));
   std::string account_id =
       account_tracker->SeedAccountInfo("gaia", "example@email.com");
   token_service->UpdateCredentials(account_id, "token");
@@ -125,13 +129,13 @@ TEST_F(SigninProfileAttributesUpdaterTest, AuthError) {
   EXPECT_FALSE(entry->IsAuthError());
 
   // Set auth error.
-  token_service->GetDelegate()->UpdateAuthError(
+  token_service->UpdateAuthErrorForTesting(
       account_id,
       GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
   EXPECT_TRUE(entry->IsAuthError());
 
   // Remove auth error.
-  token_service->GetDelegate()->UpdateAuthError(
+  token_service->UpdateAuthErrorForTesting(
       account_id, GoogleServiceAuthError::AuthErrorNone());
   EXPECT_FALSE(entry->IsAuthError());
 }

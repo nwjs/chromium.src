@@ -9,7 +9,7 @@
 
 #include <vector>
 
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
@@ -1012,8 +1012,21 @@ const IDNTestCase idn_cases[] = {
 
     // Test that top domains whose skeletons are the same as the domain name are
     // handled properly. In this case, tést.net should match test.net top
-    // domain.
+    // domain and not be converted to unicode.
     {"xn--tst-bma.net", L"t\x00e9st.net", false},
+    // Variations of the above, for testing crbug.com/925199.
+    // some.tést.net should match test.net.
+    {"some.xn--tst-bma.net", L"some.t\x00e9st.net", false},
+    // The following should not match test.net, so should be converted to
+    // unicode.
+    // ést.net (a suffix of tést.net).
+    {"xn--st-9ia.net", L"\x00e9st.net", true},
+    // some.ést.net
+    {"some.xn--st-9ia.net", L"some.\x00e9st.net", true},
+    // atést.net (tést.net is a suffix of atést.net)
+    {"xn--atst-cpa.net", L"at\x00e9st.net", true},
+    // some.atést.net
+    {"some.xn--atst-cpa.net", L"some.at\x00e9st.net", true},
 
     // Modifier-letter-voicing should be blocked (wwwˬtest.com).
     {"xn--wwwtest-2be.com", L"www\x02ectest.com", false},
@@ -1079,7 +1092,7 @@ TEST(UrlFormatterTest, IDNToUnicode) {
       test::kTopDomainsRootPosition};
   IDNSpoofChecker::SetTrieParamsForTesting(trie_params);
 
-  for (size_t i = 0; i < arraysize(idn_cases); i++) {
+  for (size_t i = 0; i < base::size(idn_cases); i++) {
     base::string16 output(IDNToUnicode(idn_cases[i].input));
     base::string16 expected(idn_cases[i].unicode_allowed
                                 ? WideToUTF16(idn_cases[i].unicode_output)
@@ -1210,6 +1223,10 @@ TEST(UrlFormatterTest, FormatUrl) {
        kFormatUrlOmitFileScheme, net::UnescapeRule::NORMAL,
        L"/Users/homedirname/folder/file.pdf/", 0},
 #endif
+      // -------- omit mailto: --------
+      { "omit mailto", "mailto:foo@bar.com",
+      kFormatUrlOmitMailToScheme, net::UnescapeRule::NORMAL,
+      L"foo@bar.com", 0 },
 
       // -------- omit trailing slash on bare hostname --------
       {"omit slash when it's the entire path", "http://www.google.com/",
@@ -1374,7 +1391,7 @@ TEST(UrlFormatterTest, FormatUrl) {
   };
   // clang-format on
 
-  for (size_t i = 0; i < arraysize(tests); ++i) {
+  for (size_t i = 0; i < base::size(tests); ++i) {
     size_t prefix_len;
     base::string16 formatted = FormatUrl(
         GURL(tests[i].input), tests[i].format_types, tests[i].escape_rules,

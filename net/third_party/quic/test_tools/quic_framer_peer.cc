@@ -13,11 +13,11 @@ namespace quic {
 namespace test {
 
 // static
-QuicPacketNumber QuicFramerPeer::CalculatePacketNumberFromWire(
+uint64_t QuicFramerPeer::CalculatePacketNumberFromWire(
     QuicFramer* framer,
     QuicPacketNumberLength packet_number_length,
     QuicPacketNumber last_packet_number,
-    QuicPacketNumber packet_number) {
+    uint64_t packet_number) {
   return framer->CalculatePacketNumberFromWire(
       packet_number_length, last_packet_number, packet_number);
 }
@@ -39,6 +39,8 @@ void QuicFramerPeer::SetLargestPacketNumber(QuicFramer* framer,
 void QuicFramerPeer::SetPerspective(QuicFramer* framer,
                                     Perspective perspective) {
   framer->perspective_ = perspective;
+  framer->infer_packet_header_type_from_version_ =
+      perspective == Perspective::IS_CLIENT;
 }
 
 // static

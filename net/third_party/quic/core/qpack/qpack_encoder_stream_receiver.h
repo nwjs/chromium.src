@@ -5,7 +5,6 @@
 #ifndef NET_THIRD_PARTY_QUIC_CORE_QPACK_QPACK_ENCODER_STREAM_RECEIVER_H_
 #define NET_THIRD_PARTY_QUIC_CORE_QPACK_QPACK_ENCODER_STREAM_RECEIVER_H_
 
-#include <cstddef>
 #include <cstdint>
 
 #include "net/third_party/quic/core/qpack/qpack_instruction_decoder.h"
@@ -45,6 +44,7 @@ class QUIC_EXPORT_PRIVATE QpackEncoderStreamReceiver
   QpackEncoderStreamReceiver(const QpackEncoderStreamReceiver&) = delete;
   QpackEncoderStreamReceiver& operator=(const QpackEncoderStreamReceiver&) =
       delete;
+  ~QpackEncoderStreamReceiver() override = default;
 
   // Decode data and call appropriate Delegate method after each decoded
   // instruction.  Once an error occurs, Delegate::OnErrorDetected() is called,

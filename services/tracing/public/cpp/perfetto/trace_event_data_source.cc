@@ -92,20 +92,27 @@ void TraceEventMetadataSource::GenerateMetadata(
 void TraceEventMetadataSource::StartTracing(
     ProducerClient* producer_client,
     const mojom::DataSourceConfig& data_source_config) {
-  origin_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&TraceEventMetadataSource::GenerateMetadata,
-                                base::Unretained(this),
-                                producer_client->CreateTraceWriter(
-                                    data_source_config.target_buffer)));
+  // TODO(eseckler): Once we support streaming of trace data, it would make
+  // sense to emit the metadata on startup, so the UI can display it right away.
+  producer_client_ = producer_client;
+  target_buffer_ = data_source_config.target_buffer;
 }
 
 void TraceEventMetadataSource::StopTracing(
     base::OnceClosure stop_complete_callback) {
-  // We bounce a task off the origin_task_runner_ that the generator
-  // callbacks are run from, to make sure that GenerateMetaData() has finished
-  // running.
-  origin_task_runner_->PostTaskAndReply(FROM_HERE, base::DoNothing(),
-                                        std::move(stop_complete_callback));
+  if (producer_client_) {
+    // Write metadata at the end of tracing to make it less likely that it is
+    // overridden by other trace data in perfetto's ring buffer.
+    origin_task_runner_->PostTaskAndReply(
+        FROM_HERE,
+        base::BindOnce(&TraceEventMetadataSource::GenerateMetadata,
+                       base::Unretained(this),
+                       producer_client_->CreateTraceWriter(target_buffer_)),
+        std::move(stop_complete_callback));
+    producer_client_ = nullptr;
+  } else {
+    std::move(stop_complete_callback).Run();
+  }
 }
 
 void TraceEventMetadataSource::Flush(
@@ -229,9 +236,10 @@ class TraceEventDataSource::ThreadLocalEventSink {
 
     EnsureValidHandles();
 
-    int name_index = 0;
-    int category_name_index = 0;
-    int arg_name_indices[base::trace_event::kTraceMaxNumArgs] = {0};
+    uint32_t name_index = 0;
+    uint32_t category_name_index = 0;
+    const size_t kMaxSize = base::trace_event::TraceArguments::kMaxSize;
+    uint32_t arg_name_indices[kMaxSize] = {0};
 
     // Populate any new string table parts first; has to be done before
     // the add_trace_events() call (as the string table is part of the outer
@@ -247,9 +255,8 @@ class TraceEventDataSource::ThreadLocalEventSink {
           GetStringTableIndexForString(TraceLog::GetCategoryGroupName(
               trace_event->category_group_enabled()));
 
-      for (int i = 0;
-           i < base::trace_event::kTraceMaxNumArgs && trace_event->arg_name(i);
-           ++i) {
+      for (size_t i = 0;
+           i < trace_event->arg_size() && trace_event->arg_name(i); ++i) {
         arg_name_indices[i] =
             GetStringTableIndexForString(trace_event->arg_name(i));
       }
@@ -293,8 +300,7 @@ class TraceEventDataSource::ThreadLocalEventSink {
     char phase = trace_event->phase();
     new_trace_event->set_phase(phase);
 
-    for (int i = 0;
-         i < base::trace_event::kTraceMaxNumArgs && trace_event->arg_name(i);
+    for (size_t i = 0; i < trace_event->arg_size() && trace_event->arg_name(i);
          ++i) {
       auto type = trace_event->arg_type(i);
       auto* new_arg = new_trace_event->add_args();

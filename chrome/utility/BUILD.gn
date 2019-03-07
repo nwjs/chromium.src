@@ -6,6 +6,7 @@ import("//build/config/crypto.gni")
 import("//build/config/features.gni")
 import("//build/config/sysroot.gni")
 import("//chrome/common/features.gni")
+import("//chromeos/assistant/assistant.gni")
 import("//device/vr/buildflags/buildflags.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//printing/buildflags/buildflags.gni")
@@ -30,6 +31,8 @@ static_library("utility") {
     "//chrome:strings",
     "//chrome/common",
     "//chrome/common:mojo_bindings",
+    "//chrome/services/noop:lib",
+    "//chrome/services/noop/public/cpp",
     "//components/mirroring/mojom:constants",
     "//components/mirroring/service:mirroring_service",
     "//components/search_engines",
@@ -53,7 +56,7 @@ static_library("utility") {
     "//sql",
     "//third_party/libxml",
     "//third_party/zlib/google:zip",
-    "//ui/base:ui_features",
+    "//ui/base:buildflags",
   ]
 
   if (!is_android) {
@@ -156,10 +159,18 @@ static_library("utility") {
       "//ash/components/tap_visualizer:lib",
       "//ash/components/tap_visualizer/public/mojom",
       "//chrome/services/file_util:lib",
+      "//chromeos/assistant:buildflags",
       "//chromeos/services/ime:lib",
       "//chromeos/services/ime/public/mojom",
       "//services/ws/public/mojom",
     ]
+
+    if (enable_cros_libassistant) {
+      deps += [
+        "//chromeos/services/assistant/audio_decoder:lib",
+        "//chromeos/services/assistant/public/mojom",
+      ]
+    }
   }
 
   if (use_nss_certs) {

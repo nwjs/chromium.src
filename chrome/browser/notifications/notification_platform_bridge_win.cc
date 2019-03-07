@@ -123,8 +123,9 @@ void ForwardNotificationOperationOnUiThread(
 }  // namespace
 
 // static
-NotificationPlatformBridge* NotificationPlatformBridge::Create() {
-  return new NotificationPlatformBridgeWin();
+std::unique_ptr<NotificationPlatformBridge>
+NotificationPlatformBridge::Create() {
+  return std::make_unique<NotificationPlatformBridgeWin>();
 }
 
 // static
@@ -391,6 +392,7 @@ class NotificationPlatformBridgeWinImpl
     hr = notifier->Show(toast.Get());
     if (FAILED(hr)) {
       LogDisplayHistogram(DisplayStatus::SHOWING_TOAST_FAILED);
+      base::UmaHistogramSparse("Notifications.Windows.ShowFailedErrorCode", hr);
       DLOG(ERROR) << "Unable to display the notification " << std::hex << hr;
     } else {
       LogDisplayHistogram(DisplayStatus::SUCCESS);
@@ -740,6 +742,8 @@ class NotificationPlatformBridgeWinImpl
                                                   &notifier_);
     if (FAILED(hr)) {
       LogDisplayHistogram(DisplayStatus::CREATE_TOAST_NOTIFIER_WITH_ID_FAILED);
+      base::UmaHistogramSparse(
+          "Notifications.Windows.CreateToastManagerErrorCode", hr);
       DLOG(ERROR) << "Unable to create the ToastNotifier " << std::hex << hr;
     }
     return hr;

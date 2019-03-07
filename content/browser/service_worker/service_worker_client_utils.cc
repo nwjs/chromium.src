@@ -29,6 +29,7 @@
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/page_navigator.h"
+#include "content/public/browser/page_visibility_state.h"
 #include "content/public/browser/payment_app_provider.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -36,9 +37,9 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/child_process_host.h"
 #include "services/network/public/mojom/request_context_frame_type.mojom.h"
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom.h"
 #include "ui/base/mojo/window_open_disposition.mojom.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace content {
 namespace service_worker_client_utils {
@@ -126,13 +127,15 @@ blink::mojom::ServiceWorkerClientInfoPtr GetWindowClientInfoOnUI(
   // TODO(mlamouri,michaeln): it is possible to end up collecting information
   // for a frame that is actually being navigated and isn't exactly what we are
   // expecting.
+  PageVisibilityState visibility = render_frame_host->GetVisibilityState();
+  bool page_hidden = visibility != PageVisibilityState::kVisible;
   return blink::mojom::ServiceWorkerClientInfo::New(
-      render_frame_host->GetLastCommittedURL(), client_uuid,
-      blink::mojom::ServiceWorkerClientType::kWindow,
-      render_frame_host->GetVisibilityState(), render_frame_host->IsFocused(),
+      render_frame_host->GetLastCommittedURL(),
       render_frame_host->GetParent()
           ? network::mojom::RequestContextFrameType::kNested
           : network::mojom::RequestContextFrameType::kTopLevel,
+      client_uuid, blink::mojom::ServiceWorkerClientType::kWindow, page_hidden,
+      render_frame_host->IsFocused(),
       render_frame_host->frame_tree_node()->last_focus_time(), create_time);
 }
 
@@ -249,6 +252,7 @@ void OpenWindowOnUI(
           : WindowOpenDisposition::NEW_FOREGROUND_TAB,
       ui::PAGE_TRANSITION_AUTO_TOPLEVEL, true /* is_renderer_initiated */);
   params.open_app_window_if_possible = type == WindowType::NEW_TAB_WINDOW;
+  params.initiator_origin = url::Origin::Create(script_url.GetOrigin());
 
   GetContentClient()->browser()->OverrideNavigationParams(
       site_instance, &params.transition, &params.is_renderer_initiated,
@@ -284,8 +288,8 @@ void NavigateClientOnUI(const GURL& url,
 
   Navigator* navigator = rfhi->frame_tree_node()->navigator();
   navigator->RequestOpenURL(
-      rfhi, url, false /* uses_post */, nullptr /* body */,
-      std::string() /* extra_headers */,
+      rfhi, url, url::Origin::Create(script_url), false /* uses_post */,
+      nullptr /* body */, std::string() /* extra_headers */,
       Referrer::SanitizeForRequest(
           url, Referrer(script_url, network::mojom::ReferrerPolicy::kDefault)),
       WindowOpenDisposition::CURRENT_TAB,
@@ -324,11 +328,10 @@ void AddNonWindowClient(const ServiceWorkerProviderHost* host,
     return;
 
   auto client_info = blink::mojom::ServiceWorkerClientInfo::New(
-      host->url(), host->client_uuid(), host_client_type,
-      blink::mojom::PageVisibilityState::kHidden,
-      false,  // is_focused
-      network::mojom::RequestContextFrameType::kNone, base::TimeTicks(),
-      host->create_time());
+      host->url(), network::mojom::RequestContextFrameType::kNone,
+      host->client_uuid(), host_client_type,
+      /*page_hidden=*/true,
+      /*is_focused=*/false, base::TimeTicks(), host->create_time());
   out_clients->push_back(std::move(client_info));
 }
 
@@ -539,11 +542,10 @@ void GetClient(const ServiceWorkerProviderHost* provider_host,
   }
 
   auto client_info = blink::mojom::ServiceWorkerClientInfo::New(
-      provider_host->url(), provider_host->client_uuid(),
-      provider_host->client_type(), blink::mojom::PageVisibilityState::kHidden,
-      false,  // is_focused
-      network::mojom::RequestContextFrameType::kNone, base::TimeTicks(),
-      provider_host->create_time());
+      provider_host->url(), network::mojom::RequestContextFrameType::kNone,
+      provider_host->client_uuid(), provider_host->client_type(),
+      /*page_hidden=*/true,
+      /*is_focused=*/false, base::TimeTicks(), provider_host->create_time());
   base::PostTaskWithTraits(
       FROM_HERE, {BrowserThread::IO},
       base::BindOnce(std::move(callback), std::move(client_info)));

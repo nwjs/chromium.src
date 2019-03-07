@@ -9,12 +9,11 @@
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
 #include "content/renderer/media/stream/media_stream_audio_track.h"
-#include "content/renderer/media/stream/media_stream_track.h"
 #include "content/renderer/media/webrtc/webrtc_uma_histograms.h"
 #include "content/renderer/media_recorder/audio_track_recorder.h"
 #include "media/base/audio_bus.h"
@@ -26,6 +25,7 @@
 #include "media/base/video_frame.h"
 #include "media/muxers/webm_muxer.h"
 #include "third_party/blink/public/platform/modules/media_capabilities/web_media_configuration.h"
+#include "third_party/blink/public/platform/modules/mediastream/web_platform_media_stream_track.h"
 #include "third_party/blink/public/platform/scoped_web_callbacks.h"
 #include "third_party/blink/public/platform/web_media_recorder_handler_client.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
@@ -161,12 +161,20 @@ bool MediaRecorderHandler::CanSupportMimeType(
   // vp8, vp9, h264 and avc1 or opus; |type| = "audio", supports opus or pcm
   // (little-endian 32-bit float).
   // http://www.webmproject.org/docs/container Sec:"HTML5 Video Type Parameters"
-  static const char* const kVideoCodecs[] = {"vp8",  "vp9",  "h264",
-                                             "avc1", "opus", "pcm"};
+  static const char* const kVideoCodecs[] = {
+    "vp8",
+    "vp9",
+#if BUILDFLAG(RTC_USE_H264)
+    "h264",
+    "avc1",
+#endif
+    "opus",
+    "pcm"
+  };
   static const char* const kAudioCodecs[] = {"opus", "pcm"};
   const char* const* codecs = video ? &kVideoCodecs[0] : &kAudioCodecs[0];
   const int codecs_count =
-      video ? arraysize(kVideoCodecs) : arraysize(kAudioCodecs);
+      video ? base::size(kVideoCodecs) : base::size(kAudioCodecs);
 
   std::vector<std::string> codecs_list;
   media::SplitCodecs(web_codecs.Utf8(), &codecs_list);
@@ -247,13 +255,12 @@ bool MediaRecorderHandler::Start(int timeslice) {
   }
 
   const bool use_video_tracks =
-      !video_tracks_.IsEmpty() && video_tracks_[0].IsEnabled() &&
+      !video_tracks_.IsEmpty() &&
       video_tracks_[0].Source().GetReadyState() !=
           blink::WebMediaStreamSource::kReadyStateEnded;
   const bool use_audio_tracks =
       !audio_tracks_.IsEmpty() &&
       MediaStreamAudioTrack::From(audio_tracks_[0]) &&
-      audio_tracks_[0].IsEnabled() &&
       audio_tracks_[0].Source().GetReadyState() !=
           blink::WebMediaStreamSource::kReadyStateEnded;
 

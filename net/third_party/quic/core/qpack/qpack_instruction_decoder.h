@@ -6,13 +6,14 @@
 #define NET_THIRD_PARTY_QUIC_CORE_QPACK_QPACK_INSTRUCTION_DECODER_H_
 
 #include <cstddef>
+#include <cstdint>
 
-#include "net/third_party/http2/hpack/huffman/hpack_huffman_decoder.h"
-#include "net/third_party/http2/hpack/varint/hpack_varint_decoder.h"
 #include "net/third_party/quic/core/qpack/qpack_constants.h"
 #include "net/third_party/quic/platform/api/quic_export.h"
 #include "net/third_party/quic/platform/api/quic_string.h"
 #include "net/third_party/quic/platform/api/quic_string_piece.h"
+#include "net/third_party/quiche/src/http2/hpack/huffman/hpack_huffman_decoder.h"
+#include "net/third_party/quiche/src/http2/hpack/varint/hpack_varint_decoder.h"
 
 namespace quic {
 
@@ -57,8 +58,9 @@ class QUIC_EXPORT_PRIVATE QpackInstructionDecoder {
   // Accessors for decoded values.  Should only be called for fields that are
   // part of the most recently decoded instruction, and only after |this| calls
   // Delegate::OnInstructionDecoded() but before Decode() is called again.
-  bool is_static() const { return is_static_; }
-  size_t varint() const { return varint_; }
+  bool s_bit() const { return s_bit_; }
+  uint64_t varint() const { return varint_; }
+  uint64_t varint2() const { return varint2_; }
   const QuicString& name() const { return name_; }
   const QuicString& value() const { return value_; }
 
@@ -109,8 +111,9 @@ class QUIC_EXPORT_PRIVATE QpackInstructionDecoder {
   Delegate* const delegate_;
 
   // Storage for decoded field values.
-  bool is_static_;
-  size_t varint_;
+  bool s_bit_;
+  uint64_t varint_;
+  uint64_t varint2_;
   QuicString name_;
   QuicString value_;
   // Whether the currently decoded header name or value is Huffman encoded.

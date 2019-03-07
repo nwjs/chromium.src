@@ -7,7 +7,6 @@
 
 #include <gmock/gmock.h>
 #include <memory>
-#include "third_party/blink/public/platform/modules/indexeddb/web_idb_key_range.h"
 #include "third_party/blink/renderer/modules/indexeddb/idb_key.h"
 #include "third_party/blink/renderer/modules/indexeddb/idb_key_range.h"
 #include "third_party/blink/renderer/modules/indexeddb/web_idb_database.h"
@@ -24,7 +23,7 @@ class MockWebIDBDatabase : public testing::StrictMock<WebIDBDatabase> {
                void(long long transaction_id,
                     long long object_store_id,
                     const String& name,
-                    const WebIDBKeyPath&,
+                    const IDBKeyPath&,
                     bool auto_increment));
   MOCK_METHOD2(DeleteObjectStore,
                void(long long transaction_id, long long object_store_id));
@@ -39,13 +38,14 @@ class MockWebIDBDatabase : public testing::StrictMock<WebIDBDatabase> {
   MOCK_METHOD0(Close, void());
   MOCK_METHOD0(VersionChangeIgnored, void());
   MOCK_METHOD1(Abort, void(long long transaction_id));
-  MOCK_METHOD1(Commit, void(long long transaction_id));
+  MOCK_METHOD2(Commit,
+               void(long long transaction_id, long long num_errors_handled));
   MOCK_METHOD7(CreateIndex,
                void(long long transaction_id,
                     long long object_store_id,
                     long long index_id,
                     const String& name,
-                    const WebIDBKeyPath&,
+                    const IDBKeyPath&,
                     bool unique,
                     bool multi_entry));
   MOCK_METHOD3(DeleteIndex,
@@ -72,33 +72,32 @@ class MockWebIDBDatabase : public testing::StrictMock<WebIDBDatabase> {
                void(long long transaction_id,
                     long long object_store_id,
                     long long index_id,
-                    const WebIDBKeyRange&,
+                    const IDBKeyRange*,
                     bool key_only,
                     WebIDBCallbacks*));
   MOCK_METHOD7(GetAll,
                void(long long transaction_id,
                     long long object_store_id,
                     long long index_id,
-                    const WebIDBKeyRange&,
+                    const IDBKeyRange*,
                     long long max_count,
                     bool key_only,
                     WebIDBCallbacks*));
 
-  MOCK_METHOD8(Put,
+  MOCK_METHOD7(Put,
                void(long long transaction_id,
                     long long object_store_id,
-                    const WebData& value,
-                    const Vector<WebBlobInfo>&,
-                    WebIDBKeyView primary_key,
+                    std::unique_ptr<IDBValue> value,
+                    std::unique_ptr<IDBKey> primary_key,
                     mojom::IDBPutMode,
                     WebIDBCallbacks*,
-                    const Vector<WebIDBIndexKeys>&));
+                    Vector<IDBIndexKeys>));
 
   MOCK_METHOD4(SetIndexKeys,
                void(long long transaction_id,
                     long long object_store_id,
-                    WebIDBKeyView primary_key,
-                    const Vector<WebIDBIndexKeys>&));
+                    std::unique_ptr<IDBKey> primary_key,
+                    Vector<IDBIndexKeys>));
   MOCK_METHOD3(SetIndexesReady,
                void(long long transaction_id,
                     long long object_store_id,
@@ -107,7 +106,7 @@ class MockWebIDBDatabase : public testing::StrictMock<WebIDBDatabase> {
                void(long long transaction_id,
                     long long object_store_id,
                     long long index_id,
-                    const WebIDBKeyRange&,
+                    const IDBKeyRange*,
                     mojom::IDBCursorDirection,
                     bool key_only,
                     mojom::IDBTaskType,
@@ -116,17 +115,17 @@ class MockWebIDBDatabase : public testing::StrictMock<WebIDBDatabase> {
                void(long long transaction_id,
                     long long object_store_id,
                     long long index_id,
-                    const WebIDBKeyRange&,
+                    const IDBKeyRange*,
                     WebIDBCallbacks*));
   MOCK_METHOD4(Delete,
                void(long long transaction_id,
                     long long object_store_id,
-                    WebIDBKeyView primary_key,
+                    const IDBKey* primary_key,
                     WebIDBCallbacks*));
   MOCK_METHOD4(DeleteRange,
                void(long long transaction_id,
                     long long object_store_id,
-                    const WebIDBKeyRange&,
+                    const IDBKeyRange*,
                     WebIDBCallbacks*));
   MOCK_METHOD3(Clear,
                void(long long transaction_id,

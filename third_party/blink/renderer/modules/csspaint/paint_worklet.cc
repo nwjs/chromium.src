@@ -40,7 +40,8 @@ PaintWorklet* PaintWorklet::Create(LocalFrame* frame) {
 PaintWorklet::PaintWorklet(LocalFrame* frame)
     : Worklet(frame->GetDocument()),
       Supplement<LocalDOMWindow>(*frame->DomWindow()),
-      pending_generator_registry_(new PaintWorkletPendingGeneratorRegistry) {}
+      pending_generator_registry_(
+          MakeGarbageCollected<PaintWorkletPendingGeneratorRegistry>()) {}
 
 PaintWorklet::~PaintWorklet() = default;
 
@@ -139,7 +140,7 @@ WorkletGlobalScopeProxy* PaintWorklet::CreateGlobalScope() {
   ProvidePaintWorkletProxyClientTo(worker_clients, proxy_client);
 
   PaintWorkletMessagingProxy* proxy =
-      new PaintWorkletMessagingProxy(GetExecutionContext());
+      MakeGarbageCollected<PaintWorkletMessagingProxy>(GetExecutionContext());
   proxy->Initialize(worker_clients, ModuleResponsesMap());
   return proxy;
 }

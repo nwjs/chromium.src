@@ -807,7 +807,6 @@ void CookieMonster::DeleteCanonicalCookie(const CanonicalCookie& cookie,
     // and when this ran.  The later parts of the conditional (everything but
     // the equivalence check) attempt to preserve this behavior.
     if (candidate->IsEquivalent(cookie) &&
-        candidate->CreationDate() == cookie.CreationDate() &&
         candidate->Value() == cookie.Value()) {
       InternalDeleteCookie(its.first, true, DELETE_COOKIE_EXPLICIT);
       result = 1u;
@@ -1094,6 +1093,8 @@ void CookieMonster::FindCookiesForKey(const std::string& key,
                                       std::vector<CanonicalCookie*>* cookies) {
   DCHECK(thread_checker_.CalledOnValidThread());
 
+  std::vector<CanonicalCookie*> full_cookie_list;
+
   for (CookieMapItPair its = cookies_.equal_range(key);
        its.first != its.second;) {
     auto curit = its.first;
@@ -1105,11 +1106,15 @@ void CookieMonster::FindCookiesForKey(const std::string& key,
       InternalDeleteCookie(curit, true, DELETE_COOKIE_EXPIRED);
       continue;
     }
+    full_cookie_list.push_back(cc);
+  }
 
+  for (CanonicalCookie* cc : full_cookie_list) {
     // Filter out cookies that should not be included for a request to the
     // given |url|. HTTP only cookies are filtered depending on the passed
     // cookie |options|.
-    if (!cc->IncludeForRequestURL(url, options))
+    if (cc->IncludeForRequestURL(url, options) !=
+        CanonicalCookie::CookieInclusionStatus::INCLUDE)
       continue;
 
     // Add this cookie to the set of matching cookies. Update the access

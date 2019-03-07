@@ -4,6 +4,7 @@
 
 #include "content/browser/web_package/signed_exchange_utils.h"
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/no_destructor.h"
@@ -17,6 +18,7 @@
 #include "content/browser/web_package/signed_exchange_error.h"
 #include "content/browser/web_package/signed_exchange_request_handler.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/content_switches.h"
 #include "net/http/http_util.h"
 #include "services/network/public/cpp/resource_response.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
@@ -47,12 +49,18 @@ OriginsList CreateAdvertiseAcceptHeaderOriginsList() {
   return OriginsList(param);
 }
 
+bool IsSignedHTTPExchangeEnabledByFlags() {
+  return base::FeatureList::IsEnabled(features::kSignedHTTPExchange) ||
+         base::CommandLine::ForCurrentProcess()->HasSwitch(
+             switches::kEnableExperimentalWebPlatformFeatures);
+}
+
 }  //  namespace
 
 bool NeedToCheckRedirectedURLForAcceptHeader() {
   // When SignedHTTPExchange is enabled, the SignedExchange accept header must
   // be sent to all origins. So we don't need to check the redirected URL.
-  return !base::FeatureList::IsEnabled(features::kSignedHTTPExchange) &&
+  return !IsSignedHTTPExchangeEnabledByFlags() &&
          base::FeatureList::IsEnabled(
              features::kSignedHTTPExchangeOriginTrial) &&
          base::FeatureList::IsEnabled(
@@ -62,7 +70,7 @@ bool NeedToCheckRedirectedURLForAcceptHeader() {
 bool ShouldAdvertiseAcceptHeader(const url::Origin& origin) {
   // When SignedHTTPExchange is enabled, we must send the SignedExchange accept
   // header to all origins.
-  if (base::FeatureList::IsEnabled(features::kSignedHTTPExchange))
+  if (IsSignedHTTPExchangeEnabledByFlags())
     return true;
   // When SignedHTTPExchangeOriginTrial is not enabled or
   // SignedHTTPExchangeAcceptHeader is not enabled, we must not send the
@@ -81,7 +89,7 @@ bool ShouldAdvertiseAcceptHeader(const url::Origin& origin) {
 }
 
 bool IsSignedExchangeHandlingEnabled() {
-  return base::FeatureList::IsEnabled(features::kSignedHTTPExchange) ||
+  return IsSignedHTTPExchangeEnabledByFlags() ||
          base::FeatureList::IsEnabled(features::kSignedHTTPExchangeOriginTrial);
 }
 
@@ -95,11 +103,15 @@ bool ShouldHandleAsSignedHTTPExchange(
     return false;
   if (!SignedExchangeRequestHandler::IsSupportedMimeType(head.mime_type))
     return false;
+  // Do not handle responses without HttpResponseHeaders.
+  // (Example: data:application/signed-exchange,)
+  if (!head.headers.get())
+    return false;
   if (download_utils::MustDownload(request_url, head.headers.get(),
                                    head.mime_type)) {
     return false;
   }
-  if (base::FeatureList::IsEnabled(features::kSignedHTTPExchange))
+  if (IsSignedHTTPExchangeEnabledByFlags())
     return true;
   if (!base::FeatureList::IsEnabled(features::kSignedHTTPExchangeOriginTrial))
     return false;
@@ -140,8 +152,8 @@ base::Optional<SignedExchangeVersion> GetSignedExchangeVersion(
   //        [spec text]
   auto iter = params.find("v");
   if (iter != params.end()) {
-    if (iter->second == "b2")
-      return base::make_optional(SignedExchangeVersion::kB2);
+    if (iter->second == "b3")
+      return base::make_optional(SignedExchangeVersion::kB3);
     return base::make_optional(SignedExchangeVersion::kUnknown);
   }
   return base::nullopt;

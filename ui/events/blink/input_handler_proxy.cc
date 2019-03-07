@@ -43,8 +43,6 @@ namespace {
 
 const int32_t kEventDispositionUndefined = -1;
 
-const size_t kTenSeconds = 10 * 1000 * 1000;
-
 cc::ScrollState CreateScrollStateForGesture(const WebGestureEvent& event) {
   cc::ScrollStateData scroll_state_data;
   switch (event.GetType()) {
@@ -198,8 +196,7 @@ void InputHandlerProxy::HandleInputEventWithLatencyInfo(
 
   // Note: Other input can race ahead of gesture input as they don't have to go
   // through the queue, but we believe it's OK to do so.
-  if (!compositor_event_queue_ ||
-      !IsGestureScrollOrPinch(event_with_callback->event().GetType())) {
+  if (!IsGestureScrollOrPinch(event_with_callback->event().GetType())) {
     DispatchSingleInputEvent(std::move(event_with_callback),
                              tick_clock_->NowTicks());
     return;
@@ -254,33 +251,6 @@ void InputHandlerProxy::HandleInputEventWithLatencyInfo(
 void InputHandlerProxy::DispatchSingleInputEvent(
     std::unique_ptr<EventWithCallback> event_with_callback,
     const base::TimeTicks now) {
-  if (compositor_event_queue_ &&
-      IsGestureScrollOrPinch(event_with_callback->event().GetType())) {
-    // Report the coalesced count only for continuous events to avoid the noise
-    // from non-continuous events.
-    if (IsContinuousGestureEvent(event_with_callback->event().GetType())) {
-      UMA_HISTOGRAM_CUSTOM_COUNTS(
-          "Event.CompositorThreadEventQueue.Continuous.HeadQueueingTime",
-          (now - event_with_callback->creation_timestamp()).InMicroseconds(), 1,
-          kTenSeconds, 50);
-
-      UMA_HISTOGRAM_CUSTOM_COUNTS(
-          "Event.CompositorThreadEventQueue.Continuous.TailQueueingTime",
-          (now - event_with_callback->last_coalesced_timestamp())
-              .InMicroseconds(),
-          1, kTenSeconds, 50);
-
-      UMA_HISTOGRAM_COUNTS_1000(
-          "Event.CompositorThreadEventQueue.CoalescedCount",
-          static_cast<int>(event_with_callback->coalesced_count()));
-    } else {
-      UMA_HISTOGRAM_CUSTOM_COUNTS(
-          "Event.CompositorThreadEventQueue.NonContinuous.QueueingTime",
-          (now - event_with_callback->creation_timestamp()).InMicroseconds(), 1,
-          kTenSeconds, 50);
-    }
-  }
-
   ui::LatencyInfo monitored_latency_info = event_with_callback->latency_info();
   std::unique_ptr<cc::SwapPromiseMonitor> latency_info_swap_promise_monitor =
       input_handler_->CreateLatencyInfoSwapPromiseMonitor(
@@ -315,9 +285,6 @@ void InputHandlerProxy::DispatchSingleInputEvent(
 }
 
 void InputHandlerProxy::DispatchQueuedInputEvents() {
-  if (!compositor_event_queue_)
-    return;
-
   // Calling |NowTicks()| is expensive so we only want to do it once.
   base::TimeTicks now = tick_clock_->NowTicks();
   while (!compositor_event_queue_->empty()) {
@@ -582,7 +549,7 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HandleGestureScrollBegin(
     const WebGestureEvent& gesture_event) {
   TRACE_EVENT0("input", "InputHandlerProxy::HandleGestureScrollBegin");
 
-  if (compositor_event_queue_ && scroll_predictor_)
+  if (scroll_predictor_)
     scroll_predictor_->ResetOnGestureScrollBegin(gesture_event);
 
 #if DCHECK_IS_ON()

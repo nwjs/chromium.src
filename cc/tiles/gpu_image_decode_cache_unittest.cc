@@ -132,7 +132,7 @@ class FakeGPUImageDecodeTestGLES2Interface : public viz::TestGLES2Interface,
   void CompleteLockDiscardableTexureOnContextThread(
       uint32_t texture_id) override {}
 
-  void* MapTransferCacheEntry(size_t serialized_size) override {
+  void* MapTransferCacheEntry(uint32_t serialized_size) override {
     mapped_entry_size_ = serialized_size;
     mapped_entry_.reset(new uint8_t[serialized_size]);
     return mapped_entry_.get();
@@ -2120,7 +2120,8 @@ TEST_P(GpuImageDecodeCacheTest,
     // image we've cached.
     EXPECT_TRUE(decoded_image == decoded_draw_image.image());
     // Ensure that the SW decoded image had colorspace conversion applied.
-    EXPECT_TRUE(decoded_image->colorSpace() == target_color_space.get());
+    EXPECT_TRUE(SkColorSpace::Equals(decoded_image->colorSpace(),
+                                     target_color_space.get()));
   }
 
   cache->DrawWithImageFinished(draw_image, decoded_draw_image);
@@ -2169,8 +2170,8 @@ TEST_P(GpuImageDecodeCacheTest,
                                      target_color_space.get()));
   } else {
     // Ensure that the HW uploaded image had color space conversion applied.
-    EXPECT_TRUE(decoded_draw_image.image()->colorSpace() ==
-                target_color_space.get());
+    EXPECT_TRUE(SkColorSpace::Equals(decoded_draw_image.image()->colorSpace(),
+                                     target_color_space.get()));
   }
 
   cache->DrawWithImageFinished(draw_image, decoded_draw_image);
@@ -2547,12 +2548,6 @@ TEST_P(GpuImageDecodeCacheTest, MipsAddedSubsequentDraw) {
 }
 
 TEST_P(GpuImageDecodeCacheTest, MipsAddedWhileOriginalInUse) {
-#if defined(OS_WIN)
-  // TODO(ericrk): Mips are temporarily disabled to investigate a memory
-  // regression on Windows. https://crbug.com/867468
-  return;
-#endif  // defined(OS_WIN)
-
   auto cache = CreateCache();
   bool is_decomposable = true;
   auto filter_quality = kMedium_SkFilterQuality;

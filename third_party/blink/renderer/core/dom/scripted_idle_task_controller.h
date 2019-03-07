@@ -7,7 +7,7 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_idle_request_callback.h"
 #include "third_party/blink/renderer/core/dom/idle_deadline.h"
-#include "third_party/blink/renderer/core/dom/pausable_object.h"
+#include "third_party/blink/renderer/core/execution_context/pausable_object.h"
 #include "third_party/blink/renderer/platform/bindings/name_client.h"
 #include "third_party/blink/renderer/platform/bindings/trace_wrapper_member.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
@@ -37,7 +37,7 @@ class CORE_EXPORT ScriptedIdleTaskController
   explicit ScriptedIdleTaskController(ExecutionContext*);
   ~ScriptedIdleTaskController() override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   const char* NameInHeapSnapshot() const override {
     return "ScriptedIdleTaskController";
   }
@@ -49,7 +49,7 @@ class CORE_EXPORT ScriptedIdleTaskController
   class IdleTask : public GarbageCollectedFinalized<IdleTask>,
                    public NameClient {
    public:
-    virtual void Trace(blink::Visitor* visitor) {}
+    virtual void Trace(Visitor* visitor) {}
     const char* NameInHeapSnapshot() const override { return "IdleTask"; }
     virtual ~IdleTask() = default;
     virtual void invoke(IdleDeadline*) = 0;
@@ -67,7 +67,7 @@ class CORE_EXPORT ScriptedIdleTaskController
     ~V8IdleTask() override = default;
 
     void invoke(IdleDeadline*) override;
-    void Trace(blink::Visitor*) override;
+    void Trace(Visitor*) override;
 
    private:
     TraceWrapperMember<V8IdleRequestCallback> callback_;
@@ -78,8 +78,8 @@ class CORE_EXPORT ScriptedIdleTaskController
 
   // PausableObject interface.
   void ContextDestroyed(ExecutionContext*) override;
-  void Pause() override;
-  void Unpause() override;
+  void ContextPaused(PauseState) override;
+  void ContextUnpaused() override;
 
   void CallbackFired(CallbackId,
                      TimeTicks deadline,

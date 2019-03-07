@@ -189,7 +189,8 @@ class ExtensionManagementServiceTest : public testing::Test {
   URLPatternSet GetPolicyBlockedHosts(const std::string& id) {
     scoped_refptr<const Extension> extension =
         CreateExtension(Manifest::UNPACKED, "0.1", id, kNonExistingUpdateUrl);
-    return extension_management_->GetPolicyBlockedHosts(extension.get());
+    return extension_management_->GetPolicyBlockedHosts(extension.get())
+        .Clone();
   }
 
   // Wrapper of ExtensionManagement::GetPolicyAllowedHosts, |id| is used
@@ -197,7 +198,8 @@ class ExtensionManagementServiceTest : public testing::Test {
   URLPatternSet GetPolicyAllowedHosts(const std::string& id) {
     scoped_refptr<const Extension> extension =
         CreateExtension(Manifest::UNPACKED, "0.1", id, kNonExistingUpdateUrl);
-    return extension_management_->GetPolicyAllowedHosts(extension.get());
+    return extension_management_->GetPolicyAllowedHosts(extension.get())
+        .Clone();
   }
 
   // Wrapper of ExtensionManagement::BlockedInstallMessage, |id| is used
@@ -571,19 +573,19 @@ TEST_F(ExtensionManagementServiceTest, BlockedPermissionsConflictHandling) {
 
   APIPermissionSet api_permission_set;
 
-  api_permission_set = blocked_permissions_for_update_url;
+  api_permission_set = blocked_permissions_for_update_url.Clone();
   api_permission_set.insert(APIPermission::kFileSystem);
   api_permission_set.insert(APIPermission::kDownloads);
   api_permission_set.insert(APIPermission::kBookmark);
   EXPECT_EQ(api_permission_set,
             GetBlockedAPIPermissions(kTargetExtension, kExampleUpdateUrl));
 
-  api_permission_set = blocked_permissions_for_update_url;
+  api_permission_set = blocked_permissions_for_update_url.Clone();
   api_permission_set.insert(APIPermission::kDownloads);
   EXPECT_EQ(api_permission_set,
             GetBlockedAPIPermissions(kTargetExtension2, kExampleUpdateUrl));
 
-  api_permission_set = blocked_permissions_for_update_url;
+  api_permission_set = blocked_permissions_for_update_url.Clone();
   api_permission_set.insert(APIPermission::kFileSystem);
   api_permission_set.insert(APIPermission::kHistory);
   EXPECT_EQ(api_permission_set,

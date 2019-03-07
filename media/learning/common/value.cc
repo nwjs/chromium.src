@@ -11,8 +11,6 @@ namespace learning {
 
 Value::Value() = default;
 
-Value::Value(int x) : value_(x) {}
-
 Value::Value(const char* x) {
   // std::hash would be nice, but it can (and does) change values between
   // different instances of the class.  In other words, Value("foo") !=
@@ -35,6 +33,10 @@ bool Value::operator!=(const Value& rhs) const {
 
 bool Value::operator<(const Value& rhs) const {
   return value_ < rhs.value_;
+}
+
+bool Value::operator>(const Value& rhs) const {
+  return value_ > rhs.value_;
 }
 
 std::ostream& operator<<(std::ostream& out, const Value& value) {

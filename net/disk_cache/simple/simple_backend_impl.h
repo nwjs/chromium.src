@@ -114,6 +114,10 @@ class NET_EXPORT_PRIVATE SimpleBackendImpl : public Backend,
                          net::RequestPriority request_priority,
                          Entry** entry,
                          CompletionOnceCallback callback) override;
+  net::Error OpenOrCreateEntry(const std::string& key,
+                               net::RequestPriority priority,
+                               EntryWithOpened* entry_struct,
+                               CompletionOnceCallback callback) override;
   net::Error DoomEntry(const std::string& key,
                        net::RequestPriority priority,
                        CompletionOnceCallback callback) override;
@@ -219,6 +223,18 @@ class NET_EXPORT_PRIVATE SimpleBackendImpl : public Backend,
       const std::string& key,
       net::RequestPriority request_priority,
       std::vector<PostDoomWaiter>** post_doom);
+
+  // If post-doom and settings indicates that optimistically succeeding a create
+  // due to being immediately after a doom is possible, sets up an entry for
+  // that, and returns a non-null pointer. (CreateEntry still needs to be called
+  // to actually do the creation operation). Otherwise returns nullptr.
+  //
+  // Pre-condition: |post_doom| is non-null.
+  scoped_refptr<SimpleEntryImpl> MaybeOptimisticCreateForPostDoom(
+      uint64_t entry_hash,
+      const std::string& key,
+      net::RequestPriority request_priority,
+      std::vector<PostDoomWaiter>* post_doom);
 
   // Given a hash, will try to open the corresponding Entry. If we have an Entry
   // corresponding to |hash| in the map of active entries, opens it. Otherwise,

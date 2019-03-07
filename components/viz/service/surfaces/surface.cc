@@ -229,9 +229,11 @@ bool Surface::QueueFrame(
   surface_client_->ReceiveFromChild(frame.resource_list);
 
   if (!seen_first_surface_dependency_) {
+    // We should not throttle this client if there is another client blocked on
+    // it, in order to avoid deadlocks.
     seen_first_surface_dependency_ =
         surface_manager_->dependency_tracker()->HasSurfaceBlockedOn(
-            surface_id());
+            surface_id().frame_sink_id());
   }
 
   bool block_activation =
@@ -331,17 +333,6 @@ void Surface::NotifySurfaceIdAvailable(const SurfaceId& surface_id) {
   ActivatePendingFrame(base::nullopt);
 }
 
-bool Surface::IsBlockedOn(const SurfaceId& surface_id) const {
-  for (const SurfaceId& dependency : activation_dependencies_) {
-    if (dependency.frame_sink_id() != surface_id.frame_sink_id())
-      continue;
-
-    if (dependency.local_surface_id() <= surface_id.local_surface_id())
-      return true;
-  }
-  return false;
-}
-
 void Surface::ActivatePendingFrameForDeadline(
     base::Optional<base::TimeDelta> duration) {
   if (!pending_frame_data_)
@@ -360,7 +351,6 @@ Surface::FrameData::FrameData(CompositorFrame&& frame,
                               PresentedCallback presented_callback)
     : frame(std::move(frame)),
       frame_index(frame_index),
-      frame_processed(false),
       presented_callback(std::move(presented_callback)) {}
 
 Surface::FrameData::FrameData(FrameData&& other) = default;
@@ -601,6 +591,7 @@ void Surface::TakeCopyOutputRequests(Surface::CopyRequestsMap* copy_requests) {
     }
     render_pass->copy_requests.clear();
   }
+  MarkAsDrawn();
 }
 
 void Surface::TakeCopyOutputRequestsFromClient() {
@@ -647,12 +638,17 @@ bool Surface::TakePresentedCallback(PresentedCallback* callback) {
   return false;
 }
 
-void Surface::RunDrawCallback() {
-  if (!active_frame_data_ || active_frame_data_->frame_processed)
+void Surface::SendAckToClient() {
+  if (!active_frame_data_ || active_frame_data_->frame_acked)
     return;
-  active_frame_data_->frame_processed = true;
+  active_frame_data_->frame_acked = true;
   if (surface_client_)
     surface_client_->OnSurfaceProcessed(this);
+}
+
+void Surface::MarkAsDrawn() {
+  if (active_frame_data_)
+    active_frame_data_->frame_drawn = true;
 }
 
 void Surface::NotifyAggregatedDamage(const gfx::Rect& damage_rect,
@@ -682,7 +678,7 @@ void Surface::UnrefFrameResourcesAndRunCallbacks(
     resource.sync_token.Clear();
   surface_client_->UnrefResources(resources);
 
-  if (!frame_data->frame_processed)
+  if (!frame_data->frame_acked)
     surface_client_->OnSurfaceProcessed(this);
 
   if (frame_data->presented_callback) {
@@ -753,6 +749,7 @@ void Surface::OnWillBeDrawn() {
         surface_info_.id().ToString());
   }
   surface_manager_->SurfaceWillBeDrawn(this);
+  MarkAsDrawn();
 }
 
 }  // namespace viz

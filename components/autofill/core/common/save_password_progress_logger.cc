@@ -82,9 +82,18 @@ void SavePasswordProgressLogger::LogPasswordForm(
   }
   log.SetString(GetStringFromID(STRING_NEW_PASSWORD_ELEMENT),
                 ScrubElementID(form.new_password_element));
+  if (form.has_renderer_ids) {
+    log.SetString(GetStringFromID(STRING_NEW_PASSWORD_ELEMENT_RENDERER_ID),
+                  UintToString(form.new_password_element_renderer_id));
+  }
   if (!form.confirmation_password_element.empty()) {
     log.SetString(GetStringFromID(STRING_CONFIRMATION_PASSWORD_ELEMENT),
                   ScrubElementID(form.confirmation_password_element));
+    if (form.has_renderer_ids) {
+      log.SetString(
+          GetStringFromID(STRING_CONFIRMATION_PASSWORD_ELEMENT_RENDERER_ID),
+          UintToString(form.confirmation_password_element_renderer_id));
+    }
   }
   log.SetBoolean(GetStringFromID(STRING_PASSWORD_GENERATED),
                  form.type == PasswordForm::TYPE_GENERATED);
@@ -208,8 +217,13 @@ std::string SavePasswordProgressLogger::GetStringFromID(
       return "Password element renderer id";
     case SavePasswordProgressLogger::STRING_NEW_PASSWORD_ELEMENT:
       return "New password element";
+    case SavePasswordProgressLogger::STRING_NEW_PASSWORD_ELEMENT_RENDERER_ID:
+      return "New password element renderer id";
     case SavePasswordProgressLogger::STRING_CONFIRMATION_PASSWORD_ELEMENT:
       return "Confirmation password element";
+    case SavePasswordProgressLogger::
+        STRING_CONFIRMATION_PASSWORD_ELEMENT_RENDERER_ID:
+      return "Confirmation password element renderer id";
     case SavePasswordProgressLogger::STRING_PASSWORD_GENERATED:
       return "Password generated";
     case SavePasswordProgressLogger::STRING_TIMES_USED:
@@ -291,7 +305,7 @@ std::string SavePasswordProgressLogger::GetStringFromID(
     case SavePasswordProgressLogger::STRING_ON_ASK_USER_OR_SAVE_PASSWORD:
       return "PasswordManager::AskUserOrSavePassword";
     case SavePasswordProgressLogger::STRING_CAN_PROVISIONAL_MANAGER_SAVE_METHOD:
-      return "PasswordManager::CanProvisionalManagerSave";
+      return "PasswordManager::IsAutomaticSavePromptAvailable";
     case SavePasswordProgressLogger::STRING_NO_PROVISIONAL_SAVE_MANAGER:
       return "No provisional save manager";
     case SavePasswordProgressLogger::STRING_NUMBER_OF_VISIBLE_FORMS:
@@ -446,6 +460,16 @@ std::string SavePasswordProgressLogger::GetStringFromID(
       return "Form parsing input";
     case STRING_FORM_PARSING_OUTPUT:
       return "Form parsing output";
+    case STRING_FAILED_TO_FILL_INTO_IFRAME:
+      return "Failed to fill: Form is in iframe on a non-PSL-matching security "
+             "origin";
+    case STRING_FAILED_TO_FILL_NO_AUTOCOMPLETEABLE_ELEMENT:
+      return "Failed to fill: No autocompleteable element found";
+    case STRING_FAILED_TO_FILL_PREFILLED_USERNAME:
+      return "Failed to fill: Username field was prefilled, but no credential "
+             "exists whose username matches the prefilled value";
+    case STRING_FAILED_TO_FILL_FOUND_NO_PASSWORD_FOR_USERNAME:
+      return "Failed to fill: No credential matching found";
     case SavePasswordProgressLogger::STRING_INVALID:
       return "INVALID";
       // Intentionally no default: clause here -- all IDs need to get covered.

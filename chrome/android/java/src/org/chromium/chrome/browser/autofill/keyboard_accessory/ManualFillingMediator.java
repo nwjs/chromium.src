@@ -28,9 +28,9 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.TabHidingType;
 import org.chromium.chrome.browser.tab.TabObserver;
-import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
+import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.DropdownPopupWindow;
 import org.chromium.ui.base.WindowAndroid;
@@ -155,13 +155,14 @@ class ManualFillingMediator extends EmptyTabObserver
         mWindowAndroid = windowAndroid;
         mKeyboardAccessory = keyboardAccessory;
         mAccessorySheet = accessorySheet;
+        mAccessorySheet.setOnPageChangeListener(mKeyboardAccessory.getOnPageChangeListener());
         setInsetObserverViewSupplier(mActivity::getInsetObserverView);
         LayoutManager manager = getLayoutManager();
         if (manager != null) manager.addSceneChangeObserver(mTabSwitcherObserver);
         mActivity.findViewById(android.R.id.content).addOnLayoutChangeListener(this);
         mTabModelObserver = new TabModelSelectorTabModelObserver(mActivity.getTabModelSelector()) {
             @Override
-            public void didSelectTab(Tab tab, @TabModel.TabSelectionType int type, int lastId) {
+            public void didSelectTab(Tab tab, @TabSelectionType int type, int lastId) {
                 mActiveBrowserTab = tab;
                 restoreCachedState(tab);
             }
@@ -180,7 +181,7 @@ class ManualFillingMediator extends EmptyTabObserver
         Tab currentTab = mActivity.getTabModelSelector().getCurrentTab();
         if (currentTab != null) {
             mTabModelObserver.didSelectTab(
-                    currentTab, TabModel.TabSelectionType.FROM_USER, Tab.INVALID_TAB_ID);
+                    currentTab, TabSelectionType.FROM_USER, Tab.INVALID_TAB_ID);
         }
     }
 
@@ -220,10 +221,10 @@ class ManualFillingMediator extends EmptyTabObserver
         }
     }
 
-    void registerPasswordProvider(Provider<KeyboardAccessoryData.Item[]> itemProvider) {
+    void registerPasswordProvider(Provider<KeyboardAccessoryData.AccessorySheetData> dataProvider) {
         PasswordAccessorySheetCoordinator accessorySheet = getPasswordAccessorySheet();
         if (accessorySheet == null) return; // Not available or initialized yet.
-        accessorySheet.registerItemProvider(itemProvider);
+        accessorySheet.registerDataProvider(dataProvider);
     }
 
     void registerActionProvider(KeyboardAccessoryData.PropertyProvider<Action[]> actionProvider) {
@@ -239,11 +240,11 @@ class ManualFillingMediator extends EmptyTabObserver
         if (!isInitialized()) return;
         pause();
         mActivity.findViewById(android.R.id.content).removeOnLayoutChangeListener(this);
+        mTabModelObserver.destroy();
         LayoutManager manager = getLayoutManager();
         if (manager != null) manager.removeSceneChangeObserver(mTabSwitcherObserver);
         mWindowAndroid = null;
         mActivity = null;
-        mTabModelObserver.destroy();
     }
 
     boolean handleBackPress() {
@@ -323,7 +324,7 @@ class ManualFillingMediator extends EmptyTabObserver
 
     @Override
     public void onChangeAccessorySheet(int tabIndex) {
-        assert mActivity != null : "ManualFillingMediator needs initialization.";
+        if (mActivity == null) return; // Mediator not initialized or already destroyed.
         mAccessorySheet.setActiveTab(tabIndex);
         if (mPopup != null && mPopup.isShowing()) mPopup.dismiss();
         // If there is a keyboard, update the accessory sheet's height and hide the keyboard.

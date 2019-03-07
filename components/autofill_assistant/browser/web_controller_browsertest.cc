@@ -514,13 +514,25 @@ IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, TapElementAfterPageIsIdle) {
   WaitForElementRemove(selector);
 }
 
-IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, TapElementInIFrame) {
+// TODO(crbug.com/920948) Disabled for strong flakiness.
+IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, DISABLED_TapElementInIFrame) {
   Selector selector;
   selector.selectors.emplace_back("#iframe");
   selector.selectors.emplace_back("#touch_area");
   TapElement(selector);
 
   WaitForElementRemove(selector);
+}
+
+IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, ClickPseudoElement) {
+  const std::string javascript = R"(
+    document.querySelector("#terms-and-conditions").checked;
+  )";
+  EXPECT_FALSE(content::EvalJs(shell(), javascript).ExtractBool());
+  Selector selector({R"(label[for="terms-and-conditions"])"},
+                    PseudoType::BEFORE);
+  ClickElement(selector);
+  EXPECT_TRUE(content::EvalJs(shell(), javascript).ExtractBool());
 }
 
 IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, FindElement) {

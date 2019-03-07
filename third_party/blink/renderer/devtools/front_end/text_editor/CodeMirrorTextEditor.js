@@ -42,8 +42,6 @@ TextEditor.CodeMirrorTextEditor = class extends UI.VBox {
     this.registerRequiredCSS('cm/codemirror.css');
     this.registerRequiredCSS('text_editor/cmdevtools.css');
 
-    TextEditor.CodeMirrorUtils.appendThemeStyle(this.element);
-
     this._codeMirror = new CodeMirror(this.element, {
       lineNumbers: options.lineNumbers,
       matchBrackets: true,
@@ -371,6 +369,19 @@ TextEditor.CodeMirrorTextEditor = class extends UI.VBox {
    */
   widget() {
     return this;
+  }
+
+  /**
+   * @override
+   * @param {string} placeholder
+   */
+  setPlaceholder(placeholder) {
+    if (!this._placeholderElement) {
+      this._placeholderElement = createElement('pre');
+      this._placeholderElement.classList.add('placeholder-text');
+    }
+    this._placeholderElement.textContent = placeholder || '';
+    this._updatePlaceholder();
   }
 
   /**

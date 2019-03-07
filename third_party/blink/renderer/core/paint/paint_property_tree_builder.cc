@@ -212,9 +212,27 @@ class FragmentPaintPropertyTreeBuilder {
     full_context_.clip_changed |=
         !(result.Unchanged() || only_updated_hit_test_values);
   }
+  // Like |OnUpdate| but forces a piercing subtree update if the scroll tree
+  // hierarchy changes because the scroll tree does not have isolation nodes
+  // and non-piercing updates can fail to update scroll descendants.
+  void OnUpdateScroll(const ObjectPaintProperties::UpdateResult& result) {
+    OnUpdate(result);
+    if (result.NewNodeCreated()) {
+      full_context_.force_subtree_update_reasons |=
+          PaintPropertyTreeBuilderContext::kSubtreeUpdateIsolationPiercing;
+    }
+  }
   void OnClear(bool cleared) {
     property_added_or_removed_ |= cleared;
     property_changed_ |= cleared;
+  }
+  // See: |OnUpdateScroll|.
+  void OnClearScroll(bool cleared) {
+    OnClear(cleared);
+    if (cleared) {
+      full_context_.force_subtree_update_reasons |=
+          PaintPropertyTreeBuilderContext::kSubtreeUpdateIsolationPiercing;
+    }
   }
   void OnClearClip(bool cleared) {
     OnClear(cleared);
@@ -252,10 +270,10 @@ static bool NeedsScrollNode(const LayoutObject& object) {
   if (!object.HasOverflowClip())
     return false;
   const LayoutBox& box = ToLayoutBox(object);
-  // TODO(pdr): SPV2 has invalidation issues (crbug.com/732611) as well as
+  // TODO(pdr): CAP has invalidation issues (crbug.com/732611) as well as
   // subpixel issues (crbug.com/693741) which prevent us from compositing the
   // root scroller.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return HasScrollsOverflow(box);
   return HasScrollsOverflow(box) || IsRootScroller(box);
 }
@@ -293,7 +311,7 @@ static bool NeedsReplacedContentTransform(const LayoutObject& object) {
   // to the object-fit box. Note that we don't actually know whether the image
   // will be directly composited. This condition is relaxed to stay on the
   // safe side.
-  // TODO(crbug.com/875110): Figure out the condition for SPv2.
+  // TODO(crbug.com/875110): Figure out the condition for CAP.
   bool is_spv1_composited =
       object.HasLayer() &&
       ToLayoutBoxModelObject(object).Layer()->GetCompositedLayerMapping();
@@ -317,13 +335,16 @@ static bool NeedsIsolationNodes(const LayoutObject& object) {
     return false;
 
   // Paint containment establishes isolation.
-  if (object.ShouldApplyPaintContainment())
+  // Style & Layout containment also establish isolation.
+  if (object.ShouldApplyPaintContainment() ||
+      (object.ShouldApplyStyleContainment() &&
+       object.ShouldApplyLayoutContainment())) {
     return true;
+  }
 
   // Layout view establishes isolation with the exception of local roots (since
   // they are already essentially isolated).
-  if (RuntimeEnabledFeatures::LayoutViewIsolationNodesEnabled() &&
-      object.IsLayoutView()) {
+  if (object.IsLayoutView()) {
     const auto* parent_frame = object.GetFrame()->Tree().Parent();
     return parent_frame && parent_frame->IsLocalFrame();
   }
@@ -381,9 +402,9 @@ static bool NeedsPaintOffsetTranslation(const LayoutObject& object) {
   // unnecessary full layer paint/raster invalidation when paint offset in
   // ancestor transform node changes which should not affect the descendants
   // of the composited layer.
-  // TODO(wangxianzhu): For SPv2, we also need a avoid unnecessary paint/raster
+  // TODO(wangxianzhu): For CAP, we also need a avoid unnecessary paint/raster
   // invalidation in composited layers when their paint offset changes.
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled() &&
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
       // For only LayoutBlocks that won't be escaped by floating objects and
       // column spans when finding their containing blocks.
       // TODO(crbug.com/780242): This can be avoided if we have fully correct
@@ -442,7 +463,7 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffsetTranslation(
         object_.StyleRef().GetPosition() == EPosition::kFixed &&
         object_.StyleRef().IsFixedToBottom();
 
-    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
         RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
       state.rendering_context_id = context_.current.rendering_context_id;
     OnUpdate(properties_->UpdatePaintOffsetTranslation(
@@ -589,14 +610,21 @@ static CompositingReasons CompositingReasonsForTransform(const LayoutBox& box) {
   if (CompositingReasonFinder::RequiresCompositingForTransform(box))
     compositing_reasons |= CompositingReason::k3DTransform;
 
-  // Currently, we create transform nodes for an element whenever any property
-  // is being animated so that the existence of the effect node implies the
-  // existence of all nodes.
-  // TODO(flackr): Check for nodes for each KeyframeModel target
-  // property instead of creating all nodes and only create a transform node
-  // if needed, https://crbug.com/900241
-  compositing_reasons |=
-      CompositingReasonFinder::CompositingReasonsForAnimation(style);
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
+      RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
+    // Currently, we create transform nodes for an element whenever any property
+    // is being animated so that the existence of the effect node implies the
+    // existence of all nodes.
+    // TODO(flackr): Check for nodes for each KeyframeModel target
+    // property instead of creating all nodes and only create a transform node
+    // if needed, https://crbug.com/900241
+    compositing_reasons |=
+        CompositingReasonFinder::CompositingReasonsForAnimation(style);
+  } else {
+    if (CompositingReasonFinder::RequiresCompositingForTransformAnimation(
+            style))
+      compositing_reasons |= CompositingReason::kActiveTransformAnimation;
+  }
 
   if (style.HasWillChangeCompositingHint() &&
       !style.SubtreeWillChangeContents())
@@ -625,7 +653,7 @@ static FloatPoint3D TransformOrigin(const LayoutBox& box) {
 }
 
 static bool NeedsTransform(const LayoutObject& object) {
-  if ((RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+  if ((RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
        RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) &&
       object.StyleRef().BackfaceVisibility() == EBackfaceVisibility::kHidden)
     return true;
@@ -662,7 +690,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateTransform() {
             ComputedStyle::kIncludeMotionPath,
             ComputedStyle::kIncludeIndependentTransformProperties);
 
-        if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+        if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
             RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
           // TODO(trchen): transform-style should only be respected if a
           // PaintLayer is created. If a node with transform-style: preserve-3d
@@ -681,7 +709,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateTransform() {
       state.flattens_inherited_transform =
           context_.current.should_flatten_inherited_transform;
 
-      if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+      if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
           RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
         state.backface_visibility =
             object_.HasHiddenBackface()
@@ -783,8 +811,14 @@ static bool NeedsEffect(const LayoutObject& object) {
   // TODO(flackr): Check for nodes for each KeyframeModel target
   // property instead of creating all nodes and only create an effect node
   // if needed, https://crbug.com/900241
-  if (CompositingReasonFinder::CompositingReasonsForAnimation(style))
-    return true;
+  if ((RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
+       RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())) {
+    if (CompositingReasonFinder::CompositingReasonsForAnimation(style))
+      return true;
+  } else {
+    if (CompositingReasonFinder::RequiresCompositingForOpacityAnimation(style))
+      return true;
+  }
 
   if (object.StyleRef().HasMask())
     return true;
@@ -828,6 +862,8 @@ bool FragmentPaintPropertyTreeBuilder::EffectCanUseCurrentClipAsOutputClip()
 
   // Some descendants under a pagination container (e.g. composited objects
   // in SPv1 and column spanners) may escape fragment clips.
+  // TODO(crbug.com/803649): Remove this when we fix fragment clip hierarchy
+  // issues.
   if (layer->EnclosingPaginationLayer())
     return false;
 
@@ -892,7 +928,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
         state.blend_mode = WebCoreCompositeToSkiaComposite(
             kCompositeSourceOver, style.GetBlendMode());
       }
-      if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+      if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
           RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
         // We may begin to composite our subtree prior to an animation starts,
         // but a compositor element ID is only needed when an animation is
@@ -926,7 +962,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
         mask_state.output_clip = output_clip;
         mask_state.color_filter = CSSMaskPainter::MaskColorFilter(object_);
         mask_state.blend_mode = SkBlendMode::kDstIn;
-        if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+        if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
             RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
           mask_state.compositor_element_id =
               CompositorElementIdFromUniqueObjectId(
@@ -947,7 +983,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
         clip_path_state.local_transform_space = context_.current.transform;
         clip_path_state.output_clip = output_clip;
         clip_path_state.blend_mode = SkBlendMode::kDstIn;
-        if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+        if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
             RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
           clip_path_state.compositor_element_id =
               CompositorElementIdFromUniqueObjectId(
@@ -982,46 +1018,68 @@ static bool NeedsLinkHighlightEffect(const LayoutObject& object) {
 }
 
 void FragmentPaintPropertyTreeBuilder::UpdateLinkHighlightEffect() {
-  if (NeedsPaintPropertyUpdate()) {
-    if (NeedsLinkHighlightEffect(object_)) {
-      // While the link highlight uses the current transform space for
-      // positioning, it's parent effect is the root so that it is not affected
-      // by enclosing filters.
-      const auto& parent = EffectPaintPropertyNode::Root();
-      EffectPaintPropertyNode::State link_highlight_state;
-      link_highlight_state.local_transform_space = context_.current.transform;
-      link_highlight_state.compositor_element_id =
-          object_.GetFrame()->GetPage()->GetLinkHighlights().element_id(
-              object_);
-      link_highlight_state.direct_compositing_reasons =
-          CompositingReason::kActiveOpacityAnimation;
-      // Unlike other property nodes, link highlight effect nodes are guaranteed
-      // to be leaf nodes and do not require subtree invalidation, so we do not
-      // call |OnUpdate| here.
-      properties_->UpdateLinkHighlightEffect(parent,
-                                             std::move(link_highlight_state));
-    } else {
-      // Unlike other property nodes, link highlight effect nodes are guaranteed
-      // to be leaf nodes and do not require subtree invalidation, so we do not
-      // call |OnClear| here.
-      properties_->ClearLinkHighlightEffect();
-    }
+  if (!NeedsPaintPropertyUpdate())
+    return;
+
+  DCHECK(properties_);
+
+  if (!NeedsLinkHighlightEffect(object_)) {
+    // Unlike other property nodes, link highlight effect nodes are guaranteed
+    // to be leaf nodes and do not require subtree invalidation, so we do not
+    // call |OnClear| here.
+    properties_->ClearLinkHighlightEffect();
+    return;
   }
+
+  if (&fragment_data_ != &object_.FirstFragment()) {
+    // All fragments share the same LinkHighlightEffect node.
+    DCHECK(object_.FirstFragment().PaintProperties());
+    DCHECK(object_.FirstFragment().PaintProperties()->LinkHighlightEffect());
+    properties_->SetLinkHighlightEffect(
+        object_.FirstFragment().PaintProperties()->LinkHighlightEffect());
+    return;
+  }
+
+  // While the link highlight uses the current transform space for
+  // positioning, it's parent effect is the root so that it is not affected
+  // by enclosing filters.
+  const auto& parent = EffectPaintPropertyNode::Root();
+  EffectPaintPropertyNode::State link_highlight_state;
+  link_highlight_state.local_transform_space = context_.current.transform;
+  link_highlight_state.compositor_element_id =
+      object_.GetFrame()->GetPage()->GetLinkHighlights().element_id(object_);
+  link_highlight_state.direct_compositing_reasons =
+      CompositingReason::kActiveOpacityAnimation;
+  // Unlike other property nodes, link highlight effect nodes are guaranteed
+  // to be leaf nodes and do not require subtree invalidation, so we do not
+  // call |OnUpdate| here.
+  properties_->UpdateLinkHighlightEffect(parent,
+                                         std::move(link_highlight_state));
 }
 
 static bool NeedsFilter(const LayoutObject& object) {
   // Currently, we create filter nodes for an element whenever any property
   // is being animated so that the existence of the effect node implies the
   // existence of all animation nodes.
+  if (!object.IsBoxModelObject() || !ToLayoutBoxModelObject(object).Layer())
+    return false;
+
+  // TODO(trchen): SVG caches filters in SVGResources. Implement it.
+  if (object.StyleRef().HasFilter() || object.HasReflection() ||
+      object.HasBackdropFilter())
+    return true;
+
   // TODO(flackr): Check for nodes for each KeyframeModel target
   // property instead of creating all nodes and only create a filter node
   // if needed, https://crbug.com/900241
-  // TODO(trchen): SVG caches filters in SVGResources. Implement it.
-  return (object.IsBoxModelObject() && ToLayoutBoxModelObject(object).Layer() &&
-          (object.StyleRef().HasFilter() || object.HasReflection() ||
-           object.HasBackdropFilter() ||
-           CompositingReasonFinder::CompositingReasonsForAnimation(
-               object.StyleRef())));
+  bool needs_compositing_for_animation =
+      (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
+       RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
+          ? CompositingReasonFinder::CompositingReasonsForAnimation(
+                object.StyleRef())
+          : CompositingReasonFinder::RequiresCompositingForFilterAnimation(
+                object.StyleRef());
+  return needs_compositing_for_animation;
 }
 
 void FragmentPaintPropertyTreeBuilder::UpdateFilter() {
@@ -1036,12 +1094,23 @@ void FragmentPaintPropertyTreeBuilder::UpdateFilter() {
 
       if (auto* layer = ToLayoutBoxModelObject(object_).Layer()) {
         // Try to use the cached filter.
-        if (properties_->Filter())
+        if (properties_->Filter()) {
           state.filter = properties_->Filter()->Filter();
+          state.backdrop_filter = properties_->Filter()->BackdropFilter();
+          state.backdrop_filter_bounds =
+              properties_->Filter()->BackdropFilterBounds();
+        }
 
+        // With BGPT disabled, UpdateFilterReferenceBox gets called from
+        // CompositedLayerMapping::UpdateGraphicsLayerGeometry, but only
+        // for composited layers.
+        if (RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled() ||
+            layer->GetCompositingState() != kPaintsIntoOwnBacking) {
+          layer->UpdateFilterReferenceBox();
+        }
         layer->UpdateCompositorFilterOperationsForFilter(state.filter);
         layer->UpdateCompositorFilterOperationsForBackdropFilter(
-            state.backdrop_filter);
+            state.backdrop_filter, &state.backdrop_filter_bounds);
         layer->ClearFilterOnEffectNodeDirty();
       }
 
@@ -1069,7 +1138,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateFilter() {
       // output pixel may depend on an input pixel outside of the output clip.
       // We should generate a special clip node to represent this expansion.
 
-      if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+      if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
           RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
         // We may begin to composite our subtree prior to an animation starts,
         // but a compositor element ID is only needed when an animation is
@@ -1207,6 +1276,9 @@ static bool IsPrintingRootLayoutView(const LayoutObject& object) {
   return !ToLocalFrame(parent_frame)->GetDocument()->Printing();
 }
 
+// TODO(wangxianzhu): Combine the logic by overriding LayoutBox::
+// ComputeShouldClipOverflow() in LayoutReplaced and subclasses and remove
+// this function.
 static bool NeedsOverflowClipForReplacedContents(
     const LayoutReplaced& replaced) {
   // <svg> may optionally allow overflow. If an overflow clip is required,
@@ -1214,18 +1286,17 @@ static bool NeedsOverflowClipForReplacedContents(
   if (replaced.IsSVGRoot())
     return ToLayoutSVGRoot(replaced).ShouldApplyViewportClip();
 
+  // A replaced element with border-radius always clips the content.
   if (replaced.StyleRef().HasBorderRadius())
     return true;
 
-  // Non-composited images have a micro-optimization to embed clip rects into
-  // the drawings instead of using a clip node.
-  bool is_spv1_composited =
-      replaced.HasLayer() && replaced.Layer()->GetCompositedLayerMapping();
-  if (replaced.IsImage() && !is_spv1_composited)
+  // ImagePainter (but not painters for LayoutMedia whose IsImage is also true)
+  // won't paint outside of the content box.
+  if (replaced.IsImage() && !replaced.IsMedia())
     return false;
 
-  // Embedded objects are always sized to fit the content rect.
-  if (replaced.IsLayoutEmbeddedContent())
+  // Non-plugin embedded contents are always sized to fit the content box.
+  if (replaced.IsLayoutEmbeddedContent() && !replaced.IsEmbeddedObject())
     return false;
 
   return true;
@@ -1368,12 +1439,6 @@ static bool CanOmitOverflowClip(const LayoutObject& object) {
     return false;
 
   const auto& block = ToLayoutBlock(object);
-  // This is a heuristic to avoid costly paint property subtree rebuild on
-  // CanOmitOverflowClip() changes, e.g. on selection. This also avoids omitting
-  // overflow clip when there is any self-painting descendant which is not
-  // covered by ContentsVisualOverflowRect().
-  if (block.HasLayer() && block.Layer()->FirstChild())
-    return false;
   // Selection may overflow.
   if (block.IsSelected())
     return false;
@@ -1382,15 +1447,6 @@ static bool CanOmitOverflowClip(const LayoutObject& object) {
   if (block.HasControlClip() || block.ShouldPaintCarets())
     return false;
 
-  if (object.IsLayoutReplaced()) {
-    const LayoutReplaced& replaced = ToLayoutReplaced(object);
-    if (replaced.StyleRef().HasBorderRadius())
-      return false;
-    LayoutRect replaced_content_rect = replaced.ReplacedContentRect();
-    return replaced_content_rect.IsEmpty() ||
-           replaced.PhysicalContentBoxRect().Contains(replaced_content_rect);
-  }
-
   // We need OverflowClip for hit-testing if the clip rect excluding overlay
   // scrollbars is different from the normal clip rect.
   auto clip_rect = block.OverflowClipRect(LayoutPoint());
@@ -1398,7 +1454,19 @@ static bool CanOmitOverflowClip(const LayoutObject& object) {
       LayoutPoint(), kExcludeOverlayScrollbarSizeForHitTesting);
   if (clip_rect != clip_rect_excluding_overlay_scrollbars)
     return false;
-  return clip_rect.Contains(block.ContentsVisualOverflowRect());
+
+  // Visual overflow extending beyond the clip rect must be clipped.
+  // ContentsVisualOverflowRect() does not include self-painting descendants
+  // (see comment above |BoxOverflowModel|) so, as a simplification, do not
+  // omit the clip if there are any PaintLayer descendants.
+  if (block.HasLayer() && block.Layer()->FirstChild())
+    return false;
+  if (!clip_rect.Contains(block.ContentsVisualOverflowRect()))
+    return false;
+
+  // Content can scroll, and needs to be clipped, if the layout overflow extends
+  // beyond the clip rect.
+  return clip_rect.Contains(block.LayoutOverflowRect());
 }
 
 void FragmentPaintPropertyTreeBuilder::UpdateOverflowClip() {
@@ -1442,7 +1510,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateOverflowClip() {
             viewport_container.LocalToSVGParentTransform().Inverse().MapRect(
                 viewport_container.Viewport()));
       }
-
       const ClipPaintPropertyNode* existing = properties_->OverflowClip();
       bool equal_ignoring_hit_test_rects =
           !!existing &&
@@ -1486,7 +1553,7 @@ void FragmentPaintPropertyTreeBuilder::UpdatePerspective() {
                      ToLayoutSize(context_.current.paint_offset);
       state.flattens_inherited_transform =
           context_.current.should_flatten_inherited_transform;
-      if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+      if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
           RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
         state.rendering_context_id = context_.current.rendering_context_id;
       OnUpdate(properties_->UpdatePerspective(*context_.current.transform,
@@ -1535,8 +1602,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateReplacedContentTransform() {
       LayoutRect layout_replaced_rect = layout_image.ReplacedContentRect();
       layout_replaced_rect.MoveBy(context_.current.paint_offset);
       IntRect replaced_rect = PixelSnappedIntRect(layout_replaced_rect);
-      scoped_refptr<Image> image = layout_image.ImageResource()->GetImage(
-          LayoutSize(replaced_rect.Size()));
+      scoped_refptr<Image> image =
+          layout_image.ImageResource()->GetImage(replaced_rect.Size());
       if (image && !image->IsNull()) {
         IntRect src_rect = image->Rect();
         if (ImageWasTransposed(layout_image, *image))
@@ -1575,18 +1642,62 @@ void FragmentPaintPropertyTreeBuilder::UpdateReplacedContentTransform() {
 static MainThreadScrollingReasons GetMainThreadScrollingReasons(
     const LayoutObject& object,
     MainThreadScrollingReasons ancestor_reasons) {
-  // The current main thread scrolling reasons implementation only changes
-  // reasons at frame boundaries, so we can early-out when not at a LayoutView.
-  // TODO(pdr): Need to find a solution to the style-related main thread
-  // scrolling reasons such as opacity and transform which violate this.
-  if (!object.IsLayoutView())
-    return ancestor_reasons;
-
   auto reasons = ancestor_reasons;
-  if (!object.GetFrame()->GetSettings()->GetThreadedScrollingEnabled())
-    reasons |= MainThreadScrollingReason::kThreadedScrollingDisabled;
-  if (object.GetFrameView()->HasBackgroundAttachmentFixedObjects())
-    reasons |= MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
+  if (!object.IsBox())
+    return reasons;
+
+  if (auto* scrollable_area = ToLayoutBox(object).GetScrollableArea()) {
+    if (scrollable_area->HorizontalScrollbar() &&
+        scrollable_area->HorizontalScrollbar()->IsCustomScrollbar()) {
+      reasons |= MainThreadScrollingReason::kCustomScrollbarScrolling;
+    } else if (scrollable_area->VerticalScrollbar() &&
+               scrollable_area->VerticalScrollbar()->IsCustomScrollbar()) {
+      reasons |= MainThreadScrollingReason::kCustomScrollbarScrolling;
+    }
+  }
+
+  if (object.IsLayoutView()) {
+    if (object.GetFrameView()->HasBackgroundAttachmentFixedObjects()) {
+      reasons |=
+          MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
+    }
+
+    // TODO(pdr): This should apply to all scrollable areas, not just the
+    // viewport. This is not a user-visible bug because the threaded scrolling
+    // setting is only for testing.
+    if (!object.GetFrame()->GetSettings()->GetThreadedScrollingEnabled())
+      reasons |= MainThreadScrollingReason::kThreadedScrollingDisabled;
+
+    // LocalFrameView::HasVisibleSlowRepaintViewportConstrainedObjects depends
+    // on compositing (LayoutBoxModelObject::IsSlowRepaintConstrainedObject
+    // calls PaintLayer::GetCompositingState, and PaintLayer::SticksToScroller
+    // depends on the ancestor overflow layer) so CompositeAfterPaint cannot
+    // use LocalFrameView::HasVisibleSlowRepaintViewportConstrainedObjects.
+    if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+      // Force main-thread scrolling if the frame has uncomposited position:
+      // fixed elements. Note: we care about this not only for input-scrollable
+      // frames but also for overflow: hidden frames, because script can run
+      // composited smooth-scroll animations. For this reason, we use
+      // HasOverflow instead of ScrollsOverflow (which is false for overflow:
+      // hidden).
+      if (ToLayoutBox(object).GetScrollableArea()->HasOverflow() &&
+          object.StyleRef().VisibleToHitTesting() &&
+          object.GetFrameView()
+              ->HasVisibleSlowRepaintViewportConstrainedObjects()) {
+        reasons |=
+            MainThreadScrollingReason::kHasNonLayerViewportConstrainedObjects;
+      }
+    } else {
+      // TODO(pdr): CompositeAfterPaint should use an approach like
+      // CompositingReasonFinder::RequiresCompositingForScrollDependentPosition,
+      // adding main thread reasons if compositing was not required. This has
+      // a small behavior change because main thread reasons will be added in
+      // the case where a non-scroll compositing trigger (e.g., transform)
+      // requires compositing, even though a main thread reason is not needed.
+      // CompositingReasonFinder::RequiresCompositingForScrollDependentPosition
+      // will need to be changed to not query PaintLayer::AncestorOverflowLayer.
+    }
+  }
   return reasons;
 }
 
@@ -1628,7 +1739,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
         }
       }
 
-      if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+      if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
           RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
         state.compositor_element_id = scrollable_area->GetCompositorElementId();
 
@@ -1643,8 +1754,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
         state.snap_container_data = snap_coordinator->GetSnapContainerData(box);
       }
 
-      OnUpdate(properties_->UpdateScroll(*context_.current.scroll,
-                                         std::move(state)));
+      OnUpdateScroll(properties_->UpdateScroll(*context_.current.scroll,
+                                               std::move(state)));
 
       if (scrollable_area->VerticalScrollbar() ||
           scrollable_area->HasLayerForVerticalScrollbar()) {
@@ -1674,7 +1785,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
         OnClear(properties_->ClearHorizontalScrollbarEffect());
       }
     } else {
-      OnClear(properties_->ClearScroll());
+      OnClearScroll(properties_->ClearScroll());
       OnClear(properties_->ClearVerticalScrollbarEffect());
       OnClear(properties_->ClearHorizontalScrollbarEffect());
     }
@@ -1692,7 +1803,7 @@ void FragmentPaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation() {
           context_.current.should_flatten_inherited_transform;
       state.is_identity_or_2d_translation = true;
       state.direct_compositing_reasons = CompositingReasonsForScroll(box);
-      if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+      if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
           RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
         state.rendering_context_id = context_.current.rendering_context_id;
       }
@@ -1854,28 +1965,34 @@ static LayoutRect BoundingBoxInPaginationContainer(
         &enclosing_pagination_layer);
   }
 
-  // Non-boxes paint in the space of their containing block.
-  if (!object.IsBox()) {
-    const LayoutBox& containining_block = *object.ContainingBlock();
-    LayoutRect bounds_rect;
+  LayoutRect local_bounds;
+  const LayoutBox* local_space_object = nullptr;
+  if (object.IsBox()) {
+    local_space_object = ToLayoutBox(&object);
+    local_bounds = local_space_object->BorderBoxRect();
+  } else {
+    // Non-boxes paint in the space of their containing block.
+    local_space_object = object.ContainingBlock();
     // For non-SVG we can get a more accurate result with LocalVisualRect,
     // instead of falling back to the bounds of the enclosing block.
     if (!object.IsSVG()) {
-      bounds_rect = object.LocalVisualRect();
-      containining_block.FlipForWritingMode(bounds_rect);
+      local_bounds = object.LocalVisualRect();
+      local_space_object->FlipForWritingMode(local_bounds);
     } else {
-      bounds_rect = LayoutRect(SVGLayoutSupport::LocalVisualRect(object));
+      local_bounds = LayoutRect(SVGLayoutSupport::LocalVisualRect(object));
     }
+  }
 
-    return MapLocalRectToAncestorLayer(containining_block, bounds_rect,
-                                       enclosing_pagination_layer);
+  // The link highlight covers block visual overflows, continuations, etc. which
+  // may intersect with more fragments than the object itself.
+  if (NeedsLinkHighlightEffect(object)) {
+    local_bounds.Unite(UnionRect(object.PhysicalOutlineRects(
+        LayoutPoint(), NGOutlineType::kIncludeBlockVisualOverflow)));
   }
 
   // Compute the bounding box without transforms.
-  // The object is guaranteed to be a box due to the logic above.
-  const LayoutBox& box = ToLayoutBox(object);
-  auto bounding_box = MapLocalRectToAncestorLayer(box, box.BorderBoxRect(),
-                                                  enclosing_pagination_layer);
+  auto bounding_box = MapLocalRectToAncestorLayer(
+      *local_space_object, local_bounds, enclosing_pagination_layer);
 
   if (!IsRepeatingTableSection(object))
     return bounding_box;
@@ -1966,7 +2083,7 @@ void FragmentPaintPropertyTreeBuilder::UpdatePaintOffset() {
     return;
   }
 
-  if (object_.IsFloating())
+  if (object_.IsFloating() && !object_.IsInLayoutNGInlineFormattingContext())
     context_.current.paint_offset = context_.paint_offset_for_float;
 
   // Multicolumn spanners are painted starting at the multicolumn container (but
@@ -2073,7 +2190,7 @@ void FragmentPaintPropertyTreeBuilder::SetNeedsPaintPropertyUpdateIfNeeded() {
     return;
 
   // CSS mask and clip-path comes with an implicit clip to the border box.
-  // Currently only SPv2 generate and take advantage of those.
+  // Currently only CAP generate and take advantage of those.
   const bool box_generates_property_nodes_for_mask_and_clip_path =
       box.HasMask() || box.HasClipPath();
   // The overflow clip paint property depends on the border box rect through
@@ -2267,17 +2384,29 @@ void PaintPropertyTreeBuilder::InitSingleFragmentFromParent(
   // should also skip any fragment clip created by the skipped pagination
   // container. We also need to skip fragment clip if the object is a paint
   // invalidation container which doesn't allow fragmentation.
+  // TODO(crbug.com/803649): This may also skip necessary clips under the
+  // skipped fragment clip.
   if (object_.IsColumnSpanAll() ||
-      (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled() &&
+      (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
        object_.IsPaintInvalidationContainer() &&
        ToLayoutBoxModelObject(object_).Layer()->EnclosingPaginationLayer())) {
     if (const auto* pagination_layer_in_tree_hierarchy =
             object_.Parent()->EnclosingLayer()->EnclosingPaginationLayer()) {
-      const auto* properties =
-          pagination_layer_in_tree_hierarchy->GetLayoutObject()
-              .FirstFragment()
-              .PaintProperties();
+      const auto& clip_container =
+          pagination_layer_in_tree_hierarchy->GetLayoutObject();
+      const auto* properties = clip_container.FirstFragment().PaintProperties();
       if (properties && properties->FragmentClip()) {
+        // However, because we don't allow an object's clip to escape the
+        // output clip of the object's effect, we can't skip fragment clip if
+        // between this object and the container there is any effect that has
+        // an output clip. TODO(crbug.com/803649): Fix this workaround.
+        const auto* clip_container_effect =
+            clip_container.FirstFragment().PostIsolationEffect();
+        for (const auto* effect = context_.fragments[0].current_effect;
+             effect != clip_container_effect; effect = effect->Parent()) {
+          if (effect->OutputClip())
+            return;
+        }
         context_.fragments[0].current.clip =
             properties->FragmentClip()->Parent();
       }
@@ -2286,7 +2415,7 @@ void PaintPropertyTreeBuilder::InitSingleFragmentFromParent(
 }
 
 void PaintPropertyTreeBuilder::UpdateCompositedLayerPaginationOffset() {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   const auto* enclosing_pagination_layer =
@@ -2864,11 +2993,11 @@ bool PaintPropertyTreeBuilder::UpdateFragments() {
       object_.StyleRef().ClipPath() || NeedsPaintOffsetTranslation(object_) ||
       NeedsStickyTranslation(object_) || NeedsTransform(object_) ||
       NeedsClipPathClip(object_) || NeedsEffect(object_) ||
-      NeedsLinkHighlightEffect(object_) ||
       NeedsTransformForNonRootSVG(object_) || NeedsFilter(object_) ||
       NeedsCssClip(object_) || NeedsInnerBorderRadiusClip(object_) ||
       NeedsOverflowClip(object_) || NeedsPerspective(object_) ||
       NeedsReplacedContentTransform(object_) ||
+      NeedsLinkHighlightEffect(object_) ||
       NeedsScrollOrScrollTranslation(object_);
   // Need of fragmentation clip will be determined in CreateFragmentContexts().
 

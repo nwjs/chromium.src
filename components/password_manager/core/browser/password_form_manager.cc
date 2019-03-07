@@ -54,21 +54,6 @@ namespace {
 // defined in new_password_form_manager.cc.
 namespace password_form_manager_helpers {
 
-// Returns true iff |best_matches| contain a preferred credential with a
-// username other than |preferred_username|.
-bool DidPreferenceChange(
-    const std::map<base::string16, const PasswordForm*>& best_matches,
-    const base::string16& preferred_username) {
-  for (const auto& key_value_pair : best_matches) {
-    const PasswordForm& form = *key_value_pair.second;
-    if (form.preferred && !form.is_public_suffix_match &&
-        form.username_value != preferred_username) {
-      return true;
-    }
-  }
-  return false;
-}
-
 // Filter sensitive information, duplicates and |username_value| out from
 // |form->other_possible_usernames|.
 void SanitizePossibleUsernames(PasswordForm* form) {
@@ -137,7 +122,6 @@ PasswordFormManager::PasswordFormManager(
       is_possible_change_password_form_without_username_(
           observed_form.IsPossibleChangePasswordFormWithoutUsername()),
       client_(client),
-      user_action_(UserAction::kNone),
       form_saver_(std::move(form_saver)),
       owned_form_fetcher_(
           form_fetcher ? nullptr
@@ -310,12 +294,7 @@ void PasswordFormManager::Save() {
   metrics_recorder_->SetSubmissionIndicatorEvent(
       submitted_form_->submission_event);
 
-  if ((user_action_ == UserAction::kNone) &&
-      password_form_manager_helpers::DidPreferenceChange(
-          best_matches_, pending_credentials_.username_value)) {
-    SetUserAction(UserAction::kChoose);
-  }
-  if (user_action_ == UserAction::kOverridePassword &&
+  if (password_overridden_ &&
       pending_credentials_.type == PasswordForm::TYPE_GENERATED &&
       !HasGeneratedPassword()) {
     metrics_util::LogPasswordGenerationSubmissionEvent(
@@ -646,6 +625,10 @@ void PasswordFormManager::CreatePendingCredentials() {
   DCHECK(submitted_form_);
   ValueElementPair password_to_save(PasswordToSave(*submitted_form_));
 
+  // Calculate the user's action based on existing matches and the submitted
+  // form.
+  metrics_recorder_->CalculateUserAction(best_matches_, *submitted_form_);
+
   // Look for the actually submitted credentials in the list of previously saved
   // credentials that were available to autofilling.
   const PasswordForm* saved_form = FindBestSavedMatch(submitted_form_.get());
@@ -660,8 +643,6 @@ void PasswordFormManager::CreatePendingCredentials() {
       // from Android apps, store a copy with the current origin and signon
       // realm. This ensures that on the next visit, a precise match is found.
       is_new_login_ = true;
-      SetUserAction(password_overridden_ ? UserAction::kOverridePassword
-                                         : UserAction::kChoosePslMatch);
 
       // Update credential to reflect that it has been used for submission.
       // If this isn't updated, then password generation uploads are off for
@@ -700,11 +681,6 @@ void PasswordFormManager::CreatePendingCredentials() {
       }
     } else {  // Not a PSL match but a match of an already stored credential.
       is_new_login_ = false;
-      if (password_overridden_) {
-        // Stored credential matched by username but with mismatching password.
-        // This means the user has overridden the password.
-        SetUserAction(UserAction::kOverridePassword);
-      }
     }
   } else if (!best_matches_.empty() &&
              submitted_form_->type != autofill::PasswordForm::TYPE_API &&
@@ -851,8 +827,6 @@ const PasswordForm* PasswordFormManager::FindBestSavedMatch(
 
 void PasswordFormManager::CreatePendingCredentialsForNewCredentials(
     const base::string16& password_element) {
-  // User typed in a new, unknown username.
-  SetUserAction(UserAction::kOverrideUsernameAndPassword);
   pending_credentials_ = observed_form_;
   pending_credentials_.username_element = submitted_form_->username_element;
   pending_credentials_.username_value = submitted_form_->username_value;
@@ -1052,15 +1026,9 @@ std::unique_ptr<PasswordFormManager> PasswordFormManager::Clone() {
       retry_password_form_password_update_;
   result->is_possible_change_password_form_without_username_ =
       is_possible_change_password_form_without_username_;
-  result->user_action_ = user_action_;
   result->votes_uploader_ = votes_uploader_;
 
   return result;
-}
-
-void PasswordFormManager::SetUserAction(UserAction user_action) {
-  user_action_ = user_action;
-  metrics_recorder_->SetUserAction(user_action);
 }
 
 std::vector<PasswordForm> PasswordFormManager::FindOtherCredentialsToUpdate() {

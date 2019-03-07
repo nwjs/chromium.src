@@ -236,15 +236,6 @@ void LoginDisplayHostMojo::OnBrowserCreated() {
   NOTIMPLEMENTED();
 }
 
-void LoginDisplayHostMojo::StartVoiceInteractionOobe() {
-  NOTIMPLEMENTED();
-}
-
-bool LoginDisplayHostMojo::IsVoiceInteractionOobe() {
-  NOTIMPLEMENTED();
-  return false;
-}
-
 void LoginDisplayHostMojo::ShowGaiaDialog(
     bool can_close,
     const base::Optional<AccountId>& prefilled_account) {
@@ -420,12 +411,6 @@ void LoginDisplayHostMojo::HandleFocusOobeDialog() {
     return;
 
   dialog_->GetWebContents()->Focus();
-}
-
-void LoginDisplayHostMojo::HandleLoginAsGuest() {
-  existing_user_controller_->Login(UserContext(user_manager::USER_TYPE_GUEST,
-                                               user_manager::GuestAccountId()),
-                                   chromeos::SigninSpecifics());
 }
 
 void LoginDisplayHostMojo::HandleLaunchPublicSession(

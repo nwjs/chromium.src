@@ -14,6 +14,7 @@
 #include "ash/public/interfaces/session_controller.mojom.h"
 #include "ash/public/interfaces/voice_interaction_controller.mojom.h"
 #include "base/callback.h"
+#include "base/component_export.h"
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
 #include "base/scoped_observer.h"
@@ -36,23 +37,27 @@ class GoogleServiceAuthError;
 
 namespace base {
 class OneShotTimer;
-}
+}  // namespace base
 
 namespace network {
 class NetworkConnectionTracker;
 }  // namespace network
 
+namespace power_manager {
+class PowerSupplyProperties;
+}  // namespace power_manager
+
 namespace chromeos {
 namespace assistant {
 
 class AssistantManagerService;
-class AssistantSettingsManager;
 
-class Service : public service_manager::Service,
-                public chromeos::PowerManagerClient::Observer,
-                public ash::mojom::SessionActivationObserver,
-                public mojom::AssistantPlatform,
-                public ash::DefaultVoiceInteractionObserver {
+class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
+    : public service_manager::Service,
+      public chromeos::PowerManagerClient::Observer,
+      public ash::mojom::SessionActivationObserver,
+      public mojom::AssistantPlatform,
+      public ash::DefaultVoiceInteractionObserver {
  public:
   Service(service_manager::mojom::ServiceRequest request,
           network::NetworkConnectionTracker* network_connection_tracker,
@@ -67,14 +72,29 @@ class Service : public service_manager::Service,
     return assistant_controller_.get();
   }
 
+  ash::mojom::AssistantAlarmTimerController*
+  assistant_alarm_timer_controller() {
+    return assistant_alarm_timer_controller_.get();
+  }
+
+  ash::mojom::AssistantNotificationController*
+  assistant_notification_controller() {
+    return assistant_notification_controller_.get();
+  }
+
   ash::mojom::AssistantScreenContextController*
   assistant_screen_context_controller() {
     return assistant_screen_context_controller_.get();
   }
 
   ash::AssistantStateBase* assistant_state() { return &assistant_state_; }
+  // net::URLRequestContextGetter requires a base::SingleThreadTaskRunner.
   scoped_refptr<base::SingleThreadTaskRunner> io_task_runner() {
     return io_task_runner_;
+  }
+
+  scoped_refptr<base::SequencedTaskRunner> main_task_runner() {
+    return main_task_runner_;
   }
 
   void RequestAccessToken();
@@ -98,6 +118,7 @@ class Service : public service_manager::Service,
   void BindAssistantPlatformConnection(mojom::AssistantPlatformRequest request);
 
   // chromeos::PowerManagerClient::Observer overrides:
+  void PowerChanged(const power_manager::PowerSupplyProperties& prop) override;
   void SuspendDone(const base::TimeDelta& sleep_duration) override;
 
   // ash::mojom::SessionActivationObserver overrides:
@@ -107,6 +128,7 @@ class Service : public service_manager::Service,
   // ash::mojom::VoiceInteractionObserver:
   void OnVoiceInteractionSettingsEnabled(bool enabled) override;
   void OnVoiceInteractionHotwordEnabled(bool enabled) override;
+  void OnVoiceInteractionHotwordAlwaysOn(bool always_on) override;
   void OnLocaleChanged(const std::string& locale) override;
 
   void MaybeRestartAssistantManager();
@@ -139,6 +161,8 @@ class Service : public service_manager::Service,
 
   void UpdateListeningState();
 
+  bool ShouldEnableHotword();
+
   service_manager::ServiceBinding service_binding_;
   service_manager::BinderRegistry registry_;
 
@@ -153,10 +177,9 @@ class Service : public service_manager::Service,
 
   AccountId account_id_;
   std::unique_ptr<AssistantManagerService> assistant_manager_service_;
-  AssistantSettingsManager* assistant_settings_manager_;
   std::unique_ptr<base::OneShotTimer> token_refresh_timer_;
   int token_refresh_error_backoff_factor = 1;
-  scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner_;
+  scoped_refptr<base::SequencedTaskRunner> main_task_runner_;
   ScopedObserver<chromeos::PowerManagerClient,
                  chromeos::PowerManagerClient::Observer>
       power_manager_observer_;
@@ -167,10 +190,16 @@ class Service : public service_manager::Service,
   bool locked_ = false;
   // Whether there is a pending run for updating AssistantManagerService
   bool pending_restart_assistant_manager_ = false;
+  // Whether the power source is connected.
+  bool power_source_connected_ = false;
 
   base::Optional<std::string> access_token_;
 
   ash::mojom::AssistantControllerPtr assistant_controller_;
+  ash::mojom::AssistantAlarmTimerControllerPtr
+      assistant_alarm_timer_controller_;
+  ash::mojom::AssistantNotificationControllerPtr
+      assistant_notification_controller_;
   ash::mojom::AssistantScreenContextControllerPtr
       assistant_screen_context_controller_;
   ash::AssistantStateProxy assistant_state_;

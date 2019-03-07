@@ -35,7 +35,6 @@
 #include "third_party/blink/renderer/core/html/link_resource.h"
 #include "third_party/blink/renderer/core/html/link_style.h"
 #include "third_party/blink/renderer/core/html/rel_list.h"
-#include "third_party/blink/renderer/core/loader/link_loader.h"
 #include "third_party/blink/renderer/core/loader/link_loader_client.h"
 #include "third_party/blink/renderer/platform/bindings/trace_wrapper_member.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
@@ -44,6 +43,7 @@ namespace blink {
 
 class KURL;
 class LinkImport;
+class LinkLoader;
 struct LinkLoadParameters;
 
 class CORE_EXPORT HTMLLinkElement final : public HTMLElement,
@@ -58,7 +58,7 @@ class CORE_EXPORT HTMLLinkElement final : public HTMLElement,
   ~HTMLLinkElement() override;
 
   // Returns attributes that should be checked against Trusted Types
-  const HashSet<AtomicString>& GetCheckedAttributeNames() const override;
+  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
 
   KURL Href() const;
   const AtomicString& Rel() const;
@@ -122,7 +122,7 @@ class CORE_EXPORT HTMLLinkElement final : public HTMLElement,
   }
   bool IsCreatedByParser() const { return created_by_parser_; }
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   LinkStyle* GetLinkStyle() const;
@@ -168,7 +168,7 @@ class CORE_EXPORT HTMLLinkElement final : public HTMLElement,
   String integrity_;
   String importance_;
   network::mojom::ReferrerPolicy referrer_policy_;
-  Member<DOMTokenList> sizes_;
+  TraceWrapperMember<DOMTokenList> sizes_;
   Vector<IntSize> icon_sizes_;
   TraceWrapperMember<RelList> rel_list_;
   LinkRelAttribute rel_attribute_;

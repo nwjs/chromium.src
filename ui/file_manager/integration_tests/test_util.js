@@ -178,19 +178,63 @@ function repeatUntil(checkFunction) {
  */
 function sendBrowserTestCommand(command, callback, opt_debug) {
   const caller = getCaller();
-  if (typeof command.name !== 'string')
+  if (typeof command.name !== 'string') {
     chrome.test.fail('Invalid test command: ' + JSON.stringify(command));
+  }
   repeatUntil(function sendTestCommand() {
     const tryAgain = pending(caller, 'Sent BrowserTest ' + command.name);
+    return sendTestMessage(command)
+        .then((result) => {
+          if (typeof result !== 'string') {
+            return tryAgain;
+          }
+          if (opt_debug) {
+            console.log('BrowserTest ' + command.name + ': ' + result);
+          }
+          callback(result);
+        })
+        .catch((error) => {
+          console.log(error.stack || error);
+          return tryAgain;
+        });
+  });
+}
+
+/**
+ * Waits for an app window with the URL |windowUrl|.
+ * @param {string} windowUrl URL of the app window to wait for.
+ * @return {Promise} Promise to be fulfilled with the window ID of the
+ *     app window.
+ */
+function waitForAppWindow(windowUrl) {
+  const caller = getCaller();
+  const command = {'name': 'getAppWindowId', 'windowUrl': windowUrl};
+  return repeatUntil(function() {
     return sendTestMessage(command).then((result) => {
-      if (typeof result !== 'string')
-        return tryAgain;
-      if (opt_debug)
-        console.log('BrowserTest ' + command.name + ': ' + result);
-      callback(result);
-    }).catch((error) => {
-      console.log(error.stack || error);
-      return tryAgain;
+      if (result == 'none') {
+        return pending(caller, 'getAppWindowId ' + windowUrl);
+      }
+      return result;
+    });
+  });
+}
+
+/**
+ * Wait for the count of windows for app |appId| to equal |expectedCount|.
+ * @param{string} appId ID of the app to count windows for.
+ * @param{number} expectedCount Number of app windows to wait for.
+ * @return {Promise} Promise to be fulfilled when the number of app windows
+ *     equals |expectedCount|.
+ */
+function waitForAppWindowCount(appId, expectedCount) {
+  const caller = getCaller();
+  const command = {'name': 'countAppWindows', 'appId': appId};
+  return repeatUntil(function() {
+    return sendTestMessage(command).then((result) => {
+      if (result != expectedCount) {
+        return pending(caller, 'waitForAppWindowCount ' + appId + ' ' + result);
+      }
+      return true;
     });
   });
 }
@@ -413,7 +457,9 @@ function TestEntryInfo(options) {
 }
 
 TestEntryInfo.getExpectedRows = function(entries) {
-  return entries.map(function(entry) { return entry.getExpectedRow(); });
+  return entries.map(function(entry) {
+    return entry.getExpectedRow();
+  });
 };
 
 /**
@@ -452,6 +498,17 @@ var ENTRIES = {
     lastModifiedTime: 'Jul 4, 2012, 10:35 AM',
     nameText: 'world.ogv',
     sizeText: '59 KB',
+    typeText: 'OGG video'
+  }),
+
+  video: new TestEntryInfo({
+    type: EntryType.FILE,
+    sourceFileName: 'video_long.ogv',
+    targetPath: 'video_long.ogv',
+    mimeType: 'video/ogg',
+    lastModifiedTime: 'Jan 14, 2019, 16:01 PM',
+    nameText: 'video_long.ogv',
+    sizeText: '166 KB',
     typeText: 'OGG video'
   }),
 
@@ -705,6 +762,17 @@ var ENTRIES = {
     lastModifiedTime: 'Jan 1, 2014, 1:00 AM',
     nameText: 'absolute_paths.zip',
     sizeText: '400 bytes',
+    typeText: 'Zip archive'
+  }),
+
+  zipArchiveEncrypted: new TestEntryInfo({
+    type: EntryType.FILE,
+    sourceFileName: 'encrypted.zip',
+    targetPath: 'encrypted.zip',
+    mimeType: 'application/x-zip',
+    lastModifiedTime: 'Jan 1, 2014, 1:00 AM',
+    nameText: 'encrypted.zip',
+    sizeText: '589 bytes',
     typeText: 'Zip archive'
   }),
 
@@ -1045,5 +1113,16 @@ var ENTRIES = {
     nameText: 'file.txt',
     sizeText: '51 bytes',
     typeText: 'Plain text'
+  }),
+
+  crdownload: new TestEntryInfo({
+    type: EntryType.FILE,
+    sourceFileName: 'text.txt',
+    targetPath: 'hello.crdownload',
+    mimeType: 'application/octet-stream',
+    lastModifiedTime: 'Sep 4, 1998, 12:34 PM',
+    nameText: 'hello.crdownload',
+    sizeText: '51 bytes',
+    typeText: 'CRDOWNLOAD file'
   }),
 };

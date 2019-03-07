@@ -93,6 +93,11 @@ void FeedLoggingMetrics::OnPageShown(const int suggestions_count) {
       suggestions_count, kMaxSuggestionsTotal);
 }
 
+void FeedLoggingMetrics::OnPagePopulated(base::TimeDelta timeToPopulate) {
+  UMA_HISTOGRAM_MEDIUM_TIMES("ContentSuggestions.Feed.PagePopulatingTime",
+                             timeToPopulate);
+}
+
 void FeedLoggingMetrics::OnSuggestionShown(int position,
                                            base::Time publish_date,
                                            float score,
@@ -217,8 +222,9 @@ void FeedLoggingMetrics::OnMoreButtonClicked(int position) {
 }
 
 void FeedLoggingMetrics::OnSpinnerShown(base::TimeDelta shown_time) {
-  base::UmaHistogramLongTimes(
-      "ContentSuggestions.FetchPendingSpinner.VisibleDuration", shown_time);
+  base::UmaHistogramTimes(
+      "ContentSuggestions.Feed.FetchPendingSpinner.VisibleDuration",
+      shown_time);
 }
 
 void FeedLoggingMetrics::ReportScrolledAfterOpen() {

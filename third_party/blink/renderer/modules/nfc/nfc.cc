@@ -5,7 +5,6 @@
 #include "third_party/blink/renderer/modules/nfc/nfc.h"
 
 #include "services/service_manager/public/cpp/interface_provider.h"
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_array_buffer.h"
@@ -646,11 +645,14 @@ NFC::NFC(LocalFrame* frame)
   if (!IsSupportedInContext(GetExecutionContext(), error_message))
     return;
 
-  frame->GetInterfaceProvider().GetInterface(mojo::MakeRequest(&nfc_));
+  // See https://bit.ly/2S0zRAS for task types.
+  auto task_runner = frame->GetTaskRunner(TaskType::kMiscPlatformAPI);
+  frame->GetInterfaceProvider().GetInterface(
+      mojo::MakeRequest(&nfc_, task_runner));
   nfc_.set_connection_error_handler(
       WTF::Bind(&NFC::OnConnectionError, WrapWeakPersistent(this)));
   device::mojom::blink::NFCClientPtr client;
-  client_binding_.Bind(mojo::MakeRequest(&client));
+  client_binding_.Bind(mojo::MakeRequest(&client, task_runner), task_runner);
   nfc_->SetClient(std::move(client));
 }
 
@@ -819,7 +821,7 @@ void NFC::PageVisibilityChanged() {
 
   // NFC operations should be suspended.
   // https://w3c.github.io/web-nfc/#nfc-suspended
-  if (GetPage()->VisibilityState() == mojom::PageVisibilityState::kVisible)
+  if (GetPage()->IsPageVisible())
     nfc_->ResumeNFCOperations();
   else
     nfc_->SuspendNFCOperations();
@@ -859,8 +861,10 @@ void NFC::OnWatch(const Vector<uint32_t>& ids,
     auto it = callbacks_.find(id);
     if (it != callbacks_.end()) {
       V8MessageCallback* callback = it->value;
-      ScriptState* script_state = callback->CallbackRelevantScriptState();
-      DCHECK(script_state);
+      ScriptState* script_state =
+          callback->CallbackRelevantScriptStateOrReportError("NFC", "watch");
+      if (!script_state)
+        continue;
       ScriptState::Scope scope(script_state);
       const NFCMessage* nfc_message = ToNFCMessage(script_state, message);
       callback->InvokeAndReportException(nullptr, nfc_message);

@@ -20,6 +20,7 @@
 #include "net/third_party/quic/core/quic_crypto_client_stream.h"
 #include "net/third_party/quic/core/quic_packets.h"
 #include "net/third_party/quic/core/quic_session.h"
+#include "net/third_party/quic/core/quic_utils.h"
 #include "net/third_party/quic/core/tls_client_handshaker.h"
 #include "net/third_party/quic/core/tls_server_handshaker.h"
 #include "net/third_party/quic/platform/api/quic_flags.h"
@@ -277,8 +278,8 @@ TEST_P(QuicCryptoServerStreamTest, StatelessRejectAfterCHLO) {
   ASSERT_TRUE(client_state->has_server_designated_connection_id());
   const QuicConnectionId server_designated_connection_id =
       client_state->GetNextServerDesignatedConnectionId();
-  const QuicConnectionId expected_id =
-      server_connection_->random_generator()->RandUint64();
+  const QuicConnectionId expected_id = QuicUtils::CreateRandomConnectionId(
+      server_connection_->random_generator());
   EXPECT_EQ(expected_id, server_designated_connection_id);
   EXPECT_FALSE(client_state->has_server_designated_connection_id());
   ASSERT_TRUE(client_state->IsComplete(QuicWallTime::FromUNIXSeconds(0)));
@@ -308,8 +309,8 @@ TEST_P(QuicCryptoServerStreamTest, ConnectedAfterStatelessHandshake) {
   ASSERT_TRUE(client_state->has_server_designated_connection_id());
   const QuicConnectionId server_designated_connection_id =
       client_state->GetNextServerDesignatedConnectionId();
-  const QuicConnectionId expected_id =
-      server_connection_->random_generator()->RandUint64();
+  const QuicConnectionId expected_id = QuicUtils::CreateRandomConnectionId(
+      server_connection_->random_generator());
   EXPECT_EQ(expected_id, server_designated_connection_id);
   EXPECT_FALSE(client_state->has_server_designated_connection_id());
   ASSERT_TRUE(client_state->IsComplete(QuicWallTime::FromUNIXSeconds(0)));
@@ -486,28 +487,6 @@ TEST_P(QuicCryptoServerStreamTest, DoesPeerSupportStatelessRejects) {
   stateful_reject_config.ToHandshakeMessage(&message_);
   EXPECT_FALSE(
       QuicCryptoServerStreamPeer::DoesPeerSupportStatelessRejects(message_));
-}
-
-TEST_P(QuicCryptoServerStreamTest, TokenBindingNegotiated) {
-  Initialize();
-
-  client_options_.token_binding_params = QuicTagVector{kTB10, kP256};
-  CompleteCryptoHandshake();
-  EXPECT_EQ(
-      kTB10,
-      server_stream()->crypto_negotiated_params().token_binding_key_param);
-  EXPECT_TRUE(server_stream()->encryption_established());
-  EXPECT_TRUE(server_stream()->handshake_confirmed());
-}
-
-TEST_P(QuicCryptoServerStreamTest, NoTokenBindingWithoutClientSupport) {
-  Initialize();
-
-  CompleteCryptoHandshake();
-  EXPECT_EQ(
-      0u, server_stream()->crypto_negotiated_params().token_binding_key_param);
-  EXPECT_TRUE(server_stream()->encryption_established());
-  EXPECT_TRUE(server_stream()->handshake_confirmed());
 }
 
 class QuicCryptoServerStreamTestWithFailingProofSource

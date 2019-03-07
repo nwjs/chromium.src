@@ -97,9 +97,13 @@ class CORE_EXPORT ThreadableLoader final
   // also for cancellation happened inside the loader.)
   //
   // ThreadableLoaderClient methods may call Cancel().
+  //
+  // The specified ResourceFetcher if non-null, or otherwise
+  // ExecutionContext::Fetcher() is used.
   ThreadableLoader(ExecutionContext&,
                    ThreadableLoaderClient*,
-                   const ResourceLoaderOptions&);
+                   const ResourceLoaderOptions&,
+                   ResourceFetcher* = nullptr);
   ~ThreadableLoader() override;
 
   // Exposed for testing. Code outside this class should not call this function.
@@ -152,13 +156,13 @@ class CORE_EXPORT ThreadableLoader final
   void ResponseReceived(Resource*,
                         const ResourceResponse&,
                         std::unique_ptr<WebDataConsumerHandle>) override;
-  void SetSerializedCachedMetadata(Resource*, const char*, size_t) override;
+  void SetSerializedCachedMetadata(Resource*, const uint8_t*, size_t) override;
   void DataReceived(Resource*, const char* data, size_t data_length) override;
   bool RedirectReceived(Resource*,
                         const ResourceRequest&,
                         const ResourceResponse&) override;
   void RedirectBlocked() override;
-  void DataDownloaded(Resource*, int) override;
+  void DataDownloaded(Resource*, unsigned long long) override;
   void DidReceiveResourceTiming(Resource*, const ResourceTimingInfo&) override;
   void DidDownloadToBlob(Resource*, scoped_refptr<BlobDataHandle>) override;
 
@@ -209,6 +213,7 @@ class CORE_EXPORT ThreadableLoader final
 
   Member<ThreadableLoaderClient> client_;
   Member<ExecutionContext> execution_context_;
+  Member<ResourceFetcher> resource_fetcher_;
 
   TimeDelta timeout_;
   // Some items may be overridden by m_forceDoNotAllowStoredCredentials and

@@ -39,7 +39,6 @@
 #include "ui/gfx/geometry/point3_f.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/interpolated_transform.h"
-#include "ui/gfx/path.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gfx/transform.h"
@@ -155,85 +154,6 @@ Widget* View::GetWidget() {
   return const_cast<Widget*>(const_cast<const View*>(this)->GetWidget());
 }
 
-void View::AddChildView(View* view) {
-  if (view->parent_ == this)
-    return;
-  AddChildViewAt(view, child_count());
-}
-
-void View::AddChildViewAt(View* view, int index) {
-  CHECK_NE(view, this) << "You cannot add a view as its own child";
-  DCHECK_GE(index, 0);
-  DCHECK_LE(index, child_count());
-
-  // If |view| has a parent, remove it from its parent.
-  View* parent = view->parent_;
-  ui::NativeTheme* old_theme = nullptr;
-  Widget* old_widget = nullptr;
-  if (parent) {
-    old_theme = view->GetNativeTheme();
-    old_widget = view->GetWidget();
-    if (parent == this) {
-      ReorderChildView(view, index);
-      return;
-    }
-    parent->DoRemoveChildView(view, true, true, false, this);
-  }
-
-  // Sets the prev/next focus views.
-  InitFocusSiblings(view, index);
-
-  view->parent_ = this;
-#if DCHECK_IS_ON()
-  DCHECK(!iterating_);
-#endif
-  children_.insert(children_.begin() + index, view);
-
-  // Ensure the layer tree matches the view tree before calling to any client
-  // code. This way if client code further modifies the view tree we are in a
-  // sane state.
-  const bool did_reparent_any_layers = view->UpdateParentLayers();
-  Widget* widget = GetWidget();
-  if (did_reparent_any_layers && widget)
-    widget->LayerTreeChanged();
-
-  ReorderLayers();
-
-  // Make sure the visibility of the child layers are correct.
-  // If any of the parent View is hidden, then the layers of the subtree
-  // rooted at |this| should be hidden. Otherwise, all the child layers should
-  // inherit the visibility of the owner View.
-  view->UpdateLayerVisibility();
-
-  if (widget) {
-    const ui::NativeTheme* new_theme = view->GetNativeTheme();
-    if (new_theme != old_theme)
-      view->PropagateNativeThemeChanged(new_theme);
-  }
-
-  ViewHierarchyChangedDetails details(true, this, view, parent);
-
-  for (View* v = this; v; v = v->parent_)
-    v->ViewHierarchyChangedImpl(false, details);
-
-  view->PropagateAddNotifications(details, widget && widget != old_widget);
-
-  UpdateTooltip();
-
-  if (widget) {
-    RegisterChildrenForVisibleBoundsNotification(view);
-
-    if (view->visible())
-      view->SchedulePaint();
-  }
-
-  if (layout_manager_.get())
-    layout_manager_->ViewAdded(this, view);
-
-  for (ViewObserver& observer : observers_)
-    observer.OnChildViewAdded(this, view);
-}
-
 void View::ReorderChildView(View* view, int index) {
   DCHECK_EQ(view->parent_, this);
   if (index < 0)
@@ -266,6 +186,7 @@ void View::ReorderChildView(View* view, int index) {
     observer.OnChildViewReordered(this, view);
 
   ReorderLayers();
+  InvalidateLayout();
 }
 
 void View::RemoveChildView(View* view) {
@@ -342,8 +263,7 @@ void View::SetY(int y) {
 
 gfx::Rect View::GetContentsBounds() const {
   gfx::Rect contents_bounds(GetLocalBounds());
-  if (border_.get())
-    contents_bounds.Inset(border_->GetInsets());
+  contents_bounds.Inset(GetInsets());
   return contents_bounds;
 }
 
@@ -440,6 +360,12 @@ int View::GetHeightForWidth(int w) const {
 }
 
 void View::SetVisible(bool visible) {
+  if (parent_) {
+    LayoutManager* const layout_manager = parent_->GetLayoutManager();
+    if (layout_manager && layout_manager->view_setting_visibility_on_ != this)
+      layout_manager->ViewVisibilitySet(parent_, this, visible);
+  }
+
   if (visible != visible_) {
     // If the View is currently visible, schedule paint to refresh parent.
     // TODO(beng): not sure we should be doing this if we have a layer.
@@ -874,7 +800,7 @@ void View::Paint(const PaintInfo& parent_paint_info) {
       clip_recorder.ClipRect(gfx::Rect(paint_info.paint_recording_size()) +
                              paint_info.offset_from_parent());
     } else {
-      gfx::Path clip_path_in_parent = clip_path_;
+      SkPath clip_path_in_parent = clip_path_;
 
       // Transform |clip_path_| from local space to parent recording space.
       gfx::Transform to_parent_recording_space;
@@ -1360,7 +1286,7 @@ gfx::Point View::GetKeyboardContextMenuLocation() {
 // Drag and drop ---------------------------------------------------------------
 
 bool View::GetDropFormats(int* formats,
-                          std::set<ui::Clipboard::FormatType>* format_types) {
+                          std::set<ui::ClipboardFormatType>* format_types) {
   return false;
 }
 
@@ -1973,6 +1899,79 @@ void View::PaintDebugRects(const PaintInfo& parent_paint_info) {
 }
 
 // Tree operations -------------------------------------------------------------
+
+void View::AddChildViewAtImpl(View* view, int index) {
+  CHECK_NE(view, this) << "You cannot add a view as its own child";
+  DCHECK_GE(index, 0);
+  DCHECK_LE(index, child_count());
+
+  // If |view| has a parent, remove it from its parent.
+  View* parent = view->parent_;
+  ui::NativeTheme* old_theme = nullptr;
+  Widget* old_widget = nullptr;
+  if (parent) {
+    old_theme = view->GetNativeTheme();
+    old_widget = view->GetWidget();
+    if (parent == this) {
+      ReorderChildView(view, index);
+      return;
+    }
+    parent->DoRemoveChildView(view, true, true, false, this);
+  }
+
+  // Sets the prev/next focus views.
+  InitFocusSiblings(view, index);
+
+  view->parent_ = this;
+#if DCHECK_IS_ON()
+  DCHECK(!iterating_);
+#endif
+  children_.insert(children_.begin() + index, view);
+
+  // Ensure the layer tree matches the view tree before calling to any client
+  // code. This way if client code further modifies the view tree we are in a
+  // sane state.
+  const bool did_reparent_any_layers = view->UpdateParentLayers();
+  Widget* widget = GetWidget();
+  if (did_reparent_any_layers && widget)
+    widget->LayerTreeChanged();
+
+  ReorderLayers();
+
+  // Make sure the visibility of the child layers are correct.
+  // If any of the parent View is hidden, then the layers of the subtree
+  // rooted at |this| should be hidden. Otherwise, all the child layers should
+  // inherit the visibility of the owner View.
+  view->UpdateLayerVisibility();
+
+  if (widget) {
+    const ui::NativeTheme* new_theme = view->GetNativeTheme();
+    if (new_theme != old_theme)
+      view->PropagateNativeThemeChanged(new_theme);
+  }
+
+  ViewHierarchyChangedDetails details(true, this, view, parent);
+
+  for (View* v = this; v; v = v->parent_)
+    v->ViewHierarchyChangedImpl(false, details);
+
+  view->PropagateAddNotifications(details, widget && widget != old_widget);
+
+  UpdateTooltip();
+
+  if (widget) {
+    RegisterChildrenForVisibleBoundsNotification(view);
+
+    if (view->visible())
+      view->SchedulePaint();
+  }
+
+  if (layout_manager_.get())
+    layout_manager_->ViewAdded(this, view);
+
+  for (ViewObserver& observer : observers_)
+    observer.OnChildViewAdded(this, view);
+}
 
 void View::DoRemoveChildView(View* view,
                              bool update_focus_cycle,

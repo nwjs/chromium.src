@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/picture_in_picture/picture_in_picture_controller_impl.h"
 
+#include "third_party/blink/public/common/manifest/web_display_mode.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
@@ -130,9 +131,11 @@ void PictureInPictureControllerImpl::OnEnteredPictureInPicture(
           event_type_names::kEnterpictureinpicture,
           WrapPersistent(picture_in_picture_window_.Get())));
 
-  element->GetWebMediaPlayer()->RegisterPictureInPictureWindowResizeCallback(
-      WTF::BindRepeating(&PictureInPictureWindow::OnResize,
-                         WrapPersistent(picture_in_picture_window_.Get())));
+  if (element->GetWebMediaPlayer()) {
+    element->GetWebMediaPlayer()->RegisterPictureInPictureWindowResizeCallback(
+        WTF::BindRepeating(&PictureInPictureWindow::OnResize,
+                           WrapPersistent(picture_in_picture_window_.Get())));
+  }
 
   if (resolver)
     resolver->Resolve(picture_in_picture_window_);
@@ -212,14 +215,75 @@ bool PictureInPictureControllerImpl::IsPictureInPictureElement(
   return element == picture_in_picture_element_;
 }
 
+void PictureInPictureControllerImpl::AddToAutoPictureInPictureElementsList(
+    HTMLVideoElement* element) {
+  RemoveFromAutoPictureInPictureElementsList(element);
+  auto_picture_in_picture_elements_.push_back(element);
+}
+
+void PictureInPictureControllerImpl::RemoveFromAutoPictureInPictureElementsList(
+    HTMLVideoElement* element) {
+  DCHECK(element);
+  auto it = std::find(auto_picture_in_picture_elements_.begin(),
+                      auto_picture_in_picture_elements_.end(), element);
+  if (it != auto_picture_in_picture_elements_.end())
+    auto_picture_in_picture_elements_.erase(it);
+}
+
+HTMLVideoElement* PictureInPictureControllerImpl::AutoPictureInPictureElement()
+    const {
+  return auto_picture_in_picture_elements_.IsEmpty()
+             ? nullptr
+             : auto_picture_in_picture_elements_.back();
+}
+
+void PictureInPictureControllerImpl::PageVisibilityChanged() {
+  DCHECK(GetSupplementable());
+
+  // Auto Picture-in-Picture is allowed only in a PWA window.
+  if (!GetSupplementable()->GetFrame() ||
+      !GetSupplementable()->GetFrame()->View() ||
+      GetSupplementable()->GetFrame()->View()->DisplayMode() ==
+          WebDisplayMode::kWebDisplayModeBrowser) {
+    return;
+  }
+
+  // Auto Picture-in-Picture is allowed only in the scope of a PWA.
+  if (!GetSupplementable()->IsInWebAppScope())
+    return;
+
+  // If page becomes visible and Picture-in-Picture element has entered
+  // automatically Picture-in-Picture and is still eligible to Auto
+  // Picture-in-Picture, exit Picture-in-Picture.
+  if (GetSupplementable()->IsPageVisible() && picture_in_picture_element_ &&
+      picture_in_picture_element_ == AutoPictureInPictureElement() &&
+      picture_in_picture_element_->FastHasAttribute(
+          html_names::kAutopictureinpictureAttr)) {
+    ExitPictureInPicture(picture_in_picture_element_, nullptr);
+    return;
+  }
+
+  // If page becomes hidden with no video in Picture-in-Picture and a video
+  // element is allowed to, enter Picture-in-Picture.
+  if (GetSupplementable()->hidden() && !picture_in_picture_element_ &&
+      AutoPictureInPictureElement() &&
+      !AutoPictureInPictureElement()->PausedWhenVisible() &&
+      IsElementAllowed(*AutoPictureInPictureElement()) == Status::kEnabled) {
+    EnterPictureInPicture(AutoPictureInPictureElement(), nullptr);
+  }
+}
+
 void PictureInPictureControllerImpl::Trace(blink::Visitor* visitor) {
   visitor->Trace(picture_in_picture_element_);
+  visitor->Trace(auto_picture_in_picture_elements_);
   visitor->Trace(picture_in_picture_window_);
-  Supplement<Document>::Trace(visitor);
+  PictureInPictureController::Trace(visitor);
+  PageVisibilityObserver::Trace(visitor);
 }
 
 PictureInPictureControllerImpl::PictureInPictureControllerImpl(
     Document& document)
-    : PictureInPictureController(document) {}
+    : PictureInPictureController(document),
+      PageVisibilityObserver(document.GetPage()) {}
 
 }  // namespace blink

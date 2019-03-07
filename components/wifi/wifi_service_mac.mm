@@ -159,12 +159,13 @@ WiFiServiceMac::WiFiServiceMac() : wlan_observer_(nil) {
 }
 
 WiFiServiceMac::~WiFiServiceMac() {
+  UnInitialize();
 }
 
 void WiFiServiceMac::Initialize(
   scoped_refptr<base::SequencedTaskRunner> task_runner) {
   task_runner_.swap(task_runner);
-  interface_.reset([[CWInterface interface] retain]);
+  interface_.reset([[[CWWiFiClient sharedWiFiClient] interface] retain]);
   if (!interface_) {
     DVLOG(1) << "Failed to initialize default interface.";
     return;

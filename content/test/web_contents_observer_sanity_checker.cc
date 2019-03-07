@@ -16,6 +16,7 @@
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "content/public/common/navigation_policy.h"
 #include "net/base/net_errors.h"
 
 namespace content {
@@ -140,8 +141,14 @@ void WebContentsObserverSanityChecker::RenderFrameHostChanged(
         << "RenderFrameHostChanged called more than once for routing pair:"
         << Format(new_host);
   }
-  CHECK(!HasAnyChildren(new_host))
-      << "A frame should not have children before it is committed.";
+
+  // If |new_host| is restored from the BackForwardCache, it can contain
+  // iframes, otherwise it has just been created and can't contain iframes for
+  // the moment.
+  if (!IsBackForwardCacheEnabled()) {
+    CHECK(!HasAnyChildren(new_host))
+        << "A frame should not have children before it is committed.";
+  }
 }
 
 void WebContentsObserverSanityChecker::FrameDeleted(
@@ -309,7 +316,8 @@ void WebContentsObserverSanityChecker::DidStartLoading() {
 }
 
 void WebContentsObserverSanityChecker::DidStopLoading() {
-  CHECK(is_loading_);
+  // TODO(crbug.com/466089): Add back CHECK(is_loading_). The CHECK was removed
+  // because of flaky failures during browser_test shutdown.
   CHECK(!web_contents()->IsLoading());
   is_loading_ = false;
 }

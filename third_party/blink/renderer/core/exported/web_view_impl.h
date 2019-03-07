@@ -101,59 +101,16 @@ class CORE_EXPORT WebViewImpl final : public WebView,
                                       public PageWidgetEventHandler {
  public:
   static WebViewImpl* Create(WebViewClient*,
-                             WebWidgetClient*,
-                             mojom::PageVisibilityState,
+                             bool is_hidden,
+                             bool compositing_enabled,
                              WebViewImpl* opener);
   static HashSet<WebViewImpl*>& AllInstances();
   // Returns true if popup menus should be rendered by the browser, false if
   // they should be rendered by WebKit (which is the default).
   static bool UseExternalPopupMenus();
 
-  // WebWidget methods:
-  void SetLayerTreeView(WebLayerTreeView*) override;
-  void Close() override;
-  WebSize Size() override;
-  void Resize(const WebSize&) override;
-  void ResizeVisualViewport(const WebSize&) override;
-  void DidEnterFullscreen() override;
-  void DidExitFullscreen() override;
-
-  void SetSuppressFrameRequestsWorkaroundFor704763Only(bool) override;
-  void BeginFrame(base::TimeTicks last_frame_time) override;
-  void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) override;
-  void UpdateLifecycle(LifecycleUpdate requested_update,
-                       LifecycleUpdateReason reason) override;
-  void UpdateAllLifecyclePhasesAndCompositeForTesting(bool do_raster) override;
-  void RequestPresentationCallbackForTesting(
-      base::OnceClosure callback) override;
-  void PaintContent(cc::PaintCanvas*, const WebRect&) override;
-  void PaintContentIgnoringCompositing(cc::PaintCanvas*,
-                                       const WebRect&) override;
-  void LayoutAndPaintAsync(base::OnceClosure callback) override;
-  void CompositeAndReadbackAsync(
-      base::OnceCallback<void(const SkBitmap&)> callback) override;
-  void ThemeChanged() override;
-  WebInputEventResult HandleInputEvent(const WebCoalescedInputEvent&) override;
-  WebInputEventResult DispatchBufferedTouchEvents() override;
-  void SetCursorVisibilityState(bool is_visible) override;
-  void ApplyViewportChanges(const ApplyViewportChangesArgs& args) override;
-  void RecordWheelAndTouchScrollingCount(bool has_scrolled_by_wheel,
-                                         bool has_scrolled_by_touch) override;
-  void MouseCaptureLost() override;
-  void SetFocus(bool enable) override;
-  SkColor BackgroundColor() const override;
-  WebPagePopupImpl* GetPagePopup() const override;
-  bool SelectionBounds(WebRect& anchor, WebRect& focus) const override;
-  bool IsAcceleratedCompositingActive() const override;
-  void WillCloseLayerTreeView() override;
-  void DidAcquirePointerLock() override;
-  void DidNotAcquirePointerLock() override;
-  void DidLosePointerLock() override;
-  void ShowContextMenu(WebMenuSourceType) override;
-  WebURL GetURLForDebugTrace() override;
-
   // WebView methods:
-  bool IsWebView() const override { return true; }
+  void SetWebWidgetClient(WebWidgetClient*) override;
   void SetPrerendererClient(WebPrerendererClient*) override;
   WebSettings* GetSettings() override;
   WebString PageEncoding() const override;
@@ -177,7 +134,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void SetInitialFocus(bool reverse) override;
   void ClearFocusedElement() override;
   void SmoothScroll(int target_x, int target_y, long duration_ms) override;
-  void ZoomToFindInPageRect(const WebRect&);
   void AdvanceFocus(bool reverse) override;
   void AdvanceFocusAcrossFrames(WebFocusType,
                                 WebRemoteFrame* from,
@@ -204,7 +160,7 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void SetDisplayMode(WebDisplayMode) override;
   void AnimateDoubleTapZoom(const gfx::Point&,
                             const WebRect& block_bounds) override;
-
+  void ZoomToFindInPageRect(const WebRect&) override;
   void SetDeviceScaleFactor(float) override;
   void SetZoomFactorForDeviceScaleFactor(float) override;
   float ZoomFactorForDeviceScaleFactor() override {
@@ -228,17 +184,18 @@ class CORE_EXPORT WebViewImpl final : public WebView,
                           unsigned inactive_foreground_color) override;
   void PerformCustomContextMenuAction(unsigned action) override;
   void DidCloseContextMenu() override;
-  void HidePopups() override;
-  void SetPageOverlayColor(SkColor) override;
+  void CancelPagePopup() override;
+  WebPagePopupImpl* GetPagePopup() const override { return page_popup_.get(); }
+  void SetMainFrameOverlayColor(SkColor) override;
   WebPageImportanceSignals* PageImportanceSignals() override;
-  void SetShowPaintRects(bool) override;
-  void SetShowDebugBorders(bool);
-  void SetShowFPSCounter(bool) override;
-  void SetShowScrollBottleneckRects(bool) override;
-  void SetShowHitTestBorders(bool);
   void AcceptLanguagesChanged() override;
   void SetPageFrozen(bool frozen) override;
   WebWidget* MainFrameWidget() override;
+  void SetBaseBackgroundColor(SkColor) override;
+  void SetBackgroundColorOverride(SkColor) override;
+  void ClearBackgroundColorOverride() override;
+  void SetBaseBackgroundColorOverride(SkColor) override;
+  void ClearBaseBackgroundColorOverride() override;
 
   void DidUpdateFullscreenSize();
 
@@ -250,16 +207,12 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   HitTestResult CoreHitTestResultAt(const gfx::Point&);
   void InvalidateRect(const IntRect&);
 
-  void SetBaseBackgroundColor(SkColor);
-  void SetBaseBackgroundColorOverride(SkColor);
-  void ClearBaseBackgroundColorOverride();
-  void SetBackgroundColorOverride(SkColor);
-  void ClearBackgroundColorOverride();
   void SetZoomFactorOverride(float);
   void SetCompositorDeviceScaleFactorOverride(float);
   void SetDeviceEmulationTransform(const TransformationMatrix&);
-  TransformationMatrix GetDeviceEmulationTransformForTesting() const;
+  TransformationMatrix GetDeviceEmulationTransform() const;
 
+  SkColor BackgroundColor() const;
   Color BaseBackgroundColor() const;
   bool BackgroundColorOverrideEnabled() const {
     return background_color_override_enabled_;
@@ -271,14 +224,14 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   // Returns the currently focused Element or null if no element has focus.
   Element* FocusedElement() const;
 
-  WebViewClient* Client() { return client_; }
+  WebViewClient* Client() { return AsView().client; }
   // TODO(dcheng): This client should be acquirable from the MainFrameImpl
   // in some cases? We need to know how to get it in all cases.
-  WebWidgetClient* WidgetClient() { return widget_client_; }
+  WebWidgetClient* WidgetClient() { return AsWidget().client; }
 
   // Returns the page object associated with this view. This may be null when
   // the page is shutting down, but will be valid at all other times.
-  Page* GetPage() const { return page_.Get(); }
+  Page* GetPage() const { return AsView().page.Get(); }
 
   WebDevToolsAgentImpl* MainFrameDevToolsAgentImpl();
 
@@ -336,8 +289,11 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void UpdateMainFrameLayoutSize();
   void UpdatePageDefinedViewportConstraints(const ViewportDescription&);
 
-  PagePopup* OpenPagePopup(PagePopupClient*);
+  WebPagePopupImpl* OpenPagePopup(PagePopupClient*);
+  bool HasOpenedPopup() const { return page_popup_.get(); }
   void ClosePagePopup(PagePopup*);
+  // Callback from PagePopup when it is closed, which it can be done directly
+  // without coming through WebViewImpl.
   void CleanupPagePopup();
   LocalDOMWindow* PagePopupWindow() const;
 
@@ -346,10 +302,8 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   PaintLayerCompositor* Compositor() const;
 
   PageScheduler* Scheduler() const override;
-  void SetVisibilityState(mojom::PageVisibilityState, bool) override;
-  mojom::PageVisibilityState VisibilityState() override;
-
-  bool HasOpenedPopup() const { return page_popup_.get(); }
+  void SetIsHidden(bool hidden, bool is_initial_state) override;
+  bool IsHidden() override;
 
   // Called by a full frame plugin inside this view to inform it that its
   // zoom level has been updated.  The plugin should only call this function
@@ -401,10 +355,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
     return animation_host_.get();
   }
 
-  bool MatchesHeuristicsForGpuRasterizationForTesting() const {
-    return matches_heuristics_for_gpu_rasterization_;
-  }
-
   BrowserControls& GetBrowserControls();
   // Called anytime browser controls layout height or content offset have
   // changed.
@@ -436,10 +386,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   // root.
   WebInputMethodController* GetActiveWebInputMethodController() const;
 
-  void SetLastHiddenPagePopup(WebPagePopupImpl* page_popup) {
-    last_hidden_page_popup_ = page_popup;
-  }
-
   bool ShouldZoomToLegibleScale(const Element&);
   void ZoomAndScrollToFocusedEditableElementRect(
       const IntRect& element_bounds_in_document,
@@ -447,6 +393,11 @@ class CORE_EXPORT WebViewImpl final : public WebView,
       bool zoom_into_legible_scale);
 
   void StopDeferringCommits() { scoped_defer_main_frame_update_.reset(); }
+
+  // This function checks the element ids of ScrollableAreas only and returns
+  // the equivalent DOM Node if such exists.
+  Node* FindNodeFromScrollableCompositorElementId(
+      cc::ElementId element_id) const;
 
   void DeferMainFrameUpdateForTesting();
 
@@ -458,6 +409,56 @@ class CORE_EXPORT WebViewImpl final : public WebView,
                            DivScrollIntoEditableTestZoomToLegibleScaleDisabled);
   FRIEND_TEST_ALL_PREFIXES(WebFrameTest,
                            DivScrollIntoEditableTestWithDeviceScaleFactor);
+
+  // TODO(danakj): DCHECK in these that we're not inside a wrong API stackframe.
+  struct ViewData;
+  ViewData& AsView() { return as_view_; }
+  const ViewData& AsView() const { return as_view_; }
+  struct WidgetData;
+  WidgetData& AsWidget() { return as_widget_; }
+  const WidgetData& AsWidget() const { return as_widget_; }
+
+  // WebWidget methods:
+  void SetLayerTreeView(WebLayerTreeView*) override;
+  void Close() override;
+  WebSize Size() override;
+  void Resize(const WebSize&) override;
+  void ResizeVisualViewport(const WebSize&) override;
+  void DidEnterFullscreen() override;
+  void DidExitFullscreen() override;
+  void SetSuppressFrameRequestsWorkaroundFor704763Only(bool) override;
+  void BeginFrame(base::TimeTicks last_frame_time) override;
+  void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) override;
+  void UpdateLifecycle(LifecycleUpdate requested_update,
+                       LifecycleUpdateReason reason) override;
+  void UpdateAllLifecyclePhasesAndCompositeForTesting(bool do_raster) override;
+  void RequestPresentationCallbackForTesting(
+      base::OnceClosure callback) override;
+  void PaintContent(cc::PaintCanvas*, const WebRect&) override;
+  void CompositeAndReadbackAsync(
+      base::OnceCallback<void(const SkBitmap&)> callback) override;
+  void ThemeChanged() override;
+  WebInputEventResult HandleInputEvent(const WebCoalescedInputEvent&) override;
+  WebInputEventResult DispatchBufferedTouchEvents() override;
+  void SetCursorVisibilityState(bool is_visible) override;
+  void ApplyViewportChanges(const ApplyViewportChangesArgs& args) override;
+  void RecordWheelAndTouchScrollingCount(bool has_scrolled_by_wheel,
+                                         bool has_scrolled_by_touch) override;
+  void SendOverscrollEventFromImplSide(
+      const gfx::Vector2dF& overscroll_delta,
+      cc::ElementId scroll_latched_element_id) override;
+  void SendScrollEndEventFromImplSide(
+      cc::ElementId scroll_latched_element_id) override;
+  void MouseCaptureLost() override;
+  void SetFocus(bool enable) override;
+  bool SelectionBounds(WebRect& anchor, WebRect& focus) const override;
+  bool IsAcceleratedCompositingActive() const override;
+  void WillCloseLayerTreeView() override;
+  void DidAcquirePointerLock() override;
+  void DidNotAcquirePointerLock() override;
+  void DidLosePointerLock() override;
+  void ShowContextMenu(WebMenuSourceType) override;
+  WebURL GetURLForDebugTrace() override;
 
   void SetPageScaleFactorAndLocation(float, const FloatPoint&);
   void PropagateZoomFactorToLocalFrameRoots(Frame*, float);
@@ -472,9 +473,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
                                float bottom_controls_height,
                                bool browser_controls_shrink_layout);
 
-  // TODO(lfg): Remove once WebViewFrameWidget is deleted.
-  void ScheduleAnimationForWidget();
-
   void UpdateBaseBackgroundColor();
 
   friend class WebView;  // So WebView::Create can call our constructor
@@ -482,12 +480,10 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   friend class WTF::RefCounted<WebViewImpl>;
 
   WebViewImpl(WebViewClient*,
-              WebWidgetClient*,
-              mojom::PageVisibilityState,
+              bool is_hidden,
+              bool does_composite,
               WebViewImpl* opener);
   ~WebViewImpl() override;
-
-  void HideSelectPopup();
 
   HitTestResult HitTestResultForRootFramePos(const LayoutPoint&);
 
@@ -521,8 +517,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   void EnablePopupMouseWheelEventListener(WebLocalFrameImpl* local_root);
   void DisablePopupMouseWheelEventListener();
 
-  void CancelPagePopup();
-
   float DeviceScaleFactor() const;
 
   void SetRootGraphicsLayer(GraphicsLayer*);
@@ -553,8 +547,24 @@ class CORE_EXPORT WebViewImpl final : public WebView,
       IntPoint& scroll,
       bool& need_animation);
 
-  WebViewClient* client_;  // Can be null (e.g. unittests, shared workers, etc.)
-  WebWidgetClient* widget_client_;  // Can also be null.
+  // These member variables should not be accessed within calls to WebWidget
+  // APIs. They can be called from within WebView APIs, and internal methods,
+  // though these need to be sorted as being for the view or the widget also.
+  struct ViewData {
+    ViewData(WebViewClient* client) : client(client) {}
+
+    // Can be null (e.g. unittests, shared workers, etc).
+    WebViewClient* client;
+    Persistent<Page> page;
+  } as_view_;
+
+  // These member variables should not be accessed within calls to WebView
+  // APIs. They can be called from within WebWidget APIs, and internal methods,
+  // though these need to be sorted as being for the view or the widget also.
+  struct WidgetData {
+    // Can be null (e.g. unittests, shared workers, etc).
+    WebWidgetClient* client = nullptr;
+  } as_widget_;
 
   Persistent<ChromeClient> chrome_client_;
 
@@ -565,8 +575,6 @@ class CORE_EXPORT WebViewImpl final : public WebView,
   IntSize min_auto_size_;
   // The upper bound on the size when auto-resizing.
   IntSize max_auto_size_;
-
-  Persistent<Page> page_;
 
   // An object that can be used to manipulate m_page->settings() without linking
   // against WebCore. This is lazily allocated the first time GetWebSettings()

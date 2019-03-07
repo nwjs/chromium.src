@@ -17,10 +17,10 @@
 #include "chrome/browser/chromeos/login/lock/screen_locker.h"
 #include "chrome/browser/chromeos/login/ui/user_adding_screen.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/ash/chrome_keyboard_controller_client.h"
+#include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/common/url_constants.h"
-#include "chromeos/chromeos_features.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/service_manager_connection.h"
@@ -382,7 +382,9 @@ void ChromeVirtualKeyboardDelegate::OnHasInputDevices(
   features->AppendString(GenerateFeatureFlag("spellcheck", config.spell_check));
   features->AppendString(
       GenerateFeatureFlag("handwriting", config.handwriting));
-
+  features->AppendString(GenerateFeatureFlag(
+      "handwritinggesture",
+      base::FeatureList::IsEnabled(features::kHandwritingGesture)));
   results->Set("features", std::move(features));
 
   std::move(on_settings_callback).Run(std::move(results));

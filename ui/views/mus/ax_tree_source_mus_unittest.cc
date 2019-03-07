@@ -31,6 +31,7 @@ class AXTreeSourceMusTest : public ViewsTestBase {
 
   // testing::Test:
   void SetUp() override {
+    set_native_widget_type(NativeWidgetType::kDesktop);
     ViewsTestBase::SetUp();
     widget_ = std::make_unique<Widget>();
     Widget::InitParams params(Widget::InitParams::TYPE_WINDOW_FRAMELESS);
@@ -51,7 +52,7 @@ class AXTreeSourceMusTest : public ViewsTestBase {
 
   std::unique_ptr<Widget> widget_;
   Label* label_ = nullptr;  // Owned by views hierarchy.
-  const ui::AXTreeID ax_tree_id_ = ui::AXTreeID::FromString("123");
+  const ui::AXTreeID ax_tree_id_ = ui::AXTreeID::CreateNewAXTreeID();
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AXTreeSourceMusTest);

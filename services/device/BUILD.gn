@@ -29,6 +29,7 @@ source_set("lib") {
     "//base",
     "//device/usb/mojo",
     "//device/usb/public/mojom",
+    "//device/usb/public/mojom:test",
     "//services/device/fingerprint",
     "//services/device/generic_sensor",
     "//services/device/geolocation",
@@ -144,8 +145,8 @@ source_set("tests") {
   if (is_chromeos) {
     sources += [ "fingerprint/fingerprint_chromeos_unittest.cc" ]
     deps += [
-      "//chromeos",
-      "//dbus",
+      "//chromeos/dbus:test_support",
+      "//chromeos/network:test_support",
       "//services/device/bluetooth:bluetooth_system_tests",
       "//services/device/fingerprint",
       "//third_party/protobuf:protobuf_lite",
@@ -197,10 +198,19 @@ source_set("tests") {
 
   if (is_serial_enabled_platform) {
     sources += [
-      "serial/serial_device_enumerator_impl_unittest.cc",
-      "serial/serial_io_handler_impl_unittest.cc",
+      "serial/serial_device_enumerator_unittest.cc",
+      "serial/serial_port_impl_unittest.cc",
+      "serial/serial_port_manager_impl_unittest.cc",
     ]
-    deps += [ "//services/device/serial" ]
+
+    if (is_posix) {
+      sources += [ "serial/serial_io_handler_posix_unittest.cc" ]
+    }
+
+    deps += [
+      "//services/device/serial",
+      "//services/device/serial:test_support",
+    ]
   }
 
   if (is_win) {

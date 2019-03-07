@@ -39,7 +39,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "base/command_line.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #endif
 
 ChromeRLZTrackerDelegate::ChromeRLZTrackerDelegate() {}
@@ -188,6 +188,10 @@ void ChromeRLZTrackerDelegate::SetHomepageSearchCallback(
   on_homepage_search_callback_ = callback;
 }
 
+bool ChromeRLZTrackerDelegate::ShouldUpdateExistingAccessPointRlz() {
+  return true;
+}
+
 void ChromeRLZTrackerDelegate::Observe(
     int type,
     const content::NotificationSource& source,
@@ -218,7 +222,7 @@ void ChromeRLZTrackerDelegate::Observe(
         if (entry_index < 1)
           break;
 
-        const content::NavigationEntry* previous_entry =
+        content::NavigationEntry* previous_entry =
             controller->GetEntryAtIndex(entry_index - 1);
 
         if (previous_entry == nullptr)

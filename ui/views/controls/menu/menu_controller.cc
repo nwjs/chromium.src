@@ -415,7 +415,8 @@ void MenuController::Run(Widget* parent,
                          const gfx::Rect& bounds,
                          MenuAnchorPosition position,
                          bool context_menu,
-                         bool is_nested_drag) {
+                         bool is_nested_drag,
+                         base::flat_set<int> alerted_commands) {
   exit_type_ = EXIT_NONE;
   possible_drag_ = false;
   drag_in_progress_ = false;
@@ -454,6 +455,7 @@ void MenuController::Run(Widget* parent,
     DCHECK_EQ(owner_, parent);
   } else {
     showing_ = true;
+    alerted_commands_ = alerted_commands;
 
     if (owner_)
       owner_->RemoveObserver(this);
@@ -781,7 +783,7 @@ void MenuController::OnMouseMoved(SubmenuView* source,
     ConvertLocatedEventForRootView(source, root_view, &event_for_root);
     View* view = root_view->GetEventHandlerForPoint(event_for_root.location());
     Button* button = Button::AsButton(view);
-    if (button && button->IsHotTracked())
+    if (button)
       SetHotTrackedButton(button);
   }
 
@@ -921,7 +923,7 @@ void MenuController::ViewHierarchyChanged(
 bool MenuController::GetDropFormats(
     SubmenuView* source,
     int* formats,
-    std::set<ui::Clipboard::FormatType>* format_types) {
+    std::set<ui::ClipboardFormatType>* format_types) {
   return source->GetMenuItem()->GetDelegate()->GetDropFormats(
       source->GetMenuItem(), formats, format_types);
 }
@@ -1246,9 +1248,6 @@ void MenuController::SetSelection(MenuItemView* menu_item,
     menu_item->SetSelectionOfActionableSubmenu(
         (selection_types & SELECTION_OPEN_SUBMENU) != 0);
   }
-
-  if (menu_item && menu_item->GetDelegate())
-    menu_item->GetDelegate()->SelectionChanged(menu_item);
 
   DCHECK(menu_item || (selection_types & SELECTION_EXIT) != 0);
 
@@ -1948,7 +1947,15 @@ void MenuController::OpenMenuImpl(MenuItemView* item, bool show) {
     // than 0) is fine.
     const int kGroupingId = 1001;
 
+    // Show alerts on the requested MenuItemViews.
+    for (int i = 0; i < item->GetSubmenu()->GetMenuItemCount(); ++i) {
+      MenuItemView* subitem = item->GetSubmenu()->GetMenuItemAt(i);
+      if (alerted_commands_.contains(subitem->GetCommand()))
+        subitem->SetAlerted(true);
+    }
+
     item->GetSubmenu()->ShowAt(owner_, bounds, do_capture);
+
     // Figure out if the mouse is under the menu; if so, remember the mouse
     // location so we can ignore the first mouse move event(s) with that
     // location. We do this after ShowAt because ConvertPointFromScreen

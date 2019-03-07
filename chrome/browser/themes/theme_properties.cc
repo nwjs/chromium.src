@@ -34,34 +34,6 @@ constexpr char kTilingRepeatX[] = "repeat-x";
 constexpr char kTilingRepeatY[] = "repeat-y";
 constexpr char kTilingRepeat[] = "repeat";
 
-base::Optional<SkColor> GetDarkModeColor(int id) {
-  switch (id) {
-    case ThemeProperties::COLOR_BOOKMARK_TEXT:
-    case ThemeProperties::COLOR_TAB_TEXT:
-    case ThemeProperties::COLOR_BACKGROUND_TAB_TEXT:
-    case ThemeProperties::COLOR_BACKGROUND_TAB_TEXT_INACTIVE:
-    case ThemeProperties::COLOR_NTP_TEXT:
-      return SK_ColorWHITE;
-    case ThemeProperties::COLOR_TOOLBAR:
-    case ThemeProperties::COLOR_DETACHED_BOOKMARK_BAR_BACKGROUND:
-      return SkColorSetRGB(0x41, 0x41, 0x41);
-    case ThemeProperties::COLOR_FRAME:
-    case ThemeProperties::COLOR_BACKGROUND_TAB:
-      return SkColorSetRGB(0x2B, 0x2B, 0x2B);
-    case ThemeProperties::COLOR_TOOLBAR_CONTENT_AREA_SEPARATOR:
-      return SK_ColorLTGRAY;
-    case ThemeProperties::COLOR_NTP_BACKGROUND:
-      return SK_ColorBLACK;
-    case ThemeProperties::COLOR_BUTTON_BACKGROUND:
-      return SkColorSetARGB(0xE5, 0x41, 0x41, 0x41);
-    case ThemeProperties::COLOR_FRAME_INACTIVE:
-    case ThemeProperties::COLOR_BACKGROUND_TAB_INACTIVE:
-      return gfx::kGoogleGrey800;
-    default:
-      return base::nullopt;
-  }
-}
-
 base::Optional<SkColor> GetIncognitoColor(int id) {
   switch (id) {
     case ThemeProperties::COLOR_FRAME:
@@ -70,6 +42,9 @@ base::Optional<SkColor> GetIncognitoColor(int id) {
     case ThemeProperties::COLOR_FRAME_INACTIVE:
     case ThemeProperties::COLOR_BACKGROUND_TAB_INACTIVE:
       return gfx::kGoogleGrey800;
+    case ThemeProperties::COLOR_DOWNLOAD_SHELF:
+    case ThemeProperties::COLOR_STATUS_BUBBLE:
+    case ThemeProperties::COLOR_INFOBAR:
     case ThemeProperties::COLOR_TOOLBAR:
     case ThemeProperties::COLOR_DETACHED_BOOKMARK_BAR_BACKGROUND:
     case ThemeProperties::COLOR_NTP_BACKGROUND:
@@ -100,6 +75,14 @@ base::Optional<SkColor> GetIncognitoColor(int id) {
     default:
       return base::nullopt;
   }
+}
+
+base::Optional<SkColor> GetDarkModeColor(int id) {
+  // Current UX thinking is to use the same colors for dark mode and incognito,
+  // but this is very subject to change. Additionally, dark mode incognito may
+  // end up having a different look. For now, just call into GetIncognitoColor
+  // for convenience, but maintain a separate interface.
+  return GetIncognitoColor(id);
 }
 
 }  // namespace
@@ -229,14 +212,16 @@ SkColor ThemeProperties::GetDefaultColor(int id, bool incognito) {
     case COLOR_FRAME_INACTIVE:
     case COLOR_BACKGROUND_TAB_INACTIVE:
       return SkColorSetRGB(0xE7, 0xEA, 0xED);
+    case COLOR_DOWNLOAD_SHELF:
+    case COLOR_INFOBAR:
     case COLOR_TOOLBAR:
+    case COLOR_STATUS_BUBBLE:
       return SK_ColorWHITE;
+    case COLOR_BACKGROUND_TAB_TEXT:
+    case COLOR_BACKGROUND_TAB_TEXT_INACTIVE:
     case COLOR_BOOKMARK_TEXT:
     case COLOR_TAB_TEXT:
       return gfx::kGoogleGrey800;
-    case COLOR_BACKGROUND_TAB_TEXT:
-    case COLOR_BACKGROUND_TAB_TEXT_INACTIVE:
-      return gfx::kChromeIconGrey;
     case COLOR_NTP_BACKGROUND:
       return kDefaultColorNTPBackground;
     case COLOR_NTP_TEXT:

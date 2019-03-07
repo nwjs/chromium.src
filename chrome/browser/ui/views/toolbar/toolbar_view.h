@@ -16,13 +16,12 @@
 #include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/location_bar/custom_tab_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/browser_actions_container.h"
 #include "chrome/browser/upgrade_detector/upgrade_observer.h"
 #include "components/prefs/pref_member.h"
-#include "components/translate/core/browser/translate_step.h"
-#include "components/translate/core/common/translate_errors.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/material_design/material_design_controller_observer.h"
 #include "ui/views/accessible_pane_view.h"
@@ -53,6 +52,10 @@ namespace media_router {
 class CastToolbarButton;
 }
 
+namespace views {
+class FlexLayout;
+}
+
 // The Browser Window's toolbar.
 class ToolbarView : public views::AccessiblePaneView,
                     public views::MenuButtonListener,
@@ -68,6 +71,15 @@ class ToolbarView : public views::AccessiblePaneView,
                     public BrowserRootView::DropTarget,
                     public ui::MaterialDesignControllerObserver {
  public:
+  // Types of display mode this toolbar can have.
+  enum class DisplayMode {
+    NORMAL,     // Normal toolbar with buttons, etc.
+    LOCATION,   // Slimline toolbar showing only compact location
+                // bar, used for popups.
+    CUSTOM_TAB  // Custom tab bar, used in PWAs when a location
+                // needs to be displayed.
+  };
+
   // The view class name.
   static const char kViewClassName[];
 
@@ -110,18 +122,13 @@ class ToolbarView : public views::AccessiblePaneView,
                           bool already_bookmarked,
                           bookmarks::BookmarkBubbleObserver* observer);
 
-  // Shows the translate bubble and anchors it appropriately.
-  void ShowTranslateBubble(content::WebContents* web_contents,
-                           translate::TranslateStep step,
-                           translate::TranslateErrors::Type error_type,
-                           bool is_user_gesture);
-
   // Accessors.
   Browser* browser() const { return browser_; }
   BrowserActionsContainer* browser_actions() const { return browser_actions_; }
   ToolbarButton* back_button() const { return back_; }
   ReloadButton* reload_button() const { return reload_; }
   LocationBarView* location_bar() const { return location_bar_; }
+  CustomTabBarView* custom_tab_bar() { return custom_tab_bar_; }
   media_router::CastToolbarButton* cast_button() const { return cast_; }
   AvatarToolbarButton* avatar_button() const { return avatar_; }
   BrowserAppMenuButton* app_menu_button() const { return app_menu_button_; }
@@ -175,10 +182,6 @@ class ToolbarView : public views::AccessiblePaneView,
   bool AcceleratorPressed(const ui::Accelerator& acc) override;
   void ChildPreferredSizeChanged(views::View* child) override;
 
-  bool is_display_mode_normal() const {
-    return display_mode_ == DISPLAYMODE_NORMAL;
-  }
-
  protected:
   // AccessiblePaneView:
   bool SetPaneFocusAndFocusDefault() override;
@@ -186,22 +189,21 @@ class ToolbarView : public views::AccessiblePaneView,
   // ui::MaterialDesignControllerObserver:
   void OnTouchUiChanged() override;
 
-  // This controls Toolbar and LocationBar visibility.
-  // If we don't both, tab navigation from the app menu breaks
+  // This controls Toolbar, LocationBar and CustomTabBar visibility.
+  // If we don't set all three, tab navigation from the app menu breaks
   // on Chrome OS.
   void SetToolbarVisibility(bool visible);
 
  private:
-  // Types of display mode this toolbar can have.
-  enum DisplayMode {
-    DISPLAYMODE_NORMAL,   // Normal toolbar with buttons, etc.
-    DISPLAYMODE_LOCATION  // Slimline toolbar showing only compact location
-                          // bar, used for popups.
-  };
-
   // AnimationDelegate:
   void AnimationEnded(const gfx::Animation* animation) override;
   void AnimationProgressed(const gfx::Animation* animation) override;
+
+  // Declarative layout for child controls.
+  void InitLayout();
+
+  // Logic that must be done on initialization and then on layout.
+  void LayoutCommon();
 
   // AppMenuIconController::Delegate:
   void UpdateTypeAndSeverity(
@@ -221,15 +223,6 @@ class ToolbarView : public views::AccessiblePaneView,
       const ui::DropTargetEvent& event) override;
   views::View* GetViewForDrop() override;
 
-  // Used to avoid duplicating the near-identical logic of
-  // ToolbarView::CalculatePreferredSize() and ToolbarView::GetMinimumSize().
-  // These two functions call through to GetSizeInternal(), passing themselves
-  // as the function pointer |View::*get_size|.
-  gfx::Size GetSizeInternal(gfx::Size (View::*get_size)() const) const;
-
-  // Given toolbar contents of size |size|, returns the total toolbar size.
-  gfx::Size SizeForContentSize(gfx::Size size) const;
-
   // Loads the images for all the child views.
   void LoadImages();
 
@@ -241,6 +234,7 @@ class ToolbarView : public views::AccessiblePaneView,
   void ShowOutdatedInstallNotification(bool auto_update_enabled);
 
   void OnShowHomeButtonChanged();
+  void UpdateHomeButtonVisibility();
 
   gfx::SlideAnimation size_animation_{this};
 
@@ -251,6 +245,7 @@ class ToolbarView : public views::AccessiblePaneView,
   ToolbarButton* forward_ = nullptr;
   ReloadButton* reload_ = nullptr;
   HomeButton* home_ = nullptr;
+  CustomTabBarView* custom_tab_bar_ = nullptr;
   LocationBarView* location_bar_ = nullptr;
   BrowserActionsContainer* browser_actions_ = nullptr;
   media_router::CastToolbarButton* cast_ = nullptr;
@@ -259,6 +254,8 @@ class ToolbarView : public views::AccessiblePaneView,
 
   Browser* const browser_;
   BrowserView* const browser_view_;
+
+  views::FlexLayout* layout_manager_;
 
   AppMenuIconController app_menu_icon_controller_;
 

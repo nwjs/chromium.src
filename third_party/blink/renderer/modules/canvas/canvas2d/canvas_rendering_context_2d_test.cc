@@ -5,9 +5,9 @@
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d.h"
 
 #include <memory>
+#include "build/build_config.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-blink.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
@@ -59,10 +59,7 @@ class FakeImageSource : public CanvasImageSource {
                                                AccelerationHint,
                                                const FloatSize&) override;
 
-  bool WouldTaintOrigin(
-      const SecurityOrigin* destination_security_origin) const override {
-    return false;
-  }
+  bool WouldTaintOrigin() const override { return false; }
   FloatSize ElementSize(const FloatSize&) const override {
     return FloatSize(size_);
   }
@@ -1196,8 +1193,8 @@ TEST_F(CanvasRenderingContext2DTestWithTestingPlatform,
   UpdateAllLifecyclePhasesForTest();
 
   // Hide element to trigger hibernation (if enabled).
-  GetDocument().GetPage()->SetVisibilityState(
-      mojom::PageVisibilityState::kHidden, false);
+  GetDocument().GetPage()->SetIsHidden(/*is_hidden=*/true,
+                                       /*is_initial_state=*/false);
   RunUntilIdle();  // Run hibernation task.
   // If enabled, hibernation should cause compositing update.
   EXPECT_EQ(!!CANVAS2D_HIBERNATION_ENABLED,
@@ -1209,8 +1206,8 @@ TEST_F(CanvasRenderingContext2DTestWithTestingPlatform,
   EXPECT_FALSE(layer->NeedsCompositingInputsUpdate());
 
   // Wake up again, which should request a compositing update synchronously.
-  GetDocument().GetPage()->SetVisibilityState(
-      mojom::PageVisibilityState::kVisible, false);
+  GetDocument().GetPage()->SetIsHidden(/*is_hidden=*/false,
+                                       /*is_initial_state=*/false);
   EXPECT_EQ(!!CANVAS2D_HIBERNATION_ENABLED,
             layer->NeedsCompositingInputsUpdate());
   RunUntilIdle();  // Clear task queue.
@@ -1235,8 +1232,8 @@ TEST_F(CanvasRenderingContext2DTestWithTestingPlatform,
   UpdateAllLifecyclePhasesForTest();
 
   // Hide element to trigger hibernation (if enabled).
-  GetDocument().GetPage()->SetVisibilityState(
-      mojom::PageVisibilityState::kHidden, false);
+  GetDocument().GetPage()->SetIsHidden(/*is_hidden=*/true,
+                                       /*is_initial_state=*/false);
   RunUntilIdle();  // Run hibernation task.
 
   // Never hibernate a canvas with no resource provider
@@ -1244,6 +1241,10 @@ TEST_F(CanvasRenderingContext2DTestWithTestingPlatform,
 }
 
 TEST_F(CanvasRenderingContext2DTest, LowLatencyIsSingleBuffered) {
+#if defined(OS_MACOSX)
+  // TODO(crbug.com/922218): enable lowLatency on Mac.
+  return;
+#endif
   CreateContext(kNonOpaque, kLowLatency);
   // No need to set-up the layer bridge when testing low latency mode.
   DrawSomething();

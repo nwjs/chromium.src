@@ -9,6 +9,8 @@
 #include <memory>
 
 #include "base/metrics/histogram_functions.h"
+#include "base/numerics/checked_math.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/core/css/cssom/css_url_image_value.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
 #include "third_party/blink/renderer/core/html/canvas/text_metrics.h"
@@ -1233,7 +1235,8 @@ void BaseRenderingContext2D::drawImage(ScriptState* script_state,
   // overhead.
   // See comments in canvas_heuristic_parameters.h for explanation.
   if (CanCreateCanvas2dResourceProvider() && IsAccelerated() &&
-      !image_source->IsAccelerated()) {
+      !image_source->IsAccelerated() &&
+      !base::FeatureList::IsEnabled(features::kAlwaysAccelerateCanvas)) {
     float src_area = src_rect.Width() * src_rect.Height();
     if (src_area >
         canvas_heuristic_parameters::kDrawImageTextureUploadHardSizeLimit) {
@@ -1254,8 +1257,7 @@ void BaseRenderingContext2D::drawImage(ScriptState* script_state,
 
   ValidateStateStack();
 
-  if (!origin_tainted_by_content_ &&
-      WouldTaintOrigin(image_source, ExecutionContext::From(script_state)))
+  if (!origin_tainted_by_content_ && WouldTaintOrigin(image_source))
     SetOriginTaintedByContent();
 
   Draw(
@@ -1460,8 +1462,7 @@ CanvasPattern* BaseRenderingContext2D::createPattern(
   }
   DCHECK(image_for_rendering);
 
-  bool origin_clean =
-      !WouldTaintOrigin(image_source, ExecutionContext::From(script_state));
+  bool origin_clean = !WouldTaintOrigin(image_source);
 
   return CanvasPattern::Create(std::move(image_for_rendering), repeat_mode,
                                origin_clean);
@@ -1604,7 +1605,7 @@ ImageData* BaseRenderingContext2D::getImageData(
       return nullptr;
     }
     sx += sw;
-    sw = -sw;
+    sw = base::saturated_cast<int>(base::SafeUnsignedAbs(sw));
   }
   if (sh < 0) {
     if (!base::CheckAdd(sy, sh).IsValid<int>()) {
@@ -1612,7 +1613,7 @@ ImageData* BaseRenderingContext2D::getImageData(
       return nullptr;
     }
     sy += sh;
-    sh = -sh;
+    sh = base::saturated_cast<int>(base::SafeUnsignedAbs(sh));
   }
 
   if (!base::CheckAdd(sx, sw).IsValid<int>() ||
@@ -1735,12 +1736,13 @@ void BaseRenderingContext2D::putImageData(ImageData* data,
 
   if (dirty_width < 0) {
     dirty_x += dirty_width;
-    dirty_width = -dirty_width;
+    dirty_width = base::saturated_cast<int>(base::SafeUnsignedAbs(dirty_width));
   }
 
   if (dirty_height < 0) {
     dirty_y += dirty_height;
-    dirty_height = -dirty_height;
+    dirty_height =
+        base::saturated_cast<int>(base::SafeUnsignedAbs(dirty_height));
   }
 
   IntRect dest_rect(dirty_x, dirty_y, dirty_width, dirty_height);
@@ -1767,9 +1769,12 @@ void BaseRenderingContext2D::putImageData(ImageData* data,
       CanvasColorParams(ColorParams().ColorSpace(), PixelFormat(), kNonOpaque);
   if (data_color_params.NeedsColorConversion(context_color_params) ||
       PixelFormat() == kF16CanvasPixelFormat) {
-    size_t data_length =
-        data->Size().Area() * context_color_params.BytesPerPixel();
-    std::unique_ptr<uint8_t[]> converted_pixels(new uint8_t[data_length]);
+    base::CheckedNumeric<size_t> data_length = data->Size().Area();
+    data_length *= context_color_params.BytesPerPixel();
+    if (!data_length.IsValid())
+      return;
+    std::unique_ptr<uint8_t[]> converted_pixels(
+        new uint8_t[data_length.ValueOrDie()]);
     if (data->ImageDataInCanvasColorSettings(
             ColorParams().ColorSpace(), PixelFormat(), converted_pixels.get(),
             kRGBAColorType)) {

@@ -10,6 +10,7 @@ import android.graphics.Bitmap;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 
 import org.chromium.base.Log;
@@ -22,20 +23,18 @@ import org.chromium.chrome.browser.metrics.MediaSessionUMA;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabSelectionType;
+import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.MediaSession;
 import org.chromium.content_public.browser.MediaSessionObserver;
 import org.chromium.content_public.browser.WebContents;
-import org.chromium.content_public.common.MediaMetadata;
 import org.chromium.media_session.mojom.MediaSessionAction;
+import org.chromium.services.media_session.MediaMetadata;
 import org.chromium.ui.base.WindowAndroid;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 /**
  * A tab helper responsible for enabling/disabling media controls and passing
@@ -95,15 +94,9 @@ public class MediaSessionTabHelper implements MediaImageCallback {
             MediaSessionUMA.recordPlay(
                     MediaSessionTabHelper.convertMediaActionSourceToUMA(actionSource));
 
-            if (mMediaSessionObserver.getMediaSession() != null) {
-                if (mMediaSessionActions != null
-                        && mMediaSessionActions.contains(MediaSessionAction.PLAY)) {
-                    mMediaSessionObserver.getMediaSession()
-                            .didReceiveAction(MediaSessionAction.PLAY);
-                } else {
-                    mMediaSessionObserver.getMediaSession().resume();
-                }
-            }
+            if (mMediaSessionObserver.getMediaSession() == null) return;
+
+            mMediaSessionObserver.getMediaSession().resume();
         }
 
         @Override
@@ -113,15 +106,9 @@ public class MediaSessionTabHelper implements MediaImageCallback {
             MediaSessionUMA.recordPause(
                     MediaSessionTabHelper.convertMediaActionSourceToUMA(actionSource));
 
-            if (mMediaSessionObserver.getMediaSession() != null) {
-                if (mMediaSessionActions != null
-                        && mMediaSessionActions.contains(MediaSessionAction.PAUSE)) {
-                    mMediaSessionObserver.getMediaSession()
-                            .didReceiveAction(MediaSessionAction.PAUSE);
-                } else {
-                    mMediaSessionObserver.getMediaSession().suspend();
-                }
-            }
+            if (mMediaSessionObserver.getMediaSession() == null) return;
+
+            mMediaSessionObserver.getMediaSession().suspend();
         }
 
         @Override

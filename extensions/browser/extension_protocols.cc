@@ -212,7 +212,7 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
             network_delegate,
             base::FilePath(),
             base::CreateTaskRunnerWithTraits(
-                {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+                {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
                  base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN})),
         verify_job_(std::move(verify_job)),
         seek_position_(0),
@@ -1014,7 +1014,7 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
     content::CreateFileURLLoader(
         request, std::move(loader), std::move(client),
         std::make_unique<FileLoaderObserver>(std::move(verify_job)),
-        std::move(response_headers));
+        /* allow_directory_listing */ false, std::move(response_headers));
   }
 
   content::BrowserContext* browser_context_;

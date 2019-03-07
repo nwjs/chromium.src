@@ -52,7 +52,7 @@ struct AutocompleteMatchType {
                                        // input.
     NAVSUGGEST_PERSONALIZED     = 17,  // A personalized suggestion URL.
     CALCULATOR                  = 18,  // A calculator result.
-    CLIPBOARD                   = 19,  // A URL based on the clipboard.
+    CLIPBOARD_URL               = 19,  // A URL based on the clipboard.
     VOICE_SUGGEST               = 20,  // An Android-specific type which
                                        // indicates a search from voice
                                        // recognizer.
@@ -65,6 +65,8 @@ struct AutocompleteMatchType {
                                        // URL or title, via HQP (deprecated).
     DOCUMENT_SUGGESTION         = 24,  // A suggested document.
     PEDAL                       = 25,  // An omnibox pedal suggestion.
+    CLIPBOARD_TEXT              = 26,  // Text based on the clipboard.
+    CLIPBOARD_IMAGE             = 27,  // An image based on the clipboard.
     NUM_TYPES,
   };
   // clang-format on
@@ -91,6 +93,10 @@ struct AutocompleteMatchType {
       const base::string16& match_text,
       bool is_tab_switch_button_focused,
       int* label_prefix_length = nullptr);
+
+  // Used for tab switch button message when reverse logic feature is selected.
+  static const char kAlternateTabSwitchButtonMessage[];
+  static const char kAlternateTabSwitchMessage[];
 };
 
 #endif  // COMPONENTS_OMNIBOX_BROWSER_AUTOCOMPLETE_MATCH_TYPE_H_

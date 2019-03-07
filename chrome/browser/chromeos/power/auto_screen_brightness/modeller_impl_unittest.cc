@@ -20,7 +20,7 @@
 #include "chrome/browser/chromeos/power/auto_screen_brightness/trainer.h"
 #include "chrome/browser/chromeos/power/auto_screen_brightness/utils.h"
 #include "chrome/test/base/testing_profile.h"
-#include "chromeos/chromeos_features.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/user_activity/user_activity_detector.h"
@@ -175,9 +175,8 @@ class TestObserver : public Modeller::Observer {
 class ModellerImplTest : public testing::Test {
  public:
   ModellerImplTest()
-      : scoped_task_environment_(
-            base::test::ScopedTaskEnvironment::MainThreadType::MOCK_TIME),
-        thread_bundle_(content::TestBrowserThreadBundle::PLAIN_MAINLOOP) {
+      : thread_bundle_(
+            base::test::ScopedTaskEnvironment::MainThreadType::MOCK_TIME) {
     CHECK(temp_dir_.CreateUniqueTempDir());
     TestingProfile::Builder profile_builder;
     profile_builder.SetProfileName("testuser@gmail.com");
@@ -197,7 +196,7 @@ class ModellerImplTest : public testing::Test {
         std::make_unique<FakeTrainer>(is_trainer_configured,
                                       is_personal_curve_valid),
         base::SequencedTaskRunnerHandle::Get(),
-        scoped_task_environment_.GetMockTickClock());
+        thread_bundle_.GetMockTickClock());
 
     test_observer_ = std::make_unique<TestObserver>();
     modeller_->AddObserver(test_observer_.get());
@@ -206,11 +205,18 @@ class ModellerImplTest : public testing::Test {
   void Init(AlsReader::AlsInitStatus als_reader_status,
             BrightnessMonitor::Status brightness_monitor_status,
             bool is_trainer_configured = true,
-            bool is_personal_curve_valid = true) {
+            bool is_personal_curve_valid = true,
+            const std::map<std::string, std::string>& params = {}) {
+    base::test::ScopedFeatureList scoped_feature_list;
+    if (!params.empty()) {
+      scoped_feature_list.InitAndEnableFeatureWithParameters(
+          features::kAutoScreenBrightness, params);
+    }
+
     fake_als_reader_.set_als_init_status(als_reader_status);
     fake_brightness_monitor_.set_status(brightness_monitor_status);
     SetUpModeller(is_trainer_configured, is_personal_curve_valid);
-    scoped_task_environment_.RunUntilIdle();
+    thread_bundle_.RunUntilIdle();
   }
 
  protected:
@@ -227,7 +233,6 @@ class ModellerImplTest : public testing::Test {
         << " to " << curve_path;
   }
 
-  base::test::ScopedTaskEnvironment scoped_task_environment_;
   content::TestBrowserThreadBundle thread_bundle_;
   base::HistogramTester histogram_tester_;
 
@@ -277,7 +282,7 @@ TEST_F(ModellerImplTest, AlsReaderDisabledOnNotification) {
 
   fake_als_reader_.set_als_init_status(AlsReader::AlsInitStatus::kDisabled);
   fake_als_reader_.ReportReaderInitialized();
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
 
   test_observer_->CheckStatus(true /* is_model_initialized */,
                               base::nullopt /* global_curve */,
@@ -295,7 +300,7 @@ TEST_F(ModellerImplTest, AlsReaderEnabledOnNotification) {
 
   fake_als_reader_.set_als_init_status(AlsReader::AlsInitStatus::kSuccess);
   fake_als_reader_.ReportReaderInitialized();
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
 
   test_observer_->CheckStatus(true /* is_model_initialized */,
                               modeller_->GetGlobalCurveForTesting(),
@@ -330,7 +335,7 @@ TEST_F(ModellerImplTest, BrightnessMonitorEnabledOnNotification) {
 
   fake_brightness_monitor_.set_status(BrightnessMonitor::Status::kSuccess);
   fake_brightness_monitor_.ReportBrightnessMonitorInitialized();
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
 
   test_observer_->CheckStatus(true /* is_model_initialized */,
                               modeller_->GetGlobalCurveForTesting(),
@@ -354,7 +359,7 @@ TEST_F(ModellerImplTest, CurveLoadedFromProfilePath) {
 
   WriteCurveToFile(curve);
 
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
 
   Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess);
 
@@ -374,7 +379,7 @@ TEST_F(ModellerImplTest, PersonalCurveError) {
 
   WriteCurveToFile(curve);
 
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
 
   Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess,
        true /* is_trainer_configured */, false /* is_personal_curve_valid */);
@@ -388,30 +393,70 @@ TEST_F(ModellerImplTest, PersonalCurveError) {
 }
 
 // Ambient light values are received. We check average ambient light has been
-// calculated from the past |kNumberAmbientValuesToTrack| samples only.
+// calculated from the recent samples only.
 TEST_F(ModellerImplTest, OnAmbientLightUpdated) {
-  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess);
+  const int horizon_in_seconds = 5;
+  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess,
+       true /* is_trainer_configured */, true /* is_personal_curve_valid */,
+       {{"model_als_horizon_seconds",
+         base::NumberToString(horizon_in_seconds)}});
 
   test_observer_->CheckStatus(true /* is_model_initialized */,
                               modeller_->GetGlobalCurveForTesting(),
                               base::nullopt /* personal_curve */);
 
   const int first_lux = 1000;
-  double running_sum = first_lux;
-  fake_als_reader_.ReportAmbientLightUpdate(first_lux);
-  for (int i = 1; i < ModellerImpl::kNumberAmbientValuesToTrack; ++i) {
-    const int lux = i;
+  double running_sum = 0.0;
+  for (int i = 0; i < horizon_in_seconds; ++i) {
+    thread_bundle_.FastForwardBy(base::TimeDelta::FromSeconds(1));
+    const int lux = i == 0 ? first_lux : i;
     fake_als_reader_.ReportAmbientLightUpdate(lux);
     running_sum += lux;
-    EXPECT_DOUBLE_EQ(running_sum / (i + 1),
-                     modeller_->AverageAmbientForTesting());
+    EXPECT_EQ(modeller_->AverageAmbientForTesting(thread_bundle_.NowTicks()),
+              running_sum / (i + 1));
   }
 
   // Add another one should push the oldest |first_lux| out of the horizon.
+  thread_bundle_.FastForwardBy(base::TimeDelta::FromSeconds(1));
   fake_als_reader_.ReportAmbientLightUpdate(100);
   running_sum = running_sum + 100 - first_lux;
-  EXPECT_DOUBLE_EQ(running_sum / ModellerImpl::kNumberAmbientValuesToTrack,
-                   modeller_->AverageAmbientForTesting());
+  EXPECT_EQ(modeller_->AverageAmbientForTesting(thread_bundle_.NowTicks()),
+            running_sum / horizon_in_seconds);
+}
+
+// Same as OnAmbientLightUpdated except we calculate average of log ALS.
+TEST_F(ModellerImplTest, AverageLogAmbient) {
+  const int horizon_in_seconds = 5;
+  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess,
+       true /* is_trainer_configured */, true /* is_personal_curve_valid */,
+       {
+           {"model_als_horizon_seconds",
+            base::NumberToString(horizon_in_seconds)},
+           {"average_log_als", "true"},
+       });
+
+  test_observer_->CheckStatus(true /* is_model_initialized */,
+                              modeller_->GetGlobalCurveForTesting(),
+                              base::nullopt /* personal_curve */);
+
+  const int first_lux = 1000;
+  double running_sum = 0.0;
+  for (int i = 0; i < horizon_in_seconds; ++i) {
+    thread_bundle_.FastForwardBy(base::TimeDelta::FromSeconds(1));
+    const int lux = i == 0 ? first_lux : i;
+    fake_als_reader_.ReportAmbientLightUpdate(lux);
+    running_sum += ConvertToLog(lux);
+    EXPECT_EQ(modeller_->AverageAmbientForTesting(thread_bundle_.NowTicks()),
+              running_sum / (i + 1));
+  }
+
+  // Add another one should push the oldest |first_lux| out of the horizon.
+  thread_bundle_.FastForwardBy(base::TimeDelta::FromSeconds(1));
+  fake_als_reader_.ReportAmbientLightUpdate(100);
+  running_sum = running_sum + ConvertToLog(100) - ConvertToLog(first_lux);
+  EXPECT_DOUBLE_EQ(
+      modeller_->AverageAmbientForTesting(thread_bundle_.NowTicks()).value(),
+      running_sum / horizon_in_seconds);
 }
 
 // User brightness changes are received, training example cache reaches
@@ -429,10 +474,8 @@ TEST_F(ModellerImplTest, OnUserBrightnessChanged) {
   for (size_t i = 0; i < modeller_->GetMaxTrainingDataPointsForTesting() - 1;
        ++i) {
     EXPECT_EQ(i, modeller_->NumberTrainingDataPointsForTesting());
-    scoped_task_environment_.FastForwardBy(
-        base::TimeDelta::FromMilliseconds(1));
-    const base::TimeTicks now =
-        scoped_task_environment_.GetMockTickClock()->NowTicks();
+    thread_bundle_.FastForwardBy(base::TimeDelta::FromMilliseconds(1));
+    const base::TimeTicks now = thread_bundle_.NowTicks();
     const int lux = i * 20;
     fake_als_reader_.ReportAmbientLightUpdate(lux);
     const double brightness_old = 10.0 + i;
@@ -440,7 +483,7 @@ TEST_F(ModellerImplTest, OnUserBrightnessChanged) {
     modeller_->OnUserBrightnessChanged(brightness_old, brightness_new);
     expected_data.push_back(
         {brightness_old, brightness_new,
-         ConvertToLog(modeller_->AverageAmbientForTesting()), now});
+         ConvertToLog(modeller_->AverageAmbientForTesting(now).value()), now});
   }
 
   // Training should not have started.
@@ -448,16 +491,15 @@ TEST_F(ModellerImplTest, OnUserBrightnessChanged) {
             modeller_->NumberTrainingDataPointsForTesting());
 
   // Add one more data point to trigger the training early.
-  scoped_task_environment_.FastForwardBy(base::TimeDelta::FromMilliseconds(1));
-  const base::TimeTicks now =
-      scoped_task_environment_.GetMockTickClock()->NowTicks();
+  thread_bundle_.FastForwardBy(base::TimeDelta::FromMilliseconds(1));
+  const base::TimeTicks now = thread_bundle_.NowTicks();
   const double brightness_old = 85;
   const double brightness_new = 95;
   modeller_->OnUserBrightnessChanged(brightness_old, brightness_new);
-  expected_data.push_back({brightness_old, brightness_new,
-                           ConvertToLog(modeller_->AverageAmbientForTesting()),
-                           now});
-  scoped_task_environment_.RunUntilIdle();
+  expected_data.push_back(
+      {brightness_old, brightness_new,
+       ConvertToLog(modeller_->AverageAmbientForTesting(now).value()), now});
+  thread_bundle_.RunUntilIdle();
 
   EXPECT_EQ(0u, modeller_->NumberTrainingDataPointsForTesting());
 
@@ -478,14 +520,13 @@ TEST_F(ModellerImplTest, MultipleUserActivities) {
                               modeller_->GetGlobalCurveForTesting(),
                               base::nullopt /* personal_curve */);
 
+  thread_bundle_.FastForwardBy(base::TimeDelta::FromSeconds(1));
   fake_als_reader_.ReportAmbientLightUpdate(30);
   std::vector<TrainingDataPoint> expected_data;
   for (size_t i = 0; i < 10; ++i) {
     EXPECT_EQ(i, modeller_->NumberTrainingDataPointsForTesting());
-    scoped_task_environment_.FastForwardBy(
-        base::TimeDelta::FromMilliseconds(1));
-    const base::TimeTicks now =
-        scoped_task_environment_.GetMockTickClock()->NowTicks();
+    thread_bundle_.FastForwardBy(base::TimeDelta::FromMilliseconds(1));
+    const base::TimeTicks now = thread_bundle_.NowTicks();
     const int lux = i * 20;
     fake_als_reader_.ReportAmbientLightUpdate(lux);
     const double brightness_old = 10.0 + i;
@@ -493,35 +534,29 @@ TEST_F(ModellerImplTest, MultipleUserActivities) {
     modeller_->OnUserBrightnessChanged(brightness_old, brightness_new);
     expected_data.push_back(
         {brightness_old, brightness_new,
-         ConvertToLog(modeller_->AverageAmbientForTesting()), now});
+         ConvertToLog(modeller_->AverageAmbientForTesting(now).value()), now});
   }
 
   EXPECT_EQ(modeller_->NumberTrainingDataPointsForTesting(), 10u);
 
-  scoped_task_environment_.FastForwardBy(
-      modeller_->GetTrainingDelayForTesting() / 2);
+  thread_bundle_.FastForwardBy(modeller_->GetTrainingDelayForTesting() / 2);
   // A user activity is received, timer should be reset.
   const ui::MouseEvent mouse_event(ui::ET_MOUSE_EXITED, gfx::Point(0, 0),
                                    gfx::Point(0, 0), base::TimeTicks(), 0, 0);
   modeller_->OnUserActivity(&mouse_event);
 
-  scoped_task_environment_.FastForwardBy(
-      modeller_->GetTrainingDelayForTesting() / 3);
+  thread_bundle_.FastForwardBy(modeller_->GetTrainingDelayForTesting() / 3);
   EXPECT_EQ(modeller_->NumberTrainingDataPointsForTesting(), 10u);
 
   // Another user event is received.
   modeller_->OnUserActivity(&mouse_event);
 
   // After |training_delay_|/2, no training has started.
-  scoped_task_environment_.FastForwardBy(
-      modeller_->GetTrainingDelayForTesting() / 2);
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.FastForwardBy(modeller_->GetTrainingDelayForTesting() / 2);
   EXPECT_EQ(modeller_->NumberTrainingDataPointsForTesting(), 10u);
 
   // After another |training_delay_|/2, training is scheduled.
-  scoped_task_environment_.FastForwardBy(
-      modeller_->GetTrainingDelayForTesting() / 2);
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.FastForwardBy(modeller_->GetTrainingDelayForTesting() / 2);
 
   EXPECT_EQ(0u, modeller_->NumberTrainingDataPointsForTesting());
   const base::Optional<MonotoneCubicSpline>& result_curve =
@@ -537,13 +572,11 @@ TEST_F(ModellerImplTest, MultipleUserActivities) {
 TEST_F(ModellerImplTest, GlobaCurveFromValidExperimentParam) {
   const std::string global_curve_spec("1,10\n2,20\n3,30");
 
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      features::kAutoScreenBrightness, {{"global_curve", global_curve_spec}});
-
   const MonotoneCubicSpline expected_global_curve({1, 2, 3}, {10, 20, 30});
 
-  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess);
+  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess,
+       true /* is_trainer_configured */, true /* is_personal_curve_valid  */,
+       {{"global_curve", global_curve_spec}});
   EXPECT_EQ(modeller_->GetGlobalCurveForTesting(), expected_global_curve);
 
   test_observer_->CheckStatus(true /* is_model_initialized */,
@@ -556,10 +589,6 @@ TEST_F(ModellerImplTest, GlobaCurveFromValidExperimentParam) {
 TEST_F(ModellerImplTest, GlobaCurveFromInvalidExperimentParam) {
   const std::string global_curve_spec("1,10");
 
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      features::kAutoScreenBrightness, {{"global_curve", global_curve_spec}});
-
   // Defined by default values.
   const MonotoneCubicSpline expected_global_curve(
       {
@@ -569,7 +598,9 @@ TEST_F(ModellerImplTest, GlobaCurveFromInvalidExperimentParam) {
           36.14, 47.62, 85.83, 93.27, 93.27, 100,
       });
 
-  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess);
+  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess,
+       true /* is_trainer_configured */, true /* is_personal_curve_valid  */,
+       {{"global_curve", global_curve_spec}});
   EXPECT_EQ(modeller_->GetGlobalCurveForTesting(), expected_global_curve);
 
   test_observer_->CheckStatus(true /* is_model_initialized */,
@@ -579,14 +610,11 @@ TEST_F(ModellerImplTest, GlobaCurveFromInvalidExperimentParam) {
 
 // Training delay is 0, hence we train as soon as we have 1 data point.
 TEST_F(ModellerImplTest, ZeroTrainingDelay) {
-  base::test::ScopedFeatureList scoped_feature_list;
-
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      features::kAutoScreenBrightness, {
-                                           {"training_delay_in_seconds", "0"},
-                                       });
-
-  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess);
+  Init(AlsReader::AlsInitStatus::kSuccess, BrightnessMonitor::Status::kSuccess,
+       true /* is_trainer_configured */, true /* is_personal_curve_valid  */,
+       {
+           {"training_delay_in_seconds", "0"},
+       });
 
   test_observer_->CheckStatus(true /* is_model_initialized */,
                               modeller_->GetGlobalCurveForTesting(),
@@ -598,7 +626,7 @@ TEST_F(ModellerImplTest, ZeroTrainingDelay) {
   modeller_->OnUserActivity(&mouse_event);
 
   modeller_->OnUserBrightnessChanged(10, 20);
-  scoped_task_environment_.RunUntilIdle();
+  thread_bundle_.RunUntilIdle();
   EXPECT_EQ(0u, modeller_->NumberTrainingDataPointsForTesting());
   EXPECT_TRUE(test_observer_->trained_curve_received());
 }

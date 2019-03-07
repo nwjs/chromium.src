@@ -19,7 +19,6 @@
 #include "third_party/blink/renderer/core/loader/mixed_content_checker.h"
 #include "third_party/blink/renderer/core/loader/subresource_filter.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
-#include "third_party/blink/renderer/core/script/fetch_client_settings_object_impl.h"
 #include "third_party/blink/renderer/core/timing/worker_global_scope_performance.h"
 #include "third_party/blink/renderer/core/workers/worker_clients.h"
 #include "third_party/blink/renderer/core/workers/worker_content_settings_client.h"
@@ -36,36 +35,16 @@ namespace blink {
 
 WorkerFetchContext::~WorkerFetchContext() = default;
 
-WorkerFetchContext* WorkerFetchContext::Create(
-    WorkerOrWorkletGlobalScope& global_scope,
-    scoped_refptr<WebWorkerFetchContext> web_context,
-    SubresourceFilter* subresource_filter,
-    FetchClientSettingsObject* fetch_client_settings_object) {
-  if (!web_context)
-    return nullptr;
-  return MakeGarbageCollected<WorkerFetchContext>(
-      global_scope, std::move(web_context), subresource_filter,
-      fetch_client_settings_object);
-}
-
 WorkerFetchContext::WorkerFetchContext(
     WorkerOrWorkletGlobalScope& global_scope,
     scoped_refptr<WebWorkerFetchContext> web_context,
-    SubresourceFilter* subresource_filter,
-    FetchClientSettingsObject* fetch_client_settings_object)
-    : BaseFetchContext(global_scope.GetTaskRunner(TaskType::kInternalLoading)),
-      global_scope_(global_scope),
+    SubresourceFilter* subresource_filter)
+    : global_scope_(global_scope),
       web_context_(std::move(web_context)),
       subresource_filter_(subresource_filter),
-      fetch_client_settings_object_(fetch_client_settings_object),
       save_data_enabled_(GetNetworkStateNotifier().SaveDataEnabled()) {
   DCHECK(global_scope.IsContextThread());
   DCHECK(web_context_);
-}
-
-const FetchClientSettingsObject*
-WorkerFetchContext::GetFetchClientSettingsObject() const {
-  return fetch_client_settings_object_.Get();
 }
 
 KURL WorkerFetchContext::GetSiteForCookies() const {
@@ -91,7 +70,7 @@ bool WorkerFetchContext::AllowScriptFromSource(const KURL& url) const {
 
 bool WorkerFetchContext::ShouldBlockRequestByInspector(const KURL& url) const {
   bool should_block_request = false;
-  probe::shouldBlockRequest(global_scope_, url, &should_block_request);
+  probe::shouldBlockRequest(Probe(), url, &should_block_request);
   return should_block_request;
 }
 
@@ -121,6 +100,10 @@ void WorkerFetchContext::CountUsage(WebFeature feature) const {
 
 void WorkerFetchContext::CountDeprecation(WebFeature feature) const {
   Deprecation::CountDeprecation(global_scope_, feature);
+}
+
+CoreProbeSink* WorkerFetchContext::Probe() const {
+  return probe::ToCoreProbeSink(static_cast<ExecutionContext*>(global_scope_));
 }
 
 bool WorkerFetchContext::ShouldBlockWebSocketByMixedContentCheck(
@@ -191,10 +174,6 @@ void WorkerFetchContext::AddConsoleMessage(ConsoleMessage* message) const {
   return global_scope_->AddConsoleMessage(message);
 }
 
-const SecurityOrigin* WorkerFetchContext::GetSecurityOrigin() const {
-  return GetFetchClientSettingsObject()->GetSecurityOrigin();
-}
-
 std::unique_ptr<WebURLLoader> WorkerFetchContext::CreateURLLoader(
     const ResourceRequest& request,
     const ResourceLoaderOptions& options) {
@@ -243,19 +222,11 @@ std::unique_ptr<CodeCacheLoader> WorkerFetchContext::CreateCodeCacheLoader() {
   return web_context_->CreateCodeCacheLoader();
 }
 
-blink::mojom::ControllerServiceWorkerMode
-WorkerFetchContext::IsControlledByServiceWorker() const {
-  return web_context_->IsControlledByServiceWorker();
-}
-
-int WorkerFetchContext::ApplicationCacheHostID() const {
-  return web_context_->ApplicationCacheHostID();
-}
-
 void WorkerFetchContext::PrepareRequest(ResourceRequest& request,
+                                        WebScopedVirtualTimePauser&,
                                         RedirectType) {
   String user_agent = global_scope_->UserAgent();
-  probe::applyUserAgentOverride(global_scope_, &user_agent);
+  probe::applyUserAgentOverride(Probe(), &user_agent);
   DCHECK(!user_agent.IsNull());
   request.SetHTTPUserAgent(AtomicString(user_agent));
 
@@ -287,35 +258,35 @@ void WorkerFetchContext::DispatchWillSendRequest(
 
 void WorkerFetchContext::DispatchDidReceiveResponse(
     unsigned long identifier,
+    const ResourceRequest& request,
     const ResourceResponse& response,
-    network::mojom::RequestContextFrameType frame_type,
-    mojom::RequestContextType request_context,
     Resource* resource,
     ResourceResponseType) {
   if (response.HasMajorCertificateErrors()) {
     WebMixedContentContextType context_type =
         WebMixedContent::ContextTypeFromRequestContext(
-            request_context, false /* strictMixedContentCheckingForPlugin */);
+            request.GetRequestContext(),
+            false /* strictMixedContentCheckingForPlugin */);
     if (context_type == WebMixedContentContextType::kBlockable) {
       web_context_->DidRunContentWithCertificateErrors();
     } else {
       web_context_->DidDisplayContentWithCertificateErrors();
     }
   }
-  probe::didReceiveResourceResponse(global_scope_, identifier, nullptr,
-                                    response, resource);
+  probe::didReceiveResourceResponse(Probe(), identifier, nullptr, response,
+                                    resource);
 }
 
 void WorkerFetchContext::DispatchDidReceiveData(unsigned long identifier,
                                                 const char* data,
-                                                size_t data_length) {
-  probe::didReceiveData(global_scope_, identifier, nullptr, data, data_length);
+                                                uint64_t data_length) {
+  probe::didReceiveData(Probe(), identifier, nullptr, data, data_length);
 }
 
 void WorkerFetchContext::DispatchDidReceiveEncodedData(
     unsigned long identifier,
     size_t encoded_data_length) {
-  probe::didReceiveEncodedDataLength(global_scope_, nullptr, identifier,
+  probe::didReceiveEncodedDataLength(Probe(), nullptr, identifier,
                                      encoded_data_length);
 }
 
@@ -325,7 +296,7 @@ void WorkerFetchContext::DispatchDidFinishLoading(
     int64_t encoded_data_length,
     int64_t decoded_body_length,
     bool should_report_corb_blocking) {
-  probe::didFinishLoading(global_scope_, identifier, nullptr, finish_time,
+  probe::didFinishLoading(Probe(), identifier, nullptr, finish_time,
                           encoded_data_length, decoded_body_length,
                           should_report_corb_blocking);
 }
@@ -335,7 +306,7 @@ void WorkerFetchContext::DispatchDidFail(const KURL& url,
                                          const ResourceError& error,
                                          int64_t encoded_data_length,
                                          bool is_internal_request) {
-  probe::didFailLoading(global_scope_, identifier, nullptr, error);
+  probe::didFailLoading(Probe(), identifier, nullptr, error);
   if (network_utils::IsCertificateTransparencyRequiredError(
           error.ErrorCode())) {
     CountUsage(WebFeature::kCertificateTransparencyRequiredErrorOnResourceLoad);
@@ -366,10 +337,6 @@ void WorkerFetchContext::SetFirstPartyCookie(ResourceRequest& out_request) {
     out_request.SetSiteForCookies(GetSiteForCookies());
 }
 
-bool WorkerFetchContext::DefersLoading() const {
-  return global_scope_->IsContextPaused();
-}
-
 std::unique_ptr<blink::scheduler::WebResourceLoadingTaskRunnerHandle>
 WorkerFetchContext::CreateResourceLoadingTaskRunnerHandle() {
   return scheduler::WebResourceLoadingTaskRunnerHandle::CreateUnprioritized(
@@ -393,7 +360,6 @@ WorkerFetchContext::GetWorkerContentSettingsClient() const {
 void WorkerFetchContext::Trace(blink::Visitor* visitor) {
   visitor->Trace(global_scope_);
   visitor->Trace(subresource_filter_);
-  visitor->Trace(fetch_client_settings_object_);
   BaseFetchContext::Trace(visitor);
 }
 

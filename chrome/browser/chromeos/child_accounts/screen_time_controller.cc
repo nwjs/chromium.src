@@ -4,6 +4,11 @@
 
 #include "chrome/browser/chromeos/child_accounts/screen_time_controller.h"
 
+#include <algorithm>
+#include <string>
+
+#include "ash/public/interfaces/login_screen.mojom.h"
+#include "base/feature_list.h"
 #include "base/optional.h"
 #include "base/time/clock.h"
 #include "base/time/default_clock.h"
@@ -13,6 +18,8 @@
 #include "chrome/browser/chromeos/login/lock/screen_locker.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/ash/login_screen_client.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/session_manager_client.h"
@@ -34,14 +41,15 @@ constexpr char kScreenStateUsageLimitStarted[] = "usage_limit_started";
 constexpr char kScreenStateNextStateChangeTime[] = "next_state_change_time";
 constexpr char kScreenStateNextPolicyType[] = "next_active_policy";
 constexpr char kScreenStateNextUnlockTime[] = "next_unlock_time";
-constexpr char kScreenStateLastStateChanged[] = "last_state_changed";
 
 }  // namespace
 
 // static
 void ScreenTimeController::RegisterProfilePrefs(PrefRegistrySimple* registry) {
-  registry->RegisterDictionaryPref(prefs::kUsageTimeLimit);
+  // TODO(agawronska): Move preference registration when implementing PAC.
+  registry->RegisterDictionaryPref(prefs::kParentAccessCodeConfig);
   registry->RegisterDictionaryPref(prefs::kScreenTimeLastState);
+  registry->RegisterDictionaryPref(prefs::kUsageTimeLimit);
 }
 
 ScreenTimeController::ScreenTimeController(content::BrowserContext* context)
@@ -74,9 +82,11 @@ base::TimeDelta ScreenTimeController::GetScreenTimeDuration() {
 
 void ScreenTimeController::SetClocksForTesting(
     const base::Clock* clock,
-    const base::TickClock* tick_clock) {
+    const base::TickClock* tick_clock,
+    scoped_refptr<base::SequencedTaskRunner> task_runner) {
   clock_ = clock;
   next_state_timer_ = std::make_unique<base::OneShotTimer>(tick_clock);
+  next_state_timer_->SetTaskRunner(task_runner);
 }
 
 void ScreenTimeController::CheckTimeLimit(const std::string& source) {
@@ -106,9 +116,13 @@ void ScreenTimeController::CheckTimeLimit(const std::string& source) {
   if (state.is_locked) {
     DCHECK(!state.next_unlock_time.is_null());
     if (!session_manager::SessionManager::Get()->IsScreenLocked()) {
-      VLOG(1) << "Request status report before locking screen.";
-      ConsumerStatusReportingServiceFactory::GetForBrowserContext(context_)
-          ->RequestImmediateStatusReport();
+      // This status report are going to be done in EventBasedStatusReporting if
+      // this feature is enabled.
+      if (!base::FeatureList::IsEnabled(features::kEventBasedStatusReporting)) {
+        VLOG(1) << "Request status report before locking screen.";
+        ConsumerStatusReportingServiceFactory::GetForBrowserContext(context_)
+            ->RequestImmediateStatusReport();
+      }
       ForceScreenLockByPolicy(state.next_unlock_time);
     }
   } else {
@@ -176,6 +190,8 @@ void ScreenTimeController::UpdateTimeLimitsMessage(
   ScreenLocker::default_screen_locker()->SetAuthEnabledForUser(
       account_id, !visible,
       visible ? next_unlock_time : base::Optional<base::Time>());
+  if (base::FeatureList::IsEnabled(features::kParentAccessCode))
+    LoginScreenClient::Get()->login_screen()->SetShowParentAccess(visible);
 }
 
 void ScreenTimeController::OnPolicyChanged() {
@@ -214,8 +230,6 @@ void ScreenTimeController::SaveCurrentStateToPref(
       base::Value(static_cast<int>(state.next_state_active_policy)));
   state_dict->SetKey(kScreenStateNextUnlockTime,
                      base::Value(state.next_unlock_time.ToDoubleT()));
-  state_dict->SetKey(kScreenStateLastStateChanged,
-                     base::Value(state.last_state_changed.ToDoubleT()));
 
   pref_service_->Set(prefs::kScreenTimeLastState, *state_dict);
   pref_service_->CommitPendingWrite();
@@ -300,14 +314,6 @@ ScreenTimeController::GetLastStateFromPref() {
     return base::nullopt;
   result.next_unlock_time =
       base::Time::FromDoubleT(next_unlock_time->GetDouble());
-
-  // Verify last_state_changed from the pref is a double value.
-  const base::Value* last_state_changed =
-      last_state->FindKey(kScreenStateLastStateChanged);
-  if (!last_state_changed || !last_state_changed->is_double())
-    return base::nullopt;
-  result.last_state_changed =
-      base::Time::FromDoubleT(last_state_changed->GetDouble());
   return result;
 }
 

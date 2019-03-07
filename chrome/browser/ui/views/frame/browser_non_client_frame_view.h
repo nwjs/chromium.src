@@ -52,7 +52,7 @@ class BrowserNonClientFrameView : public views::NonClientFrameView,
 
   // Retrieves the bounds, in non-client view coordinates within which the
   // TabStrip should be laid out.
-  virtual gfx::Rect GetBoundsForTabStrip(views::View* tabstrip) const = 0;
+  virtual gfx::Rect GetBoundsForTabStrip(const views::View* tabstrip) const = 0;
 
   // Returns the inset of the topmost view in the client view from the top of
   // the non-client view. The topmost view depends on the window type. The
@@ -116,7 +116,7 @@ class BrowserNonClientFrameView : public views::NonClientFrameView,
   // Provided for mus. Updates the client-area of the WindowTreeHostMus.
   virtual void UpdateClientArea();
 
-  // Provided for mus to update the minimum window size property.
+  // Provided for mus and macOS to update the minimum window size property.
   virtual void UpdateMinimumSize();
 
   // Whether the special painting mode for one tab is allowed, regardless of how
@@ -139,11 +139,20 @@ class BrowserNonClientFrameView : public views::NonClientFrameView,
     return hosted_app_button_container_;
   }
 
+  // Draws a taskbar icon for non-guest sessions, erases it otherwise.
+  void UpdateTaskbarDecoration();
+
  protected:
   // Whether the frame should be painted with theming.
   // By default, tabbed browser windows are themed but popup and app windows are
   // not.
+  // TODO(https://crbug.com/927381): Dedupe this with
+  // BrowserFrame::ShouldIgnoreTheme().
   virtual bool ShouldPaintAsThemed() const;
+
+  // Returns the color to use for text, caption buttons, and other title bar
+  // elements.
+  virtual SkColor GetCaptionColor(ActiveState active_state = kUseCurrent) const;
 
   // Converts an ActiveState to a bool representing whether the frame should be
   // treated as active.
@@ -185,9 +194,6 @@ class BrowserNonClientFrameView : public views::NonClientFrameView,
   // Gets a theme provider that should be non-null even before we're added to a
   // view hierarchy.
   const ui::ThemeProvider* GetThemeProviderForProfile() const;
-
-  // Draws a taskbar icon for non-guest sessions, erases it otherwise.
-  void UpdateTaskbarDecoration();
 
   // Returns the color of the given |color_id| from the theme provider or the
   // default theme properties.

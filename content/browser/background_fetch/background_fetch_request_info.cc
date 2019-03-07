@@ -18,11 +18,13 @@ namespace content {
 
 BackgroundFetchRequestInfo::BackgroundFetchRequestInfo(
     int request_index,
-    blink::mojom::FetchAPIRequestPtr fetch_request)
+    blink::mojom::FetchAPIRequestPtr fetch_request,
+    uint64_t request_body_size)
     : RefCountedDeleteOnSequence<BackgroundFetchRequestInfo>(
           base::SequencedTaskRunnerHandle::Get()),
       request_index_(request_index),
-      fetch_request_(std::move(fetch_request)) {}
+      fetch_request_(std::move(fetch_request)),
+      request_body_size_(request_body_size) {}
 
 BackgroundFetchRequestInfo::~BackgroundFetchRequestInfo() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -48,7 +50,13 @@ void BackgroundFetchRequestInfo::SetResult(
   DCHECK(result);
 
   result_ = std::move(result);
-  PopulateWithResponse(std::move(result_->response));
+  // The BackgroundFetchResponse was extracted when the download started.
+  // This is sent over again when the download was complete in case the
+  // browser was restarted.
+  if (response_headers_.empty())
+    PopulateWithResponse(std::move(result_->response));
+  else
+    result_->response.reset();
 }
 
 void BackgroundFetchRequestInfo::SetEmptyResultWithFailureReason(
@@ -56,7 +64,7 @@ void BackgroundFetchRequestInfo::SetEmptyResultWithFailureReason(
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   result_ = std::make_unique<BackgroundFetchResult>(
-      nullptr /* response */, base::Time::Now(), failure_reason);
+      /* response= */ nullptr, base::Time::Now(), failure_reason);
 }
 
 void BackgroundFetchRequestInfo::PopulateWithResponse(

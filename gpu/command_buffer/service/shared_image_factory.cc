@@ -16,6 +16,7 @@
 #include "gpu/command_buffer/service/image_factory.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/service_utils.h"
+#include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image_backing.h"
 #include "gpu/command_buffer/service/shared_image_backing_factory_gl_texture.h"
 #include "gpu/command_buffer/service/shared_image_manager.h"
@@ -47,7 +48,7 @@ SharedImageFactory::SharedImageFactory(
     const GpuPreferences& gpu_preferences,
     const GpuDriverBugWorkarounds& workarounds,
     const GpuFeatureInfo& gpu_feature_info,
-    raster::RasterDecoderContextState* context_state,
+    SharedContextState* context_state,
     MailboxManager* mailbox_manager,
     SharedImageManager* shared_image_manager,
     ImageFactory* image_factory,
@@ -55,6 +56,7 @@ SharedImageFactory::SharedImageFactory(
     : mailbox_manager_(mailbox_manager),
       shared_image_manager_(shared_image_manager),
       memory_tracker_(std::make_unique<MemoryTypeTracker>(memory_tracker)),
+      using_vulkan_(context_state && context_state->use_vulkan_gr_context()),
       backing_factory_(
           std::make_unique<SharedImageBackingFactoryGLTexture>(gpu_preferences,
                                                                workarounds,
@@ -83,6 +85,28 @@ bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
   } else {
     backing = backing_factory_->CreateSharedImage(mailbox, format, size,
                                                   color_space, usage);
+  }
+
+  return RegisterBacking(std::move(backing), !using_wrapped_sk_image);
+}
+
+bool SharedImageFactory::CreateSharedImage(const Mailbox& mailbox,
+                                           viz::ResourceFormat format,
+                                           const gfx::Size& size,
+                                           const gfx::ColorSpace& color_space,
+                                           uint32_t usage,
+                                           base::span<const uint8_t> data) {
+  std::unique_ptr<SharedImageBacking> backing;
+  bool vulkan_data_upload = using_vulkan_ && !data.empty();
+  bool oop_rasterization = usage & SHARED_IMAGE_USAGE_OOP_RASTERIZATION;
+  bool using_wrapped_sk_image =
+      (wrapped_sk_image_factory_ && (vulkan_data_upload || oop_rasterization));
+  if (using_wrapped_sk_image) {
+    backing = wrapped_sk_image_factory_->CreateSharedImage(
+        mailbox, format, size, color_space, usage, data);
+  } else {
+    backing = backing_factory_->CreateSharedImage(mailbox, format, size,
+                                                  color_space, usage, data);
   }
 
   return RegisterBacking(std::move(backing), !using_wrapped_sk_image);
@@ -155,17 +179,14 @@ bool SharedImageFactory::RegisterBacking(
     return false;
   }
 
-  Mailbox mailbox = backing->mailbox();
-  if (shared_image_manager_->IsSharedImage(mailbox)) {
-    LOG(ERROR) << "CreateSharedImage: mailbox is already associated with a "
-                  "SharedImage";
-    backing->Destroy();
-    return false;
-  }
-
   std::unique_ptr<SharedImageRepresentationFactoryRef> shared_image =
       shared_image_manager_->Register(std::move(backing),
                                       memory_tracker_.get());
+
+  if (!shared_image) {
+    LOG(ERROR) << "CreateSharedImage: could not register backing.";
+    return false;
+  }
 
   // TODO(ericrk): Remove this once no legacy cases remain.
   if (legacy_mailbox && !shared_image->ProduceLegacyMailbox(mailbox_manager_)) {

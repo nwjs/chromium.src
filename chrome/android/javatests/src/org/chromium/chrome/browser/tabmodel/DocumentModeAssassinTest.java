@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tabmodel;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.support.annotation.Nullable;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 import android.support.test.filters.SmallTest;
@@ -26,8 +27,8 @@ import org.chromium.base.test.util.AdvancedMockContext;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.RetryOnFailure;
-import org.chromium.chrome.browser.TabState;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tabmodel.DocumentModeAssassin.DocumentModeAssassinForTesting;
 import org.chromium.chrome.browser.tabmodel.DocumentModeAssassin.DocumentModeAssassinObserver;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStoreTest.MockTabPersistentStoreObserver;
@@ -48,8 +49,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests permanent migration from document mode to tabbed mode.
@@ -81,6 +80,8 @@ public class DocumentModeAssassinTest {
 
     @Before
     public void setUp() throws Exception {
+        SigninTestUtil.setUpAuthForTest();
+
         mContext = new AdvancedMockContext(InstrumentationRegistry.getTargetContext());
         mDocumentModeDirectory = new TestTabModelDirectory(
                 mContext, DOCUMENT_MODE_DIRECTORY_NAME, null);
@@ -145,6 +146,8 @@ public class DocumentModeAssassinTest {
         } catch (Exception e) {
             Log.e(TAG, "Failed to clean up tabbed mode directory.");
         }
+
+        SigninTestUtil.tearDownAuthForTest();
     }
 
     private void writeUselessFileToDirectory(File directory, String filename) {
@@ -458,7 +461,6 @@ public class DocumentModeAssassinTest {
             throws Exception {
         // Load up the metadata file via a TabPersistentStore to make sure that it contains all of
         // the migrated tab information.
-        SigninTestUtil.setUpAuthForTest();
         mTestRule.loadNativeLibraryAndInitBrowserProcess();
         TabPersistentStore.setBaseStateDirectoryForTests(mTabbedModeDirectory.getBaseDirectory());
 
@@ -506,9 +508,6 @@ public class DocumentModeAssassinTest {
             Assert.assertEquals(
                     TEST_INFO.contents[i].url, selector.getModel(false).getTabAt(i).getUrl());
         }
-
-        SigninTestUtil.resetSigninState();
-        SigninTestUtil.tearDownAuthForTest();
     }
 
     /** Checks that all TabState files are copied successfully. */

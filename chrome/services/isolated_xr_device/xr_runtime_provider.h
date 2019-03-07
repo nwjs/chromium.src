@@ -7,8 +7,7 @@
 
 #include "device/vr/buildflags/buildflags.h"
 #include "device/vr/public/mojom/isolated_xr_service.mojom.h"
-#include "services/service_manager/public/cpp/service_context.h"
-#include "services/service_manager/public/cpp/service_context_ref.h"
+#include "services/service_manager/public/cpp/service_keepalive.h"
 
 namespace device {
 class OculusDevice;
@@ -19,16 +18,18 @@ class IsolatedXRRuntimeProvider
     : public device::mojom::IsolatedXRRuntimeProvider {
  public:
   IsolatedXRRuntimeProvider(
-      std::unique_ptr<service_manager::ServiceContextRef> service_ref);
+      std::unique_ptr<service_manager::ServiceKeepaliveRef> service_ref);
   ~IsolatedXRRuntimeProvider() final;
 
   void RequestDevices(
       device::mojom::IsolatedXRRuntimeProviderClientPtr client) override;
 
  private:
-  const std::unique_ptr<service_manager::ServiceContextRef> service_ref_;
+  const std::unique_ptr<service_manager::ServiceKeepaliveRef> service_ref_;
 
   IsolatedXRRuntimeProvider();
+  void PollForDeviceChanges(bool check_openvr, bool check_oculus);
+  void SetupPollingForDeviceChanges();
 
 #if BUILDFLAG(ENABLE_OCULUS_VR)
   std::unique_ptr<device::OculusDevice> oculus_device_;
@@ -39,6 +40,7 @@ class IsolatedXRRuntimeProvider
 #endif
 
   device::mojom::IsolatedXRRuntimeProviderClientPtr client_;
+  base::WeakPtrFactory<IsolatedXRRuntimeProvider> weak_ptr_factory_;
 };
 
 #endif  // CHROME_SERVICES_ISOLATED_XR_DEVICE_XR_RUNTIME_PROVIDER_H_

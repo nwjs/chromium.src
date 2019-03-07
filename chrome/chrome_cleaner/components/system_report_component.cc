@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 
+#include "base/base_paths_win.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback_helpers.h"
@@ -41,6 +42,7 @@
 #include "base/win/scoped_variant.h"
 #include "base/win/windows_version.h"
 #include "chrome/chrome_cleaner/chrome_utils/chrome_util.h"
+#include "chrome/chrome_cleaner/chrome_utils/extension_file_logger.h"
 #include "chrome/chrome_cleaner/chrome_utils/extensions_util.h"
 #include "chrome/chrome_cleaner/constants/chrome_cleaner_switches.h"
 #include "chrome/chrome_cleaner/constants/common_registry_names.h"
@@ -49,6 +51,7 @@
 #include "chrome/chrome_cleaner/logging/scoped_timed_task_logger.h"
 #include "chrome/chrome_cleaner/os/disk_util.h"
 #include "chrome/chrome_cleaner/os/file_path_sanitization.h"
+#include "chrome/chrome_cleaner/os/file_path_set.h"
 #include "chrome/chrome_cleaner/os/layered_service_provider_wrapper.h"
 #include "chrome/chrome_cleaner/os/nt_internals.h"
 #include "chrome/chrome_cleaner/os/pre_fetched_paths.h"
@@ -60,6 +63,8 @@
 #include "chrome/chrome_cleaner/os/system_util_cleaner.h"
 #include "chrome/chrome_cleaner/os/task_scheduler.h"
 #include "chrome/chrome_cleaner/parsers/json_parser/json_parser_api.h"
+#include "chrome/chrome_cleaner/parsers/parser_utils/command_line_arguments_sanitizer.h"
+#include "chrome/chrome_cleaner/parsers/shortcut_parser/broker/sandboxed_shortcut_parser.h"
 #include "components/chrome_cleaner/public/constants/constants.h"
 
 using base::WaitableEvent;
@@ -683,18 +688,23 @@ void ReportProxySettingsInformation() {
   }
 }
 
-void ReportForcelistExtensions() {
+void ReportForcelistExtensions(ExtensionFileLogger* extension_file_logger) {
   std::vector<ExtensionPolicyRegistryEntry> policies;
   GetExtensionForcelistRegistryPolicies(&policies);
 
   for (const ExtensionPolicyRegistryEntry& policy : policies) {
+    std::vector<internal::FileInformation> extension_files;
+    extension_file_logger->GetExtensionFiles(policy.extension_id,
+                                             &extension_files);
+
     LoggingServiceAPI::GetInstance()->AddInstalledExtension(
-        policy.extension_id,
-        ExtensionInstallMethod::POLICY_EXTENSION_FORCELIST);
+        policy.extension_id, ExtensionInstallMethod::POLICY_EXTENSION_FORCELIST,
+        extension_files);
   }
 }
 
-void ReportInstalledExtensions(JsonParserAPI* json_parser) {
+void ReportInstalledExtensions(JsonParserAPI* json_parser,
+                               ExtensionFileLogger* extension_file_logger) {
   DCHECK(json_parser);
   // TODO(proberge): Temporarily allowing syncing to avoid crashes in debug
   // mode. This isn't catastrophic since the cleanup tool doesn't have a UI and
@@ -702,7 +712,7 @@ void ReportInstalledExtensions(JsonParserAPI* json_parser) {
   base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
   base::ScopedAllowBaseSyncPrimitivesForTesting allow_sync;
 
-  ReportForcelistExtensions();
+  ReportForcelistExtensions(extension_file_logger);
 
   std::vector<ExtensionPolicyRegistryEntry> extension_settings_policies;
   WaitableEvent extension_settings_done(
@@ -734,23 +744,121 @@ void ReportInstalledExtensions(JsonParserAPI* json_parser) {
   default_extensions_done.TimedWaitUntil(end_time);
 
   // Log extensions that were found
-  for (const ExtensionPolicyRegistryEntry& policy : extension_settings_policies)
-    LoggingServiceAPI::GetInstance()->AddInstalledExtension(
-        policy.extension_id, ExtensionInstallMethod::POLICY_EXTENSION_SETTINGS);
+  for (const ExtensionPolicyRegistryEntry& policy :
+       extension_settings_policies) {
+    std::vector<internal::FileInformation> extension_files;
+    extension_file_logger->GetExtensionFiles(policy.extension_id,
+                                             &extension_files);
 
-  for (const ExtensionPolicyFile& policy : master_preferences_policies)
     LoggingServiceAPI::GetInstance()->AddInstalledExtension(
-        policy.extension_id, ExtensionInstallMethod::POLICY_MASTER_PREFERENCES);
+        policy.extension_id, ExtensionInstallMethod::POLICY_EXTENSION_SETTINGS,
+        extension_files);
+  }
 
-  for (const ExtensionPolicyFile& policy : default_extension_policies)
+  for (const ExtensionPolicyFile& policy : master_preferences_policies) {
+    std::vector<internal::FileInformation> extension_files;
+    extension_file_logger->GetExtensionFiles(policy.extension_id,
+                                             &extension_files);
+
     LoggingServiceAPI::GetInstance()->AddInstalledExtension(
-        policy.extension_id, ExtensionInstallMethod::DEFAULT_APPS_EXTENSION);
+        policy.extension_id, ExtensionInstallMethod::POLICY_MASTER_PREFERENCES,
+        extension_files);
+  }
+
+  for (const ExtensionPolicyFile& policy : default_extension_policies) {
+    std::vector<internal::FileInformation> extension_files;
+    extension_file_logger->GetExtensionFiles(policy.extension_id,
+                                             &extension_files);
+
+    LoggingServiceAPI::GetInstance()->AddInstalledExtension(
+        policy.extension_id, ExtensionInstallMethod::DEFAULT_APPS_EXTENSION,
+        extension_files);
+  }
+}
+
+void ReportShortcutModifications(ShortcutParserAPI* shortcut_parser) {
+  // A return here means that lnk shortcut analysis is not enabled on the
+  // command line.
+  if (!shortcut_parser)
+    return;
+
+  std::vector<int> keys_of_paths_to_explore = {
+      base::DIR_USER_DESKTOP,      base::DIR_COMMON_DESKTOP,
+      base::DIR_USER_QUICK_LAUNCH, base::DIR_START_MENU,
+      base::DIR_COMMON_START_MENU, base::DIR_TASKBAR_PINS};
+
+  std::vector<base::FilePath> paths_to_explore;
+  for (int path_key : keys_of_paths_to_explore) {
+    base::FilePath path;
+    if (base::PathService::Get(path_key, &path))
+      paths_to_explore.push_back(path);
+  }
+
+  std::vector<ShortcutInformation> shortcuts_found;
+  base::WaitableEvent event(WaitableEvent::ResetPolicy::MANUAL,
+                            WaitableEvent::InitialState::NOT_SIGNALED);
+
+  std::set<base::FilePath> chrome_exe_paths;
+  ListChromeExePaths(&chrome_exe_paths);
+
+  FilePathSet chrome_exe_file_path_set;
+  for (const auto& path : chrome_exe_paths)
+    chrome_exe_file_path_set.Insert(path);
+
+  shortcut_parser->FindAndParseChromeShortcutsInFoldersAsync(
+      paths_to_explore, chrome_exe_file_path_set,
+      base::BindOnce(
+          [](base::WaitableEvent* event,
+             std::vector<ShortcutInformation>* shortcuts_found,
+             std::vector<ShortcutInformation> parsed_shortcuts) {
+            *shortcuts_found = parsed_shortcuts;
+            event->Signal();
+          },
+          &event, &shortcuts_found));
+  event.Wait();
+
+  InitializeFilePathSanitization();
+
+  const base::string16 kChromeExecutableName = L"chrome.exe";
+  for (const ShortcutInformation& shortcut : shortcuts_found) {
+    base::FilePath target_path(shortcut.target_path);
+
+    // All of the shortcuts returned by
+    // FindAndParseChromeShortcutsInFoldersAsync are guaranteed to be named
+    // Google Chrome.lnk, if the shortcut points to a file different than
+    // chrome.exe or if it has arguments we catalog it as interesting to be
+    // logged.
+    if (target_path.BaseName().value() != kChromeExecutableName ||
+        !shortcut.command_line_arguments.empty()) {
+      base::string16 sanitized_target_path = SanitizePath(target_path);
+      base::string16 sanitized_lnk_path = SanitizePath(shortcut.lnk_path);
+
+      std::string target_digest = "";
+      if (PathExists(target_path) &&
+          !ComputeSHA256DigestOfPath(target_path, &target_digest)) {
+        LOG(ERROR) << "Cannot compute the sha digest of the target path";
+        target_digest = "";
+      }
+
+      std::vector<base::string16> sanitized_command_line_arguments =
+          SanitizeArguments(shortcut.command_line_arguments);
+      LoggingServiceAPI::GetInstance()->AddShortcutData(
+          sanitized_lnk_path, sanitized_target_path, target_digest,
+          sanitized_command_line_arguments);
+    }
+  }
 }
 
 }  // namespace
 
-SystemReportComponent::SystemReportComponent(JsonParserAPI* json_parser)
-    : created_report_(false), json_parser_(json_parser) {}
+SystemReportComponent::SystemReportComponent(JsonParserAPI* json_parser,
+                                             ShortcutParserAPI* shortcut_parser)
+    : created_report_(false),
+      json_parser_(json_parser),
+      shortcut_parser_(shortcut_parser),
+      user_data_path_(
+          PreFetchedPaths::GetInstance()->GetLocalAppDataFolder().Append(
+              L"Google\\Chrome\\User Data")) {}
 
 void SystemReportComponent::PreScan() {}
 
@@ -785,11 +893,14 @@ void SystemReportComponent::CreateFullSystemReport() {
   if (created_report_)
     return;
 
+  ExtensionFileLogger extension_file_logger(user_data_path_);
+
   // Don't collect a system report if logs won't be uploaded.
   if (!logging_service->uploads_enabled()) {
     // TODO(proberge): Remove this by EOQ4 2018.
     if (base::CommandLine::ForCurrentProcess()->HasSwitch(kDumpRawLogsSwitch)) {
-      ReportInstalledExtensions(json_parser_);
+      ReportInstalledExtensions(json_parser_, &extension_file_logger);
+      ReportShortcutModifications(shortcut_parser_);
       created_report_ = true;
     }
 
@@ -825,9 +936,15 @@ void SystemReportComponent::CreateFullSystemReport() {
   ReportInstalledPrograms();
   ReportLayeredServiceProviders();
   ReportProxySettingsInformation();
-  ReportInstalledExtensions(json_parser_);
+  ReportInstalledExtensions(json_parser_, &extension_file_logger);
+  ReportShortcutModifications(shortcut_parser_);
 
   created_report_ = true;
+}
+
+void SystemReportComponent::SetUserDataPathForTesting(
+    const base::FilePath& test_user_data_path) {
+  user_data_path_ = test_user_data_path;
 }
 
 }  // namespace chrome_cleaner

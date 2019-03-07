@@ -181,7 +181,6 @@ ChildProcessTerminationInfo ChildProcessLauncherHelper::GetTerminationInfo(
 
 static void JNI_ChildProcessLauncherHelperImpl_SetTerminationInfo(
     JNIEnv* env,
-    const JavaParamRef<jclass>&,
     jlong termination_info_ptr,
     jint binding_state,
     jboolean killed_by_us,
@@ -227,15 +226,15 @@ void ChildProcessLauncherHelper::SetProcessPriorityOnLauncherThread(
   DCHECK(env);
   return Java_ChildProcessLauncherHelperImpl_setPriority(
       env, java_peer_, process.Handle(), priority.visible,
-      priority.has_media_stream, priority.frame_depth,
-      priority.intersects_viewport, priority.boost_for_pending_views,
-      static_cast<jint>(priority.importance));
+      priority.has_media_stream, priority.has_foreground_service_worker,
+      priority.frame_depth, priority.intersects_viewport,
+      priority.boost_for_pending_views, static_cast<jint>(priority.importance));
 }
 
 // static
 void ChildProcessLauncherHelper::SetRegisteredFilesForService(
     const std::string& service_name,
-    catalog::RequiredFileMap required_files) {
+    std::map<std::string, base::FilePath> required_files) {
   SetFilesToShareForServicePosix(service_name, std::move(required_files));
 }
 

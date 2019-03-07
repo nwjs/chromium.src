@@ -121,7 +121,7 @@ class TestPacketGenerator : public QuicPacketGenerator {
                                        bool fin) {
     // Save data before data is consumed.
     if (total_length > 0) {
-      producer_->SaveStreamData(id, iov, iov_count, 0, offset, total_length);
+      producer_->SaveStreamData(id, iov, iov_count, 0, total_length);
     }
     return QuicPacketGenerator::ConsumeDataFastPath(id, total_length, offset,
                                                     fin, 0);
@@ -135,7 +135,7 @@ class TestPacketGenerator : public QuicPacketGenerator {
                                StreamSendingState state) {
     // Save data before data is consumed.
     if (total_length > 0) {
-      producer_->SaveStreamData(id, iov, iov_count, 0, offset, total_length);
+      producer_->SaveStreamData(id, iov, iov_count, 0, total_length);
     }
     return QuicPacketGenerator::ConsumeData(id, total_length, offset, state);
   }
@@ -149,8 +149,13 @@ class QuicPacketGeneratorTest : public QuicTest {
       : framer_(AllSupportedVersions(),
                 QuicTime::Zero(),
                 Perspective::IS_CLIENT),
-        generator_(42, &framer_, &random_generator_, &delegate_, &producer_),
-        creator_(QuicPacketGeneratorPeer::GetPacketCreator(&generator_)) {
+        generator_(TestConnectionId(),
+                   &framer_,
+                   &random_generator_,
+                   &delegate_,
+                   &producer_),
+        creator_(QuicPacketGeneratorPeer::GetPacketCreator(&generator_)),
+        ack_frame_(InitAckFrame(QuicPacketNumber(1))) {
     EXPECT_CALL(delegate_, GetPacketBuffer()).WillRepeatedly(Return(nullptr));
     creator_->SetEncrypter(
         ENCRYPTION_FORWARD_SECURE,
@@ -466,6 +471,35 @@ TEST_F(QuicPacketGeneratorTest, ConsumeData_Handshake) {
   EXPECT_EQ(kDefaultMaxPacketSize, packets_[0].encrypted_length);
 }
 
+// Test the behavior of ConsumeData when the data is for the crypto handshake
+// stream, but padding is disabled.
+TEST_F(QuicPacketGeneratorTest, ConsumeData_Handshake_PaddingDisabled) {
+  generator_.set_fully_pad_crypto_hadshake_packets(false);
+
+  delegate_.SetCanWriteAnything();
+
+  EXPECT_CALL(delegate_, OnSerializedPacket(_))
+      .WillOnce(Invoke(this, &QuicPacketGeneratorTest::SavePacket));
+  MakeIOVector("foo", &iov_);
+  QuicConsumedData consumed = generator_.ConsumeData(
+      QuicUtils::GetCryptoStreamId(framer_.transport_version()), &iov_, 1u,
+      iov_.iov_len, 0, NO_FIN);
+  EXPECT_EQ(3u, consumed.bytes_consumed);
+  EXPECT_FALSE(generator_.HasQueuedFrames());
+  EXPECT_FALSE(generator_.HasRetransmittableFrames());
+
+  PacketContents contents;
+  contents.num_stream_frames = 1;
+  contents.num_padding_frames = 0;
+  CheckPacketContains(contents, 0);
+
+  ASSERT_EQ(1u, packets_.size());
+
+  // Packet is not fully padded, but we want to future packets to be larger.
+  ASSERT_EQ(kDefaultMaxPacketSize, generator_.GetCurrentMaxPacketLength());
+  EXPECT_EQ(27, packets_[0].encrypted_length);
+}
+
 TEST_F(QuicPacketGeneratorTest, ConsumeData_EmptyData) {
   EXPECT_QUIC_BUG(generator_.ConsumeData(QuicUtils::GetHeadersStreamId(
                                              framer_.transport_version()),
@@ -580,6 +614,8 @@ TEST_F(QuicPacketGeneratorTest, ConsumeData_FramesPreviouslyQueued) {
 
 TEST_F(QuicPacketGeneratorTest, ConsumeDataFastPath) {
   delegate_.SetCanWriteAnything();
+  generator_.SetCanSetTransmissionType(true);
+  generator_.SetTransmissionType(LOSS_RETRANSMISSION);
 
   // Create a 10000 byte IOVector.
   CreateData(10000);
@@ -599,6 +635,7 @@ TEST_F(QuicPacketGeneratorTest, ConsumeDataFastPath) {
   EXPECT_FALSE(packets_.empty());
   SerializedPacket packet = packets_.back();
   EXPECT_TRUE(!packet.retransmittable_frames.empty());
+  EXPECT_EQ(LOSS_RETRANSMISSION, packet.transmission_type);
   EXPECT_EQ(STREAM_FRAME, packet.retransmittable_frames.front().type);
   const QuicStreamFrame& stream_frame =
       packet.retransmittable_frames.front().stream_frame;
@@ -805,6 +842,52 @@ TEST_F(QuicPacketGeneratorTest, NotWritableThenBatchOperations2) {
   }
   contents2.num_stream_frames = 1;
   CheckPacketContains(contents2, 1);
+}
+
+// Regression test of b/120493795.
+TEST_F(QuicPacketGeneratorTest, PacketTransmissionType) {
+  delegate_.SetCanWriteAnything();
+  generator_.SetCanSetTransmissionType(true);
+
+  // The first ConsumeData will fill the packet without flush.
+  generator_.SetTransmissionType(LOSS_RETRANSMISSION);
+
+  size_t data_len = 1324;
+  CreateData(data_len);
+  QuicStreamId stream1_id =
+      QuicUtils::GetHeadersStreamId(framer_.transport_version());
+  QuicConsumedData consumed =
+      generator_.ConsumeData(stream1_id, &iov_, 1u, iov_.iov_len, 0, NO_FIN);
+  EXPECT_EQ(data_len, consumed.bytes_consumed);
+  ASSERT_EQ(0u, creator_->BytesFree())
+      << "Test setup failed: Please increase data_len to "
+      << data_len + creator_->BytesFree() << " bytes.";
+
+  // The second ConsumeData can not be added to the packet and will flush.
+  generator_.SetTransmissionType(NOT_RETRANSMISSION);
+
+  EXPECT_CALL(delegate_, OnSerializedPacket(_))
+      .WillOnce(Invoke(this, &QuicPacketGeneratorTest::SavePacket));
+
+  QuicStreamId stream2_id = stream1_id + 4;
+
+  consumed =
+      generator_.ConsumeData(stream2_id, &iov_, 1u, iov_.iov_len, 0, NO_FIN);
+  EXPECT_EQ(data_len, consumed.bytes_consumed);
+
+  // Ensure the packet is successfully created.
+  ASSERT_EQ(1u, packets_.size());
+  ASSERT_TRUE(packets_[0].encrypted_buffer);
+  ASSERT_EQ(1u, packets_[0].retransmittable_frames.size());
+  EXPECT_EQ(stream1_id,
+            packets_[0].retransmittable_frames[0].stream_frame.stream_id);
+  if (GetQuicReloadableFlag(quic_set_transmission_type_for_next_frame)) {
+    // Since the second frame was not added, the packet's transmission type
+    // should be the first frame's type.
+    EXPECT_EQ(packets_[0].transmission_type, LOSS_RETRANSMISSION);
+  } else {
+    EXPECT_EQ(packets_[0].transmission_type, NOT_RETRANSMISSION);
+  }
 }
 
 TEST_F(QuicPacketGeneratorTest, TestConnectionIdLength) {

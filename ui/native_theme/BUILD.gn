@@ -8,6 +8,8 @@ import("//testing/test.gni")
 
 jumbo_component("native_theme") {
   sources = [
+    "caption_style.cc",
+    "caption_style.h",
     "common_theme.cc",
     "common_theme.h",
     "native_theme.cc",
@@ -37,11 +39,14 @@ jumbo_component("native_theme") {
 
   defines = [ "NATIVE_THEME_IMPLEMENTATION" ]
 
+  public_deps = [
+    "//skia",
+  ]
+
   deps = [
     "//base",
     "//base/third_party/dynamic_annotations",
     "//cc/paint",
-    "//skia",
     "//ui/base",
     "//ui/display",
     "//ui/gfx",
@@ -79,6 +84,20 @@ if (is_win) {
 } else {
   jumbo_source_set("native_theme_browser") {
   }
+}
+
+jumbo_source_set("test_support") {
+  testonly = true
+
+  deps = [
+    ":native_theme",
+    "//base",
+  ]
+
+  sources = [
+    "test_native_theme.cc",
+    "test_native_theme.h",
+  ]
 }
 
 test("native_theme_unittests") {

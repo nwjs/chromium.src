@@ -44,7 +44,6 @@ template("webapk_java") {
       "src/org/chromium/webapk/shell_apk/HostBrowserClassLoader.java",
       "src/org/chromium/webapk/shell_apk/HostBrowserLauncher.java",
       "src/org/chromium/webapk/shell_apk/HostBrowserLauncherParams.java",
-      "src/org/chromium/webapk/shell_apk/HostBrowserLauncherActivity.java",
       "src/org/chromium/webapk/shell_apk/ChooseHostBrowserDialog.java",
       "src/org/chromium/webapk/shell_apk/HostBrowserUtils.java",
       "src/org/chromium/webapk/shell_apk/IdentityService.java",
@@ -67,7 +66,9 @@ template("webapk_java") {
       java_files += [
         "src/org/chromium/webapk/shell_apk/h2o/H2OLauncher.java",
         "src/org/chromium/webapk/shell_apk/h2o/H2OMainActivity.java",
+        "src/org/chromium/webapk/shell_apk/h2o/H2OOpaqueMainActivity.java",
         "src/org/chromium/webapk/shell_apk/h2o/H2OTransparentLauncherActivity.java",
+        "src/org/chromium/webapk/shell_apk/h2o/OverlaySplashActivity.java",
         "src/org/chromium/webapk/shell_apk/h2o/SplashActivity.java",
       ]
       deps += [ "//chrome/android/webapk/libs/common:splash_java" ]
@@ -247,13 +248,6 @@ webapk_tmpl("unbound_webapk") {
   config_file = "manifest/unbound_manifest_config.json"
   apk_name = "UnboundWebApk"
   apk_package_name = "org.chromium.arbitrarypackage"
-}
-
-webapk_tmpl("http_webapk") {
-  config_file = "manifest/bound_manifest_config.json"
-  delta_config_file = "manifest/http_manifest_config_delta.json"
-  apk_name = "HttpWebApk"
-  apk_package_name = "org.chromium.webapk.http"
 }
 
 webapk_tmpl("new_splash_webapk") {

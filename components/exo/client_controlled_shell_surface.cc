@@ -203,14 +203,14 @@ class CaptionButtonModel : public ash::CaptionButtonModel {
         enabled_button_mask_(enabled_button_mask) {}
 
   // Overridden from ash::CaptionButtonModel:
-  bool IsVisible(ash::CaptionButtonIcon icon) const override {
+  bool IsVisible(views::CaptionButtonIcon icon) const override {
     return visible_button_mask_ & (1 << icon);
   }
-  bool IsEnabled(ash::CaptionButtonIcon icon) const override {
+  bool IsEnabled(views::CaptionButtonIcon icon) const override {
     return enabled_button_mask_ & (1 << icon);
   }
   bool InZoomMode() const override {
-    return visible_button_mask_ & (1 << ash::CAPTION_BUTTON_ICON_ZOOM);
+    return visible_button_mask_ & (1 << views::CAPTION_BUTTON_ICON_ZOOM);
   }
 
  private:
@@ -682,13 +682,15 @@ bool ClientControlledShellSurface::GetSavedWindowPlacement(
 // views::View overrides:
 
 gfx::Size ClientControlledShellSurface::GetMaximumSize() const {
-  // On ChromeOS, a window with non empty maximum size is non-maximizable,
-  // even if CanMaximize() returns true. ClientControlledShellSurface
-  // sololy depends on |can_maximize_| to determine if it is maximizable,
-  // so just return empty size because the maximum size in
-  // ClientControlledShellSurface is used only to tell the resizability,
-  // but not real maximum size.
-  return gfx::Size();
+  if (can_maximize_) {
+    // On ChromeOS, a window with non empty maximum size is non-maximizable,
+    // even if CanMaximize() returns true. ClientControlledShellSurface
+    // sololy depends on |can_maximize_| to determine if it is maximizable,
+    // so just return empty size.
+    return gfx::Size();
+  } else {
+    return ShellSurfaceBase::GetMaximumSize();
+  }
 }
 
 void ClientControlledShellSurface::OnDeviceScaleFactorChanged(float old_dsf,

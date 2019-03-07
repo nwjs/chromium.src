@@ -73,7 +73,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #endif
 
 namespace {
@@ -719,6 +719,9 @@ IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, LastSelectedDirectory) {
 // Verifies that, by default, there's a separate disk cache for media files.
 // TODO(crbug.com/789657): remove once there is no separate on-disk media cache.
 IN_PROC_BROWSER_TEST_F(ProfileBrowserTest, SeparateMediaCache) {
+  if (base::FeatureList::IsEnabled(network::features::kNetworkService))
+    return;  // Network service doesn't use a separate media cache.
+
   ASSERT_TRUE(embedded_test_server()->Start());
 
   // Do a normal load using the media URLRequestContext, populating the cache.
@@ -945,5 +948,41 @@ IN_PROC_BROWSER_TEST_F(ProfileWithoutMediaCacheBrowserTest,
       extension_partition->GetPath().Append(chrome::kMediaCacheDirname);
 
   FileDestructionWatcher destruction_watcher(extension_media_cache_path);
+  destruction_watcher.WaitForDestruction();
+}
+
+class ProfileWithNetworkServiceBrowserTest : public ProfileBrowserTest {
+ public:
+  ProfileWithNetworkServiceBrowserTest() {
+    feature_list_.InitAndEnableFeature(network::features::kNetworkService);
+  }
+
+  ~ProfileWithNetworkServiceBrowserTest() override {}
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Create a media cache file, and make sure it's deleted by the time the next
+// test runs.
+IN_PROC_BROWSER_TEST_F(ProfileWithNetworkServiceBrowserTest,
+                       PRE_DeleteMediaCache) {
+  base::FilePath media_cache_path =
+      browser()->profile()->GetPath().Append(chrome::kMediaCacheDirname);
+
+  base::ScopedAllowBlockingForTesting allow_blocking;
+  EXPECT_TRUE(base::CreateDirectory(media_cache_path));
+  std::string data = "foo";
+  base::WriteFile(media_cache_path.AppendASCII("foo"), data.c_str(),
+                  data.size());
+}
+
+IN_PROC_BROWSER_TEST_F(ProfileWithNetworkServiceBrowserTest, DeleteMediaCache) {
+  base::FilePath media_cache_path =
+      browser()->profile()->GetPath().Append(chrome::kMediaCacheDirname);
+
+  base::ScopedAllowBlockingForTesting allow_blocking;
+
+  FileDestructionWatcher destruction_watcher(media_cache_path);
   destruction_watcher.WaitForDestruction();
 }

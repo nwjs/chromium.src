@@ -38,6 +38,7 @@
 #include "third_party/blink/renderer/core/html/focus_options.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/resize_observer/resize_observer.h"
+#include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/platform/bindings/trace_wrapper_member.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/scroll/scroll_types.h"
@@ -87,7 +88,6 @@ class StylePropertyMap;
 class StylePropertyMapReadOnly;
 class USVStringOrTrustedURL;
 class V0CustomElementDefinition;
-class V8DisplayLockCallback;
 
 enum SpellcheckAttributeState {
   kSpellcheckAttributeTrue,
@@ -150,6 +150,8 @@ struct FocusParams {
 };
 
 typedef HeapVector<TraceWrapperMember<Attr>> AttrNodeList;
+
+typedef HashMap<AtomicString, SpecificTrustedType> AttrNameToTrustedType;
 
 class CORE_EXPORT Element : public ContainerNode {
   DEFINE_WRAPPERTYPEINFO();
@@ -221,7 +223,7 @@ class CORE_EXPORT Element : public ContainerNode {
       ExceptionState&);
 
   // Returns attributes that should be checked against Trusted Types
-  virtual const HashSet<AtomicString>& GetCheckedAttributeNames() const;
+  virtual const AttrNameToTrustedType& GetCheckedAttributeTypes() const;
 
   // Trusted Type HTML variant
   void setAttribute(const QualifiedName&,
@@ -336,6 +338,8 @@ class CORE_EXPORT Element : public ContainerNode {
   AccessibleNode* accessibleNode();
 
   InvisibleState Invisible() const;
+  bool HasInvisibleAttribute() const;
+
   void DispatchActivateInvisibleEventIfNeeded();
   bool IsInsideInvisibleStaticSubtree();
 
@@ -507,7 +511,7 @@ class CORE_EXPORT Element : public ContainerNode {
 
   virtual LayoutObject* CreateLayoutObject(const ComputedStyle&);
   virtual bool LayoutObjectIsNeeded(const ComputedStyle&) const;
-  void RecalcStyle(StyleRecalcChange);
+  void RecalcStyle(StyleRecalcChange, bool calc_invisible = false);
   void RecalcStyleForTraversalRootAncestor();
   void RebuildLayoutTreeForTraversalRootAncestor() {
     RebuildFirstLetterLayoutTree();
@@ -700,21 +704,14 @@ class CORE_EXPORT Element : public ContainerNode {
                           const StringOrTrustedHTML&,
                           ExceptionState&);
 
-  void setPointerCapture(int pointer_id, ExceptionState&);
-  void releasePointerCapture(int pointer_id, ExceptionState&);
+  void setPointerCapture(PointerId poinetr_id, ExceptionState&);
+  void releasePointerCapture(PointerId pointer_id, ExceptionState&);
 
   // Returns true iff the element would capture the next pointer event. This
   // is true between a setPointerCapture call and a releasePointerCapture (or
   // implicit release) call:
   // https://w3c.github.io/pointerevents/#dom-element-haspointercapture
-  bool hasPointerCapture(int pointer_id) const;
-
-  // Returns true iff the element has received a gotpointercapture event for
-  // the |pointerId| but hasn't yet received a lostpointercapture event for
-  // the same id. The time window during which this is true is "delayed" from
-  // (but overlapping with) the time window for hasPointerCapture():
-  // https://w3c.github.io/pointerevents/#process-pending-pointer-capture
-  bool HasProcessedPointerCapture(int pointer_id) const;
+  bool hasPointerCapture(PointerId pointer_id) const;
 
   String TextFromChildren();
 
@@ -836,7 +833,8 @@ class CORE_EXPORT Element : public ContainerNode {
   bool IsSpellCheckingEnabled() const;
 
   // FIXME: public for LayoutTreeBuilder, we shouldn't expose this though.
-  scoped_refptr<ComputedStyle> StyleForLayoutObject();
+  scoped_refptr<ComputedStyle> StyleForLayoutObject(
+      bool calc_invisible = false);
 
   bool HasID() const;
   bool HasClass() const;
@@ -884,7 +882,7 @@ class CORE_EXPORT Element : public ContainerNode {
       const char element[],
       const AttributeModificationParams&);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   SpellcheckAttributeState GetSpellcheckAttributeState() const;
 
@@ -898,7 +896,7 @@ class CORE_EXPORT Element : public ContainerNode {
   EnsureResizeObserverData();
   void SetNeedsResizeObserverUpdate();
 
-  ScriptPromise acquireDisplayLock(ScriptState*, V8DisplayLockCallback*);
+  DisplayLockContext* getDisplayLockForBindings();
   DisplayLockContext* GetDisplayLockContext() const;
 
   bool StyleRecalcBlockedByDisplayLock() const;
@@ -944,8 +942,6 @@ class CORE_EXPORT Element : public ContainerNode {
   // This method cannot be moved to LayoutObject because some focusable nodes
   // don't have layoutObjects. e.g., HTMLOptionElement.
   virtual bool IsFocusableStyle() const;
-
-  virtual bool ChildrenCanHaveStyle() const { return true; }
 
   // classAttributeChanged() exists to share code between
   // parseAttribute (called via setAttribute()) and
@@ -1000,7 +996,8 @@ class CORE_EXPORT Element : public ContainerNode {
   // and returns the new style. Otherwise, returns null.
   scoped_refptr<ComputedStyle> PropagateInheritedProperties(StyleRecalcChange);
 
-  StyleRecalcChange RecalcOwnStyle(StyleRecalcChange);
+  StyleRecalcChange RecalcOwnStyle(StyleRecalcChange,
+                                   bool calc_invisible = false);
 
   // Returns true if we should traverse shadow including children and pseudo
   // elements for RecalcStyle.
@@ -1112,6 +1109,8 @@ class CORE_EXPORT Element : public ContainerNode {
   void DetachAttrNodeAtIndex(Attr*, wtf_size_t index);
 
   void NotifyDisplayLockDidRecalcStyle();
+
+  bool IsDisplayLockedForFocus() const;
 
   Member<ElementData> element_data_;
 };

@@ -17,6 +17,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/process/process.h"
 #include "base/rand_util.h"
+#include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -326,7 +327,7 @@ void TabManager::LogMemoryAndDiscardTab(LifecycleUnitDiscardReason reason) {
   // Discard immediately without waiting for LogMemory() (https://crbug/850545).
   // Consider removing LogMemory() at all if nobody cares about the log.
   LogMemory("Tab Discards Memory details");
-  PurgeMemoryAndDiscardTab(reason);
+  DiscardTab(reason);
 }
 
 void TabManager::LogMemory(const std::string& title) {
@@ -397,13 +398,6 @@ bool TabManager::IsTabRestoredInForeground(WebContents* web_contents) {
 // TabManager, private:
 
 // static
-void TabManager::PurgeMemoryAndDiscardTab(LifecycleUnitDiscardReason reason) {
-  TabManager* manager = g_browser_process->GetTabManager();
-  manager->PurgeBrowserMemory();
-  manager->DiscardTab(reason);
-}
-
-// static
 bool TabManager::IsInternalPage(const GURL& url) {
   // There are many chrome:// UI URLs, but only look for the ones that users
   // are likely to have open. Most of the benefit is the from NTP URL.
@@ -412,26 +406,12 @@ bool TabManager::IsInternalPage(const GURL& url) {
       chrome::kChromeUINewTabURL, chrome::kChromeUISettingsURL};
   // Prefix-match against the table above. Use strncmp to avoid allocating
   // memory to convert the URL prefix constants into std::strings.
-  for (size_t i = 0; i < arraysize(kInternalPagePrefixes); ++i) {
+  for (size_t i = 0; i < base::size(kInternalPagePrefixes); ++i) {
     if (!strncmp(url.spec().c_str(), kInternalPagePrefixes[i],
                  strlen(kInternalPagePrefixes[i])))
       return true;
   }
   return false;
-}
-
-void TabManager::PurgeBrowserMemory() {
-  // Based on experimental evidence, attempts to free memory from renderers
-  // have been too slow to use in OOM situations (V8 garbage collection) or
-  // do not lead to persistent decreased usage (image/bitmap caches). This
-  // function therefore only targets large blocks of memory in the browser.
-  // Note that other objects will listen to MemoryPressureListener events
-  // to release memory.
-  for (auto* web_contents : AllTabContentses()) {
-    // Screenshots can consume ~5 MB per web contents for platforms that do
-    // touch back/forward.
-    web_contents->GetController().ClearAllScreenshots();
-  }
 }
 
 // This function is called when |update_timer_| fires. It will adjust the clock
@@ -547,8 +527,6 @@ void TabManager::OnMemoryPressure(
       return;
   }
   NOTREACHED();
-  // TODO(skuhne): If more memory pressure levels are introduced, consider
-  // calling PurgeBrowserMemory() before CRITICAL is reached.
 }
 
 void TabManager::OnActiveTabChanged(content::WebContents* old_contents,

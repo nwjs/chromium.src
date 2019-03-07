@@ -164,9 +164,8 @@ class BookmarkBarView : public views::AccessiblePaneView,
   void ViewHierarchyChanged(
       const ViewHierarchyChangedDetails& details) override;
   void PaintChildren(const views::PaintInfo& paint_info) override;
-  bool GetDropFormats(
-      int* formats,
-      std::set<ui::Clipboard::FormatType>* format_types) override;
+  bool GetDropFormats(int* formats,
+                      std::set<ui::ClipboardFormatType>* format_types) override;
   bool AreDropTypesRequired() override;
   bool CanDrop(const ui::OSExchangeData& data) override;
   void OnDragEntered(const ui::DropTargetEvent& event) override;
@@ -379,6 +378,9 @@ class BookmarkBarView : public views::AccessiblePaneView,
   // Returns the model index for the bookmark associated with |button|,
   // or -1 if |button| is not a bookmark button from this bar.
   int GetIndexForButton(views::View* button);
+
+  // Returns the color that should be used to draw text on the bookmark bar.
+  SkColor GetBookmarkBarTextColor();
 
   // Needed to react to kShowAppsShortcutInBookmarkBar changes.
   PrefChangeRegistrar profile_pref_registrar_;

@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "base/json/json_reader.h"
+#include "base/json/json_writer.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/trace_event/trace_event.h"
@@ -20,7 +21,6 @@
 #include "cc/benchmarks/micro_benchmark_impl.h"
 #include "cc/debug/debug_colors.h"
 #include "cc/debug/layer_tree_debug_state.h"
-#include "cc/input/main_thread_scrolling_reason.h"
 #include "cc/input/scroll_state.h"
 #include "cc/layers/layer.h"
 #include "cc/trees/clip_node.h"
@@ -52,8 +52,6 @@ LayerImpl::LayerImpl(LayerTreeImpl* tree_impl,
       layer_tree_impl_(tree_impl),
       will_always_push_properties_(will_always_push_properties),
       test_properties_(nullptr),
-      main_thread_scrolling_reasons_(
-          MainThreadScrollingReason::kNotScrollingOnMain),
       scrollable_(false),
       should_flatten_screen_space_transform_from_property_tree_(false),
       layer_property_changed_not_from_property_trees_(false),
@@ -82,8 +80,7 @@ LayerImpl::LayerImpl(LayerTreeImpl* tree_impl,
       scrollbars_hidden_(false),
       needs_show_scrollbars_(false),
       raster_even_if_not_drawn_(false),
-      has_transform_node_(false),
-      is_rounded_corner_mask_(false) {
+      has_transform_node_(false) {
   DCHECK_GT(layer_id_, 0);
 
   DCHECK(layer_tree_impl_);
@@ -308,9 +305,7 @@ void LayerImpl::PushPropertiesTo(LayerImpl* layer) {
   layer->SetElementId(element_id_);
 
   layer->has_transform_node_ = has_transform_node_;
-  layer->is_rounded_corner_mask_ = is_rounded_corner_mask_;
   layer->offset_to_transform_parent_ = offset_to_transform_parent_;
-  layer->main_thread_scrolling_reasons_ = main_thread_scrolling_reasons_;
   layer->should_flatten_screen_space_transform_from_property_tree_ =
       should_flatten_screen_space_transform_from_property_tree_;
   layer->masks_to_bounds_ = masks_to_bounds_;
@@ -326,7 +321,6 @@ void LayerImpl::PushPropertiesTo(LayerImpl* layer) {
   layer->wheel_event_handler_region_ = wheel_event_handler_region_;
   layer->background_color_ = background_color_;
   layer->safe_opaque_background_color_ = safe_opaque_background_color_;
-  layer->position_ = position_;
   layer->transform_tree_index_ = transform_tree_index_;
   layer->effect_tree_index_ = effect_tree_index_;
   layer->clip_tree_index_ = clip_tree_index_;
@@ -382,9 +376,11 @@ void LayerImpl::SetIsResizedByBrowserControls(bool resized) {
   is_resized_by_browser_controls_ = resized;
 }
 
-std::unique_ptr<base::DictionaryValue> LayerImpl::LayerAsJson() {
+std::unique_ptr<base::DictionaryValue> LayerImpl::LayerAsJson() const {
   std::unique_ptr<base::DictionaryValue> result(new base::DictionaryValue);
   result->SetInteger("LayerId", id());
+  if (element_id())
+    result->SetString("ElementId", element_id().ToString());
   result->SetString("LayerType", LayerTypeAsString());
 
   auto list = std::make_unique<base::ListValue>();
@@ -393,11 +389,12 @@ std::unique_ptr<base::DictionaryValue> LayerImpl::LayerAsJson() {
   result->Set("Bounds", std::move(list));
 
   list = std::make_unique<base::ListValue>();
-  list->AppendDouble(position_.x());
-  list->AppendDouble(position_.y());
-  result->Set("Position", std::move(list));
+  list->AppendInteger(offset_to_transform_parent().x());
+  list->AppendInteger(offset_to_transform_parent().y());
+  result->Set("OffsetToTransformParent", std::move(list));
 
-  const gfx::Transform& gfx_transform = test_properties()->transform;
+  const gfx::Transform& gfx_transform =
+      const_cast<LayerImpl*>(this)->test_properties()->transform;
   double transform[16];
   gfx_transform.matrix().asColMajord(transform);
   list = std::make_unique<base::ListValue>();
@@ -409,11 +406,13 @@ std::unique_ptr<base::DictionaryValue> LayerImpl::LayerAsJson() {
   result->SetBoolean("HitTestableWithoutDrawsContent",
                      hit_testable_without_draws_content_);
   result->SetBoolean("Is3dSorted", Is3dSorted());
-  result->SetDouble("OPACITY", Opacity());
+  result->SetDouble("Opacity", Opacity());
   result->SetBoolean("ContentsOpaque", contents_opaque_);
-  result->SetString(
-      "mainThreadScrollingReasons",
-      MainThreadScrollingReason::AsText(main_thread_scrolling_reasons_));
+
+  result->SetInteger("transform_tree_index", transform_tree_index());
+  result->SetInteger("clip_tree_index", clip_tree_index());
+  result->SetInteger("effect_tree_index", effect_tree_index());
+  result->SetInteger("scroll_tree_index", scroll_tree_index());
 
   if (scrollable())
     result->SetBoolean("Scrollable", true);
@@ -606,6 +605,15 @@ void LayerImpl::SetHitTestableWithoutDrawsContent(bool should_hit_test) {
   NoteLayerPropertyChanged();
 }
 
+bool LayerImpl::ShouldHitTest() const {
+  bool should_hit_test = draws_content_;
+  if (GetEffectTree().Node(effect_tree_index()))
+    should_hit_test &=
+        !GetEffectTree().Node(effect_tree_index())->subtree_hidden;
+  should_hit_test |= hit_testable_without_draws_content_;
+  return should_hit_test;
+}
+
 void LayerImpl::SetBackgroundColor(SkColor background_color) {
   if (background_color_ == background_color)
     return;
@@ -652,10 +660,6 @@ void LayerImpl::SetElementId(ElementId element_id) {
   layer_tree_impl_->RemoveFromElementLayerList(element_id_);
   element_id_ = element_id;
   layer_tree_impl_->AddToElementLayerList(element_id_, this);
-}
-
-void LayerImpl::SetPosition(const gfx::PointF& position) {
-  position_ = position;
 }
 
 void LayerImpl::SetUpdateRect(const gfx::Rect& update_rect) {
@@ -738,7 +742,8 @@ void LayerImpl::AsValueInto(base::trace_event::TracedValue* state) const {
 
   state->SetDouble("opacity", Opacity());
 
-  MathUtil::AddToTracedValue("position", position_, state);
+  // For backward-compatibility of DevTools front-end.
+  MathUtil::AddToTracedValue("position", gfx::PointF(), state);
 
   state->SetInteger("transform_tree_index", transform_tree_index());
   state->SetInteger("clip_tree_index", clip_tree_index());
@@ -785,11 +790,18 @@ void LayerImpl::AsValueInto(base::trace_event::TracedValue* state) const {
   state->SetBoolean("has_will_change_transform_hint",
                     has_will_change_transform_hint());
 
-  MainThreadScrollingReason::AddToTracedValue(main_thread_scrolling_reasons_,
-                                              *state);
-
   if (debug_info_)
     state->SetValue("debug_info", debug_info_);
+}
+
+std::string LayerImpl::ToString() const {
+  std::string str;
+  base::JSONWriter::WriteWithOptions(
+      *LayerAsJson(),
+      base::JSONWriter::OPTIONS_OMIT_DOUBLE_TYPE_PRESERVATION |
+          base::JSONWriter::OPTIONS_PRETTY_PRINT,
+      &str);
+  return str;
 }
 
 size_t LayerImpl::GPUMemoryUsageInBytes() const { return 0; }

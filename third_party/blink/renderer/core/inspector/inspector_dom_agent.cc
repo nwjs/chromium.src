@@ -34,6 +34,7 @@
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/binding_security.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_file.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_node.h"
 #include "third_party/blink/renderer/core/dom/attr.h"
 #include "third_party/blink/renderer/core/dom/character_data.h"
@@ -1333,7 +1334,7 @@ Response InspectorDOMAgent::getNodeForLocation(
     node = node->parentNode();
   if (!node)
     return Response::Error("No node found at given location");
-  *backend_node_id = DOMNodeIds::IdForNode(node);
+  *backend_node_id = IdentifiersFactory::IntIdForNode(node);
   if (enabled_.Get()) {
     Response response = PushDocumentUponHandlelessOperation();
     if (!response.isSuccess())
@@ -1346,7 +1347,8 @@ Response InspectorDOMAgent::getNodeForLocation(
 Response InspectorDOMAgent::resolveNode(
     protocol::Maybe<int> node_id,
     protocol::Maybe<int> backend_node_id,
-    Maybe<String> object_group,
+    protocol::Maybe<String> object_group,
+    protocol::Maybe<int> execution_context_id,
     std::unique_ptr<v8_inspector::protocol::Runtime::API::RemoteObject>*
         result) {
   String object_group_name = object_group.fromMaybe("");
@@ -1362,7 +1364,8 @@ Response InspectorDOMAgent::resolveNode(
 
   if (!node)
     return Response::Error("No node with given id found");
-  *result = ResolveNode(v8_session_, node, object_group_name);
+  *result = ResolveNode(v8_session_, node, object_group_name,
+                        std::move(execution_context_id));
   if (!*result) {
     return Response::Error(
         "Node with given id does not belong to the document");
@@ -2245,13 +2248,34 @@ protocol::Response InspectorDOMAgent::getFrameOwner(
   if (!frame_owner)
     return Response::Error("No iframe owner for given node");
 
-  *backend_node_id = DOMNodeIds::IdForNode(frame_owner);
+  *backend_node_id = IdentifiersFactory::IntIdForNode(frame_owner);
   if (enabled_.Get()) {
     Response response = PushDocumentUponHandlelessOperation();
     if (!response.isSuccess())
       return response;
     *node_id = PushNodePathToFrontend(frame_owner);
   }
+  return Response::OK();
+}
+
+Response InspectorDOMAgent::getFileInfo(const String& object_id, String* path) {
+  v8::HandleScope handles(isolate_);
+  v8::Local<v8::Value> value;
+  v8::Local<v8::Context> context;
+  std::unique_ptr<v8_inspector::StringBuffer> error;
+  if (!v8_session_->unwrapObject(&error, ToV8InspectorStringView(object_id),
+                                 &value, &context, nullptr))
+    return Response::Error(ToCoreString(std::move(error)));
+
+  if (!V8File::HasInstance(value, isolate_))
+    return Response::Error("Object id doesn't reference a File");
+  File* file = V8File::ToImpl(v8::Local<v8::Object>::Cast(value));
+  if (!file) {
+    return Response::Error(
+        "Couldn't convert object with given objectId to File");
+  }
+
+  *path = file->GetPath();
   return Response::OK();
 }
 

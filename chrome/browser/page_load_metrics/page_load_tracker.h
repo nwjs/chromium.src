@@ -179,8 +179,10 @@ class PageLoadTracker : public PageLoadMetricsUpdateDispatcher::Client {
   void OnMainFrameMetadataChanged() override;
   void OnSubframeMetadataChanged() override;
   void UpdateFeaturesUsage(
+      content::RenderFrameHost* rfh,
       const mojom::PageLoadFeatures& new_features) override;
   void UpdateResourceDataUse(
+      int frame_tree_node_id,
       const std::vector<mojom::ResourceDataUpdatePtr>& resources) override;
 
   void Redirect(content::NavigationHandle* navigation_handle);
@@ -209,6 +211,8 @@ class PageLoadTracker : public PageLoadMetricsUpdateDispatcher::Client {
 
   void OnLoadedResource(
       const ExtraRequestCompleteInfo& extra_request_complete_info);
+
+  void FrameReceivedFirstUserActivation(content::RenderFrameHost* rfh);
 
   // Signals that we should stop tracking metrics for the associated page load.
   // We may stop tracking a page load if it doesn't meet the criteria for

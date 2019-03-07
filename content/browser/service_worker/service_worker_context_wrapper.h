@@ -131,6 +131,7 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
       CountExternalRequestsCallback callback) override;
   void GetAllOriginsInfo(GetUsageInfoCallback callback) override;
   void DeleteForOrigin(const GURL& origin, ResultCallback callback) override;
+  void PerformStorageCleanup(base::OnceClosure callback) override;
   void CheckHasServiceWorker(const GURL& url,
                              const GURL& other_url,
                              CheckHasServiceWorkerCallback callback) override;
@@ -138,6 +139,10 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
   void StartWorkerForScope(const GURL& scope,
                            StartWorkerCallback info_callback,
                            base::OnceClosure failure_callback) override;
+  void StartServiceWorkerAndDispatchMessage(
+      const GURL& scope,
+      blink::TransferableMessage message,
+      ResultCallback result_callback) override;
   void StartServiceWorkerAndDispatchLongRunningMessage(
       const GURL& scope,
       blink::TransferableMessage message,
@@ -286,7 +291,8 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
   // Must be called on the IO thread.
   base::WeakPtr<ServiceWorkerProviderHost> PreCreateHostForSharedWorker(
       int process_id,
-      mojom::ServiceWorkerProviderInfoForSharedWorkerPtr* out_provider_info);
+      blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr*
+          out_provider_info);
 
  private:
   friend class BackgroundSyncManagerTest;
@@ -371,18 +377,20 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
       base::OnceClosure callback,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner_for_callback);
 
-  void DidFindRegistrationForLongRunningMessage(
+  void DidFindRegistrationForMessageDispatch(
       blink::TransferableMessage message,
       const GURL& source_origin,
       ResultCallback result_callback,
+      bool is_long_running_message,
       blink::ServiceWorkerStatusCode service_worker_status,
       scoped_refptr<ServiceWorkerRegistration> registration);
 
-  void DidStartServiceWorkerForLongRunningMessage(
+  void DidStartServiceWorkerForMessageDispatch(
       blink::TransferableMessage message,
       const GURL& source_origin,
       scoped_refptr<ServiceWorkerRegistration> registration,
       ServiceWorkerContext::ResultCallback result_callback,
+      bool is_long_running_message,
       blink::ServiceWorkerStatusCode service_worker_status);
 
   void SendActiveWorkerMessage(

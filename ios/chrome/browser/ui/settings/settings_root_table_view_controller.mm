@@ -8,6 +8,7 @@
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/material_components/utils.h"
+#import "ios/chrome/browser/ui/settings/bar_button_activity_indicator.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_cells_constants.h"
 #import "ios/chrome/browser/ui/settings/settings_navigation_controller.h"
 #import "ios/chrome/browser/ui/table_view/chrome_table_view_styler.h"
@@ -20,19 +21,46 @@
 #endif
 
 namespace {
-constexpr CGFloat kTableViewSeparatorInset = 16;
-}
+// Height of the space used by header/footer when none is set. Default is
+// |estimatedSection{Header|Footer}Height|.
+const CGFloat kDefaultHeaderFooterHeight = 10;
+// Estimated height of the header/footer, used to speed the constraints.
+const CGFloat kEstimatedHeaderFooterHeight = 35;
+
+enum SavedBarButtomItemPositionEnum {
+  kUndefinedBarButtonItemPosition,
+  kLeftBarButtonItemPosition,
+  kRightBarButtonItemPosition
+};
+
+// Dimension of the authentication operation activity indicator frame.
+const CGFloat kActivityIndicatorDimensionIPad = 64;
+const CGFloat kActivityIndicatorDimensionIPhone = 56;
+}  // namespace
+
+NSString* const kSettingsToolbarDeleteButtonId =
+    @"PasswordsToolbarDeleteButtonId";
 
 @interface SettingsRootTableViewController ()
 
 // Delete button for the toolbar.
 @property(nonatomic, strong) UIBarButtonItem* deleteButton;
 
+// Item displayed before the user interactions are prevented. This is used to
+// store the item while the interaction is prevented.
+@property(nonatomic, strong) UIBarButtonItem* savedBarButtonItem;
+
+// Veil preventing interactions with the TableView.
+@property(nonatomic, strong) UIView* veil;
+
+// Position of the saved button.
+@property(nonatomic, assign)
+    SavedBarButtomItemPositionEnum savedBarButtonItemPosition;
+
 @end
 
 @implementation SettingsRootTableViewController
 
-@synthesize deleteButton = _deleteButton;
 @synthesize dispatcher = _dispatcher;
 
 #pragma mark - Public
@@ -65,6 +93,7 @@ constexpr CGFloat kTableViewSeparatorInset = 16;
                 style:UIBarButtonItemStylePlain
                target:self
                action:@selector(deleteButtonCallback)];
+    _deleteButton.accessibilityIdentifier = kSettingsToolbarDeleteButtonId;
     _deleteButton.tintColor = [UIColor redColor];
   }
   return _deleteButton;
@@ -87,11 +116,14 @@ constexpr CGFloat kTableViewSeparatorInset = 16;
   [super viewDidLoad];
   self.styler.cellBackgroundColor = [UIColor whiteColor];
   self.styler.cellTitleColor = [UIColor blackColor];
+  self.tableView.estimatedSectionHeaderHeight = kEstimatedHeaderFooterHeight;
   self.tableView.estimatedRowHeight = kSettingsCellDefaultHeight;
-  self.tableView.separatorInset = UIEdgeInsetsMake(0, kTableViewSeparatorInset,
-                                                   0, kTableViewSeparatorInset);
-  // Do not set the estimated height of the footer/header as if there is no
-  // header/footer, there is an empty space.
+  self.tableView.estimatedSectionFooterHeight = kEstimatedHeaderFooterHeight;
+  self.tableView.separatorInset =
+      UIEdgeInsetsMake(0, kTableViewSeparatorInset, 0, 0);
+
+  self.navigationItem.largeTitleDisplayMode =
+      UINavigationItemLargeTitleDisplayModeNever;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -131,6 +163,20 @@ constexpr CGFloat kTableViewSeparatorInset = 16;
 
   if (self.tableView.indexPathsForSelectedRows.count == 0)
     [self.navigationController setToolbarHidden:YES animated:YES];
+}
+
+- (CGFloat)tableView:(UITableView*)tableView
+    heightForHeaderInSection:(NSInteger)section {
+  if ([self.tableViewModel headerForSection:section])
+    return UITableViewAutomaticDimension;
+  return kDefaultHeaderFooterHeight;
+}
+
+- (CGFloat)tableView:(UITableView*)tableView
+    heightForFooterInSection:(NSInteger)section {
+  if ([self.tableViewModel footerForSection:section])
+    return UITableViewAutomaticDimension;
+  return kDefaultHeaderFooterHeight;
 }
 
 #pragma mark - TableViewLinkHeaderFooterItemDelegate
@@ -204,6 +250,82 @@ constexpr CGFloat kTableViewSeparatorInset = 16;
                   withRowAnimation:UITableViewRowAnimationAutomatic];
       }
                completion:nil];
+}
+
+- (void)preventUserInteraction {
+  DCHECK(!self.savedBarButtonItem);
+  DCHECK_EQ(kUndefinedBarButtonItemPosition, self.savedBarButtonItemPosition);
+
+  // Create |waitButton|.
+  BOOL displayActivityIndicatorOnTheRight =
+      self.navigationItem.rightBarButtonItem != nil;
+  CGFloat activityIndicatorDimension = IsIPadIdiom()
+                                           ? kActivityIndicatorDimensionIPad
+                                           : kActivityIndicatorDimensionIPhone;
+  BarButtonActivityIndicator* indicator = [[BarButtonActivityIndicator alloc]
+      initWithFrame:CGRectMake(0.0, 0.0, activityIndicatorDimension,
+                               activityIndicatorDimension)];
+  UIBarButtonItem* waitButton =
+      [[UIBarButtonItem alloc] initWithCustomView:indicator];
+
+  if (displayActivityIndicatorOnTheRight) {
+    // If there is a right bar button item, then it is the "Done" button.
+    self.savedBarButtonItem = self.navigationItem.rightBarButtonItem;
+    self.savedBarButtonItemPosition = kRightBarButtonItemPosition;
+    self.navigationItem.rightBarButtonItem = waitButton;
+    [self.navigationItem.leftBarButtonItem setEnabled:NO];
+  } else {
+    self.savedBarButtonItem = self.navigationItem.leftBarButtonItem;
+    self.savedBarButtonItemPosition = kLeftBarButtonItemPosition;
+    self.navigationItem.leftBarButtonItem = waitButton;
+  }
+
+  // Adds a veil that covers the collection view and prevents user interaction.
+  DCHECK(self.view);
+  DCHECK(!self.veil);
+  self.veil = [[UIView alloc] initWithFrame:self.view.bounds];
+  [self.veil setAutoresizingMask:(UIViewAutoresizingFlexibleWidth |
+                                  UIViewAutoresizingFlexibleHeight)];
+  [self.veil setBackgroundColor:[UIColor colorWithWhite:1.0 alpha:0.5]];
+  [self.view addSubview:self.veil];
+
+  // Disable user interaction for the navigation controller view to ensure
+  // that the user cannot go back by swipping the navigation's top view
+  // controller
+  [self.navigationController.view setUserInteractionEnabled:NO];
+}
+
+- (void)allowUserInteraction {
+  DCHECK(self.navigationController)
+      << "|allowUserInteraction| should always be called before this settings"
+         " controller is popped or dismissed.";
+  [self.navigationController.view setUserInteractionEnabled:YES];
+
+  // Removes the veil that prevents user interaction.
+  DCHECK(self.veil);
+  [UIView animateWithDuration:0.3
+      animations:^{
+        [self.veil removeFromSuperview];
+      }
+      completion:^(BOOL finished) {
+        self.veil = nil;
+      }];
+
+  DCHECK(self.savedBarButtonItem);
+  switch (self.savedBarButtonItemPosition) {
+    case kLeftBarButtonItemPosition:
+      self.navigationItem.leftBarButtonItem = self.savedBarButtonItem;
+      break;
+    case kRightBarButtonItemPosition:
+      self.navigationItem.rightBarButtonItem = self.savedBarButtonItem;
+      [self.navigationItem.leftBarButtonItem setEnabled:YES];
+      break;
+    default:
+      NOTREACHED();
+      break;
+  }
+  self.savedBarButtonItem = nil;
+  self.savedBarButtonItemPosition = kUndefinedBarButtonItemPosition;
 }
 
 @end

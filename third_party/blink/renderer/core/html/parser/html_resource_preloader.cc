@@ -42,14 +42,8 @@ HTMLResourcePreloader* HTMLResourcePreloader::Create(Document& document) {
   return MakeGarbageCollected<HTMLResourcePreloader>(document);
 }
 
-void HTMLResourcePreloader::Trace(blink::Visitor* visitor) {
+void HTMLResourcePreloader::Trace(Visitor* visitor) {
   visitor->Trace(document_);
-}
-
-int HTMLResourcePreloader::CountPreloads() {
-  if (document_->Loader())
-    return document_->Loader()->Fetcher()->CountPreloads();
-  return 0;
 }
 
 static void PreconnectHost(

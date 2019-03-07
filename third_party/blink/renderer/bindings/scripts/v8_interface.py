@@ -685,13 +685,13 @@ def methods_context(interface):
                     generated_iterator_method('keys'),
                     entries_or_values_method,
 
-                    # void forEach(Function callback, [Default=Undefined] optional any thisArg)
+                    # void forEach(Function callback, [DefaultValue=Undefined] optional any thisArg)
                     generated_method(IdlType('void'), 'forEach',
                                      # TODO(yukishiino): |callback| should be type of Function.
                                      arguments=[generated_argument(IdlType('CallbackFunctionTreatedAsScriptValue'), 'callback'),
                                                 generated_argument(IdlType('any'), 'thisArg',
                                                                    is_optional=True,
-                                                                   extended_attributes={'Default': 'Undefined'})],
+                                                                   extended_attributes={'DefaultValue': 'Undefined'})],
                                      extended_attributes=forEach_extended_attributes),
                 ])
 
@@ -762,24 +762,6 @@ def methods_context(interface):
         # FIXME: maplike<> and setlike<> should also imply the presence of a
         # 'size' attribute.
 
-    # Serializer
-    if interface.serializer:
-        serializer = interface.serializer
-        serializer_ext_attrs = serializer.extended_attributes.copy()
-        if serializer.operation:
-            return_type = serializer.operation.idl_type
-            implemented_as = serializer.operation.name
-        else:
-            return_type = IdlType('any')
-            implemented_as = None
-            if 'CallWith' not in serializer_ext_attrs:
-                serializer_ext_attrs['CallWith'] = 'ScriptState'
-        methods.append(generated_method(
-            return_type=return_type,
-            name='toJSON',
-            extended_attributes=serializer_ext_attrs,
-            implemented_as=implemented_as))
-
     # Stringifier
     if interface.stringifier:
         stringifier = interface.stringifier
@@ -841,6 +823,7 @@ def constant_context(constant, interface):
         'deprecate_as': v8_utilities.deprecate_as(constant),  # [DeprecateAs]
         'idl_type': constant.idl_type.name,
         'measure_as': v8_utilities.measure_as(constant, interface),  # [MeasureAs]
+        'high_entropy': v8_utilities.high_entropy(constant),  # [HighEntropy]
         'name': constant.name,
         'origin_trial_feature_name': v8_utilities.origin_trial_feature_name(constant),  # [OriginTrialEnabled]
         # FIXME: use 'reflected_name' as correct 'name'

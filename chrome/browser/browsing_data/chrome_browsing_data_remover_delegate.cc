@@ -28,6 +28,8 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
+#include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings.h"
+#include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings_factory.h"
 #include "chrome/browser/data_use_measurement/page_load_capping/page_load_capping_blacklist.h"
 #include "chrome/browser/data_use_measurement/page_load_capping/page_load_capping_service.h"
 #include "chrome/browser/data_use_measurement/page_load_capping/page_load_capping_service_factory.h"
@@ -41,8 +43,6 @@
 #include "chrome/browser/media/media_device_id_salt.h"
 #include "chrome/browser/media/media_engagement_service.h"
 #include "chrome/browser/media/webrtc/webrtc_event_log_manager.h"
-#include "chrome/browser/net/spdyproxy/data_reduction_proxy_chrome_settings.h"
-#include "chrome/browser/net/spdyproxy/data_reduction_proxy_chrome_settings_factory.h"
 #include "chrome/browser/ntp_snippets/content_suggestions_service_factory.h"
 #include "chrome/browser/password_manager/password_store_factory.h"
 #include "chrome/browser/permissions/permission_decision_auto_blocker.h"
@@ -100,6 +100,7 @@
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/android/customtabs/origin_verifier.h"
+#include "chrome/browser/android/explore_sites/explore_sites_service_factory.h"
 #include "chrome/browser/android/feed/feed_lifecycle_bridge.h"
 #include "chrome/browser/android/oom_intervention/oom_intervention_decider.h"
 #include "chrome/browser/android/search_permissions/search_permissions_service.h"
@@ -397,7 +398,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
       base::RecordAction(UserMetricsAction("ClearBrowsingData_History"));
       history_service->ExpireLocalAndRemoteHistoryBetween(
           WebHistoryServiceFactory::GetForProfile(profile_), std::set<GURL>(),
-          delete_begin_, delete_end_,
+          delete_begin_, delete_end_, /*user_initiated*/ true,
           base::AdaptCallbackForRepeating(CreatePendingTaskCompletionClosure()),
           &history_task_tracker_);
     }
@@ -593,6 +594,16 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     }
 
     device_event_log::Clear(delete_begin_, delete_end_);
+
+#if defined(OS_ANDROID)
+    explore_sites::ExploreSitesService* explore_sites_service =
+        explore_sites::ExploreSitesServiceFactory::GetForBrowserContext(
+            profile_);
+    if (explore_sites_service) {
+      explore_sites_service->ClearActivities(
+          delete_begin_, delete_end_, CreatePendingTaskCompletionClosure());
+    }
+#endif
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -982,34 +993,42 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     base::RecordAction(UserMetricsAction("ClearBrowsingData_ContentLicenses"));
 
 #if BUILDFLAG(ENABLE_PLUGINS)
-    // Will be completed in OnDeauthorizeFlashContentLicensesCompleted()
-    num_pending_tasks_ += 1;
-    if (!pepper_flash_settings_manager_.get()) {
-      pepper_flash_settings_manager_.reset(
-          new PepperFlashSettingsManager(this, profile_));
+    // Flash does not support filtering by domain, so skip this if clearing only
+    // a specified set of sites.
+    if (filter_builder.GetMode() != BrowsingDataFilterBuilder::WHITELIST) {
+      // Will be completed in OnDeauthorizeFlashContentLicensesCompleted()
+      num_pending_tasks_ += 1;
+      if (!pepper_flash_settings_manager_.get()) {
+        pepper_flash_settings_manager_.reset(
+            new PepperFlashSettingsManager(this, profile_));
+      }
+      deauthorize_flash_content_licenses_request_id_ =
+          pepper_flash_settings_manager_->DeauthorizeContentLicenses(prefs);
     }
-    deauthorize_flash_content_licenses_request_id_ =
-        pepper_flash_settings_manager_->DeauthorizeContentLicenses(prefs);
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
 
 #if defined(OS_CHROMEOS)
     // On Chrome OS, delete any content protection platform keys.
-    const user_manager::User* user =
-        chromeos::ProfileHelper::Get()->GetUserByProfile(profile_);
-    if (!user) {
-      LOG(WARNING) << "Failed to find user for current profile.";
-    } else {
-      chromeos::DBusThreadManager::Get()
-          ->GetCryptohomeClient()
-          ->TpmAttestationDeleteKeys(
-              chromeos::attestation::KEY_USER,
-              cryptohome::CreateAccountIdentifierFromAccountId(
-                  user->GetAccountId()),
-              chromeos::attestation::kContentProtectionKeyPrefix,
-              base::BindOnce(
-                  &ChromeBrowsingDataRemoverDelegate::OnClearPlatformKeys,
-                  weak_ptr_factory_.GetWeakPtr(),
-                  CreatePendingTaskCompletionClosure()));
+    // Platform keys do not support filtering by domain, so skip this if
+    // clearing only a specified set of sites.
+    if (filter_builder.GetMode() != BrowsingDataFilterBuilder::WHITELIST) {
+      const user_manager::User* user =
+          chromeos::ProfileHelper::Get()->GetUserByProfile(profile_);
+      if (!user) {
+        LOG(WARNING) << "Failed to find user for current profile.";
+      } else {
+        chromeos::DBusThreadManager::Get()
+            ->GetCryptohomeClient()
+            ->TpmAttestationDeleteKeys(
+                chromeos::attestation::KEY_USER,
+                cryptohome::CreateAccountIdentifierFromAccountId(
+                    user->GetAccountId()),
+                chromeos::attestation::kContentProtectionKeyPrefix,
+                base::BindOnce(
+                    &ChromeBrowsingDataRemoverDelegate::OnClearPlatformKeys,
+                    weak_ptr_factory_.GetWeakPtr(),
+                    CreatePendingTaskCompletionClosure()));
+      }
     }
 #endif  // defined(OS_CHROMEOS)
 

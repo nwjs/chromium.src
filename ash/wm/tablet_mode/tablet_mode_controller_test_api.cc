@@ -5,6 +5,8 @@
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 
 #include "ash/shell.h"
+#include "ash/wm/tablet_mode/tablet_mode_window_manager.h"
+#include "ash/wm/tablet_mode/tablet_mode_window_state.h"
 #include "base/run_loop.h"
 #include "base/time/default_tick_clock.h"
 #include "services/ws/public/cpp/input_devices/input_device_client_test_api.h"
@@ -26,27 +28,26 @@ void TabletModeControllerTestApi::LeaveTabletMode() {
 }
 
 void TabletModeControllerTestApi::AttachExternalMouse() {
-  ws::InputDeviceClientTestApi().SetMouseDevices({ui::InputDevice(
-      3, ui::InputDeviceType::INPUT_DEVICE_USB, "mouse")});
+  ws::InputDeviceClientTestApi().SetMouseDevices(
+      {ui::InputDevice(3, ui::InputDeviceType::INPUT_DEVICE_USB, "mouse")});
   base::RunLoop().RunUntilIdle();
-  tablet_mode_controller_->OnMouseDeviceConfigurationChanged();
+  tablet_mode_controller_->OnInputDeviceConfigurationChanged(
+      ui::InputDeviceEventObserver::kMouse);
 }
 
 void TabletModeControllerTestApi::TriggerLidUpdate(const gfx::Vector3dF& lid) {
-  scoped_refptr<chromeos::AccelerometerUpdate> update(
-      new chromeos::AccelerometerUpdate());
-  update->Set(chromeos::ACCELEROMETER_SOURCE_SCREEN, lid.x(), lid.y(), lid.z());
+  scoped_refptr<AccelerometerUpdate> update(new AccelerometerUpdate());
+  update->Set(ACCELEROMETER_SOURCE_SCREEN, lid.x(), lid.y(), lid.z());
   tablet_mode_controller_->OnAccelerometerUpdated(update);
 }
 
 void TabletModeControllerTestApi::TriggerBaseAndLidUpdate(
     const gfx::Vector3dF& base,
     const gfx::Vector3dF& lid) {
-  scoped_refptr<chromeos::AccelerometerUpdate> update(
-      new chromeos::AccelerometerUpdate());
-  update->Set(chromeos::ACCELEROMETER_SOURCE_ATTACHED_KEYBOARD, base.x(),
-              base.y(), base.z());
-  update->Set(chromeos::ACCELEROMETER_SOURCE_SCREEN, lid.x(), lid.y(), lid.z());
+  scoped_refptr<AccelerometerUpdate> update(new AccelerometerUpdate());
+  update->Set(ACCELEROMETER_SOURCE_ATTACHED_KEYBOARD, base.x(), base.y(),
+              base.z());
+  update->Set(ACCELEROMETER_SOURCE_SCREEN, lid.x(), lid.y(), lid.z());
   tablet_mode_controller_->OnAccelerometerUpdated(update);
 }
 
@@ -82,6 +83,16 @@ void TabletModeControllerTestApi::SetTabletMode(bool on) {
       on ? chromeos::PowerManagerClient::TabletMode::ON
          : chromeos::PowerManagerClient::TabletMode::OFF,
       tick_clock()->NowTicks());
+}
+
+bool TabletModeControllerTestApi::GetDeferBoundsUpdates(aura::Window* window) {
+  TabletModeWindowManager* window_manager = tablet_mode_window_manager();
+  if (window_manager == nullptr)
+    return false;
+  TabletModeWindowManager::WindowToState window_state_map =
+      window_manager->window_state_map_;
+  auto iter = window_state_map.find(window);
+  return iter != window_state_map.end() && iter->second->defer_bounds_updates_;
 }
 
 }  // namespace ash

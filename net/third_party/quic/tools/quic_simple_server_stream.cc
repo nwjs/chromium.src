@@ -16,7 +16,7 @@
 #include "net/third_party/quic/platform/api/quic_map_util.h"
 #include "net/third_party/quic/platform/api/quic_text_utils.h"
 #include "net/third_party/quic/tools/quic_simple_server_session.h"
-#include "net/third_party/spdy/core/spdy_protocol.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_protocol.h"
 
 using spdy::SpdyHeaderBlock;
 
@@ -28,6 +28,15 @@ QuicSimpleServerStream::QuicSimpleServerStream(
     StreamType type,
     QuicSimpleServerBackend* quic_simple_server_backend)
     : QuicSpdyServerStreamBase(id, session, type),
+      content_length_(-1),
+      quic_simple_server_backend_(quic_simple_server_backend) {}
+
+QuicSimpleServerStream::QuicSimpleServerStream(
+    PendingStream pending,
+    QuicSpdySession* session,
+    StreamType type,
+    QuicSimpleServerBackend* quic_simple_server_backend)
+    : QuicSpdyServerStreamBase(std::move(pending), session, type),
       content_length_(-1),
       quic_simple_server_backend_(quic_simple_server_backend) {}
 
@@ -229,6 +238,15 @@ void QuicSimpleServerStream::OnResponseBackendComplete(
         << "Stream " << id()
         << " sending an incomplete response, i.e. no trailer, no fin.";
     SendIncompleteResponse(response->headers().Clone(), response->body());
+    return;
+  }
+
+  if (response->response_type() == QuicBackendResponse::STOP_SENDING) {
+    QUIC_DVLOG(1)
+        << "Stream " << id()
+        << " sending an incomplete response, i.e. no trailer, no fin.";
+    SendIncompleteResponse(response->headers().Clone(), response->body());
+    SendStopSending(response->stop_sending_code());
     return;
   }
 

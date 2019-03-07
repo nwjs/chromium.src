@@ -10,6 +10,7 @@
 #include "base/containers/circular_deque.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -18,6 +19,7 @@
 #include "content/renderer/media/stream/webmediaplayer_ms.h"
 #include "content/renderer/media/stream/webmediaplayer_ms_compositor.h"
 #include "content/renderer/render_frame_impl.h"
+#include "media/base/media_util.h"
 #include "media/base/test_helpers.h"
 #include "media/base/video_frame.h"
 #include "media/video/mock_gpu_memory_buffer_video_frame_pool.h"
@@ -59,6 +61,7 @@ class MockSurfaceLayerBridge : public blink::WebSurfaceLayerBridge {
   MOCK_METHOD1(SetContentsOpaque, void(bool));
   MOCK_METHOD0(CreateSurfaceLayer, void());
   MOCK_METHOD0(ClearSurfaceId, void());
+  MOCK_METHOD0(ClearObserver, void());
 
   viz::FrameSinkId frame_sink_id_ = viz::FrameSinkId(1, 1);
   viz::LocalSurfaceId local_surface_id_ =
@@ -164,8 +167,6 @@ class FakeWebMediaPlayerDelegate
       blink::WebFullscreenVideoStatus fullscreen_video_status) override {
     EXPECT_EQ(delegate_id_, delegate_id);
   }
-
-  bool IsBackgroundMediaSuspendEnabled() override { return true; }
 
   bool IsFrameHidden() override { return is_hidden_; }
   bool IsFrameClosed() override { return false; }
@@ -277,17 +278,12 @@ class MockMediaStreamAudioRenderer : public MediaStreamAudioRenderer {
   void Play() override {}
   void Pause() override {}
   void SetVolume(float volume) override {}
-  media::OutputDeviceInfo GetOutputDeviceInfo() override {
-    return media::OutputDeviceInfo();
-  }
 
   void SwitchOutputDevice(const std::string& device_id,
                           media::OutputDeviceStatusCB callback) override {}
-  base::TimeDelta GetCurrentRenderTime() const override {
-    return base::TimeDelta();
-  }
+  base::TimeDelta GetCurrentRenderTime() override { return base::TimeDelta(); }
 
-  bool IsLocalRenderer() const override { return true; }
+  bool IsLocalRenderer() override { return true; }
 
  protected:
   ~MockMediaStreamAudioRenderer() override {}
@@ -423,29 +419,19 @@ class MockWebVideoFrameSubmitter : public blink::WebVideoFrameSubmitter {
   // blink::WebVideoFrameSubmitter implementation.
   MOCK_METHOD0(StopUsingProvider, void());
   MOCK_METHOD0(DidReceiveFrame, void());
-  MOCK_METHOD3(EnableSubmission,
-               void(viz::SurfaceId,
-                    base::TimeTicks,
-                    blink::WebFrameSinkDestroyedCallback));
+  MOCK_METHOD2(EnableSubmission, void(viz::SurfaceId, base::TimeTicks));
   MOCK_METHOD0(StartRendering, void());
   MOCK_METHOD0(StopRendering, void());
   MOCK_METHOD1(MockInitialize, void(cc::VideoFrameProvider*));
   MOCK_METHOD1(SetRotation, void(media::VideoRotation));
-  MOCK_METHOD1(MockSetIsOpaque, void(bool));
-  MOCK_METHOD1(UpdateSubmissionState, void(bool));
+  MOCK_METHOD1(SetIsSurfaceVisible, void(bool));
+  MOCK_METHOD1(SetIsPageVisible, void(bool));
   MOCK_METHOD1(SetForceSubmit, void(bool));
   MOCK_CONST_METHOD0(IsDrivingFrameUpdates, bool());
 
   void Initialize(cc::VideoFrameProvider* provider) override {
     provider_ = provider;
     MockInitialize(provider);
-  }
-
-  // This method may try accessing frames, see deadlock case in
-  // https://crbug.com/901744.
-  void SetIsOpaque(bool opaque) override {
-    auto frame = provider_->GetCurrentFrame();
-    MockSetIsOpaque(opaque);
   }
 
  private:
@@ -696,7 +682,7 @@ void WebMediaPlayerMSTest::InitializeWebMediaPlayerMS() {
           ? blink::WebMediaPlayer::SurfaceLayerMode::kAlways
           : blink::WebMediaPlayer::SurfaceLayerMode::kNever;
   player_ = std::make_unique<WebMediaPlayerMS>(
-      nullptr, this, &delegate_, std::make_unique<media::MediaLog>(),
+      nullptr, this, &delegate_, std::make_unique<media::NullMediaLog>(),
       std::unique_ptr<MediaStreamRendererFactory>(render_factory_),
       blink::scheduler::GetSingleThreadTaskRunnerForTesting(),
       blink::scheduler::GetSingleThreadTaskRunnerForTesting(),
@@ -760,7 +746,7 @@ void WebMediaPlayerMSTest::ReadyStateChanged() {
 }
 
 void WebMediaPlayerMSTest::SetCcLayer(cc::Layer* layer) {
-  // Make sure that the old layer is still alive, see http://crbug.com/705448.
+  // Make sure that the old layer is still alive, see https://crbug.com/705448.
   if (layer_set_)
     EXPECT_TRUE(layer_ != nullptr);
   layer_set_ = layer ? true : false;
@@ -1115,7 +1101,8 @@ TEST_P(WebMediaPlayerMSTest, RotationChange) {
   message_loop_controller_.RunAndWaitForStatus(
       media::PipelineStatus::PIPELINE_OK);
   // The exact ordering of delayed vs non-delayed tasks is not defined.
-  // Make sure we run all non-delayed tasks before testing state.
+  // Make sure we run all non-delayed tasks (E.G. CheckForFrameChanges) before
+  // testing state.
   base::RunLoop().RunUntilIdle();
   blink::WebSize natural_size = player_->NaturalSize();
   // Check that height and width are flipped.
@@ -1124,7 +1111,7 @@ TEST_P(WebMediaPlayerMSTest, RotationChange) {
 
   // Change rotation.
   tokens[0] = 33;
-  timestamps = std::vector<int>(tokens, tokens + arraysize(tokens));
+  timestamps = std::vector<int>(tokens, tokens + base::size(tokens));
   provider->QueueFrames(timestamps, false, false, 17, media::VIDEO_ROTATION_0);
   if (enable_surface_layer_for_video_) {
     EXPECT_CALL(*submitter_ptr_, SetRotation(media::VIDEO_ROTATION_0));
@@ -1158,7 +1145,7 @@ TEST_P(WebMediaPlayerMSTest, OpacityChange) {
   // Push one opaque frame.
   const int kTestBrake = static_cast<int>(FrameType::TEST_BRAKE);
   int tokens[] = {0, kTestBrake};
-  std::vector<int> timestamps(tokens, tokens + arraysize(tokens));
+  std::vector<int> timestamps(tokens, tokens + base::size(tokens));
   provider->QueueFrames(timestamps, true);
 
   if (enable_surface_layer_for_video_) {
@@ -1186,11 +1173,10 @@ TEST_P(WebMediaPlayerMSTest, OpacityChange) {
 
   // Push one transparent frame.
   tokens[0] = 33;
-  timestamps = std::vector<int>(tokens, tokens + arraysize(tokens));
+  timestamps = std::vector<int>(tokens, tokens + base::size(tokens));
   provider->QueueFrames(timestamps, false);
   if (enable_surface_layer_for_video_) {
     EXPECT_CALL(*surface_layer_bridge_ptr_, SetContentsOpaque(false));
-    EXPECT_CALL(*submitter_ptr_, MockSetIsOpaque(false));
   }
   message_loop_controller_.RunAndWaitForStatus(
       media::PipelineStatus::PIPELINE_OK);
@@ -1201,11 +1187,10 @@ TEST_P(WebMediaPlayerMSTest, OpacityChange) {
 
   // Push another transparent frame.
   tokens[0] = 66;
-  timestamps = std::vector<int>(tokens, tokens + arraysize(tokens));
+  timestamps = std::vector<int>(tokens, tokens + base::size(tokens));
   provider->QueueFrames(timestamps, true);
   if (enable_surface_layer_for_video_) {
     EXPECT_CALL(*surface_layer_bridge_ptr_, SetContentsOpaque(true));
-    EXPECT_CALL(*submitter_ptr_, MockSetIsOpaque(true));
   }
   message_loop_controller_.RunAndWaitForStatus(
       media::PipelineStatus::PIPELINE_OK);

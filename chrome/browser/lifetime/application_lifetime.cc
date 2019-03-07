@@ -33,7 +33,6 @@
 #include "components/keep_alive_registry/keep_alive_registry.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/language/core/common/locale_util.h"
-#include "components/metrics/metrics_service.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -264,7 +263,7 @@ void AttemptRestart() {
   g_send_stop_request_to_session_manager = false;
   // Run exit process in clean stack.
   base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
-                           base::Bind(&ExitCleanly));
+                           base::Bind(&ExitIgnoreUnloadHandlers));
 #else
   // Set the flag to restore state after the restart.
   pref_service->SetBoolean(prefs::kRestartLastSessionOnShutdown, true);
@@ -300,23 +299,25 @@ void AttemptExit() {
 #endif
 }
 
-#if defined(OS_CHROMEOS)
-// A function called when SIGTERM is received.
-void ExitCleanly() {
-  VLOG(1) << "ExitCleanly";
+void ExitIgnoreUnloadHandlers() {
+  VLOG(1) << "ExitIgnoreUnloadHandlers";
+#if !defined(OS_ANDROID)
   // We always mark exit cleanly.
   MarkAsCleanShutdown();
 
-  // Don't block when SIGTERM is received. AreaAllBrowsersCloseable()
+  // On ChromeOS ExitIgnoreUnloadHandlers() is used to handle SIGTERM.
+  // In this case, AreAllBrowsersCloseable()
   // can be false in following cases. a) power-off b) signout from
   // screen locker.
   if (!AreAllBrowsersCloseable())
     browser_shutdown::OnShutdownStarting(browser_shutdown::END_SESSION);
   else
     browser_shutdown::OnShutdownStarting(browser_shutdown::BROWSER_EXIT);
+#endif
   AttemptExitInternal(true);
 }
 
+#if defined(OS_CHROMEOS)
 bool IsAttemptingShutdown() {
   return g_send_stop_request_to_session_manager;
 }
@@ -346,9 +347,6 @@ void SessionEnding() {
   // exit this function.
   ShutdownWatcherHelper shutdown_watcher;
   shutdown_watcher.Arm(base::TimeDelta::FromSeconds(90));
-  metrics::MetricsService::SetExecutionPhase(
-      metrics::ExecutionPhase::SHUTDOWN_TIMEBOMB_ARM,
-      g_browser_process->local_state());
 
   browser_shutdown::OnShutdownStarting(browser_shutdown::END_SESSION);
 

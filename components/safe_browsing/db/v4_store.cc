@@ -103,6 +103,26 @@ void RecordEnumWithAndWithoutSuffix(const std::string& metric,
   }
 }
 
+void RecordBooleanWithAndWithoutSuffix(const std::string& metric,
+                                       bool value,
+                                       const base::FilePath& file_path) {
+  // The histograms below are an expansion of the UMA_HISTOGRAM_BOOLEAN
+  // macro adapted to allow for a dynamically suffixed histogram name.
+  // Note: The factory creates and owns the histogram.
+  base::HistogramBase* histogram = base::BooleanHistogram::FactoryGet(
+      metric, base::HistogramBase::kUmaTargetedHistogramFlag);
+  if (histogram) {
+    histogram->Add(value);
+  }
+
+  std::string suffix = GetUmaSuffixForStore(file_path);
+  base::HistogramBase* histogram_suffix = base::BooleanHistogram::FactoryGet(
+      metric + suffix, base::HistogramBase::kUmaTargetedHistogramFlag);
+  if (histogram_suffix) {
+    histogram_suffix->Add(value);
+  }
+}
+
 void RecordApplyUpdateResult(const std::string& base_metric,
                              ApplyUpdateResult result,
                              const base::FilePath& file_path) {
@@ -189,6 +209,8 @@ void V4Store::Initialize() {
 }
 
 bool V4Store::HasValidData() const {
+  RecordBooleanWithAndWithoutSuffix("SafeBrowsing.V4Store.IsStoreValid",
+                                    has_valid_data_, store_path_);
   return has_valid_data_;
 }
 
@@ -646,7 +668,7 @@ ApplyUpdateResult V4Store::MergeUpdate(const HashPrefixMap& old_prefixes_map,
       if (checksum[i] != expected_checksum[i]) {
 #if DCHECK_IS_ON()
         std::string checksum_b64, expected_checksum_b64;
-        base::Base64Encode(base::StringPiece(checksum, arraysize(checksum)),
+        base::Base64Encode(base::StringPiece(checksum, base::size(checksum)),
                            &checksum_b64);
         base::Base64Encode(expected_checksum, &expected_checksum_b64);
         DVLOG(1) << "Failure: Checksum mismatch: calculated: " << checksum_b64
@@ -826,7 +848,7 @@ bool V4Store::VerifyChecksum() {
                               store_path_);
 #if DCHECK_IS_ON()
       std::string checksum_b64, expected_checksum_b64;
-      base::Base64Encode(base::StringPiece(checksum, arraysize(checksum)),
+      base::Base64Encode(base::StringPiece(checksum, base::size(checksum)),
                          &checksum_b64);
       base::Base64Encode(expected_checksum_, &expected_checksum_b64);
       DVLOG(1) << "Failure: Checksum mismatch: calculated: " << checksum_b64
@@ -855,7 +877,8 @@ int64_t V4Store::RecordAndReturnFileSize(const std::string& base_metric) {
 void V4Store::CollectStoreInfo(
     DatabaseManagerInfo::DatabaseInfo::StoreInfo* store_info,
     const std::string& base_metric) {
-  store_info->set_file_name(base_metric + GetUmaSuffixForStore(store_path_));
+  store_info->set_file_name(GetUmaSuffixForStore(store_path_)
+                                .substr(1));  // Strip the '.' off the front
   store_info->set_file_size_bytes(file_size_);
   store_info->set_update_status(static_cast<int>(last_apply_update_result_));
   store_info->set_checks_attempted(checks_attempted_);

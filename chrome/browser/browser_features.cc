@@ -13,4 +13,18 @@ const base::Feature kDoubleTapToZoomInTabletMode{
     "DoubleTapToZoomInTabletMode", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
 
+#if !defined(OS_ANDROID)
+// Whether to enable "dark mode" enhancements in Mac Mojave or Windows 10 for
+// UIs implemented with web technologies.
+const base::Feature kWebUIDarkMode{"WebUIDarkMode",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
+
+// Enables grouping tabs together in the tab strip. https://crbug.com/905491
+const base::Feature kTabGroups{"TabGroups", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables popup cards containing tab information when hovering over a tab.
+const base::Feature kTabHoverCards{"TabHoverCards",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
+
 }  // namespace features

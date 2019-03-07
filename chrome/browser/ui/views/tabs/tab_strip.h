@@ -23,7 +23,6 @@
 #include "chrome/browser/ui/views/tabs/tab_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "ui/base/material_design/material_design_controller_observer.h"
-#include "ui/gfx/animation/animation_container.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
@@ -39,8 +38,10 @@ class NewTabButton;
 class StackedTabStripLayout;
 class Tab;
 class TabDragController;
+class TabHoverCardBubbleView;
 class TabStripController;
 class TabStripObserver;
+class ViewObserver;
 
 namespace gfx {
 class Rect;
@@ -66,6 +67,7 @@ class ImageView;
 class TabStrip : public views::AccessiblePaneView,
                  public views::ButtonListener,
                  public views::MouseWatcherListener,
+                 public views::ViewObserver,
                  public views::ViewTargeterDelegate,
                  public TabController,
                  public BrowserRootView::DropTarget,
@@ -114,8 +116,6 @@ class TabStrip : public views::AccessiblePaneView,
   // keep the throbbers in sync.
   void UpdateLoadingAnimations(const base::TimeDelta& elapsed_time);
 
-  bool IsAnyIconAnimating() const;
-
   // If |adjust_layout| is true the stacked layout changes based on whether the
   // user uses a mouse or a touch device with the tabstrip.
   void set_adjust_layout(bool adjust_layout) { adjust_layout_ = adjust_layout; }
@@ -136,12 +136,6 @@ class TabStrip : public views::AccessiblePaneView,
 
   // Returns the bounds of the new tab button.
   gfx::Rect new_tab_button_bounds() const { return new_tab_button_bounds_; }
-
-  // Starts highlighting the tab at the specified index.
-  void StartHighlight(int model_index);
-
-  // Stops all tab higlighting.
-  void StopAllHighlighting();
 
   // Adds a tab at the specified index.
   void AddTabAt(int model_index, TabRendererData data, bool is_active);
@@ -232,12 +226,6 @@ class TabStrip : public views::AccessiblePaneView,
   // Returns true if a tab is being dragged into this tab strip.
   bool IsActiveDropTarget() const;
 
-  // Returns the alpha that inactive tabs and the new tab button should use to
-  // blend against the frame background.  Inactive tabs and the new tab button
-  // differ in whether they change alpha when tab multiselection is occurring;
-  // |for_new_tab_button| toggles between the two calculations.
-  SkAlpha GetInactiveAlpha(bool for_new_tab_button) const;
-
   // Returns true if Tabs in this TabStrip are currently changing size or
   // position.
   bool IsAnimating() const;
@@ -251,7 +239,6 @@ class TabStrip : public views::AccessiblePaneView,
   bool SupportsMultipleSelection() override;
   NewTabButtonPosition GetNewTabButtonPosition() const override;
   bool ShouldHideCloseButtonForTab(Tab* tab) const override;
-  bool ShouldShowCloseButtonOnHover() override;
   bool MaySetClip() override;
   void SelectTab(Tab* tab) override;
   void ExtendSelectionTo(Tab* tab) override;
@@ -277,7 +264,8 @@ class TabStrip : public views::AccessiblePaneView,
   const Tab* GetAdjacentTab(const Tab* tab, int offset) override;
   void OnMouseEventInTab(views::View* source,
                          const ui::MouseEvent& event) override;
-  bool ShouldPaintTab(const Tab* tab, float scale, gfx::Path* clip) override;
+  void UpdateHoverCard(Tab* tab, bool should_show) override;
+  bool ShouldPaintTab(const Tab* tab, float scale, SkPath* clip) override;
   int GetStrokeThickness() const override;
   bool CanPaintThrobberToLayer() const override;
   bool HasVisibleBackgroundTabShapes() const override;
@@ -288,7 +276,8 @@ class TabStrip : public views::AccessiblePaneView,
       TabState tab_state,
       BrowserNonClientFrameView::ActiveState active_state =
           BrowserNonClientFrameView::kUseCurrent) const override;
-  SkColor GetTabForegroundColor(TabState tab_state) const override;
+  SkColor GetTabForegroundColor(TabState tab_state,
+                                SkColor background_color) const override;
   base::string16 GetAccessibleTabName(const Tab* tab) const override;
   int GetBackgroundResourceId(
       bool* has_custom_image,
@@ -329,6 +318,7 @@ class TabStrip : public views::AccessiblePaneView,
 
   friend class TabDragController;
   friend class TabDragControllerTest;
+  friend class TabHoverCardBubbleViewBrowserTest;
   friend class TabStripTest;
 
   // Used during a drop session of a url. Tracks the position of the drop as
@@ -623,12 +613,16 @@ class TabStrip : public views::AccessiblePaneView,
   void OnMouseCaptureLost() override;
   void OnMouseMoved(const ui::MouseEvent& event) override;
   void OnMouseEntered(const ui::MouseEvent& event) override;
+  void OnMouseExited(const ui::MouseEvent& event) override;
 
   // ui::EventHandler:
   void OnGestureEvent(ui::GestureEvent* event) override;
 
   // views::ViewTargeterDelegate:
   views::View* TargetForRect(views::View* root, const gfx::Rect& rect) override;
+
+  // views::ViewObserver:
+  void OnViewIsDeleting(views::View* observed_view) override;
 
   // ui::MaterialDesignControllerObserver:
   void OnTouchUiChanged() override;
@@ -646,6 +640,10 @@ class TabStrip : public views::AccessiblePaneView,
   // painted, and the event handling code ensures only tabs in |tabs_| are used.
   views::ViewModelT<Tab> tabs_;
   TabsClosingMap tabs_closing_map_;
+
+  // The view tracker is used to keep track of if the hover card has been
+  // destroyed by its widget.
+  TabHoverCardBubbleView* hover_card_ = nullptr;
 
   std::unique_ptr<TabStripController> controller_;
 
@@ -675,11 +673,6 @@ class TabStrip : public views::AccessiblePaneView,
 
   // Valid for the lifetime of a drag over us.
   std::unique_ptr<DropArrow> drop_arrow_;
-
-  // To ensure all tabs pulse at the same time they share the same animation
-  // container. This is that animation container.
-  scoped_refptr<gfx::AnimationContainer> animation_container_{
-      new gfx::AnimationContainer()};
 
   // MouseWatcher is used for two things:
   // . When a tab is closed to reset the layout.

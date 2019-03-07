@@ -128,9 +128,9 @@ public class Features {
     // WebViewCompat.getWebChromeClient
     public static final String GET_WEB_CHROME_CLIENT = "GET_WEB_CHROME_CLIENT";
 
-    // WebViewCompat.setProxyOverride
-    // WebViewCompat.clearProxyOverride
-    public static final String PROXY_OVERRIDE = "PROXY_OVERRIDE:2";
+    // ProxyController.setProxyOverride
+    // ProxyController.clearProxyOverride
+    public static final String PROXY_OVERRIDE = "PROXY_OVERRIDE:3";
 
     // WebViewCompat.getWebViewRenderer
     public static final String GET_WEB_VIEW_RENDERER = "GET_WEB_VIEW_RENDERER";
@@ -143,4 +143,13 @@ public class Features {
     // TracingController.start
     // TracingController.stop
     public static final String TRACING_CONTROLLER_BASIC_USAGE = "TRACING_CONTROLLER_BASIC_USAGE";
+
+    // Renderer client set/getter and callbacks:
+    //
+    // WebView.getWebViewRendererClient
+    // WebView.setWebViewRendererClient
+    // WebViewRendererClient.onRendererUnresponsive()
+    // WebViewRendererClient.onRendererResponsive()
+    public static final String WEB_VIEW_RENDERER_CLIENT_BASIC_USAGE =
+            "WEB_VIEW_RENDERER_CLIENT_BASIC_USAGE";
 }

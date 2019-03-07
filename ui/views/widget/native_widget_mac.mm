@@ -46,6 +46,9 @@ namespace {
 base::LazyInstance<ui::GestureRecognizerImplMac>::Leaky
     g_gesture_recognizer_instance = LAZY_INSTANCE_INITIALIZER;
 
+static base::RepeatingCallback<void(NativeWidgetMac*)>*
+    g_init_native_widget_callback = nullptr;
+
 NSInteger StyleMaskForParams(const Widget::InitParams& params) {
   // If the Widget is modal, it will be displayed as a sheet. This works best if
   // it has NSTitledWindowMask. For example, with NSBorderlessWindowMask, the
@@ -100,10 +103,8 @@ void NativeWidgetMac::WindowDestroyed() {
     delete this;
 }
 
-int NativeWidgetMac::SheetPositionY() {
-  NSView* view = GetNativeView().GetNativeNSView();
-  return
-      [view convertPoint:NSMakePoint(0, NSHeight([view frame])) toView:nil].y;
+int32_t NativeWidgetMac::SheetOffsetY() {
+  return 0;
 }
 
 void NativeWidgetMac::GetWindowFrameTitlebarHeight(
@@ -111,6 +112,15 @@ void NativeWidgetMac::GetWindowFrameTitlebarHeight(
     float* titlebar_height) {
   *override_titlebar_height = false;
   *titlebar_height = 0;
+}
+
+bool NativeWidgetMac::ExecuteCommand(
+    int32_t command,
+    WindowOpenDisposition window_open_disposition,
+    bool is_before_first_responder) {
+  // This is supported only by subclasses in chrome/browser/ui.
+  NOTIMPLEMENTED();
+  return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -146,13 +156,14 @@ void NativeWidgetMac::InitNativeWidget(const Widget::InitParams& params) {
   }
   bridge_host_->SetParent(parent_host);
   bridge_host_->InitWindow(params);
+  OnWindowInitialized();
 
   // Only set always-on-top here if it is true since setting it may affect how
   // the window is treated by Expose.
   if (params.keep_on_top)
     SetAlwaysOnTop(true);
 
-  delegate_->OnNativeWidgetCreated(true);
+  delegate_->OnNativeWidgetCreated();
 
   DCHECK(GetWidget()->GetRootView());
   bridge_host_->SetRootView(GetWidget()->GetRootView());
@@ -164,6 +175,9 @@ void NativeWidgetMac::InitNativeWidget(const Widget::InitParams& params) {
   }
 
   bridge_host_->CreateCompositor(params);
+
+  if (g_init_native_widget_callback)
+    g_init_native_widget_callback->Run(this);
 }
 
 void NativeWidgetMac::OnWidgetInitDone() {
@@ -377,9 +391,9 @@ void NativeWidgetMac::Close() {
 }
 
 void NativeWidgetMac::CloseNow() {
-  if (bridge())
-    bridge()->CloseWindowNow();
-  // Note: |bridge_host_| will be deleted her, and |this| will be deleted here
+  if (bridge_host_)
+    bridge_host_->CloseWindowNow();
+  // Note: |bridge_host_| will be deleted here, and |this| will be deleted here
   // when ownership_ == NATIVE_WIDGET_OWNS_WIDGET,
 }
 
@@ -544,6 +558,13 @@ void NativeWidgetMac::SetCursor(gfx::NativeCursor cursor) {
     bridge_impl()->SetCursor(cursor);
 }
 
+void NativeWidgetMac::ShowEmojiPanel() {
+  // We must plumb the call to ui::ShowEmojiPanel() over the bridge so that it
+  // is called from the correct process.
+  if (bridge())
+    bridge()->ShowEmojiPanel();
+}
+
 bool NativeWidgetMac::IsMouseEventsEnabled() const {
   // On platforms with touch, mouse events get disabled and calls to this method
   // can affect hover states. Since there is no touch on desktop Mac, this is
@@ -634,12 +655,23 @@ void NativeWidgetMac::OnSizeConstraintsChanged() {
                                widget->widget_delegate()->CanMaximize());
 }
 
-void NativeWidgetMac::RepostNativeEvent(gfx::NativeEvent native_event) {
-  NOTIMPLEMENTED();
-}
-
 std::string NativeWidgetMac::GetName() const {
   return name_;
+}
+
+// static
+void NativeWidgetMac::SetInitNativeWidgetCallback(
+    const base::RepeatingCallback<void(NativeWidgetMac*)>& callback) {
+  DCHECK(!g_init_native_widget_callback || callback.is_null());
+  if (callback.is_null()) {
+    if (g_init_native_widget_callback) {
+      delete g_init_native_widget_callback;
+      g_init_native_widget_callback = nullptr;
+    }
+    return;
+  }
+  g_init_native_widget_callback =
+      new base::RepeatingCallback<void(NativeWidgetMac*)>(callback);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

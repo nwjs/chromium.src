@@ -52,22 +52,16 @@ class CORE_EXPORT BaseFetchContext : public FetchContext {
   virtual SubresourceFilter* GetSubresourceFilter() const = 0;
   virtual PreviewsResourceLoadingHints* GetPreviewsResourceLoadingHints()
       const = 0;
-  virtual void CountUsage(WebFeature) const = 0;
-  virtual void CountDeprecation(WebFeature) const = 0;
   virtual bool ShouldBlockWebSocketByMixedContentCheck(const KURL&) const = 0;
   virtual std::unique_ptr<WebSocketHandshakeThrottle>
   CreateWebSocketHandshakeThrottle() = 0;
 
-  void AddInfoConsoleMessage(const String&, LogSource) const override;
-  void AddWarningConsoleMessage(const String&, LogSource) const override;
-  void AddErrorConsoleMessage(const String&, LogSource) const override;
   bool IsAdResource(const KURL&,
                     ResourceType,
                     mojom::RequestContextType) const override;
 
  protected:
-  explicit BaseFetchContext(
-      scoped_refptr<base::SingleThreadTaskRunner> task_runner);
+  BaseFetchContext() = default;
 
   // Used for security checks.
   virtual bool AllowScriptFromSource(const KURL&) const = 0;
@@ -95,6 +89,7 @@ class CORE_EXPORT BaseFetchContext : public FetchContext {
   virtual base::Optional<mojom::IPAddressSpace> GetAddressSpace() const = 0;
   virtual const ContentSecurityPolicy* GetContentSecurityPolicy() const = 0;
 
+  // TODO(yhirano): Remove this.
   virtual void AddConsoleMessage(ConsoleMessage*) const = 0;
 
  private:

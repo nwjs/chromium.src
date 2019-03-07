@@ -112,6 +112,10 @@ class QuicEndpoint : public Endpoint,
   bool OnStreamIdBlockedFrame(const QuicStreamIdBlockedFrame& frame) override {
     return true;
   };
+  bool OnStopSendingFrame(const QuicStopSendingFrame& frame) override {
+    return true;
+  };
+
   // End QuicConnectionVisitorInterface implementation.
 
   // Begin SessionNotifierInterface methods:
@@ -162,6 +166,10 @@ class QuicEndpoint : public Endpoint,
                                           QuicStreamOffset offset,
                                           QuicByteCount data_length,
                                           QuicDataWriter* writer) override;
+    bool WriteCryptoData(EncryptionLevel level,
+                         QuicStreamOffset offset,
+                         QuicByteCount data_length,
+                         QuicDataWriter* writer) override;
   };
 
   // Write stream data until |bytes_to_transfer_| is zero or the connection is

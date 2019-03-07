@@ -7,6 +7,7 @@
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/shell.h"
 #include "ash/wm/window_positioning_utils.h"
+#include "base/run_loop.h"
 #include "components/exo/buffer.h"
 #include "components/exo/pointer_delegate.h"
 #include "components/exo/shell_surface.h"
@@ -67,7 +68,7 @@ class MAYBE_PointerTest : public test::ExoTestBase {
     // Sometimes underlying infra (i.e. X11 / Xvfb) may emit pointer events
     // which can break MockPointerDelegate's expectations, so they should be
     // consumed before starting. See https://crbug.com/854674.
-    RunAllPendingInMessageLoop();
+    base::RunLoop().RunUntilIdle();
   }
 
  private:
@@ -101,7 +102,7 @@ TEST_F(MAYBE_PointerTest, SetCursor) {
 
   // Set pointer surface.
   pointer->SetCursor(pointer_surface.get(), gfx::Point(5, 5));
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
 
   const viz::RenderPass* last_render_pass;
   {
@@ -117,7 +118,7 @@ TEST_F(MAYBE_PointerTest, SetCursor) {
 
   // Adjust hotspot.
   pointer->SetCursor(pointer_surface.get(), gfx::Point());
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
 
   // Verify that adjustment to hotspot resulted in new frame.
   {
@@ -156,7 +157,7 @@ TEST_F(MAYBE_PointerTest, SetCursorNull) {
   generator.MoveMouseTo(surface->window()->GetBoundsInScreen().origin());
 
   pointer->SetCursor(nullptr, gfx::Point());
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(nullptr, pointer->root_surface());
   aura::client::CursorClient* cursor_client = aura::client::GetCursorClient(
@@ -187,7 +188,7 @@ TEST_F(MAYBE_PointerTest, SetCursorType) {
   generator.MoveMouseTo(surface->window()->GetBoundsInScreen().origin());
 
   pointer->SetCursorType(ui::CursorType::kIBeam);
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(nullptr, pointer->root_surface());
   aura::client::CursorClient* cursor_client = aura::client::GetCursorClient(
@@ -202,7 +203,7 @@ TEST_F(MAYBE_PointerTest, SetCursorType) {
   pointer_surface->Commit();
 
   pointer->SetCursor(pointer_surface.get(), gfx::Point());
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
 
   {
     viz::SurfaceId surface_id = pointer->host_window()->GetSurfaceId();
@@ -216,7 +217,7 @@ TEST_F(MAYBE_PointerTest, SetCursorType) {
 
   // Set the pointer type after the pointer surface is specified.
   pointer->SetCursorType(ui::CursorType::kCross);
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(nullptr, pointer->root_surface());
   EXPECT_EQ(ui::CursorType::kCross, cursor_client->GetCursor().native_type());
@@ -244,7 +245,7 @@ TEST_F(MAYBE_PointerTest, SetCursorTypeOutsideOfSurface) {
                         gfx::Vector2d(1, 1));
 
   pointer->SetCursorType(ui::CursorType::kIBeam);
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(nullptr, pointer->root_surface());
   aura::client::CursorClient* cursor_client = aura::client::GetCursorClient(
@@ -284,7 +285,8 @@ TEST_F(MAYBE_PointerTest, SetCursorAndSetCursorType) {
 
   // Set pointer surface.
   pointer->SetCursor(pointer_surface.get(), gfx::Point());
-  RunAllPendingInMessageLoop();
+  EXPECT_EQ(1u, pointer->GetActivePresentationCallbacksForTesting().size());
+  base::RunLoop().RunUntilIdle();
 
   {
     viz::SurfaceId surface_id = pointer->host_window()->GetSurfaceId();
@@ -298,12 +300,22 @@ TEST_F(MAYBE_PointerTest, SetCursorAndSetCursorType) {
 
   // Set the cursor type to the kNone through SetCursorType.
   pointer->SetCursorType(ui::CursorType::kNone);
-  RunAllPendingInMessageLoop();
+  EXPECT_TRUE(pointer->GetActivePresentationCallbacksForTesting().empty());
+  base::RunLoop().RunUntilIdle();
   EXPECT_EQ(nullptr, pointer->root_surface());
 
   // Set the same pointer surface again.
   pointer->SetCursor(pointer_surface.get(), gfx::Point());
-  RunAllPendingInMessageLoop();
+  EXPECT_EQ(1u, pointer->GetActivePresentationCallbacksForTesting().size());
+  auto& list =
+      pointer->GetActivePresentationCallbacksForTesting().begin()->second;
+  base::RunLoop runloop;
+  list.push_back(base::BindRepeating(
+      [](base::Closure callback, const gfx::PresentationFeedback&) {
+        callback.Run();
+      },
+      runloop.QuitClosure()));
+  runloop.Run();
 
   {
     viz::SurfaceId surface_id = pointer->host_window()->GetSurfaceId();
@@ -340,7 +352,7 @@ TEST_F(MAYBE_PointerTest, SetCursorNullAndSetCursorType) {
 
   // Set nullptr surface.
   pointer->SetCursor(nullptr, gfx::Point());
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(nullptr, pointer->root_surface());
   aura::client::CursorClient* cursor_client = aura::client::GetCursorClient(
@@ -349,13 +361,13 @@ TEST_F(MAYBE_PointerTest, SetCursorNullAndSetCursorType) {
 
   // Set the cursor type.
   pointer->SetCursorType(ui::CursorType::kIBeam);
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
   EXPECT_EQ(nullptr, pointer->root_surface());
   EXPECT_EQ(ui::CursorType::kIBeam, cursor_client->GetCursor().native_type());
 
   // Set nullptr surface again.
   pointer->SetCursor(nullptr, gfx::Point());
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
   EXPECT_EQ(nullptr, pointer->root_surface());
   EXPECT_EQ(ui::CursorType::kNone, cursor_client->GetCursor().native_type());
 
@@ -608,7 +620,7 @@ TEST_F(MAYBE_PointerTest, IgnorePointerEventDuringModal) {
       new Buffer(exo_test_helper()->CreateGpuMemoryBuffer(gfx::Size(5, 5))));
   surface2->Attach(buffer2.get());
   surface2->Commit();
-  ash::wm::CenterWindow(surface2->window());
+  ash::wm::CenterWindow(shell_surface2->GetWidget()->GetNativeWindow());
   gfx::Point location2 = surface2->window()->GetBoundsInScreen().origin();
 
   // Make the window modal.

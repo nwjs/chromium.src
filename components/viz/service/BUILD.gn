@@ -320,16 +320,22 @@ viz_source_set("gpu_service_dependencies") {
     "//media/mojo/services",
     "//services/viz/privileged/interfaces/gl",
     "//skia",
+    "//ui/latency:latency",
   ]
 
   defines = [ "VIZ_SERVICE_IMPLEMENTATION" ]
 
+  deps = []
   if (is_chromeos) {
-    deps = [
+    deps += [
       "//components/arc/video_accelerator",
       "//gpu/command_buffer/service:gles2",
       "//media/mojo/services",
     ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
   }
 
   if (enable_vulkan) {
@@ -361,6 +367,7 @@ viz_source_set("unit_tests") {
     "display/texture_deleter_unittest.cc",
     "display_embedder/buffer_queue_unittest.cc",
     "display_embedder/server_shared_bitmap_manager_unittest.cc",
+    "display_embedder/skia_output_surface_impl_unittest.cc",
     "frame_sinks/compositor_frame_sink_support_unittest.cc",
     "frame_sinks/direct_layer_tree_frame_sink_unittest.cc",
     "frame_sinks/frame_sink_manager_unittest.cc",

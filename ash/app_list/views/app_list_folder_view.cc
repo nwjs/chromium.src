@@ -48,7 +48,7 @@ namespace app_list {
 namespace {
 
 constexpr int kItemGridsBottomPadding = 24;
-constexpr int kOnscreenKeyboardTopPadding = 8;
+constexpr int kOnscreenKeyboardTopPadding = 16;
 
 // Indexes of interesting views in ViewModel of AppListFolderView.
 constexpr int kIndexBackground = 0;
@@ -410,6 +410,8 @@ class ContentsContainerAnimation : public AppListFolderView::Animation,
     // preferred bounds is calculated correctly.
     folder_view_->contents_container()->layer()->SetTransform(gfx::Transform());
     folder_view_->RecordAnimationSmoothness();
+
+    folder_view_->NotifyAccessibilityLocationChanges();
   }
 
  private:
@@ -655,6 +657,17 @@ void AppListFolderView::UpdateBackgroundMask(int corner_radius,
   background_mask_->layer()->SetFillsBoundsOpaquely(false);
   background_mask_->layer()->SetBounds(background_view_->GetContentsBounds());
   background_view_->layer()->SetMaskLayer(background_mask_->layer());
+}
+
+void AppListFolderView::NotifyAccessibilityLocationChanges() {
+  contents_container_->NotifyAccessibilityEvent(
+      ax::mojom::Event::kLocationChanged, true);
+  items_grid_view_->NotifyAccessibilityEvent(ax::mojom::Event::kLocationChanged,
+                                             true);
+  folder_header_view_->NotifyAccessibilityEvent(
+      ax::mojom::Event::kLocationChanged, true);
+  page_switcher_->NotifyAccessibilityEvent(ax::mojom::Event::kLocationChanged,
+                                           true);
 }
 
 void AppListFolderView::CalculateIdealBounds() {

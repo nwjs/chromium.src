@@ -22,7 +22,6 @@ extern const base::Feature kOfflinePagesLoadSignalCollectingFeature;
 extern const base::Feature kOfflinePagesCTV2Feature;
 extern const base::Feature kOfflinePagesRenovationsFeature;
 extern const base::Feature kOfflinePagesResourceBasedSnapshotFeature;
-extern const base::Feature kOfflinePagesLimitlessPrefetchingFeature;
 extern const base::Feature kOfflinePagesDescriptivePendingStatusFeature;
 extern const base::Feature kOfflinePagesInDownloadHomeOpenInCctFeature;
 extern const base::Feature kOfflinePagesDescriptiveFailStatusFeature;
@@ -30,6 +29,7 @@ extern const base::Feature kOfflinePagesCTSuppressNotificationsFeature;
 extern const base::Feature kOfflinePagesShowAlternateDinoPageFeature;
 extern const base::Feature kOfflineIndicatorFeature;
 extern const base::Feature kOfflineIndicatorAlwaysHttpProbeFeature;
+extern const base::Feature kOnTheFlyMhtmlHashComputationFeature;
 
 // The parameter name used to find the experiment tag for prefetching offline
 // pages.
@@ -59,13 +59,6 @@ bool IsOfflinePagesSvelteConcurrentLoadingEnabled();
 
 // Returns true if prefetching offline pages is enabled.
 bool IsPrefetchingOfflinePagesEnabled();
-
-// Returns true if prefetching offline pages should ignore its normal resource
-// usage limits.
-bool IsLimitlessPrefetchingEnabled();
-
-// Enables or disabled limitless prefetching. Provided for testing only.
-void SetLimitlessPrefetchingEnabledForTesting(bool enabled);
 
 // Returns true if we enable load timing signals to be collected.
 bool IsOfflinePagesLoadSignalCollectingEnabled();
@@ -119,6 +112,10 @@ bool IsOfflineIndicatorFeatureEnabled();
 // to test our http probe detection on Android devices with Marshmallow and
 // above.
 bool IsOfflineIndicatorAlwaysHttpProbeEnabled();
+
+// Returns true if we are saving MHTML files to the target location and
+// calculating their content digests in one step.
+bool IsOnTheFlyMhtmlHashComputationEnabled();
 
 }  // namespace offline_pages
 

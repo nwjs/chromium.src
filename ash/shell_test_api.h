@@ -7,7 +7,7 @@
 
 #include <memory>
 
-#include "ash/public/interfaces/shell_test_api.mojom.h"
+#include "ash/public/interfaces/shell_test_api.test-mojom.h"
 #include "base/macros.h"
 #include "services/ws/common/types.h"
 
@@ -61,6 +61,8 @@ class ShellTestApi : public mojom::ShellTestApi {
                              SnapWindowInSplitViewCallback cb) override;
   void ToggleFullscreen(ToggleFullscreenCallback cb) override;
   void ToggleOverviewMode(ToggleOverviewModeCallback cb) override;
+  void AddRemoveDisplay() override;
+  void SetMinFlingVelocity(float velocity) override;
 
  private:
   Shell* shell_;  // not owned

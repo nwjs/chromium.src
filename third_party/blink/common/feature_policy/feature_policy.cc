@@ -34,12 +34,10 @@ ParsedFeaturePolicyDeclaration::ParsedFeaturePolicyDeclaration(
     mojom::FeaturePolicyFeature feature,
     bool matches_all_origins,
     bool matches_opaque_src,
-    mojom::FeaturePolicyDisposition disposition,
     std::vector<url::Origin> origins)
     : feature(feature),
       matches_all_origins(matches_all_origins),
       matches_opaque_src(matches_opaque_src),
-      disposition(disposition),
       origins(std::move(origins)) {}
 
 ParsedFeaturePolicyDeclaration::ParsedFeaturePolicyDeclaration(
@@ -54,23 +52,9 @@ bool operator==(const ParsedFeaturePolicyDeclaration& lhs,
                 const ParsedFeaturePolicyDeclaration& rhs) {
   if (lhs.feature != rhs.feature)
     return false;
-  if (lhs.disposition != rhs.disposition)
-    return false;
   if (lhs.matches_all_origins != rhs.matches_all_origins)
     return false;
   return lhs.matches_all_origins || (lhs.origins == rhs.origins);
-}
-
-std::unique_ptr<ParsedFeaturePolicy> DirectivesWithDisposition(
-    mojom::FeaturePolicyDisposition disposition,
-    const ParsedFeaturePolicy& policy) {
-  std::unique_ptr<ParsedFeaturePolicy> filtered_policy =
-      std::make_unique<ParsedFeaturePolicy>();
-  for (const auto& directive : policy) {
-    if (directive.disposition == disposition)
-      filtered_policy->push_back(directive);
-  }
-  return filtered_policy;
 }
 
 FeaturePolicy::Allowlist::Allowlist() : matches_all_origins_(false) {}
@@ -275,6 +259,8 @@ const FeaturePolicy::FeatureList& FeaturePolicy::GetDefaultFeatureList() {
         FeaturePolicy::FeatureDefault::EnableForAll},
        {mojom::FeaturePolicyFeature::kEncryptedMedia,
         FeaturePolicy::FeatureDefault::EnableForSelf},
+       {mojom::FeaturePolicyFeature::kFontDisplay,
+        FeaturePolicy::FeatureDefault::EnableForAll},
        {mojom::FeaturePolicyFeature::kFullscreen,
         FeaturePolicy::FeatureDefault::EnableForSelf},
        {mojom::FeaturePolicyFeature::kGeolocation,
@@ -313,6 +299,8 @@ const FeaturePolicy::FeatureList& FeaturePolicy::GetDefaultFeatureList() {
         FeaturePolicy::FeatureDefault::EnableForSelf},
        {mojom::FeaturePolicyFeature::kVerticalScroll,
         FeaturePolicy::FeatureDefault::EnableForAll},
+       {mojom::FeaturePolicyFeature::kWakeLock,
+        FeaturePolicy::FeatureDefault::EnableForSelf},
        {mojom::FeaturePolicyFeature::kWebVr,
         FeaturePolicy::FeatureDefault::EnableForSelf}});
   return *default_feature_list;

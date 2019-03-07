@@ -66,24 +66,27 @@ MessagingBindings::~MessagingBindings() {
 }
 
 void MessagingBindings::AddRoutes() {
-  RouteHandlerFunction(
-      "CloseChannel",
-      base::Bind(&MessagingBindings::CloseChannel, base::Unretained(this)));
-  RouteHandlerFunction(
-      "PostMessage",
-      base::Bind(&MessagingBindings::PostMessage, base::Unretained(this)));
+  RouteHandlerFunction("CloseChannel",
+                       base::BindRepeating(&MessagingBindings::CloseChannel,
+                                           base::Unretained(this)));
+  RouteHandlerFunction("PostMessage",
+                       base::BindRepeating(&MessagingBindings::PostMessage,
+                                           base::Unretained(this)));
   // TODO(fsamuel, kalman): Move BindToGC out of messaging natives.
-  RouteHandlerFunction("BindToGC", base::Bind(&MessagingBindings::BindToGC,
-                                              base::Unretained(this)));
-  RouteHandlerFunction("OpenChannelToExtension", "runtime.connect",
-                       base::Bind(&MessagingBindings::OpenChannelToExtension,
-                                  base::Unretained(this)));
-  RouteHandlerFunction("OpenChannelToNativeApp", "runtime.connectNative",
-                       base::Bind(&MessagingBindings::OpenChannelToNativeApp,
-                                  base::Unretained(this)));
+  RouteHandlerFunction("BindToGC",
+                       base::BindRepeating(&MessagingBindings::BindToGC,
+                                           base::Unretained(this)));
   RouteHandlerFunction(
-      "OpenChannelToTab",
-      base::Bind(&MessagingBindings::OpenChannelToTab, base::Unretained(this)));
+      "OpenChannelToExtension", "runtime.connect",
+      base::BindRepeating(&MessagingBindings::OpenChannelToExtension,
+                          base::Unretained(this)));
+  RouteHandlerFunction(
+      "OpenChannelToNativeApp", "runtime.connectNative",
+      base::BindRepeating(&MessagingBindings::OpenChannelToNativeApp,
+                          base::Unretained(this)));
+  RouteHandlerFunction("OpenChannelToTab",
+                       base::BindRepeating(&MessagingBindings::OpenChannelToTab,
+                                           base::Unretained(this)));
 }
 
 // static
@@ -195,15 +198,12 @@ void MessagingBindings::OpenChannelToExtension(
   info.target_id = *v8::String::Utf8Value(isolate, args[0]);
   info.source_url = context()->url();
   std::string channel_name = *v8::String::Utf8Value(isolate, args[1]);
-  // TODO(devlin): Why is this not part of info?
-  bool include_tls_channel_id = args[2].As<v8::Boolean>()->Value();
 
   {
     SCOPED_UMA_HISTOGRAM_TIMER(
         "Extensions.Messaging.SetPortIdTime.Extension");
     render_frame->Send(new ExtensionHostMsg_OpenChannelToExtension(
-        render_frame->GetRoutingID(), info, channel_name,
-        include_tls_channel_id, port_id));
+        render_frame->GetRoutingID(), info, channel_name, port_id));
   }
 
   ++num_extension_ports_;

@@ -32,7 +32,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "components/account_id/account_id.h"
@@ -114,7 +114,7 @@ class LoginTest : public LoginManagerTest {
       "$('error-offline-login-link').onclick();"
     "})();";
     // clang-format on
-    ASSERT_TRUE(content::ExecuteScript(web_contents(), js));
+    test::ExecuteOobeJS(js);
 
     std::string message;
     do {
@@ -140,20 +140,20 @@ class LoginTest : public LoginManagerTest {
         " /deep/ #button')";
 
     content::DOMMessageQueue message_queue;
-    JSExpect("!document.querySelector('#offline-gaia').hidden");
-    JSExpect("document.querySelector('#signin-frame').hidden");
+    test::OobeJS().ExpectTrue(
+        "!document.querySelector('#offline-gaia').hidden");
+    test::OobeJS().ExpectTrue("document.querySelector('#signin-frame').hidden");
     const std::string js =
         animated_pages +
         ".addEventListener('neon-animation-finish',"
         "function() {"
         "window.domAutomationController.send('switchToPassword');"
         "})";
-    ASSERT_TRUE(content::ExecuteScript(web_contents(), js));
+    test::ExecuteOobeJS(js);
     std::string set_email = email_input + ".value = '$Email'";
     base::ReplaceSubstringsAfterOffset(&set_email, 0, "$Email", user_email);
-    ASSERT_TRUE(content::ExecuteScript(web_contents(), set_email));
-    ASSERT_TRUE(content::ExecuteScript(web_contents(),
-                                       email_next_button + ".fire('tap')"));
+    test::ExecuteOobeJS(set_email);
+    test::ExecuteOobeJS(email_next_button + ".fire('tap')");
     std::string message;
     do {
       ASSERT_TRUE(message_queue.WaitForMessage(&message));
@@ -161,9 +161,8 @@ class LoginTest : public LoginManagerTest {
 
     std::string set_password = password_input + ".value = '$Password'";
     base::ReplaceSubstringsAfterOffset(&set_password, 0, "$Password", password);
-    ASSERT_TRUE(content::ExecuteScript(web_contents(), set_password));
-    ASSERT_TRUE(content::ExecuteScript(web_contents(),
-                                       password_next_button + ".fire('tap')"));
+    test::ExecuteOobeJS(set_password);
+    test::ExecuteOobeJS(password_next_button + ".fire('tap')");
   }
 
   void PrepareOfflineLogin() {

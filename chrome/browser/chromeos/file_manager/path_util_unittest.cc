@@ -14,6 +14,8 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/chromeos/arc/fileapi/arc_documents_provider_util.h"
 #include "chrome/browser/chromeos/arc/fileapi/arc_file_system_operation_runner.h"
+#include "chrome/browser/chromeos/crostini/crostini_manager.h"
+#include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
 #include "chrome/browser/chromeos/drive/file_system_util.h"
 #include "chrome/browser/chromeos/file_manager/fake_disk_mount_manager.h"
@@ -25,7 +27,8 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
-#include "chromeos/chromeos_features.h"
+#include "chromeos/constants/chromeos_features.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_bridge_service.h"
 #include "components/arc/arc_service_manager.h"
@@ -48,26 +51,44 @@ const char kLsbRelease[] =
     "CHROMEOS_RELEASE_NAME=Chrome OS\n"
     "CHROMEOS_RELEASE_VERSION=1.2.3.4\n";
 
-TEST(FileManagerPathUtilTest, GetDownloadsFolderForProfile) {
-  content::TestBrowserThreadBundle thread_bundle;
-  TestingProfile profile(base::FilePath("/home/chronos/u-0123456789abcdef"));
-  std::string mount_point_name = GetDownloadsMountPointName(&profile);
+class FileManagerPathUtilTest : public testing::Test {
+ public:
+  FileManagerPathUtilTest() = default;
+  ~FileManagerPathUtilTest() override = default;
+
+  void SetUp() override {
+    // Remove mount configured to MyFiles because it can interfere with some
+    // tests.
+    storage::ExternalMountPoints::GetSystemInstance()->RevokeFileSystem(
+        GetDownloadsMountPointName(profile_.get()));
+    profile_.reset(
+        new TestingProfile(base::FilePath("/home/chronos/u-0123456789abcdef")));
+  }
+  void TearDown() override { profile_.reset(); }
+
+ protected:
+  content::TestBrowserThreadBundle thread_bundle_;
+  std::unique_ptr<TestingProfile> profile_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(FileManagerPathUtilTest);
+};
+
+TEST_F(FileManagerPathUtilTest, GetDownloadsFolderForProfile) {
+  std::string mount_point_name = GetDownloadsMountPointName(profile_.get());
   EXPECT_EQ("Downloads", mount_point_name);
 }
 
-TEST(FileManagerPathUtilTest, GetMyFilesFolderForProfile) {
-  content::TestBrowserThreadBundle thread_bundle;
-
+TEST_F(FileManagerPathUtilTest, GetMyFilesFolderForProfile) {
   base::FilePath profile_path =
       base::FilePath("/home/chronos/u-0123456789abcdef");
-  TestingProfile profile(profile_path);
 
   // When running outside ChromeOS, it should return $HOME/Downloads for both
   // MyFiles and Downloads.
   EXPECT_EQ(DownloadPrefs::GetDefaultDownloadDirectory(),
-            GetMyFilesFolderForProfile(&profile));
+            GetMyFilesFolderForProfile(profile_.get()));
   EXPECT_EQ(DownloadPrefs::GetDefaultDownloadDirectory(),
-            GetDownloadsFolderForProfile(&profile));
+            GetDownloadsFolderForProfile(profile_.get()));
 
   // When running inside ChromeOS, it should return /home/u-{hash}/MyFiles.
   chromeos::ScopedSetRunningOnChromeOSForTesting fake_release(kLsbRelease,
@@ -77,10 +98,10 @@ TEST(FileManagerPathUtilTest, GetMyFilesFolderForProfile) {
     feature_list.InitAndDisableFeature(chromeos::features::kMyFilesVolume);
     // When MyFilesVolume feature is disabled it will return the same as
     // Downloads.
-    EXPECT_EQ(GetDownloadsFolderForProfile(&profile),
-              GetMyFilesFolderForProfile(&profile));
+    EXPECT_EQ(GetDownloadsFolderForProfile(profile_.get()),
+              GetMyFilesFolderForProfile(profile_.get()));
     EXPECT_EQ("/home/chronos/u-0123456789abcdef/Downloads",
-              GetDownloadsFolderForProfile(&profile).value());
+              GetDownloadsFolderForProfile(profile_.get()).value());
   }
   {
     // When MyFilesVolume feature is enabled Downloads path is inside MyFiles.
@@ -88,33 +109,33 @@ TEST(FileManagerPathUtilTest, GetMyFilesFolderForProfile) {
     feature_list.InitAndEnableFeature(chromeos::features::kMyFilesVolume);
 
     EXPECT_EQ("/home/chronos/u-0123456789abcdef/MyFiles",
-              GetMyFilesFolderForProfile(&profile).value());
+              GetMyFilesFolderForProfile(profile_.get()).value());
     EXPECT_EQ("/home/chronos/u-0123456789abcdef/MyFiles/Downloads",
-              GetDownloadsFolderForProfile(&profile).value());
+              GetDownloadsFolderForProfile(profile_.get()).value());
 
     // Mount the volume to test the return from mount_points.
     storage::ExternalMountPoints::GetSystemInstance()->RegisterFileSystem(
-        GetDownloadsMountPointName(&profile),
+        GetDownloadsMountPointName(profile_.get()),
         storage::kFileSystemTypeNativeLocal, storage::FileSystemMountOption(),
         profile_path.Append("MyFiles"));
 
     // When returning from the mount_point Downloads should still point to
     // MyFiles/Downloads.
     EXPECT_EQ("/home/chronos/u-0123456789abcdef/MyFiles/Downloads",
-              GetDownloadsFolderForProfile(&profile).value());
+              GetDownloadsFolderForProfile(profile_.get()).value());
 
     // Still the same: /home/u-{hash}/MyFiles.
     EXPECT_EQ("/home/chronos/u-0123456789abcdef/MyFiles",
-              GetMyFilesFolderForProfile(&profile).value());
+              GetMyFilesFolderForProfile(profile_.get()).value());
   }
   {
     // Remove mount configured to MyFiles in the previous test.
     storage::ExternalMountPoints::GetSystemInstance()->RevokeFileSystem(
-        GetDownloadsMountPointName(&profile));
+        GetDownloadsMountPointName(profile_.get()));
 
     // Add mount point for Downloads instead of MyFiles.
     storage::ExternalMountPoints::GetSystemInstance()->RegisterFileSystem(
-        GetDownloadsMountPointName(&profile),
+        GetDownloadsMountPointName(profile_.get()),
         storage::kFileSystemTypeNativeLocal, storage::FileSystemMountOption(),
         profile_path.Append("Downloads"));
 
@@ -123,61 +144,66 @@ TEST(FileManagerPathUtilTest, GetMyFilesFolderForProfile) {
     feature_list.InitAndDisableFeature(chromeos::features::kMyFilesVolume);
     // When MyFilesVolume feature is disabled it will return the same as
     // Downloads.
-    EXPECT_EQ(GetDownloadsFolderForProfile(&profile),
-              GetMyFilesFolderForProfile(&profile));
+    EXPECT_EQ(GetDownloadsFolderForProfile(profile_.get()),
+              GetMyFilesFolderForProfile(profile_.get()));
     EXPECT_EQ("/home/chronos/u-0123456789abcdef/Downloads",
-              GetDownloadsFolderForProfile(&profile).value());
-    // Unmount Downloads because it was interfering with other tests.
-    storage::ExternalMountPoints::GetSystemInstance()->RevokeFileSystem(
-        GetDownloadsMountPointName(&profile));
+              GetDownloadsFolderForProfile(profile_.get()).value());
   }
 }
 
-TEST(FileManagerPathUtilTest, GetPathDisplayTextForSettings) {
-  content::TestBrowserThreadBundle thread_bundle;
+TEST_F(FileManagerPathUtilTest, GetPathDisplayTextForSettings) {
   content::TestServiceManagerContext service_manager_context;
 
-  TestingProfile profile(base::FilePath("/home/chronos/u-0123456789abcdef"));
-
   EXPECT_EQ("Downloads", GetPathDisplayTextForSettings(
-                             &profile, "/home/chronos/user/Downloads"));
+                             profile_.get(), "/home/chronos/user/Downloads"));
   EXPECT_EQ("Downloads",
             GetPathDisplayTextForSettings(
-                &profile, "/home/chronos/u-0123456789abcdef/Downloads"));
+                profile_.get(), "/home/chronos/u-0123456789abcdef/Downloads"));
 
-  EXPECT_EQ("Downloads", GetPathDisplayTextForSettings(
-                             &profile, "/home/chronos/user/MyFiles/Downloads"));
-  EXPECT_EQ(
-      "Downloads",
-      GetPathDisplayTextForSettings(
-          &profile, "/home/chronos/u-0123456789abcdef/MyFiles/Downloads"));
+  EXPECT_EQ("My files \u203a Downloads",
+            GetPathDisplayTextForSettings(
+                profile_.get(), "/home/chronos/user/MyFiles/Downloads"));
+  EXPECT_EQ("My files \u203a Downloads",
+            GetPathDisplayTextForSettings(
+                profile_.get(),
+                "/home/chronos/u-0123456789abcdef/MyFiles/Downloads"));
+
+  EXPECT_EQ("My files \u203a other-folder",
+            GetPathDisplayTextForSettings(
+                profile_.get(), "/home/chronos/user/MyFiles/other-folder"));
+  EXPECT_EQ("My files \u203a other-folder",
+            GetPathDisplayTextForSettings(
+                profile_.get(),
+                "/home/chronos/u-0123456789abcdef/MyFiles/other-folder"));
 
   EXPECT_EQ("Play files \u203a foo \u203a bar",
             GetPathDisplayTextForSettings(
-                &profile, "/run/arc/sdcard/write/emulated/0/foo/bar"));
+                profile_.get(), "/run/arc/sdcard/write/emulated/0/foo/bar"));
   EXPECT_EQ("Linux files \u203a foo",
             GetPathDisplayTextForSettings(
-                &profile,
+                profile_.get(),
                 "/media/fuse/crostini_0123456789abcdef_termina_penguin/foo"));
-
+  EXPECT_EQ(
+      "External storage \u203a foo",
+      GetPathDisplayTextForSettings(profile_.get(), "/media/removable/foo"));
   {
     base::test::ScopedFeatureList features;
     features.InitAndDisableFeature(chromeos::features::kDriveFs);
-    drive::DriveIntegrationServiceFactory::GetForProfile(&profile)->SetEnabled(
-        true);
+    drive::DriveIntegrationServiceFactory::GetForProfile(profile_.get())
+        ->SetEnabled(true);
     EXPECT_EQ("Google Drive \u203a My Drive \u203a foo",
               GetPathDisplayTextForSettings(
-                  &profile, "/special/drive-0123456789abcdef/root/foo"));
+                  profile_.get(), "/special/drive-0123456789abcdef/root/foo"));
     EXPECT_EQ(
         "Google Drive \u203a Team Drives \u203a A Team Drive \u203a foo",
         GetPathDisplayTextForSettings(
-            &profile,
+            profile_.get(),
             "/special/drive-0123456789abcdef/team_drives/A Team Drive/foo"));
 
     EXPECT_EQ(
         "Google Drive \u203a Computers \u203a My Other Computer \u203a bar",
         GetPathDisplayTextForSettings(
-            &profile,
+            profile_.get(),
             "/special/drive-0123456789abcdef/Computers/My Other Computer/bar"));
   }
   {
@@ -211,6 +237,21 @@ TEST(FileManagerPathUtilTest, GetPathDisplayTextForSettings) {
             "/media/fuse/drivefs-84675c855b63e12f384d45f033826980/"
             "Computers/My Other Computer/bar"));
 
+    EXPECT_EQ("Google Drive \u203a My Drive \u203a foo",
+              GetPathDisplayTextForSettings(
+                  &profile2, "/special/drive-0123456789abcdef/root/foo"));
+    EXPECT_EQ(
+        "Google Drive \u203a Team Drives \u203a A Team Drive \u203a foo",
+        GetPathDisplayTextForSettings(
+            &profile2,
+            "/special/drive-0123456789abcdef/team_drives/A Team Drive/foo"));
+
+    EXPECT_EQ(
+        "Google Drive \u203a Computers \u203a My Other Computer \u203a bar",
+        GetPathDisplayTextForSettings(
+            &profile2,
+            "/special/drive-0123456789abcdef/Computers/My Other Computer/bar"));
+
     TestingProfile guest_profile(base::FilePath("/home/chronos/guest"));
     guest_profile.SetGuestSession(true);
     guest_profile.set_profile_name("$guest");
@@ -226,93 +267,188 @@ TEST(FileManagerPathUtilTest, GetPathDisplayTextForSettings) {
   chromeos::disks::DiskMountManager::Shutdown();
 }
 
-TEST(FileManagerPathUtilTest, MultiProfileDownloadsFolderMigration) {
-  content::TestBrowserThreadBundle thread_bundle;
-  TestingProfile profile;
+TEST_F(FileManagerPathUtilTest, MigrateFromDownlaodsToMyFiles) {
+  base::FilePath home("/home/chronos/u-0123456789abcdef");
+  base::FilePath result;
+  base::FilePath downloads = home.Append("Downloads");
+  base::FilePath file = home.Append("Downloads/file.txt");
+  base::FilePath inhome = home.Append("NotDownloads");
+  base::FilePath myfiles = home.Append("MyFiles");
+  base::FilePath myfilesFile = home.Append("MyFiles/file.txt");
+  base::FilePath myfilesDownloads = home.Append("MyFiles/Downloads");
+  base::FilePath myfilesDownloadsFile =
+      home.Append("MyFiles/Downloads/file.txt");
+  base::FilePath other("/some/other/path");
+  chromeos::ScopedSetRunningOnChromeOSForTesting fake_release(kLsbRelease,
+                                                              base::Time());
+  // MyFilesVolume disabled, no changes.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(chromeos::features::kMyFilesVolume);
+    EXPECT_FALSE(
+        MigrateFromDownloadsToMyFiles(profile_.get(), downloads, &result));
+    EXPECT_FALSE(MigrateFromDownloadsToMyFiles(profile_.get(), file, &result));
+    EXPECT_FALSE(
+        MigrateFromDownloadsToMyFiles(profile_.get(), inhome, &result));
+    EXPECT_FALSE(
+        MigrateFromDownloadsToMyFiles(profile_.get(), myfiles, &result));
+    EXPECT_FALSE(
+        MigrateFromDownloadsToMyFiles(profile_.get(), myfilesFile, &result));
+    EXPECT_FALSE(MigrateFromDownloadsToMyFiles(profile_.get(), myfilesDownloads,
+                                               &result));
+    EXPECT_FALSE(MigrateFromDownloadsToMyFiles(profile_.get(),
+                                               myfilesDownloadsFile, &result));
+    EXPECT_FALSE(MigrateFromDownloadsToMyFiles(profile_.get(), other, &result));
+  }
+  // MyFilesVolume enabled, migrate paths under Downloads.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(chromeos::features::kMyFilesVolume);
+    EXPECT_TRUE(
+        MigrateFromDownloadsToMyFiles(profile_.get(), downloads, &result));
+    EXPECT_EQ(result, myfilesDownloads);
+    EXPECT_TRUE(MigrateFromDownloadsToMyFiles(profile_.get(), file, &result));
+    EXPECT_EQ(result, myfilesDownloadsFile);
+    EXPECT_FALSE(
+        MigrateFromDownloadsToMyFiles(profile_.get(), inhome, &result));
+    EXPECT_FALSE(
+        MigrateFromDownloadsToMyFiles(profile_.get(), myfiles, &result));
+    EXPECT_FALSE(
+        MigrateFromDownloadsToMyFiles(profile_.get(), myfilesFile, &result));
+    EXPECT_FALSE(MigrateFromDownloadsToMyFiles(profile_.get(), myfilesDownloads,
+                                               &result));
+    EXPECT_FALSE(MigrateFromDownloadsToMyFiles(profile_.get(),
+                                               myfilesDownloadsFile, &result));
+    EXPECT_FALSE(MigrateFromDownloadsToMyFiles(profile_.get(), other, &result));
+  }
+}
+
+TEST_F(FileManagerPathUtilTest, MultiProfileDownloadsFolderMigration) {
   // MigratePathFromOldFormat is explicitly disabled on Linux build.
   // So we need to fake that this is real ChromeOS system.
   chromeos::ScopedSetRunningOnChromeOSForTesting fake_release(kLsbRelease,
                                                               base::Time());
 
-  // This looks like "/home/chronos/u-hash/Downloads" in the production
+  // This looks like "/home/chronos/u-hash/MyFiles" in the production
   // environment.
-  const base::FilePath kDownloads = GetDownloadsFolderForProfile(&profile);
+  const base::FilePath kDownloads = GetMyFilesFolderForProfile(profile_.get());
   const base::FilePath kOldDownloads =
       DownloadPrefs::GetDefaultDownloadDirectory();
 
   base::FilePath path;
 
-  EXPECT_TRUE(MigratePathFromOldFormat(&profile, kOldDownloads, &path));
+  EXPECT_TRUE(MigratePathFromOldFormat(profile_.get(), kOldDownloads, &path));
   EXPECT_EQ(kDownloads, path);
 
   EXPECT_TRUE(MigratePathFromOldFormat(
-      &profile,
-      kOldDownloads.AppendASCII("a/b"),
-      &path));
+      profile_.get(), kOldDownloads.AppendASCII("a/b"), &path));
   EXPECT_EQ(kDownloads.AppendASCII("a/b"), path);
 
   // Path already in the new format is not converted.
-  EXPECT_FALSE(MigratePathFromOldFormat(
-      &profile,
-      kDownloads.AppendASCII("a/b"),
-      &path));
+  EXPECT_FALSE(MigratePathFromOldFormat(profile_.get(),
+                                        kDownloads.AppendASCII("a/b"), &path));
 
   // Only the "Downloads" path is converted.
   EXPECT_FALSE(MigratePathFromOldFormat(
-      &profile,
-      base::FilePath::FromUTF8Unsafe("/home/chronos/user/dl"),
+      profile_.get(), base::FilePath::FromUTF8Unsafe("/home/chronos/user/dl"),
       &path));
 }
 
-TEST(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
-  content::TestBrowserThreadBundle thread_bundle;
+TEST_F(FileManagerPathUtilTest, MigrateToDriveFs) {
+  base::FilePath home("/home/chronos/u-0123456789abcdef");
+  base::FilePath other("/some/other/path");
+  base::FilePath old_drive("/special/drive-0123456789abcdef");
+  base::FilePath my_drive = old_drive.Append("root");
+  base::FilePath file_in_my_drive = old_drive.Append("root").Append("file.txt");
+
+  // DriveFS disabled, no changes.
+  base::FilePath result;
+  {
+    drive::DriveIntegrationServiceFactory::GetForProfile(profile_.get())
+        ->SetEnabled(true);
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(chromeos::features::kDriveFs);
+    EXPECT_FALSE(MigrateToDriveFs(profile_.get(), other, &result));
+    EXPECT_FALSE(MigrateToDriveFs(profile_.get(), my_drive, &result));
+  }
+  // MyFilesVolume enabled, migrate paths under Downloads.
+  {
+    TestingProfile profile2(base::FilePath("/home/chronos/u-0123456789abcdef"));
+    chromeos::FakeChromeUserManager user_manager;
+    user_manager.AddUser(
+        AccountId::FromUserEmailGaiaId(profile2.GetProfileUserName(), "12345"));
+    PrefService* prefs = profile2.GetPrefs();
+    prefs->SetString(drive::prefs::kDriveFsProfileSalt, "a");
+    drive::DriveIntegrationServiceFactory::GetForProfile(&profile2)->SetEnabled(
+        true);
+
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeature(chromeos::features::kDriveFs);
+    EXPECT_FALSE(MigrateToDriveFs(&profile2, other, &result));
+    EXPECT_TRUE(MigrateToDriveFs(&profile2, my_drive, &result));
+    EXPECT_EQ(base::FilePath(
+                  "/media/fuse/drivefs-84675c855b63e12f384d45f033826980/root"),
+              result);
+    EXPECT_TRUE(MigrateToDriveFs(&profile2, file_in_my_drive, &result));
+    EXPECT_EQ(
+        base::FilePath("/media/fuse/drivefs-84675c855b63e12f384d45f033826980/"
+                       "root/file.txt"),
+        result);
+  }
+}
+
+TEST_F(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
   content::TestServiceManagerContext service_manager_context;
 
   storage::ExternalMountPoints* mount_points =
       storage::ExternalMountPoints::GetSystemInstance();
   // Setup for DriveFS.
-  TestingProfile profile(base::FilePath("/home/chronos/u-0123456789abcdef"));
   chromeos::FakeChromeUserManager user_manager;
   user_manager.AddUser(
-      AccountId::FromUserEmailGaiaId(profile.GetProfileUserName(), "12345"));
-  profile.GetPrefs()->SetString(drive::prefs::kDriveFsProfileSalt, "a");
+      AccountId::FromUserEmailGaiaId(profile_->GetProfileUserName(), "12345"));
+  profile_->GetPrefs()->SetString(drive::prefs::kDriveFsProfileSalt, "a");
 
+  // Initialize DBUS and running container.
+  chromeos::DBusThreadManager::Initialize();
+  crostini::CrostiniManager* crostini_manager =
+      crostini::CrostiniManager::GetForProfile(profile_.get());
+  crostini_manager->AddRunningVmForTesting(crostini::kCrostiniDefaultVmName);
+  crostini_manager->AddRunningContainerForTesting(
+      crostini::kCrostiniDefaultVmName,
+      crostini::ContainerInfo(crostini::kCrostiniDefaultContainerName,
+                              "testuser", "/home/testuser"));
+  //
+  // Register crostini, downloads, drive, android.
+  mount_points->RegisterFileSystem(GetCrostiniMountPointName(profile_.get()),
+                                   storage::kFileSystemTypeNativeLocal,
+                                   storage::FileSystemMountOption(),
+                                   GetCrostiniMountDirectory(profile_.get()));
+  mount_points->RegisterFileSystem(
+      GetDownloadsMountPointName(profile_.get()),
+      storage::kFileSystemTypeNativeLocal, storage::FileSystemMountOption(),
+      GetDownloadsFolderForProfile(profile_.get()));
+  mount_points->RegisterFileSystem(
+      GetAndroidFilesMountPointName(), storage::kFileSystemTypeNativeLocal,
+      storage::FileSystemMountOption(), base::FilePath(kAndroidFilesPath));
+  drive::DriveIntegrationService* integration_service =
+      drive::DriveIntegrationServiceFactory::GetForProfile(profile_.get());
+  base::FilePath mount_point_drive = integration_service->GetMountPointPath();
+  mount_points->RegisterFileSystem(
+      mount_point_drive.BaseName().value(), storage::kFileSystemTypeNativeLocal,
+      storage::FileSystemMountOption(), mount_point_drive);
+  mount_points->RegisterFileSystem(
+      chromeos::kSystemMountNameRemovable, storage::kFileSystemTypeNativeLocal,
+      storage::FileSystemMountOption(), base::FilePath(kRemovableMediaPath));
+
+  // Downloads tests only valid with MyFilesVolume disabled.
   {
     base::test::ScopedFeatureList features;
-    features.InitAndEnableFeature(chromeos::features::kDriveFs);
-
-    // Register crostini, downloads, drive.
-    mount_points->RegisterFileSystem(GetCrostiniMountPointName(&profile),
-                                     storage::kFileSystemTypeNativeLocal,
-                                     storage::FileSystemMountOption(),
-                                     GetCrostiniMountDirectory(&profile));
-    mount_points->RegisterFileSystem(GetDownloadsMountPointName(&profile),
-                                     storage::kFileSystemTypeNativeLocal,
-                                     storage::FileSystemMountOption(),
-                                     GetDownloadsFolderForProfile(&profile));
-    drive::DriveIntegrationService* integration_service =
-        drive::DriveIntegrationServiceFactory::GetForProfile(&profile);
-    base::FilePath mount_point_drive = integration_service->GetMountPointPath();
-    mount_points->RegisterFileSystem(mount_point_drive.BaseName().value(),
-                                     storage::kFileSystemTypeNativeLocal,
-                                     storage::FileSystemMountOption(),
-                                     mount_point_drive);
-    mount_points->RegisterFileSystem(chromeos::kSystemMountNameRemovable,
-                                     storage::kFileSystemTypeNativeLocal,
-                                     storage::FileSystemMountOption(),
-                                     base::FilePath(kRemovableMediaPath));
+    features.InitWithFeatures({chromeos::features::kDriveFs},
+                              {chromeos::features::kMyFilesVolume});
 
     base::FilePath inside;
     EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
-        mount_points->CreateExternalFileSystemURL(
-            GURL(), "crostini_0123456789abcdef_termina_penguin",
-            base::FilePath("path/in/crostini")),
-        &inside));
-    EXPECT_EQ("/home/testing_profile/path/in/crostini", inside.value());
-
-    EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "Downloads-testing_profile-hash",
             base::FilePath("path/in/downloads")),
@@ -321,7 +457,7 @@ TEST(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
               inside.value());
 
     EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "Downloads-testing_profile-hash",
             base::FilePath("path/in/downloads/")),
@@ -331,20 +467,40 @@ TEST(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
               inside.value());
 
     EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "Downloads-testing_profile-hash", base::FilePath()),
         &inside));
     EXPECT_EQ("/mnt/chromeos/MyFiles/Downloads", inside.value());
+  }
+  {
+    base::test::ScopedFeatureList features;
+    features.InitAndEnableFeature(chromeos::features::kDriveFs);
+
+    base::FilePath inside;
+    EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
+        profile_.get(),
+        mount_points->CreateExternalFileSystemURL(
+            GURL(), "crostini_0123456789abcdef_termina_penguin",
+            base::FilePath("path/in/crostini")),
+        &inside));
+    EXPECT_EQ("/home/testuser/path/in/crostini", inside.value());
 
     EXPECT_FALSE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "unknown", base::FilePath("path/in/unknown")),
         &inside));
 
     EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
+        mount_points->CreateExternalFileSystemURL(
+            GURL(), "android_files", base::FilePath("path/in/android")),
+        &inside));
+    EXPECT_EQ("/mnt/chromeos/PlayFiles/path/in/android", inside.value());
+
+    EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "drivefs-84675c855b63e12f384d45f033826980",
             base::FilePath("root/path/in/mydrive")),
@@ -353,7 +509,7 @@ TEST(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
               inside.value());
 
     EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "drivefs-84675c855b63e12f384d45f033826980",
             base::FilePath("team_drives/path/in/teamdrives")),
@@ -362,7 +518,7 @@ TEST(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
               inside.value());
 
     EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "drivefs-84675c855b63e12f384d45f033826980",
             base::FilePath("Computers/path/in/computers")),
@@ -371,7 +527,7 @@ TEST(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
               inside.value());
 
     EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "removable", base::FilePath("MyUSB/path/in/removable")),
         &inside));
@@ -382,13 +538,13 @@ TEST(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
     // Test MyFiles.
     base::test::ScopedFeatureList features;
     features.InitAndEnableFeature(chromeos::features::kMyFilesVolume);
-    mount_points->RegisterFileSystem(GetDownloadsMountPointName(&profile),
-                                     storage::kFileSystemTypeNativeLocal,
-                                     storage::FileSystemMountOption(),
-                                     GetMyFilesFolderForProfile(&profile));
+    mount_points->RegisterFileSystem(
+        GetDownloadsMountPointName(profile_.get()),
+        storage::kFileSystemTypeNativeLocal, storage::FileSystemMountOption(),
+        GetMyFilesFolderForProfile(profile_.get()));
     base::FilePath inside;
     EXPECT_TRUE(ConvertFileSystemURLToPathInsideCrostini(
-        &profile,
+        profile_.get(),
         mount_points->CreateExternalFileSystemURL(
             GURL(), "Downloads-testing_profile-hash",
             base::FilePath("path/in/myfiles")),
@@ -397,14 +553,12 @@ TEST(FileManagerPathUtilTest, ConvertFileSystemURLToPathInsideCrostini) {
   }
 }
 
-TEST(FileManagerPathUtilTest, ExtractMountNameAndFullPath) {
-  content::TestBrowserThreadBundle thread_bundle;
+TEST_F(FileManagerPathUtilTest, ExtractMountNameAndFullPath) {
   content::TestServiceManagerContext service_manager_context;
-  TestingProfile profile(base::FilePath("/home/chronos/u-0123456789abcdef"));
   storage::ExternalMountPoints* mount_points =
       storage::ExternalMountPoints::GetSystemInstance();
-  std::string downloads_mount_name = GetDownloadsMountPointName(&profile);
-  base::FilePath downloads_path = GetDownloadsFolderForProfile(&profile);
+  std::string downloads_mount_name = GetDownloadsMountPointName(profile_.get());
+  base::FilePath downloads_path = GetDownloadsFolderForProfile(profile_.get());
   mount_points->RegisterFileSystem(
       downloads_mount_name, storage::kFileSystemTypeNativeLocal,
       storage::FileSystemMountOption(), downloads_path);

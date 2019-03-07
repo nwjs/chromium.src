@@ -21,7 +21,9 @@ class ArCoreJavaUtils : public ArCoreInstallUtils {
   explicit ArCoreJavaUtils(device::ArCoreDevice* arcore_device);
   ~ArCoreJavaUtils() override;
   bool ShouldRequestInstallArModule() override;
-  void RequestInstallArModule() override;
+  bool CanRequestInstallArModule() override;
+  void RequestInstallArModule(int render_process_id,
+                              int render_frame_id) override;
   bool ShouldRequestInstallSupportedArCore() override;
   void RequestInstallSupportedArCore(int render_process_id,
                                      int render_frame_id) override;
@@ -31,14 +33,19 @@ class ArCoreJavaUtils : public ArCoreInstallUtils {
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj,
       bool success);
-  void OnRequestInstallSupportedArCoreCanceled(
+  void OnRequestInstallSupportedArCoreResult(
       JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& obj);
+      const base::android::JavaParamRef<jobject>& obj,
+      bool success);
 
   bool EnsureLoaded() override;
   base::android::ScopedJavaLocalRef<jobject> GetApplicationContext() override;
 
  private:
+  base::android::ScopedJavaLocalRef<jobject> getTabFromRenderer(
+      int render_process_id,
+      int render_frame_id);
+
   device::ArCoreDevice* arcore_device_;
   base::android::ScopedJavaGlobalRef<jobject> j_arcore_java_utils_;
 };

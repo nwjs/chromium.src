@@ -79,12 +79,42 @@ void AppServiceImpl::LoadIcon(apps::mojom::AppType app_type,
 
 void AppServiceImpl::Launch(apps::mojom::AppType app_type,
                             const std::string& app_id,
-                            int32_t event_flags) {
+                            int32_t event_flags,
+                            apps::mojom::LaunchSource launch_source,
+                            int64_t display_id) {
   auto iter = publishers_.find(app_type);
   if (iter == publishers_.end()) {
     return;
   }
-  iter->second->Launch(app_id, event_flags);
+  iter->second->Launch(app_id, event_flags, launch_source, display_id);
+}
+
+void AppServiceImpl::SetPermission(apps::mojom::AppType app_type,
+                                   const std::string& app_id,
+                                   apps::mojom::PermissionPtr permission) {
+  auto iter = publishers_.find(app_type);
+  if (iter == publishers_.end()) {
+    return;
+  }
+  iter->second->SetPermission(app_id, std::move(permission));
+}
+
+void AppServiceImpl::Uninstall(apps::mojom::AppType app_type,
+                               const std::string& app_id) {
+  auto iter = publishers_.find(app_type);
+  if (iter == publishers_.end()) {
+    return;
+  }
+  iter->second->Uninstall(app_id);
+}
+
+void AppServiceImpl::OpenNativeSettings(apps::mojom::AppType app_type,
+                                        const std::string& app_id) {
+  auto iter = publishers_.find(app_type);
+  if (iter == publishers_.end()) {
+    return;
+  }
+  iter->second->OpenNativeSettings(app_id);
 }
 
 void AppServiceImpl::OnPublisherDisconnected(apps::mojom::AppType app_type) {

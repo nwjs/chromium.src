@@ -14,9 +14,9 @@
 
 #include "base/command_line.h"
 #include "base/location.h"
-#include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_task_environment.h"
@@ -434,6 +434,31 @@ class InputRouterImplTestBase : public testing::Test {
     input_router_->OnTouchEventAck(TouchEventWithLatencyInfo(touch_event_),
                                    InputEventAckSource::MAIN_THREAD, state);
     EXPECT_EQ(input_router_->touch_action_filter_.num_of_active_touches_, 0);
+  }
+
+  void StopTimeoutMonitorTest(bool compositor_touch_action_enabled) {
+    ResetTouchAction();
+    PressTouchPoint(1, 1);
+    base::Optional<ui::DidOverscrollParams> overscroll;
+    base::Optional<cc::TouchAction> touch_action = cc::kTouchActionPan;
+    input_router_->SendTouchEvent(TouchEventWithLatencyInfo(touch_event_));
+    EXPECT_TRUE(input_router_->touch_event_queue_.IsTimeoutRunningForTesting());
+    input_router_->TouchEventHandled(
+        TouchEventWithLatencyInfo(touch_event_),
+        compositor_touch_action_enabled ? InputEventAckSource::COMPOSITOR_THREAD
+                                        : InputEventAckSource::MAIN_THREAD,
+        ui::LatencyInfo(), INPUT_EVENT_ACK_STATE_NOT_CONSUMED, overscroll,
+        touch_action);
+    if (compositor_touch_action_enabled) {
+      EXPECT_TRUE(
+          input_router_->touch_event_queue_.IsTimeoutRunningForTesting());
+      input_router_->SetTouchActionFromMain(cc::kTouchActionPan);
+      EXPECT_FALSE(
+          input_router_->touch_event_queue_.IsTimeoutRunningForTesting());
+    } else {
+      EXPECT_FALSE(
+          input_router_->touch_event_queue_.IsTimeoutRunningForTesting());
+    }
   }
 
   void OnTouchEventAckWithAckState(
@@ -927,7 +952,7 @@ TEST_P(InputRouterImplTest, MAYBE_GestureTypesIgnoringAck) {
       WebInputEvent::kGestureScrollBegin, WebInputEvent::kGestureScrollUpdate,
       WebInputEvent::kGesturePinchBegin,  WebInputEvent::kGesturePinchUpdate,
       WebInputEvent::kGesturePinchEnd,    WebInputEvent::kGestureScrollEnd};
-  for (size_t i = 0; i < arraysize(eventTypes); ++i) {
+  for (size_t i = 0; i < base::size(eventTypes); ++i) {
     WebInputEvent::Type type = eventTypes[i];
     if (ShouldBlockEventStream(GetEventWithType(type))) {
       PressAndSetTouchActionAuto();
@@ -1021,7 +1046,7 @@ TEST_P(InputRouterImplTest, RequiredEventAckTypes) {
       WebInputEvent::kGesturePinchUpdate,
       WebInputEvent::kTouchStart,
       WebInputEvent::kTouchMove};
-  for (size_t i = 0; i < arraysize(kRequiredEventAckTypes); ++i) {
+  for (size_t i = 0; i < base::size(kRequiredEventAckTypes); ++i) {
     const WebInputEvent::Type required_ack_type = kRequiredEventAckTypes[i];
     ASSERT_TRUE(ShouldBlockEventStream(GetEventWithType(required_ack_type)));
   }
@@ -2060,6 +2085,13 @@ TEST_P(InputRouterImplTest, TouchActionInCallback) {
     EXPECT_FALSE(white_listed_touch_action.has_value());
     EXPECT_EQ(expected_touch_action, allowed_touch_action);
   }
+}
+
+TEST_P(InputRouterImplTest, TimeoutMonitorStopWithMainThreadTouchAction) {
+  SetUpForTouchAckTimeoutTest(1, 1);
+  OnHasTouchEventHandlers(true);
+
+  StopTimeoutMonitorTest(compositor_touch_action_enabled_);
 }
 
 namespace {

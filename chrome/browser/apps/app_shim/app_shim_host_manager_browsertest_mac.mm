@@ -60,9 +60,11 @@ class TestShimClient : public chrome::mojom::AppShim {
       override {}
   void CreateContentNSViewBridgeFactory(
       content::mojom::NSViewBridgeFactoryAssociatedRequest request) override {}
+  void CreateCommandDispatcherForWidget(uint64_t widget_id) override {}
   void Hide() override {}
   void UnhideWithoutActivation() override {}
   void SetUserAttention(apps::AppShimAttentionType attention_type) override {}
+  void SetBadgeLabel(const std::string& badge_label) override {}
 
  private:
   void LaunchAppDone(apps::AppShimLaunchResult result,
@@ -106,8 +108,8 @@ class AppShimHostManagerBrowserTest : public InProcessBrowserTest,
   AppShimHostManagerBrowserTest() : binding_(this) {}
 
  protected:
-  // Wait for OnShimLaunch, then send a quit, and wait for the response. Used to
-  // test launch behavior.
+  // Wait for OnShimProcessConnected, then send a quit, and wait for the
+  // response. Used to test launch behavior.
   void RunAndExitGracefully();
 
   // InProcessBrowserTest overrides:
@@ -115,14 +117,19 @@ class AppShimHostManagerBrowserTest : public InProcessBrowserTest,
   void TearDownOnMainThread() override;
 
   // AppShimHandler overrides:
-  void OnShimLaunch(std::unique_ptr<AppShimHostBootstrap> bootstrap) override;
-  void OnShimClose(apps::AppShimHandler::Host* host) override {}
-  void OnShimFocus(apps::AppShimHandler::Host* host,
+  void OnShimLaunchRequested(
+      ::AppShimHost* host,
+      bool recreate_shims,
+      apps::ShimLaunchedCallback launched_callback,
+      apps::ShimTerminatedCallback terminated_callback) override {}
+  void OnShimProcessConnected(
+      std::unique_ptr<AppShimHostBootstrap> bootstrap) override;
+  void OnShimClose(::AppShimHost* host) override {}
+  void OnShimFocus(::AppShimHost* host,
                    apps::AppShimFocusType focus_type,
                    const std::vector<base::FilePath>& files) override {}
-  void OnShimSetHidden(apps::AppShimHandler::Host* host, bool hidden) override {
-  }
-  void OnShimQuit(apps::AppShimHandler::Host* host) override {}
+  void OnShimSetHidden(::AppShimHost* host, bool hidden) override {}
+  void OnShimQuit(::AppShimHost* host) override {}
 
   std::unique_ptr<TestShimClient> test_client_;
   std::vector<base::FilePath> last_launch_files_;
@@ -151,7 +158,7 @@ class AppShimHostManagerBrowserTest : public InProcessBrowserTest,
 void AppShimHostManagerBrowserTest::RunAndExitGracefully() {
   runner_ = std::make_unique<base::RunLoop>();
   EXPECT_EQ(0, launch_count_);
-  runner_->Run();  // Will stop in OnShimLaunch().
+  runner_->Run();  // Will stop in OnShimProcessConnected().
   EXPECT_EQ(1, launch_count_);
 
   runner_ = std::make_unique<base::RunLoop>();
@@ -172,14 +179,14 @@ void AppShimHostManagerBrowserTest::TearDownOnMainThread() {
   apps::AppShimHandler::RemoveHandler(kTestAppMode);
 }
 
-void AppShimHostManagerBrowserTest::OnShimLaunch(
+void AppShimHostManagerBrowserTest::OnShimProcessConnected(
     std::unique_ptr<AppShimHostBootstrap> bootstrap) {
   ++launch_count_;
   binding_.Bind(bootstrap->GetLaunchAppShimHostRequest());
   last_launch_type_ = bootstrap->GetLaunchType();
   last_launch_files_ = bootstrap->GetLaunchFiles();
 
-  bootstrap->OnLaunchAppSucceeded(mojo::MakeRequest(&app_shim_ptr_));
+  bootstrap->OnConnectedToHost(mojo::MakeRequest(&app_shim_ptr_));
   runner_->Quit();
 }
 

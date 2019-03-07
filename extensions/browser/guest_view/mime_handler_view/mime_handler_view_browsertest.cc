@@ -37,6 +37,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "services/network/public/cpp/features.h"
+#include "ui/base/ui_base_features.h"
 #include "url/url_constants.h"
 
 using extensions::ExtensionsAPIClient;
@@ -182,19 +183,12 @@ IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest, Embedded) {
   EXPECT_EQ(1U, gv_manager->num_guests_created());
 }
 
-// TODO(crbug.com/897971): Flaky on Windows 7 debug.
-#if defined(OS_WIN)
-#define MAYBE_EmbedWithInitialCrossOriginFrame \
-  DISABLED_EmbedWithInitialCrossOriginFrame
-#else
-#define MAYBE_EmbedWithInitialCrossOriginFrame EmbedWithInitialCrossOriginFrame
-#endif
 // This test start with an <object> that has a content frame. Then the content
 // frame (plugin frame) is navigated to a cross-origin target page. After the
 // navigation is completed, the <object> is set to render MimeHandlerView by
 // setting its |data| and |type| attributes accordingly.
 IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
-                       MAYBE_EmbedWithInitialCrossOriginFrame) {
+                       EmbedWithInitialCrossOriginFrame) {
   const std::string kTestName = "test_cross_origin_frame";
   std::string cross_origin_url =
       embedded_test_server()->GetURL("b.com", "/test_page.html").spec();
@@ -214,8 +208,13 @@ IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
 // to load a MimeHandlerView. The test passes if MHV loads. This is to catch the
 // potential race between the cross-origin renderer initiated navigation and
 // the navigation to "about:blank" started from the browser.
+#if defined(OS_LINUX)
+#define MAYBE_NavigationRaceFromEmbedder DISABLED_NavigationRaceFromEmbedder
+#else
+#define MAYBE_NavigationRaceFromEmbedder NavigationRaceFromEmbedder
+#endif
 IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
-                       NavigationRaceFromEmbedder) {
+                       MAYBE_NavigationRaceFromEmbedder) {
   if (!is_cross_process_mode()) {
     // Note that this test would pass trivially with BrowserPlugin-based guests
     // because loading a plugin is quite independent from navigating a plugin.
@@ -235,14 +234,6 @@ IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
   RunTestWithUrl(test_url);
 }
 
-// TODO(crbug.com/897971): Flaky on Windows 7 debug.
-#if defined(OS_WIN)
-#define MAYBE_NavigationRaceFromCrossProcessRenderer \
-  DISABLED_NavigationRaceFromCrossProcessRenderer
-#else
-#define MAYBE_NavigationRaceFromCrossProcessRenderer \
-  NavigationRaceFromCrossProcessRenderer
-#endif
 // TODO(ekaramad): Without proper handling of navigation to 'about:blank', this
 // test would be flaky. Use TestNavigationManager class and possibly break the
 // test into more sub-tests for various scenarios (https://crbug.com/659750).
@@ -254,7 +245,7 @@ IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
 // the <object> loads some text/csv content to create a MimeHandlerViewGuest.
 // The test passes if MHV loads.
 IN_PROC_BROWSER_TEST_P(MimeHandlerViewCrossProcessTest,
-                       MAYBE_NavigationRaceFromCrossProcessRenderer) {
+                       NavigationRaceFromCrossProcessRenderer) {
   if (!is_cross_process_mode()) {
     // Note that this test would pass trivially with BrowserPlugin-based guests
     // because loading a plugin is quite independent from navigating a plugin.
@@ -341,6 +332,10 @@ IN_PROC_BROWSER_TEST_F(MimeHandlerViewTest, Basic) {
 }
 
 IN_PROC_BROWSER_TEST_F(MimeHandlerViewTest, Iframe) {
+  // TODO(https://crbug.com/923051): Flaky in single process mash.
+  if (features::IsSingleProcessMash())
+    return;
+
   RunTest("test_iframe.html");
 }
 

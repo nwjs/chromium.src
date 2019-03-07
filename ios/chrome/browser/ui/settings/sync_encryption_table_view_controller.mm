@@ -12,6 +12,7 @@
 #include "components/google/core/common/google_util.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/sync_prefs.h"
+#include "components/sync/driver/sync_service.h"
 #include "ios/chrome/browser/application_context.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
@@ -19,8 +20,8 @@
 #import "ios/chrome/browser/sync/sync_observer_bridge.h"
 #import "ios/chrome/browser/ui/settings/cells/encryption_item.h"
 #import "ios/chrome/browser/ui/settings/settings_utils.h"
-#import "ios/chrome/browser/ui/settings/sync_create_passphrase_collection_view_controller.h"
-#import "ios/chrome/browser/ui/settings/sync_encryption_passphrase_collection_view_controller.h"
+#import "ios/chrome/browser/ui/settings/sync_create_passphrase_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/sync_encryption_passphrase_table_view_controller.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_cells_constants.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_item.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_link_header_footer_item.h"
@@ -58,13 +59,12 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 - (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState {
   DCHECK(browserState);
-  self =
-      [super initWithTableViewStyle:UITableViewStyleGrouped
-                        appBarStyle:ChromeTableViewControllerStyleWithAppBar];
+  self = [super initWithTableViewStyle:UITableViewStyleGrouped
+                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
   if (self) {
     self.title = l10n_util::GetNSString(IDS_IOS_SYNC_ENCRYPTION_TITLE);
     _browserState = browserState;
-    browser_sync::ProfileSyncService* syncService =
+    syncer::SyncService* syncService =
         ProfileSyncServiceFactory::GetForBrowserState(_browserState);
     _isUsingSecondaryPassphrase = syncService->IsEngineInitialized() &&
                                   syncService->IsUsingSecondaryPassphrase();
@@ -176,14 +176,18 @@ typedef NS_ENUM(NSInteger, ItemType) {
   switch (item.type) {
     case ItemTypePassphrase: {
       DCHECK(browser_sync::ProfileSyncService::IsSyncAllowedByFlag());
-      browser_sync::ProfileSyncService* service =
+      syncer::SyncService* service =
           ProfileSyncServiceFactory::GetForBrowserState(_browserState);
       if (service->IsEngineInitialized() &&
           !service->IsUsingSecondaryPassphrase()) {
-        SyncCreatePassphraseCollectionViewController* controller =
-            [[SyncCreatePassphraseCollectionViewController alloc]
+        SyncCreatePassphraseTableViewController* controller =
+            [[SyncCreatePassphraseTableViewController alloc]
                 initWithBrowserState:_browserState];
-        [self.navigationController pushViewController:controller animated:YES];
+        if (controller) {
+          controller.dispatcher = self.dispatcher;
+          [self.navigationController pushViewController:controller
+                                               animated:YES];
+        }
       }
       break;
     }
@@ -199,7 +203,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 #pragma mark SyncObserverModelBridge
 
 - (void)onSyncStateChanged {
-  browser_sync::ProfileSyncService* service =
+  syncer::SyncService* service =
       ProfileSyncServiceFactory::GetForBrowserState(_browserState);
   BOOL isNowUsingSecondaryPassphrase =
       service->IsEngineInitialized() && service->IsUsingSecondaryPassphrase();

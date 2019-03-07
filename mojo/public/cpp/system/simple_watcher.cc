@@ -8,7 +8,6 @@
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/sequenced_task_runner.h"
-#include "base/single_thread_task_runner.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/heap_profiler.h"
@@ -42,6 +41,8 @@ class SimpleWatcher::Context : public base::RefCountedThreadSafe<Context> {
     *result = MojoAddTrigger(trap_handle.value(), handle.value(), signals,
                              condition, context->value(), nullptr);
     if (*result != MOJO_RESULT_OK) {
+      context->cancelled_ = true;
+
       // Balanced by the AddRef() above since MojoAddTrigger failed.
       context->Release();
       return nullptr;
@@ -76,7 +77,17 @@ class SimpleWatcher::Context : public base::RefCountedThreadSafe<Context> {
       : weak_watcher_(weak_watcher),
         task_runner_(task_runner),
         watch_id_(watch_id) {}
-  ~Context() {}
+
+  ~Context() {
+    // TODO(https://crbug.com/896419): Remove this once it's been live for a
+    // while. This is intended to catch possible double-frees of SimpleWatchers,
+    // due to, e.g., invalid cross-thread usage of bindings endpoints. If this
+    // CHECK fails, then the Context is being destroyed before a cancellation
+    // notification fired. In that case we know a Context ref has been
+    // double-released and we can catch its stack.
+    base::AutoLock lock(lock_);
+    CHECK(cancelled_);
+  }
 
   void Notify(MojoResult result,
               MojoHandleSignalsState signals_state,
@@ -90,6 +101,7 @@ class SimpleWatcher::Context : public base::RefCountedThreadSafe<Context> {
       // closed due to pipe error, all before the thread's TaskRunner has been
       // properly initialized.
       base::AutoLock lock(lock_);
+      cancelled_ = true;
       if (!enable_cancellation_notifications_)
         return;
     }
@@ -115,6 +127,7 @@ class SimpleWatcher::Context : public base::RefCountedThreadSafe<Context> {
   const int watch_id_;
 
   base::Lock lock_;
+  bool cancelled_ = false;
   bool enable_cancellation_notifications_ = true;
 
   DISALLOW_COPY_AND_ASSIGN(Context);

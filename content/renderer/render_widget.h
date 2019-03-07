@@ -37,13 +37,13 @@
 #include "content/common/widget.mojom.h"
 #include "content/public/common/drop_data.h"
 #include "content/public/common/screen_info.h"
-#include "content/public/common/widget_type.h"
+#include "content/renderer/compositor/layer_tree_view_delegate.h"
 #include "content/renderer/devtools/render_widget_screen_metrics_emulator_delegate.h"
-#include "content/renderer/gpu/layer_tree_view_delegate.h"
 #include "content/renderer/input/main_thread_event_queue.h"
 #include "content/renderer/input/render_widget_input_handler.h"
 #include "content/renderer/input/render_widget_input_handler_delegate.h"
 #include "content/renderer/mouse_lock_dispatcher.h"
+#include "content/renderer/render_widget_delegate.h"
 #include "content/renderer/render_widget_mouse_lock_dispatcher.h"
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_message.h"
@@ -83,6 +83,7 @@ class WebGestureEvent;
 class WebInputMethodController;
 class WebLocalFrame;
 class WebMouseEvent;
+class WebPagePopup;
 }  // namespace blink
 
 namespace cc {
@@ -111,7 +112,7 @@ class PepperPluginInstanceImpl;
 class RenderFrameImpl;
 class RenderFrameProxy;
 class RenderViewImpl;
-class RenderWidgetOwnerDelegate;
+class RenderWidgetDelegate;
 class RenderWidgetScreenMetricsEmulator;
 class ResizingModeSelector;
 class TextInputClientObserver;
@@ -163,7 +164,6 @@ class CONTENT_EXPORT RenderWidget
   // Close().
   RenderWidget(int32_t widget_routing_id,
                CompositorDependencies* compositor_deps,
-               WidgetType widget_type,
                const ScreenInfo& screen_info,
                blink::WebDisplayMode display_mode,
                bool is_frozen,
@@ -184,11 +184,17 @@ class CONTENT_EXPORT RenderWidget
   // making it self-referencing, which can be released by calling Close().
   void InitForChildLocalRoot(blink::WebFrameWidget* web_frame_widget);
 
-  void set_owner_delegate(RenderWidgetOwnerDelegate* owner_delegate) {
-    DCHECK(!owner_delegate_);
-    owner_delegate_ = owner_delegate;
+  // Sets a delegate to handle certain RenderWidget operations that need an
+  // escape to the RenderView. Also take ownership until RenderWidget lifetime
+  // has been reassociated with the RenderFrame. This is only set on Widgets
+  // that are associated with the RenderView.
+  // TODO(ajwong): Do not have RenderWidget own the delegate.
+  void set_delegate(std::unique_ptr<RenderWidgetDelegate> delegate) {
+    DCHECK(!delegate_);
+    delegate_ = std::move(delegate);
   }
-  RenderWidgetOwnerDelegate* owner_delegate() const { return owner_delegate_; }
+
+  RenderWidgetDelegate* delegate() const { return delegate_.get(); }
 
   // Returns the RenderWidget for the given routing ID.
   static RenderWidget* FromRoutingID(int32_t routing_id);
@@ -296,6 +302,11 @@ class CONTENT_EXPORT RenderWidget
   void ApplyViewportChanges(const cc::ApplyViewportChangesArgs& args) override;
   void RecordWheelAndTouchScrollingCount(bool has_scrolled_by_wheel,
                                          bool has_scrolled_by_touch) override;
+  void SendOverscrollEventFromImplSide(
+      const gfx::Vector2dF& overscroll_delta,
+      cc::ElementId scroll_latched_element_id) override;
+  void SendScrollEndEventFromImplSide(
+      cc::ElementId scroll_latched_element_id) override;
   void BeginMainFrame(base::TimeTicks frame_time) override;
   void RequestNewLayerTreeFrameSink(
       LayerTreeFrameSinkCallback callback) override;
@@ -303,10 +314,9 @@ class CONTENT_EXPORT RenderWidget
   void DidCommitCompositorFrame() override;
   void DidCompletePageScaleAnimation() override;
   void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) override;
-  void RequestScheduleAnimation() override;
   void UpdateVisualState(bool record_main_frame_metrics) override;
   void WillBeginCompositorFrame() override;
-  std::unique_ptr<cc::SwapPromise> RequestCopyOfOutputForLayoutTest(
+  std::unique_ptr<cc::SwapPromise> RequestCopyOfOutputForWebTest(
       std::unique_ptr<viz::CopyOutputRequest> request) override;
 
   // RenderWidgetInputHandlerDelegate
@@ -327,7 +337,6 @@ class CONTENT_EXPORT RenderWidget
   bool WillHandleMouseEvent(const blink::WebMouseEvent& event) override;
 
   // RenderWidgetScreenMetricsEmulatorDelegate
-  void Redraw() override;
   void SynchronizeVisualProperties(
       const VisualProperties& resize_params) override;
   void SetScreenMetricsEmulationParameters(
@@ -337,6 +346,12 @@ class CONTENT_EXPORT RenderWidget
                       const gfx::Rect& window_screen_rect) override;
 
   // blink::WebWidgetClient
+  void ScheduleAnimation() override;
+  void SetShowFPSCounter(bool show) override;
+  void SetShowPaintRects(bool) override;
+  void SetShowDebugBorders(bool) override;
+  void SetShowScrollBottleneckRects(bool) override;
+  void SetShowHitTestBorders(bool) override;
   void IntrinsicSizingInfoChanged(
       const blink::WebIntrinsicSizingInfo&) override;
   void DidMeaningfulLayout(blink::WebMeaningfulLayout layout_type) override;
@@ -374,8 +389,11 @@ class CONTENT_EXPORT RenderWidget
   void HasPointerRawMoveEventHandlers(bool has_handlers) override;
   void HasTouchEventHandlers(bool has_handlers) override;
   void SetNeedsLowLatencyInput(bool) override;
+  void SetNeedsUnbufferedInputForDebugger(bool) override;
   void AnimateDoubleTapZoomInMainFrame(const blink::WebPoint& point,
                                        const blink::WebRect& bounds) override;
+  void ZoomToFindInPageRectInMainFrame(
+      const blink::WebRect& rect_to_zoom) override;
 
   // Override point to obtain that the current input method state and caret
   // position.
@@ -498,7 +516,6 @@ class CONTENT_EXPORT RenderWidget
 
   void OnSetActive(bool active);
   void OnSetFocus(bool enable);
-  void OnSetBackgroundOpaque(bool opaque);
   void OnMouseCaptureLost();
   void OnCursorVisibilityChange(bool is_visible);
   void OnSetEditCommandsForNextKeyEvent(const EditCommands& edit_commands);
@@ -548,27 +565,28 @@ class CONTENT_EXPORT RenderWidget
                                   const gfx::Size& max_size);
   void DisableAutoResizeForTesting(const gfx::Size& new_size);
 
-  base::WeakPtr<RenderWidget> AsWeakPtr();
+  // Update the WebView's device scale factor.
+  // TODO(ajwong): This should be moved into RenderView.
+  void UpdateWebViewWithDeviceScaleFactor();
 
- protected:
-  ~RenderWidget() override;
+  // RenderWidget IPC message handler that can be overridden by subclasses.
+  virtual void OnSynchronizeVisualProperties(const VisualProperties& params);
 
   // Called by Create() functions and subclasses to finish initialization.
   // |show_callback| will be invoked once WebWidgetClient::Show() occurs, and
   // should be null if Show() won't be triggered for this widget.
   void Init(ShowCallback show_callback, blink::WebWidget* web_widget);
 
-  // Update the web view's device scale factor.
-  void UpdateWebViewWithDeviceScaleFactor();
+  base::WeakPtr<RenderWidget> AsWeakPtr();
+
+ protected:
+  ~RenderWidget() override;
 
   // Close the underlying WebWidget and stop the compositor.
   virtual void Close();
 
   // Notify subclasses that we initiated the paint operation.
   virtual void DidInitiatePaint() {}
-
-  // RenderWidget IPC message handler that can be overridden by subclasses.
-  virtual void OnSynchronizeVisualProperties(const VisualProperties& params);
 
  private:
   // Friend RefCounted so that the dtor can be non-public. Using this class
@@ -584,21 +602,23 @@ class CONTENT_EXPORT RenderWidget
   friend class PopupRenderWidget;
   friend class QueueMessageSwapPromiseTest;
   friend class RenderWidgetTest;
-  friend class RenderViewImplTest;
+  friend class RenderViewImplTest;  // TODO(ajwong): Can this be removed?
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetPopupUnittest, EmulatingPopupRect);
 
   static scoped_refptr<base::SingleThreadTaskRunner> GetCleanupTaskRunner();
 
   // Creates the compositor, but leaves it in a stopped state, where it will
   // not set up IPC channels or begin trying to produce frames until started
-  // via StartCompositor().
+  // via StartStopCompositor().
   LayerTreeView* InitializeLayerTreeView();
 
-  // Initiates the compositor to set up IPC channels and begin its scheduler.
-  void StartCompositor();
-  // Pauses the compositor's scheduler and tears down its IPC channels.
-  void StopCompositor();
+  // If appropriate, initiates the compositor to set up IPC channels and begin
+  // its scheduler. Otherwise, pauses the scheduler and tears down its IPC
+  // channels.
+  void StartStopCompositor();
 
+  // Request the window to close from the renderer by sending the request to the
+  // browser.
   void DoDeferredClose();
 
   gfx::Size GetSizeForWebWidget() const;
@@ -610,9 +630,7 @@ class CONTENT_EXPORT RenderWidget
   void CloseWebWidget();
 
 #if BUILDFLAG(USE_EXTERNAL_POPUP_MENU)
-  void SetExternalPopupOriginAdjustmentsForEmulation(
-      ExternalPopupMenu* popup,
-      RenderWidgetScreenMetricsEmulator* emulator);
+  void SetExternalPopupOriginAdjustmentsForEmulation(ExternalPopupMenu* popup);
 #endif
 
   // RenderWidget IPC message handlers.
@@ -673,7 +691,10 @@ class CONTENT_EXPORT RenderWidget
   // state.
   void SetHidden(bool hidden);
 
-  void DidToggleFullscreen();
+  // Sets the fullscreen state for the WebView.
+  // TODO(danakj): This is currently located on RenderWidget but is a page/view
+  // state, and should move to RenderView.
+  void SetIsFullscreen(bool fullscreen);
 
   // Returns a rect that the compositor needs to raster. For a main frame this
   // is always the entire viewport, but for out-of-process iframes this can be
@@ -732,7 +753,7 @@ class CONTENT_EXPORT RenderWidget
       const gfx::Size& new_compositor_viewport_pixel_size,
       const ScreenInfo& new_screen_info);
 
-  // Used to force the size of a window when running layout tests.
+  // Used to force the size of a window when running web tests.
   void SetWindowRectSynchronously(const gfx::Rect& new_window_rect);
 
   void UpdateCaptureSequenceNumber(uint32_t capture_sequence_number);
@@ -777,6 +798,11 @@ class CONTENT_EXPORT RenderWidget
   // want to do this before calling it as this method does no verification.
   void DoRequestNewLayerTreeFrameSink(LayerTreeFrameSinkCallback callback);
 
+  // Whether this widget is for a frame. This excludes widgets that are not for
+  // a frame (eg popups, pepper), but includes both the main frame
+  // (via delegate_) and subframes (via for_child_local_root_frame_).
+  bool for_frame() const { return delegate_ || for_child_local_root_frame_; }
+
   // Routing ID that allows us to communicate to the parent browser process
   // RenderWidgetHost.
   const int32_t routing_id_;
@@ -790,8 +816,8 @@ class CONTENT_EXPORT RenderWidget
   // May be NULL when the window is closing.
   blink::WebWidget* webwidget_internal_;
 
-  // The delegate of the owner of this object.
-  RenderWidgetOwnerDelegate* owner_delegate_;
+  // The delegate for this object which is just a RenderViewImpl.
+  std::unique_ptr<RenderWidgetDelegate> delegate_;
 
   // This is lazily constructed and must not outlive webwidget_.
   std::unique_ptr<LayerTreeView> layer_tree_view_;
@@ -886,9 +912,6 @@ class CONTENT_EXPORT RenderWidget
 
   // Stores the current composition range.
   gfx::Range composition_range_;
-
-  // The kind of popup this widget represents, NONE if not a popup.
-  WidgetType widget_type_;
 
   // While we are waiting for the browser to update window sizes, we track the
   // pending size temporarily.
@@ -998,8 +1021,9 @@ class CONTENT_EXPORT RenderWidget
   // The height of the browser bottom controls.
   float bottom_controls_height_ = 0.f;
 
-  // The page scale factor reported by the main-frame's RenderWidget, via
-  // SynchronizeVisualProperties.
+  // The last seen page scale factor, which comes from the main frame and is
+  // propagated through the RenderWidget tree. This value is passed to any new
+  // child RenderWidget.
   float page_scale_factor_from_mainframe_ = 1.f;
 
   // This is initialized to zero and is incremented on each non-same-page

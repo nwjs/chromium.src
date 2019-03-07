@@ -14,17 +14,20 @@ var util = {};
 util.iconSetToCSSBackgroundImageValue = function(iconSet) {
   var lowDpiPart = null;
   var highDpiPart = null;
-  if (iconSet.icon16x16Url)
+  if (iconSet.icon16x16Url) {
     lowDpiPart = 'url(' + iconSet.icon16x16Url + ') 1x';
-  if (iconSet.icon32x32Url)
+  }
+  if (iconSet.icon32x32Url) {
     highDpiPart = 'url(' + iconSet.icon32x32Url + ') 2x';
+  }
 
-  if (lowDpiPart && highDpiPart)
+  if (lowDpiPart && highDpiPart) {
     return '-webkit-image-set(' + lowDpiPart + ', ' + highDpiPart + ')';
-  else if (lowDpiPart)
+  } else if (lowDpiPart) {
     return '-webkit-image-set(' + lowDpiPart + ')';
-  else if (highDpiPart)
+  } else if (highDpiPart) {
     return '-webkit-image-set(' + highDpiPart + ')';
+  }
 
   return 'none';
 };
@@ -190,10 +193,11 @@ util.getRenameErrorMessage = function(error, entry, newName) {
  * @param {function(DOMError)} onError The error callback.
  */
 util.removeFileOrDirectory = function(entry, onSuccess, onError) {
-  if (entry.isDirectory)
+  if (entry.isDirectory) {
     entry.removeRecursively(onSuccess, onError);
-  else
+  } else {
     entry.remove(onSuccess, onError);
+  }
 };
 
 /**
@@ -211,23 +215,6 @@ util.bytesToString = function(bytes) {
                'SIZE_GB',
                'SIZE_TB',
                'SIZE_PB'];
-
-  // TODO(crbug.com/909997): remove this if clause when translations are fixed.
-  if (window.postProcessedLoadTimeData_ !== true) {
-    const language = loadTimeData.getString('language');
-
-    // Replace invalid Hindi SIZE units translations, crbug.com/908767.
-    if (language === 'hi') {
-      loadTimeData.overrideValues({
-        'SIZE_KB': '$1 केबी',
-        'SIZE_MB': '$1 एमबी',
-      });
-    }
-
-    if (typeof language === 'string') {
-      window.postProcessedLoadTimeData_ = true;
-    }
-  }
 
   // Minimum values for the units above.
   var STEPS = [0,
@@ -262,8 +249,9 @@ util.bytesToString = function(bytes) {
   var i;
 
   for (i = 2 /* MB */; i < UNITS.length - 1; i++) {
-    if (bytes < STEPS[i + 1])
+    if (bytes < STEPS[i + 1]) {
       return fmt(STEPS[i], UNITS[i]);
+    }
   }
 
   return fmt(STEPS[i], UNITS[i]);
@@ -330,8 +318,9 @@ util.extractFilePath = function(url) {
  */
 util.createChild = function(parent, opt_className, opt_tag) {
   var child = parent.ownerDocument.createElement(opt_tag || 'div');
-  if (opt_className)
+  if (opt_className) {
     child.className = opt_className;
+  }
   parent.appendChild(child);
   return /** @type {!HTMLElement} */ (child);
 };
@@ -362,12 +351,15 @@ util.queryDecoratedElement = function(query, type) {
  */
 util.updateAppState = function(currentDirectoryURL, selectionURL, opt_param) {
   window.appState = window.appState || {};
-  if (opt_param !== undefined && opt_param !== null)
+  if (opt_param !== undefined && opt_param !== null) {
     window.appState.params = opt_param;
-  if (currentDirectoryURL !== null)
+  }
+  if (currentDirectoryURL !== null) {
     window.appState.currentDirectoryURL = currentDirectoryURL;
-  if (selectionURL !== null)
+  }
+  if (selectionURL !== null) {
     window.appState.selectionURL = selectionURL;
+  }
   util.saveAppState();
 };
 
@@ -410,15 +402,17 @@ util.runningInBrowser = function() {
  * Save app launch data to the local storage.
  */
 util.saveAppState = function() {
-  if (!window.appState)
+  if (!window.appState) {
     return;
+  }
   var items = {};
 
   items[window.appID] = JSON.stringify(window.appState);
   chrome.storage.local.set(items, function() {
-    if (chrome.runtime.lastError)
-      console.error('Failed to save app state: ' +
-          chrome.runtime.lastError.message);
+    if (chrome.runtime.lastError) {
+      console.error(
+          'Failed to save app state: ' + chrome.runtime.lastError.message);
+    }
   });
 };
 
@@ -523,10 +517,13 @@ util.AppCache.cleanup_ = function(map) {
   // Sort keys by ascending timestamps.
   var keys = [];
   for (var key in map) {
-    if (map.hasOwnProperty(key))
+    if (map.hasOwnProperty(key)) {
       keys.push(key);
+    }
   }
-  keys.sort(function(a, b) { return map[a].expire - map[b].expire; });
+  keys.sort(function(a, b) {
+    return map[a].expire - map[b].expire;
+  });
 
   var cutoff = Date.now();
 
@@ -590,10 +587,11 @@ util.isFullScreen = function(appWindow) {
  */
 util.toggleFullScreen = function(appWindow, enabled) {
   if (appWindow) {
-    if (enabled)
+    if (enabled) {
       appWindow.fullscreen();
-    else
+    } else {
       appWindow.restore();
+    }
     return;
   }
 
@@ -658,10 +656,12 @@ util.isFakeEntry = function(entry) {
  * @return {boolean} True if the given entry is root of a Team Drive.
  */
 util.isTeamDriveRoot = function(entry) {
-  if (entry === null)
+  if (entry === null) {
     return false;
-  if (!entry.fullPath)
+  }
+  if (!entry.fullPath) {
     return false;
+  }
   var tree = entry.fullPath.split('/');
   return tree.length == 3 && util.isTeamDriveEntry(entry);
 };
@@ -672,8 +672,9 @@ util.isTeamDriveRoot = function(entry) {
  * @return {boolean} True if the given entry is the grand root of Team Drives.
  */
 util.isTeamDrivesGrandRoot = function(entry) {
-  if (!entry.fullPath)
+  if (!entry.fullPath) {
     return false;
+  }
   var tree = entry.fullPath.split('/');
   return tree.length == 2 && util.isTeamDriveEntry(entry);
 };
@@ -684,8 +685,9 @@ util.isTeamDrivesGrandRoot = function(entry) {
  * @return {boolean} True if the given entry is under Team Drives.
  */
 util.isTeamDriveEntry = function(entry) {
-  if (!entry.fullPath)
+  if (!entry.fullPath) {
     return false;
+  }
   var tree = entry.fullPath.split('/');
   return tree[0] == '' &&
       tree[1] == VolumeManagerCommon.TEAM_DRIVES_DIRECTORY_NAME;
@@ -698,11 +700,13 @@ util.isTeamDriveEntry = function(entry) {
  *     under Team Drives.
  */
 util.getTeamDriveName = function(entry) {
-  if (!entry.fullPath || !util.isTeamDriveEntry(entry))
+  if (!entry.fullPath || !util.isTeamDriveEntry(entry)) {
     return '';
+  }
   var tree = entry.fullPath.split('/');
-  if (tree.length < 3)
+  if (tree.length < 3) {
     return '';
+  }
   return tree[2];
 };
 
@@ -722,10 +726,12 @@ util.isRecentRoot = function(entry) {
  * @return {boolean} True if the given entry is root of a Computer.
  */
 util.isComputersRoot = function(entry) {
-  if (entry === null)
+  if (entry === null) {
     return false;
-  if (!entry.fullPath)
+  }
+  if (!entry.fullPath) {
     return false;
+  }
   var tree = entry.fullPath.split('/');
   return tree.length == 3 && util.isComputersEntry(entry);
 };
@@ -736,8 +742,9 @@ util.isComputersRoot = function(entry) {
  * @return {boolean} True if the given entry is under My Computers.
  */
 util.isComputersEntry = function(entry) {
-  if (!entry.fullPath)
+  if (!entry.fullPath) {
     return false;
+  }
   var tree = entry.fullPath.split('/');
   return tree[0] == '' &&
       tree[1] == VolumeManagerCommon.COMPUTERS_DIRECTORY_NAME;
@@ -803,10 +810,12 @@ util.UserDOMError.prototype = {
  *     directory. Returns true if both entries are null.
  */
 util.isSameEntry = function(entry1, entry2) {
-  if (!entry1 && !entry2)
+  if (!entry1 && !entry2) {
     return true;
-  if (!entry1 || !entry2)
+  }
+  if (!entry1 || !entry2) {
     return false;
+  }
   return entry1.toURL() === entry2.toURL();
 };
 
@@ -818,12 +827,15 @@ util.isSameEntry = function(entry1, entry2) {
  *     in the same order. Returns true if both arrays are null.
  */
 util.isSameEntries = function(entries1, entries2) {
-  if (!entries1 && !entries2)
+  if (!entries1 && !entries2) {
     return true;
-  if (!entries1 || !entries2)
+  }
+  if (!entries1 || !entries2) {
     return false;
-  if (entries1.length !== entries2.length)
+  }
+  if (entries1.length !== entries2.length) {
     return false;
+  }
   for (var i = 0; i < entries1.length; i++) {
     if (!util.isSameEntry(entries1[i], entries2[i])) {
       return false;
@@ -840,10 +852,12 @@ util.isSameEntries = function(entries1, entries2) {
  *     if both file systems are null.
  */
 util.isSameFileSystem = function(fileSystem1, fileSystem2) {
-  if (!fileSystem1 && !fileSystem2)
+  if (!fileSystem1 && !fileSystem2) {
     return true;
-  if (!fileSystem1 || !fileSystem2)
+  }
+  if (!fileSystem1 || !fileSystem2) {
     return false;
+  }
   return util.isSameEntry(fileSystem1.root, fileSystem2.root);
 };
 
@@ -856,11 +870,13 @@ util.isSameFileSystem = function(fileSystem1, fileSystem2) {
 util.isSiblingEntry = function(entry1, entry2) {
   var path1 = entry1.fullPath.split('/');
   var path2 = entry2.fullPath.split('/');
-  if (path1.length != path2.length)
+  if (path1.length != path2.length) {
     return false;
+  }
   for (var i = 0; i < path1.length - 1; i++) {
-    if (path1[i] != path2[i])
+    if (path1[i] != path2[i]) {
       return false;
+    }
   }
   return true;
 };
@@ -883,6 +899,19 @@ util.compareName = function(entry1, entry2) {
 };
 
 /**
+ * Compare by label (i18n name). The 2 entries must be in same directory.
+ * @param {EntryLocation} locationInfo
+ * @param {!Entry|!FilesAppEntry} entry1 First entry.
+ * @param {!Entry|!FilesAppEntry} entry2 Second entry.
+ * @return {number} Compare result.
+ */
+util.compareLabel = function(locationInfo, entry1, entry2) {
+  return util.collator.compare(
+      util.getEntryLabel(locationInfo, entry1),
+      util.getEntryLabel(locationInfo, entry2));
+};
+
+/**
  * Compare by path.
  * @param {Entry|FilesAppEntry} entry1 First entry.
  * @param {Entry|FilesAppEntry} entry2 Second entry.
@@ -893,13 +922,14 @@ util.comparePath = function(entry1, entry2) {
 };
 
 /**
+ * @param {EntryLocation} locationInfo
  * @param {!Array<Entry|FilesAppEntry>} bottomEntries entries that should be
  * grouped in the bottom, used for sorting Linux and Play files entries after
  * other folders in MyFiles.
  * return {function(Entry|FilesAppEntry, Entry|FilesAppEntry) to compare entries
  * by name.
  */
-util.compareNameAndGroupBottomEntries = function(bottomEntries) {
+util.compareLabelAndGroupBottomEntries = function(locationInfo, bottomEntries) {
   const childrenMap = new Map();
   bottomEntries.forEach((entry) => {
     childrenMap.set(entry.toURL(), entry);
@@ -918,9 +948,10 @@ util.compareNameAndGroupBottomEntries = function(bottomEntries) {
     const isBottomlEntry1 = childrenMap.has(entry1.toURL()) ? 1 : 0;
     const isBottomlEntry2 = childrenMap.has(entry2.toURL()) ? 1 : 0;
 
-    // When there are the same type, just compare by name.
-    if (isBottomlEntry1 === isBottomlEntry2)
-      return util.compareName(entry1, entry2);
+    // When there are the same type, just compare by label.
+    if (isBottomlEntry1 === isBottomlEntry2) {
+      return util.compareLabel(locationInfo, entry1, entry2);
+    }
 
     return isBottomlEntry1 - isBottomlEntry2;
   }
@@ -962,8 +993,9 @@ util.isChildEntry = function(entry, directory) {
  * @return {boolean} True if the child entry is contained in the ancestor path.
  */
 util.isDescendantEntry = function(ancestorEntry, childEntry) {
-  if (!ancestorEntry.isDirectory)
+  if (!ancestorEntry.isDirectory) {
     return false;
+  }
 
   // For EntryList and VolumeEntry they can contain entries from different
   // files systems, so we should check its getUIChildren.
@@ -978,8 +1010,9 @@ util.isDescendantEntry = function(ancestorEntry, childEntry) {
     }
 
     return entryList.getUIChildren().some(ancestorChild => {
-      if (util.isSameEntry(ancestorChild, childEntry))
+      if (util.isSameEntry(ancestorChild, childEntry)) {
         return true;
+      }
 
       // root entry might not be resolved yet.
       const volumeEntry =
@@ -990,18 +1023,22 @@ util.isDescendantEntry = function(ancestorEntry, childEntry) {
     });
   }
 
-  if (!util.isSameFileSystem(ancestorEntry.filesystem, childEntry.filesystem))
+  if (!util.isSameFileSystem(ancestorEntry.filesystem, childEntry.filesystem)) {
     return false;
-  if (util.isSameEntry(ancestorEntry, childEntry))
+  }
+  if (util.isSameEntry(ancestorEntry, childEntry)) {
     return false;
-  if (util.isFakeEntry(ancestorEntry) || util.isFakeEntry(childEntry))
+  }
+  if (util.isFakeEntry(ancestorEntry) || util.isFakeEntry(childEntry)) {
     return false;
+  }
 
   // Check if the ancestor's path with trailing slash is a prefix of child's
   // path.
   var ancestorPath = ancestorEntry.fullPath;
-  if (ancestorPath.slice(-1) !== '/')
+  if (ancestorPath.slice(-1) !== '/') {
     ancestorPath += '/';
+  }
   return childEntry.fullPath.indexOf(ancestorPath) === 0;
 };
 
@@ -1084,8 +1121,9 @@ util.URLsToEntries = function(urls, opt_callback) {
     var entries = [];
     var failureUrls = [];
     for (var i = 0; i < results.length; i++) {
-      if ('entry' in results[i])
+      if ('entry' in results[i]) {
         entries.push(results[i].entry);
+      }
       if ('failureUrl' in results[i]) {
         failureUrls.push(results[i].failureUrl);
       }
@@ -1146,8 +1184,9 @@ util.isTeleported = function(window) {
  */
 util.testSendMessage = function(message) {
   var test = chrome.test || window.top.chrome.test;
-  if (test)
+  if (test) {
     test.sendMessage(message);
+  }
 };
 
 /**
@@ -1165,8 +1204,9 @@ util.testSendMessage = function(message) {
  */
 util.splitExtension = function(path) {
   var dotPosition = path.lastIndexOf('.');
-  if (dotPosition <= path.lastIndexOf('/'))
+  if (dotPosition <= path.lastIndexOf('/')) {
     dotPosition = -1;
+  }
 
   var filename = dotPosition != -1 ? path.substr(0, dotPosition) : path;
   var extension = dotPosition != -1 ? path.substr(dotPosition) : '';
@@ -1233,6 +1273,7 @@ util.getRootTypeLabel = function(locationInfo) {
     case VolumeManagerCommon.RootType.MTP:
     case VolumeManagerCommon.RootType.PROVIDED:
     case VolumeManagerCommon.RootType.ANDROID_FILES:
+    case VolumeManagerCommon.RootType.DOCUMENTS_PROVIDER:
       return locationInfo.volumeInfo.label;
     default:
       console.error('Unsupported root type: ' + locationInfo.rootType);
@@ -1241,17 +1282,25 @@ util.getRootTypeLabel = function(locationInfo) {
 };
 
 /**
- * Returns the localized name of the entry.
+ * Returns the localized/i18n name of the entry.
  *
  * @param {EntryLocation} locationInfo
- * @param {!Entry|!FakeEntry} entry The entry to be retrieve the name of.
- * @return {?string} The localized name.
+ * @param {!Entry|!FilesAppEntry} entry The entry to be retrieve the name of.
+ * @return {string} The localized name.
  */
 util.getEntryLabel = function(locationInfo, entry) {
-  if (locationInfo && locationInfo.hasFixedLabel)
+  if (locationInfo && locationInfo.hasFixedLabel) {
     return util.getRootTypeLabel(locationInfo);
-  else
-    return entry.name;
+  }
+
+  // Special case for MyFiles/Downloads.
+  if (locationInfo && util.isMyFilesVolumeEnabled() &&
+      locationInfo.rootType == VolumeManagerCommon.RootType.DOWNLOADS &&
+      entry.fullPath == '/Downloads') {
+    return str('DOWNLOADS_DIRECTORY_LABEL');
+  }
+
+  return entry.name;
 };
 
 /**
@@ -1274,8 +1323,9 @@ util.isDropEffectAllowed = function(effectAllowed, dropEffect) {
  * @return {boolean} True if |character| is printable ASCII, else false.
  */
 util.isPrintable = function(character) {
-  if (character.length != 1)
+  if (character.length != 1) {
     return false;
+  }
 
   var charCode = character.charCodeAt(0);
   return charCode >= 32 && charCode <= 126;
@@ -1301,26 +1351,26 @@ util.isPrintable = function(character) {
 util.validateFileName = function(parentEntry, name, filterHiddenOn) {
   var testResult = /[\/\\\<\>\:\?\*\"\|]/.exec(name);
   var msg;
-  if (testResult)
+  if (testResult) {
     return Promise.reject(strf('ERROR_INVALID_CHARACTER', testResult[0]));
-  else if (/^\s*$/i.test(name))
+  } else if (/^\s*$/i.test(name)) {
     return Promise.reject(str('ERROR_WHITESPACE_NAME'));
-  else if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(name))
+  } else if (/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(name)) {
     return Promise.reject(str('ERROR_RESERVED_NAME'));
-  else if (filterHiddenOn && /\.crdownload$/i.test(name))
+  } else if (filterHiddenOn && /\.crdownload$/i.test(name)) {
     return Promise.reject(str('ERROR_RESERVED_NAME'));
-  else if (filterHiddenOn && name[0] == '.')
+  } else if (filterHiddenOn && name[0] == '.') {
     return Promise.reject(str('ERROR_HIDDEN_NAME'));
+  }
 
   return new Promise(function(fulfill, reject) {
     chrome.fileManagerPrivate.validatePathNameLength(
-        parentEntry,
-        name,
-        function(valid) {
-          if (valid)
+        parentEntry, name, function(valid) {
+          if (valid) {
             fulfill(null);
-          else
+          } else {
             reject(str('ERROR_LONG_NAME'));
+          }
         });
   });
 };
@@ -1397,8 +1447,9 @@ util.addEventListenerToBackgroundComponent = function(target, type, handler) {
  * Checks if an API call returned an error, and if yes then prints it.
  */
 util.checkAPIError = function() {
-  if (chrome.runtime.lastError)
+  if (chrome.runtime.lastError) {
     console.error(chrome.runtime.lastError.message);
+  }
 };
 
 /**
@@ -1467,18 +1518,20 @@ util.readEntriesRecursively = function(
   const maxDepth = opt_maxDepth === undefined ? -1 : opt_maxDepth;
   var maybeRunCallback = function() {
     if (numRunningTasks === 0) {
-      if (shouldStop())
+      if (shouldStop()) {
         errorCallback(util.createDOMError(util.FileError.ABORT_ERR));
-      else if (error)
+      } else if (error) {
         errorCallback(error);
-      else
+      } else {
         successCallback();
+      }
     }
   };
   var processEntry = function(entry, depth) {
     var onError = function(fileError) {
-      if (!error)
+      if (!error) {
         error = fileError;
+      }
       numRunningTasks--;
       maybeRunCallback();
     };
@@ -1490,8 +1543,9 @@ util.readEntriesRecursively = function(
       }
       entriesCallback(entries);
       for (var i = 0; i < entries.length; i++) {
-        if (entries[i].isDirectory && (maxDepth === -1 || depth < maxDepth))
+        if (entries[i].isDirectory && (maxDepth === -1 || depth < maxDepth)) {
           processEntry(entries[i], depth + 1);
+        }
       }
       // Read remaining entries.
       reader.readEntries(onSuccess, onError);
@@ -1503,6 +1557,31 @@ util.readEntriesRecursively = function(
   };
 
   processEntry(rootEntry, 0);
+};
+
+/**
+ * Do not remove or modify.  Used in vm.CrostiniFiles tast tests at:
+ * https://chromium.googlesource.com/chromiumos/platform/tast-tests
+ *
+ * Get all entries for the given volume.
+ * @param {!VolumeInfo} volumeInfo
+ * @return {!Promise<Object<Entry>>} all entries keyed by fullPath.
+ */
+util.getEntries = function(volumeInfo) {
+  const root = volumeInfo.fileSystem.root;
+  return new Promise((resolve, reject) => {
+    const allEntries = {'/': root};
+    function entriesCallback(someEntries) {
+      someEntries.forEach(entry => {
+        allEntries[entry.fullPath] = entry;
+      });
+    }
+    function successCallback() {
+      resolve(allEntries);
+    }
+    util.readEntriesRecursively(
+        root, entriesCallback, successCallback, reject, () => false);
+  });
 };
 
 /**
@@ -1562,12 +1641,14 @@ util.isNativeEntry = function(entry) {
  * @return {Entry|FilesAppEntry}
  */
 util.unwrapEntry = function(entry) {
-  if (!entry)
+  if (!entry) {
     return entry;
+  }
 
   const nativeEntry = entry.getNativeEntry && entry.getNativeEntry();
-  if (nativeEntry)
+  if (nativeEntry) {
     return nativeEntry;
+  }
 
   return entry;
 };
@@ -1576,4 +1657,34 @@ util.unwrapEntry = function(entry) {
 util.isMyFilesVolumeEnabled = function() {
   return loadTimeData.valueExists('MY_FILES_VOLUME_ENABLED') &&
       loadTimeData.getBoolean('MY_FILES_VOLUME_ENABLED');
+};
+
+/**
+ * Used for logs and debugging. It tries to tell what type is the entry, its
+ * path and URL.
+ *
+ * @param {Entry|FilesAppEntry} entry
+ * @return {string}
+ */
+util.entryDebugString = (entry) => {
+  if (entry === null) {
+    return 'entry is null';
+  }
+  if (entry === undefined) {
+    return 'entry is undefined';
+  }
+  let typeName = '';
+  if (entry.constructor && entry.constructor.name) {
+    typeName = entry.constructor.name;
+  } else {
+    typeName = Object.prototype.toString.call(entry);
+  }
+  let entryDescription = '(' + typeName + ') ';
+  if (entry.fullPath) {
+    entryDescription = entryDescription + entry.fullPath + ' ';
+  }
+  if (entry.toURL) {
+    entryDescription = entryDescription + entry.toURL();
+  }
+  return entryDescription;
 };

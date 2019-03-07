@@ -6,7 +6,6 @@
 
 #include <utility>
 
-
 namespace device {
 
 WakeLock::WakeLock(mojom::WakeLockRequest request,
@@ -39,6 +38,16 @@ void WakeLock::AddClient(mojom::WakeLockRequest request) {
                           std::make_unique<bool>(false));
 }
 
+void WakeLock::AddObserver(Observer* observer) {
+  DCHECK(observer);
+  observers_.AddObserver(observer);
+}
+
+void WakeLock::RemoveObserver(Observer* observer) {
+  DCHECK(observer);
+  observers_.RemoveObserver(observer);
+}
+
 void WakeLock::RequestWakeLock() {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
   DCHECK(binding_set_.dispatch_context());
@@ -46,8 +55,9 @@ void WakeLock::RequestWakeLock() {
   // Uses the Context to get the outstanding status of current binding.
   // Two consecutive requests from the same client should be coalesced
   // as one request.
-  if (*binding_set_.dispatch_context())
+  if (*binding_set_.dispatch_context()) {
     return;
+  }
 
   *binding_set_.dispatch_context() = true;
   num_lock_requests_++;
@@ -61,7 +71,7 @@ void WakeLock::CancelWakeLock() {
   if (!(*binding_set_.dispatch_context()))
     return;
 
-  DCHECK(num_lock_requests_ > 0);
+  DCHECK_GT(num_lock_requests_, 0);
   *binding_set_.dispatch_context() = false;
   num_lock_requests_--;
   UpdateWakeLock();
@@ -97,7 +107,7 @@ void WakeLock::HasWakeLockForTests(HasWakeLockForTestsCallback callback) {
 }
 
 void WakeLock::UpdateWakeLock() {
-  DCHECK(num_lock_requests_ >= 0);
+  DCHECK_GE(num_lock_requests_, 0);
 
   if (num_lock_requests_) {
     if (!wake_lock_)
@@ -113,6 +123,9 @@ void WakeLock::CreateWakeLock() {
 
   wake_lock_ = std::make_unique<PowerSaveBlocker>(
       type_, reason_, *description_, main_task_runner_, file_task_runner_);
+
+  for (auto& observer : observers_)
+    observer.OnWakeLockActivated(type_);
 
   if (type_ != mojom::WakeLockType::kPreventDisplaySleep)
     return;
@@ -133,17 +146,18 @@ void WakeLock::CreateWakeLock() {
 void WakeLock::RemoveWakeLock() {
   DCHECK(wake_lock_);
   wake_lock_.reset();
+
+  for (auto& observer : observers_)
+    observer.OnWakeLockDeactivated(type_);
 }
 
 void WakeLock::SwapWakeLock() {
   DCHECK(wake_lock_);
-
-  auto new_wake_lock = std::make_unique<PowerSaveBlocker>(
-      type_, reason_, *description_, main_task_runner_, file_task_runner_);
-
   // Do a swap to ensure that there isn't a brief period where the old
   // PowerSaveBlocker is unblocked while the new PowerSaveBlocker is not
   // created.
+  auto new_wake_lock = std::make_unique<PowerSaveBlocker>(
+      type_, reason_, *description_, main_task_runner_, file_task_runner_);
   wake_lock_.swap(new_wake_lock);
 }
 

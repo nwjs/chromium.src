@@ -287,11 +287,12 @@ void SessionStorageContextMojo::DeleteStorage(const url::Origin& origin,
   }
 }
 
-void SessionStorageContextMojo::PerformCleanup(base::OnceClosure callback) {
+void SessionStorageContextMojo::PerformStorageCleanup(
+    base::OnceClosure callback) {
   if (connection_state_ != CONNECTION_FINISHED) {
-    RunWhenConnected(base::BindOnce(&SessionStorageContextMojo::PerformCleanup,
-                                    weak_ptr_factory_.GetWeakPtr(),
-                                    std::move(callback)));
+    RunWhenConnected(
+        base::BindOnce(&SessionStorageContextMojo::PerformStorageCleanup,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
     return;
   }
   if (database_) {
@@ -880,6 +881,7 @@ void SessionStorageContextMojo::OnConnectionFinished() {
   if (database_)
     tried_to_recreate_during_open_ = false;
 
+  LogDatabaseOpenResult(OpenResult::kSuccess);
   open_result_histogram_ = nullptr;
 
   // |database_| should be known to either be valid or invalid by now. Run our

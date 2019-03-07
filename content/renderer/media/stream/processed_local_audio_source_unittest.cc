@@ -97,17 +97,21 @@ class ProcessedLocalAudioSourceTest : public testing::Test {
 
   void CreateProcessedLocalAudioSource(
       const AudioProcessingProperties& properties) {
-    ProcessedLocalAudioSource* const source = new ProcessedLocalAudioSource(
-        -1 /* consumer_render_frame_id is N/A for non-browser tests */,
-        MediaStreamDevice(MEDIA_DEVICE_AUDIO_CAPTURE, "mock_audio_device_id",
-                          "Mock audio device", kSampleRate, kChannelLayout,
-                          kRequestedBufferSize),
-        false /* hotword_enabled */, false /* disable_local_echo */, properties,
-        base::Bind(&ProcessedLocalAudioSourceTest::OnAudioSourceStarted,
-                   base::Unretained(this)),
-        &mock_dependency_factory_);
+    std::unique_ptr<ProcessedLocalAudioSource> source =
+        std::make_unique<ProcessedLocalAudioSource>(
+            -1 /* consumer_render_frame_id is N/A for non-browser tests */,
+            blink::MediaStreamDevice(blink::MEDIA_DEVICE_AUDIO_CAPTURE,
+                                     "mock_audio_device_id",
+                                     "Mock audio device", kSampleRate,
+                                     kChannelLayout, kRequestedBufferSize),
+            false /* hotword_enabled */, false /* disable_local_echo */,
+            properties,
+            base::Bind(&ProcessedLocalAudioSourceTest::OnAudioSourceStarted,
+                       base::Unretained(this)),
+            &mock_dependency_factory_);
     source->SetAllowInvalidRenderFrameIdForTesting(true);
-    blink_audio_source_.SetExtraData(source);  // Takes ownership.
+    blink_audio_source_.SetPlatformSource(
+        std::move(source));  // Takes ownership.
   }
 
   void CheckSourceFormatMatches(const media::AudioParameters& params) {
@@ -139,8 +143,8 @@ class ProcessedLocalAudioSourceTest : public testing::Test {
     return blink_audio_track_;
   }
 
-  void OnAudioSourceStarted(MediaStreamSource* source,
-                            MediaStreamRequestResult result,
+  void OnAudioSourceStarted(blink::WebPlatformMediaStreamSource* source,
+                            blink::MediaStreamRequestResult result,
                             const blink::WebString& result_name) {}
 
  private:

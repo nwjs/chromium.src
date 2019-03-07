@@ -13,6 +13,7 @@
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
+#include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -758,7 +759,7 @@ TEST_F(NetworkServiceTestWithService, RawRequestHeadersAbsent) {
   client()->RunUntilRedirectReceived();
   EXPECT_TRUE(client()->has_received_redirect());
   EXPECT_TRUE(!client()->response_head().raw_request_response_info);
-  loader()->FollowRedirect(base::nullopt, base::nullopt, base::nullopt);
+  loader()->FollowRedirect({}, {}, base::nullopt);
   client()->RunUntilComplete();
   EXPECT_TRUE(!client()->response_head().raw_request_response_info);
 }
@@ -788,7 +789,7 @@ TEST_F(NetworkServiceTestWithService, RawRequestHeadersPresent) {
                                  "HTTP/1.1 301 Moved Permanently\r",
                                  base::CompareCase::SENSITIVE));
   }
-  loader()->FollowRedirect(base::nullopt, base::nullopt, base::nullopt);
+  loader()->FollowRedirect({}, {}, base::nullopt);
   client()->RunUntilComplete();
   {
     scoped_refptr<HttpRawRequestResponseInfo> request_response_info =
@@ -876,12 +877,12 @@ TEST_F(NetworkServiceTestWithResolverMap, RawRequestAccessControlWithRedirect) {
   client()->RunUntilRedirectReceived();  // from a.test to b.test
   EXPECT_TRUE(client()->response_head().raw_request_response_info);
 
-  loader()->FollowRedirect(base::nullopt, base::nullopt, base::nullopt);
+  loader()->FollowRedirect({}, {}, base::nullopt);
   client()->ClearHasReceivedRedirect();
   client()->RunUntilRedirectReceived();  // from b.test to a.test
   EXPECT_FALSE(client()->response_head().raw_request_response_info);
 
-  loader()->FollowRedirect(base::nullopt, base::nullopt, base::nullopt);
+  loader()->FollowRedirect({}, {}, base::nullopt);
   client()->RunUntilComplete();  // Done loading a.test
   EXPECT_TRUE(client()->response_head().raw_request_response_info.get());
 
@@ -891,12 +892,12 @@ TEST_F(NetworkServiceTestWithResolverMap, RawRequestAccessControlWithRedirect) {
   client()->RunUntilRedirectReceived();  // from a.test to b.test
   EXPECT_FALSE(client()->response_head().raw_request_response_info);
 
-  loader()->FollowRedirect(base::nullopt, base::nullopt, base::nullopt);
+  loader()->FollowRedirect({}, {}, base::nullopt);
   client()->ClearHasReceivedRedirect();
   client()->RunUntilRedirectReceived();  // from b.test to a.test
   EXPECT_TRUE(client()->response_head().raw_request_response_info);
 
-  loader()->FollowRedirect(base::nullopt, base::nullopt, base::nullopt);
+  loader()->FollowRedirect({}, {}, base::nullopt);
   client()->RunUntilComplete();  // Done loading a.test
   EXPECT_FALSE(client()->response_head().raw_request_response_info.get());
 }
@@ -1208,6 +1209,30 @@ TEST_F(NetworkServiceTestWithService, GetDnsConfigChangeManager) {
   EXPECT_TRUE(ptr.is_bound());
 }
 
+TEST_F(NetworkServiceTestWithService, GetNetworkList) {
+  base::RunLoop run_loop;
+  network_service_->GetNetworkList(
+      net::INCLUDE_HOST_SCOPE_VIRTUAL_INTERFACES,
+      base::BindLambdaForTesting(
+          [&](const base::Optional<std::vector<net::NetworkInterface>>& list) {
+            EXPECT_NE(base::nullopt, list);
+            for (auto it = list->begin(); it != list->end(); ++it) {
+              // Verify that names are not empty.
+              EXPECT_FALSE(it->name.empty());
+              EXPECT_FALSE(it->friendly_name.empty());
+
+              // Verify that the address is correct.
+              EXPECT_TRUE(it->address.IsValid());
+
+              EXPECT_FALSE(it->address.IsZero());
+              EXPECT_GT(it->prefix_length, 1u);
+              EXPECT_LE(it->prefix_length, it->address.size() * 8);
+            }
+            run_loop.Quit();
+          }));
+  run_loop.Run();
+}
+
 class TestNetworkChangeManagerClient
     : public mojom::NetworkChangeManagerClient {
  public:
@@ -1269,12 +1294,6 @@ class NetworkChangeTest : public testing::Test {
 
  private:
   base::test::ScopedTaskEnvironment scoped_task_environment_;
-#if defined(OS_ANDROID)
-  // On Android, NetworkChangeNotifier setup is more involved and needs to
-  // to be split between UI thread and network thread. Use a mock
-  // NetworkChangeNotifier in tests, so the test setup is simpler.
-  net::test::MockNetworkChangeNotifier network_change_notifier_;
-#endif
   std::unique_ptr<NetworkService> service_;
 };
 
@@ -1317,12 +1336,6 @@ class NetworkServiceNetworkChangeTest : public testing::Test {
   std::unique_ptr<NetworkService> service_;
 
   mojom::NetworkServicePtr network_service_;
-#if defined(OS_ANDROID)
-  // On Android, NetworkChangeNotifier setup is more involved and needs
-  // to be split between UI thread and network thread. Use a mock
-  // NetworkChangeNotifier in tests, so the test setup is simpler.
-  net::test::MockNetworkChangeNotifier network_change_notifier_;
-#endif
 
   DISALLOW_COPY_AND_ASSIGN(NetworkServiceNetworkChangeTest);
 };
@@ -1500,7 +1513,8 @@ TEST_F(NetworkServiceNetworkDelegateTest, ClearSiteDataNetworkServiceCient) {
   mojom::NetworkServiceClientPtr client_ptr;
   auto client_impl = std::make_unique<ClearSiteDataNetworkServiceClient>(
       mojo::MakeRequest(&client_ptr));
-  service()->SetClient(std::move(client_ptr));
+  service()->SetClient(std::move(client_ptr),
+                       network::mojom::NetworkServiceParams::New());
   url = https_server()->GetURL("/bar");
   url = AddQuery(url, "header", kClearCookiesHeader);
   EXPECT_EQ(0, client_impl->on_clear_site_data_counter());
@@ -1518,7 +1532,8 @@ TEST_F(NetworkServiceNetworkDelegateTest, HandleClearSiteDataHeaders) {
   mojom::NetworkServiceClientPtr client_ptr;
   auto client_impl = std::make_unique<ClearSiteDataNetworkServiceClient>(
       mojo::MakeRequest(&client_ptr));
-  service()->SetClient(std::move(client_ptr));
+  service()->SetClient(std::move(client_ptr),
+                       network::mojom::NetworkServiceParams::New());
 
   // |passed_header_value| are only checked if |should_call_client| is true.
   const struct TestCase {

@@ -44,14 +44,13 @@ Session::Session(const std::string& id)
       detach(false),
       force_devtools_screenshot(false),
       sticky_modifiers(0),
-      active_input_sources(std::make_unique<base::ListValue>()),
-      input_state_table(std::make_unique<base::DictionaryValue>()),
       mouse_position(0, 0),
       pressed_mouse_button(kNoneMouseButton),
       implicit_wait(kDefaultImplicitWaitTimeout),
       page_load_timeout(kDefaultPageLoadTimeout),
       script_timeout(kDefaultScriptTimeout),
-      auto_reporting_enabled(false) {}
+      auto_reporting_enabled(false),
+      strict_file_interactability(false){}
 
 Session::Session(const std::string& id, std::unique_ptr<Chrome> chrome)
     : id(id),
@@ -61,14 +60,13 @@ Session::Session(const std::string& id, std::unique_ptr<Chrome> chrome)
       force_devtools_screenshot(false),
       chrome(std::move(chrome)),
       sticky_modifiers(0),
-      active_input_sources(std::make_unique<base::ListValue>()),
-      input_state_table(std::make_unique<base::DictionaryValue>()),
       mouse_position(0, 0),
       pressed_mouse_button(kNoneMouseButton),
       implicit_wait(kDefaultImplicitWaitTimeout),
       page_load_timeout(kDefaultPageLoadTimeout),
       script_timeout(kDefaultScriptTimeout),
-      auto_reporting_enabled(false) {}
+      auto_reporting_enabled(false),
+      strict_file_interactability(false){}
 
 Session::~Session() {}
 

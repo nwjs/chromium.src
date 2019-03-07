@@ -9,6 +9,7 @@
 
 #include "base/files/file.h"
 #include "base/macros.h"
+#include "base/memory/weak_ptr.h"
 #include "base/message_loop/message_loop_current.h"
 #include "base/sequence_checker.h"
 #include "base/single_thread_task_runner.h"
@@ -17,8 +18,8 @@
 #include "content/renderer/media/webrtc/stun_field_trial.h"
 #include "content/renderer/p2p/socket_dispatcher.h"
 #include "ipc/ipc_platform_file.h"
-#include "third_party/webrtc/api/peerconnectioninterface.h"
-#include "third_party/webrtc/p2p/stunprober/stunprober.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
+#include "third_party/webrtc/p2p/stunprober/stun_prober.h"
 
 namespace base {
 class WaitableEvent;
@@ -42,7 +43,6 @@ namespace content {
 
 class IpcNetworkManager;
 class IpcPacketSocketFactory;
-class MdnsResponderAdapter;
 class P2PPortAllocator;
 class WebRtcAudioDeviceImpl;
 
@@ -86,6 +86,10 @@ class CONTENT_EXPORT PeerConnectionDependencyFactory
   // controls according to the permissions granted on the page.
   virtual std::unique_ptr<P2PPortAllocator> CreatePortAllocator(
       blink::WebLocalFrame* web_frame);
+
+  // Creates an AsyncResolverFactory that uses the networking Mojo service.
+  virtual std::unique_ptr<webrtc::AsyncResolverFactory>
+  CreateAsyncResolverFactory();
 
   // Creates a libjingle representation of a Session description. Used by a
   // RTCPeerConnectionHandler instance.
@@ -146,11 +150,12 @@ class CONTENT_EXPORT PeerConnectionDependencyFactory
   void InitializeWorkerThread(rtc::Thread** thread,
                               base::WaitableEvent* event);
 
-  void CreateIpcNetworkManagerOnWorkerThread(
-      base::WaitableEvent* event,
-      std::unique_ptr<MdnsResponderAdapter> mdns_responder);
+  void CreateIpcNetworkManagerOnWorkerThread(base::WaitableEvent* event);
   void DeleteIpcNetworkManager();
   void CleanupPeerConnectionFactory();
+
+  void OnEnumeratePermissionChanged(
+      rtc::NetworkManager::EnumerationPermission new_state);
 
   // network_manager_ must be deleted on the worker thread. The network manager
   // uses |p2p_socket_dispatcher_|.
@@ -172,6 +177,9 @@ class CONTENT_EXPORT PeerConnectionDependencyFactory
   base::Thread chrome_worker_thread_;
 
   SEQUENCE_CHECKER(sequence_checker_);
+
+  // The weak pointer MUST only be dereferenced on the main thread.
+  base::WeakPtrFactory<PeerConnectionDependencyFactory> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(PeerConnectionDependencyFactory);
 };

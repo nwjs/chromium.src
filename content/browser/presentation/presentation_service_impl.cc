@@ -137,7 +137,7 @@ void PresentationServiceImpl::SetController(
 
 void PresentationServiceImpl::SetReceiver(
     blink::mojom::PresentationReceiverPtr receiver) {
-  // Presentation receiver virtual layout tests (which have the flag set) has no
+  // Presentation receiver virtual web tests (which have the flag set) has no
   // ReceiverPresentationServiceDelegate implementation.
   // TODO(imcheng): Refactor content_browser_client to return a no-op
   // PresentationService instead.
@@ -275,8 +275,8 @@ int PresentationServiceImpl::RegisterReconnectPresentationCallback(
     return kInvalidRequestId;
 
   int request_id = GetNextRequestId();
-  pending_reconnect_presentation_cbs_[request_id].reset(
-      new NewPresentationCallbackWrapper(std::move(*callback)));
+  pending_reconnect_presentation_cbs_[request_id] =
+      std::make_unique<NewPresentationCallbackWrapper>(std::move(*callback));
   DCHECK_NE(kInvalidRequestId, request_id);
   return request_id;
 }

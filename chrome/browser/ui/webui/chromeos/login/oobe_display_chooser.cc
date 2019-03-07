@@ -30,7 +30,7 @@ bool TouchSupportAvailable(const display::Display& display) {
 }
 
 // TODO(felixe): More context at crbug.com/738885
-const uint16_t kDeviceIds[] = {0x0457, 0x266e};
+const uint16_t kDeviceIds[] = {0x0457, 0x266e, 0x222a};
 
 // Returns true if |vendor_id| is a valid vendor id that may be made the primary
 // display.
@@ -107,8 +107,11 @@ void OobeDisplayChooser::OnTouchDeviceAssociationChanged() {
   MaybeMoveToTouchDisplay();
 }
 
-void OobeDisplayChooser::OnTouchscreenDeviceConfigurationChanged() {
-  MaybeMoveToTouchDisplay();
+void OobeDisplayChooser::OnInputDeviceConfigurationChanged(
+    uint8_t input_device_types) {
+  if (input_device_types & ui::InputDeviceEventObserver::kTouchscreen) {
+    MaybeMoveToTouchDisplay();
+  }
 }
 
 void OobeDisplayChooser::OnDeviceListsComplete() {

@@ -49,7 +49,6 @@ AudioContext* AudioContext::Create(Document& document,
                                    const AudioContextOptions* context_options,
                                    ExceptionState& exception_state) {
   DCHECK(IsMainThread());
-  LOG(ERROR) << __func__;
 
   UseCounter::CountCrossOriginIframe(
       document, WebFeature::kAudioContextCrossOriginIframe);
@@ -65,7 +64,8 @@ AudioContext* AudioContext::Create(Document& document,
         WebAudioLatencyHint(context_options->latencyHint().GetAsDouble());
   }
 
-  AudioContext* audio_context = new AudioContext(document, latency_hint);
+  AudioContext* audio_context =
+      MakeGarbageCollected<AudioContext>(document, latency_hint);
   audio_context->PauseIfNeeded();
 
   if (!audio_utilities::IsValidAudioBufferSampleRate(
@@ -90,7 +90,6 @@ AudioContext* AudioContext::Create(Document& document,
   audio_context->MaybeAllowAutoplayWithUnlockType(
       AutoplayUnlockType::kContextConstructor);
   if (audio_context->IsAllowedToStart()) {
-    LOG(ERROR) << "starting";
     audio_context->StartRendering();
     audio_context->SetContextState(kRunning);
   }
@@ -108,15 +107,6 @@ AudioContext* AudioContext::Create(Document& document,
       audio_context->destination()->maxChannelCount());
   sample_rate_histogram.Sample(audio_context->sampleRate());
 
-  // Warn users about new autoplay policy when it does not apply to them.
-  if (RuntimeEnabledFeatures::AutoplayIgnoresWebAudioEnabled()) {
-    document.AddConsoleMessage(ConsoleMessage::Create(
-        kOtherMessageSource, kWarningMessageLevel,
-        "The Web Audio autoplay policy will be re-enabled in Chrome 71 ("
-        "December 2018). Please check that your website is compatible with it. "
-        "https://goo.gl/7K7WLu"));
-  }
-
   probe::didCreateAudioContext(&document);
 
   return audio_context;
@@ -127,15 +117,12 @@ AudioContext::AudioContext(Document& document,
     : BaseAudioContext(&document, kRealtimeContext),
       context_id_(g_context_id++) {
   destination_node_ = DefaultAudioDestinationNode::Create(this, latency_hint);
-  LOG(ERROR) << __func__;
 
   switch (GetAutoplayPolicy()) {
     case AutoplayPolicy::Type::kNoUserGestureRequired:
-      LOG(ERROR) << "no user gesture";
       break;
     case AutoplayPolicy::Type::kUserGestureRequired:
     case AutoplayPolicy::Type::kUserGestureRequiredForCrossOrigin:
-      LOG(ERROR) << "user gesture";
       if (document.GetFrame() &&
           document.GetFrame()->IsCrossOriginSubframe()) {
         autoplay_status_ = AutoplayStatus::kAutoplayStatusFailed;
@@ -143,7 +130,6 @@ AudioContext::AudioContext(Document& document,
       }
       break;
     case AutoplayPolicy::Type::kDocumentUserActivationRequired:
-      LOG(ERROR) << "document user activation";
       autoplay_status_ = AutoplayStatus::kAutoplayStatusFailed;
       user_gesture_required_ = true;
       break;
@@ -203,7 +189,6 @@ ScriptPromise AudioContext::suspendContext(ScriptState* script_state) {
 
 ScriptPromise AudioContext::resumeContext(ScriptState* script_state) {
   DCHECK(IsMainThread());
-  LOG(ERROR) << __func__;
 
   if (IsContextClosed()) {
     return ScriptPromise::RejectWithDOMException(
@@ -369,14 +354,18 @@ MediaStreamAudioDestinationNode* AudioContext::createMediaStreamDestination(
 }
 
 void AudioContext::NotifySourceNodeStart() {
+  DCHECK(IsMainThread());
+
   source_node_started_ = true;
   if (!user_gesture_required_)
     return;
 
   MaybeAllowAutoplayWithUnlockType(AutoplayUnlockType::kSourceNodeStart);
 
-  if (IsAllowedToStart())
+  if (IsAllowedToStart()) {
     StartRendering();
+    SetContextState(kRunning);
+  }
 }
 
 AutoplayPolicy::Type AudioContext::GetAutoplayPolicy() const {
@@ -433,7 +422,6 @@ void AudioContext::MaybeAllowAutoplayWithUnlockType(AutoplayUnlockType type) {
 }
 
 bool AudioContext::IsAllowedToStart() const {
-  LOG(ERROR) << __func__;
   if (!user_gesture_required_)
     return true;
 

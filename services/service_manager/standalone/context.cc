@@ -70,8 +70,7 @@ const char kService[] = "service";
 
 Context::Context(
     ServiceProcessLauncherDelegate* service_process_launcher_delegate,
-    std::unique_ptr<base::Value> catalog_contents)
-    : main_entry_time_(base::Time::Now()) {
+    const std::vector<Manifest>& manifests) {
   TRACE_EVENT0("service_manager", "Context::Context");
 
   std::unique_ptr<ServiceProcessLauncherFactory>
@@ -84,9 +83,8 @@ Context::Context(
       std::make_unique<ServiceProcessLauncherFactoryImpl>(
           service_process_launcher_delegate);
 #endif
-  service_manager_.reset(
-      new ServiceManager(std::move(service_process_launcher_factory),
-                         std::move(catalog_contents), nullptr));
+  service_manager_ = std::make_unique<ServiceManager>(
+      std::move(service_process_launcher_factory), manifests);
 }
 
 Context::~Context() = default;

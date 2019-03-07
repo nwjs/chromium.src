@@ -36,14 +36,11 @@
 #import "ios/chrome/browser/ui/popup_menu/public/popup_menu_long_press_delegate.h"
 #import "ios/chrome/browser/ui/tabs/requirements/tab_strip_constants.h"
 #import "ios/chrome/browser/ui/tabs/requirements/tab_strip_presentation.h"
-#import "ios/chrome/browser/ui/tabs/tab_strip_controller+placeholder_view.h"
-#include "ios/chrome/browser/ui/tabs/tab_strip_placeholder_view.h"
 #import "ios/chrome/browser/ui/tabs/tab_strip_view.h"
 #import "ios/chrome/browser/ui/tabs/tab_view.h"
 #include "ios/chrome/browser/ui/tabs/target_frame_cache.h"
 #import "ios/chrome/browser/ui/util/named_guide.h"
 #include "ios/chrome/browser/ui/util/rtl_geometry.h"
-#import "ios/chrome/browser/ui/util/snapshot_util.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
@@ -363,6 +360,9 @@ UIColor* BackgroundColor() {
 // Update the frame of the tab strip view (scrollview) frame, content inset and
 // toggle buttons states depending on the current layout mode.
 - (void)updateScrollViewFrameForTabSwitcherButton;
+
+// Updates the tab switcher button with the current tab count.
+- (void)updateTabCount;
 
 @end
 
@@ -952,6 +952,8 @@ UIColor* BackgroundColor() {
   [self updateContentSizeAndRepositionViews];
   [self setNeedsLayoutWithAnimation];
   [self updateContentOffsetForTabIndex:modelIndex isNewTab:YES];
+
+  [self updateTabCount];
 }
 
 // Observer method.
@@ -989,6 +991,8 @@ UIColor* BackgroundColor() {
       }];
 
   [self setNeedsLayoutWithAnimation];
+
+  [self updateTabCount];
 }
 
 // Observer method.
@@ -1063,13 +1067,6 @@ UIColor* BackgroundColor() {
   [self tabModel:model didChangeTab:newTab];
 }
 
-- (void)tabModelDidChangeTabCount:(TabModel*)model {
-  [_tabSwitcherButton setTitle:TextForTabCount(model.count)
-                      forState:UIControlStateNormal];
-  [_tabSwitcherButton
-      setAccessibilityValue:[NSString stringWithFormat:@"%zd", model.count]];
-}
-
 #pragma mark -
 #pragma mark Views and Layout
 
@@ -1121,7 +1118,7 @@ UIColor* BackgroundColor() {
   [_tabSwitcherButton addTarget:self
                          action:@selector(recordUserMetrics:)
                forControlEvents:UIControlEventTouchUpInside];
-  [self tabModelDidChangeTabCount:_tabModel];
+  [self updateTabCount];
 
   SetA11yLabelAndUiAutomationName(_tabSwitcherButton,
                                   tabSwitcherButtonIdsAccessibilityLabel,
@@ -1348,6 +1345,14 @@ UIColor* BackgroundColor() {
     [_view bringSubviewToFront:_tabSwitcherButton];
   }
   [_tabStripView setFrame:tabFrame];
+}
+
+- (void)updateTabCount {
+  [_tabSwitcherButton setTitle:TextForTabCount(_tabModel.count)
+                      forState:UIControlStateNormal];
+  [_tabSwitcherButton
+      setAccessibilityValue:[NSString
+                                stringWithFormat:@"%zd", _tabModel.count]];
 }
 
 #pragma mark - TabStripViewLayoutDelegate
@@ -1675,7 +1680,7 @@ UIColor* BackgroundColor() {
   Tab* currentTab = [_tabModel currentTab];
   if (IsIPadIdiom() && (currentTab != tappedTab)) {
     SnapshotTabHelper::FromWebState(currentTab.webState)
-        ->UpdateSnapshot(/*with_overlays=*/true, /*visible_frame_only=*/true);
+        ->UpdateSnapshotWithCallback(nil);
   }
   [_tabModel setCurrentTab:tappedTab];
   [self updateContentOffsetForTabIndex:index isNewTab:NO];
@@ -1704,46 +1709,6 @@ UIColor* BackgroundColor() {
   web::NavigationManager::WebLoadParams params(url);
   params.transition_type = ui::PAGE_TRANSITION_GENERATED;
   tab.navigationManager->LoadURLWithParams(params);
-}
-
-@end
-
-#pragma mark - PlaceholderView
-
-@implementation TabStripController (PlaceholderView)
-
-- (UIView<TabStripFoldAnimation>*)placeholderView {
-  TabStripPlaceholderView* placeholderView =
-      [[TabStripPlaceholderView alloc] initWithFrame:self.view.bounds];
-  CGFloat xOffset = [_tabStripView contentOffset].x;
-  UIView* previousView = nil;
-  const NSUInteger selectedModelIndex =
-      [_tabModel indexOfTab:[_tabModel currentTab]];
-  const NSUInteger selectedArrayIndex =
-      [self indexForModelIndex:selectedModelIndex];
-  [self updateContentSizeAndRepositionViews];
-  [self layoutTabStripSubviews];
-  for (NSUInteger tabArrayIndex = 0; tabArrayIndex < [_tabArray count];
-       ++tabArrayIndex) {
-    UIView* tabView = _tabArray[tabArrayIndex];
-    UIView* tabSnapshotView = snapshot_util::GenerateSnapshot(tabView);
-    tabSnapshotView.frame = CGRectOffset(tabView.frame, -xOffset, 0);
-    tabSnapshotView.transform = tabView.transform;
-    // Order views of the tabs in a pyramid fashion, culminating with
-    // the selected tab.
-    // For example, if _tabArray has views [0..6], and 3 is the selected index,
-    // they will be arranged in the order [0, 1, 2, 6, 5, 4, 3].
-    if (previousView && tabArrayIndex > selectedArrayIndex) {
-      [placeholderView insertSubview:tabSnapshotView belowSubview:previousView];
-    } else {
-      [placeholderView addSubview:tabSnapshotView];
-    }
-    previousView = tabSnapshotView;
-  }
-  UIView* buttonSnapshot = snapshot_util::GenerateSnapshot(_buttonNewTab);
-  buttonSnapshot.frame = CGRectOffset(_buttonNewTab.frame, -xOffset, 0);
-  [placeholderView addSubview:buttonSnapshot];
-  return placeholderView;
 }
 
 @end

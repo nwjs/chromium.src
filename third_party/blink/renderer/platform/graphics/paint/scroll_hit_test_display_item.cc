@@ -15,22 +15,12 @@ ScrollHitTestDisplayItem::ScrollHitTestDisplayItem(
     const TransformPaintPropertyNode& scroll_offset_node)
     : DisplayItem(client, kScrollHitTest, sizeof(*this)),
       scroll_offset_node_(scroll_offset_node) {
-  DCHECK(RuntimeEnabledFeatures::SlimmingPaintV2Enabled());
+  DCHECK(RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
   // The scroll offset transform node should have an associated scroll node.
   DCHECK(scroll_offset_node_.ScrollNode());
 }
 
 ScrollHitTestDisplayItem::~ScrollHitTestDisplayItem() = default;
-
-void ScrollHitTestDisplayItem::Replay(GraphicsContext&) const {
-  NOTREACHED();
-}
-
-void ScrollHitTestDisplayItem::AppendToDisplayItemList(
-    const FloatSize&,
-    cc::DisplayItemList&) const {
-  NOTREACHED();
-}
 
 bool ScrollHitTestDisplayItem::Equals(const DisplayItem& other) const {
   return DisplayItem::Equals(other) &&

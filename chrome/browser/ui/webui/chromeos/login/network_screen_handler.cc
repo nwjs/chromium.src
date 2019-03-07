@@ -74,7 +74,7 @@ void NetworkScreenHandler::Unbind() {
 }
 
 void NetworkScreenHandler::ShowError(const base::string16& message) {
-  CallJSWithPrefix("showError", message);
+  CallJS("login.NetworkScreen.showError", message);
 }
 
 void NetworkScreenHandler::ClearErrors() {
@@ -85,6 +85,10 @@ void NetworkScreenHandler::ClearErrors() {
 void NetworkScreenHandler::ShowConnectingStatus(
     bool connecting,
     const base::string16& network_id) {}
+
+void NetworkScreenHandler::SetOfflineDemoModeEnabled(bool enabled) {
+  CallJS("login.NetworkScreen.setOfflineDemoModeEnabled", enabled);
+}
 
 void NetworkScreenHandler::DeclareLocalizedValues(
     ::login::LocalizedValuesBuilder* builder) {
@@ -100,8 +104,6 @@ void NetworkScreenHandler::DeclareLocalizedValues(
 
 void NetworkScreenHandler::GetAdditionalParameters(
     base::DictionaryValue* dict) {
-  dict->SetBoolean("offlineDemoModeEnabled",
-                   DemoSetupController::IsOfflineDemoModeAllowed());
 }
 
 void NetworkScreenHandler::Initialize() {

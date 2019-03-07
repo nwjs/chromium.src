@@ -18,10 +18,8 @@
 namespace blink {
 
 class Hyphenation;
-class NGContainerFragmentBuilder;
 class NGInlineBreakToken;
 class NGInlineItem;
-struct NGPositionedFloat;
 
 // The line breaker needs to know which mode its in to properly handle floats.
 enum class NGLineBreakerMode { kContent, kMinContent, kMaxContent };
@@ -37,13 +35,12 @@ class CORE_EXPORT NGLineBreaker {
   NGLineBreaker(NGInlineNode,
                 NGLineBreakerMode,
                 const NGConstraintSpace&,
-                Vector<NGPositionedFloat>*,
-                NGUnpositionedFloatVector*,
-                NGContainerFragmentBuilder* container_builder,
-                NGExclusionSpace*,
-                unsigned handled_float_index,
                 const NGLineLayoutOpportunity&,
-                const NGInlineBreakToken* = nullptr);
+                const NGPositionedFloatVector& leading_floats,
+                unsigned handled_leading_floats_index,
+                const NGInlineBreakToken*,
+                NGExclusionSpace*,
+                Vector<LayoutObject*>* out_floats_for_min_max = nullptr);
   ~NGLineBreaker();
 
   // Compute the next line break point and produces NGInlineItemResults for
@@ -60,6 +57,20 @@ class CORE_EXPORT NGLineBreaker {
   static bool ComputeOpenTagResult(const NGInlineItem&,
                                    const NGConstraintSpace&,
                                    NGInlineItemResult*);
+
+  // This enum is private, except for |WhitespaceStateForTesting()|. See
+  // |whitespace_| member.
+  enum class WhitespaceState {
+    kLeading,
+    kNone,
+    kUnknown,
+    kCollapsible,
+    kCollapsed,
+    kPreserved,
+  };
+  WhitespaceState TrailingWhitespaceForTesting() const {
+    return trailing_whitespace_;
+  }
 
  private:
   const String& Text() const { return items_data_.text_content; }
@@ -86,9 +97,6 @@ class CORE_EXPORT NGLineBreaker {
     // when it is overflowing.
     kTrailing,
 
-    // The initial state, until the first character is found.
-    kLeading,
-
     // Looking for more items to fit into the current line.
     kContinue,
   };
@@ -97,6 +105,8 @@ class CORE_EXPORT NGLineBreaker {
   void BreakText(NGInlineItemResult*,
                  const NGInlineItem&,
                  LayoutUnit available_width);
+  bool HandleTextForFastMinContent(NGInlineItemResult* item_result,
+                                   const NGInlineItem& item);
 
   scoped_refptr<ShapeResultView> TruncateLineEndResult(
       const NGInlineItemResult& item_result,
@@ -117,6 +127,8 @@ class CORE_EXPORT NGLineBreaker {
   void HandleBidiControlItem(const NGInlineItem&);
   void HandleAtomicInline(const NGInlineItem&);
   void HandleFloat(const NGInlineItem&);
+
+  LayoutUnit ComputeFloatAncestorInlineEndSize() const;
 
   void HandleOpenTag(const NGInlineItem&);
   void HandleCloseTag(const NGInlineItem&);
@@ -149,6 +161,10 @@ class CORE_EXPORT NGLineBreaker {
   unsigned item_index_ = 0;
   unsigned offset_ = 0;
 
+  // |WhitespaceState| of the current end. When a line is broken, this indicates
+  // the state of trailing whitespaces.
+  WhitespaceState trailing_whitespace_;
+
   // The current position from inline_start. Unlike NGInlineLayoutAlgorithm
   // that computes position in visual order, this position in logical order.
   LayoutUnit position_;
@@ -168,8 +184,9 @@ class CORE_EXPORT NGLineBreaker {
   // True when current box has 'word-break/word-wrap: break-word'.
   bool break_anywhere_if_overflow_ = false;
 
-  // Force LineBreakType::kBreakCharacter by ignoring the current style.
-  // Set to find grapheme cluster boundaries for 'break-word' after overflow.
+  // Force LineBreakType::kBreakCharacter by ignoring the current style if
+  // |break_anywhere_if_overflow_| is set. Set to find grapheme cluster
+  // boundaries for 'break-word' after overflow.
   bool override_break_anywhere_ = false;
 
   // True when breaking at soft hyphens (U+00AD) is allowed.
@@ -183,22 +200,20 @@ class CORE_EXPORT NGLineBreaker {
   // True when the line we are breaking has a list marker.
   bool has_list_marker_ = false;
 
-  // True if trailing collapsible spaces have been collapsed.
-  bool trailing_spaces_collapsed_ = false;
-
   // Set when the line ended with a forced break. Used to setup the states for
   // the next line.
   bool is_after_forced_break_ = false;
 
   bool ignore_floats_ = false;
 
+  // Set in quirks mode when we're not supposed to break inside table cells
+  // between images, and between text and images.
+  bool sticky_images_quirk_ = false;
+
   const NGInlineItemsData& items_data_;
 
   NGLineBreakerMode mode_;
   const NGConstraintSpace& constraint_space_;
-  Vector<NGPositionedFloat>* positioned_floats_;
-  NGUnpositionedFloatVector* unpositioned_floats_;
-  NGContainerFragmentBuilder* container_builder_; /* May be nullptr */
   NGExclusionSpace* exclusion_space_;
   scoped_refptr<const ComputedStyle> current_style_;
 
@@ -217,7 +232,15 @@ class CORE_EXPORT NGLineBreaker {
   base::Optional<TrailingCollapsibleSpace> trailing_collapsible_space_;
 
   // Keep track of handled float items. See HandleFloat().
-  unsigned handled_floats_end_item_index_;
+  const NGPositionedFloatVector& leading_floats_;
+  unsigned leading_floats_index_ = 0u;
+  unsigned handled_leading_floats_index_;
+
+  Vector<LayoutObject*>* out_floats_for_min_max_;
+
+  // Keep the last item |HandleTextForFastMinContent()| has handled. This is
+  // used to fallback the last word to |HandleText()|.
+  const NGInlineItem* fast_min_content_item_ = nullptr;
 
   // The current base direction for the bidi algorithm.
   // This is copied from NGInlineNode, then updated after each forced line break

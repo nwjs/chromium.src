@@ -241,7 +241,7 @@ void SubmenuView::PaintChildren(const PaintInfo& paint_info) {
 
 bool SubmenuView::GetDropFormats(
     int* formats,
-    std::set<ui::Clipboard::FormatType>* format_types) {
+    std::set<ui::ClipboardFormatType>* format_types) {
   DCHECK(GetMenuItem()->GetMenuController());
   return GetMenuItem()->GetMenuController()->GetDropFormats(this, formats,
                                                             format_types);
@@ -428,8 +428,11 @@ void SubmenuView::Close() {
 }
 
 void SubmenuView::Hide() {
-  if (host_)
+  if (host_) {
     host_->HideMenuHost();
+    NotifyAccessibilityEvent(ax::mojom::Event::kMenuPopupHide, true);
+  }
+
   if (scroll_animator_->is_scrolling())
     scroll_animator_->Stop();
 }

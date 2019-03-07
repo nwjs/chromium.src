@@ -22,7 +22,6 @@ function Banners(
   this.showWelcome_ = showWelcome;
   this.driveEnabled_ = false;
 
-  this.usePromoWelcomeBanner_ = true;
   this.privateOnDirectoryChangedBound_ =
       this.privateOnDirectoryChanged_.bind(this);
 
@@ -199,15 +198,17 @@ Banners.prototype.onDriveConnectionChanged_ = function() {
  * @private
  */
 Banners.prototype.prepareAndShowWelcomeBanner_ = function(type, messageId) {
-  if (!this.showWelcome_)
+  if (!this.showWelcome_) {
     return;
+  }
 
   this.showWelcomeBanner_(type);
 
   var container = queryRequiredElement(
       '.drive-welcome.' + type, this.document_);
-  if (container.firstElementChild)
-    return;  // Do not re-create.
+  if (container.firstElementChild) {
+    return;
+  }  // Do not re-create.
 
   if (!this.document_.querySelector('link[drive-welcome-style]')) {
     var style = this.document_.createElement('link');
@@ -237,34 +238,15 @@ Banners.prototype.prepareAndShowWelcomeBanner_ = function(type, messageId) {
 
   var links = util.createChild(message, 'drive-welcome-links');
 
-  var more;
-  if (this.usePromoWelcomeBanner_) {
-    var welcomeTitle = str('DRIVE_WELCOME_TITLE_ALTERNATIVE');
-    title.textContent = welcomeTitle;
-    more = util.createChild(links, '', 'a');
-    more.href = str('GOOGLE_DRIVE_REDEEM_URL');
-    var moreInnerButton = util.createChild(
-        more, 'imitate-paper-button primary', 'button');
-    moreInnerButton.tabIndex = -1;
-    moreInnerButton.textContent = str('DRIVE_WELCOME_CHECK_ELIGIBILITY');
-  } else {
-    title.textContent = str('DRIVE_WELCOME_TITLE');
-    more = util.createChild(links, 'plain-link', 'a');
-    more.textContent = str('DRIVE_LEARN_MORE');
-    more.href = str('GOOGLE_DRIVE_OVERVIEW_URL');
-  }
+  title.textContent = str('DRIVE_WELCOME_TITLE');
+  const more = util.createChild(links, 'plain-link', 'a');
+  more.textContent = str('DRIVE_LEARN_MORE');
+  more.href = str('GOOGLE_DRIVE_OVERVIEW_URL');
   more.tabIndex = 21;  // See: go/filesapp-tabindex.
   more.id = 'drive-welcome-link';
   more.target = '_blank';
 
-  var dismiss;
-  if (this.usePromoWelcomeBanner_) {
-    dismiss = util.createChild(
-        links, 'imitate-paper-button secondary', 'button');
-  } else {
-    dismiss = util.createChild(links, 'plain-link');
-  }
-
+  const dismiss = util.createChild(links, 'plain-link');
   dismiss.classList.add('drive-welcome-dismiss');
   dismiss.textContent = str('DRIVE_WELCOME_DISMISS');
   dismiss.addEventListener('click', this.closeWelcomeBanner_.bind(this));
@@ -284,11 +266,13 @@ Banners.prototype.showLowDriveSpaceWarning_ = function(show, opt_sizeStats) {
 
   // Avoid showing two banners.
   // TODO(kaznacheev): Unify the low space warning and the promo header.
-  if (show)
+  if (show) {
     this.cleanupWelcomeBanner_();
+  }
 
-  if (box.hidden == !show)
+  if (box.hidden == !show) {
     return;
+  }
 
   if (this.warningDismissedCounter_) {
     if (opt_sizeStats &&
@@ -375,51 +359,7 @@ Banners.prototype.checkSpaceAndMaybeShowWelcomeBanner_ = function() {
       return;
     }
 
-    if (!this.showOffers_ || !this.showWelcome_) {
-      // Because it is not necessary to show the offer, set
-      // |usePromoWelcomeBanner_| false here. Note that it probably should be
-      // able to do this in the constructor, but there remains non-trivial path,
-      // which may be causes |usePromoWelcomeBanner_| == true's behavior even
-      // if |showOffers_| is false.
-      // TODO(hidehiko): Make sure if it is expected or not, and simplify
-      // |showOffers_| if possible.
-      this.usePromoWelcomeBanner_ = false;
-    }
-
-    var offerSize = 100;  // In GB.
-    var offerServiceId = 'drive.cros.echo.1';
-
-    // Perform asynchronous tasks in parallel.
-    var group = new AsyncUtil.Group();
-
-    // If the offer has been checked, then do not show the promo anymore.
-    group.add(function(onCompleted) {
-      chrome.echoPrivate.getOfferInfo(offerServiceId, function(offerInfo) {
-        // If the offer has not been checked, then an error is raised.
-        if (!chrome.runtime.lastError)
-          this.usePromoWelcomeBanner_ = false;
-        onCompleted();
-      }.bind(this));
-    }.bind(this));
-
-    group.add(function(onCompleted) {
-      if (this.usePromoWelcomeBanner_) {
-        // getSizeStats for Drive file system accesses to the server, so we
-        // should minimize the invocation.
-
-        // Current directory must be set, since this code is called after
-        // scanning is completed. However, the volumeInfo may be gone.
-        chrome.fileManagerPrivate.getSizeStats(
-            driveVolume.volumeId,
-            function(result) {
-              if (result && result.totalSize >= offerSize * 1024 * 1024 * 1024)
-                this.usePromoWelcomeBanner_ = false;
-              onCompleted();
-            }.bind(this));
-      }
-    }.bind(this));
-
-    group.run(this.maybeShowWelcomeBanner_.bind(this));
+    this.maybeShowWelcomeBanner_();
   }.bind(this));
 };
 
@@ -460,11 +400,13 @@ Banners.prototype.maybeShowWelcomeBanner_ = function() {
  */
 Banners.prototype.isOnCurrentProfileDrive = function() {
   var entry = this.directoryModel_.getCurrentDirEntry();
-  if (!entry || util.isFakeEntry(entry))
+  if (!entry || util.isFakeEntry(entry)) {
     return false;
+  }
   var locationInfo = this.volumeManager_.getLocationInfo(entry);
-  if (!locationInfo)
+  if (!locationInfo) {
     return false;
+  }
   return locationInfo.rootType === VolumeManagerCommon.RootType.DRIVE &&
          locationInfo.volumeInfo.profile.isCurrentProfile;
 };
@@ -490,8 +432,9 @@ Banners.prototype.showWelcomeBanner_ = function(type) {
  */
 Banners.prototype.onDirectoryChanged_ = function(event) {
   var rootVolume = this.volumeManager_.getVolumeInfo(event.newDirEntry);
-  if (!rootVolume)
+  if (!rootVolume) {
     return;
+  }
   var previousRootVolume = event.previousDirEntry ?
       this.volumeManager_.getVolumeInfo(event.previousDirEntry) :
       null;
@@ -531,8 +474,9 @@ Banners.prototype.onDirectoryChanged_ = function(event) {
  * @private
  */
 Banners.prototype.isLowSpaceWarningTarget_ = function(volumeInfo) {
-  if (!volumeInfo)
+  if (!volumeInfo) {
     return false;
+  }
   return volumeInfo.profile.isCurrentProfile &&
          (volumeInfo.volumeType === VolumeManagerCommon.VolumeType.DOWNLOADS ||
           volumeInfo.volumeType === VolumeManagerCommon.VolumeType.DRIVE);
@@ -545,11 +489,13 @@ Banners.prototype.isLowSpaceWarningTarget_ = function(volumeInfo) {
  */
 Banners.prototype.privateOnDirectoryChanged_ = function(event) {
   var currentDirEntry = this.directoryModel_.getCurrentDirEntry();
-  if (!currentDirEntry)
+  if (!currentDirEntry) {
     return;
+  }
   var currentVolume = this.volumeManager_.getVolumeInfo(currentDirEntry);
-  if (!currentVolume)
+  if (!currentVolume) {
     return;
+  }
   var eventVolume = this.volumeManager_.getVolumeInfo(event.entry);
   if (currentVolume === eventVolume) {
     // The file system we are currently on is changed.
@@ -581,8 +527,9 @@ Banners.prototype.maybeShowLowSpaceWarning_ = function(volume) {
   }
 
   // If not mounted correctly, then do not continue.
-  if (!volume.fileSystem)
+  if (!volume.fileSystem) {
     return;
+  }
 
   chrome.fileManagerPrivate.getSizeStats(
       volume.volumeId, function(sizeStats) {
@@ -594,8 +541,9 @@ Banners.prototype.maybeShowLowSpaceWarning_ = function(volume) {
           return;
         }
         // sizeStats is undefined, if some error occurs.
-        if (!sizeStats || sizeStats.totalSize == 0)
+        if (!sizeStats || sizeStats.totalSize == 0) {
           return;
+        }
 
         if (volume.volumeType === VolumeManagerCommon.VolumeType.DOWNLOADS) {
           // Show the warning banner when the available space is less than 1GB.
@@ -638,8 +586,9 @@ Banners.prototype.requestRelayout_ = function(delay) {
 Banners.prototype.showLowDownloadsSpaceWarning_ = function(show) {
   var box = this.document_.querySelector('.downloads-warning');
 
-  if (box.hidden == !show)
+  if (box.hidden == !show) {
     return;
+  }
 
   if (this.downloadsWarningDismissedTime_) {
     if (Date.now() - this.downloadsWarningDismissedTime_ <
@@ -671,6 +620,10 @@ Banners.prototype.showLowDownloadsSpaceWarning_ = function(show) {
       values[DOWNLOADS_WARNING_DISMISSED_KEY] = Date.now();
       chrome.storage.local.set(values);
       box.hidden = true;
+      // We explicitly mark the banner-close element as hidden as due to the
+      // use of position absolute in it's layout it does not get hidden by
+      // hiding it's parent.
+      close.hidden = true;
       this.requestRelayout_(100);
     }.bind(this));
   }
@@ -685,8 +638,9 @@ Banners.prototype.showLowDownloadsSpaceWarning_ = function(show) {
  */
 Banners.prototype.ensureDriveUnmountedPanelInitialized_ = function() {
   var panel = this.unmountedPanel_;
-  if (panel.firstElementChild)
+  if (panel.firstElementChild) {
     return;
+  }
 
   /**
    * Creates an element using given parameters.
@@ -721,8 +675,9 @@ Banners.prototype.onVolumeInfoListSplice_ = function(event) {
   var isDriveVolume = function(volumeInfo) {
     return volumeInfo.volumeType === VolumeManagerCommon.VolumeType.DRIVE;
   };
-  if (event.removed.some(isDriveVolume) || event.added.some(isDriveVolume))
+  if (event.removed.some(isDriveVolume) || event.added.some(isDriveVolume)) {
     this.updateDriveUnmountedPanel_();
+  }
 };
 
 /**

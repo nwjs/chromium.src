@@ -28,7 +28,7 @@ class BlameContext;
 namespace sequence_manager {
 
 namespace internal {
-struct AssociatedThreadId;
+class AssociatedThreadId;
 class SequenceManagerImpl;
 class TaskQueueImpl;
 }  // namespace internal
@@ -68,7 +68,7 @@ class BASE_EXPORT TaskQueue : public RefCountedThreadSafe<TaskQueue> {
 
   // TODO(scheduler-dev): Could we define a more clear list of priorities?
   // See https://crbug.com/847858.
-  enum QueuePriority {
+  enum QueuePriority : uint8_t {
     // Queues with control priority will run before any other queue, and will
     // explicitly starve other queues. Typically this should only be used for
     // private queues which perform control operations.

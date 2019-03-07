@@ -129,7 +129,7 @@ HTMLPlugInElement::~HTMLPlugInElement() {
   DCHECK(!is_delaying_load_event_);
 }
 
-void HTMLPlugInElement::Trace(blink::Visitor* visitor) {
+void HTMLPlugInElement::Trace(Visitor* visitor) {
   visitor->Trace(image_loader_);
   visitor->Trace(persisted_plugin_);
   HTMLFrameOwnerElement::Trace(visitor);
@@ -189,6 +189,18 @@ bool HTMLPlugInElement::RequestObjectInternal(
   ObjectContentType object_type = GetObjectContentType();
   if (object_type == ObjectContentType::kFrame ||
       object_type == ObjectContentType::kImage || handled_externally_) {
+    if (ContentFrame() && ContentFrame()->IsRemoteFrame()) {
+      // During lazy reattaching, the plugin element loses EmbeddedContentView.
+      // Since the ContentFrame() is not torn down the options here are to
+      // either re-create a new RemoteFrameView or reuse the old one. The former
+      // approach requires CommitNavigation for OOPF to be sent back here in
+      // the parent process. It is easier to just reuse the current FrameView
+      // instead until plugin element issue are properly resolved (for context
+      // see https://crbug.com/781880).
+      DCHECK(!OwnedEmbeddedContentView());
+      SetEmbeddedContentView(ContentFrame()->View());
+      DCHECK(OwnedEmbeddedContentView());
+    }
     // If the plugin element already contains a subframe,
     // loadOrRedirectSubframe will re-use it. Otherwise, it will create a
     // new frame and set it as the LayoutEmbeddedContent's EmbeddedContentView,
@@ -307,7 +319,6 @@ ParsedFeaturePolicy HTMLPlugInElement::ConstructContainerPolicy(
   ParsedFeaturePolicyDeclaration allowlist;
   allowlist.feature = mojom::FeaturePolicyFeature::kFullscreen;
   allowlist.matches_all_origins = false;
-  allowlist.disposition = mojom::FeaturePolicyDisposition::kEnforce;
   container_policy.push_back(allowlist);
   return container_policy;
 }

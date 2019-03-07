@@ -528,11 +528,27 @@ class WebContents : public PageNavigator,
   // potential discard without causing the dialog to appear.
   virtual void DispatchBeforeUnload(bool auto_cancel) = 0;
 
-  // Attaches |current_web_contents| to its container frame
-  // |outer_contents_frame|.
+  // Returns true if it is safe for this WebContents to attach to the outer
+  // WebContents associated with |render_frame_host| using the method
+  // AttachToOuterWebContentsFrame. If a frame belongs to |this| WebContents or
+  // is in loading state or not in the same SiteInstance as its parent frame it
+  // should not be used for attaching.
+  virtual bool CanAttachToOuterContentsFrame(
+      RenderFrameHost* outer_contents_frame) = 0;
+
+  // Attaches |current_web_contents|, which should be the same as |this|
+  // WebContents, to its container frame |outer_contents_frame|, which should be
+  // in the outer WebContents. The |current_web_contents| is pointer is needed
+  // for passing ownership of the inner WebContents to the otuer WebContents.
+  // TODO(lfg): This API should be moved so that it is called on the outer
+  // WebContents.
   virtual void AttachToOuterWebContentsFrame(
       std::unique_ptr<WebContents> current_web_contents,
       RenderFrameHost* outer_contents_frame) = 0;
+
+  // Returns the outer WebContents frame, the same frame that this WebContents
+  // was attached in AttachToOuterWebContentsFrame().
+  virtual RenderFrameHost* GetOuterWebContentsFrame() = 0;
 
   // Returns the outer WebContents of this WebContents if any.
   // Otherwise, return nullptr.
@@ -541,6 +557,9 @@ class WebContents : public PageNavigator,
   // Returns the root WebContents of the WebContents tree. Always returns
   // non-null value.
   virtual WebContents* GetOutermostWebContents() = 0;
+
+  // Returns a vector to the inner WebContents within this WebContents.
+  virtual std::vector<WebContents*> GetInnerWebContents() = 0;
 
   // Invoked when visible security state changes.
   virtual void DidChangeVisibleSecurityState() = 0;

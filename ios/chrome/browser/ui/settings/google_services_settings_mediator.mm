@@ -6,30 +6,29 @@
 
 #include "base/auto_reset.h"
 #include "base/mac/foundation_util.h"
-#include "components/autofill/core/common/autofill_prefs.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/metrics/metrics_pref_names.h"
-#import "components/prefs/ios/pref_observer_bridge.h"
-#include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_service.h"
+#include "components/sync/driver/sync_service.h"
 #include "components/unified_consent/pref_names.h"
-#include "components/unified_consent/unified_consent_service.h"
 #include "ios/chrome/browser/pref_names.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
+#include "ios/chrome/browser/signin/chrome_identity_service_observer_bridge.h"
 #include "ios/chrome/browser/sync/sync_observer_bridge.h"
-#include "ios/chrome/browser/sync/sync_setup_service.h"
-#import "ios/chrome/browser/ui/collection_view/cells/collection_view_item.h"
-#import "ios/chrome/browser/ui/collection_view/cells/collection_view_text_item.h"
-#import "ios/chrome/browser/ui/settings/cells/settings_collapsible_item.h"
+#import "ios/chrome/browser/ui/authentication/cells/table_view_account_item.h"
+#import "ios/chrome/browser/ui/authentication/resized_avatar_cache.h"
+#import "ios/chrome/browser/ui/settings/cells/account_sign_in_item.h"
 #import "ios/chrome/browser/ui/settings/cells/settings_image_detail_text_item.h"
+#import "ios/chrome/browser/ui/settings/cells/settings_multiline_detail_item.h"
 #import "ios/chrome/browser/ui/settings/cells/sync_switch_item.h"
+#import "ios/chrome/browser/ui/settings/google_services_settings_command_handler.h"
 #import "ios/chrome/browser/ui/settings/sync_utils/sync_util.h"
 #import "ios/chrome/browser/ui/settings/utils/observable_boolean.h"
 #import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
 #include "ios/chrome/grit/ios_chromium_strings.h"
 #include "ios/chrome/grit/ios_strings.h"
-#import "ios/third_party/material_components_ios/src/components/Palettes/src/MaterialPalettes.h"
+#import "ios/public/provider/chrome/browser/signin/chrome_identity.h"
+#import "services/identity/public/objc/identity_manager_observer_bridge.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -38,45 +37,28 @@
 
 using l10n_util::GetNSString;
 
-typedef NSArray<CollectionViewItem*>* ItemArray;
+typedef NSArray<TableViewItem*>* ItemArray;
 
 namespace {
 
 // List of sections.
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
-  SyncFeedbackSectionIdentifier = kSectionIdentifierEnumZero,
-  SyncEverythingSectionIdentifier,
-  PersonalizedSectionIdentifier,
+  IdentitySectionIdentifier = kSectionIdentifierEnumZero,
+  SyncSectionIdentifier,
   NonPersonalizedSectionIdentifier,
 };
 
-// Keys for ListModel to save collapse/expanded prefences, for each section.
-NSString* const kGoogleServicesSettingsPersonalizedSectionKey =
-    @"GoogleServicesSettingsPersonalizedSection";
-NSString* const kGoogleServicesSettingsNonPersonalizedSectionKey =
-    @"GoogleServicesSettingsNonPersonalizedSection";
-
 // List of items.
 typedef NS_ENUM(NSInteger, ItemType) {
-  // SyncErrorSectionIdentifier,
-  SyncErrorItemType = kItemTypeEnumZero,
-  // SyncEverythingSectionIdentifier section.
-  SyncEverythingItemType,
-  // PersonalizedSectionIdentifier section.
-  SyncPersonalizationItemType,
-  SyncBookmarksItemType,
-  SyncHistoryItemType,
-  SyncPasswordsItemType,
-  SyncOpenTabsItemType,
-  SyncAutofillItemType,
-  SyncSettingsItemType,
-  SyncReadingListItemType,
-  AutocompleteWalletItemType,
-  SyncGoogleActivityControlsItemType,
-  EncryptionItemType,
-  ManageSyncedDataItemType,
+  // IdentitySectionIdentifier section.
+  IdentityItemType = kItemTypeEnumZero,
+  // SyncSectionIdentifier section.
+  SignInItemType,
+  RestartAuthenticationFlowErrorItemType,
+  ReauthDialogAsSyncIsInAuthErrorItemType,
+  ShowPassphraseDialogErrorItemType,
+  ManageSyncItemType,
   // NonPersonalizedSectionIdentifier section.
-  NonPersonalizedServicesItemType,
   AutocompleteSearchesAndURLsItemType,
   PreloadPagesItemType,
   ImproveChromeItemType,
@@ -85,23 +67,35 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 }  // namespace
 
-@interface GoogleServicesSettingsMediator ()<BooleanObserver,
-                                             SyncObserverModelBridge> {
+@interface GoogleServicesSettingsMediator () <
+    BooleanObserver,
+    ChromeIdentityServiceObserver,
+    IdentityManagerObserverBridgeDelegate,
+    SyncObserverModelBridge> {
+  // Sync observer.
   std::unique_ptr<SyncObserverBridge> _syncObserver;
+  // Identity manager observer.
+  std::unique_ptr<identity::IdentityManagerObserverBridge>
+      _identityManagerObserverBridge;
+  // Chrome identity observer.
+  std::unique_ptr<ChromeIdentityServiceObserverBridge> _identityServiceObserver;
 }
 
-// Unified consent service.
-@property(nonatomic, assign)
-    unified_consent::UnifiedConsentService* unifiedConsentService;
 // Returns YES if the user is authenticated.
 @property(nonatomic, assign, readonly) BOOL isAuthenticated;
-// Returns YES if the user has given his consent to use Google services.
-@property(nonatomic, assign, readonly) BOOL isConsentGiven;
 // Sync setup service.
 @property(nonatomic, assign, readonly) SyncSetupService* syncSetupService;
-// Preference value for the autocomplete wallet feature.
-@property(nonatomic, strong, readonly)
-    PrefBackedBoolean* autocompleteWalletPreference;
+// ** Identity section.
+// Avatar cache.
+@property(nonatomic, strong) ResizedAvatarCache* resizedAvatarCache;
+// Account item.
+@property(nonatomic, strong) TableViewAccountItem* accountItem;
+// ** Sync section.
+// YES if the impression of the Signin cell has already been recorded.
+@property(nonatomic, assign) BOOL hasRecordedSigninImpression;
+// Sync error item (in the sync section).
+@property(nonatomic, strong) TableViewItem* syncErrorItem;
+// ** Non personalized section.
 // Preference value for the "Autocomplete searches and URLs" feature.
 @property(nonatomic, strong, readonly)
     PrefBackedBoolean* autocompleteSearchPreference;
@@ -124,27 +118,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
 // Preference value for the "Make searches and browsing better" feature.
 @property(nonatomic, strong, readonly)
     PrefBackedBoolean* anonymizedDataCollectionPreference;
-
-// YES if the switch for |syncEverythingItem| is currently animating from one
-// state to another.
-@property(nonatomic, assign) BOOL syncEverythingSwitchBeingAnimated;
-// YES if at least one switch in the personalized section is currently animating
-// from one state to another.
-@property(nonatomic, assign) BOOL personalizedSectionBeingAnimated;
-// Item to display the sync error.
-@property(nonatomic, strong) SettingsImageDetailTextItem* syncErrorItem;
-// Item for "Sync Everything" section.
-@property(nonatomic, strong, readonly) SyncSwitchItem* syncEverythingItem;
-// Collapsible item for the personalized section.
-@property(nonatomic, strong, readonly)
-    SettingsCollapsibleItem* syncPersonalizationItem;
-// All the items for the personalized section.
-@property(nonatomic, strong, readonly) ItemArray personalizedItems;
-// Item for the autocomplete wallet feature.
-@property(nonatomic, strong, readonly) SyncSwitchItem* autocompleteWalletItem;
-// Collapsible item for the non-personalized section.
-@property(nonatomic, strong, readonly)
-    SettingsCollapsibleItem* nonPersonalizedServicesItem;
 // All the items for the non-personalized section.
 @property(nonatomic, strong, readonly) ItemArray nonPersonalizedItems;
 
@@ -152,53 +125,17 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 @implementation GoogleServicesSettingsMediator
 
-@synthesize unifiedConsentService = _unifiedConsentService;
-@synthesize consumer = _consumer;
-@synthesize authService = _authService;
-@synthesize syncSetupService = _syncSetupService;
-@synthesize autocompleteWalletPreference = _autocompleteWalletPreference;
-@synthesize autocompleteSearchPreference = _autocompleteSearchPreference;
-@synthesize preloadPagesPreference = _preloadPagesPreference;
-@synthesize preloadPagesWifiOnlyPreference = _preloadPagesWifiOnlyPreference;
-@synthesize sendDataUsagePreference = _sendDataUsagePreference;
-@synthesize sendDataUsageWifiOnlyPreference = _sendDataUsageWifiOnlyPreference;
-@synthesize anonymizedDataCollectionPreference =
-    _anonymizedDataCollectionPreference;
-@synthesize syncEverythingSwitchBeingAnimated =
-    _syncEverythingSwitchBeingAnimated;
-@synthesize personalizedSectionBeingAnimated =
-    _personalizedSectionBeingAnimated;
-@synthesize syncErrorItem = _syncErrorItem;
-@synthesize syncEverythingItem = _syncEverythingItem;
-@synthesize syncPersonalizationItem = _syncPersonalizationItem;
-@synthesize personalizedItems = _personalizedItems;
-@synthesize autocompleteWalletItem = _autocompleteWalletItem;
-@synthesize nonPersonalizedServicesItem = _nonPersonalizedServicesItem;
 @synthesize nonPersonalizedItems = _nonPersonalizedItems;
 
-#pragma mark - Load model
-
-- (instancetype)
-initWithUserPrefService:(PrefService*)userPrefService
-       localPrefService:(PrefService*)localPrefService
-            syncService:(browser_sync::ProfileSyncService*)syncService
-       syncSetupService:(SyncSetupService*)syncSetupService
-  unifiedConsentService:
-      (unified_consent::UnifiedConsentService*)unifiedConsentService {
+- (instancetype)initWithUserPrefService:(PrefService*)userPrefService
+                       localPrefService:(PrefService*)localPrefService
+                       syncSetupService:(SyncSetupService*)syncSetupService {
   self = [super init];
   if (self) {
     DCHECK(userPrefService);
     DCHECK(localPrefService);
-    DCHECK(syncService);
     DCHECK(syncSetupService);
-    DCHECK(unifiedConsentService);
     _syncSetupService = syncSetupService;
-    _unifiedConsentService = unifiedConsentService;
-    _syncObserver.reset(new SyncObserverBridge(self, syncService));
-    _autocompleteWalletPreference = [[PrefBackedBoolean alloc]
-        initWithPrefService:userPrefService
-                   prefName:autofill::prefs::kAutofillWalletImportEnabled];
-    _autocompleteWalletPreference.observer = self;
     _autocompleteSearchPreference = [[PrefBackedBoolean alloc]
         initWithPrefService:userPrefService
                    prefName:prefs::kSearchSuggestEnabled];
@@ -222,213 +159,258 @@ initWithUserPrefService:(PrefService*)userPrefService
                    prefName:unified_consent::prefs::
                                 kUrlKeyedAnonymizedDataCollectionEnabled];
     _anonymizedDataCollectionPreference.observer = self;
+    _resizedAvatarCache = [[ResizedAvatarCache alloc] init];
   }
   return self;
 }
 
-// Loads SyncEverythingSectionIdentifier section.
-- (void)loadSyncEverythingSection {
-  CollectionViewModel* model = self.consumer.collectionViewModel;
-  [model addSectionWithIdentifier:SyncEverythingSectionIdentifier];
-  [model addItem:self.syncEverythingItem
-      toSectionWithIdentifier:SyncEverythingSectionIdentifier];
-  self.syncEverythingItem.on = self.isConsentGiven;
+#pragma mark - Loads identity section
+
+// Loads the identity section.
+- (void)loadIdentitySection {
+  self.accountItem = nil;
+  if (!self.isAuthenticated)
+    return;
+  [self createIdentitySection];
+  [self configureIdentityAccountItem];
 }
 
-// Loads PersonalizedSectionIdentifier section.
-- (void)loadPersonalizedSection {
-  CollectionViewModel* model = self.consumer.collectionViewModel;
-  [model addSectionWithIdentifier:PersonalizedSectionIdentifier];
-  [model setSectionIdentifier:PersonalizedSectionIdentifier
-                 collapsedKey:kGoogleServicesSettingsPersonalizedSectionKey];
-  SettingsCollapsibleItem* syncPersonalizationItem =
-      self.syncPersonalizationItem;
-  [model addItem:syncPersonalizationItem
-      toSectionWithIdentifier:PersonalizedSectionIdentifier];
-  BOOL collapsed = self.isAuthenticated ? self.isConsentGiven : YES;
-  syncPersonalizationItem.collapsed = collapsed;
-  [model setSection:PersonalizedSectionIdentifier collapsed:collapsed];
-  for (CollectionViewItem* item in self.personalizedItems) {
-    [model addItem:item toSectionWithIdentifier:PersonalizedSectionIdentifier];
-  }
-  [self updatePersonalizedSection];
+// Creates the identity sections.
+- (void)createIdentitySection {
+  TableViewModel* model = self.consumer.tableViewModel;
+  [model insertSectionWithIdentifier:IdentitySectionIdentifier atIndex:0];
+  DCHECK(!self.accountItem);
+  self.accountItem =
+      [[TableViewAccountItem alloc] initWithType:IdentityItemType];
+  [model addItem:self.accountItem
+      toSectionWithIdentifier:IdentitySectionIdentifier];
 }
+
+// Creates, removes or updates the identity section as needed. And notifies the
+// consumer.
+- (void)updateIdentitySectionAndNotifyConsumer {
+  TableViewModel* model = self.consumer.tableViewModel;
+  BOOL hasIdentitySection =
+      [model hasSectionForSectionIdentifier:IdentitySectionIdentifier];
+  if (!self.isAuthenticated) {
+    if (!hasIdentitySection) {
+      DCHECK(!self.accountItem);
+      return;
+    }
+    self.accountItem = nil;
+    NSInteger sectionIndex =
+        [model sectionForSectionIdentifier:IdentitySectionIdentifier];
+    [model removeSectionWithIdentifier:IdentitySectionIdentifier];
+    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
+    [self.consumer deleteSections:indexSet];
+    return;
+  }
+  if (!hasIdentitySection) {
+    [self createIdentitySection];
+    NSInteger sectionIndex =
+        [model sectionForSectionIdentifier:IdentitySectionIdentifier];
+    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
+    [self.consumer insertSections:indexSet];
+  }
+  [self configureIdentityAccountItem];
+  [self.consumer reloadItem:self.accountItem];
+}
+
+// Configures the identity account item.
+- (void)configureIdentityAccountItem {
+  DCHECK(self.accountItem);
+  ChromeIdentity* identity = self.authService->GetAuthenticatedIdentity();
+  DCHECK(identity);
+  self.accountItem.image =
+      [self.resizedAvatarCache resizedAvatarForIdentity:identity];
+  self.accountItem.text = identity.userFullName;
+  self.accountItem.detailText = identity.userEmail;
+}
+
+#pragma mark - Loads sync section
+
+// Loads the sync section.
+- (void)loadSyncSection {
+  self.syncErrorItem = nil;
+  TableViewModel* model = self.consumer.tableViewModel;
+  [model addSectionWithIdentifier:SyncSectionIdentifier];
+  [self updateSyncSection:NO];
+}
+
+// Updates the sync section. If |notifyConsumer| is YES, the consumer is
+// notified about model changes.
+- (void)updateSyncSection:(BOOL)notifyConsumer {
+  BOOL needsAccountSigninItemUpdate = [self updateAccountSignInItem];
+  BOOL needsSyncErrorItemsUpdate = [self updateSyncErrorItems];
+  BOOL needsManageSyncItemUpdate = [self updateManageSyncItem];
+  if (notifyConsumer &&
+      (needsAccountSigninItemUpdate || needsSyncErrorItemsUpdate ||
+       needsManageSyncItemUpdate)) {
+    TableViewModel* model = self.consumer.tableViewModel;
+    NSUInteger sectionIndex =
+        [model sectionForSectionIdentifier:SyncSectionIdentifier];
+    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
+    [self.consumer reloadSections:indexSet];
+  }
+}
+
+// Adds, removes and updates the account sign-in item in the model as needed.
+// Returns YES if the consumer should be notified.
+- (BOOL)updateAccountSignInItem {
+  TableViewModel* model = self.consumer.tableViewModel;
+  BOOL hasAccountSignInItem = [model hasItemForItemType:SignInItemType
+                                      sectionIdentifier:SyncSectionIdentifier];
+
+  if (self.isAuthenticated) {
+    self.hasRecordedSigninImpression = NO;
+    if (!hasAccountSignInItem)
+      return NO;
+    [model removeItemWithType:SignInItemType
+        fromSectionWithIdentifier:SyncSectionIdentifier];
+    return YES;
+  }
+
+  if (hasAccountSignInItem)
+    return NO;
+  AccountSignInItem* accountSignInItem =
+      [[AccountSignInItem alloc] initWithType:SignInItemType];
+  accountSignInItem.detailText =
+      GetNSString(IDS_IOS_GOOGLE_SERVICES_SETTINGS_SIGN_IN_DETAIL_TEXT);
+  [model addItem:accountSignInItem
+      toSectionWithIdentifier:SyncSectionIdentifier];
+
+  if (!self.hasRecordedSigninImpression) {
+    // Once the Settings are open, this button impression will at most be
+    // recorded once per dialog displayed and per sign-in.
+    signin_metrics::RecordSigninImpressionUserActionForAccessPoint(
+        signin_metrics::AccessPoint::ACCESS_POINT_GOOGLE_SERVICES_SETTINGS);
+    self.hasRecordedSigninImpression = YES;
+  }
+  return YES;
+}
+
+// Adds, removes and updates the sync error item in the model as needed. Returns
+// YES if the consumer should be notified.
+- (BOOL)updateSyncErrorItems {
+  TableViewModel* model = self.consumer.tableViewModel;
+  BOOL hasError = NO;
+  ItemType type;
+
+  if (self.isAuthenticated) {
+    switch (self.syncSetupService->GetSyncServiceState()) {
+      case SyncSetupService::kSyncServiceUnrecoverableError:
+        type = RestartAuthenticationFlowErrorItemType;
+        hasError = YES;
+        break;
+      case SyncSetupService::kSyncServiceSignInNeedsUpdate:
+        type = ReauthDialogAsSyncIsInAuthErrorItemType;
+        hasError = YES;
+        break;
+      case SyncSetupService::kSyncServiceNeedsPassphrase:
+        type = ShowPassphraseDialogErrorItemType;
+        hasError = YES;
+        break;
+      case SyncSetupService::kNoSyncServiceError:
+      case SyncSetupService::kSyncServiceCouldNotConnect:
+      case SyncSetupService::kSyncServiceServiceUnavailable:
+        break;
+    }
+  }
+
+  if ((!hasError && !self.syncErrorItem) ||
+      (hasError && self.syncErrorItem && type == self.syncErrorItem.type)) {
+    // Nothing to update.
+    return NO;
+  }
+
+  if (self.syncErrorItem) {
+    // Remove the previous sync error item, since it is either the wrong error
+    // (if hasError is YES), or there is no error anymore.
+    [model removeItemWithType:self.syncErrorItem.type
+        fromSectionWithIdentifier:SyncSectionIdentifier];
+    self.syncErrorItem = nil;
+    if (!hasError)
+      return YES;
+  }
+  // Add the sync error item and its section.
+  self.syncErrorItem = [self createSyncErrorItemWithItemType:type];
+  [model insertItem:self.syncErrorItem
+      inSectionWithIdentifier:SyncSectionIdentifier
+                      atIndex:0];
+  return YES;
+}
+
+// Reloads the manage sync item, and returns YES if the section should be
+// reloaded.
+- (BOOL)updateManageSyncItem {
+  TableViewModel* model = self.consumer.tableViewModel;
+  BOOL hasManageSyncItem = [model hasItemForItemType:ManageSyncItemType
+                                   sectionIdentifier:SyncSectionIdentifier];
+  if (self.isAuthenticated) {
+    if (hasManageSyncItem)
+      return NO;
+    SettingsMultilineDetailItem* item =
+        [[SettingsMultilineDetailItem alloc] initWithType:ManageSyncItemType];
+    item.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    item.text = GetNSString(IDS_IOS_MANAGE_SYNC_SETTINGS_TITLE);
+    [model addItem:item toSectionWithIdentifier:SyncSectionIdentifier];
+    return YES;
+  }
+  if (!hasManageSyncItem)
+    return NO;
+  [model removeItemWithType:ManageSyncItemType
+      fromSectionWithIdentifier:SyncSectionIdentifier];
+  return YES;
+}
+
+#pragma mark - Load non personalized section
 
 // Loads NonPersonalizedSectionIdentifier section.
 - (void)loadNonPersonalizedSection {
-  CollectionViewModel* model = self.consumer.collectionViewModel;
+  TableViewModel* model = self.consumer.tableViewModel;
   [model addSectionWithIdentifier:NonPersonalizedSectionIdentifier];
-  [model setSectionIdentifier:NonPersonalizedSectionIdentifier
-                 collapsedKey:kGoogleServicesSettingsNonPersonalizedSectionKey];
-  SettingsCollapsibleItem* nonPersonalizedServicesItem =
-      self.nonPersonalizedServicesItem;
-  [model addItem:nonPersonalizedServicesItem
-      toSectionWithIdentifier:NonPersonalizedSectionIdentifier];
-  BOOL collapsed = self.isAuthenticated ? self.isConsentGiven : NO;
-  nonPersonalizedServicesItem.collapsed = collapsed;
-  [model setSection:NonPersonalizedSectionIdentifier collapsed:collapsed];
-  for (CollectionViewItem* item in self.nonPersonalizedItems) {
+  for (TableViewItem* item in self.nonPersonalizedItems) {
     [model addItem:item
         toSectionWithIdentifier:NonPersonalizedSectionIdentifier];
   }
   [self updateNonPersonalizedSection];
 }
 
+// Updates the non-personalized section according to the user consent.
+- (void)updateNonPersonalizedSection {
+  for (TableViewItem* item in self.nonPersonalizedItems) {
+    ItemType type = static_cast<ItemType>(item.type);
+    SyncSwitchItem* switchItem =
+        base::mac::ObjCCastStrict<SyncSwitchItem>(item);
+    switch (type) {
+      case AutocompleteSearchesAndURLsItemType:
+        switchItem.on = self.autocompleteSearchPreference.value;
+        break;
+      case PreloadPagesItemType:
+        switchItem.on = self.preloadPagesPreference.value;
+        break;
+      case ImproveChromeItemType:
+        switchItem.on = self.sendDataUsagePreference.value;
+        break;
+      case BetterSearchAndBrowsingItemType:
+        switchItem.on = self.anonymizedDataCollectionPreference.value;
+        break;
+      case IdentityItemType:
+      case SignInItemType:
+      case RestartAuthenticationFlowErrorItemType:
+      case ReauthDialogAsSyncIsInAuthErrorItemType:
+      case ShowPassphraseDialogErrorItemType:
+      case ManageSyncItemType:
+        NOTREACHED();
+        break;
+    }
+  }
+}
+
 #pragma mark - Properties
 
 - (BOOL)isAuthenticated {
   return self.authService->IsAuthenticated();
-}
-
-- (BOOL)isConsentGiven {
-  return NO;
-}
-
-- (SettingsImageDetailTextItem*)syncErrorItem {
-  if (!_syncErrorItem) {
-    _syncErrorItem =
-        [[SettingsImageDetailTextItem alloc] initWithType:SyncErrorItemType];
-    {
-      // TODO(crbug.com/889470): Needs asset for the sync error.
-      CGSize size = CGSizeMake(40, 40);
-      UIGraphicsBeginImageContextWithOptions(size, YES, 0);
-      [[UIColor grayColor] setFill];
-      UIRectFill(CGRectMake(0, 0, size.width, size.height));
-      _syncErrorItem.image = UIGraphicsGetImageFromCurrentImageContext();
-      UIGraphicsEndImageContext();
-    }
-  }
-  return _syncErrorItem;
-}
-
-- (CollectionViewItem*)syncEverythingItem {
-  if (!_syncEverythingItem) {
-    _syncEverythingItem = [self
-        switchItemWithItemType:SyncEverythingItemType
-                  textStringID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_EVERYTHING
-                detailStringID:0
-                     commandID:
-                         GoogleServicesSettingsCommandIDToggleSyncEverything
-                      dataType:0];
-  }
-  return _syncEverythingItem;
-}
-
-- (SettingsCollapsibleItem*)syncPersonalizationItem {
-  if (!_syncPersonalizationItem) {
-    _syncPersonalizationItem = [self
-        collapsibleItemWithItemType:SyncPersonalizationItemType
-                       textStringID:
-                           IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_PERSONALIZATION_TEXT
-                     detailStringID:
-                         IDS_IOS_GOOGLE_SERVICES_SETTINGS_SYNC_PERSONALIZATION_DETAIL];
-  }
-  return _syncPersonalizationItem;
-}
-
-- (ItemArray)personalizedItems {
-  if (!_personalizedItems) {
-    SyncSwitchItem* syncBookmarksItem = [self
-        switchItemWithItemType:SyncBookmarksItemType
-                  textStringID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_BOOKMARKS_TEXT
-                detailStringID:0
-                     commandID:GoogleServicesSettingsCommandIDToggleDataTypeSync
-                      dataType:SyncSetupService::kSyncBookmarks];
-    SyncSwitchItem* syncHistoryItem = [self
-        switchItemWithItemType:SyncHistoryItemType
-                  textStringID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_HISTORY_TEXT
-                detailStringID:0
-                     commandID:GoogleServicesSettingsCommandIDToggleDataTypeSync
-                      dataType:SyncSetupService::kSyncOmniboxHistory];
-    SyncSwitchItem* syncPasswordsItem = [self
-        switchItemWithItemType:SyncPasswordsItemType
-                  textStringID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_PASSWORD_TEXT
-                detailStringID:0
-                     commandID:GoogleServicesSettingsCommandIDToggleDataTypeSync
-                      dataType:SyncSetupService::kSyncPasswords];
-    SyncSwitchItem* syncOpenTabsItem = [self
-        switchItemWithItemType:SyncOpenTabsItemType
-                  textStringID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_OPENTABS_TEXT
-                detailStringID:0
-                     commandID:GoogleServicesSettingsCommandIDToggleDataTypeSync
-                      dataType:SyncSetupService::kSyncOpenTabs];
-    SyncSwitchItem* syncAutofillItem = [self
-        switchItemWithItemType:SyncAutofillItemType
-                  textStringID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOFILL_TEXT
-                detailStringID:0
-                     commandID:GoogleServicesSettingsCommandIDToggleDataTypeSync
-                      dataType:SyncSetupService::kSyncAutofill];
-    SyncSwitchItem* syncSettingsItem = [self
-        switchItemWithItemType:SyncAutofillItemType
-                  textStringID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_SETTINGS_TEXT
-                detailStringID:0
-                     commandID:GoogleServicesSettingsCommandIDToggleDataTypeSync
-                      dataType:SyncSetupService::kSyncPreferences];
-    SyncSwitchItem* syncReadingListItem = [self
-        switchItemWithItemType:SyncReadingListItemType
-                  textStringID:
-                      IDS_IOS_GOOGLE_SERVICES_SETTINGS_READING_LIST_TEXT
-                detailStringID:0
-                     commandID:GoogleServicesSettingsCommandIDToggleDataTypeSync
-                      dataType:SyncSetupService::kSyncReadingList];
-    CollectionViewTextItem* syncGoogleActivityControlsItem = [self
-        textItemWithItemType:SyncGoogleActivityControlsItemType
-                textStringID:
-                    IDS_IOS_GOOGLE_SERVICES_SETTINGS_GOOGLE_ACTIVITY_CONTROL_TEXT
-              detailStringID:
-                  IDS_IOS_GOOGLE_SERVICES_SETTINGS_GOOGLE_ACTIVITY_CONTROL_DETAIL
-               accessoryType:MDCCollectionViewCellAccessoryDisclosureIndicator
-                   commandID:
-                       GoogleServicesSettingsCommandIDOpenGoogleActivityControlsDialog];
-    CollectionViewTextItem* encryptionItem = [self
-        textItemWithItemType:EncryptionItemType
-                textStringID:IDS_IOS_GOOGLE_SERVICES_SETTINGS_ENCRYPTION_TEXT
-              detailStringID:0
-               accessoryType:MDCCollectionViewCellAccessoryDisclosureIndicator
-                   commandID:
-                       GoogleServicesSettingsCommandIDOpenEncryptionDialog];
-    CollectionViewTextItem* manageSyncedDataItem = [self
-        textItemWithItemType:ManageSyncedDataItemType
-                textStringID:
-                    IDS_IOS_GOOGLE_SERVICES_SETTINGS_MANAGED_SYNC_DATA_TEXT
-              detailStringID:0
-               accessoryType:MDCCollectionViewCellAccessoryNone
-                   commandID:
-                       GoogleServicesSettingsCommandIDOpenManageSyncedDataWebPage];
-    _personalizedItems = @[
-      syncBookmarksItem, syncHistoryItem, syncPasswordsItem, syncOpenTabsItem,
-      syncAutofillItem, syncSettingsItem, syncReadingListItem,
-      self.autocompleteWalletItem, syncGoogleActivityControlsItem,
-      encryptionItem, manageSyncedDataItem
-    ];
-  }
-  return _personalizedItems;
-}
-
-- (SyncSwitchItem*)autocompleteWalletItem {
-  if (!_autocompleteWalletItem) {
-    _autocompleteWalletItem = [self
-        switchItemWithItemType:AutocompleteWalletItemType
-                  textStringID:
-                      IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOCOMPLETE_WALLET
-                detailStringID:0
-                     commandID:
-                         GoogleServicesSettingsCommandIDAutocompleteWalletService
-                      dataType:0];
-  }
-  return _autocompleteWalletItem;
-}
-
-- (SettingsCollapsibleItem*)nonPersonalizedServicesItem {
-  if (!_nonPersonalizedServicesItem) {
-    _nonPersonalizedServicesItem = [self
-        collapsibleItemWithItemType:NonPersonalizedServicesItemType
-                       textStringID:
-                           IDS_IOS_GOOGLE_SERVICES_SETTINGS_NON_PERSONALIZED_SERVICES_TEXT
-                     detailStringID:
-                         IDS_IOS_GOOGLE_SERVICES_SETTINGS_NON_PERSONALIZED_SERVICES_DETAIL];
-  }
-  return _nonPersonalizedServicesItem;
 }
 
 - (ItemArray)nonPersonalizedItems {
@@ -439,35 +421,27 @@ initWithUserPrefService:(PrefService*)userPrefService
                       IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOCOMPLETE_SEARCHES_AND_URLS_TEXT
                 detailStringID:
                     IDS_IOS_GOOGLE_SERVICES_SETTINGS_AUTOCOMPLETE_SEARCHES_AND_URLS_DETAIL
-                     commandID:
-                         GoogleServicesSettingsCommandIDToggleAutocompleteSearchesService
                       dataType:0];
-    SyncSwitchItem* preloadPagesItem = [self
-        switchItemWithItemType:PreloadPagesItemType
-                  textStringID:
-                      IDS_IOS_GOOGLE_SERVICES_SETTINGS_PRELOAD_PAGES_TEXT
-                detailStringID:
-                    IDS_IOS_GOOGLE_SERVICES_SETTINGS_PRELOAD_PAGES_DETAIL
-                     commandID:
-                         GoogleServicesSettingsCommandIDTogglePreloadPagesService
-                      dataType:0];
-    SyncSwitchItem* improveChromeItem = [self
-        switchItemWithItemType:ImproveChromeItemType
-                  textStringID:
-                      IDS_IOS_GOOGLE_SERVICES_SETTINGS_IMPROVE_CHROME_TEXT
-                detailStringID:
-                    IDS_IOS_GOOGLE_SERVICES_SETTINGS_IMPROVE_CHROME_DETAIL
-                     commandID:
-                         GoogleServicesSettingsCommandIDToggleImproveChromeService
-                      dataType:0];
+    SyncSwitchItem* preloadPagesItem =
+        [self switchItemWithItemType:PreloadPagesItemType
+                        textStringID:
+                            IDS_IOS_GOOGLE_SERVICES_SETTINGS_PRELOAD_PAGES_TEXT
+                      detailStringID:
+                          IDS_IOS_GOOGLE_SERVICES_SETTINGS_PRELOAD_PAGES_DETAIL
+                            dataType:0];
+    SyncSwitchItem* improveChromeItem =
+        [self switchItemWithItemType:ImproveChromeItemType
+                        textStringID:
+                            IDS_IOS_GOOGLE_SERVICES_SETTINGS_IMPROVE_CHROME_TEXT
+                      detailStringID:
+                          IDS_IOS_GOOGLE_SERVICES_SETTINGS_IMPROVE_CHROME_DETAIL
+                            dataType:0];
     SyncSwitchItem* betterSearchAndBrowsingItemType = [self
         switchItemWithItemType:BetterSearchAndBrowsingItemType
                   textStringID:
                       IDS_IOS_GOOGLE_SERVICES_SETTINGS_BETTER_SEARCH_AND_BROWSING_TEXT
                 detailStringID:
                     IDS_IOS_GOOGLE_SERVICES_SETTINGS_BETTER_SEARCH_AND_BROWSING_DETAIL
-                     commandID:
-                         GoogleServicesSettingsCommandIDToggleBetterSearchAndBrowsingService
                       dataType:0];
     _nonPersonalizedItems = @[
       autocompleteSearchesAndURLsItem, preloadPagesItem, improveChromeItem,
@@ -479,196 +453,37 @@ initWithUserPrefService:(PrefService*)userPrefService
 
 #pragma mark - Private
 
-// Creates a SettingsCollapsibleItem instance.
-- (SettingsCollapsibleItem*)collapsibleItemWithItemType:(NSInteger)itemType
-                                           textStringID:(int)textStringID
-                                         detailStringID:(int)detailStringID {
-  SettingsCollapsibleItem* collapsibleItem =
-      [[SettingsCollapsibleItem alloc] initWithType:itemType];
-  collapsibleItem.text = GetNSString(textStringID);
-  collapsibleItem.numberOfTextLines = 0;
-  collapsibleItem.detailText = GetNSString(detailStringID);
-  collapsibleItem.numberOfDetailTextLines = 0;
-  return collapsibleItem;
-}
-
 // Creates a SyncSwitchItem instance.
 - (SyncSwitchItem*)switchItemWithItemType:(NSInteger)itemType
                              textStringID:(int)textStringID
                            detailStringID:(int)detailStringID
-                                commandID:(NSInteger)commandID
                                  dataType:(NSInteger)dataType {
   SyncSwitchItem* switchItem = [[SyncSwitchItem alloc] initWithType:itemType];
   switchItem.text = GetNSString(textStringID);
   if (detailStringID)
     switchItem.detailText = GetNSString(detailStringID);
-  switchItem.commandID = commandID;
   switchItem.dataType = dataType;
   return switchItem;
 }
 
-// Creates a CollectionViewTextItem instance.
-- (CollectionViewTextItem*)
-textItemWithItemType:(NSInteger)itemType
-        textStringID:(int)textStringID
-      detailStringID:(int)detailStringID
-       accessoryType:(MDCCollectionViewCellAccessoryType)accessoryType
-           commandID:(NSInteger)commandID {
-  CollectionViewTextItem* textItem =
-      [[CollectionViewTextItem alloc] initWithType:itemType];
-  textItem.text = GetNSString(textStringID);
-  textItem.accessoryType = accessoryType;
-  if (detailStringID)
-    textItem.detailText = GetNSString(detailStringID);
-  textItem.commandID = commandID;
-  return textItem;
-}
-
-// Reloads the sync feedback section. If |notifyConsummer| is YES, the consomer
-// is notified to add or remove the sync error section.
-- (void)updateSyncErrorSectionAndNotifyConsumer:(BOOL)notifyConsummer {
-  CollectionViewModel* model = self.consumer.collectionViewModel;
-  GoogleServicesSettingsCommandID commandID =
-      GoogleServicesSettingsCommandIDNoOp;
-  if (self.isAuthenticated) {
-    switch (self.syncSetupService->GetSyncServiceState()) {
-      case SyncSetupService::kSyncServiceUnrecoverableError:
-        commandID = GoogleServicesSettingsCommandIDRestartAuthenticationFlow;
-        break;
-      case SyncSetupService::kSyncServiceSignInNeedsUpdate:
-        commandID = GoogleServicesSettingsReauthDialogAsSyncIsInAuthError;
-        break;
-      case SyncSetupService::kSyncServiceNeedsPassphrase:
-        commandID = GoogleServicesSettingsCommandIDShowPassphraseDialog;
-        break;
-      case SyncSetupService::kNoSyncServiceError:
-      case SyncSetupService::kSyncServiceCouldNotConnect:
-      case SyncSetupService::kSyncServiceServiceUnavailable:
-        break;
-    }
-  }
-  if (commandID == GoogleServicesSettingsCommandIDNoOp) {
-    // No action to do, therefore the sync error section should not be visibled.
-    if ([model hasSectionForSectionIdentifier:SyncFeedbackSectionIdentifier]) {
-      // Remove the sync error item if it exists.
-      NSUInteger sectionIndex =
-          [model sectionForSectionIdentifier:SyncFeedbackSectionIdentifier];
-      [model removeSectionWithIdentifier:SyncFeedbackSectionIdentifier];
-      if (notifyConsummer) {
-        NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
-        [self.consumer deleteSections:indexSet];
-      }
-    }
-    return;
-  }
-  // Add the sync error item and its section (if it doesn't already exist) and
-  // reload them.
-  BOOL sectionAdded = NO;
-  if (![model hasSectionForSectionIdentifier:SyncFeedbackSectionIdentifier]) {
-    // Adding the sync error item and its section.
-    [model insertSectionWithIdentifier:SyncFeedbackSectionIdentifier atIndex:0];
-    [model addItem:self.syncErrorItem
-        toSectionWithIdentifier:SyncFeedbackSectionIdentifier];
-    sectionAdded = YES;
-  }
-  NSUInteger sectionIndex =
-      [model sectionForSectionIdentifier:SyncFeedbackSectionIdentifier];
-  self.syncErrorItem.text = l10n_util::GetNSString(IDS_IOS_SYNC_ERROR_TITLE);
-  self.syncErrorItem.detailText =
+// Creates a item to display the sync error.
+- (SettingsImageDetailTextItem*)createSyncErrorItemWithItemType:
+    (NSInteger)itemType {
+  SettingsImageDetailTextItem* syncErrorItem =
+      [[SettingsImageDetailTextItem alloc] initWithType:itemType];
+  syncErrorItem.text = GetNSString(IDS_IOS_SYNC_ERROR_TITLE);
+  syncErrorItem.detailText =
       GetSyncErrorDescriptionForSyncSetupService(self.syncSetupService);
-  self.syncErrorItem.commandID = commandID;
-  if (notifyConsummer) {
-    if (sectionAdded) {
-      NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
-      [self.consumer insertSections:indexSet];
-    } else {
-      [self.consumer reloadItem:self.syncErrorItem];
-    }
+  {
+    // TODO(crbug.com/889470): Needs asset for the sync error.
+    CGSize size = CGSizeMake(40, 40);
+    UIGraphicsBeginImageContextWithOptions(size, YES, 0);
+    [[UIColor grayColor] setFill];
+    UIRectFill(CGRectMake(0, 0, size.width, size.height));
+    syncErrorItem.image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
   }
-}
-
-// Updates the personalized section according to the user consent.
-- (void)updatePersonalizedSection {
-  BOOL enabled = self.isAuthenticated && !self.isConsentGiven;
-  [self updateSectionWithCollapsibleItem:self.syncPersonalizationItem
-                                   items:self.personalizedItems
-                  collapsibleItemEnabled:enabled
-                       switchItemEnabled:enabled
-                         textItemEnabled:self.isAuthenticated];
-  syncer::ModelType autofillModelType =
-      _syncSetupService->GetModelType(SyncSetupService::kSyncAutofill);
-  BOOL isAutofillOn = _syncSetupService->IsDataTypePreferred(autofillModelType);
-  self.autocompleteWalletItem.enabled = enabled && isAutofillOn;
-  if (!isAutofillOn) {
-    // Autocomplete wallet item should be disabled when autofill is off.
-    self.autocompleteWalletItem.on = false;
-  }
-}
-
-// Updates the non-personalized section according to the user consent.
-- (void)updateNonPersonalizedSection {
-  BOOL enabled = !self.isAuthenticated || !self.isConsentGiven;
-  [self updateSectionWithCollapsibleItem:self.nonPersonalizedServicesItem
-                                   items:self.nonPersonalizedItems
-                  collapsibleItemEnabled:enabled
-                       switchItemEnabled:enabled
-                         textItemEnabled:enabled];
-}
-
-// Updates |collapsibleItem| and |items| using |collapsibleItemEnabled|,
-// |switchItemEnabled| and |textItemEnabled|.
-- (void)updateSectionWithCollapsibleItem:
-            (SettingsCollapsibleItem*)collapsibleItem
-                                   items:(ItemArray)items
-                  collapsibleItemEnabled:(BOOL)collapsibleItemEnabled
-                       switchItemEnabled:(BOOL)switchItemEnabled
-                         textItemEnabled:(BOOL)textItemEnabled {
-  UIColor* textColor =
-      collapsibleItemEnabled ? nil : [[MDCPalette greyPalette] tint500];
-  collapsibleItem.textColor = textColor;
-  for (CollectionViewItem* item in items) {
-    if ([item isKindOfClass:[SyncSwitchItem class]]) {
-      SyncSwitchItem* switchItem = base::mac::ObjCCast<SyncSwitchItem>(item);
-      switch (switchItem.commandID) {
-        case GoogleServicesSettingsCommandIDToggleDataTypeSync: {
-          SyncSetupService::SyncableDatatype dataType =
-              static_cast<SyncSetupService::SyncableDatatype>(
-                  switchItem.dataType);
-          syncer::ModelType modelType =
-              self.syncSetupService->GetModelType(dataType);
-          switchItem.on = self.syncSetupService->IsDataTypePreferred(modelType);
-          break;
-        }
-        case GoogleServicesSettingsCommandIDAutocompleteWalletService:
-          switchItem.on = self.autocompleteWalletPreference.value;
-          break;
-        case GoogleServicesSettingsCommandIDToggleAutocompleteSearchesService:
-          switchItem.on = self.autocompleteSearchPreference.value;
-          break;
-        case GoogleServicesSettingsCommandIDTogglePreloadPagesService:
-          switchItem.on = self.preloadPagesPreference.value;
-          break;
-        case GoogleServicesSettingsCommandIDToggleImproveChromeService:
-          switchItem.on = self.sendDataUsagePreference.value;
-          break;
-        case GoogleServicesSettingsCommandIDToggleBetterSearchAndBrowsingService:
-          switchItem.on = self.anonymizedDataCollectionPreference.value;
-          break;
-        case GoogleServicesSettingsCommandIDOpenGoogleActivityControlsDialog:
-        case GoogleServicesSettingsCommandIDOpenEncryptionDialog:
-        case GoogleServicesSettingsCommandIDOpenManageSyncedDataWebPage:
-          NOTREACHED();
-          break;
-      }
-      switchItem.enabled = switchItemEnabled;
-    } else if ([item isKindOfClass:[CollectionViewTextItem class]]) {
-      CollectionViewTextItem* textItem =
-          base::mac::ObjCCast<CollectionViewTextItem>(item);
-      textItem.enabled = textItemEnabled;
-    } else {
-      NOTREACHED();
-    }
-  }
+  return syncErrorItem;
 }
 
 #pragma mark - GoogleServicesSettingsViewControllerModelDelegate
@@ -676,91 +491,117 @@ textItemWithItemType:(NSInteger)itemType
 - (void)googleServicesSettingsViewControllerLoadModel:
     (GoogleServicesSettingsViewController*)controller {
   DCHECK_EQ(self.consumer, controller);
-  self.consumer.collectionViewModel.collapsableMode =
-      ListModelCollapsableModeFirstCell;
-  if (self.isAuthenticated)
-    [self loadSyncEverythingSection];
-  [self loadPersonalizedSection];
+  [self loadIdentitySection];
+  [self loadSyncSection];
   [self loadNonPersonalizedSection];
-  [self updateSyncErrorSectionAndNotifyConsumer:NO];
+  _identityManagerObserverBridge.reset(
+      new identity::IdentityManagerObserverBridge(self.identityManager, self));
+  DCHECK(self.syncService);
+  _syncObserver.reset(new SyncObserverBridge(self, self.syncService));
+  _identityServiceObserver.reset(new ChromeIdentityServiceObserverBridge(self));
 }
 
 #pragma mark - GoogleServicesSettingsServiceDelegate
 
-- (void)toggleSyncEverythingWithValue:(BOOL)value {
-  if (value == self.isConsentGiven)
-    return;
-  // Mark the switch has being animated to avoid being reloaded.
-  base::AutoReset<BOOL> autoReset(&_syncEverythingSwitchBeingAnimated, YES);
-}
-
-- (void)toggleSyncDataSync:(NSInteger)dataTypeInt withValue:(BOOL)value {
-  base::AutoReset<BOOL> autoReset(&_personalizedSectionBeingAnimated, YES);
-  SyncSetupService::SyncableDatatype dataType =
-      static_cast<SyncSetupService::SyncableDatatype>(dataTypeInt);
-  syncer::ModelType modelType = self.syncSetupService->GetModelType(dataType);
-  self.syncSetupService->SetDataTypeEnabled(modelType, value);
-}
-
-- (void)toggleAutocompleteWalletServiceWithValue:(BOOL)value {
-  self.autocompleteWalletPreference.value = value;
-}
-
-- (void)toggleAutocompleteSearchesServiceWithValue:(BOOL)value {
-  self.autocompleteSearchPreference.value = value;
-}
-
-- (void)togglePreloadPagesServiceWithValue:(BOOL)value {
-  self.preloadPagesPreference.value = value;
-  if (value) {
-    // Should be wifi only, until https://crbug.com/872101 is fixed.
-    self.preloadPagesWifiOnlyPreference.value = YES;
+- (void)toggleSwitchItem:(SyncSwitchItem*)switchItem withValue:(BOOL)value {
+  ItemType type = static_cast<ItemType>(switchItem.type);
+  switch (type) {
+    case AutocompleteSearchesAndURLsItemType:
+      self.autocompleteSearchPreference.value = value;
+      break;
+    case PreloadPagesItemType:
+      self.preloadPagesPreference.value = value;
+      if (value) {
+        // Should be wifi only, until https://crbug.com/872101 is fixed.
+        self.preloadPagesWifiOnlyPreference.value = YES;
+      }
+      break;
+    case ImproveChromeItemType:
+      self.sendDataUsagePreference.value = value;
+      if (value) {
+        // Should be wifi only, until https://crbug.com/872101 is fixed.
+        self.sendDataUsageWifiOnlyPreference.value = YES;
+      }
+      break;
+    case BetterSearchAndBrowsingItemType:
+      self.anonymizedDataCollectionPreference.value = value;
+      break;
+    case IdentityItemType:
+    case SignInItemType:
+    case RestartAuthenticationFlowErrorItemType:
+    case ReauthDialogAsSyncIsInAuthErrorItemType:
+    case ShowPassphraseDialogErrorItemType:
+    case ManageSyncItemType:
+      NOTREACHED();
+      break;
   }
 }
 
-- (void)toggleImproveChromeServiceWithValue:(BOOL)value {
-  self.sendDataUsagePreference.value = value;
-  if (value) {
-    // Should be wifi only, until https://crbug.com/872101 is fixed.
-    self.sendDataUsageWifiOnlyPreference.value = YES;
+- (void)didSelectItem:(TableViewItem*)item {
+  ItemType type = static_cast<ItemType>(item.type);
+  switch (type) {
+    case IdentityItemType:
+      [self.commandHandler openAccountSettings];
+      break;
+    case SignInItemType:
+      [self.commandHandler showSignIn];
+      break;
+    case RestartAuthenticationFlowErrorItemType:
+      [self.commandHandler restartAuthenticationFlow];
+      break;
+    case ReauthDialogAsSyncIsInAuthErrorItemType:
+      [self.commandHandler openReauthDialogAsSyncIsInAuthError];
+      break;
+    case ShowPassphraseDialogErrorItemType:
+      [self.commandHandler openPassphraseDialog];
+      break;
+    case ManageSyncItemType:
+      [self.commandHandler openManageSyncSettings];
+      break;
+    case AutocompleteSearchesAndURLsItemType:
+    case PreloadPagesItemType:
+    case ImproveChromeItemType:
+    case BetterSearchAndBrowsingItemType:
+      break;
   }
-}
-
-- (void)toggleBetterSearchAndBrowsingServiceWithValue:(BOOL)value {
-  self.anonymizedDataCollectionPreference.value = value;
 }
 
 #pragma mark - SyncObserverModelBridge
 
 - (void)onSyncStateChanged {
-  [self updatePersonalizedSection];
-  // TODO(crbug.com/899791): Should reloads only the updated items (instead of
-  // reload the full section), and get ride of
-  // |self.personalizedSectionBeingAnimated|. This will get a smoother animation
-  // for "Autocomplete wall" switch switch when being tapped by the user.
-  if (!self.personalizedSectionBeingAnimated) {
-    CollectionViewModel* model = self.consumer.collectionViewModel;
-    NSMutableIndexSet* sectionIndexToReload = [NSMutableIndexSet indexSet];
-    [sectionIndexToReload addIndex:[model sectionForSectionIdentifier:
-                                              PersonalizedSectionIdentifier]];
-    [self.consumer reloadSections:sectionIndexToReload];
-  } else {
-    // |self.autocompleteWalletItem| needs to be reloaded in case the autofill
-    // data type changed state.
-    [self.consumer reloadItem:self.autocompleteWalletItem];
-  }
-  [self updateSyncErrorSectionAndNotifyConsumer:YES];
+  [self updateSyncSection:YES];
+}
+#pragma mark - IdentityManagerObserverBridgeDelegate
+
+- (void)onPrimaryAccountSet:(const AccountInfo&)primaryAccountInfo {
+  [self updateSyncSection:YES];
+  [self updateIdentitySectionAndNotifyConsumer];
+}
+
+- (void)onPrimaryAccountCleared:(const AccountInfo&)previousPrimaryAccountInfo {
+  [self updateSyncSection:YES];
+  [self updateIdentitySectionAndNotifyConsumer];
 }
 
 #pragma mark - BooleanObserver
 
 - (void)booleanDidChange:(id<ObservableBoolean>)observableBoolean {
   [self updateNonPersonalizedSection];
-  CollectionViewModel* model = self.consumer.collectionViewModel;
+  TableViewModel* model = self.consumer.tableViewModel;
   NSUInteger index =
       [model sectionForSectionIdentifier:NonPersonalizedSectionIdentifier];
   NSIndexSet* sectionIndexToReload = [NSIndexSet indexSetWithIndex:index];
   [self.consumer reloadSections:sectionIndexToReload];
+}
+
+#pragma mark - ChromeIdentityServiceObserver
+
+- (void)profileUpdate:(ChromeIdentity*)identity {
+  [self updateIdentitySectionAndNotifyConsumer];
+}
+
+- (void)chromeIdentityServiceWillBeDestroyed {
+  _identityServiceObserver.reset();
 }
 
 @end

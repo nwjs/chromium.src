@@ -187,9 +187,9 @@ class LayerTreeHostImplTest : public testing::Test,
       std::unique_ptr<MutatorEvents> events) override {}
   bool IsInsideDraw() override { return false; }
   void RenewTreePriority() override {}
-  void PostDelayedAnimationTaskOnImplThread(const base::Closure& task,
+  void PostDelayedAnimationTaskOnImplThread(base::OnceClosure task,
                                             base::TimeDelta delay) override {
-    animation_task_ = task;
+    animation_task_ = std::move(task);
     requested_animation_delay_ = delay;
   }
   void DidActivateSyncTree() override {
@@ -224,6 +224,8 @@ class LayerTreeHostImplTest : public testing::Test,
       uint32_t frame_token,
       std::vector<LayerTreeHost::PresentationTimeCallback> callbacks,
       const gfx::PresentationFeedback& feedback) override {}
+  void DidGenerateLocalSurfaceIdAllocationOnImplThread(
+      const viz::LocalSurfaceIdAllocation& allocation) override {}
 
   void set_reduce_memory_result(bool reduce_memory_result) {
     reduce_memory_result_ = reduce_memory_result;
@@ -276,7 +278,7 @@ class LayerTreeHostImplTest : public testing::Test,
   }
 
   void SetupRootLayerImpl(std::unique_ptr<LayerImpl> root) {
-    root->SetPosition(gfx::PointF());
+    root->test_properties()->position = gfx::PointF();
     root->SetBounds(gfx::Size(10, 10));
     root->SetDrawsContent(true);
     root->draw_properties().visible_layer_rect = gfx::Rect(0, 0, 10, 10);
@@ -359,7 +361,7 @@ class LayerTreeHostImplTest : public testing::Test,
 
     std::unique_ptr<LayerImpl> root = LayerImpl::Create(layer_tree_impl, 1);
     root->SetBounds(content_size);
-    root->SetPosition(gfx::PointF());
+    root->test_properties()->position = gfx::PointF();
     root->test_properties()->force_render_surface = true;
 
     std::unique_ptr<LayerImpl> inner_scroll =
@@ -384,7 +386,7 @@ class LayerTreeHostImplTest : public testing::Test,
     inner_scroll->SetElementId(
         LayerIdToElementIdForTesting(inner_scroll->id()));
     inner_scroll->SetBounds(content_size);
-    inner_scroll->SetPosition(gfx::PointF());
+    inner_scroll->test_properties()->position = gfx::PointF();
 
     std::unique_ptr<LayerImpl> outer_clip =
         LayerImpl::Create(layer_tree_impl, kOuterViewportClipLayerId);
@@ -402,13 +404,13 @@ class LayerTreeHostImplTest : public testing::Test,
         ->scroll_tree.UpdateScrollOffsetBaseForTesting(
             outer_scroll->element_id(), gfx::ScrollOffset());
     outer_scroll->SetBounds(content_size);
-    outer_scroll->SetPosition(gfx::PointF());
+    outer_scroll->test_properties()->position = gfx::PointF();
 
     std::unique_ptr<LayerImpl> contents =
         LayerImpl::Create(layer_tree_impl, kContentLayerId);
     contents->SetDrawsContent(true);
     contents->SetBounds(content_size);
-    contents->SetPosition(gfx::PointF());
+    contents->test_properties()->position = gfx::PointF();
 
     outer_scroll->test_properties()->AddChild(std::move(contents));
     outer_clip->test_properties()->AddChild(std::move(outer_scroll));
@@ -447,7 +449,7 @@ class LayerTreeHostImplTest : public testing::Test,
     host_impl_->active_tree()->SetDeviceViewportSize(content_size);
     std::unique_ptr<LayerImpl> root = LayerImpl::Create(layer_tree_impl, 1);
     root->SetBounds(content_size);
-    root->SetPosition(gfx::PointF());
+    root->test_properties()->position = gfx::PointF();
 
     std::unique_ptr<LayerImpl> scroll = LayerImpl::Create(layer_tree_impl, 3);
     scroll->SetBounds(scroll_content_size);
@@ -459,14 +461,14 @@ class LayerTreeHostImplTest : public testing::Test,
         SolidColorScrollbarLayerImpl::Create(layer_tree_impl, 4, VERTICAL, 10,
                                              0, false, true);
     scrollbar->SetBounds(scrollbar_size);
-    scrollbar->SetPosition(gfx::PointF(345, 0));
+    scrollbar->test_properties()->position = gfx::PointF(345, 0);
     scrollbar->SetScrollElementId(scroll->element_id());
     scrollbar->SetDrawsContent(true);
     scrollbar->test_properties()->opacity = 1.f;
 
     std::unique_ptr<LayerImpl> squash1 = LayerImpl::Create(layer_tree_impl, 5);
     squash1->SetBounds(gfx::Size(140, 300));
-    squash1->SetPosition(gfx::PointF(220, 0));
+    squash1->test_properties()->position = gfx::PointF(220, 0);
     if (transparent_layer) {
       squash1->test_properties()->opacity = 0.0f;
       // The transparent layer should still participate in hit testing even
@@ -478,7 +480,7 @@ class LayerTreeHostImplTest : public testing::Test,
 
     std::unique_ptr<LayerImpl> squash2 = LayerImpl::Create(layer_tree_impl, 6);
     squash2->SetBounds(gfx::Size(140, 300));
-    squash2->SetPosition(gfx::PointF(220, 300));
+    squash2->test_properties()->position = gfx::PointF(220, 300);
     squash2->SetDrawsContent(true);
 
     scroll->test_properties()->AddChild(std::move(squash2));
@@ -653,7 +655,7 @@ class LayerTreeHostImplTest : public testing::Test,
         LayerImpl::Create(host_impl_->active_tree(), 6);
     LayerImpl* child = child_layer.get();
     child_layer->SetDrawsContent(true);
-    child_layer->SetPosition(gfx::PointF(0, 0));
+    child_layer->test_properties()->position = gfx::PointF(0, 0);
     child_layer->SetBounds(gfx::Size(25, 25));
     scroll->test_properties()->AddChild(std::move(child_layer));
     host_impl_->active_tree()->BuildPropertyTreesForTesting();
@@ -702,7 +704,7 @@ class LayerTreeHostImplTest : public testing::Test,
         ->property_trees()
         ->scroll_tree.UpdateScrollOffsetBaseForTesting(overflow->element_id(),
                                                        gfx::ScrollOffset());
-    overflow->SetPosition(gfx::PointF(0, 0));
+    overflow->test_properties()->position = gfx::PointF(0, 0);
 
     SnapContainerData container_data(
         ScrollSnapType(false, SnapAxis::kBoth, SnapStrictness::kMandatory),
@@ -784,7 +786,7 @@ class LayerTreeHostImplTest : public testing::Test,
   bool did_complete_page_scale_animation_;
   bool reduce_memory_result_;
   bool did_request_impl_side_invalidation_;
-  base::Closure animation_task_;
+  base::OnceClosure animation_task_;
   base::TimeDelta requested_animation_delay_;
   std::unique_ptr<TestFrameData> last_on_draw_frame_;
   viz::RenderPassList last_on_draw_render_passes_;
@@ -1184,7 +1186,7 @@ TEST_F(LayerTreeHostImplTest, ScrollBlocksOnTouchEventHandlers) {
         LayerImpl::Create(host_impl_->active_tree(), 6);
     child = child_layer.get();
     child_layer->SetDrawsContent(true);
-    child_layer->SetPosition(gfx::PointF(0, 20));
+    child_layer->test_properties()->position = gfx::PointF(0, 20);
     child_layer->SetBounds(gfx::Size(50, 50));
     scroll->test_properties()->AddChild(std::move(child_layer));
     host_impl_->active_tree()->BuildPropertyTreesForTesting();
@@ -1231,8 +1233,8 @@ TEST_F(LayerTreeHostImplTest, ShouldScrollOnMainThread) {
   host_impl_->active_tree()->SetDeviceViewportSize(gfx::Size(50, 50));
   LayerImpl* root = host_impl_->active_tree()->root_layer_for_testing();
 
-  root->set_main_thread_scrolling_reasons(
-      MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects);
+  root->test_properties()->main_thread_scrolling_reasons =
+      MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
   DrawFrame();
 
@@ -1267,7 +1269,7 @@ TEST_F(LayerTreeHostImplTest, ScrolledOverlappingDrawnScrollbarLayer) {
   host_impl_->active_tree()->SetDeviceViewportSize(content_size);
   std::unique_ptr<LayerImpl> root = LayerImpl::Create(layer_tree_impl, 1);
   root->SetBounds(content_size);
-  root->SetPosition(gfx::PointF());
+  root->test_properties()->position = gfx::PointF();
 
   std::unique_ptr<LayerImpl> scroll = LayerImpl::Create(layer_tree_impl, 3);
   scroll->SetBounds(scroll_content_size);
@@ -1279,14 +1281,14 @@ TEST_F(LayerTreeHostImplTest, ScrolledOverlappingDrawnScrollbarLayer) {
       SolidColorScrollbarLayerImpl::Create(layer_tree_impl, 4, VERTICAL, 10, 0,
                                            false, true);
   drawn_scrollbar->SetBounds(scrollbar_size);
-  drawn_scrollbar->SetPosition(gfx::PointF(345, 0));
+  drawn_scrollbar->test_properties()->position = gfx::PointF(345, 0);
   drawn_scrollbar->SetScrollElementId(scroll->element_id());
   drawn_scrollbar->SetDrawsContent(true);
   drawn_scrollbar->test_properties()->opacity = 1.f;
 
   std::unique_ptr<LayerImpl> squash = LayerImpl::Create(layer_tree_impl, 5);
   squash->SetBounds(gfx::Size(140, 300));
-  squash->SetPosition(gfx::PointF(220, 0));
+  squash->test_properties()->position = gfx::PointF(220, 0);
   squash->SetDrawsContent(true);
 
   scroll->test_properties()->AddChild(std::move(drawn_scrollbar));
@@ -1376,7 +1378,7 @@ TEST_F(LayerTreeHostImplTest, NonFastScrollableRegionWithOffset) {
 
   LayerImpl* outer_scroll = host_impl_->OuterViewportScrollLayer();
   outer_scroll->SetNonFastScrollableRegion(gfx::Rect(0, 0, 50, 50));
-  outer_scroll->SetPosition(gfx::PointF(-25.f, 0.f));
+  outer_scroll->test_properties()->position = gfx::PointF(-25.f, 0.f);
   outer_scroll->SetDrawsContent(true);
 
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
@@ -1718,7 +1720,7 @@ TEST_F(LayerTreeHostImplTest, OverscrollBehaviorPreventsPropagation) {
       ->property_trees()
       ->scroll_tree.UpdateScrollOffsetBaseForTesting(overflow->element_id(),
                                                      gfx::ScrollOffset());
-  overflow->SetPosition(gfx::PointF(40, 40));
+  overflow->test_properties()->position = gfx::PointF(40, 40);
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
   scroll_layer->SetCurrentScrollOffset(gfx::ScrollOffset(30, 30));
 
@@ -1887,7 +1889,7 @@ TEST_F(LayerTreeHostImplTest, ScrollWithUserUnscrollableLayers) {
       ->property_trees()
       ->scroll_tree.UpdateScrollOffsetBaseForTesting(overflow->element_id(),
                                                      gfx::ScrollOffset());
-  overflow->SetPosition(gfx::PointF());
+  overflow->test_properties()->position = gfx::PointF();
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
 
   DrawFrame();
@@ -2687,7 +2689,7 @@ TEST_F(LayerTreeHostImplTest, ScrollDoesntBubble) {
   std::unique_ptr<LayerImpl> scroll_child =
       CreateScrollableLayer(9, gfx::Size(10, 10));
   child = scroll_child.get();
-  scroll_child->SetPosition(gfx::PointF(20.f, 20.f));
+  scroll_child->test_properties()->position = gfx::PointF(20.f, 20.f);
   scroll_child_clip->test_properties()->AddChild(std::move(scroll_child));
 
   child_clip = scroll_child_clip.get();
@@ -3614,13 +3616,13 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
       // A task will be posted to fade the initial scrollbar.
       EXPECT_FALSE(did_request_next_frame_);
       EXPECT_FALSE(did_request_redraw_);
-      EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+      EXPECT_FALSE(animation_task_.is_null());
       requested_animation_delay_ = base::TimeDelta();
-      animation_task_ = base::Closure();
+      animation_task_.Reset();
     } else {
       EXPECT_FALSE(did_request_next_frame_);
       EXPECT_FALSE(did_request_redraw_);
-      EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+      EXPECT_TRUE(animation_task_.is_null());
       EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
     }
 
@@ -3631,7 +3633,7 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
     EXPECT_FALSE(did_request_next_frame_);
     EXPECT_FALSE(did_request_redraw_);
     EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
-    EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+    EXPECT_TRUE(animation_task_.is_null());
 
     // For Aura Overlay Scrollbar, if no scroll happened during a scroll
     // gesture, shows scrollbars and schedules a delay fade out.
@@ -3644,12 +3646,12 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
     if (animator == LayerTreeSettings::AURA_OVERLAY) {
       EXPECT_EQ(base::TimeDelta::FromMilliseconds(20),
                 requested_animation_delay_);
-      EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+      EXPECT_FALSE(animation_task_.is_null());
       requested_animation_delay_ = base::TimeDelta();
-      animation_task_ = base::Closure();
+      animation_task_.Reset();
     } else {
       EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
-      EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+      EXPECT_TRUE(animation_task_.is_null());
     }
 
     // Before the scrollbar animation exists, we should not get redraws.
@@ -3662,7 +3664,7 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
     EXPECT_FALSE(did_request_redraw_);
     did_request_redraw_ = false;
     EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
-    EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+    EXPECT_TRUE(animation_task_.is_null());
     host_impl_->DidFinishImplFrame();
 
     // After a scroll, a scrollbar animation should be scheduled about 20ms from
@@ -3676,10 +3678,10 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
     if (expecting_animations) {
       EXPECT_EQ(base::TimeDelta::FromMilliseconds(20),
                 requested_animation_delay_);
-      EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+      EXPECT_FALSE(animation_task_.is_null());
     } else {
       EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
-      EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+      EXPECT_TRUE(animation_task_.is_null());
     }
 
     host_impl_->ScrollEnd(EndState().get());
@@ -3688,10 +3690,10 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
     if (expecting_animations) {
       EXPECT_EQ(base::TimeDelta::FromMilliseconds(20),
                 requested_animation_delay_);
-      EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+      EXPECT_FALSE(animation_task_.is_null());
     } else {
       EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
-      EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+      EXPECT_TRUE(animation_task_.is_null());
     }
 
     if (expecting_animations) {
@@ -3709,8 +3711,7 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
       // Start the scrollbar animation.
       fake_now += requested_animation_delay_;
       requested_animation_delay_ = base::TimeDelta();
-      animation_task_.Run();
-      animation_task_ = base::Closure();
+      std::move(animation_task_).Run();
       EXPECT_TRUE(did_request_next_frame_);
       did_request_next_frame_ = false;
       EXPECT_FALSE(did_request_redraw_);
@@ -3725,7 +3726,7 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
       EXPECT_TRUE(did_request_redraw_);
       did_request_redraw_ = false;
       EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
-      EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+      EXPECT_TRUE(animation_task_.is_null());
       host_impl_->DidFinishImplFrame();
     }
 
@@ -3741,7 +3742,7 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
     EXPECT_FALSE(did_request_next_frame_);
     EXPECT_FALSE(did_request_redraw_);
     EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
-    EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+    EXPECT_TRUE(animation_task_.is_null());
 
     // Changing page scale triggers scrollbar animation.
     host_impl_->active_tree()->PushPageScaleFromMainThread(1.f, 1.f, 4.f);
@@ -3751,12 +3752,12 @@ class LayerTreeHostImplTestScrollbarAnimation : public LayerTreeHostImplTest {
     if (expecting_animations) {
       EXPECT_EQ(base::TimeDelta::FromMilliseconds(20),
                 requested_animation_delay_);
-      EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+      EXPECT_FALSE(animation_task_.is_null());
       requested_animation_delay_ = base::TimeDelta();
-      animation_task_ = base::Closure();
+      animation_task_.Reset();
     } else {
       EXPECT_EQ(base::TimeDelta(), requested_animation_delay_);
-      EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+      EXPECT_TRUE(animation_task_.is_null());
     }
   }
 };
@@ -3797,7 +3798,7 @@ class LayerTreeHostImplTestScrollbarOpacity : public LayerTreeHostImplTest {
         host_impl_->pending_tree()->InnerViewportContainerLayer();
     scrollbar->SetScrollElementId(scroll->element_id());
     scrollbar->SetBounds(gfx::Size(10, 100));
-    scrollbar->SetPosition(gfx::PointF(90, 0));
+    scrollbar->test_properties()->position = gfx::PointF(90, 0);
     scrollbar->SetNeedsPushProperties();
     container->test_properties()->AddChild(std::move(scrollbar));
 
@@ -3912,7 +3913,7 @@ class LayerTreeHostImplTestMultiScrollable : public LayerTreeHostImplTest {
     touch_action_region.Union(kTouchActionNone, gfx::Rect(scrollbar_size_1));
     scrollbar_1->SetTouchActionRegion(touch_action_region);
     scrollbar_1->SetCurrentPos(0);
-    scrollbar_1->SetPosition(gfx::PointF(0, 0));
+    scrollbar_1->test_properties()->position = gfx::PointF(0, 0);
     host_impl_->active_tree()
         ->InnerViewportContainerLayer()
         ->test_properties()
@@ -3926,7 +3927,7 @@ class LayerTreeHostImplTestMultiScrollable : public LayerTreeHostImplTest {
     scrollbar_2_ = scrollbar_2.get();
     std::unique_ptr<LayerImpl> child =
         LayerImpl::Create(host_impl_->active_tree(), child_scroll_id);
-    child->SetPosition(gfx::PointF(50, 50));
+    child->test_properties()->position = gfx::PointF(50, 50);
     child->SetBounds(child_layer_size);
     child->SetDrawsContent(true);
     child->SetScrollable(gfx::Size(100, 100));
@@ -3937,7 +3938,7 @@ class LayerTreeHostImplTestMultiScrollable : public LayerTreeHostImplTest {
     scrollbar_2->SetDrawsContent(true);
     scrollbar_2->SetBounds(scrollbar_size_2);
     scrollbar_2->SetCurrentPos(0);
-    scrollbar_2->SetPosition(gfx::PointF(0, 0));
+    scrollbar_2->test_properties()->position = gfx::PointF(0, 0);
 
     child->test_properties()->AddChild(std::move(scrollbar_2));
     root_scroll->test_properties()->AddChild(std::move(child));
@@ -3956,7 +3957,7 @@ class LayerTreeHostImplTestMultiScrollable : public LayerTreeHostImplTest {
     host_impl_->active_tree()->BuildPropertyTreesForTesting();
 
     if (is_aura_scrollbar_)
-      animation_task_ = base::Closure();
+      animation_task_.Reset();
   }
 
   bool is_aura_scrollbar_;
@@ -3987,7 +3988,7 @@ TEST_F(LayerTreeHostImplTestMultiScrollable,
   EXPECT_TRUE(scrollbar_1_->Opacity());
   EXPECT_TRUE(scrollbar_2_->Opacity());
 
-  EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+  EXPECT_FALSE(animation_task_.is_null());
   ResetScrollbars();
 
   // Scroll on child should flash all scrollbars.
@@ -3998,7 +3999,7 @@ TEST_F(LayerTreeHostImplTestMultiScrollable,
   EXPECT_TRUE(scrollbar_1_->Opacity());
   EXPECT_TRUE(scrollbar_2_->Opacity());
 
-  EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+  EXPECT_FALSE(animation_task_.is_null());
 }
 
 TEST_F(LayerTreeHostImplTestMultiScrollable, ScrollbarFlashWhenMouseEnter) {
@@ -4018,13 +4019,13 @@ TEST_F(LayerTreeHostImplTestMultiScrollable, ScrollbarFlashWhenMouseEnter) {
 
   EXPECT_TRUE(scrollbar_1_->Opacity());
   EXPECT_FALSE(scrollbar_2_->Opacity());
-  EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+  EXPECT_FALSE(animation_task_.is_null());
 
   host_impl_->MouseMoveAt(gfx::Point(51, 51));
 
   EXPECT_TRUE(scrollbar_1_->Opacity());
   EXPECT_TRUE(scrollbar_2_->Opacity());
-  EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+  EXPECT_FALSE(animation_task_.is_null());
 }
 
 TEST_F(LayerTreeHostImplTestMultiScrollable, ScrollHitTestOnScrollbar) {
@@ -4089,7 +4090,7 @@ TEST_F(LayerTreeHostImplTest, ScrollbarVisibilityChangeCausesRedrawAndCommit) {
       host_impl_->pending_tree()->InnerViewportContainerLayer();
   scrollbar->SetScrollElementId(scroll->element_id());
   scrollbar->SetBounds(gfx::Size(10, 100));
-  scrollbar->SetPosition(gfx::PointF(90, 0));
+  scrollbar->test_properties()->position = gfx::PointF(90, 0);
   scrollbar->SetNeedsPushProperties();
   container->test_properties()->AddChild(std::move(scrollbar));
 
@@ -4104,9 +4105,9 @@ TEST_F(LayerTreeHostImplTest, ScrollbarVisibilityChangeCausesRedrawAndCommit) {
   // Scrollbars will flash shown but we should have a fade out animation
   // queued. Run it and fade out the scrollbars.
   {
-    ASSERT_FALSE(animation_task_.Equals(base::Closure()));
+    ASSERT_FALSE(animation_task_.is_null());
     ASSERT_FALSE(animation_task_.IsCancelled());
-    animation_task_.Run();
+    std::move(animation_task_).Run();
 
     base::TimeTicks fake_now = base::TimeTicks::Now();
     scrollbar_controller->Animate(fake_now);
@@ -4119,9 +4120,9 @@ TEST_F(LayerTreeHostImplTest, ScrollbarVisibilityChangeCausesRedrawAndCommit) {
   // Move the mouse over the scrollbar region. This should post a delayed fade
   // in task. Execute it to fade in the scrollbars.
   {
-    animation_task_ = base::Closure();
+    animation_task_.Reset();
     scrollbar_controller->DidMouseMove(gfx::PointF(90, 0));
-    ASSERT_FALSE(animation_task_.Equals(base::Closure()));
+    ASSERT_FALSE(animation_task_.is_null());
     ASSERT_FALSE(animation_task_.IsCancelled());
   }
 
@@ -4131,7 +4132,7 @@ TEST_F(LayerTreeHostImplTest, ScrollbarVisibilityChangeCausesRedrawAndCommit) {
     did_request_redraw_ = false;
     did_request_commit_ = false;
     ASSERT_TRUE(scrollbar_controller->ScrollbarsHidden());
-    animation_task_.Run();
+    std::move(animation_task_).Run();
 
     base::TimeTicks fake_now = base::TimeTicks::Now();
     scrollbar_controller->Animate(fake_now);
@@ -4246,12 +4247,12 @@ TEST_F(LayerTreeHostImplTest, ScrollbarRegistration) {
       root_scroll->element_id()));
 
   // Scrolling the viewport should result in a scrollbar animation update.
-  animation_task_ = base::Closure();
+  animation_task_.Reset();
   host_impl_->ScrollBegin(BeginState(gfx::Point()).get(), InputHandler::WHEEL);
   host_impl_->ScrollBy(UpdateState(gfx::Point(), gfx::Vector2d(10, 10)).get());
   host_impl_->ScrollEnd(EndState().get());
-  EXPECT_FALSE(animation_task_.Equals(base::Closure()));
-  animation_task_ = base::Closure();
+  EXPECT_FALSE(animation_task_.is_null());
+  animation_task_.Reset();
 
   // Check scrollbar registration on a sublayer.
   child->SetScrollable(viewport_size);
@@ -4272,13 +4273,13 @@ TEST_F(LayerTreeHostImplTest, ScrollbarRegistration) {
 
   // Changing one of the child layers should result in a scrollbar animation
   // update.
-  animation_task_ = base::Closure();
+  animation_task_.Reset();
   child_ptr->SetBounds(gfx::Size(200, 200));
   child_ptr->set_needs_show_scrollbars(true);
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
   host_impl_->active_tree()->HandleScrollbarShowRequestsFromMain();
-  EXPECT_FALSE(animation_task_.Equals(base::Closure()));
-  animation_task_ = base::Closure();
+  EXPECT_FALSE(animation_task_.is_null());
+  animation_task_.Reset();
 
   // Check scrollbar unregistration.
   container->test_properties()->RemoveChild(vert_1_scrollbar);
@@ -4303,9 +4304,9 @@ TEST_F(LayerTreeHostImplTest, ScrollbarRegistration) {
   // Changing scroll offset should no longer trigger any animation.
   host_impl_->active_tree()->InnerViewportScrollLayer()->SetCurrentScrollOffset(
       gfx::ScrollOffset(20, 20));
-  EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+  EXPECT_TRUE(animation_task_.is_null());
   child_ptr->SetCurrentScrollOffset(gfx::ScrollOffset(20, 20));
-  EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+  EXPECT_TRUE(animation_task_.is_null());
 }
 
 TEST_F(LayerTreeHostImplTest, ScrollBeforeMouseMove) {
@@ -4330,7 +4331,7 @@ TEST_F(LayerTreeHostImplTest, ScrollBeforeMouseMove) {
 
   vert_scrollbar->SetScrollElementId(root_scroll->element_id());
   vert_scrollbar->SetBounds(gfx::Size(10, 200));
-  vert_scrollbar->SetPosition(gfx::PointF(300, 0));
+  vert_scrollbar->test_properties()->position = gfx::PointF(300, 0);
   vert_scrollbar->test_properties()->opacity_can_animate = true;
   vert_scrollbar->SetCurrentPos(0);
 
@@ -4488,7 +4489,7 @@ TEST_F(LayerTreeHostImplTest, ActivationDependenciesInMetadata) {
   for (size_t i = 0; i < primary_surfaces.size(); ++i) {
     std::unique_ptr<SurfaceLayerImpl> child =
         SurfaceLayerImpl::Create(host_impl_->active_tree(), i + 6);
-    child->SetPosition(gfx::PointF(25.f * i, 0.f));
+    child->test_properties()->position = gfx::PointF(25.f * i, 0.f);
     child->SetBounds(gfx::Size(1, 1));
     child->SetDrawsContent(true);
     child->SetRange(
@@ -4930,7 +4931,7 @@ TEST_F(LayerTreeHostImplTest, DidDrawNotCalledOnHiddenLayer) {
   auto* layer =
       static_cast<DidDrawCheckLayer*>(root->test_properties()->children[0]);
   // Ensure visible_layer_rect for layer is empty.
-  layer->SetPosition(gfx::PointF(100.f, 100.f));
+  layer->test_properties()->position = gfx::PointF(100.f, 100.f);
   layer->SetBounds(gfx::Size(10, 10));
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
 
@@ -4949,7 +4950,7 @@ TEST_F(LayerTreeHostImplTest, DidDrawNotCalledOnHiddenLayer) {
   EXPECT_TRUE(layer->visible_layer_rect().IsEmpty());
 
   // Ensure visible_layer_rect for layer is not empty
-  layer->SetPosition(gfx::PointF());
+  layer->test_properties()->position = gfx::PointF();
   layer->NoteLayerPropertyChanged();
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
 
@@ -5548,7 +5549,7 @@ TEST_F(LayerTreeHostImplBrowserControlsTest,
   touch_action_region.Union(kTouchActionNone, gfx::Rect(scrollbar_size));
   scrollbar->SetTouchActionRegion(touch_action_region);
   scrollbar->SetCurrentPos(0);
-  scrollbar->SetPosition(gfx::PointF(0, 35));
+  scrollbar->test_properties()->position = gfx::PointF(0, 35);
   host_impl_->active_tree()
       ->InnerViewportContainerLayer()
       ->test_properties()
@@ -5816,27 +5817,6 @@ TEST_F(LayerTreeHostImplBrowserControlsTest, BrowserControlsPushUnsentRatio) {
   ASSERT_EQ(0, host_impl_->active_tree()->CurrentBrowserControlsShownRatio());
 }
 
-// Test that if only the browser controls are scrolled, we shouldn't request a
-// commit.
-TEST_F(LayerTreeHostImplBrowserControlsTest, BrowserControlsDontTriggerCommit) {
-  SetupBrowserControlsAndScrollLayerWithVirtualViewport(
-      gfx::Size(100, 50), gfx::Size(100, 100), gfx::Size(100, 100));
-  DrawFrame();
-
-  // Show browser controls
-  EXPECT_EQ(1.f, host_impl_->active_tree()->CurrentBrowserControlsShownRatio());
-
-  // Scroll 25px to hide browser controls
-  gfx::Vector2dF scroll_delta(0.f, 25.f);
-  EXPECT_EQ(InputHandler::SCROLL_ON_IMPL_THREAD,
-            host_impl_
-                ->ScrollBegin(BeginState(gfx::Point()).get(),
-                              InputHandler::TOUCHSCREEN)
-                .thread);
-  host_impl_->ScrollBy(UpdateState(gfx::Point(), scroll_delta).get());
-  EXPECT_FALSE(did_request_commit_);
-}
-
 // Test that if a scrollable sublayer doesn't consume the scroll,
 // browser controls should hide when scrolling down.
 TEST_F(LayerTreeHostImplBrowserControlsTest,
@@ -5859,7 +5839,7 @@ TEST_F(LayerTreeHostImplBrowserControlsTest,
   child->SetScrollable(sub_content_layer_size);
   child->SetElementId(LayerIdToElementIdForTesting(child->id()));
   child->SetBounds(sub_content_size);
-  child->SetPosition(gfx::PointF());
+  child->test_properties()->position = gfx::PointF();
   child->SetDrawsContent(true);
   child->test_properties()->is_container_for_fixed_position_layers = true;
 
@@ -6402,7 +6382,7 @@ TEST_F(LayerTreeHostImplTest, ScrollNonCompositedRoot) {
   std::unique_ptr<LayerImpl> content_layer =
       LayerImpl::Create(host_impl_->active_tree(), 11);
   content_layer->SetDrawsContent(true);
-  content_layer->SetPosition(gfx::PointF());
+  content_layer->test_properties()->position = gfx::PointF();
   content_layer->SetBounds(contents_size);
 
   LayerImpl* scroll_container_layer =
@@ -6413,7 +6393,7 @@ TEST_F(LayerTreeHostImplTest, ScrollNonCompositedRoot) {
   scroll_layer->SetScrollable(surface_size);
   scroll_layer->SetElementId(LayerIdToElementIdForTesting(scroll_layer->id()));
   scroll_layer->SetBounds(contents_size);
-  scroll_layer->SetPosition(gfx::PointF());
+  scroll_layer->test_properties()->position = gfx::PointF();
   scroll_layer->test_properties()->AddChild(std::move(content_layer));
   scroll_container_layer->test_properties()->AddChild(std::move(scroll_layer));
 
@@ -6518,8 +6498,8 @@ TEST_F(LayerTreeHostImplTest, ScrollBlockedByContentLayer) {
   gfx::Size surface_size(10, 10);
   std::unique_ptr<LayerImpl> content_layer =
       CreateScrollableLayer(1, surface_size);
-  content_layer->set_main_thread_scrolling_reasons(
-      MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects);
+  content_layer->test_properties()->main_thread_scrolling_reasons =
+      MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
 
   // Note: we can use the same clip layer for both since both calls to
   // CreateScrollableLayer() use the same surface size.
@@ -8134,12 +8114,14 @@ TEST_F(LayerTreeHostImplTest, OverscrollOnMainThread) {
 
   host_impl_->active_tree()
       ->InnerViewportScrollLayer()
-      ->set_main_thread_scrolling_reasons(
-          MainThreadScrollingReason::kThreadedScrollingDisabled);
+      ->test_properties()
+      ->main_thread_scrolling_reasons =
+      MainThreadScrollingReason::kThreadedScrollingDisabled;
   host_impl_->active_tree()
       ->OuterViewportScrollLayer()
-      ->set_main_thread_scrolling_reasons(
-          MainThreadScrollingReason::kThreadedScrollingDisabled);
+      ->test_properties()
+      ->main_thread_scrolling_reasons =
+      MainThreadScrollingReason::kThreadedScrollingDisabled;
 
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
 
@@ -8196,8 +8178,10 @@ TEST_F(LayerTreeHostImplTest, ScrollFromOuterViewportSibling) {
     inner_scroll_layer->test_properties()->AddChild(std::move(scroll));
 
     // Move the outer viewport layer away so that scrolls won't target it.
-    host_impl_->active_tree()->OuterViewportContainerLayer()->SetPosition(
-        gfx::PointF(400, 400));
+    host_impl_->active_tree()
+        ->OuterViewportContainerLayer()
+        ->test_properties()
+        ->position = gfx::PointF(400, 400);
 
     layer_tree_impl->BuildPropertyTreesForTesting();
 
@@ -8557,8 +8541,11 @@ TEST_F(LayerTreeHostImplTest, OverscrollOnImplThread) {
   // By default, no main thread scrolling reasons should exist.
   LayerImpl* scroll_layer =
       host_impl_->active_tree()->InnerViewportScrollLayer();
+  ScrollNode* scroll_node =
+      host_impl_->active_tree()->property_trees()->scroll_tree.Node(
+          scroll_layer->scroll_tree_index());
   EXPECT_EQ(MainThreadScrollingReason::kNotScrollingOnMain,
-            scroll_layer->main_thread_scrolling_reasons());
+            scroll_node->main_thread_scrolling_reasons);
 
   DrawFrame();
 
@@ -8678,7 +8665,7 @@ TEST_F(LayerTreeHostImplTest, BlendingOffWhenDrawingOpaqueLayers) {
       host_impl_->active_tree(), 2, host_impl_->resource_provider()));
   auto* layer1 =
       static_cast<BlendStateCheckLayer*>(root->test_properties()->children[0]);
-  layer1->SetPosition(gfx::PointF(2.f, 2.f));
+  layer1->test_properties()->position = gfx::PointF(2.f, 2.f);
 
   TestFrameData frame;
 
@@ -8731,7 +8718,7 @@ TEST_F(LayerTreeHostImplTest, BlendingOffWhenDrawingOpaqueLayers) {
       host_impl_->active_tree(), 3, host_impl_->resource_provider()));
   auto* layer2 = static_cast<BlendStateCheckLayer*>(
       layer1->test_properties()->children[0]);
-  layer2->SetPosition(gfx::PointF(4.f, 4.f));
+  layer2->test_properties()->position = gfx::PointF(4.f, 4.f);
 
   // 2 opaque layers, drawn without blending.
   layer1->SetContentsOpaque(true);
@@ -8958,10 +8945,10 @@ TEST_F(LayerTreeHostImplTest, MayContainVideo) {
   EXPECT_TRUE(MayContainVideoBitSetOnFrameData(host_impl_.get()));
 
   // Move the video layer so it goes beyond the root.
-  video_layer->SetPosition(gfx::PointF(100.f, 100.f));
+  video_layer->test_properties()->position = gfx::PointF(100.f, 100.f);
   EXPECT_FALSE(MayContainVideoBitSetOnFrameData(host_impl_.get()));
 
-  video_layer->SetPosition(gfx::PointF(0.f, 0.f));
+  video_layer->test_properties()->position = gfx::PointF(0.f, 0.f);
   video_layer->NoteLayerPropertyChanged();
   EXPECT_TRUE(MayContainVideoBitSetOnFrameData(host_impl_.get()));
 }
@@ -9005,7 +8992,7 @@ class LayerTreeHostImplViewportCoveredTest : public LayerTreeHostImplTest {
   // Expect no gutter rects.
   void TestLayerCoversFullViewport() {
     gfx::Rect layer_rect(viewport_size_);
-    child_->SetPosition(gfx::PointF(layer_rect.origin()));
+    child_->test_properties()->position = gfx::PointF(layer_rect.origin());
     child_->SetBounds(layer_rect.size());
     child_->SetQuadRect(gfx::Rect(layer_rect.size()));
     child_->SetQuadVisibleRect(gfx::Rect(layer_rect.size()));
@@ -9026,7 +9013,7 @@ class LayerTreeHostImplViewportCoveredTest : public LayerTreeHostImplTest {
   // Expect fullscreen gutter rect.
   void SetUpEmptylayer() {
     gfx::Rect layer_rect(0, 0, 0, 0);
-    child_->SetPosition(gfx::PointF(layer_rect.origin()));
+    child_->test_properties()->position = gfx::PointF(layer_rect.origin());
     child_->SetBounds(layer_rect.size());
     child_->SetQuadRect(gfx::Rect(layer_rect.size()));
     child_->SetQuadVisibleRect(gfx::Rect(layer_rect.size()));
@@ -9063,7 +9050,7 @@ class LayerTreeHostImplViewportCoveredTest : public LayerTreeHostImplTest {
   // Expect four surrounding gutter rects.
   void SetUpLayerInMiddleOfViewport() {
     gfx::Rect layer_rect(500, 500, 200, 200);
-    child_->SetPosition(gfx::PointF(layer_rect.origin()));
+    child_->test_properties()->position = gfx::PointF(layer_rect.origin());
     child_->SetBounds(layer_rect.size());
     child_->SetQuadRect(gfx::Rect(layer_rect.size()));
     child_->SetQuadVisibleRect(gfx::Rect(layer_rect.size()));
@@ -9101,7 +9088,7 @@ class LayerTreeHostImplViewportCoveredTest : public LayerTreeHostImplTest {
   void SetUpLayerIsLargerThanViewport() {
     gfx::Rect layer_rect(viewport_size_.width() + 10,
                          viewport_size_.height() + 10);
-    child_->SetPosition(gfx::PointF(layer_rect.origin()));
+    child_->test_properties()->position = gfx::PointF(layer_rect.origin());
     child_->SetBounds(layer_rect.size());
     child_->SetQuadRect(gfx::Rect(layer_rect.size()));
     child_->SetQuadVisibleRect(gfx::Rect(layer_rect.size()));
@@ -9315,7 +9302,7 @@ TEST_F(LayerTreeHostImplTest, PartialSwapReceivesDamageRect) {
   root->test_properties()->force_render_surface = true;
   std::unique_ptr<LayerImpl> child =
       FakeDrawableLayerImpl::Create(layer_tree_host_impl->active_tree(), 2);
-  child->SetPosition(gfx::PointF(12.f, 13.f));
+  child->test_properties()->position = gfx::PointF(12.f, 13.f);
   child->SetBounds(gfx::Size(14, 15));
   child->SetDrawsContent(true);
   root->SetBounds(gfx::Size(500, 500));
@@ -9344,7 +9331,8 @@ TEST_F(LayerTreeHostImplTest, PartialSwapReceivesDamageRect) {
       ->root_layer_for_testing()
       ->test_properties()
       ->children[0]
-      ->SetPosition(gfx::PointF());
+      ->test_properties()
+      ->position = gfx::PointF();
   layer_tree_host_impl->active_tree()
       ->root_layer_for_testing()
       ->test_properties()
@@ -9425,10 +9413,11 @@ class FakeLayerWithQuads : public LayerImpl {
 };
 
 TEST_F(LayerTreeHostImplTest, LayersFreeTextures) {
-  auto gl_owned = std::make_unique<viz::TestGLES2Interface>();
-  viz::TestGLES2Interface* gl = gl_owned.get();
+  scoped_refptr<viz::TestContextProvider> context_provider =
+      viz::TestContextProvider::Create();
+  viz::TestSharedImageInterface* sii = context_provider->SharedImageInterface();
   std::unique_ptr<LayerTreeFrameSink> layer_tree_frame_sink(
-      FakeLayerTreeFrameSink::Create3d(std::move(gl_owned)));
+      FakeLayerTreeFrameSink::Create3d(context_provider));
   CreateHostImpl(DefaultSettings(), std::move(layer_tree_frame_sink));
 
   std::unique_ptr<LayerImpl> root_layer =
@@ -9449,19 +9438,19 @@ TEST_F(LayerTreeHostImplTest, LayersFreeTextures) {
   host_impl_->active_tree()->SetRootLayerForTesting(std::move(root_layer));
   host_impl_->active_tree()->BuildPropertyTreesForTesting();
 
-  EXPECT_EQ(0u, gl->NumTextures());
+  EXPECT_EQ(0u, sii->shared_image_count());
 
   TestFrameData frame;
   EXPECT_EQ(DRAW_SUCCESS, host_impl_->PrepareToDraw(&frame));
   host_impl_->DrawLayers(&frame);
   host_impl_->DidDrawAllLayers(frame);
 
-  EXPECT_GT(gl->NumTextures(), 0u);
+  EXPECT_GT(sii->shared_image_count(), 0u);
 
   // Kill the layer tree.
   host_impl_->active_tree()->DetachLayers();
   // There should be no textures left in use after.
-  EXPECT_EQ(0u, gl->NumTextures());
+  EXPECT_EQ(0u, sii->shared_image_count());
 }
 
 
@@ -9561,7 +9550,7 @@ class LayerTreeHostImplTestDrawAndTestDamage : public LayerTreeHostImplTest {
 TEST_F(LayerTreeHostImplTestDrawAndTestDamage, FrameIncludesDamageRect) {
   std::unique_ptr<SolidColorLayerImpl> root =
       SolidColorLayerImpl::Create(host_impl_->active_tree(), 1);
-  root->SetPosition(gfx::PointF());
+  root->test_properties()->position = gfx::PointF();
   root->SetBounds(gfx::Size(10, 10));
   root->SetDrawsContent(true);
   root->SetBackgroundColor(SK_ColorRED);
@@ -9570,7 +9559,7 @@ TEST_F(LayerTreeHostImplTestDrawAndTestDamage, FrameIncludesDamageRect) {
   // Child layer is in the bottom right corner.
   std::unique_ptr<SolidColorLayerImpl> child =
       SolidColorLayerImpl::Create(host_impl_->active_tree(), 2);
-  child->SetPosition(gfx::PointF(9.f, 9.f));
+  child->test_properties()->position = gfx::PointF(9.f, 9.f);
   child->SetBounds(gfx::Size(1, 1));
   child->SetDrawsContent(true);
   child->SetBackgroundColor(SK_ColorRED);
@@ -9949,58 +9938,56 @@ TEST_F(LayerTreeHostImplTestPrepareTiles, PrepareTilesWhenInvisible) {
 }
 
 TEST_F(LayerTreeHostImplTest, UIResourceManagement) {
-  auto gl_owned = std::make_unique<viz::TestGLES2Interface>();
-  viz::TestGLES2Interface* gl = gl_owned.get();
+  auto test_context_provider = viz::TestContextProvider::Create();
+  viz::TestSharedImageInterface* sii =
+      test_context_provider->SharedImageInterface();
+  CreateHostImpl(DefaultSettings(), FakeLayerTreeFrameSink::Create3d(
+                                        std::move(test_context_provider)));
 
-  std::unique_ptr<FakeLayerTreeFrameSink> layer_tree_frame_sink =
-      FakeLayerTreeFrameSink::Create3d(std::move(gl_owned));
-  CreateHostImpl(DefaultSettings(), std::move(layer_tree_frame_sink));
-
-  EXPECT_EQ(0u, gl->NumTextures());
+  EXPECT_EQ(0u, sii->shared_image_count());
 
   UIResourceId ui_resource_id = 1;
   bool is_opaque = false;
   UIResourceBitmap bitmap(gfx::Size(1, 1), is_opaque);
   host_impl_->CreateUIResource(ui_resource_id, bitmap);
-  EXPECT_EQ(1u, gl->NumTextures());
+  EXPECT_EQ(1u, sii->shared_image_count());
   viz::ResourceId id1 = host_impl_->ResourceIdForUIResource(ui_resource_id);
   EXPECT_NE(0u, id1);
 
   // Multiple requests with the same id is allowed.  The previous texture is
   // deleted.
   host_impl_->CreateUIResource(ui_resource_id, bitmap);
-  EXPECT_EQ(1u, gl->NumTextures());
+  EXPECT_EQ(1u, sii->shared_image_count());
   viz::ResourceId id2 = host_impl_->ResourceIdForUIResource(ui_resource_id);
   EXPECT_NE(0u, id2);
   EXPECT_NE(id1, id2);
 
   // Deleting invalid UIResourceId is allowed and does not change state.
   host_impl_->DeleteUIResource(-1);
-  EXPECT_EQ(1u, gl->NumTextures());
+  EXPECT_EQ(1u, sii->shared_image_count());
 
   // Should return zero for invalid UIResourceId.  Number of textures should
   // not change.
   EXPECT_EQ(0u, host_impl_->ResourceIdForUIResource(-1));
-  EXPECT_EQ(1u, gl->NumTextures());
+  EXPECT_EQ(1u, sii->shared_image_count());
 
   host_impl_->DeleteUIResource(ui_resource_id);
   EXPECT_EQ(0u, host_impl_->ResourceIdForUIResource(ui_resource_id));
-  EXPECT_EQ(0u, gl->NumTextures());
+  EXPECT_EQ(0u, sii->shared_image_count());
 
   // Should not change state for multiple deletion on one UIResourceId
   host_impl_->DeleteUIResource(ui_resource_id);
-  EXPECT_EQ(0u, gl->NumTextures());
+  EXPECT_EQ(0u, sii->shared_image_count());
 }
 
 TEST_F(LayerTreeHostImplTest, CreateETC1UIResource) {
-  auto gl_owned = std::make_unique<viz::TestGLES2Interface>();
-  gl_owned->set_support_compressed_texture_etc1(true);
-  viz::TestGLES2Interface* gl = gl_owned.get();
+  auto test_context_provider = viz::TestContextProvider::Create();
+  viz::TestSharedImageInterface* sii =
+      test_context_provider->SharedImageInterface();
+  CreateHostImpl(DefaultSettings(), FakeLayerTreeFrameSink::Create3d(
+                                        std::move(test_context_provider)));
 
-  CreateHostImpl(DefaultSettings(),
-                 FakeLayerTreeFrameSink::Create3d(std::move(gl_owned)));
-
-  EXPECT_EQ(0u, gl->NumTextures());
+  EXPECT_EQ(0u, sii->shared_image_count());
 
   gfx::Size size(4, 4);
   // SkImageInfo has no support for ETC1.  The |info| below contains the right
@@ -10013,7 +10000,7 @@ TEST_F(LayerTreeHostImplTest, CreateETC1UIResource) {
   UIResourceBitmap bitmap(std::move(pixel_ref), size);
   UIResourceId ui_resource_id = 1;
   host_impl_->CreateUIResource(ui_resource_id, bitmap);
-  EXPECT_EQ(1u, gl->NumTextures());
+  EXPECT_EQ(1u, sii->shared_image_count());
   viz::ResourceId id1 = host_impl_->ResourceIdForUIResource(ui_resource_id);
   EXPECT_NE(0u, id1);
 }
@@ -10155,7 +10142,7 @@ TEST_F(LayerTreeHostImplTest, ScrollUnknownNotOnAncestorChain) {
       LayerImpl::Create(host_impl_->active_tree(), occluder_layer_id);
   occluder_layer->SetDrawsContent(true);
   occluder_layer->SetBounds(content_size);
-  occluder_layer->SetPosition(gfx::PointF());
+  occluder_layer->test_properties()->position = gfx::PointF();
 
   // The parent of the occluder is *above* the scroller.
   page_scale_layer->test_properties()->AddChild(std::move(occluder_layer));
@@ -10187,7 +10174,7 @@ TEST_F(LayerTreeHostImplTest, ScrollUnknownScrollAncestorMismatch) {
       LayerImpl::Create(host_impl_->active_tree(), occluder_layer_id);
   occluder_layer->SetDrawsContent(true);
   occluder_layer->SetBounds(content_size);
-  occluder_layer->SetPosition(gfx::PointF(-10.f, -10.f));
+  occluder_layer->test_properties()->position = gfx::PointF(-10.f, -10.f);
 
   int child_scroll_clip_layer_id = 7;
   std::unique_ptr<LayerImpl> child_scroll_clip =
@@ -10197,7 +10184,7 @@ TEST_F(LayerTreeHostImplTest, ScrollUnknownScrollAncestorMismatch) {
   std::unique_ptr<LayerImpl> child_scroll =
       CreateScrollableLayer(child_scroll_layer_id, content_size);
 
-  child_scroll->SetPosition(gfx::PointF(10.f, 10.f));
+  child_scroll->test_properties()->position = gfx::PointF(10.f, 10.f);
 
   child_scroll->test_properties()->AddChild(std::move(occluder_layer));
   child_scroll_clip->test_properties()->AddChild(std::move(child_scroll));
@@ -10253,7 +10240,7 @@ class LayerTreeHostImplLatencyInfoTest : public LayerTreeHostImplTest {
 
     std::unique_ptr<SolidColorLayerImpl> root =
         SolidColorLayerImpl::Create(host_impl_->active_tree(), 1);
-    root->SetPosition(gfx::PointF());
+    root->test_properties()->position = gfx::PointF();
     root->SetBounds(gfx::Size(10, 10));
     root->SetDrawsContent(true);
     root->test_properties()->force_render_surface = true;
@@ -10378,7 +10365,7 @@ TEST_F(LayerTreeHostImplTest, SelectionBoundsPassedToCompositorFrameMetadata) {
   int root_layer_id = 1;
   std::unique_ptr<SolidColorLayerImpl> root =
       SolidColorLayerImpl::Create(host_impl_->active_tree(), root_layer_id);
-  root->SetPosition(gfx::PointF());
+  root->test_properties()->position = gfx::PointF();
   root->SetBounds(gfx::Size(10, 10));
   root->SetDrawsContent(true);
   root->test_properties()->force_render_surface = true;
@@ -10426,7 +10413,7 @@ TEST_F(LayerTreeHostImplTest, HiddenSelectionBoundsStayHidden) {
   int root_layer_id = 1;
   std::unique_ptr<SolidColorLayerImpl> root =
       SolidColorLayerImpl::Create(host_impl_->active_tree(), root_layer_id);
-  root->SetPosition(gfx::PointF());
+  root->test_properties()->position = gfx::PointF();
   root->SetBounds(gfx::Size(10, 10));
   root->SetDrawsContent(true);
   root->test_properties()->force_render_surface = true;
@@ -10827,7 +10814,7 @@ TEST_F(LayerTreeHostImplWithBrowserControlsTest,
   ASSERT_TRUE(host_impl_->browser_controls_manager()->has_animation());
   EXPECT_TRUE(did_request_next_frame_);
   EXPECT_TRUE(did_request_redraw_);
-  EXPECT_FALSE(did_request_commit_);
+  EXPECT_TRUE(did_request_commit_);
 
   // The browser controls should properly animate until finished, despite the
   // scroll offset being at the origin.
@@ -10913,7 +10900,7 @@ TEST_F(LayerTreeHostImplWithBrowserControlsTest,
   ASSERT_TRUE(host_impl_->browser_controls_manager()->has_animation());
   EXPECT_TRUE(did_request_next_frame_);
   EXPECT_TRUE(did_request_redraw_);
-  EXPECT_FALSE(did_request_commit_);
+  EXPECT_TRUE(did_request_commit_);
 
   // Animate the browser controls to the limit.
   viz::BeginFrameArgs begin_frame_args = viz::CreateBeginFrameArgsForTesting(
@@ -11049,7 +11036,7 @@ TEST_F(LayerTreeHostImplBrowserControlsTest,
   {
     std::unique_ptr<LayerImpl> clip = LayerImpl::Create(layer_tree_impl, 10);
     clip->SetBounds(root_layer_size);
-    clip->SetPosition(gfx::PointF());
+    clip->test_properties()->position = gfx::PointF();
 
     std::unique_ptr<LayerImpl> scroll = LayerImpl::Create(layer_tree_impl, 11);
     scroll->SetBounds(scroll_content_size);
@@ -11125,7 +11112,7 @@ class LayerTreeHostImplVirtualViewportTest : public LayerTreeHostImplTest {
     inner_scroll->SetElementId(
         LayerIdToElementIdForTesting(inner_scroll->id()));
     inner_scroll->SetBounds(outer_viewport);
-    inner_scroll->SetPosition(gfx::PointF());
+    inner_scroll->test_properties()->position = gfx::PointF();
 
     std::unique_ptr<LayerImpl> outer_clip =
         LayerImpl::Create(layer_tree_impl, kOuterViewportClipLayerId);
@@ -11143,12 +11130,12 @@ class LayerTreeHostImplVirtualViewportTest : public LayerTreeHostImplTest {
         ->scroll_tree.UpdateScrollOffsetBaseForTesting(
             outer_scroll->element_id(), gfx::ScrollOffset());
     outer_scroll->SetBounds(content_size);
-    outer_scroll->SetPosition(gfx::PointF());
+    outer_scroll->test_properties()->position = gfx::PointF();
 
     std::unique_ptr<LayerImpl> contents = LayerImpl::Create(layer_tree_impl, 8);
     contents->SetDrawsContent(true);
     contents->SetBounds(content_size);
-    contents->SetPosition(gfx::PointF());
+    contents->test_properties()->position = gfx::PointF();
 
     outer_scroll->test_properties()->AddChild(std::move(contents));
     outer_clip->test_properties()->AddChild(std::move(outer_scroll));
@@ -13224,8 +13211,8 @@ void LayerTreeHostImplTest::SetupMouseMoveAtTestScrollbarStates(
       host_impl_->active_tree()->OuterViewportScrollLayer();
 
   if (main_thread_scrolling) {
-    root_scroll->set_main_thread_scrolling_reasons(
-        MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects);
+    root_scroll->test_properties()->main_thread_scrolling_reasons =
+        MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
   }
 
   // scrollbar_1 on root scroll.
@@ -13240,7 +13227,7 @@ void LayerTreeHostImplTest::SetupMouseMoveAtTestScrollbarStates(
   touch_action_region.Union(kTouchActionNone, gfx::Rect(scrollbar_size_1));
   scrollbar_1->SetTouchActionRegion(touch_action_region);
   scrollbar_1->SetCurrentPos(0);
-  scrollbar_1->SetPosition(gfx::PointF(0, 0));
+  scrollbar_1->test_properties()->position = gfx::PointF(0, 0);
   host_impl_->active_tree()
       ->InnerViewportContainerLayer()
       ->test_properties()
@@ -13331,7 +13318,7 @@ void LayerTreeHostImplTest::SetupMouseMoveAtTestScrollbarStates(
                                            true, true);
   std::unique_ptr<LayerImpl> child =
       LayerImpl::Create(host_impl_->active_tree(), child_scroll_id);
-  child->SetPosition(gfx::PointF(50, 50));
+  child->test_properties()->position = gfx::PointF(50, 50);
   child->SetBounds(child_layer_size);
   child->SetDrawsContent(true);
   child->SetScrollable(gfx::Size(100, 100));
@@ -13339,15 +13326,15 @@ void LayerTreeHostImplTest::SetupMouseMoveAtTestScrollbarStates(
   ElementId child_element_id = child->element_id();
 
   if (main_thread_scrolling) {
-    child->set_main_thread_scrolling_reasons(
-        MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects);
+    child->test_properties()->main_thread_scrolling_reasons =
+        MainThreadScrollingReason::kHasBackgroundAttachmentFixedObjects;
   }
 
   scrollbar_2->SetScrollElementId(child_element_id);
   scrollbar_2->SetDrawsContent(true);
   scrollbar_2->SetBounds(scrollbar_size_2);
   scrollbar_2->SetCurrentPos(0);
-  scrollbar_2->SetPosition(gfx::PointF(0, 0));
+  scrollbar_2->test_properties()->position = gfx::PointF(0, 0);
 
   child->test_properties()->AddChild(std::move(scrollbar_2));
   root_scroll->test_properties()->AddChild(std::move(child));
@@ -13417,22 +13404,22 @@ void LayerTreeHostImplTest::SetupMouseMoveAtTestScrollbarStates(
   // Capture scrollbar_1, then move mouse to scrollbar_2's layer, should post an
   // event to fade out scrollbar_1.
   scrollbar_1_animation_controller->DidScrollUpdate();
-  animation_task_ = base::Closure();
+  animation_task_.Reset();
 
   host_impl_->MouseDown();
   host_impl_->MouseMoveAt(gfx::Point(60, 50));
   host_impl_->MouseUp();
 
-  EXPECT_FALSE(animation_task_.Equals(base::Closure()));
+  EXPECT_FALSE(animation_task_.is_null());
 
   // Near scrollbar_1, then mouse down and up, should not post an event to fade
   // out scrollbar_1.
   host_impl_->MouseMoveAt(gfx::Point(40, 150));
-  animation_task_ = base::Closure();
+  animation_task_.Reset();
 
   host_impl_->MouseDown();
   host_impl_->MouseUp();
-  EXPECT_TRUE(animation_task_.Equals(base::Closure()));
+  EXPECT_TRUE(animation_task_.is_null());
 
   // Near scrollbar_1, then mouse down and unregister
   // scrollbar_2_animation_controller, then mouse up should not cause crash.
@@ -13804,7 +13791,7 @@ TEST_F(LayerTreeHostImplTest, SelectionBoundsPassedToRenderFrameMetadata) {
   const int root_layer_id = 1;
   std::unique_ptr<SolidColorLayerImpl> root =
       SolidColorLayerImpl::Create(host_impl_->active_tree(), root_layer_id);
-  root->SetPosition(gfx::PointF());
+  root->test_properties()->position = gfx::PointF();
   root->SetBounds(gfx::Size(10, 10));
   root->SetDrawsContent(true);
   root->test_properties()->force_render_surface = true;
@@ -13941,7 +13928,7 @@ TEST_F(LayerTreeHostImplTest, DisabledBuildHitTestData) {
   std::unique_ptr<SurfaceLayerImpl> surface_child =
       SurfaceLayerImpl::Create(host_impl_->active_tree(), 3);
 
-  surface_child->SetPosition(gfx::PointF(50, 50));
+  surface_child->test_properties()->position = gfx::PointF(50, 50);
   surface_child->SetBounds(gfx::Size(100, 100));
   surface_child->SetDrawsContent(true);
   surface_child->SetSurfaceHitTestable(true);
@@ -13980,10 +13967,10 @@ TEST_F(HitTestRegionListGeneratingLayerTreeHostImplTest, BuildHitTestData) {
 
   host_impl_->active_tree()->SetDeviceViewportSize(gfx::Size(1024, 768));
 
-  intermediate_layer->SetPosition(gfx::PointF(200, 300));
+  intermediate_layer->test_properties()->position = gfx::PointF(200, 300);
   intermediate_layer->SetBounds(gfx::Size(200, 200));
 
-  surface_child1->SetPosition(gfx::PointF(50, 50));
+  surface_child1->test_properties()->position = gfx::PointF(50, 50);
   surface_child1->SetBounds(gfx::Size(100, 100));
   gfx::Transform rotate;
   rotate.Rotate(45);
@@ -13991,12 +13978,12 @@ TEST_F(HitTestRegionListGeneratingLayerTreeHostImplTest, BuildHitTestData) {
   surface_child1->SetDrawsContent(true);
   surface_child1->SetSurfaceHitTestable(true);
 
-  surface_child2->SetPosition(gfx::PointF(450, 300));
+  surface_child2->test_properties()->position = gfx::PointF(450, 300);
   surface_child2->SetBounds(gfx::Size(100, 100));
   surface_child2->SetDrawsContent(true);
   surface_child2->SetSurfaceHitTestable(true);
 
-  overlapping_layer->SetPosition(gfx::PointF(500, 350));
+  overlapping_layer->test_properties()->position = gfx::PointF(500, 350);
   overlapping_layer->SetBounds(gfx::Size(200, 200));
   overlapping_layer->SetDrawsContent(true);
 

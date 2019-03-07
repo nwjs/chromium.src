@@ -327,5 +327,16 @@ void QuicConnectionPeer::SetNoVersionNegotiation(QuicConnection* connection,
       no_version_negotiation;
 }
 
+// static
+bool QuicConnectionPeer::SupportsReleaseTime(QuicConnection* connection) {
+  return connection->supports_release_time_;
+}
+
+// static
+QuicConnection::PacketContent QuicConnectionPeer::GetCurrentPacketContent(
+    QuicConnection* connection) {
+  return connection->current_packet_content_;
+}
+
 }  // namespace test
 }  // namespace quic

@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/editing/forward.h"
+#include "third_party/blink/renderer/core/layout/ng/inline/ng_caret_navigator.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/wtf/allocator.h"
@@ -105,14 +106,20 @@ class CORE_EXPORT NGOffsetMapping {
       HashMap<Persistent<const Node>, std::pair<unsigned, unsigned>>;
 
   NGOffsetMapping(NGOffsetMapping&&);
-  NGOffsetMapping(UnitVector&&, RangeMap&&, String);
+  NGOffsetMapping(UnitVector&&,
+                  RangeMap&&,
+                  String,
+                  std::unique_ptr<NGCaretNavigator>);
   ~NGOffsetMapping();
 
   const UnitVector& GetUnits() const { return units_; }
   const RangeMap& GetRanges() const { return ranges_; }
   const String& GetText() const { return text_; }
 
-  // ------ Mapping APIs from DOM to text content ------
+  // ------ Static getters for offset mapping objects  ------
+
+  // TODO(xiaochengh): Unify the following getters and make them work on both
+  // legacy and LayoutNG.
 
   // NGOffsetMapping APIs only accept the following positions:
   // 1. Offset-in-anchor in a text node;
@@ -130,9 +137,16 @@ class CORE_EXPORT NGOffsetMapping {
   // a LayoutObject at hand.
   static const NGOffsetMapping* GetFor(const LayoutObject*);
 
-  // Returns the mapping object of the inline formatting context the given
-  // LayoutBlockFlow has.
-  static const NGOffsetMapping* GetForContainingBlockFlow(LayoutBlockFlow*);
+  // Returns the inline formatting context (which is a block flow) where the
+  // given object is laid out -- this is the block flow whose offset mapping
+  // contains the given object. Note that the object can be in either legacy or
+  // NG layout, while NGOffsetMapping is supported on both of them.
+  static LayoutBlockFlow* GetInlineFormattingContextOf(const LayoutObject&);
+
+  // Variants taking position instead of |LayoutObject|.
+  static LayoutBlockFlow* GetInlineFormattingContextOf(const Position&);
+
+  // ------ Mapping APIs from DOM to text content ------
 
   // Returns the NGOffsetMappingUnit whose DOM range contains the position.
   // If there are multiple qualifying units, returns the last one.
@@ -185,6 +199,13 @@ class CORE_EXPORT NGOffsetMapping {
   Position GetFirstPosition(unsigned) const;
   Position GetLastPosition(unsigned) const;
 
+  // Converts the given caret position on text content to a PositionWithAffinity
+  // in DOM. If |position| is before a character, the function creates a
+  // downstream position before |GetLastPosition()| of the character; otherwise,
+  // it returns an upstream position after |GetFirstPosition()| of the character
+  PositionWithAffinity GetPositionWithAffinity(
+      const NGCaretNavigator::Position& position) const;
+
   // Returns all NGOffsetMappingUnits whose text content ranges has non-empty
   // (but possibly collapsed) intersection with (start, end). Note that units
   // that only "touch" |start| or |end| are excluded.
@@ -200,6 +221,10 @@ class CORE_EXPORT NGOffsetMapping {
   // control charcters. Returns true otherwise.
   bool HasBidiControlCharactersOnly(unsigned start, unsigned end) const;
 
+  const NGCaretNavigator* GetCaretNavigator() const {
+    return caret_navigator_.get();
+  }
+
  private:
   // The NGOffsetMappingUnits of the inline formatting context in osrted order.
   UnitVector units_;
@@ -210,6 +235,9 @@ class CORE_EXPORT NGOffsetMapping {
   // The text content string of the inline formatting context. Same string as
   // |NGInlineNodeData::text_content_|.
   String text_;
+
+  // Helper class for caret nagivation on |text_|.
+  std::unique_ptr<NGCaretNavigator> caret_navigator_;
 
   DISALLOW_COPY_AND_ASSIGN(NGOffsetMapping);
 };

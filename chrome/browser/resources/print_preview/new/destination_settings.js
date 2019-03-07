@@ -8,69 +8,171 @@ Polymer({
   behaviors: [I18nBehavior],
 
   properties: {
+    activeUser: String,
+
+    appKioskMode: Boolean,
+
+    /** @type {!print_preview.CloudPrintState} */
+    cloudPrintState: {
+      type: Number,
+      observer: 'onCloudPrintStateChanged_',
+    },
+
     /** @type {!print_preview.Destination} */
-    destination: Object,
+    destination: {
+      type: Object,
+      observer: 'onDestinationSet_',
+    },
 
     /** @type {?print_preview.DestinationStore} */
-    destinationStore: Object,
-
-    /** @type {?print_preview.InvitationStore} */
-    invitationStore: Object,
-
-    /** @type {!Array<!print_preview.RecentDestination>} */
-    recentDestinations: Array,
-
-    /** @type {!print_preview.UserInfo} */
-    userInfo: {
+    destinationStore: {
       type: Object,
-      notify: true,
+      observer: 'onDestinationStoreSet_',
     },
 
     disabled: Boolean,
 
-    /** @type {!print_preview_new.State} */
-    state: Number,
+    /** @type {?print_preview.InvitationStore} */
+    invitationStore: Object,
 
     noDestinationsFound: {
       type: Boolean,
       value: false,
     },
 
-    /** @private {boolean} */
-    showCloudPrintPromo_: {
-      type: Boolean,
-      value: false,
-    },
+    /** @type {!Array<!print_preview.RecentDestination>} */
+    recentDestinations: Array,
+
+    /** @type {!print_preview_new.State} */
+    state: Number,
+
+    /** @type {!Array<string>} */
+    users: Array,
 
     /** @private {boolean} */
     loadingDestination_: {
       type: Boolean,
       value: true,
+      observer: 'onLoadingDestinationChange_',
     },
 
-    /** @private {boolean} */
-    stale_: {
-      type: Boolean,
-      computed: 'computeStale_(destination)',
-      reflectToAttribute: true,
+    /** @private {!Array<!print_preview.Destination>} */
+    recentDestinationList_: Array,
+
+    /** @private {string} */
+    statusText_: {
+      type: String,
+      computed: 'computeStatusText_(destination.connectionStatus, ' +
+          'destination.shouldShowInvalidCertificateError)',
     },
   },
 
-  observers: ['onDestinationSet_(destination, destination.id)'],
+  observers: [
+    'updateRecentDestinationList_(' +
+        'recentDestinations.*, activeUser, destinationStore)',
+  ],
+
+  /** @private {!EventTracker} */
+  tracker_: new EventTracker(),
+
+  /** @private */
+  onDestinationStoreSet_: function() {
+    if (!this.destinationStore) {
+      return;
+    }
+
+    // Need to update the recent list when the destination store inserts
+    // destinations, in case any recent destinations have been added to the
+    // store. At startup, recent destinations can be in the sticky settings,
+    // but they should not be displayed in the dropdown until they have been
+    // fetched by the DestinationStore, to ensure that they still exist.
+    this.tracker_.add(
+        assert(this.destinationStore),
+        print_preview.DestinationStore.EventType.DESTINATIONS_INSERTED,
+        this.updateRecentDestinationList_.bind(this));
+  },
 
   /**
-   * @return {boolean} Whether the destination change button should be disabled.
+   * @param {!print_preview.RecentDestination} destination
+   * @return {boolean} Whether the destination is Save as PDF or Save to Drive.
+   */
+  destinationIsDriveOrPdf_: function(destination) {
+    return destination.id ===
+        print_preview.Destination.GooglePromotedId.SAVE_AS_PDF ||
+        destination.id === print_preview.Destination.GooglePromotedId.DOCS;
+  },
+
+  /** @private */
+  updateRecentDestinationList_: function() {
+    if (!this.recentDestinations || !this.destinationStore) {
+      return;
+    }
+
+    const recentDestinations = [];
+    let update = false;
+    let filterAccount = this.activeUser;
+    // Fallback to the account for the current destination, in case activeUser
+    // is not known yet from cloudprint.
+    if (!filterAccount) {
+      filterAccount = this.destination ? this.destination.account : '';
+    }
+    const existingKeys = this.recentDestinationList_ ?
+        this.recentDestinationList_.map(listItem => listItem.key) :
+        [];
+    this.recentDestinations.forEach(recentDestination => {
+      const key = print_preview.createRecentDestinationKey(recentDestination);
+      const destination = this.destinationStore.getDestinationByKey(key);
+      if (destination && !this.destinationIsDriveOrPdf_(recentDestination) &&
+          (!destination.account || destination.account == filterAccount)) {
+        recentDestinations.push(destination);
+        update = update || !existingKeys.includes(key);
+      }
+    });
+
+    // Only update the list if new destinations have been added to it.
+    // Re-ordering the dropdown items every time the selected item changes is
+    // a bad experience for keyboard users.
+    if (update) {
+      this.recentDestinationList_ = recentDestinations;
+    }
+
+    this.loadingDestination_ = !this.destination || !this.destination.id;
+  },
+
+  /**
+   * @return {boolean} Whether the destinations dropdown should be disabled.
    * @private
    */
-  shouldDisableButton_: function() {
+  shouldDisableDropdown_: function() {
     return !this.destinationStore || this.noDestinationsFound ||
-        (this.disabled &&
+        this.loadingDestination_ ||
+        (this.disabled && this.state != print_preview_new.State.NOT_READY &&
          this.state != print_preview_new.State.INVALID_PRINTER);
   },
 
   /** @private */
+  onCloudPrintStateChanged_: function() {
+    if (this.cloudPrintState !== print_preview.CloudPrintState.SIGNED_IN) {
+      return;
+    }
+
+    if (this.destination && this.destination.account !== '') {
+      this.updateDestination_();
+    }
+
+    this.loadDropdownCloudDestinations_();
+  },
+
+  /** @private */
   onDestinationSet_: function() {
-    this.loadingDestination_ = !this.destination || !this.destination.id;
+    if (this.cloudPrintState === print_preview.CloudPrintState.ENABLED) {
+      // Only try to load the docs destination for now. If this request
+      // succeeds, it will trigger a transition to SIGNED_IN, and we can
+      // load the remaining destinations. Otherwise, it will transition to
+      // NOT_SIGNED_IN, so we will not do this more than once.
+      this.destinationStore.startLoadCookieDestination(
+          print_preview.Destination.GooglePromotedId.DOCS);
+    }
   },
 
   /**
@@ -85,10 +187,11 @@ Polymer({
    * @return {string} The connection status text to display.
    * @private
    */
-  getStatusText_: function() {
+  computeStatusText_: function() {
     // |destination| can be either undefined, or null here.
-    if (!this.destination)
+    if (!this.destination) {
       return '';
+    }
 
     return this.destination.shouldShowInvalidCertificateError ?
         this.i18n('noLongerSupportedFragment') :
@@ -96,36 +199,66 @@ Polymer({
   },
 
   /** @private */
-  onChangeButtonClick_: function() {
-    this.destinationStore.startLoadAllDestinations();
-    this.invitationStore.startLoadingInvitations();
-    const dialog = this.$.destinationDialog.get();
-    dialog.show();
+  loadDropdownCloudDestinations_: function() {
+    this.destinationStore.startLoadCookieDestination(
+        print_preview.Destination.GooglePromotedId.DOCS);
+    this.recentDestinations.forEach(destination => {
+      if (destination.origin === print_preview.DestinationOrigin.COOKIES &&
+          (destination.account === this.activeUser ||
+           destination.account === '')) {
+        this.destinationStore.startLoadCookieDestination(destination.id);
+      }
+    });
   },
 
-  showCloudPrintPromo: function() {
-    this.showCloudPrintPromo_ = true;
-  },
-
-  /** @return {boolean} Whether the destinations dialog is open. */
-  isDialogOpen: function() {
-    const destinationDialog = this.$$('print-preview-destination-dialog');
-    return destinationDialog && destinationDialog.isOpen();
+  /** @private */
+  onLoadingDestinationChange_: function() {
+    if (this.loadingDestination_ || this.noDestinationsFound ||
+        (this.cloudPrintState !== print_preview.CloudPrintState.SIGNED_IN &&
+         this.destination.account !== '')) {
+      return;
+    }
+    this.updateDestination_();
   },
 
   /**
-   * @return {boolean} Whether the destination is offline or invalid, indicating
-   *     that "stale" styling should be applied.
+   * @param {!CustomEvent<string>} e Event containing the new selected value.
    * @private
    */
-  computeStale_: function() {
-    return !!this.destination &&
-        (this.destination.isOffline ||
-         this.destination.shouldShowInvalidCertificateError);
+  onSelectedDestinationOptionChange_: function(e) {
+    const value = e.detail;
+    if (value === 'seeMore') {
+      this.destinationStore.startLoadAllDestinations();
+      if (this.activeUser) {
+        this.invitationStore.startLoadingInvitations(this.activeUser);
+      }
+      this.$.destinationDialog.get().show();
+    } else {
+      this.destinationStore.selectDestinationByKey(value);
+    }
   },
 
   /** @private */
   onDialogClose_: function() {
-    this.$$('paper-button').focus();
+    // Reset the select value if the user dismissed the dialog without
+    // selecting a new destination.
+    if (this.destination) {
+      this.updateDestination_();
+    }
+    this.$.destinationSelect.focus();
+  },
+
+  updateDestination_: function() {
+    // TODO (rbpotter): Remove this conditional when the Polymer 2 migration
+    // is completed.
+    if (Polymer.DomIf) {
+      Polymer.RenderStatus.beforeNextRender(this.$.destinationSelect, () => {
+        this.$.destinationSelect.updateDestination();
+      });
+    } else {
+      this.$.destinationSelect.async(() => {
+        this.$.destinationSelect.updateDestination();
+      });
+    }
   },
 });

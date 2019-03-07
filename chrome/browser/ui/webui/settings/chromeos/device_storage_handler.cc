@@ -15,7 +15,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browsing_data/browsing_data_appcache_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_cache_storage_helper.h"
-#include "chrome/browser/browsing_data/browsing_data_channel_id_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_database_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_file_system_helper.h"
@@ -101,6 +100,11 @@ void StorageHandler::RegisterMessages() {
       "clearDriveCache",
       base::BindRepeating(&StorageHandler::HandleClearDriveCache,
                           base::Unretained(this)));
+}
+
+void StorageHandler::OnJavascriptDisallowed() {
+  // Ensure that pending callbacks do not complete and cause JS to be evaluated.
+  weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
 void StorageHandler::HandleUpdateStorageInfo(const base::ListValue* args) {
@@ -249,7 +253,6 @@ void StorageHandler::UpdateBrowsingDataSize() {
             storage_partition->GetIndexedDBContext()),
         BrowsingDataFileSystemHelper::Create(
             storage_partition->GetFileSystemContext()),
-        BrowsingDataChannelIDHelper::Create(profile_->GetRequestContext()),
         new BrowsingDataServiceWorkerHelper(
             storage_partition->GetServiceWorkerContext()),
         new BrowsingDataCacheStorageHelper(
@@ -290,10 +293,8 @@ void StorageHandler::OnGetBrowsingDataSize(bool is_site_data, int64_t size) {
 }
 
 void StorageHandler::UpdateAndroidSize() {
-  if (!arc::IsArcPlayStoreEnabledForProfile(profile_) ||
-      arc::IsArcOptInVerificationDisabled()) {
+  if (!arc::IsArcPlayStoreEnabledForProfile(profile_))
     return;
-  }
 
   if (updating_android_size_)
     return;

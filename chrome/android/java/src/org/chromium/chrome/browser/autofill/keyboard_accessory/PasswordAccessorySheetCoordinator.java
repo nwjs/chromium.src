@@ -4,11 +4,7 @@
 
 package org.chromium.chrome.browser.autofill.keyboard_accessory;
 
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.PasswordAccessorySheetProperties.CREDENTIALS;
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.PasswordAccessorySheetProperties.SCROLL_LISTENER;
-
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.Nullable;
 import android.support.v7.content.res.AppCompatResources;
@@ -17,24 +13,21 @@ import android.view.ViewGroup;
 
 import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryData.Item;
-import org.chromium.chrome.browser.autofill.keyboard_accessory.PasswordAccessorySheetViewBinder.ItemViewHolder;
-import org.chromium.chrome.browser.modelutil.ListModel;
-import org.chromium.chrome.browser.modelutil.PropertyModel;
-import org.chromium.chrome.browser.modelutil.RecyclerViewAdapter;
-import org.chromium.chrome.browser.modelutil.SimpleRecyclerViewMcp;
+import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.autofill.keyboard_accessory.AccessorySheetTabModel.AccessorySheetDataPiece;
+import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryData.AccessorySheetData;
+import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryData.Provider;
+import org.chromium.ui.modelutil.ListModel;
+import org.chromium.ui.modelutil.RecyclerViewAdapter;
+import org.chromium.ui.modelutil.SimpleRecyclerViewMcp;
 
 /**
  * This component is a tab that can be added to the {@link ManualFillingCoordinator} which shows it
  * as bottom sheet below the keyboard accessory.
  */
-public class PasswordAccessorySheetCoordinator implements KeyboardAccessoryData.Tab.Listener {
-    private final PropertyModel mModel = new PropertyModel.Builder(CREDENTIALS, SCROLL_LISTENER)
-                                                 .with(CREDENTIALS, new ListModel<>())
-                                                 .with(SCROLL_LISTENER, null)
-                                                 .build();
+public class PasswordAccessorySheetCoordinator extends AccessorySheetTabCoordinator {
+    private final AccessorySheetTabModel mModel = new AccessorySheetTabModel();
     private final PasswordAccessorySheetMediator mMediator;
-    private final KeyboardAccessoryData.Tab mTab;
 
     @VisibleForTesting
     static class IconProvider {
@@ -63,11 +56,6 @@ public class PasswordAccessorySheetCoordinator implements KeyboardAccessoryData.
         }
     }
 
-    interface FaviconProvider {
-        @Nullable
-        Bitmap getFavicon();
-    }
-
     /**
      * Creates the passwords tab.
      * @param context The {@link Context} containing resources like icons and layouts for this tab.
@@ -75,16 +63,21 @@ public class PasswordAccessorySheetCoordinator implements KeyboardAccessoryData.
      */
     public PasswordAccessorySheetCoordinator(
             Context context, @Nullable RecyclerView.OnScrollListener scrollListener) {
-        mMediator = new PasswordAccessorySheetMediator(mModel, scrollListener);
-        mTab = new KeyboardAccessoryData.Tab(IconProvider.getInstance().getIcon(context),
+        super(IconProvider.getInstance().getIcon(context),
                 context.getString(R.string.password_accessory_sheet_toggle),
                 context.getString(R.string.password_accessory_sheet_opened),
-                R.layout.password_accessory_sheet, AccessoryTabType.PASSWORDS, this);
+                R.layout.password_accessory_sheet, AccessoryTabType.PASSWORDS, scrollListener);
+        mMediator = new PasswordAccessorySheetMediator(mModel);
     }
 
     @Override
     public void onTabCreated(ViewGroup view) {
-        PasswordAccessorySheetViewBinder.initializeView((RecyclerView) view, mModel);
+        super.onTabCreated(view);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_KEYBOARD_ACCESSORY)) {
+            PasswordAccessorySheetModernViewBinder.initializeView((RecyclerView) view, mModel);
+        } else {
+            PasswordAccessorySheetViewBinder.initializeView((RecyclerView) view, mModel);
+        }
     }
 
     @Override
@@ -93,36 +86,44 @@ public class PasswordAccessorySheetCoordinator implements KeyboardAccessoryData.
     }
 
     /**
+     * Registers the provider pushing a complete new instance of {@link AccessorySheetData} that
+     * should be displayed as sheet for this tab.
+     * @param accessorySheetDataProvider A {@link Provider<AccessorySheetData>}.
+     */
+    void registerDataProvider(Provider<AccessorySheetData> accessorySheetDataProvider) {
+        accessorySheetDataProvider.addObserver(mMediator);
+    }
+
+    /**
      * Creates an adapter to an {@link PasswordAccessorySheetViewBinder} that is wired
-     * up to the model change processor which listens to the {@link ListModel <Item>}.
-     * @param model the {@link ListModel <Item>} the adapter gets its data from.
+     * up to a model change processor listening to the {@link AccessorySheetTabModel}.
+     * @param model the {@link AccessorySheetTabModel} the adapter gets its data from.
      * @return Returns a fully initialized and wired adapter to a PasswordAccessorySheetViewBinder.
      */
-    static RecyclerViewAdapter<ItemViewHolder, Void> createAdapter(ListModel<Item> model) {
+    static RecyclerViewAdapter<AccessorySheetTabViewBinder.ElementViewHolder, Void> createAdapter(
+            AccessorySheetTabModel model) {
         return new RecyclerViewAdapter<>(
-                new SimpleRecyclerViewMcp<>(model, Item::getType, ItemViewHolder::bind),
-                ItemViewHolder::create);
+                new SimpleRecyclerViewMcp<>(model, AccessorySheetDataPiece::getType,
+                        AccessorySheetTabViewBinder.ElementViewHolder::bind),
+                PasswordAccessorySheetViewBinder::create);
     }
 
     /**
-     * Registered item providers can replace the currently shown data in the password sheet.
-     * @param itemProvider The provider this component will listen to.
+     * Creates an adapter to an {@link PasswordAccessorySheetModernViewBinder} that is wired up to
+     * the model change processor which listens to the {@link AccessorySheetTabModel}.
+     * @param model the {@link AccessorySheetTabModel} the adapter gets its data from.
+     * @return Returns an {@link PasswordAccessorySheetModernViewBinder} wired to a MCP.
      */
-    public void registerItemProvider(KeyboardAccessoryData.Provider<Item[]> itemProvider) {
-        itemProvider.addObserver(mMediator);
-    }
-
-    /**
-     * Returns the Tab object that describes the appearance of this class in the keyboard accessory
-     * or its accessory sheet. The returned object doesn't change for this instance.
-     * @return Returns a stable {@link KeyboardAccessoryData.Tab} that is connected to this sheet.
-     */
-    public KeyboardAccessoryData.Tab getTab() {
-        return mTab;
+    static RecyclerViewAdapter<AccessorySheetTabViewBinder.ElementViewHolder, Void>
+    createModernAdapter(ListModel<AccessorySheetDataPiece> model) {
+        return new RecyclerViewAdapter<>(
+                new SimpleRecyclerViewMcp<>(model, AccessorySheetDataPiece::getType,
+                        AccessorySheetTabViewBinder.ElementViewHolder::bind),
+                PasswordAccessorySheetModernViewBinder::create);
     }
 
     @VisibleForTesting
-    ListModel<Item> getModelForTesting() {
-        return mMediator.getModelForTesting();
+    AccessorySheetTabModel getSheetDataPiecesForTesting() {
+        return mModel;
     }
 }

@@ -73,8 +73,8 @@ class NGBoxFragmentPainter : public BoxPainterBase {
                                             const LayoutRect&);
   bool BackgroundIsKnownToBeOpaque(const PaintInfo&);
 
-  void PaintAllPhasesAtomically(const PaintInfo&,
-                                bool is_self_painting);
+  void PaintInternal(const PaintInfo&);
+  void PaintAllPhasesAtomically(const PaintInfo&);
   void PaintBlockChildren(const PaintInfo&);
   void PaintLineBoxChildren(NGPaintFragment::ChildList,
                             const PaintInfo&,
@@ -113,6 +113,10 @@ class NGBoxFragmentPainter : public BoxPainterBase {
 
   void RecordHitTestData(const PaintInfo& paint_info,
                          const LayoutPoint& paint_offset);
+
+  void RecordHitTestDataForLine(const PaintInfo& paint_info,
+                                const LayoutPoint& paint_offset,
+                                const NGPaintFragment& line);
 
   bool IsInSelfHitTestingPhase(HitTestAction) const;
   bool VisibleToHitTestRequest(const HitTestRequest&) const;

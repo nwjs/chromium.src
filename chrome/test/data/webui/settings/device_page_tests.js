@@ -97,8 +97,9 @@ cr.define('device_page_tests', function() {
         app.preferred = app.value == appId;
       });
 
-      if (changed)
+      if (changed) {
         this.scheduleLockScreenAppsUpdated_();
+      }
     },
 
     /** @override */
@@ -394,17 +395,12 @@ cr.define('device_page_tests', function() {
 
     /** @return {!Promise<!HTMLElement>} */
     function showAndGetDeviceSubpage(subpage, expectedRoute) {
-      return new Promise(function(resolve, reject) {
-               const row = assert(devicePage.$$('#main #' + subpage + 'Row'));
-               devicePage.$$('#pages').addEventListener(
-                   'neon-animation-finish', resolve);
-               row.click();
-             })
-          .then(function() {
-            assertEquals(expectedRoute, settings.getCurrentRoute());
-            const page = devicePage.$$('settings-' + subpage);
-            return assert(page);
-          });
+      const row = assert(devicePage.$$(`#main #${subpage}Row`));
+      row.click();
+      assertEquals(expectedRoute, settings.getCurrentRoute());
+      const page = devicePage.$$('settings-' + subpage);
+      assert(page);
+      return Promise.resolve(page);
     }
 
     /**
@@ -490,22 +486,14 @@ cr.define('device_page_tests', function() {
         assertEquals(0, pointersPage.$$('#mouse h2').offsetHeight);
         assertEquals(0, pointersPage.$$('#touchpad h2').offsetHeight);
 
-        // Wait for the transition back to the main page.
-        return new Promise(function(resolve, reject) {
-                 devicePage.$$('#pages').addEventListener(
-                     'neon-animation-finish', resolve);
+        cr.webUIListenerCallback('has-mouse-changed', false);
+        assertEquals(settings.routes.DEVICE, settings.getCurrentRoute());
+        assertEquals(0, devicePage.$$('#main #pointersRow').offsetHeight);
 
-                 cr.webUIListenerCallback('has-mouse-changed', false);
-               })
-            .then(function() {
-              assertEquals(settings.routes.DEVICE, settings.getCurrentRoute());
-              assertEquals(0, devicePage.$$('#main #pointersRow').offsetHeight);
+        cr.webUIListenerCallback('has-touchpad-changed', true);
+        assertLT(0, devicePage.$$('#main #pointersRow').offsetHeight);
 
-              cr.webUIListenerCallback('has-touchpad-changed', true);
-              assertLT(0, devicePage.$$('#main #pointersRow').offsetHeight);
-              return showAndGetDeviceSubpage(
-                  'pointers', settings.routes.POINTERS);
-            })
+        return showAndGetDeviceSubpage('pointers', settings.routes.POINTERS)
             .then(function(page) {
               assertEquals(0, pointersPage.$$('#mouse').offsetHeight);
               assertLT(0, pointersPage.$$('#touchpad').offsetHeight);
@@ -603,9 +591,15 @@ cr.define('device_page_tests', function() {
     });
 
     test(assert(TestNames.Keyboard), function() {
+      const name = k => `prefs.settings.language.${k}.value`;
+      const get = k => devicePage.get(name(k));
+      const set = (k, v) => devicePage.set(name(k), v);
+      let keyboardPage;
+      let collapse;
       // Open the keyboard subpage.
       return showAndGetDeviceSubpage('keyboard', settings.routes.KEYBOARD)
-          .then(function(keyboardPage) {
+          .then(function(page) {
+            keyboardPage = page;
             // Initially, the optional keys are hidden.
             expectFalse(!!keyboardPage.$$('#capsLockKey'));
             expectFalse(!!keyboardPage.$$('#diamondKey'));
@@ -666,46 +660,42 @@ cr.define('device_page_tests', function() {
             expectTrue(!!keyboardPage.$$('#externalMetaKey'));
             expectTrue(!!keyboardPage.$$('#externalCommandKey'));
 
-            const collapse = keyboardPage.$$('iron-collapse');
+            collapse = keyboardPage.$$('iron-collapse');
             assertTrue(!!collapse);
             expectTrue(collapse.opened);
 
             expectEquals(500, keyboardPage.$$('#delaySlider').pref.value);
             expectEquals(500, keyboardPage.$$('#repeatRateSlider').pref.value);
 
-            // Test interaction with the settings-slider's underlying
-            // paper-slider.
+            // Test interaction with the settings-slider's underlying cr-slider.
             MockInteractions.pressAndReleaseKeyOn(
                 keyboardPage.$$('#delaySlider').$$('cr-slider'), 37 /* left */,
                 [], 'ArrowLeft');
             MockInteractions.pressAndReleaseKeyOn(
                 keyboardPage.$$('#repeatRateSlider').$$('cr-slider'), 39, [],
                 'ArrowRight');
-            const language = devicePage.prefs.settings.language;
-            expectEquals(1000, language.xkb_auto_repeat_delay_r2.value);
-            expectEquals(300, language.xkb_auto_repeat_interval_r2.value);
+            expectEquals(1000, get('xkb_auto_repeat_delay_r2'));
+            expectEquals(300, get('xkb_auto_repeat_interval_r2'));
 
             // Test sliders change when prefs change.
-            devicePage.set(
-                'prefs.settings.language.xkb_auto_repeat_delay_r2.value', 1500);
+            set('xkb_auto_repeat_delay_r2', 1500);
             expectEquals(1500, keyboardPage.$$('#delaySlider').pref.value);
-            devicePage.set(
-                'prefs.settings.language.xkb_auto_repeat_interval_r2.value',
-                2000);
+            set('xkb_auto_repeat_interval_r2', 2000);
             expectEquals(2000, keyboardPage.$$('#repeatRateSlider').pref.value);
 
             // Test sliders round to nearest value when prefs change.
-            devicePage.set(
-                'prefs.settings.language.xkb_auto_repeat_delay_r2.value', 600);
+            set('xkb_auto_repeat_delay_r2', 600);
+            return PolymerTest.flushTasks();
+          })
+          .then(() => {
             expectEquals(500, keyboardPage.$$('#delaySlider').pref.value);
-            devicePage.set(
-                'prefs.settings.language.xkb_auto_repeat_interval_r2.value',
-                45);
+            set('xkb_auto_repeat_interval_r2', 45);
+            return PolymerTest.flushTasks();
+          })
+          .then(() => {
             expectEquals(50, keyboardPage.$$('#repeatRateSlider').pref.value);
 
-            devicePage.set(
-                'prefs.settings.language.xkb_auto_repeat_enabled_r2.value',
-                false);
+            set('xkb_auto_repeat_enabled_r2', false);
             expectFalse(collapse.opened);
 
             // Test keyboard shortcut viewer button.

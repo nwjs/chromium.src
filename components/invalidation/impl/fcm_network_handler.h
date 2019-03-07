@@ -24,6 +24,27 @@ class InstanceIDDriver;
 
 namespace syncer {
 
+struct FCMNetworkHandlerDiagnostic {
+  FCMNetworkHandlerDiagnostic();
+
+  // Collect all the internal variables in a single readable dictionary.
+  std::unique_ptr<base::DictionaryValue> CollectDebugData() const;
+
+  std::string RegistrationResultToString(
+      const instance_id::InstanceID::Result result) const;
+
+  std::string token;
+  instance_id::InstanceID::Result registration_result =
+      instance_id::InstanceID::UNKNOWN_ERROR;
+  instance_id::InstanceID::Result token_verification_result =
+      instance_id::InstanceID::UNKNOWN_ERROR;
+  bool token_changed = false;
+  base::Time instance_id_token_requested;
+  base::Time instance_id_token_was_received;
+  base::Time instance_id_token_verification_requested;
+  base::Time instance_id_token_verified;
+};
+
 /*
  * The class responsible for communication via GCM channel:
  *  - It retrieves the token required for the subscription
@@ -36,7 +57,9 @@ class FCMNetworkHandler : public gcm::GCMAppHandler,
                           public FCMSyncNetworkChannel {
  public:
   FCMNetworkHandler(gcm::GCMDriver* gcm_driver,
-                    instance_id::InstanceIDDriver* instance_id_driver);
+                    instance_id::InstanceIDDriver* instance_id_driver,
+                    const std::string& sender_id,
+                    const std::string& app_id);
 
   ~FCMNetworkHandler() override;
 
@@ -59,6 +82,10 @@ class FCMNetworkHandler : public gcm::GCMAppHandler,
   void SetTokenValidationTimerForTesting(
       std::unique_ptr<base::OneShotTimer> token_validation_timer);
 
+  void RequestDetailedStatus(
+      base::RepeatingCallback<void(const base::DictionaryValue&)> callback)
+      override;
+
  private:
   // Called when a subscription token is obtained from the GCM server.
   void DidRetrieveToken(const std::string& subscription_token,
@@ -75,6 +102,11 @@ class FCMNetworkHandler : public gcm::GCMAppHandler,
   std::string token_;
 
   std::unique_ptr<base::OneShotTimer> token_validation_timer_;
+
+  const std::string sender_id_;
+  const std::string app_id_;
+
+  FCMNetworkHandlerDiagnostic diagnostic_info_;
   base::WeakPtrFactory<FCMNetworkHandler> weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(FCMNetworkHandler);

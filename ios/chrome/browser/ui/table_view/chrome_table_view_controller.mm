@@ -19,6 +19,9 @@
 #error "This file requires ARC support."
 #endif
 
+const CGFloat kTableViewSeparatorInset = 16;
+const CGFloat kTableViewSeparatorInsetWithIcon = 56;
+
 @interface ChromeTableViewController ()
 // The loading displayed by [self startLoadingIndicatorWithLoadingMessage:].
 @property(nonatomic, strong) TableViewLoadingView* loadingView;
@@ -62,6 +65,7 @@
   if (_emptyView == emptyView)
     return;
   _emptyView = emptyView;
+  _emptyView.scrollViewContentInsets = self.view.safeAreaInsets;
   self.tableView.backgroundView = _emptyView;
   // Since this would replace any loadingView, set it to nil.
   self.loadingView = nil;
@@ -73,12 +77,21 @@
   _tableViewModel = [[TableViewModel alloc] init];
 }
 
+- (void)viewSafeAreaInsetsDidChange {
+  [super viewSafeAreaInsetsDidChange];
+  // The safe area insets aren't propagated to the inner scroll view. Manually
+  // set the content insets.
+  self.emptyView.scrollViewContentInsets = self.view.safeAreaInsets;
+}
+
 - (void)viewDidLoad {
   [super viewDidLoad];
 
   [self.tableView setBackgroundColor:self.styler.tableViewBackgroundColor];
   [self.tableView setSeparatorColor:self.styler.cellSeparatorColor];
-  [self.tableView setSeparatorInset:UIEdgeInsetsMake(0, 56, 0, 0)];
+  [self.tableView
+      setSeparatorInset:UIEdgeInsetsMake(0, kTableViewSeparatorInsetWithIcon, 0,
+                                         0)];
 
   // Configure the app bar if needed.
   if (_appBarViewController) {

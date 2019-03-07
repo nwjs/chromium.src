@@ -22,12 +22,12 @@
 #include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection_ice_event_init.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_quic_transport.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
-#include "third_party/webrtc/api/jsepicecandidate.h"
-#include "third_party/webrtc/api/peerconnectioninterface.h"
-#include "third_party/webrtc/p2p/base/portallocator.h"
-#include "third_party/webrtc/p2p/base/transportdescription.h"
-#include "third_party/webrtc/pc/iceserverparsing.h"
-#include "third_party/webrtc/pc/webrtcsdp.h"
+#include "third_party/webrtc/api/jsep_ice_candidate.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
+#include "third_party/webrtc/p2p/base/port_allocator.h"
+#include "third_party/webrtc/p2p/base/transport_description.h"
+#include "third_party/webrtc/pc/ice_server_parsing.h"
+#include "third_party/webrtc/pc/webrtc_sdp.h"
 
 namespace blink {
 namespace {
@@ -58,8 +58,11 @@ class DefaultIceTransportAdapterCrossThreadFactory
   void InitializeOnMainThread(LocalFrame& frame) override {
     DCHECK(!port_allocator_);
     DCHECK(!worker_thread_rtc_thread_);
+    DCHECK(!async_resolver_factory_);
     port_allocator_ = Platform::Current()->CreateWebRtcPortAllocator(
         frame.Client()->GetWebFrame());
+    async_resolver_factory_ =
+        Platform::Current()->CreateWebRtcAsyncResolverFactory();
     worker_thread_rtc_thread_ =
         Platform::Current()->GetWebRtcWorkerThreadRtcThread();
   }
@@ -68,12 +71,15 @@ class DefaultIceTransportAdapterCrossThreadFactory
       IceTransportAdapter::Delegate* delegate) override {
     DCHECK(port_allocator_);
     DCHECK(worker_thread_rtc_thread_);
+    DCHECK(async_resolver_factory_);
     return std::make_unique<IceTransportAdapterImpl>(
-        delegate, std::move(port_allocator_), worker_thread_rtc_thread_);
+        delegate, std::move(port_allocator_),
+        std::move(async_resolver_factory_), worker_thread_rtc_thread_);
   }
 
  private:
   std::unique_ptr<cricket::PortAllocator> port_allocator_;
+  std::unique_ptr<webrtc::AsyncResolverFactory> async_resolver_factory_;
   rtc::Thread* worker_thread_rtc_thread_ = nullptr;
 };
 

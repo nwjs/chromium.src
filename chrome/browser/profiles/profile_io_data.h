@@ -67,11 +67,6 @@ class CookieStore;
 class HttpTransactionFactory;
 class URLRequestContextBuilder;
 class URLRequestJobFactoryImpl;
-
-#if BUILDFLAG(ENABLE_REPORTING)
-class NetworkErrorLoggingService;
-class ReportingService;
-#endif  // BUILDFLAG(ENABLE_REPORTING)
 }  // namespace net
 
 namespace network {
@@ -132,7 +127,6 @@ class ProfileIOData {
   virtual net::CookieStore* GetExtensionsCookieStore() const = 0;
   net::URLRequestContext* GetIsolatedAppRequestContext(
       IOThread* io_thread,
-      net::URLRequestContext* main_context,
       const StoragePartitionDescriptor& partition_descriptor,
       std::unique_ptr<ProtocolHandlerRegistry::JobInterceptorFactory>
           protocol_handler_interceptor,
@@ -288,13 +282,6 @@ class ProfileIOData {
     void SetHttpTransactionFactory(
         std::unique_ptr<net::HttpTransactionFactory> http_factory);
     void SetJobFactory(std::unique_ptr<net::URLRequestJobFactory> job_factory);
-#if BUILDFLAG(ENABLE_REPORTING)
-    void SetReportingService(
-        std::unique_ptr<net::ReportingService> reporting_service);
-    void SetNetworkErrorLoggingService(
-        std::unique_ptr<net::NetworkErrorLoggingService>
-            network_error_logging_service);
-#endif  // BUILDFLAG(ENABLE_REPORTING)
 
    private:
     ~AppRequestContext() override;
@@ -304,11 +291,6 @@ class ProfileIOData {
     std::unique_ptr<net::HttpNetworkSession> http_network_session_;
     std::unique_ptr<net::HttpTransactionFactory> http_factory_;
     std::unique_ptr<net::URLRequestJobFactory> job_factory_;
-#if BUILDFLAG(ENABLE_REPORTING)
-    std::unique_ptr<net::ReportingService> reporting_service_;
-    std::unique_ptr<net::NetworkErrorLoggingService>
-        network_error_logging_service_;
-#endif  // BUILDFLAG(ENABLE_REPORTING)
   };
 
   // Created on the UI thread, read on the IO thread during ProfileIOData lazy
@@ -425,10 +407,6 @@ class ProfileIOData {
   std::unique_ptr<net::HttpCache> CreateHttpFactory(
       net::HttpTransactionFactory* main_http_factory,
       std::unique_ptr<net::HttpCache::BackendFactory> backend) const;
-
-  // Deletes the media cache at the specified path if the media cache is
-  // disabled.
-  static void MaybeDeleteMediaCache(const base::FilePath& media_cache_path);
 
  private:
   class ResourceContext : public content::ResourceContext {

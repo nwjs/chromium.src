@@ -8,15 +8,11 @@
 #include <memory>
 #include <string>
 
-#include "chromeos/chromeos_export.h"
+#include "base/component_export.h"
 #include "components/proxy_config/proxy_prefs.h"
 #include "net/base/proxy_server.h"
 #include "net/proxy_resolution/proxy_bypass_rules.h"
 #include "url/gurl.h"
-
-namespace base {
-class Value;
-}
 
 namespace net {
 class ProxyConfig;
@@ -36,7 +32,7 @@ namespace chromeos {
 // This is then converted to the common net::ProxyConfig before being pushed
 // to PrefProxyConfigTrackerImpl::OnProxyConfigChanged and then to the network
 // stack.
-struct CHROMEOS_EXPORT UIProxyConfig {
+struct COMPONENT_EXPORT(CHROMEOS_NETWORK) UIProxyConfig {
   // Specifies if proxy config is direct, auto-detect, using pac script,
   // single-proxy, or proxy-per-scheme.
   enum Mode {
@@ -60,36 +56,12 @@ struct CHROMEOS_EXPORT UIProxyConfig {
   UIProxyConfig();
   ~UIProxyConfig();
 
-  void SetPacUrl(const GURL& pac_url);
-  void SetSingleProxy(const net::ProxyServer& server);
-
-  // |scheme| is one of "http", "https", "ftp" or "socks".
-  void SetProxyForScheme(const std::string& scheme,
-                         const net::ProxyServer& server);
-
-  // Only valid for MODE_SINGLE_PROXY or MODE_PROXY_PER_SCHEME.
-  void SetBypassRules(const net::ProxyBypassRules& rules);
-
   // Converts net::ProxyConfig to |this|.
   bool FromNetProxyConfig(const net::ProxyConfig& net_config);
-
-  // Converts |this| to a dictionary Value of ProxyConfigDictionary format
-  // (which is the same format used by prefs).
-  base::Value ToPrefProxyConfig() const;
-
-  // Map |scheme| (one of "http", "https", "ftp" or "socks") to the correct
-  // ManualProxy.  Returns NULL if scheme is invalid.
-  ManualProxy* MapSchemeToProxy(const std::string& scheme);
 
   Mode mode;
 
   ProxyPrefs::ConfigState state;
-
-  // True if user can modify proxy settings via UI.
-  // If proxy is managed by policy or extension or other_precde or is for
-  // shared network but kUseSharedProxies is turned off, it can't be modified
-  // by user.
-  bool user_modifiable;
 
   // Set if mode is MODE_DIRECT or MODE_AUTO_DETECT or MODE_PAC_SCRIPT.
   AutomaticProxy automatic_proxy;
@@ -103,9 +75,6 @@ struct CHROMEOS_EXPORT UIProxyConfig {
   ManualProxy ftp_proxy;
   // Set if mode is MODE_PROXY_PER_SCHEME and has socks proxy.
   ManualProxy socks_proxy;
-
-  // Exceptions for when not to use a proxy.
-  net::ProxyBypassRules bypass_rules;
 };
 
 }  // namespace chromeos

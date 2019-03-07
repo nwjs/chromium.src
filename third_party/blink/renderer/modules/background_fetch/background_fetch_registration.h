@@ -6,13 +6,13 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_BACKGROUND_FETCH_BACKGROUND_FETCH_REGISTRATION_H_
 
 #include "mojo/public/cpp/bindings/binding.h"
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom-blink.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom-blink.h"
+#include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
-#include "third_party/blink/renderer/platform/weborigin/kurl_hash.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
@@ -29,9 +29,11 @@ struct WebBackgroundFetchRegistration;
 // access to its properties, options, and enables them to abort the fetch.
 class BackgroundFetchRegistration final
     : public EventTargetWithInlineData,
+      public ActiveScriptWrappable<BackgroundFetchRegistration>,
       public blink::mojom::blink::BackgroundFetchRegistrationObserver {
   DEFINE_WRAPPERTYPEINFO();
   USING_PRE_FINALIZER(BackgroundFetchRegistration, Dispose);
+  USING_GARBAGE_COLLECTED_MIXIN(BackgroundFetchRegistration);
 
  public:
   BackgroundFetchRegistration(
@@ -63,6 +65,11 @@ class BackgroundFetchRegistration final
                   mojom::BackgroundFetchResult result,
                   mojom::BackgroundFetchFailureReason failure_reason) override;
   void OnRecordsUnavailable() override;
+
+  // Called when the |request| is complete. |response| points to the response
+  // received, if any.
+  void OnRequestCompleted(mojom::blink::FetchAPIRequestPtr request,
+                          mojom::blink::FetchAPIResponsePtr response) override;
 
   // Web Exposed attribute defined in the IDL file. Corresponds to the
   // |developer_id| used elsewhere in the codebase.
@@ -100,6 +107,9 @@ class BackgroundFetchRegistration final
 
   void Trace(blink::Visitor* visitor) override;
 
+  // Keeps the object alive until there are non-zero number of |observers_|.
+  bool HasPendingActivity() const final;
+
  private:
   void DidAbort(ScriptPromiseResolver* resolver,
                 mojom::blink::BackgroundFetchError error);
@@ -122,9 +132,6 @@ class BackgroundFetchRegistration final
 
   Member<ServiceWorkerRegistration> registration_;
 
-  // TODO(crbug.com/774054): Update the key once we support duplicate requests.
-  HeapHashMap<KURL, Member<BackgroundFetchRecord>> records_;
-
   // Corresponds to IDL 'id' attribute. Not unique - an active registration can
   // have the same |developer_id_| as one or more inactive registrations.
   String developer_id_;
@@ -141,6 +148,7 @@ class BackgroundFetchRegistration final
   bool records_available_ = true;
   mojom::BackgroundFetchResult result_;
   mojom::BackgroundFetchFailureReason failure_reason_;
+  HeapVector<Member<BackgroundFetchRecord>> observers_;
 
   mojo::Binding<blink::mojom::blink::BackgroundFetchRegistrationObserver>
       observer_binding_;

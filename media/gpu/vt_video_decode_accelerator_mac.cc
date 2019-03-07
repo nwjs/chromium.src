@@ -17,7 +17,6 @@
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/mac/mac_logging.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
@@ -210,8 +209,8 @@ bool InitializeVideoToolboxInternal() {
                                 0x3d, 0xa1, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00,
                                 0x00, 0x03, 0x00, 0x30, 0x8f, 0x16, 0x2d, 0x9a};
   const uint8_t pps_normal[] = {0x68, 0xe9, 0x7b, 0xcb};
-  if (!CreateVideoToolboxSession(sps_normal, arraysize(sps_normal), pps_normal,
-                                 arraysize(pps_normal), true)) {
+  if (!CreateVideoToolboxSession(sps_normal, base::size(sps_normal), pps_normal,
+                                 base::size(pps_normal), true)) {
     DVLOG(1) << "Hardware decoding with VideoToolbox is not supported";
     return false;
   }
@@ -222,8 +221,8 @@ bool InitializeVideoToolboxInternal() {
                                0x22, 0x10, 0x00, 0x00, 0x3e, 0x90, 0x00, 0x0e,
                                0xa6, 0x08, 0xf1, 0x22, 0x59, 0xa0};
   const uint8_t pps_small[] = {0x68, 0xe9, 0x79, 0x72, 0xc0};
-  if (!CreateVideoToolboxSession(sps_small, arraysize(sps_small), pps_small,
-                                 arraysize(pps_small), false)) {
+  if (!CreateVideoToolboxSession(sps_small, base::size(sps_small), pps_small,
+                                 base::size(pps_small), false)) {
     DLOG(WARNING) << "Software decoding with VideoToolbox is not supported";
     return false;
   }
@@ -314,7 +313,7 @@ gfx::ColorSpace GetImageBufferColorSpace(CVImageBufferRef image_buffer) {
       },
   };
   if (!GetImageBufferProperty(image_buffer, kCVImageBufferColorPrimariesKey,
-                              primaries, arraysize(primaries), &primary_id)) {
+                              primaries, base::size(primaries), &primary_id)) {
     DLOG(ERROR) << "Filed to find CVImageBufferRef primaries.";
   }
 
@@ -339,7 +338,7 @@ gfx::ColorSpace GetImageBufferColorSpace(CVImageBufferRef image_buffer) {
       },
   };
   if (!GetImageBufferProperty(image_buffer, kCVImageBufferTransferFunctionKey,
-                              transfers, arraysize(transfers), &transfer_id)) {
+                              transfers, base::size(transfers), &transfer_id)) {
     DLOG(ERROR) << "Filed to find CVImageBufferRef transfer.";
   }
 
@@ -382,7 +381,7 @@ gfx::ColorSpace GetImageBufferColorSpace(CVImageBufferRef image_buffer) {
                       gfx::ColorSpace::MatrixID::SMPTE240M,
                   }};
   if (!GetImageBufferProperty(image_buffer, kCVImageBufferYCbCrMatrixKey,
-                              matrices, arraysize(matrices), &matrix_id)) {
+                              matrices, base::size(matrices), &matrix_id)) {
     DLOG(ERROR) << "Filed to find CVImageBufferRef YUV matrix.";
   }
 
@@ -408,7 +407,7 @@ bool InitializeVideoToolbox() {
 
 VTVideoDecodeAccelerator::Task::Task(TaskType type) : type(type) {}
 
-VTVideoDecodeAccelerator::Task::Task(const Task& other) = default;
+VTVideoDecodeAccelerator::Task::Task(Task&& other) = default;
 
 VTVideoDecodeAccelerator::Task::~Task() {}
 
@@ -426,8 +425,8 @@ VTVideoDecodeAccelerator::PictureInfo::PictureInfo(uint32_t client_texture_id,
 VTVideoDecodeAccelerator::PictureInfo::~PictureInfo() {}
 
 bool VTVideoDecodeAccelerator::FrameOrder::operator()(
-    const linked_ptr<Frame>& lhs,
-    const linked_ptr<Frame>& rhs) const {
+    const std::unique_ptr<Frame>& lhs,
+    const std::unique_ptr<Frame>& rhs) const {
   // TODO(sandersd): When it is provided, use the bitstream timestamp.
   if (lhs->pic_order_cnt != rhs->pic_order_cnt)
     return lhs->pic_order_cnt > rhs->pic_order_cnt;
@@ -1037,9 +1036,9 @@ void VTVideoDecodeAccelerator::DecodeDone(Frame* frame) {
   }
 
   Task task(TASK_FRAME);
-  task.frame = pending_frames_[bitstream_id];
+  task.frame = std::move(pending_frames_[bitstream_id]);
   pending_frames_.erase(bitstream_id);
-  task_queue_.push(task);
+  task_queue_.push(std::move(task));
   ProcessWorkQueues();
 }
 
@@ -1092,7 +1091,7 @@ void VTVideoDecodeAccelerator::Decode(scoped_refptr<DecoderBuffer> buffer,
   assigned_bitstream_ids_.insert(bitstream_id);
 
   Frame* frame = new Frame(bitstream_id);
-  pending_frames_[bitstream_id] = make_linked_ptr(frame);
+  pending_frames_[bitstream_id] = base::WrapUnique(frame);
   decoder_thread_.task_runner()->PostTask(
       FROM_HERE,
       base::BindOnce(&VTVideoDecodeAccelerator::DecodeTask,
@@ -1186,7 +1185,7 @@ bool VTVideoDecodeAccelerator::ProcessTaskQueue() {
   if (task_queue_.empty())
     return false;
 
-  const Task& task = task_queue_.front();
+  Task& task = task_queue_.front();
   switch (task.type) {
     case TASK_FRAME: {
       bool reorder_queue_has_space =
@@ -1199,7 +1198,7 @@ bool VTVideoDecodeAccelerator::ProcessTaskQueue() {
         DVLOG(2) << "Decode(" << task.frame->bitstream_id << ") complete";
         assigned_bitstream_ids_.erase(task.frame->bitstream_id);
         client_->NotifyEndOfBitstreamBuffer(task.frame->bitstream_id);
-        reorder_queue_.push(task.frame);
+        reorder_queue_.push(std::move(task.frame));
         task_queue_.pop();
         return true;
       }
@@ -1243,7 +1242,7 @@ bool VTVideoDecodeAccelerator::ProcessReorderQueue() {
   if (reorder_queue_.empty())
     return false;
 
-  // If the next task is a flush (because there is a pending flush or becuase
+  // If the next task is a flush (because there is a pending flush or because
   // the next frame is an IDR), then we don't need a full reorder buffer to send
   // the next frame.
   bool flushing =

@@ -5,11 +5,13 @@
 #include "components/invalidation/impl/fcm_invalidation_service.h"
 
 #include "base/metrics/histogram_macros.h"
+#include "build/build_config.h"
 #include "components/gcm_driver/instance_id/instance_id_driver.h"
 #include "components/invalidation/impl/fcm_invalidator.h"
 #include "components/invalidation/impl/fcm_network_handler.h"
 #include "components/invalidation/impl/invalidation_prefs.h"
 #include "components/invalidation/impl/invalidation_service_util.h"
+#include "components/invalidation/impl/invalidation_switches.h"
 #include "components/invalidation/impl/invalidator.h"
 #include "components/invalidation/public/invalidation_util.h"
 #include "components/invalidation/public/invalidator_state.h"
@@ -19,6 +21,8 @@
 
 namespace {
 const char kApplicationName[] = "com.google.chrome.fcm.invalidations";
+// Sender ID coming from the Firebase console.
+const char kInvalidationGCMSenderId[] = "8181035976";
 }
 
 namespace invalidation {
@@ -72,6 +76,8 @@ void FCMInvalidationService::RegisterInvalidationHandler(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DVLOG(2) << "Registering an invalidation handler";
   invalidator_registrar_.RegisterHandler(handler);
+  // Populate the id for newly registered handlers.
+  handler->OnInvalidatorClientIdChange(client_id_);
   logger_.OnRegistration(handler->GetOwnerName());
 }
 
@@ -125,8 +131,24 @@ void FCMInvalidationService::RequestDetailedStatus(
 }
 
 void FCMInvalidationService::OnActiveAccountLogin() {
-  if (!IsStarted() && IsReadyToStart())
+  if (IsStarted()) {
+    return;
+  }
+  bool is_ready_to_start = IsReadyToStart();
+#if defined(OS_ANDROID)
+  // IsReadyToStart checks if account is available (active account logged in
+  // and token is available). As currently observed, FCMInvalidationService
+  // isn't always notified on Android when token is avaliable.
+  if (base::FeatureList::IsEnabled(
+          invalidation::switches::
+              kFCMInvalidationsStartOnceActiveAccountAvailable)) {
+    is_ready_to_start = true;
+  }
+#endif
+
+  if (is_ready_to_start) {
     StartInvalidator();
+  }
 }
 
 void FCMInvalidationService::OnActiveAccountRefreshTokenUpdated() {
@@ -180,13 +202,19 @@ void FCMInvalidationService::StartInvalidator() {
   DCHECK(!invalidator_);
   DCHECK(IsReadyToStart());
 
-  PopulateClientID();
   auto network = std::make_unique<syncer::FCMNetworkHandler>(
-      gcm_driver_, instance_id_driver_);
+      gcm_driver_, instance_id_driver_, kInvalidationGCMSenderId,
+      kApplicationName);
+  // The order of calls is important. Do not change.
+  // We should start listening before requesting the id, because
+  // valid id is only generated, once there is an app handler
+  // for the app. StartListening registers the app handler.
   network->StartListening();
+  PopulateClientID();
+
   invalidator_ = std::make_unique<syncer::FCMInvalidator>(
       std::move(network), identity_provider_, pref_service_, loader_factory_,
-      parse_json_);
+      parse_json_, kInvalidationGCMSenderId);
   invalidator_->RegisterHandler(this);
   DoUpdateRegisteredIdsIfNeeded();
 }
@@ -218,9 +246,8 @@ void FCMInvalidationService::OnInstanceIdRecieved(const std::string& id) {
   if (client_id_ != id) {
     client_id_ = id;
     pref_service_->SetString(prefs::kFCMInvalidationClientIDCache, id);
+    invalidator_registrar_.UpdateInvalidatorId(id);
   }
-  // TODO(melandory): Notify profile sync service that the invalidator
-  // id has changed;
 }
 
 void FCMInvalidationService::OnDeleteIDCompleted(

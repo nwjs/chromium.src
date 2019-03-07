@@ -36,19 +36,16 @@ TEST(WindowServiceTest, DeleteWithClients) {
 
   // Create another WindowService.
   TestWindowServiceDelegate test_window_service_delegate;
-  std::unique_ptr<WindowService> window_service_ptr =
-      std::make_unique<WindowService>(&test_window_service_delegate, nullptr,
-                                      test_setup.focus_controller());
-  WindowService* window_service = window_service_ptr.get();
-  std::unique_ptr<service_manager::TestConnectorFactory> factory =
-      service_manager::TestConnectorFactory::CreateForUniqueService(
-          std::move(window_service_ptr));
-  std::unique_ptr<service_manager::Connector> connector =
-      factory->CreateConnector();
+  WindowService window_service(&test_window_service_delegate, nullptr,
+                               test_setup.focus_controller());
+  service_manager::TestConnectorFactory factory;
+  window_service.BindServiceRequest(
+      factory.RegisterInstance(mojom::kServiceName));
 
   // Connect to |window_service| and ask for a new WindowTree.
   mojom::WindowTreeFactoryPtr window_tree_factory;
-  connector->BindInterface(mojom::kServiceName, &window_tree_factory);
+  factory.GetDefaultConnector()->BindInterface(mojom::kServiceName,
+                                               &window_tree_factory);
   mojom::WindowTreePtr window_tree;
   mojom::WindowTreeClientPtr client;
   mojom::WindowTreeClientRequest client_request = MakeRequest(&client);
@@ -59,7 +56,7 @@ TEST(WindowServiceTest, DeleteWithClients) {
   window_tree_factory.FlushForTesting();
 
   // There should be at least one WindowTree.
-  EXPECT_FALSE(window_service->window_trees().empty());
+  EXPECT_FALSE(window_service.window_trees().empty());
 
   // Destroying the |window_service| should remove all the WindowTrees and
   // ensure a DCHECK isn't hit in ~WindowTree.
@@ -116,18 +113,16 @@ TEST(WindowServiceTest, GetWindowManagerInterface) {
 
   // Create another WindowService.
   TestWindowServiceDelegateWithInterface test_window_service_delegate;
-  std::unique_ptr<WindowService> window_service_ptr =
-      std::make_unique<WindowService>(&test_window_service_delegate, nullptr,
-                                      test_setup.focus_controller());
-  std::unique_ptr<service_manager::TestConnectorFactory> factory =
-      service_manager::TestConnectorFactory::CreateForUniqueService(
-          std::move(window_service_ptr));
-  std::unique_ptr<service_manager::Connector> connector =
-      factory->CreateConnector();
+  WindowService window_service(&test_window_service_delegate, nullptr,
+                               test_setup.focus_controller());
+  service_manager::TestConnectorFactory factory;
+  window_service.BindServiceRequest(
+      factory.RegisterInstance(mojom::kServiceName));
 
   // Connect to |window_service| and ask for a new WindowTree.
   mojom::WindowTreeFactoryPtr window_tree_factory;
-  connector->BindInterface(mojom::kServiceName, &window_tree_factory);
+  factory.GetDefaultConnector()->BindInterface(mojom::kServiceName,
+                                               &window_tree_factory);
   mojom::WindowTreePtr window_tree;
   mojom::WindowTreeClientPtr client;
   mojom::WindowTreeClientRequest client_request = MakeRequest(&client);
@@ -205,7 +200,7 @@ TEST(WindowServiceTest, ScheduleEmbedForExistingClientUsingLocalWindow) {
   local_window->Init(ui::LAYER_NOT_DRAWN);
   ASSERT_TRUE(setup.service()->CompleteScheduleEmbedForExistingClient(
       local_window.get(), token, /* embed_flags */ 0));
-  EXPECT_TRUE(WindowService::HasRemoteClient(local_window.get()));
+  EXPECT_TRUE(WindowService::IsProxyWindow(local_window.get()));
 }
 
 TEST(WindowServiceTest,
@@ -232,11 +227,11 @@ TEST(WindowServiceTest,
   local_window->Init(ui::LAYER_NOT_DRAWN);
   ASSERT_TRUE(setup.service()->CompleteScheduleEmbedForExistingClient(
       local_window.get(), token, /* embed_flags */ 0));
-  EXPECT_TRUE(WindowService::HasRemoteClient(local_window.get()));
+  EXPECT_TRUE(WindowService::IsProxyWindow(local_window.get()));
 
-  // Deleting |window_tree2| should remove the remote client.
+  // Deleting |window_tree2| should make |local_window| no longer a proxy.
   window_tree2.reset();
-  EXPECT_FALSE(WindowService::HasRemoteClient(local_window.get()));
+  EXPECT_FALSE(WindowService::IsProxyWindow(local_window.get()));
 }
 
 }  // namespace ws

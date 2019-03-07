@@ -27,9 +27,9 @@
 #include "build/build_config.h"
 #include "content/browser/devtools/devtools_http_handler.h"
 #include "content/browser/devtools/devtools_manager.h"
-#include "content/browser/devtools/grit/devtools_resources.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/devtools_external_agent_proxy_delegate.h"
 #include "content/public/browser/devtools_frontend_host.h"
 #include "content/public/browser/devtools_manager_delegate.h"
@@ -54,6 +54,10 @@
 
 #if defined(OS_ANDROID)
 #include "base/android/build_info.h"
+#endif
+
+#if !defined(OS_FUCHSIA)
+#include "content/browser/devtools/grit/devtools_resources.h"  // nogncheck
 #endif
 
 namespace content {
@@ -228,7 +232,8 @@ void TerminateOnUI(std::unique_ptr<base::Thread> thread,
     thread->task_runner()->DeleteSoon(FROM_HERE, std::move(socket_factory));
   if (thread) {
     base::PostTaskWithTraits(
-        FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+        FROM_HERE,
+        {base::WithBaseSyncPrimitives(), base::TaskPriority::BEST_EFFORT},
         BindOnce([](std::unique_ptr<base::Thread>) {}, std::move(thread)));
   }
 }
@@ -329,7 +334,7 @@ class DevToolsAgentHostClientImpl : public DevToolsAgentHostClient {
 
   ~DevToolsAgentHostClientImpl() override {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    if (agent_host_.get())
+    if (agent_host_)
       agent_host_->DetachClient(this);
   }
 
@@ -361,7 +366,7 @@ class DevToolsAgentHostClientImpl : public DevToolsAgentHostClient {
 
   void OnMessage(const std::string& message) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
-    if (agent_host_.get())
+    if (agent_host_)
       agent_host_->DispatchProtocolMessage(this, message);
   }
 
@@ -389,7 +394,7 @@ DevToolsHttpHandler::~DevToolsHttpHandler() {
 }
 
 static std::string PathWithoutParams(const std::string& path) {
-  size_t query_position = path.find("?");
+  size_t query_position = path.find('?');
   if (query_position != std::string::npos)
     return path.substr(0, query_position);
   return path;
@@ -552,13 +557,13 @@ void DevToolsHttpHandler::OnJsonRequest(
 
   // Trim fragment and query
   std::string query;
-  size_t query_pos = path.find("?");
+  size_t query_pos = path.find('?');
   if (query_pos != std::string::npos) {
     query = path.substr(query_pos + 1);
     path = path.substr(0, query_pos);
   }
 
-  size_t fragment_pos = path.find("#");
+  size_t fragment_pos = path.find('#');
   if (fragment_pos != std::string::npos)
     path = path.substr(0, fragment_pos);
 
@@ -575,8 +580,9 @@ void DevToolsHttpHandler::OnJsonRequest(
     version.SetString("Protocol-Version",
                       DevToolsAgentHost::GetProtocolVersion());
     version.SetString("WebKit-Version", GetWebKitVersion());
-    version.SetString("Browser", GetContentClient()->GetProduct());
-    version.SetString("User-Agent", GetContentClient()->GetUserAgent());
+    version.SetString("Browser", GetContentClient()->browser()->GetProduct());
+    version.SetString("User-Agent",
+                      GetContentClient()->browser()->GetUserAgent());
     version.SetString("V8-Version", V8_VERSION_STRING);
     std::string host = info.headers["host"];
     version.SetString(
@@ -656,10 +662,12 @@ void DevToolsHttpHandler::OnJsonRequest(
   }
   SendJson(connection_id, net::HTTP_NOT_FOUND, nullptr,
            "Unknown command: " + command);
-  return;
 }
 
 void DevToolsHttpHandler::DecompressAndSendJsonProtocol(int connection_id) {
+#if defined(OS_FUCHSIA)
+  NOTREACHED();
+#else
   scoped_refptr<base::RefCountedMemory> raw_bytes =
       GetContentClient()->GetDataResourceBytes(COMPRESSED_PROTOCOL_JSON);
   const uint8_t* next_encoded_byte = raw_bytes->front();
@@ -698,6 +706,7 @@ void DevToolsHttpHandler::DecompressAndSendJsonProtocol(int connection_id) {
       FROM_HERE, base::BindOnce(&ServerWrapper::SendResponse,
                                 base::Unretained(server_wrapper_.get()),
                                 connection_id, response));
+#endif  // defined(OS_FUCHSIA)
 }
 
 void DevToolsHttpHandler::RespondToJsonList(
@@ -801,7 +810,8 @@ DevToolsHttpHandler::DevToolsHttpHandler(
   base::Thread::Options options;
   options.message_loop_type = base::MessageLoop::TYPE_IO;
   if (thread->StartWithOptions(options)) {
-    thread->task_runner()->PostTask(
+    auto task_runner = thread->task_runner();
+    task_runner->PostTask(
         FROM_HERE,
         base::BindOnce(&StartServerOnHandlerThread, weak_factory_.GetWeakPtr(),
                        std::move(thread), std::move(socket_factory),

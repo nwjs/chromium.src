@@ -95,8 +95,9 @@ VolumeManagerImpl.prototype.addVolumeMetadata_ = function(volumeMetadata) {
             shouldShow = !!volumeInfo.fileSystem;
             break;
         }
-        if (!shouldShow)
-            return volumeInfo;
+        if (!shouldShow) {
+          return volumeInfo;
+        }
         if (this.volumeInfoList.findIndex(volumeInfo.volumeId) === -1) {
           this.volumeInfoList.add(volumeInfo);
 
@@ -127,9 +128,9 @@ VolumeManagerImpl.prototype.addVolumeMetadata_ = function(volumeMetadata) {
 VolumeManagerImpl.prototype.initialize_ = function(callback) {
   chrome.fileManagerPrivate.onMountCompleted.addListener(
       this.onMountCompleted_.bind(this));
-  console.debug('Requesting volume list.');
+  console.warn('Requesting volume list.');
   chrome.fileManagerPrivate.getVolumeMetadataList(function(volumeMetadataList) {
-    console.debug(
+    console.warn(
         'Volume list fetched with: ' + volumeMetadataList.length + ' items.');
     // We must subscribe to the mount completed event in the callback of
     // getVolumeMetadataList. crbug.com/330061.
@@ -139,15 +140,15 @@ VolumeManagerImpl.prototype.initialize_ = function(callback) {
       // Create VolumeInfo for each volume.
       Promise.all(
           volumeMetadataList.map(function(volumeMetadata) {
-            console.debug(
+            console.warn(
                 'Initializing volume: ' + volumeMetadata.volumeId);
             return this.addVolumeMetadata_(volumeMetadata).then(
                 function(volumeInfo) {
-                  console.debug('Initialized volume: ' + volumeInfo.volumeId);
+                  console.warn('Initialized volume: ' + volumeInfo.volumeId);
                 });
           }.bind(this)))
           .then(function() {
-            console.debug('Initialized all volumes.');
+            console.warn('Initialized all volumes.');
             // Call the callback of the initialize function.
             callback();
             // Call the callback of AsyncQueue. Maybe it invokes callbacks
@@ -187,7 +188,7 @@ VolumeManagerImpl.prototype.onMountCompleted_ = function(event) {
               new Event(VolumeManagerCommon.VOLUME_ALREADY_MOUNTED);
           navigationEvent.volumeId = event.volumeMetadata.volumeId;
           this.dispatchEvent(navigationEvent);
-          this.finishRequest_(requestKey, event.status, volumeInfo);
+          this.finishRequest_(requestKey, event.status);
           callback();
         } else {
           console.warn('Failed to mount a volume: ' + event.status);
@@ -213,9 +214,10 @@ VolumeManagerImpl.prototype.onMountCompleted_ = function(event) {
         }
 
         this.finishRequest_(requestKey, status);
-        if (event.status === 'success')
+        if (event.status === 'success') {
           this.volumeInfoList.remove(event.volumeMetadata.volumeId);
-        console.debug('unmounted volume: ' + volumeId);
+        }
+        console.warn('unmounted volume: ' + volumeId);
         callback();
         break;
     }
@@ -258,19 +260,22 @@ VolumeManagerImpl.prototype.unmount = function(volumeInfo,
 /** @override */
 VolumeManagerImpl.prototype.configure = function(volumeInfo) {
   return new Promise(function(fulfill, reject) {
-    chrome.fileManagerPrivate.configureVolume(
-        volumeInfo.volumeId,
-        function() {
-          if (chrome.runtime.lastError)
-            reject(chrome.runtime.lastError.message);
-          else
-            fulfill();
-        });
+    chrome.fileManagerPrivate.configureVolume(volumeInfo.volumeId, function() {
+      if (chrome.runtime.lastError) {
+        reject(chrome.runtime.lastError.message);
+      } else {
+        fulfill();
+      }
+    });
   });
 };
 
 /** @override */
 VolumeManagerImpl.prototype.getVolumeInfo = function(entry) {
+  if (!entry) {
+    console.error('Invalid entry passed to getVolumeInfo: ' + entry);
+    return null;
+  }
   for (let i = 0; i < this.volumeInfoList.length; i++) {
     const volumeInfo = this.volumeInfoList.item(i);
     if (volumeInfo.fileSystem &&
@@ -280,8 +285,9 @@ VolumeManagerImpl.prototype.getVolumeInfo = function(entry) {
     // Additionally, check fake entries.
     for (let key in volumeInfo.fakeEntries_) {
       const fakeEntry = volumeInfo.fakeEntries_[key];
-      if (util.isSameEntry(fakeEntry, entry))
+      if (util.isSameEntry(fakeEntry, entry)) {
         return volumeInfo;
+      }
     }
   }
   return null;
@@ -292,14 +298,19 @@ VolumeManagerImpl.prototype.getCurrentProfileVolumeInfo = function(volumeType) {
   for (var i = 0; i < this.volumeInfoList.length; i++) {
     var volumeInfo = this.volumeInfoList.item(i);
     if (volumeInfo.profile.isCurrentProfile &&
-        volumeInfo.volumeType === volumeType)
+        volumeInfo.volumeType === volumeType) {
       return volumeInfo;
+    }
   }
   return null;
 };
 
 /** @override */
 VolumeManagerImpl.prototype.getLocationInfo = function(entry) {
+  if (!entry) {
+    console.error('Invalid entry passed to getLocationInfo: ' + entry);
+    return null;
+  }
   var volumeInfo = this.getVolumeInfo(entry);
 
   if (util.isFakeEntry(entry)) {
@@ -309,8 +320,9 @@ VolumeManagerImpl.prototype.getLocationInfo = function(entry) {
         true /* fake entries are read only. */);
   }
 
-  if (!volumeInfo)
+  if (!volumeInfo) {
     return null;
+  }
 
   var rootType;
   var isReadOnly;
@@ -402,8 +414,9 @@ VolumeManagerImpl.prototype.getLocationInfo = function(entry) {
 VolumeManagerImpl.prototype.findByDevicePath = function(devicePath) {
   for (let i = 0; i < this.volumeInfoList.length; i++) {
     const volumeInfo = this.volumeInfoList.item(i);
-    if (volumeInfo.devicePath && volumeInfo.devicePath === devicePath)
+    if (volumeInfo.devicePath && volumeInfo.devicePath === devicePath) {
       return volumeInfo;
+    }
   }
   return null;
 };
@@ -475,8 +488,9 @@ VolumeManagerImpl.prototype.onTimeout_ = function(key) {
 VolumeManagerImpl.prototype.finishRequest_ =
     function(key, status, opt_volumeInfo) {
   var request = this.requests_[key];
-  if (!request)
+  if (!request) {
     return;
+  }
 
   clearTimeout(request.timeout);
   this.invokeRequestCallbacks_(request, status, opt_volumeInfo);

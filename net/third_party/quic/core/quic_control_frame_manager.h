@@ -53,6 +53,13 @@ class QUIC_EXPORT_PRIVATE QuicControlFrameManager {
   // immediately.
   void WriteOrBufferBlocked(QuicStreamId id);
 
+  // Tries to send a packet with both a RST_STREAM and, if version 99, an
+  // IETF-QUIC STOP_SENDING frame. The frames are buffered if they can not
+  // be sent immediately.
+  void WriteOrBufferRstStreamStopSending(QuicControlFrameId stream_id,
+                                         QuicRstStreamErrorCode error_code,
+                                         QuicStreamOffset bytes_written);
+
   // Tries to send an IETF-QUIC STOP_SENDING frame. The frame is buffered if it
   // can not be sent immediately.
   void WriteOrBufferStopSending(uint16_t code, QuicStreamId stream_id);
@@ -94,12 +101,6 @@ class QUIC_EXPORT_PRIVATE QuicControlFrameManager {
   // Returns true if there are any lost or new control frames waiting to be
   // sent.
   bool WillingToWrite() const;
-
-  // TODO(wub): Remove this function once
-  // quic_reloadable_flag_quic_donot_retransmit_old_window_update is deprecated.
-  bool donot_retransmit_old_window_updates() const {
-    return donot_retransmit_old_window_updates_;
-  }
 
  private:
   friend class test::QuicControlFrameManagerPeer;
@@ -151,10 +152,6 @@ class QUIC_EXPORT_PRIVATE QuicControlFrameManager {
 
   // Last sent window update frame for each stream.
   QuicSmallMap<QuicStreamId, QuicControlFrameId, 10> window_update_frames_;
-
-  // Latched value of
-  // FLAGS_quic_reloadable_flag_quic_donot_retransmit_old_window_update2.
-  const bool donot_retransmit_old_window_updates_;
 };
 
 }  // namespace quic

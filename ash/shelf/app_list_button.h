@@ -7,15 +7,14 @@
 
 #include <memory>
 
+#include "ash/app_list/app_list_controller_observer.h"
 #include "ash/ash_export.h"
 #include "ash/public/cpp/assistant/default_voice_interaction_observer.h"
 #include "ash/public/interfaces/voice_interaction_controller.mojom.h"
 #include "ash/session/session_observer.h"
 #include "ash/shelf/shelf_control_button.h"
-#include "ash/shell_observer.h"
 #include "base/macros.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/views/controls/button/image_button.h"
 
 namespace base {
 class OneShotTimer;
@@ -24,19 +23,16 @@ class OneShotTimer;
 namespace ash {
 
 class AssistantOverlay;
-class InkDropButtonListener;
 class Shelf;
 class ShelfView;
 
 // Button used for the AppList icon on the shelf.
 class ASH_EXPORT AppListButton : public ShelfControlButton,
-                                 public ShellObserver,
+                                 public AppListControllerObserver,
                                  public SessionObserver,
                                  public DefaultVoiceInteractionObserver {
  public:
-  AppListButton(InkDropButtonListener* listener,
-                ShelfView* shelf_view,
-                Shelf* shelf);
+  AppListButton(ShelfView* shelf_view, Shelf* shelf);
   ~AppListButton() override;
 
   void OnAppListShown();
@@ -44,27 +40,17 @@ class ASH_EXPORT AppListButton : public ShelfControlButton,
 
   bool is_showing_app_list() const { return is_showing_app_list_; }
 
-  // views::ImageButton:
+  // views::Button:
   void OnGestureEvent(ui::GestureEvent* event) override;
 
  protected:
-  // views::ImageButton:
-  bool OnMousePressed(const ui::MouseEvent& event) override;
-  void OnMouseReleased(const ui::MouseEvent& event) override;
-  void OnMouseCaptureLost() override;
-  bool OnMouseDragged(const ui::MouseEvent& event) override;
-  void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
+  // views::Button:
   std::unique_ptr<views::InkDropRipple> CreateInkDropRipple() const override;
-  void NotifyClick(const ui::Event& event) override;
-  bool ShouldEnterPushedState(const ui::Event& event) override;
-  std::unique_ptr<views::InkDrop> CreateInkDrop() override;
-  std::unique_ptr<views::InkDropMask> CreateInkDropMask() const override;
   void PaintButtonContents(gfx::Canvas* canvas) override;
 
  private:
-  // ShellObserver:
-  void OnAppListVisibilityChanged(bool shown,
-                                  aura::Window* root_window) override;
+  // AppListControllerObserver:
+  void OnAppListVisibilityChanged(bool shown, int64_t display_id) override;
 
   // mojom::VoiceInteractionObserver:
   void OnVoiceInteractionStatusChanged(
@@ -87,8 +73,6 @@ class ASH_EXPORT AppListButton : public ShelfControlButton,
   // This is useful because other app_list_visible functions aren't per-display.
   bool is_showing_app_list_ = false;
 
-  InkDropButtonListener* listener_;
-  ShelfView* shelf_view_;
   Shelf* shelf_;
 
   // Owned by the view hierarchy. Null if the voice interaction is not enabled.

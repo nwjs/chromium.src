@@ -6,7 +6,7 @@
 
 #include <utility>
 
-#include "base/memory/singleton.h"
+#include "base/no_destructor.h"
 #include "base/time/time.h"
 #include "components/keyed_service/ios/browser_state_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -20,7 +20,6 @@
 #include "ios/chrome/browser/signin/gaia_cookie_manager_service_factory.h"
 #include "ios/chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "ios/chrome/browser/signin/signin_client_factory.h"
-#include "ios/chrome/browser/signin/signin_error_controller_factory.h"
 #include "ios/chrome/browser/signin/signin_manager_factory_observer.h"
 
 namespace ios {
@@ -33,7 +32,6 @@ SigninManagerFactory::SigninManagerFactory()
   DependsOn(ios::GaiaCookieManagerServiceFactory::GetInstance());
   DependsOn(ProfileOAuth2TokenServiceFactory::GetInstance());
   DependsOn(ios::AccountTrackerServiceFactory::GetInstance());
-  DependsOn(ios::SigninErrorControllerFactory::GetInstance());
 }
 
 SigninManagerFactory::~SigninManagerFactory() {}
@@ -54,7 +52,8 @@ SigninManager* SigninManagerFactory::GetForBrowserStateIfExists(
 
 // static
 SigninManagerFactory* SigninManagerFactory::GetInstance() {
-  return base::Singleton<SigninManagerFactory>::get();
+  static base::NoDestructor<SigninManagerFactory> instance;
+  return instance.get();
 }
 
 void SigninManagerFactory::RegisterBrowserStatePrefs(
@@ -93,8 +92,6 @@ std::unique_ptr<KeyedService> SigninManagerFactory::BuildServiceInstanceFor(
       ios::AccountTrackerServiceFactory::GetForBrowserState(
           chrome_browser_state),
       ios::GaiaCookieManagerServiceFactory::GetForBrowserState(
-          chrome_browser_state),
-      ios::SigninErrorControllerFactory::GetForBrowserState(
           chrome_browser_state),
       signin::AccountConsistencyMethod::kMirror));
   service->Initialize(GetApplicationContext()->GetLocalState());

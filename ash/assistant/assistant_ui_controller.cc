@@ -11,6 +11,8 @@
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/util/deep_link_util.h"
 #include "ash/assistant/util/histogram_util.h"
+#include "ash/multi_user/multi_user_window_manager.h"
+#include "ash/session/session_controller.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/system/toast/toast_data.h"
@@ -147,25 +149,28 @@ void AssistantUiController::OnAssistantMiniViewPressed() {
     UpdateUiMode(AssistantUiMode::kMainUi);
 }
 
-bool AssistantUiController::OnCaptionButtonPressed(CaptionButtonId id) {
+bool AssistantUiController::OnCaptionButtonPressed(AssistantButtonId id) {
   switch (id) {
-    case CaptionButtonId::kBack:
+    case AssistantButtonId::kBack:
       UpdateUiMode(AssistantUiMode::kMainUi);
       return true;
-    case CaptionButtonId::kClose:
+    case AssistantButtonId::kClose:
       CloseUi(AssistantExitPoint::kCloseButton);
       return true;
-    case CaptionButtonId::kMinimize:
+    case AssistantButtonId::kMinimize:
       UpdateUiMode(AssistantUiMode::kMiniUi);
       return true;
+    default:
+      // No action necessary.
+      break;
   }
   return false;
 }
 
 // TODO(dmblack): This event doesn't need to be handled here anymore. Move it
 // out of AssistantUiController.
-void AssistantUiController::OnDialogPlateButtonPressed(DialogPlateButtonId id) {
-  if (id != DialogPlateButtonId::kSettings)
+void AssistantUiController::OnDialogPlateButtonPressed(AssistantButtonId id) {
+  if (id != AssistantButtonId::kSettings)
     return;
 
   // Launch Assistant Settings via deep link.
@@ -273,6 +278,20 @@ void AssistantUiController::OnUiVisibilityChanged(
           container_view_->GetWidget()->GetNativeWindow()->GetRootWindow();
       event_monitor_ = views::EventMonitor::CreateWindowMonitor(
           this, root_window, {ui::ET_MOUSE_PRESSED, ui::ET_TOUCH_PRESSED});
+
+      // We also want to associate the window for Assistant UI with the active
+      // user so that we don't leak across user sessions.
+      auto* window_manager = MultiUserWindowManager::Get();
+      if (window_manager) {
+        const mojom::UserSession* user_session =
+            Shell::Get()->session_controller()->GetUserSession(0);
+        if (user_session) {
+          window_manager->SetWindowOwner(
+              container_view_->GetWidget()->GetNativeWindow(),
+              user_session->user_info->account_id,
+              /*show_for_current_user=*/true);
+        }
+      }
 
       // Only record the entry point when Assistant UI becomes visible.
       assistant::util::RecordAssistantEntryPoint(entry_point.value());
@@ -495,7 +514,8 @@ AssistantContainerView* AssistantUiController::GetViewForTest() {
 }
 
 void AssistantUiController::CreateContainerView() {
-  container_view_ = new AssistantContainerView(assistant_controller_);
+  container_view_ =
+      new AssistantContainerView(assistant_controller_->view_delegate());
   container_view_->GetWidget()->AddObserver(this);
 
   // To save resources, only watch these events while Assistant UI exists.

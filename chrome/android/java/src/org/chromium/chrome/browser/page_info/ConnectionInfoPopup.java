@@ -24,21 +24,20 @@ import org.chromium.base.Log;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ResourceId;
-import org.chromium.chrome.browser.modaldialog.DialogDismissalCause;
-import org.chromium.chrome.browser.modaldialog.ModalDialogManager;
-import org.chromium.chrome.browser.modaldialog.ModalDialogProperties;
-import org.chromium.chrome.browser.modaldialog.ModalDialogView;
-import org.chromium.chrome.browser.modelutil.PropertyModel;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.vr.UiUnsupportedMode;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
+import org.chromium.ui.modaldialog.DialogDismissalCause;
+import org.chromium.ui.modaldialog.ModalDialogManager;
+import org.chromium.ui.modaldialog.ModalDialogProperties;
+import org.chromium.ui.modelutil.PropertyModel;
 
 /**
  * Java side of Android implementation of the page info UI.
  */
-public class ConnectionInfoPopup implements OnClickListener, ModalDialogView.Controller {
+public class ConnectionInfoPopup implements OnClickListener, ModalDialogProperties.Controller {
     private static final String TAG = "ConnectionInfoPopup";
 
     private static final String HELP_URL =
@@ -144,7 +143,8 @@ public class ConnectionInfoPopup implements OnClickListener, ModalDialogView.Con
         assert mCertificateViewerTextView == null;
         mCertificateViewerTextView = new TextView(mContext);
         mCertificateViewerTextView.setText(label);
-        ApiCompatibilityUtils.setTextAppearance(mCertificateViewerTextView, R.style.BlueLink3);
+        ApiCompatibilityUtils.setTextAppearance(
+                mCertificateViewerTextView, R.style.TextAppearance_BlueLink3);
         mCertificateViewerTextView.setOnClickListener(this);
         mCertificateViewerTextView.setPadding(0, mPaddingThin, 0, 0);
         mCertificateLayout.addView(mCertificateViewerTextView);
@@ -180,7 +180,7 @@ public class ConnectionInfoPopup implements OnClickListener, ModalDialogView.Con
         mMoreInfoLink = new TextView(mContext);
         mLinkUrl = HELP_URL;
         mMoreInfoLink.setText(linkText);
-        ApiCompatibilityUtils.setTextAppearance(mMoreInfoLink, R.style.BlueLink3);
+        ApiCompatibilityUtils.setTextAppearance(mMoreInfoLink, R.style.TextAppearance_BlueLink3);
         mMoreInfoLink.setPadding(0, mPaddingThin, 0, 0);
         mMoreInfoLink.setOnClickListener(this);
         mDescriptionLayout.addView(mMoreInfoLink);

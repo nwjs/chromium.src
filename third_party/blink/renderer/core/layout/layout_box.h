@@ -389,6 +389,14 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     SetLocation(rect.Location());
     SetSize(rect.Size());
   }
+  // Similar to SetFrameRect(), except it avoids notifying other code about size
+  // and location changes. This should only be used from a DisplayLockContext to
+  // temporarily put in place a pending frame rect which is restored at the end
+  // of layout. Code outside of layout should not observe location or size
+  // changes.
+  void SetFrameRectForDisplayLock(const LayoutRect& rect) {
+    frame_rect_ = rect;
+  }
 
   // Note that those functions have their origin at this box's CSS border box.
   // As such their location doesn't account for 'top'/'left'. About its
@@ -472,7 +480,9 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // in the "physical coordinates in flipped block-flow direction" of the box.
   LayoutRect NoOverflowRect() const;
   LayoutRect LayoutOverflowRect() const {
-    return overflow_ ? overflow_->LayoutOverflowRect() : NoOverflowRect();
+    return LayoutOverflowIsSet()
+               ? overflow_->layout_overflow->LayoutOverflowRect()
+               : NoOverflowRect();
   }
   LayoutRect PhysicalLayoutOverflowRect() const {
     LayoutRect overflow_rect = LayoutOverflowRect();
@@ -484,14 +494,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   }
   LayoutSize MaxLayoutOverflow() const {
     return LayoutSize(LayoutOverflowRect().MaxX(), LayoutOverflowRect().MaxY());
-  }
-  LayoutUnit LogicalLeftLayoutOverflow() const {
-    return StyleRef().IsHorizontalWritingMode() ? LayoutOverflowRect().X()
-                                                : LayoutOverflowRect().Y();
-  }
-  LayoutUnit LogicalRightLayoutOverflow() const {
-    return StyleRef().IsHorizontalWritingMode() ? LayoutOverflowRect().MaxX()
-                                                : LayoutOverflowRect().MaxY();
   }
 
   LayoutRect VisualOverflowRect() const override;
@@ -510,11 +512,19 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   }
 
   LayoutRect SelfVisualOverflowRect() const {
-    return overflow_ ? overflow_->SelfVisualOverflowRect() : BorderBoxRect();
+    return VisualOverflowIsSet()
+               ? overflow_->visual_overflow->SelfVisualOverflowRect()
+               : BorderBoxRect();
   }
   LayoutRect ContentsVisualOverflowRect() const {
-    return overflow_ ? overflow_->ContentsVisualOverflowRect() : LayoutRect();
+    return VisualOverflowIsSet()
+               ? overflow_->visual_overflow->ContentsVisualOverflowRect()
+               : LayoutRect();
   }
+
+  // Returns the visual overflow rect, expanded to the area affected by any
+  // filters that paint outside of the box, in physical coordinates.
+  LayoutRect VisualOverflowRectIncludingFilters() const;
 
   // These methods don't mean the box *actually* has top/left overflow. They
   // mean that *if* the box overflows, it will overflow to the top/left rather
@@ -540,8 +550,11 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
                                   const LayoutSize& delta);
   void AddLayoutOverflowFromChild(const LayoutBox& child,
                                   const LayoutSize& delta);
+  void SetLayoutClientAfterEdge(LayoutUnit client_after_edge);
+  LayoutUnit LayoutClientAfterEdge() const;
+
   void ClearLayoutOverflow();
-  void ClearAllOverflows() { overflow_.reset(); }
+  void ClearVisualOverflow();
 
   virtual void UpdateAfterLayout();
 
@@ -1192,16 +1205,24 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   bool IsCustomItemShrinkToFit() const;
 
   bool IsDeprecatedFlexItem() const {
-    return !IsInline() && !IsFloatingOrOutOfFlowPositioned() && Parent() &&
-           Parent()->IsDeprecatedFlexibleBox();
+    return IsFlexItemCommon() && Parent()->IsDeprecatedFlexibleBox();
   }
-  bool IsFlexItemIncludingDeprecated() const {
-    return !IsInline() && !IsFloatingOrOutOfFlowPositioned() && Parent() &&
-           Parent()->IsFlexibleBoxIncludingDeprecated();
+  bool IsFlexItemIncludingDeprecatedAndNG() const {
+    return IsFlexItemCommon() &&
+           Parent()->IsFlexibleBoxIncludingDeprecatedAndNG();
   }
+
+  // TODO(dgrogan): Replace the rest of the calls to IsFlexItem with
+  // IsFlexItemIncludingNG when all the callsites can handle an item with an NG
+  // parent.
   bool IsFlexItem() const {
-    return !IsInline() && !IsFloatingOrOutOfFlowPositioned() && Parent() &&
-           Parent()->IsFlexibleBox();
+    return IsFlexItemCommon() && Parent()->IsFlexibleBox();
+  }
+  bool IsFlexItemIncludingNG() const {
+    return IsFlexItemCommon() && Parent()->IsFlexibleBoxIncludingNG();
+  }
+  bool IsFlexItemCommon() const {
+    return !IsInline() && !IsFloatingOrOutOfFlowPositioned() && Parent();
   }
 
   bool IsGridItem() const { return Parent() && Parent()->IsLayoutGrid(); }
@@ -1285,14 +1306,14 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
       LayoutObject* container) const;
   LayoutRect LayoutOverflowRectForPropagation(LayoutObject* container) const;
 
-  bool HasOverflowModel() const { return overflow_.get(); }
   bool HasSelfVisualOverflow() const {
-    return overflow_ &&
-           !BorderBoxRect().Contains(overflow_->SelfVisualOverflowRect());
+    return VisualOverflowIsSet() &&
+           !BorderBoxRect().Contains(
+               overflow_->visual_overflow->SelfVisualOverflowRect());
   }
-  bool HasVisualOverflow() const {
-    return overflow_ && !BorderBoxRect().Contains(VisualOverflowRect());
-  }
+
+  bool HasVisualOverflow() const { return VisualOverflowIsSet(); }
+  bool HasLayoutOverflow() const { return LayoutOverflowIsSet(); }
 
   // Return true if re-laying out the containing block of this object means that
   // we need to recalculate the preferred min/max logical widths of this object.
@@ -1338,7 +1359,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // container, applying adjustments for the given container offset,
   // scrolling, container clipping, and transform (including container
   // perspective).
-  bool MapVisualRectToContainer(const LayoutObject* container_bject,
+  bool MapVisualRectToContainer(const LayoutObject* container_object,
                                 const LayoutPoint& container_offset,
                                 const LayoutObject* ancestor,
                                 VisualRectFlags,
@@ -1348,20 +1369,22 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   bool HasRelativeLogicalHeight() const;
 
   bool HasHorizontalLayoutOverflow() const {
-    if (!overflow_)
+    if (!LayoutOverflowIsSet())
       return false;
 
-    LayoutRect layout_overflow_rect = overflow_->LayoutOverflowRect();
+    LayoutRect layout_overflow_rect =
+        overflow_->layout_overflow->LayoutOverflowRect();
     LayoutRect no_overflow_rect = NoOverflowRect();
     return layout_overflow_rect.X() < no_overflow_rect.X() ||
            layout_overflow_rect.MaxX() > no_overflow_rect.MaxX();
   }
 
   bool HasVerticalLayoutOverflow() const {
-    if (!overflow_)
+    if (!LayoutOverflowIsSet())
       return false;
 
-    LayoutRect layout_overflow_rect = overflow_->LayoutOverflowRect();
+    LayoutRect layout_overflow_rect =
+        overflow_->layout_overflow->LayoutOverflowRect();
     LayoutRect no_overflow_rect = NoOverflowRect();
     return layout_overflow_rect.Y() < no_overflow_rect.Y() ||
            layout_overflow_rect.MaxY() > no_overflow_rect.MaxY();
@@ -1641,6 +1664,13 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   TextDirection ResolvedDirection() const;
 
  private:
+  inline bool LayoutOverflowIsSet() const {
+    return overflow_ && overflow_->layout_overflow;
+  }
+  inline bool VisualOverflowIsSet() const {
+    return overflow_ && overflow_->visual_overflow;
+  }
+
   void UpdateShapeOutsideInfoAfterStyleChange(const ComputedStyle&,
                                               const ComputedStyle* old_style);
   void UpdateGridPositionAfterStyleChange(const ComputedStyle*);
@@ -1659,7 +1689,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
       LogicalExtentComputedValues&) const;
   void ComputePositionedLogicalWidthUsing(
       SizeType,
-      Length logical_width,
+      const Length& logical_width,
       const LayoutBoxModelObject* container_block,
       TextDirection container_direction,
       LayoutUnit container_logical_width,
@@ -1760,9 +1790,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // See LayoutObject::maxPreferredLogicalWidth() for more details.
   LayoutUnit max_preferred_logical_width_;
 
-  // Our overflow information.
-  std::unique_ptr<BoxOverflowModel> overflow_;
-
  private:
   LogicalToPhysicalSetter<LayoutUnit, LayoutBox> LogicalMarginToPhysicalSetter(
       const ComputedStyle* override_style) {
@@ -1772,6 +1799,8 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
         &LayoutBox::SetMarginTop, &LayoutBox::SetMarginRight,
         &LayoutBox::SetMarginBottom, &LayoutBox::SetMarginLeft);
   }
+
+  std::unique_ptr<BoxOverflowModel> overflow_;
 
   union {
     // The inline box containing this LayoutBox, for atomic inline elements.

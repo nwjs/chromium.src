@@ -43,6 +43,7 @@
     menuListItemSelected,
     menuListValueChanged,
     menuPopupEnd,
+    menuPopupHide,
     menuPopupStart,
     menuStart,
     mouseCanceled,
@@ -190,6 +191,7 @@
     list,
     listBox,
     listBoxOption,
+    listGrid,  // Native
     listItem,
     listMarker,
     log,

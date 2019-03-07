@@ -6,6 +6,7 @@
 #define UI_VIEWS_WIDGET_NATIVE_WIDGET_MAC_H_
 
 #include "base/macros.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/views/widget/native_widget_private.h"
 
@@ -19,6 +20,7 @@ namespace views_bridge_mac {
 namespace mojom {
 class BridgedNativeWidget;
 class CreateWindowParams;
+class ValidateUserInterfaceItemResult;
 }  // namespace mojom
 }  // namespace views_bridge_mac
 
@@ -48,9 +50,9 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   // destroyed.
   void WindowDestroyed();
 
-  // Returns the vertical position that sheets should be anchored, in pixels
-  // from the bottom of the window.
-  virtual int SheetPositionY();
+  // The vertical position from which sheets should be anchored, from the top
+  // of the content view.
+  virtual int32_t SheetOffsetY();
 
   // Returns in |override_titlebar_height| whether or not to override the
   // titlebar height and in |titlebar_height| the height of the titlebar.
@@ -62,6 +64,21 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
 
   // Handle "Move focus to the window toolbar" shortcut.
   virtual void OnFocusWindowToolbar() {}
+
+  // Allows subclasses to override the behavior for
+  // -[NSUserInterfaceValidations validateUserInterfaceItem].
+  virtual void ValidateUserInterfaceItem(
+      int32_t command,
+      views_bridge_mac::mojom::ValidateUserInterfaceItemResult* result) {}
+
+  // Execute the chrome command |command| with |window_open_disposition|. If
+  // |is_before_first_responder| then only call ExecuteCommand if the command
+  // is reserved and extension shortcut handling is not suspended. Returns in
+  // |was_executed| whether or not ExecuteCommand was called (regardless of what
+  // the return value for ExecuteCommand was).
+  virtual bool ExecuteCommand(int32_t command,
+                              WindowOpenDisposition window_open_disposition,
+                              bool is_before_first_responder);
 
   // internal::NativeWidgetPrivate:
   void InitNativeWidget(const Widget::InitParams& params) override;
@@ -133,6 +150,7 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
                     ui::DragDropTypes::DragEventSource source) override;
   void SchedulePaintInRect(const gfx::Rect& rect) override;
   void SetCursor(gfx::NativeCursor cursor) override;
+  void ShowEmojiPanel() override;
   bool IsMouseEventsEnabled() const override;
   bool IsMouseButtonDown() const override;
   void ClearNativeFocus() override;
@@ -149,8 +167,12 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   bool IsTranslucentWindowOpacitySupported() const override;
   ui::GestureRecognizer* GetGestureRecognizer() override;
   void OnSizeConstraintsChanged() override;
-  void RepostNativeEvent(gfx::NativeEvent native_event) override;
   std::string GetName() const override;
+
+  // Calls |callback| with the newly created NativeWidget whenever a
+  // NativeWidget is created.
+  static void SetInitNativeWidgetCallback(
+      const base::RepeatingCallback<void(NativeWidgetMac*)>& callback);
 
  protected:
   virtual void PopulateCreateWindowParams(
@@ -171,6 +193,10 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   // windows are to be created in the current process.
   virtual BridgeFactoryHost* GetBridgeFactoryHost();
 
+  // Called after the window has been initialized. Allows subclasses to perform
+  // additional initialization.
+  virtual void OnWindowInitialized() {}
+
   // Optional hook for subclasses invoked by WindowDestroying().
   virtual void OnWindowDestroying(gfx::NativeWindow window) {}
 
@@ -181,7 +207,7 @@ class VIEWS_EXPORT NativeWidgetMac : public internal::NativeWidgetPrivate {
   internal::NativeWidgetDelegate* delegate() { return delegate_; }
   views_bridge_mac::mojom::BridgedNativeWidget* bridge() const;
   BridgedNativeWidgetImpl* bridge_impl() const;
-  BridgedNativeWidgetHostImpl* bridge_host_for_testing() const {
+  BridgedNativeWidgetHostImpl* bridge_host() const {
     return bridge_host_.get();
   }
 

@@ -9,6 +9,7 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
+import android.support.annotation.Nullable;
 import android.support.v4.view.MarginLayoutParamsCompat;
 import android.support.v4.view.animation.LinearOutSlowInInterpolator;
 import android.support.v7.widget.GridLayout;
@@ -42,8 +43,6 @@ import org.chromium.ui.UiUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.annotation.Nullable;
 
 /**
  * Represents a single section in the {@link PaymentRequestUI} that flips between multiple states.
@@ -343,17 +342,19 @@ public abstract class PaymentRequestSection extends LinearLayout implements View
         // The title is always displayed for the row at the top of the main section.
         mTitleView = new TextView(getContext());
         mTitleView.setText(sectionName);
-        ApiCompatibilityUtils.setTextAppearance(mTitleView, R.style.BlueLink2);
+        ApiCompatibilityUtils.setTextAppearance(mTitleView, R.style.TextAppearance_BlueLink2);
         mainSectionLayout.addView(
                 mTitleView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
         // Create the two TextViews for showing the summary text.
         mSummaryLeftTextView = new TextView(getContext());
         mSummaryLeftTextView.setId(R.id.payments_left_summary_label);
-        ApiCompatibilityUtils.setTextAppearance(mSummaryLeftTextView, R.style.BlackTitle1);
+        ApiCompatibilityUtils.setTextAppearance(
+                mSummaryLeftTextView, R.style.TextAppearance_BlackTitle1);
 
         mSummaryRightTextView = new TextView(getContext());
-        ApiCompatibilityUtils.setTextAppearance(mSummaryRightTextView, R.style.BlackTitle1);
+        ApiCompatibilityUtils.setTextAppearance(
+                mSummaryRightTextView, R.style.TextAppearance_BlackTitle1);
         ApiCompatibilityUtils.setTextAlignment(mSummaryRightTextView, TEXT_ALIGNMENT_TEXT_END);
 
         // The main TextView sucks up all the available space.
@@ -576,7 +577,8 @@ public abstract class PaymentRequestSection extends LinearLayout implements View
 
             // Create the view and set the text appearance and layout parameters.
             mUpdatedView = new TextView(context);
-            ApiCompatibilityUtils.setTextAppearance(mUpdatedView, R.style.BlackTitle1);
+            ApiCompatibilityUtils.setTextAppearance(
+                    mUpdatedView, R.style.TextAppearance_BlackTitle1);
             LinearLayout.LayoutParams updatedLayoutParams = new LinearLayout.LayoutParams(
                     LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
             ApiCompatibilityUtils.setTextAlignment(mUpdatedView, TEXT_ALIGNMENT_TEXT_END);
@@ -951,7 +953,8 @@ public abstract class PaymentRequestSection extends LinearLayout implements View
                     columnStart = 0;
                     columnSpan = 4;
 
-                    ApiCompatibilityUtils.setTextAppearance(labelView, R.style.BlackBody);
+                    ApiCompatibilityUtils.setTextAppearance(
+                            labelView, R.style.TextAppearance_BlackBody);
                 } else if (mRowType == OPTION_ROW_TYPE_WARNING) {
                     // Warnings use three columns.
                     columnSpan = 3;
@@ -1290,17 +1293,17 @@ public abstract class PaymentRequestSection extends LinearLayout implements View
                 // Section summary should be displayed as descriptive text style.
                 if (!mSummaryInDescriptiveText) {
                     ApiCompatibilityUtils.setTextAppearance(
-                            getSummaryLeftTextView(), R.style.BlackBody);
+                            getSummaryLeftTextView(), R.style.TextAppearance_BlackBody);
                     mSummaryInDescriptiveText = true;
                 }
                 SectionUiUtils.showSectionSummaryInTextViewInSingeLine(
                         getContext(), mSectionInformation, getSummaryLeftTextView());
             } else {
                 setLogoDrawable(selectedItem.getDrawableIcon());
-                // Selected item summary should be displayed as R.style.BlackTitle1.
+                // Selected item summary should be displayed as R.style.TextAppearance_BlackTitle1.
                 if (mSummaryInDescriptiveText) {
                     ApiCompatibilityUtils.setTextAppearance(
-                            getSummaryLeftTextView(), R.style.BlackTitle1);
+                            getSummaryLeftTextView(), R.style.TextAppearance_BlackTitle1);
                     mSummaryInDescriptiveText = false;
                 }
                 // Split summary in DISPLAY_MODE_NORMAL if caller specified. The first part is

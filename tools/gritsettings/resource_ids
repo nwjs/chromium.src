@@ -378,13 +378,18 @@
     "includes": [25600],
     "structures": [25700],
   },
-
+  "third_party/ink/ink_resources.grd": {
+    "includes": [25900],
+  },
   "third_party/libaddressinput/chromium/address_input_strings.grd": {
-    "messages": [25900],
+    "messages": [25910],
   },
 
+  "ui/base/test/ui_base_test_resources.grd": {
+    "messages": [26000],
+  },
   "ui/chromeos/resources/ui_chromeos_resources.grd": {
-    "structures": [26000],
+    "structures": [26010],
   },
   "ui/chromeos/ui_chromeos_strings.grd": {
     "messages": [26100],
@@ -411,7 +416,7 @@
     "messages": [27350],
   },
   "ui/views/resources/views_resources.grd": {
-    "structures": [27550],
+    "structures": [27560],
   },
   "ui/webui/resources/webui_resources.grd": {
     "includes": [27850],

@@ -54,6 +54,10 @@ class ASH_EXPORT SessionController : public mojom::SessionController {
   // no session in progress or no active user.
   int NumberOfLoggedInUsers() const;
 
+  // Returns the active account. If no users are logged in this returns an empty
+  // AccountId.
+  AccountId GetActiveAccountId() const;
+
   // Gets the policy of adding a user session to ash.
   AddUserSessionPolicy GetAddUserPolicy() const;
 
@@ -244,6 +248,10 @@ class ASH_EXPORT SessionController : public mojom::SessionController {
   // via OnSigninScreenPrefServiceInitialized(). Otherwise, defer the
   // notification until that happens.
   void MaybeNotifyOnActiveUserPrefServiceChanged();
+
+  // Called when IsUserSessionBlocked() becomes true. If there isn't an active
+  // window, tries to activate one.
+  void EnsureActiveWindowAfterUnblockingUserSession();
 
   // Bindings for users of the mojom::SessionController interface.
   mojo::BindingSet<mojom::SessionController> bindings_;

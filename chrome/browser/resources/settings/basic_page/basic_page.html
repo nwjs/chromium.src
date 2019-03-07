@@ -119,8 +119,7 @@
             </settings-bluetooth-page>
           </settings-section>
         </template>
-        <template is="dom-if"
-            if="[[canShowMultideviceSection_(showMultidevice, pageVisibility)]]"
+        <template is="dom-if" if="[[showPage_(pageVisibility.multidevice)]]"
             restamp>
           <settings-section page-title="$i18n{multidevicePageTitle}"
               section="multidevice">
@@ -186,11 +185,11 @@
           </settings-section>
         </template>
 <if expr="chromeos">
-        <template is="dom-if"
-            if="[[shouldShowAndroidApps_(showAndroidApps, androidAppsInfo, pageVisibility)]]"
-            restamp>
+        <template is="dom-if" if="[[shouldCreateAndroidAppsSection_(
+            showAndroidApps, pageVisibility)]]" restamp>
           <settings-section page-title="$i18n{androidAppsPageTitle}"
-              section="androidApps">
+              section="androidApps" hidden$="[[!shouldShowAndroidAppsSection_(
+              androidAppsInfo)]]">
             <settings-android-apps-page prefs="{{prefs}}"
                 android-apps-info="[[androidAppsInfo]]"
                 have-play-store-app="[[havePlayStoreApp]]">
@@ -200,7 +199,8 @@
         <template is="dom-if" if="[[showCrostini]]" restamp>
           <settings-section page-title="$i18n{crostiniPageTitle}"
               section="crostini">
-            <settings-crostini-page prefs="{{prefs}}">
+            <settings-crostini-page prefs="{{prefs}}"
+                allow-crostini="[[allowCrostini_]]">
             </settings-crostini-page>
           </settings-section>
         </template>

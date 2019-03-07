@@ -19,6 +19,7 @@
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
@@ -31,6 +32,7 @@
 #include "gpu/command_buffer/service/decoder_client.h"
 #include "gpu/command_buffer/service/decoder_context.h"
 #include "gpu/command_buffer/service/gr_cache_controller.h"
+#include "gpu/command_buffer/service/program_cache.h"
 #include "gpu/command_buffer/service/service_discardable_manager.h"
 #include "gpu/command_buffer/service/service_transfer_cache.h"
 #include "gpu/config/gpu_feature_info.h"
@@ -54,6 +56,7 @@ class Size;
 }
 
 namespace gpu {
+class SharedContextState;
 class GpuChannelManagerDelegate;
 class GpuProcessActivityFlags;
 class GpuMemoryBufferManager;
@@ -67,7 +70,6 @@ struct SwapBuffersCompleteParams;
 
 namespace raster {
 class GrShaderCache;
-struct RasterDecoderContextState;
 }
 
 // This class provides a thread-safe interface to the global GPU service (for
@@ -114,7 +116,8 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
                                 int32_t start,
                                 int32_t end) override;
   void SetGetBuffer(int32_t shm_id) override;
-  scoped_refptr<Buffer> CreateTransferBuffer(size_t size, int32_t* id) override;
+  scoped_refptr<Buffer> CreateTransferBuffer(uint32_t size,
+                                             int32_t* id) override;
   void DestroyTransferBuffer(int32_t id) override;
 
   // GpuControl implementation (called on client thread):
@@ -139,7 +142,7 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
   bool IsFenceSyncReleased(uint64_t release) override;
   void SignalSyncToken(const SyncToken& sync_token,
                        base::OnceClosure callback) override;
-  void WaitSyncTokenHint(const SyncToken& sync_token) override;
+  void WaitSyncToken(const SyncToken& sync_token) override;
   bool CanWaitUnverifiedSyncToken(const SyncToken& sync_token) override;
 
   // CommandBufferServiceClient implementation (called on gpu thread):
@@ -150,7 +153,6 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
   void OnConsoleMessage(int32_t id, const std::string& message) override;
   void CacheShader(const std::string& key, const std::string& shader) override;
   void OnFenceSyncRelease(uint64_t release) override;
-  bool OnWaitSyncToken(const SyncToken& sync_token) override;
   void OnDescheduleUntilFinished() override;
   void OnRescheduleAfterFinished() override;
   void OnSwapBuffers(uint64_t swap_id, uint32_t flags) override;
@@ -174,7 +176,8 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
   const GpuFeatureInfo& GetGpuFeatureInfo() const;
 
   using UpdateVSyncParametersCallback =
-      base::Callback<void(base::TimeTicks timebase, base::TimeDelta interval)>;
+      base::RepeatingCallback<void(base::TimeTicks timebase,
+                                   base::TimeDelta interval)>;
   void SetUpdateVSyncParametersCallback(
       const UpdateVSyncParametersCallback& callback);
 
@@ -227,13 +230,16 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
 
   // Flush up to put_offset. If execution is deferred either by yielding, or due
   // to a sync token wait, HasUnprocessedCommandsOnGpuThread() returns true.
-  void FlushOnGpuThread(int32_t put_offset);
+  void FlushOnGpuThread(int32_t put_offset,
+                        const std::vector<SyncToken>& sync_token_fences);
   bool HasUnprocessedCommandsOnGpuThread();
   void UpdateLastStateOnGpuThread();
 
   void ScheduleDelayedWorkOnGpuThread();
 
   bool MakeCurrent();
+
+  base::Optional<gles2::ProgramCache::ScopedCacheUse> CreateCacheUse();
 
   // Client callbacks are posted back to |origin_task_runner_|, or run
   // synchronously if there's no task runner or message loop.
@@ -275,6 +281,13 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
                                     const gfx::ColorSpace& color_space,
                                     uint32_t usage,
                                     const SyncToken& sync_token);
+  void CreateSharedImageWithDataOnGpuThread(const Mailbox& mailbox,
+                                            viz::ResourceFormat format,
+                                            const gfx::Size& size,
+                                            const gfx::ColorSpace& color_space,
+                                            uint32_t usage,
+                                            const SyncToken& sync_token,
+                                            std::vector<uint8_t> pixel_data);
   void CreateGMBSharedImageOnGpuThread(const Mailbox& mailbox,
                                        gfx::GpuMemoryBufferHandle handle,
                                        gfx::BufferFormat format,
@@ -288,7 +301,6 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
 
   // Callbacks on the gpu thread.
   void PerformDelayedWorkOnGpuThread();
-  void OnWaitSyncTokenCompleted(const SyncToken& sync_token);
 
   // Callback implementations on the client thread.
   void OnContextLost();
@@ -301,7 +313,6 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
 
   // Members accessed on the gpu thread (possibly with the exception of
   // creation):
-  bool waiting_for_sync_point_ = false;
   bool use_virtualized_gl_context_ = false;
   raster::GrShaderCache* gr_shader_cache_ = nullptr;
   scoped_refptr<base::SingleThreadTaskRunner> origin_task_runner_;
@@ -333,7 +344,6 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
   Capabilities capabilities_;
   GpuMemoryBufferManager* gpu_memory_buffer_manager_ = nullptr;
   uint64_t next_fence_sync_release_ = 1;
-  uint64_t flushed_fence_sync_release_ = 0;
   std::vector<SyncToken> next_flush_sync_token_fences_;
   // Sequence checker for client sequence used for initialization, destruction,
   // callbacks, such as context loss, and methods which provide such callbacks,
@@ -363,7 +373,7 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
   base::circular_deque<SwapBufferParams> pending_presented_params_;
   base::circular_deque<SwapBufferParams> pending_swap_completed_params_;
 
-  scoped_refptr<raster::RasterDecoderContextState> context_state_;
+  scoped_refptr<SharedContextState> context_state_;
 
   base::WeakPtrFactory<InProcessCommandBuffer> client_thread_weak_ptr_factory_;
   base::WeakPtrFactory<InProcessCommandBuffer> gpu_thread_weak_ptr_factory_;

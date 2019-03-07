@@ -60,6 +60,7 @@
 #include "third_party/blink/renderer/core/editing/visible_position.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/html/html_br_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
@@ -89,7 +90,7 @@ const CommandNameEntry kCommandNameEntries[] = {
 };
 // Handles all commands except WebEditingCommandType::Invalid.
 static_assert(
-    arraysize(kCommandNameEntries) + 1 ==
+    base::size(kCommandNameEntries) + 1 ==
         static_cast<size_t>(WebEditingCommandType::kNumberOfCommandTypes),
     "must handle all valid WebEditingCommandType");
 
@@ -1185,6 +1186,13 @@ static bool EnabledSelectAll(LocalFrame& frame,
   if (Node* root = HighestEditableRoot(selection.Start())) {
     if (!root->hasChildren())
       return false;
+
+    // When the editable contains a BR only, it appears as an empty line, in
+    // which case allowing select-all confuses users.
+    if (root->firstChild() == root->lastChild() &&
+        IsHTMLBRElement(root->firstChild()))
+      return false;
+
     // TODO(amaralp): Return false if already fully selected.
   }
   // TODO(amaralp): Address user-select handling.
@@ -1779,7 +1787,7 @@ static const EditorInternalCommand* InternalCommand(
   };
   // Handles all commands except WebEditingCommandType::Invalid.
   static_assert(
-      arraysize(kEditorCommands) + 1 ==
+      base::size(kEditorCommands) + 1 ==
           static_cast<size_t>(WebEditingCommandType::kNumberOfCommandTypes),
       "must handle all valid WebEditingCommandType");
 
@@ -1790,7 +1798,7 @@ static const EditorInternalCommand* InternalCommand(
 
   int command_index = static_cast<int>(command_type) - 1;
   DCHECK(command_index >= 0 &&
-         command_index < static_cast<int>(arraysize(kEditorCommands)));
+         command_index < static_cast<int>(base::size(kEditorCommands)));
   return &kEditorCommands[command_index];
 }
 

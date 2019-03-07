@@ -27,8 +27,8 @@ class TaskDefinition final : public GarbageCollectedFinalized<TaskDefinition> {
   }
 
   void Trace(blink::Visitor* visitor) {
-    visitor->Trace(instance_.Cast<v8::Value>());
-    visitor->Trace(process_.Cast<v8::Value>());
+    visitor->Trace(instance_);
+    visitor->Trace(process_);
   }
 
  private:
@@ -92,7 +92,8 @@ void TaskWorkletGlobalScope::registerTask(const String& name,
     return;
   }
 
-  TaskDefinition* definition = new TaskDefinition(isolate, instance, process);
+  TaskDefinition* definition =
+      MakeGarbageCollected<TaskDefinition>(isolate, instance, process);
   task_definitions_.Set(name, definition);
 }
 

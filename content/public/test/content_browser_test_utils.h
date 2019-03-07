@@ -69,18 +69,16 @@ GURL GetTestUrl(const char* dir, const char* file);
 // navigations should do EXPECT_TRUE(NavigateToURL()).
 bool NavigateToURL(Shell* window, const GURL& url);
 
-// Performs a renderer-initiated navigation of |window| to |url|, blocking
+// Perform a renderer-initiated navigation of |window| to |url|, blocking
 // until the navigation finishes.  The navigation is done by assigning
 // location.href in the frame |adapter|. Returns true if the page was loaded
 // successfully and the last committed URL matches |url|.
 WARN_UNUSED_RESULT bool NavigateToURLFromRenderer(
     const ToRenderFrameHost& adapter,
     const GURL& url);
-
-void LoadDataWithBaseURL(Shell* window,
-                         const GURL& url,
-                         const std::string& data,
-                         const GURL& base_url);
+WARN_UNUSED_RESULT bool NavigateToURLFromRendererWithoutUserGesture(
+    const ToRenderFrameHost& adapter,
+    const GURL& url);
 
 // Navigates |window| to |url|, blocking until the given number of navigations
 // finishes.

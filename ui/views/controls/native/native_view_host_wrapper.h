@@ -46,6 +46,10 @@ class NativeViewHostWrapper {
   // success or false if the platform doesn't support the operation.
   virtual bool SetCustomMask(std::unique_ptr<ui::LayerOwner> mask) = 0;
 
+  // Sets the height of the top region where gfx::NativeView shouldn't be
+  // targeted.
+  virtual void SetHitTestTopInset(int top_inset) = 0;
+
   // Installs a clip on the gfx::NativeView. These values are in the coordinate
   // space of the Widget, so if this method is called from ShowWidget
   // then the values need to be translated.
@@ -94,6 +98,10 @@ class NativeViewHostWrapper {
   // {Show,Hide}Widget because it doesn't affect the placement, size,
   // or clipping of the view.
   virtual void SetVisible(bool visible) = 0;
+
+  // Pass the parent accessible object to the native view so that it can return
+  // this value when querying its parent accessible.
+  virtual void SetParentAccessible(gfx::NativeViewAccessible) = 0;
 
   // Creates a platform-specific instance of an object implementing this
   // interface.

@@ -171,7 +171,7 @@ source_set("unit_tests") {
     "//components/gcm_driver/instance_id:test_support",
     "//components/prefs",
     "//components/prefs:test_support",
-    "//components/signin/core/browser:test_support",
+    "//components/signin/core/browser:internals_test_support",
     "//components/sync_preferences:test_support",
     "//google_apis:test_support",
     "//google_apis/gcm:gcm",
@@ -274,10 +274,10 @@ if (is_android) {
       "//base:base_java",
       "//components/signin/core/browser/android:java",
       "//components/sync/android:sync_java",
+      "//third_party/android_deps:com_google_protobuf_protobuf_lite_java",
       "//third_party/cacheinvalidation:cacheinvalidation_javalib",
       "//third_party/cacheinvalidation:cacheinvalidation_proto_java",
       "//third_party/jsr-305:jsr_305_javalib",
-      "//third_party/protobuf:protobuf_lite_javalib",
     ]
     java_files = [
       "android/java/src/org/chromium/components/invalidation/InvalidationClientService.java",
@@ -291,10 +291,16 @@ if (is_android) {
       "$proto_path/serialized_invalidation.proto",
     ]
   }
+  android_resources("javatests__resources") {
+    testonly = true
+    resource_dirs = []
+    android_manifest = "android/javatests/AndroidManifest.xml"
+  }
   android_library("javatests") {
     testonly = true
     deps = [
       ":java",
+      ":javatests__resources",
       "//base:base_java",
       "//base:base_java_test_support",
       "//components/signin/core/browser/android:java",

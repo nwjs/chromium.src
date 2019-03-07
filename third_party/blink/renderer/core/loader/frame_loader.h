@@ -39,6 +39,7 @@
 #include "third_party/blink/public/web/web_frame_load_type.h"
 #include "third_party/blink/public/web/web_navigation_type.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/frame_types.h"
 #include "third_party/blink/renderer/core/frame/sandbox_flags.h"
 #include "third_party/blink/renderer/core/loader/frame_loader_state_machine.h"
@@ -50,10 +51,6 @@
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 
 #include <memory>
-
-namespace base {
-class UnguessableToken;
-}
 
 namespace blink {
 
@@ -67,9 +64,9 @@ class ProgressTracker;
 class ResourceError;
 class ResourceRequest;
 class SerializedScriptValue;
-class SubstituteData;
 class TracedValue;
 struct FrameLoadRequest;
+struct WebNavigationInfo;
 struct WebNavigationParams;
 
 namespace mojom {
@@ -106,19 +103,10 @@ class CORE_EXPORT FrameLoader final {
   // Called when the browser process has asked this renderer process to commit
   // a navigation in this frame. This method skips most of the checks assuming
   // that browser process has already performed any checks necessary.
-  // For history navigations, a history item should be provided and
-  // an appropriate WebFrameLoadType should be given.
-  // See DocumentLoader::devtools_navigation_token_ for documentation on
-  // the token.
+  // See WebNavigationParams for details.
   void CommitNavigation(
-      const ResourceRequest&,
-      const SubstituteData&,
-      ClientRedirectPolicy,
-      const base::UnguessableToken& devtools_navigation_token,
-      WebFrameLoadType = WebFrameLoadType::kStandard,
-      HistoryItem* = nullptr,
-      std::unique_ptr<WebNavigationParams> navigation_params = nullptr,
-      std::unique_ptr<WebDocumentLoader::ExtraData> extra_data = nullptr);
+      std::unique_ptr<WebNavigationParams> navigation_params,
+      std::unique_ptr<WebDocumentLoader::ExtraData> extra_data);
 
   // Called when the browser process has asked this renderer process to commit a
   // same document navigation in that frame. Returns false if the navigation
@@ -137,15 +125,8 @@ class CORE_EXPORT FrameLoader final {
   // This placeholder document loader will be later abandoned, and only
   // lives temporarily so that the rest of Blink code knows the navigation
   // is in place.
-  // See DocumentLoader::devtools_navigation_token_ for documentation on
-  // the token.
   bool CreatePlaceholderDocumentLoader(
-      const ResourceRequest&,
-      ClientRedirectPolicy,
-      const base::UnguessableToken& devtools_navigation_token,
-      WebFrameLoadType,
-      WebNavigationType,
-      std::unique_ptr<WebNavigationParams>,
+      const WebNavigationInfo&,
       std::unique_ptr<WebDocumentLoader::ExtraData>);
 
   // This runs the "stop document loading" algorithm in HTML:
@@ -177,7 +158,6 @@ class CORE_EXPORT FrameLoader final {
   bool IsLoadingMainFrame() const;
 
   bool ShouldTreatURLAsSameAsCurrent(const KURL&) const;
-  bool ShouldTreatURLAsSrcdocDocument(const KURL&) const;
 
   void SetDefersLoading(bool);
 
@@ -255,15 +235,17 @@ class CORE_EXPORT FrameLoader final {
   void ClientDroppedNavigation();
   void MarkAsLoading();
 
+  ContentSecurityPolicy* GetLastOriginDocumentCSP() {
+    return last_origin_document_csp_.Get();
+  }
+
  private:
   bool PrepareRequestForThisFrame(FrameLoadRequest&);
-  WebFrameLoadType DetermineFrameLoadType(
-      const ResourceRequest& resource_request,
-      Document* origin_document,
-      const KURL& failing_url,
-      WebFrameLoadType);
-
-  SubstituteData DefaultSubstituteDataForURL(const KURL&);
+  WebFrameLoadType DetermineFrameLoadType(const KURL& url,
+                                          const AtomicString& http_method,
+                                          Document* origin_document,
+                                          const KURL& failing_url,
+                                          WebFrameLoadType);
 
   bool ShouldPerformFragmentNavigation(bool is_form_submission,
                                        const String& http_method,
@@ -273,7 +255,8 @@ class CORE_EXPORT FrameLoader final {
 
   // Returns whether we should continue with new navigation.
   bool CancelProvisionalLoaderForNewNavigation(
-      bool cancel_scheduled_navigations);
+      bool cancel_scheduled_navigations,
+      bool is_starting_blank_navigation);
 
   void ClearInitialScrollState();
 
@@ -298,11 +281,6 @@ class CORE_EXPORT FrameLoader final {
   void TakeObjectSnapshot() const;
 
   DocumentLoader* CreateDocumentLoader(
-      const ResourceRequest&,
-      const SubstituteData&,
-      ClientRedirectPolicy,
-      const base::UnguessableToken& devtools_navigation_token,
-      WebFrameLoadType,
       WebNavigationType,
       std::unique_ptr<WebNavigationParams>,
       std::unique_ptr<WebDocumentLoader::ExtraData>);
@@ -338,6 +316,8 @@ class CORE_EXPORT FrameLoader final {
   bool detached_;
 
   WebScopedVirtualTimePauser virtual_time_pauser_;
+
+  Member<ContentSecurityPolicy> last_origin_document_csp_;
 
   DISALLOW_COPY_AND_ASSIGN(FrameLoader);
 };

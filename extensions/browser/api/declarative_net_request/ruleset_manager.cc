@@ -339,11 +339,14 @@ RulesetManager::Action RulesetManager::EvaluateRequest(
   if (!ShouldEvaluateRequest(request))
     return Action::NONE;
 
-  SCOPED_UMA_HISTOGRAM_TIMER(
-      "Extensions.DeclarativeNetRequest.EvaluateRequestTime.AllExtensions");
-
   if (test_observer_)
     test_observer_->OnEvaluateRequest(request, is_incognito_context);
+
+  if (rulesets_.empty())
+    return Action::NONE;
+
+  SCOPED_UMA_HISTOGRAM_TIMER(
+      "Extensions.DeclarativeNetRequest.EvaluateRequestTime.AllExtensions2");
 
   const GURL& url = request.url;
   const url::Origin first_party_origin =
@@ -378,7 +381,7 @@ RulesetManager::Action RulesetManager::EvaluateRequest(
       PageAccess page_access = WebRequestPermissions::CanExtensionAccessURL(
           info_map_, ruleset_data->extension_id, request.url, tab_id,
           crosses_incognito, WebRequestPermissions::DO_NOT_CHECK_HOST,
-          request.initiator);
+          request.initiator, request.type);
       DCHECK_NE(PageAccess::kWithheld, page_access);
       if (page_access != PageAccess::kAllowed)
         continue;
@@ -414,7 +417,7 @@ RulesetManager::Action RulesetManager::EvaluateRequest(
           info_map_, ruleset_data->extension_id, request.url, tab_id,
           crosses_incognito,
           WebRequestPermissions::REQUIRE_HOST_PERMISSION_FOR_URL_AND_INITIATOR,
-          request.initiator);
+          request.initiator, request.type);
 
       if (page_access != PageAccess::kAllowed) {
         if (page_access == PageAccess::kWithheld)

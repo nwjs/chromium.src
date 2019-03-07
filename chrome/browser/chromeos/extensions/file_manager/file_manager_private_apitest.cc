@@ -8,8 +8,8 @@
 #include <memory>
 
 #include "base/base64.h"
-#include "base/macros.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
@@ -28,7 +28,7 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/api/file_system_provider_capabilities/file_system_provider_capabilities_handler.h"
 #include "chrome/test/base/testing_profile.h"
-#include "chromeos/chromeos_features.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/dbus/concierge/service.pb.h"
 #include "chromeos/dbus/cros_disks_client.h"
 #include "chromeos/disks/disk.h"
@@ -280,7 +280,7 @@ class FileManagerPrivateApiTest : public extensions::ExtensionApiTest {
       }
     };
 
-    for (size_t i = 0; i < arraysize(kTestMountPoints); i++) {
+    for (size_t i = 0; i < base::size(kTestMountPoints); i++) {
       mount_points_.insert(DiskMountManager::MountPointMap::value_type(
           kTestMountPoints[i].mount_path,
           DiskMountManager::MountPointInfo(kTestMountPoints[i].source_path,
@@ -290,8 +290,8 @@ class FileManagerPrivateApiTest : public extensions::ExtensionApiTest {
       ));
       int disk_info_index = kTestMountPoints[i].disk_info_index;
       if (kTestMountPoints[i].disk_info_index >= 0) {
-        EXPECT_GT(arraysize(kTestDisks), static_cast<size_t>(disk_info_index));
-        if (static_cast<size_t>(disk_info_index) >= arraysize(kTestDisks))
+        EXPECT_GT(base::size(kTestDisks), static_cast<size_t>(disk_info_index));
+        if (static_cast<size_t>(disk_info_index) >= base::size(kTestDisks))
           return;
 
         std::unique_ptr<Disk> disk =
@@ -360,9 +360,7 @@ class FileManagerPrivateApiTest : public extensions::ExtensionApiTest {
     browser()->profile()->GetPrefs()->SetBoolean(
         crostini::prefs::kCrostiniEnabled, true);
     scoped_feature_list->InitWithFeatures(
-        {features::kCrostini, features::kExperimentalCrostiniUI,
-         chromeos::features::kCrostiniFiles},
-        {});
+        {features::kCrostini, chromeos::features::kCrostiniFiles}, {});
     // Profile must be signed in with email for crostini.
     identity::SetPrimaryAccount(
         IdentityManagerFactory::GetForProfileIfExists(browser()->profile()),
@@ -551,9 +549,11 @@ IN_PROC_BROWSER_TEST_F(FileManagerPrivateApiTest, Crostini) {
   crostini::CrostiniManager* crostini_manager =
       crostini::CrostiniManager::GetForProfile(browser()->profile());
   crostini_manager->set_skip_restart_for_testing();
-  vm_tools::concierge::VmInfo vm_info;
-  crostini_manager->AddRunningVmForTesting(crostini::kCrostiniDefaultVmName,
-                                           std::move(vm_info));
+  crostini_manager->AddRunningVmForTesting(crostini::kCrostiniDefaultVmName);
+  crostini_manager->AddRunningContainerForTesting(
+      crostini::kCrostiniDefaultVmName,
+      crostini::ContainerInfo(crostini::kCrostiniDefaultContainerName,
+                              "testuser", "/home/testuser"));
 
   ExpectCrostiniMount();
 
@@ -585,8 +585,17 @@ IN_PROC_BROWSER_TEST_F(FileManagerPrivateApiTest, Crostini) {
 IN_PROC_BROWSER_TEST_F(FileManagerPrivateApiTest, CrostiniIncognito) {
   base::test::ScopedFeatureList scoped_feature_list;
   EnableCrostiniForProfile(&scoped_feature_list);
-  crostini::CrostiniManager::GetForProfile(browser()->profile())
-      ->set_skip_restart_for_testing();
+
+  // Setup CrostiniManager for testing.
+  crostini::CrostiniManager* crostini_manager =
+      crostini::CrostiniManager::GetForProfile(browser()->profile());
+  crostini_manager->set_skip_restart_for_testing();
+  crostini_manager->AddRunningVmForTesting(crostini::kCrostiniDefaultVmName);
+  crostini_manager->AddRunningContainerForTesting(
+      crostini::kCrostiniDefaultVmName,
+      crostini::ContainerInfo(crostini::kCrostiniDefaultContainerName,
+                              "testuser", "/home/testuser"));
+
   ExpectCrostiniMount();
 
   scoped_refptr<extensions::FileManagerPrivateMountCrostiniFunction> function(

@@ -11,8 +11,8 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/compiler_specific.h"
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
+#include "base/test/scoped_task_environment.h"
 #include "build/build_config.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -77,8 +77,7 @@ class SigninManagerTest : public testing::Test {
   SigninManagerTest()
       : test_signin_client_(&user_prefs_),
         token_service_(&user_prefs_),
-        cookie_manager_service_(&token_service_,
-                                &test_signin_client_),
+        cookie_manager_service_(&token_service_, &test_signin_client_),
         account_consistency_(signin::AccountConsistencyMethod::kDisabled) {
     AccountFetcherService::RegisterPrefs(user_prefs_.registry());
     AccountTrackerService::RegisterPrefs(user_prefs_.registry());
@@ -123,8 +122,7 @@ class SigninManagerTest : public testing::Test {
     DCHECK(!manager_);
     manager_ = std::make_unique<SigninManager>(
         &test_signin_client_, &token_service_, &account_tracker_,
-        &cookie_manager_service_, nullptr /* signin_error_controller */,
-        account_consistency_);
+        &cookie_manager_service_, account_consistency_);
     manager_->Initialize(&local_state_);
     manager_->AddObserver(&test_observer_);
   }
@@ -156,13 +154,13 @@ class SigninManagerTest : public testing::Test {
     manager_->CompletePendingSignin();
   }
 
-  base::MessageLoop loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
   sync_preferences::TestingPrefServiceSyncable user_prefs_;
   TestingPrefServiceSimple local_state_;
   TestSigninClient test_signin_client_;
   FakeProfileOAuth2TokenService token_service_;
   AccountTrackerService account_tracker_;
-  FakeGaiaCookieManagerService cookie_manager_service_;
+  GaiaCookieManagerService cookie_manager_service_;
   FakeAccountFetcherService account_fetcher_;
   std::unique_ptr<SigninManager> manager_;
   TestSigninManagerObserver test_observer_;
@@ -499,8 +497,7 @@ TEST_F(SigninManagerTest, GaiaIdMigration) {
     PrefService* client_prefs = signin_client()->GetPrefs();
     client_prefs->SetInteger(prefs::kAccountIdMigrationState,
                              AccountTrackerService::MIGRATION_NOT_STARTED);
-    ListPrefUpdate update(client_prefs,
-                          AccountTrackerService::kAccountInfoPref);
+    ListPrefUpdate update(client_prefs, prefs::kAccountInfo);
     update->Clear();
     auto dict = std::make_unique<base::DictionaryValue>();
     dict->SetString("account_id", email);
@@ -529,8 +526,7 @@ TEST_F(SigninManagerTest, VeryOldProfileGaiaIdMigration) {
     PrefService* client_prefs = signin_client()->GetPrefs();
     client_prefs->SetInteger(prefs::kAccountIdMigrationState,
                              AccountTrackerService::MIGRATION_NOT_STARTED);
-    ListPrefUpdate update(client_prefs,
-                          AccountTrackerService::kAccountInfoPref);
+    ListPrefUpdate update(client_prefs, prefs::kAccountInfo);
     update->Clear();
     auto dict = std::make_unique<base::DictionaryValue>();
     dict->SetString("account_id", email);
@@ -559,8 +555,7 @@ TEST_F(SigninManagerTest, GaiaIdMigrationCrashInTheMiddle) {
     PrefService* client_prefs = signin_client()->GetPrefs();
     client_prefs->SetInteger(prefs::kAccountIdMigrationState,
                              AccountTrackerService::MIGRATION_NOT_STARTED);
-    ListPrefUpdate update(client_prefs,
-                          AccountTrackerService::kAccountInfoPref);
+    ListPrefUpdate update(client_prefs, prefs::kAccountInfo);
     update->Clear();
     auto dict = std::make_unique<base::DictionaryValue>();
     dict->SetString("account_id", email);

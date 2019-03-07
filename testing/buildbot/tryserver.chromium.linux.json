@@ -90,8 +90,7 @@
       },
       {
         "args": [
-          "--enable-features=NetworkService",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/mojo.fyi.network_browser_tests.filter"
+          "--enable-features=NetworkService"
         ],
         "isolate_coverage_data": true,
         "name": "network_service_browser_tests",
@@ -194,14 +193,14 @@
       {
         "isolate_coverage_data": true,
         "swarming": {
-          "can_use_on_swarming_builders": true
+          "can_use_on_swarming_builders": true,
+          "shards": 6
         },
         "test": "content_browsertests"
       },
       {
         "args": [
-          "--enable-features=NetworkService",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/mojo.fyi.network_content_browsertests.filter"
+          "--enable-features=NetworkService"
         ],
         "isolate_coverage_data": true,
         "name": "network_service_content_browsertests",

@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-#include "net/third_party/http2/hpack/varint/hpack_varint_encoder.h"
+#include "net/third_party/quic/core/qpack/qpack_instruction_encoder.h"
 #include "net/third_party/quic/platform/api/quic_export.h"
 #include "net/third_party/quic/platform/api/quic_string_piece.h"
 
@@ -22,7 +22,8 @@ class QUIC_EXPORT_PRIVATE QpackEncoderStreamSender {
     virtual ~Delegate() = default;
 
     // Encoded |data| is ready to be written on the encoder stream.
-    // |data| is guaranteed to be not empty.
+    // Write() is called exactly once for each instruction, |data| contains the
+    // entire encoded instruction and it is guaranteed to be not empty.
     virtual void Write(QuicStringPiece data) = 0;
   };
 
@@ -48,7 +49,7 @@ class QUIC_EXPORT_PRIVATE QpackEncoderStreamSender {
 
  private:
   Delegate* const delegate_;
-  http2::HpackVarintEncoder varint_encoder_;
+  QpackInstructionEncoder instruction_encoder_;
 };
 
 }  // namespace quic

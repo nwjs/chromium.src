@@ -79,7 +79,6 @@ class CONTENT_EXPORT RenderWidgetHostViewGuest
   gfx::Rect GetBoundsInRootWindow() override;
   gfx::Size GetCompositorViewportPixelSize() const override;
   base::string16 GetSelectedText() override;
-  void SetNeedsBeginFrames(bool needs_begin_frames) override;
   TouchSelectionControllerClientManager*
   GetTouchSelectionControllerClientManager() override;
   gfx::PointF TransformPointToRootCoordSpaceF(
@@ -178,6 +177,7 @@ class CONTENT_EXPORT RenderWidgetHostViewGuest
   // TODO(wjmaclean): When we remove BrowserPlugin, delete this code.
   // http://crbug.com/533069
   void MaybeSendSyntheticTapGesture(
+      RenderWidgetHostViewBase* owner_view,
       const blink::WebFloatPoint& position,
       const blink::WebFloatPoint& screen_position) const;
 

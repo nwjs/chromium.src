@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/dom/frame_request_callback_collection.h"
 #include "third_party/blink/renderer/core/dom/scripted_animation_controller.h"
 #include "third_party/blink/renderer/core/dom/user_gesture_indicator.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -38,7 +39,6 @@
 #include "third_party/blink/renderer/platform/wtf/time.h"
 
 #include <array>
-#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 
 namespace blink {
 
@@ -151,9 +151,7 @@ VRDisplay::VRDisplay(NavigatorVR* navigator_vr,
 
 VRDisplay::~VRDisplay() = default;
 
-void VRDisplay::Pause() {}
-
-void VRDisplay::Unpause() {
+void VRDisplay::ContextUnpaused() {
   RequestVSync();
 }
 
@@ -295,8 +293,8 @@ void VRDisplay::RequestVSync() {
     non_immersive_provider_->GetFrameData(WTF::Bind(
         &VRDisplay::OnNonImmersiveFrameData, WrapWeakPersistent(this)));
     pending_non_immersive_vsync_ = true;
-    pending_non_immersive_vsync_id_ =
-        doc->RequestAnimationFrame(new VRDisplayFrameRequestCallback(this));
+    pending_non_immersive_vsync_id_ = doc->RequestAnimationFrame(
+        MakeGarbageCollected<VRDisplayFrameRequestCallback>(this));
     DVLOG(2) << __FUNCTION__ << " done: pending_non_immersive_vsync_="
              << pending_non_immersive_vsync_;
   }
@@ -750,7 +748,7 @@ scoped_refptr<Image> VRDisplay::GetFrameImage(
   // path.
   if (!image_ref.get() || !image_ref->IsTextureBacked()) {
     TRACE_EVENT0("gpu", "VRDisplay::GetImage_SlowFallback");
-    // We get a non-texture-backed image when running layout tests
+    // We get a non-texture-backed image when running web tests
     // on desktop builds. Add a slow fallback so that these continue
     // working.
     image_ref = rendering_context_->GetImage(kPreferAcceleration);
@@ -856,7 +854,11 @@ Document* VRDisplay::GetDocument() {
 device::mojom::blink::VRDisplayClientPtr VRDisplay::GetDisplayClient() {
   display_client_binding_.Close();
   device::mojom::blink::VRDisplayClientPtr client;
-  display_client_binding_.Bind(mojo::MakeRequest(&client));
+  // See https://bit.ly/2S0zRAS for task types.
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI);
+  display_client_binding_.Bind(mojo::MakeRequest(&client, task_runner),
+                               task_runner);
   return client;
 }
 

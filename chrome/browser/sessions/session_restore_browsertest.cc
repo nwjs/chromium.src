@@ -27,6 +27,7 @@
 #include "chrome/browser/resource_coordinator/session_restore_policy.h"
 #include "chrome/browser/resource_coordinator/tab_manager_features.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
+#include "chrome/browser/sessions/session_restore_test_utils.h"
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sessions/session_service_test_helper.h"
@@ -64,6 +65,7 @@
 #include "content/public/test/test_utils.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/ui_base_features.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/scoped_nsautorelease_pool.h"
@@ -213,17 +215,6 @@ class SessionRestoreTest : public InProcessBrowserTest {
   base::test::FakeMemoryPressureMonitor fake_memory_pressure_monitor_;
 };
 
-// SessionRestorePolicy that always allow tabs to load.
-class TestSessionRestorePolicy
-    : public resource_coordinator::SessionRestorePolicy {
- public:
-  // Always allow tabs to load so we can test the behavior of SessionRestore
-  // independently from the policy logic.
-  bool ShouldLoad(content::WebContents* contents) const override {
-    return true;
-  }
-};
-
 // Activates the smart restore behaviour and tracks the loading of tabs.
 class SmartSessionRestoreTest : public SessionRestoreTest,
                                       public content::NotificationObserver {
@@ -231,12 +222,10 @@ class SmartSessionRestoreTest : public SessionRestoreTest,
   SmartSessionRestoreTest() {}
 
   void SetUp() override {
-    TabLoaderDelegate::SetSessionRestorePolicyForTesting(&test_policy_);
     SessionRestoreTest::SetUp();
   }
 
   void TearDown() override {
-    TabLoaderDelegate::SetSessionRestorePolicyForTesting(nullptr);
     SessionRestoreTest::TearDown();
   }
 
@@ -281,7 +270,7 @@ class SmartSessionRestoreTest : public SessionRestoreTest,
   std::vector<content::WebContents*> web_contents_;
   scoped_refptr<content::MessageLoopRunner> message_loop_runner_;
   size_t num_tabs_;
-  TestSessionRestorePolicy test_policy_;
+  testing::ScopedAlwaysLoadSessionRestoreTestPolicy test_policy_;
 
   DISALLOW_COPY_AND_ASSIGN(SmartSessionRestoreTest);
 };
@@ -611,7 +600,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreIndividualTabFromWindow) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   ASSERT_TRUE(contents);
-  const content::NavigationEntry* entry =
+  content::NavigationEntry* entry =
       contents->GetController().GetLastCommittedEntry();
   ASSERT_TRUE(entry);
   EXPECT_EQ(timestamp, entry->GetTimestamp());
@@ -698,9 +687,9 @@ namespace {
 // Verifies that the given NavigationController has exactly two
 // entries that correspond to the given URLs and that all entries have non-null
 // timestamps.
-void VerifyNavigationEntries(
-    const content::NavigationController& controller,
-    GURL url1, GURL url2) {
+void VerifyNavigationEntries(content::NavigationController& controller,
+                             GURL url1,
+                             GURL url2) {
   ASSERT_EQ(2, controller.GetEntryCount());
   EXPECT_EQ(1, controller.GetCurrentEntryIndex());
   EXPECT_EQ(url1, controller.GetEntryAtIndex(0)->GetURL());
@@ -893,8 +882,8 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTest, RestoreAfterDelete) {
   // Three urls and the NTP.
   EXPECT_EQ(4, controller.GetEntryCount());
   controller.DeleteNavigationEntries(
-      base::BindLambdaForTesting([&](const content::NavigationEntry& entry) {
-        return entry.GetURL() == url2_;
+      base::BindLambdaForTesting([&](content::NavigationEntry* entry) {
+        return entry->GetURL() == url2_;
       }));
   EXPECT_EQ(3, controller.GetEntryCount());
 
@@ -1633,6 +1622,10 @@ IN_PROC_BROWSER_TEST_F(SmartSessionRestoreTest, MAYBE_PRE_CorrectLoadingOrder) {
 }
 
 IN_PROC_BROWSER_TEST_F(SmartSessionRestoreTest, MAYBE_CorrectLoadingOrder) {
+  // TODO(https://crbug.com/923051): Flaky in single process mash.
+  if (features::IsSingleProcessMash())
+    return;
+
   const int activation_order[] = {4, 2, 5, 0, 3, 1};
   Profile* profile = browser()->profile();
 

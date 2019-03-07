@@ -22,19 +22,19 @@ namespace {
 // Using the module path, populates |inspection_result| with information
 // available via the file on disk. For example, this includes the description
 // and the certificate information.
-void PopulateModuleInfoData(const ModuleInfoKey& key,
+void PopulateModuleInfoData(const base::FilePath& module_path,
                             ModuleInspectionResult* inspection_result) {
-  inspection_result->location = key.module_path.value();
+  inspection_result->location = module_path.value();
 
   std::unique_ptr<FileVersionInfo> file_version_info(
-      FileVersionInfo::CreateFileVersionInfo(key.module_path));
+      FileVersionInfo::CreateFileVersionInfo(module_path));
   if (file_version_info) {
     inspection_result->product_name = file_version_info->product_name();
     inspection_result->description = file_version_info->file_description();
     inspection_result->version = file_version_info->product_version();
   }
 
-  GetCertificateInfo(key.module_path, &(inspection_result->certificate_info));
+  GetCertificateInfo(module_path, &(inspection_result->certificate_info));
 }
 
 // Returns the long path name given a short path name. A short path name is a
@@ -78,6 +78,12 @@ bool ModuleInfoKey::operator<(const ModuleInfoKey& mik) const {
 
 ModuleInspectionResult::ModuleInspectionResult() = default;
 
+ModuleInspectionResult::ModuleInspectionResult(
+    ModuleInspectionResult&& other) noexcept = default;
+
+ModuleInspectionResult& ModuleInspectionResult::operator=(
+    ModuleInspectionResult&& other) noexcept = default;
+
 ModuleInspectionResult::~ModuleInspectionResult() = default;
 
 // ModuleInfoData --------------------------------------------------------------
@@ -90,15 +96,11 @@ ModuleInfoData::ModuleInfoData(ModuleInfoData&& module_data) noexcept = default;
 
 // -----------------------------------------------------------------------------
 
-std::unique_ptr<ModuleInspectionResult> InspectModule(
-    const StringMapping& env_variable_mapping,
-    const ModuleInfoKey& module_key) {
-  auto inspection_result = std::make_unique<ModuleInspectionResult>();
+ModuleInspectionResult InspectModule(const base::FilePath& module_path) {
+  ModuleInspectionResult inspection_result;
 
-  PopulateModuleInfoData(module_key, inspection_result.get());
-  internal::NormalizeInspectionResult(inspection_result.get());
-  CollapseMatchingPrefixInPath(env_variable_mapping,
-                               &inspection_result->location);
+  PopulateModuleInfoData(module_path, &inspection_result);
+  internal::NormalizeInspectionResult(&inspection_result);
 
   return inspection_result;
 }

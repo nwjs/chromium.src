@@ -8,6 +8,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.IntDef;
 import android.support.v7.content.res.AppCompatResources;
@@ -25,6 +26,7 @@ import android.widget.TextView;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
+import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper.MenuItemState;
 import org.chromium.chrome.browser.widget.ViewHighlighter;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.interpolators.BakedBezierInterpolator;
@@ -104,6 +106,7 @@ class AppMenuAdapter extends BaseAdapter {
     private final int mNumMenuItems;
     private final Integer mHighlightedItemId;
     private final float mDpToPx;
+    private View mHighlightedView;
 
     public AppMenuAdapter(AppMenu appMenu, List<MenuItem> menuItems, LayoutInflater inflater,
             Integer highlightedItemId) {
@@ -198,10 +201,22 @@ class AppMenuAdapter extends BaseAdapter {
                     holder = (CustomMenuItemViewHolder) convertView.getTag();
                 }
                 setupStandardMenuItemViewHolder(holder, convertView, item);
-                boolean updateItemEnabled =
-                        UpdateMenuItemHelper.getInstance().decorateMenuItemViews(
-                                mInflater.getContext(), holder.text, holder.image, holder.summary);
-                convertView.setEnabled(updateItemEnabled);
+                MenuItemState itemState = UpdateMenuItemHelper.getInstance().getUiState().itemState;
+                if (itemState != null) {
+                    Resources resources = convertView.getResources();
+
+                    holder.text.setText(itemState.title);
+                    holder.text.setContentDescription(resources.getString(itemState.title));
+                    holder.text.setTextColor(
+                            ApiCompatibilityUtils.getColor(resources, itemState.titleColor));
+
+                    if (!TextUtils.isEmpty(itemState.summary)) {
+                        holder.summary.setText(itemState.summary);
+                    }
+
+                    holder.image.setImageResource(itemState.icon);
+                    convertView.setEnabled(itemState.enabled);
+                }
                 break;
             }
             case MenuItemType.THREE_BUTTON:
@@ -274,12 +289,19 @@ class AppMenuAdapter extends BaseAdapter {
         }
 
         if (mHighlightedItemId != null && item.getItemId() == mHighlightedItemId) {
+            mHighlightedView = convertView;
             ViewHighlighter.turnOnHighlight(convertView, false);
         } else {
+            if (mHighlightedView == convertView) mHighlightedView = null;
             ViewHighlighter.turnOffHighlight(convertView);
         }
 
         return convertView;
+    }
+
+    /** @return The view currently highlighted. */
+    public View getHighlightedView() {
+        return mHighlightedView;
     }
 
     private void setupCheckBox(AppMenuItemIcon button, final MenuItem item) {
@@ -324,8 +346,10 @@ class AppMenuAdapter extends BaseAdapter {
         button.setOnLongClickListener(v -> mAppMenu.onItemLongClick(item, v));
 
         if (mHighlightedItemId != null && item.getItemId() == mHighlightedItemId) {
+            mHighlightedView = button;
             ViewHighlighter.turnOnHighlight(button, true);
         } else {
+            if (mHighlightedView == button) mHighlightedView = null;
             ViewHighlighter.turnOffHighlight(button);
         }
 

@@ -45,7 +45,7 @@ Polymer({
         .then(
             this.onGetPrinterPpdManufacturerAndModel_.bind(this),
             this.onGetPrinterPpdManufacturerAndModelFailed_.bind(this));
-    let basename = this.getBaseName(this.activePrinter.printerPPDPath);
+    const basename = this.getBaseName(this.activePrinter.printerPPDPath);
     if (basename) {
       this.existingUserPPDMessage_ =
           loadTimeData.getStringF('currentPpdMessage', basename);
@@ -57,8 +57,9 @@ Polymer({
    * @private
    */
   printerInfoChanged_: function(change) {
-    if (change.path != 'activePrinter.printerName')
+    if (change.path != 'activePrinter.printerName') {
       this.needsReconfigured_ = true;
+    }
   },
 
   /**

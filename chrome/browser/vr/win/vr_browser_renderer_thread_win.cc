@@ -22,46 +22,37 @@
 
 namespace vr {
 
-VRBrowserRendererThreadWin::VRBrowserRendererThreadWin()
-    : MaybeThread("VRBrowserRenderThread") {}
+VRBrowserRendererThreadWin* VRBrowserRendererThreadWin::instance_for_testing_ =
+    nullptr;
+
+VRBrowserRendererThreadWin::VRBrowserRendererThreadWin() {
+  DCHECK(instance_for_testing_ == nullptr);
+  instance_for_testing_ = this;
+}
 
 VRBrowserRendererThreadWin::~VRBrowserRendererThreadWin() {
-  Stop();
+  // Call Cleanup to ensure correct destruction order of VR-UI classes.
+  CleanUp();
+  instance_for_testing_ = nullptr;
+}
+
+void VRBrowserRendererThreadWin::CleanUp() {
+  browser_renderer_ = nullptr;
+  initializing_graphics_ = nullptr;
+  overlay_ = nullptr;
 }
 
 void VRBrowserRendererThreadWin::SetVRDisplayInfo(
-    device::mojom::VRDisplayInfoPtr display_info) {
-  task_runner()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&VRBrowserRendererThreadWin::SetDisplayInfoOnRenderThread,
-                     base::Unretained(this), std::move(display_info)));
-}
-
-void VRBrowserRendererThreadWin::SetLocationInfo(GURL gurl) {
-  task_runner()->PostTask(
-      FROM_HERE, base::BindOnce(&VRBrowserRendererThreadWin::SetLocationInfo,
-                                base::Unretained(this), std::move(gurl)));
-}
-
-void VRBrowserRendererThreadWin::SetVisibleExternalPromptNotification(
-    ExternalPromptNotificationType prompt) {
-  task_runner()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&VRBrowserRendererThreadWin::
-                         SetVisibleExternalPromptNotificationOnRenderThread,
-                     base::Unretained(this), prompt));
-}
-
-void VRBrowserRendererThreadWin::SetDisplayInfoOnRenderThread(
     device::mojom::VRDisplayInfoPtr display_info) {
   display_info_ = std::move(display_info);
   if (graphics_)
     graphics_->SetVRDisplayInfo(display_info_.Clone());
 }
 
-void VRBrowserRendererThreadWin::SetLocationInfoOnRenderThread(GURL gurl) {
+void VRBrowserRendererThreadWin::SetLocationInfo(GURL gurl) {
   // TODO(https://crbug.com/905375): Set more of this state.  Only the GURL is
   // currently used, so its the only thing we are setting correctly.
+  DCHECK(ui_) << "Must be called after StartOverlay";
   LocationBarState state(gurl, security_state::SecurityLevel::SECURE,
                          nullptr /* vector icon */, true /* display url */,
                          false /* offline */);
@@ -69,9 +60,8 @@ void VRBrowserRendererThreadWin::SetLocationInfoOnRenderThread(GURL gurl) {
   ui_->SetLocationBarState(state);
 }
 
-void VRBrowserRendererThreadWin::
-    SetVisibleExternalPromptNotificationOnRenderThread(
-        ExternalPromptNotificationType prompt) {
+void VRBrowserRendererThreadWin::SetVisibleExternalPromptNotification(
+    ExternalPromptNotificationType prompt) {
   bool currently_showing_ui = ShouldPauseWebXrAndDrawUI();
   current_external_prompt_notification_type_ = prompt;
   ui_->SetVisibleExternalPromptNotification(prompt);
@@ -81,34 +71,20 @@ void VRBrowserRendererThreadWin::
     // Draw WebXR instead of UI.
     overlay_->SetOverlayAndWebXRVisibility(false, true);
   } else if (!currently_showing_ui && show_ui) {
-    // Draw UI instead of WebXr.
+    // Draw UI instead of WebXR.
     overlay_->SetOverlayAndWebXRVisibility(true, false);
     overlay_->RequestNextOverlayPose(base::BindOnce(
         &VRBrowserRendererThreadWin::OnPose, base::Unretained(this)));
   }
 }
 
-void VRBrowserRendererThreadWin::StartOverlay(
-    device::mojom::XRCompositorHost* compositor) {
-  device::mojom::ImmersiveOverlayPtrInfo overlay_info;
-  compositor->CreateImmersiveOverlay(mojo::MakeRequest(&overlay_info));
-
-  initializing_graphics_ = std::make_unique<GraphicsDelegateWin>();
-  if (!initializing_graphics_->InitializeOnMainThread()) {
-    return;
-  }
-
-  // Post a task to the thread to start an overlay.
-  task_runner()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&VRBrowserRendererThreadWin::StartOverlayOnRenderThread,
-                     base::Unretained(this), std::move(overlay_info)));
+VRBrowserRendererThreadWin*
+VRBrowserRendererThreadWin::GetInstanceForTesting() {
+  return instance_for_testing_;
 }
 
-void VRBrowserRendererThreadWin::CleanUp() {
-  browser_renderer_ = nullptr;
-  initializing_graphics_ = nullptr;
-  overlay_ = nullptr;
+BrowserRenderer* VRBrowserRendererThreadWin::GetBrowserRendererForTesting() {
+  return browser_renderer_.get();
 }
 
 namespace {
@@ -147,9 +123,17 @@ class VRUiBrowserInterface : public UiBrowserInterface {
   void ShowPageInfo() override {}
 };
 
-void VRBrowserRendererThreadWin::StartOverlayOnRenderThread(
-    device::mojom::ImmersiveOverlayPtrInfo overlay) {
-  overlay_.Bind(std::move(overlay));
+void VRBrowserRendererThreadWin::StartOverlay(
+    device::mojom::XRCompositorHost* compositor) {
+  device::mojom::ImmersiveOverlayPtrInfo overlay_info;
+  compositor->CreateImmersiveOverlay(mojo::MakeRequest(&overlay_info));
+
+  initializing_graphics_ = std::make_unique<GraphicsDelegateWin>();
+  if (!initializing_graphics_->InitializeOnMainThread()) {
+    return;
+  }
+
+  overlay_.Bind(std::move(overlay_info));
   initializing_graphics_->InitializeOnGLThread();
   initializing_graphics_->BindContext();
 
@@ -200,6 +184,11 @@ void VRBrowserRendererThreadWin::StartOverlayOnRenderThread(
         &VRBrowserRendererThreadWin::OnPose, base::Unretained(this)));
   }
   graphics_->ClearContext();
+}
+
+void VRBrowserRendererThreadWin::StopOverlay() {
+  overlay_->SetOverlayAndWebXRVisibility(false, true);
+  CleanUp();
 }
 
 void VRBrowserRendererThreadWin::OnPose(device::mojom::XRFrameDataPtr data) {
@@ -255,8 +244,10 @@ void VRBrowserRendererThreadWin::SubmitResult(bool success) {
   if (!success) {
     graphics_->ResetMemoryBuffer();
   }
-  overlay_->RequestNextOverlayPose(base::BindOnce(
-      &VRBrowserRendererThreadWin::OnPose, base::Unretained(this)));
+  if (overlay_) {
+    overlay_->RequestNextOverlayPose(base::BindOnce(
+        &VRBrowserRendererThreadWin::OnPose, base::Unretained(this)));
+  }
 }
 
 bool VRBrowserRendererThreadWin::ShouldPauseWebXrAndDrawUI() {

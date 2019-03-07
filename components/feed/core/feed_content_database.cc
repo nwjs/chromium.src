@@ -16,7 +16,7 @@
 #include "components/feed/core/feed_content_mutation.h"
 #include "components/feed/core/feed_content_operation.h"
 #include "components/feed/core/proto/content_storage.pb.h"
-#include "components/leveldb_proto/proto_database_impl.h"
+#include "components/leveldb_proto/public/proto_database_provider.h"
 
 namespace feed {
 
@@ -33,8 +33,8 @@ const char kContentDatabaseUMAClientName[] = "FeedContentDatabase";
 
 const char kContentDatabaseFolder[] = "content";
 
-const size_t kDatabaseWriteBufferSizeBytes = 512 * 1024;
-const size_t kDatabaseWriteBufferSizeBytesForLowEndDevice = 128 * 1024;
+const size_t kDatabaseWriteBufferSizeBytes = 64 * 1024;                 // 64KB
+const size_t kDatabaseWriteBufferSizeBytesForLowEndDevice = 32 * 1024;  // 32KB
 
 bool DatabaseKeyFilter(const std::unordered_set<std::string>& key_set,
                        const std::string& key) {
@@ -56,11 +56,10 @@ void ReportOperationResult(bool success) {
 FeedContentDatabase::FeedContentDatabase(const base::FilePath& database_folder)
     : FeedContentDatabase(
           database_folder,
-          std::make_unique<
-              leveldb_proto::ProtoDatabaseImpl<ContentStorageProto>>(
-              base::CreateSequencedTaskRunnerWithTraits(
-                  {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
-                   base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}))) {}
+          leveldb_proto::ProtoDatabaseProvider::CreateUniqueDB<
+              ContentStorageProto>(base::CreateSequencedTaskRunnerWithTraits(
+              {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+               base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}))) {}
 
 FeedContentDatabase::FeedContentDatabase(
     const base::FilePath& database_folder,

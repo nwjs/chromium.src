@@ -12,6 +12,7 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/views/view.h"
+#include "ui/views/widget/widget.h"
 
 namespace gfx {
 class ImageSkia;
@@ -24,7 +25,6 @@ class ClientView;
 class DialogDelegate;
 class NonClientFrameView;
 class View;
-class Widget;
 
 // Handles events on Widgets in context-specific ways.
 class VIEWS_EXPORT WidgetDelegate {
@@ -46,6 +46,15 @@ class VIEWS_EXPORT WidgetDelegate {
   // Called when the work area (the desktop area minus task bars,
   // menu bars, etc.) changes in size.
   virtual void OnWorkAreaChanged();
+
+  // Called when the window has been requested to close, after all other checks
+  // have run. Returns whether the window should be allowed to close (default is
+  // true).
+  //
+  // Can be used as an alternative to specifying a custom ClientView with
+  // the CanClose() method, or in widget types which do not support a
+  // ClientView.
+  virtual bool OnCloseRequested(Widget::ClosedReason close_reason);
 
   // Returns the view that should have the focus when the widget is shown.  If
   // NULL no view is focused.
@@ -174,7 +183,7 @@ class VIEWS_EXPORT WidgetDelegate {
   virtual bool WidgetHasHitTestMask() const;
 
   // Provides the hit-test mask if HasHitTestMask above returns true.
-  virtual void GetWidgetHitTestMask(gfx::Path* mask) const;
+  virtual void GetWidgetHitTestMask(SkPath* mask) const;
 
   // Returns true if focus should advance to the top level widget when
   // tab/shift-tab is hit and on the last/first focusable view. Default returns

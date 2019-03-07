@@ -27,8 +27,8 @@
 #include "base/files/scoped_file.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/guid.h"
-#include "base/macros.h"
 #include "base/path_service.h"
+#include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/multiprocess_test.h"
@@ -309,7 +309,7 @@ std::wstring ReadTextFile(const FilePath& filename) {
   std::wifstream file;
   file.open(filename.value().c_str());
   EXPECT_TRUE(file.is_open());
-  file.getline(contents, arraysize(contents));
+  file.getline(contents, base::size(contents));
   file.close();
   return std::wstring(contents);
 }
@@ -556,9 +556,9 @@ TEST_F(FileUtilTest, DevicePathToDriveLetter) {
   // real drive is if more than 10^3 disks are mounted:
   // \Device\HardDiskVolume10000 would be truncated to \Device\HardDiskVolume1
   // Check that DevicePathToDriveLetterPath fails.
-  int path_length = actual_device_path.value().length();
-  int new_length = path_length - 4;
-  ASSERT_LT(0, new_length);
+  size_t path_length = actual_device_path.value().length();
+  size_t new_length = path_length - 4;
+  ASSERT_GT(new_length, 0u);
   FilePath prefix_of_real_device_path(
       actual_device_path.value().substr(0, new_length));
   ASSERT_FALSE(DevicePathToDriveLetterPath(prefix_of_real_device_path,
@@ -2347,7 +2347,7 @@ TEST_F(FileUtilTest, GetTempDirTest) {
   ASSERT_EQ(0, ::_tdupenv_s(&original_tmp, &original_tmp_size, kTmpKey));
   // original_tmp may be NULL.
 
-  for (unsigned int i = 0; i < arraysize(kTmpValues); ++i) {
+  for (unsigned int i = 0; i < base::size(kTmpValues); ++i) {
     FilePath path;
     ::_tputenv_s(kTmpKey, kTmpValues[i]);
     GetTempDir(&path);
@@ -3291,8 +3291,8 @@ TEST_F(FileUtilTest, IsDirectoryEmpty) {
 #if defined(OS_POSIX) || defined(OS_FUCHSIA)
 
 TEST_F(FileUtilTest, SetNonBlocking) {
-  const int kInvalidFd = 99999;
-  EXPECT_FALSE(SetNonBlocking(kInvalidFd));
+  const int kBogusFd = 99999;
+  EXPECT_FALSE(SetNonBlocking(kBogusFd));
 
   base::FilePath path;
   ASSERT_TRUE(PathService::Get(base::DIR_TEST_DATA, &path));
@@ -3303,8 +3303,8 @@ TEST_F(FileUtilTest, SetNonBlocking) {
 }
 
 TEST_F(FileUtilTest, SetCloseOnExec) {
-  const int kInvalidFd = 99999;
-  EXPECT_FALSE(SetCloseOnExec(kInvalidFd));
+  const int kBogusFd = 99999;
+  EXPECT_FALSE(SetCloseOnExec(kBogusFd));
 
   base::FilePath path;
   ASSERT_TRUE(PathService::Get(base::DIR_TEST_DATA, &path));

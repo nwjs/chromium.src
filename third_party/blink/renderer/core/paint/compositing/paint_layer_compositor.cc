@@ -68,7 +68,6 @@ namespace blink {
 
 PaintLayerCompositor::PaintLayerCompositor(LayoutView& layout_view)
     : layout_view_(layout_view),
-      compositing_reason_finder_(layout_view),
       pending_update_type_(kCompositingUpdateNone),
       has_accelerated_compositing_(true),
       compositing_(false),
@@ -132,11 +131,11 @@ bool PaintLayerCompositor::RootShouldAlwaysComposite() const {
   if (!has_accelerated_compositing_)
     return false;
   return layout_view_.GetFrame()->IsLocalRoot() ||
-         compositing_reason_finder_.RequiresCompositingForScrollableFrame();
+         CompositingReasonFinder::RequiresCompositingForScrollableFrame(
+             layout_view_);
 }
 
 void PaintLayerCompositor::UpdateAcceleratedCompositingSettings() {
-  compositing_reason_finder_.UpdateTriggers();
   has_accelerated_compositing_ = layout_view_.GetDocument()
                                      .GetSettings()
                                      ->GetAcceleratedCompositingEnabled();
@@ -182,10 +181,10 @@ void PaintLayerCompositor::UpdateIfNeededRecursive(
       compositing_reasons_stats.active_animation_layers, 1, 100, 5);
   UMA_HISTOGRAM_CUSTOM_COUNTS(
       "Blink.Compositing.LayerPromotionCount.AssumedOverlap",
-      compositing_reasons_stats.assumed_overlap_layers, 1, 100, 5);
+      compositing_reasons_stats.assumed_overlap_layers, 1, 1000, 5);
   UMA_HISTOGRAM_CUSTOM_COUNTS(
       "Blink.Compositing.LayerPromotionCount.IndirectComposited",
-      compositing_reasons_stats.indirect_composited_layers, 1, 100, 5);
+      compositing_reasons_stats.indirect_composited_layers, 1, 1000, 5);
   UMA_HISTOGRAM_CUSTOM_COUNTS(
       "Blink.Compositing.LayerPromotionCount.TotalComposited",
       compositing_reasons_stats.total_composited_layers, 1, 1000, 10);
@@ -233,7 +232,13 @@ void PaintLayerCompositor::UpdateIfNeededRecursiveInternal(
   // InCompositingUpdate.
   EnableCompositingModeIfNeeded();
 
+#if DCHECK_IS_ON()
+  view->SetIsUpdatingDescendantDependentFlags(true);
+#endif
   RootLayer()->UpdateDescendantDependentFlags();
+#if DCHECK_IS_ON()
+  view->SetIsUpdatingDescendantDependentFlags(false);
+#endif
 
   layout_view_.CommitPendingSelection();
 
@@ -252,9 +257,9 @@ void PaintLayerCompositor::UpdateIfNeededRecursiveInternal(
   if (!layout_view_.GetDocument().Printing() ||
       RuntimeEnabledFeatures::PrintBrowserEnabled()) {
     // Although BlinkGenPropertyTreesEnabled still uses PaintLayerCompositor to
-    // generate the composited layer tree/list, it also has the SPv2 behavior of
+    // generate the composited layer tree/list, it also has the CAP behavior of
     // removing layers that do not draw content. As such, we use the same path
-    // as SPv2 for updating composited animations once we know the final set of
+    // as CAP for updating composited animations once we know the final set of
     // composited elements (see LocalFrameView::UpdateLifecyclePhasesInternal,
     // during kPaintClean).
     if (!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
@@ -301,6 +306,10 @@ void PaintLayerCompositor::SetNeedsCompositingUpdate(
   pending_update_type_ = std::max(pending_update_type_, update_type);
   if (Page* page = GetPage())
     page->Animator().ScheduleVisualUpdate(layout_view_.GetFrame());
+
+  if (layout_view_.DocumentBeingDestroyed())
+    return;
+
   Lifecycle().EnsureStateAtMost(DocumentLifecycle::kLayoutClean);
 }
 
@@ -367,7 +376,7 @@ void PaintLayerCompositor::UpdateWithoutAcceleratedCompositing(
   DCHECK(!HasAcceleratedCompositing());
 
   if (update_type >= kCompositingUpdateAfterCompositingInputChange)
-    CompositingInputsUpdater(RootLayer(), compositing_reason_finder_).Update();
+    CompositingInputsUpdater(RootLayer()).Update();
 
 #if DCHECK_IS_ON()
   CompositingInputsUpdater::AssertNeedsCompositingInputsUpdateBitsCleared(
@@ -453,7 +462,7 @@ void PaintLayerCompositor::UpdateIfNeeded(
   Vector<PaintLayer*> layers_needing_paint_invalidation;
 
   if (update_type >= kCompositingUpdateAfterCompositingInputChange) {
-    CompositingInputsUpdater(update_root, compositing_reason_finder_).Update();
+    CompositingInputsUpdater(update_root).Update();
 
 #if DCHECK_IS_ON()
     // FIXME: Move this check to the end of the compositing update.
@@ -471,7 +480,7 @@ void PaintLayerCompositor::UpdateIfNeeded(
       return;
     }
 
-    CompositingRequirementsUpdater(layout_view_, compositing_reason_finder_)
+    CompositingRequirementsUpdater(layout_view_)
         .Update(update_root, compositing_reasons_stats);
 
     CompositingLayerAssigner layer_assigner(this);
@@ -545,19 +554,26 @@ void PaintLayerCompositor::UpdateIfNeeded(
         layers_needing_paint_invalidation[i]->GetLayoutObject());
   }
 
-  if (root_layer_attachment_ == kRootLayerPendingAttachViaChromeClient) {
-    if (Page* page = layout_view_.GetFrame()->GetPage()) {
-      page->GetChromeClient().AttachRootGraphicsLayer(RootGraphicsLayer(),
-                                                      layout_view_.GetFrame());
-      root_layer_attachment_ = kRootLayerAttachedViaChromeClient;
-    }
-  }
+  // When BlinkGenPropertyTrees is enabled, layer attachment, including the root
+  // layer, must occur in the paint lifecycle step.
+  if (!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
+    AttachRootLayerViaChromeClient();
 
   // Inform the inspector that the layer tree has changed.
   if (IsMainFrame())
     probe::layerTreeDidChange(layout_view_.GetFrame());
 
   Lifecycle().AdvanceTo(DocumentLifecycle::kCompositingClean);
+}
+
+void PaintLayerCompositor::AttachRootLayerViaChromeClient() {
+  if (root_layer_attachment_ == kRootLayerPendingAttachViaChromeClient) {
+    if (Page* page = layout_view_.GetFrame()->GetPage()) {
+      page->GetChromeClient().AttachRootGraphicsLayer(RootGraphicsLayer(),
+                                                      layout_view_.GetFrame());
+    }
+    root_layer_attachment_ = kRootLayerAttachedViaChromeClient;
+  }
 }
 
 static void RestartAnimationOnCompositor(const LayoutObject& layout_object) {
@@ -783,9 +799,9 @@ void PaintLayerCompositor::SetIsInWindow(bool is_in_window) {
 
 void PaintLayerCompositor::UpdatePotentialCompositingReasonsFromStyle(
     PaintLayer& layer) {
-  layer.SetPotentialCompositingReasonsFromStyle(
-      compositing_reason_finder_.PotentialCompositingReasonsFromStyle(
-          layer.GetLayoutObject()));
+  auto reasons = CompositingReasonFinder::PotentialCompositingReasonsFromStyle(
+      layer.GetLayoutObject());
+  layer.SetPotentialCompositingReasonsFromStyle(reasons);
 }
 
 bool PaintLayerCompositor::CanBeComposited(const PaintLayer* layer) const {
@@ -796,7 +812,7 @@ bool PaintLayerCompositor::CanBeComposited(const PaintLayer* layer) const {
     return false;
 
   const bool has_compositor_animation =
-      compositing_reason_finder_.CompositingReasonsForAnimation(
+      CompositingReasonFinder::CompositingReasonsForAnimation(
           *layer->GetLayoutObject().Style()) != CompositingReason::kNone;
   return has_accelerated_compositing_ &&
          (has_compositor_animation || !layer->SubtreeIsInvisible()) &&
@@ -877,9 +893,9 @@ void PaintLayerCompositor::DestroyRootLayer() {
 }
 
 void PaintLayerCompositor::AttachRootLayer() {
-  // In Slimming Paint v2, PaintArtifactCompositor is responsible for the root
-  // layer.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // With CompositeAfterPaint, PaintArtifactCompositor is responsible for the
+  // root layer.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   if (layout_view_.GetFrame()->IsLocalRoot()) {

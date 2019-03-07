@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-#include "base/message_loop/message_loop.h"
+#include "base/test/scoped_task_environment.h"
 #include "base/time/time.h"
 #include "components/sync/base/cancelation_signal.h"
 #include "components/sync/base/hash_util.h"
@@ -102,7 +102,7 @@ class UssMigratorTest : public ::testing::Test {
  private:
   syncable::Directory* directory() { return user_share()->directory.get(); }
 
-  base::MessageLoop message_loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
   TestUserShare test_user_share_;
   CancelationSignal cancelation_signal_;
   std::unique_ptr<TestEntryFactory> entry_factory_;
@@ -217,10 +217,8 @@ TEST_F(UssMigratorTest, MigrateIgnoresTombstone) {
   EXPECT_EQ(0U, processor()->GetNthUpdateResponse(0).size());
   EXPECT_EQ(0, migrated_entity_count);
 
-  // TODO(crbug.com/921495): The expectation below should be uncommented once
-  // the exception is removed for HISTORY_DELETE_DIRECTIVES.
-  // const sync_pb::ModelTypeState& state = processor()->GetNthUpdateState(0);
-  // EXPECT_EQ(kToken1, state.progress_marker().token());
+  const sync_pb::ModelTypeState& state = processor()->GetNthUpdateState(0);
+  EXPECT_EQ(kToken1, state.progress_marker().token());
 }
 
 TEST_F(UssMigratorTest, MigrateZero) {
@@ -237,10 +235,8 @@ TEST_F(UssMigratorTest, MigrateZero) {
   EXPECT_EQ(0U, processor()->GetNthUpdateResponse(0).size());
   EXPECT_EQ(0, migrated_entity_count);
 
-  // TODO(crbug.com/921495): The expectation below should be uncommented once
-  // the exception is removed for HISTORY_DELETE_DIRECTIVES.
-  // const sync_pb::ModelTypeState& state = processor()->GetNthUpdateState(0);
-  // EXPECT_EQ(kToken1, state.progress_marker().token());
+  const sync_pb::ModelTypeState& state = processor()->GetNthUpdateState(0);
+  EXPECT_EQ(kToken1, state.progress_marker().token());
 }
 
 TEST_F(UssMigratorTest, MissingTypeRoot) {

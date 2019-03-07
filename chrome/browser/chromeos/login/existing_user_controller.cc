@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/barrier_closure.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
@@ -61,7 +62,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/async_method_caller.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "chromeos/cryptohome/cryptohome_util.h"
@@ -103,6 +104,7 @@
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/widget/widget.h"
@@ -141,41 +143,43 @@ void RefreshPoliciesOnUIThread() {
     g_browser_process->policy_service()->RefreshPolicies(base::Closure());
 }
 
-// Copies any authentication details that were entered in the login profile to
-// the main profile to make sure all subsystems of Chrome can access the network
-// with the provided authentication which are possibly for a proxy server.
-void TransferContextAuthenticationsOnIOThread(
-    net::URLRequestContextGetter* default_profile_context_getter,
-    net::URLRequestContextGetter* webview_context_getter,
-    net::URLRequestContextGetter* browser_process_context_getter) {
-  net::HttpAuthCache* new_cache =
-      browser_process_context_getter->GetURLRequestContext()
-          ->http_transaction_factory()
-          ->GetSession()
-          ->http_auth_cache();
-  net::HttpAuthCache* old_cache =
-      default_profile_context_getter->GetURLRequestContext()
-          ->http_transaction_factory()
-          ->GetSession()
-          ->http_auth_cache();
-  new_cache->UpdateAllFrom(*old_cache);
-
-  // Copy the auth cache from webview's context since the proxy authentication
-  // information is saved in webview's context.
-  if (webview_context_getter) {
-    net::HttpAuthCache* webview_cache =
-        webview_context_getter->GetURLRequestContext()
-            ->http_transaction_factory()
-            ->GetSession()
-            ->http_auth_cache();
-    new_cache->UpdateAllFrom(*webview_cache);
-  }
-
+void OnTranferredHttpAuthCaches() {
   VLOG(1) << "Main request context populated with authentication data.";
   // Last but not least tell the policy subsystem to refresh now as it might
   // have been stuck until now too.
   base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
                            base::BindOnce(&RefreshPoliciesOnUIThread));
+}
+
+void TransferHttpAuthCacheToSystemNetworkContext(
+    base::RepeatingClosure completion_callback,
+    const base::UnguessableToken& cache_key) {
+  network::mojom::NetworkContext* system_network_context =
+      g_browser_process->system_network_context_manager()->GetContext();
+  system_network_context->LoadHttpAuthCache(cache_key, completion_callback);
+}
+
+// Copies any authentication details that were entered in the login profile to
+// the main profile to make sure all subsystems of Chrome can access the network
+// with the provided authentication which are possibly for a proxy server.
+void TransferHttpAuthCaches() {
+  content::StoragePartition* webview_storage_partition =
+      login::GetSigninPartition();
+  base::RepeatingClosure completion_callback =
+      base::BarrierClosure(webview_storage_partition ? 2 : 1,
+                           base::BindOnce(&OnTranferredHttpAuthCaches));
+  if (webview_storage_partition) {
+    webview_storage_partition->GetNetworkContext()->SaveHttpAuthCache(
+        base::BindOnce(&TransferHttpAuthCacheToSystemNetworkContext,
+                       completion_callback));
+  }
+
+  network::mojom::NetworkContext* default_network_context =
+      content::BrowserContext::GetDefaultStoragePartition(
+          ProfileHelper::GetSigninProfile())
+          ->GetNetworkContext();
+  default_network_context->SaveHttpAuthCache(base::BindOnce(
+      &TransferHttpAuthCacheToSystemNetworkContext, completion_callback));
 }
 
 // Record UMA for password login of regular user when Easy sign-in is enabled.
@@ -420,7 +424,6 @@ void ExistingUserController::UpdateLoginDisplay(
   // have guest session link.
   bool show_guest = user_manager->IsGuestSessionAllowed();
   show_users_on_signin |= !filtered_users.empty();
-  show_guest &= !filtered_users.empty();
   bool allow_new_user = true;
   cros_settings_->GetBoolean(kAccountsPrefAllowNewUser, &allow_new_user);
   GetLoginDisplay()->set_parent_window(GetNativeWindow());
@@ -461,27 +464,8 @@ void ExistingUserController::Observe(
     // has been updated before we copy it.
     // TODO(pmarko): Find a better way to do this, see https://crbug.com/796512.
     VLOG(1) << "Authentication was entered manually, possibly for proxyauth.";
-    scoped_refptr<net::URLRequestContextGetter> browser_process_context_getter =
-        g_browser_process->system_request_context();
-    Profile* signin_profile = ProfileHelper::GetSigninProfile();
-    scoped_refptr<net::URLRequestContextGetter> signin_profile_context_getter =
-        signin_profile->GetRequestContext();
-    DCHECK(browser_process_context_getter.get());
-    DCHECK(signin_profile_context_getter.get());
-
-    content::StoragePartition* signin_partition = login::GetSigninPartition();
-    scoped_refptr<net::URLRequestContextGetter> webview_context_getter;
-    if (signin_partition) {
-      webview_context_getter = signin_partition->GetURLRequestContext();
-      DCHECK(webview_context_getter.get());
-    }
-
-    base::PostDelayedTaskWithTraits(
-        FROM_HERE, {content::BrowserThread::IO},
-        base::BindOnce(&TransferContextAuthenticationsOnIOThread,
-                       base::RetainedRef(signin_profile_context_getter),
-                       base::RetainedRef(webview_context_getter),
-                       base::RetainedRef(browser_process_context_getter)),
+    base::PostDelayedTask(
+        FROM_HERE, base::BindOnce(&TransferHttpAuthCaches),
         base::TimeDelta::FromMilliseconds(kAuthCacheTransferDelayMs));
   }
 }
@@ -675,12 +659,14 @@ void ExistingUserController::RestartLogin(const UserContext& user_context) {
 }
 
 void ExistingUserController::OnSigninScreenReady() {
-  auto_launch_ready_ = true;
+  // Used to debug crbug.com/902315. Feel free to remove after that is fixed.
+  VLOG(1) << "OnSigninScreenReady";
   StartAutoLoginTimer();
 }
 
 void ExistingUserController::OnGaiaScreenReady() {
-  auto_launch_ready_ = true;
+  // Used to debug crbug.com/902315. Feel free to remove after that is fixed.
+  VLOG(1) << "OnGaiaScreenReady";
   StartAutoLoginTimer();
 }
 
@@ -751,6 +737,7 @@ void ExistingUserController::OnConsumerKioskAutoLaunchCheckCompleted(
 
 void ExistingUserController::OnEnrollmentOwnershipCheckCompleted(
     DeviceSettingsService::OwnershipStatus status) {
+  VLOG(1) << "OnEnrollmentOwnershipCheckCompleted status=" << status;
   if (status == DeviceSettingsService::OWNERSHIP_NONE) {
     ShowEnrollmentScreen();
   } else if (status == DeviceSettingsService::OWNERSHIP_TAKEN) {
@@ -761,6 +748,7 @@ void ExistingUserController::OnEnrollmentOwnershipCheckCompleted(
             &ExistingUserController::OnEnrollmentOwnershipCheckCompleted,
             weak_factory_.GetWeakPtr(), status));
     if (trusted_status == CrosSettingsProvider::PERMANENTLY_UNTRUSTED) {
+      VLOG(1) << "Showing enrollment because device is PERMANENTLY_UNTRUSTED";
       ShowEnrollmentScreen();
     }
   } else {
@@ -1425,7 +1413,7 @@ void ExistingUserController::ResetAutoLoginTimer() {
 }
 
 void ExistingUserController::OnPublicSessionAutoLoginTimerFire() {
-  CHECK(auto_launch_ready_ && public_session_auto_login_account_id_.is_valid());
+  CHECK(public_session_auto_login_account_id_.is_valid());
   VLOG(2) << "Public session autologin fired";
   SigninSpecifics signin_specifics;
   signin_specifics.is_auto_login = true;
@@ -1435,7 +1423,7 @@ void ExistingUserController::OnPublicSessionAutoLoginTimerFire() {
 }
 
 void ExistingUserController::OnArcKioskAutoLoginTimerFire() {
-  CHECK(auto_launch_ready_ && (arc_kiosk_auto_login_account_id_.is_valid()));
+  CHECK(arc_kiosk_auto_login_account_id_.is_valid());
   VLOG(2) << "ARC kiosk autologin fired";
   SigninSpecifics signin_specifics;
   signin_specifics.is_auto_login = true;
@@ -1474,11 +1462,10 @@ void ExistingUserController::ResyncUserData() {
 }
 
 void ExistingUserController::StartAutoLoginTimer() {
-  if (!auto_launch_ready_ || is_login_in_progress_ ||
+  if (is_login_in_progress_ ||
       (!public_session_auto_login_account_id_.is_valid() &&
        !arc_kiosk_auto_login_account_id_.is_valid())) {
     VLOG(2) << "Not starting autologin timer, because:";
-    VLOG_IF(2, !auto_launch_ready_) << "* Not ready;";
     VLOG_IF(2, is_login_in_progress_) << "* Login is in process;";
     VLOG_IF(2, (!public_session_auto_login_account_id_.is_valid() &&
                 !arc_kiosk_auto_login_account_id_.is_valid()))

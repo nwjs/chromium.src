@@ -1610,7 +1610,7 @@ DispatchEventResult DispatchBeforeInputDataTransfer(
 
   InputEvent* before_input_event;
 
-  if (HasRichlyEditableStyle(*(target->ToNode())) || !data_transfer) {
+  if (HasRichlyEditableStyle(*target) || !data_transfer) {
     before_input_event = InputEvent::CreateBeforeInput(
         input_type, data_transfer, InputTypeIsCancelable(input_type),
         InputEvent::EventIsComposing::kNotComposing,
@@ -1705,7 +1705,8 @@ void WriteImageNodeToClipboard(const Node& node, const String& title) {
     return;
   const KURL url_string = node.GetDocument().CompleteURL(
       StripLeadingAndTrailingHTMLSpaces(GetUrlStringFromNode(node)));
-  SystemClipboard::GetInstance().WriteImage(image.get(), url_string, title);
+  SystemClipboard::GetInstance().WriteImageWithTag(image.get(), url_string,
+                                                   title);
 }
 
 Element* FindEventTargetFrom(LocalFrame& frame,

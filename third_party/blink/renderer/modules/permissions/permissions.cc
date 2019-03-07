@@ -147,6 +147,8 @@ PermissionDescriptorPtr ParsePermission(ScriptState* script_state,
     }
     return CreatePermissionDescriptor(PermissionName::BACKGROUND_FETCH);
   }
+  if (name == "idle-detection")
+    return CreatePermissionDescriptor(PermissionName::IDLE_DETECTION);
 
   return nullptr;
 }
@@ -282,7 +284,10 @@ ScriptPromise Permissions::requestAll(
 PermissionService& Permissions::GetService(
     ExecutionContext* execution_context) {
   if (!service_) {
-    ConnectToPermissionService(execution_context, mojo::MakeRequest(&service_));
+    ConnectToPermissionService(
+        execution_context,
+        mojo::MakeRequest(&service_, execution_context->GetTaskRunner(
+                                         TaskType::kPermission)));
     service_.set_connection_error_handler(WTF::Bind(
         &Permissions::ServiceConnectionError, WrapWeakPersistent(this)));
   }

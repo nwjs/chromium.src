@@ -27,8 +27,9 @@ namespace quic {
 namespace test {
 namespace {
 
-const QuicConnectionId kConnectionId = 42;
-const QuicConnectionId kServerDesignateConnectionId = 24;
+QuicConnectionId TestServerDesignatedConnectionId() {
+  return TestConnectionId(24);
+}
 
 // All four combinations of the two flags involved.
 enum FlagsMode { ENABLED, STATELESS_DISABLED, CHEAP_DISABLED, BOTH_DISABLED };
@@ -180,8 +181,8 @@ TEST_P(StatelessRejectorTest, InvalidChlo) {
       {{"PDMD", "X509"},
        {"COPT", "SREJ"}});
   // clang-format on
-  rejector_->OnChlo(GetParam().version.transport_version, kConnectionId,
-                    kServerDesignateConnectionId, client_hello);
+  rejector_->OnChlo(GetParam().version.transport_version, TestConnectionId(),
+                    TestServerDesignatedConnectionId(), client_hello);
 
   if (GetParam().flags != ENABLED) {
     EXPECT_EQ(StatelessRejector::UNSUPPORTED, rejector_->state());
@@ -209,8 +210,8 @@ TEST_P(StatelessRejectorTest, ValidChloWithoutSrejSupport) {
       kClientHelloMinimumSize);
   // clang-format on
 
-  rejector_->OnChlo(GetParam().version.transport_version, kConnectionId,
-                    kServerDesignateConnectionId, client_hello);
+  rejector_->OnChlo(GetParam().version.transport_version, TestConnectionId(),
+                    TestServerDesignatedConnectionId(), client_hello);
   EXPECT_EQ(StatelessRejector::UNSUPPORTED, rejector_->state());
 }
 
@@ -229,8 +230,8 @@ TEST_P(StatelessRejectorTest, RejectChlo) {
       kClientHelloMinimumSize);
   // clang-format on
 
-  rejector_->OnChlo(GetParam().version.transport_version, kConnectionId,
-                    kServerDesignateConnectionId, client_hello);
+  rejector_->OnChlo(GetParam().version.transport_version, TestConnectionId(),
+                    TestServerDesignatedConnectionId(), client_hello);
   if (GetParam().flags != ENABLED) {
     EXPECT_EQ(StatelessRejector::UNSUPPORTED, rejector_->state());
     return;
@@ -271,8 +272,8 @@ TEST_P(StatelessRejectorTest, AcceptChlo) {
       kClientHelloMinimumSize);
   // clang-format on
 
-  rejector_->OnChlo(GetParam().version.transport_version, kConnectionId,
-                    kServerDesignateConnectionId, client_hello);
+  rejector_->OnChlo(GetParam().version.transport_version, TestConnectionId(),
+                    TestServerDesignatedConnectionId(), client_hello);
   if (GetParam().flags != ENABLED) {
     EXPECT_EQ(StatelessRejector::UNSUPPORTED, rejector_->state());
     return;

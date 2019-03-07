@@ -95,11 +95,9 @@ class FileSystemEntryURLLoader
       : binding_(this), params_(std::move(params)) {}
 
   // network::mojom::URLLoader:
-  void FollowRedirect(
-      const base::Optional<std::vector<std::string>>&
-          to_be_removed_request_headers,
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
-      const base::Optional<GURL>& new_url) override {}
+  void FollowRedirect(const std::vector<std::string>& removed_headers,
+                      const net::HttpRequestHeaders& modified_headers,
+                      const base::Optional<GURL>& new_url) override {}
   void ProceedWithResponse() override {}
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override {}
@@ -331,8 +329,18 @@ class FileSystemDirectoryURLLoader : public FileSystemEntryURLLoader {
   }
 
   void WriteDirectoryData() {
-    mojo::DataPipe pipe(std::max(data_.size(), kDefaultFileSystemUrlPipeSize));
-    if (!pipe.consumer_handle.is_valid()) {
+    MojoCreateDataPipeOptions options;
+    options.struct_size = sizeof(MojoCreateDataPipeOptions);
+    options.flags = MOJO_CREATE_DATA_PIPE_FLAG_NONE;
+    options.element_num_bytes = 1;
+    options.capacity_num_bytes =
+        std::max(data_.size(), kDefaultFileSystemUrlPipeSize);
+
+    mojo::ScopedDataPipeProducerHandle producer_handle;
+    mojo::ScopedDataPipeConsumerHandle consumer_handle;
+    MojoResult rv =
+        mojo::CreateDataPipe(&options, &producer_handle, &consumer_handle);
+    if (rv != MOJO_RESULT_OK) {
       OnClientComplete(net::ERR_FAILED);
       return;
     }
@@ -344,10 +352,10 @@ class FileSystemDirectoryURLLoader : public FileSystemEntryURLLoader {
     head.headers = CreateHttpResponseHeaders(200);
 
     client_->OnReceiveResponse(head);
-    client_->OnStartLoadingResponseBody(std::move(pipe.consumer_handle));
+    client_->OnStartLoadingResponseBody(std::move(consumer_handle));
 
     data_producer_ = std::make_unique<mojo::StringDataPipeProducer>(
-        std::move(pipe.producer_handle));
+        std::move(producer_handle));
 
     data_producer_->Write(
         base::StringPiece(data_),
@@ -460,12 +468,19 @@ class FileSystemFileURLLoader : public FileSystemEntryURLLoader {
         url_, byte_range_.first_byte_position(), remaining_bytes_,
         base::Time());
 
-    mojo::DataPipe pipe(remaining_bytes_);
-    if (!pipe.consumer_handle.is_valid()) {
+    MojoCreateDataPipeOptions options;
+    options.struct_size = sizeof(MojoCreateDataPipeOptions);
+    options.flags = MOJO_CREATE_DATA_PIPE_FLAG_NONE;
+    options.element_num_bytes = 1;
+    options.capacity_num_bytes = remaining_bytes_;
+
+    mojo::ScopedDataPipeProducerHandle producer_handle;
+    MojoResult rv =
+        mojo::CreateDataPipe(&options, &producer_handle, &consumer_handle_);
+    if (rv != MOJO_RESULT_OK) {
       OnClientComplete(net::ERR_FAILED);
       return;
     }
-    consumer_handle_ = std::move(pipe.consumer_handle);
 
     head_.mime_type = "text/html";  // Will sniff file and possibly override.
     head_.charset = "utf-8";
@@ -473,7 +488,7 @@ class FileSystemFileURLLoader : public FileSystemEntryURLLoader {
     head_.headers = CreateHttpResponseHeaders(200);
 
     data_producer_ = std::make_unique<mojo::StringDataPipeProducer>(
-        std::move(pipe.producer_handle));
+        std::move(producer_handle));
 
     file_data_ =
         base::MakeRefCounted<net::IOBuffer>(kDefaultFileSystemUrlPipeSize);
@@ -485,9 +500,10 @@ class FileSystemFileURLLoader : public FileSystemEntryURLLoader {
         static_cast<int64_t>(kDefaultFileSystemUrlPipeSize), remaining_bytes_);
     if (!bytes_to_read) {
       if (consumer_handle_.is_valid()) {
-        // This was an empty file; make sure to call OnReceiveResponse
-        // regardless.
+        // This was an empty file; make sure to call OnReceiveResponse and
+        // OnStartLoadingResponseBody regardless.
         client_->OnReceiveResponse(head_);
+        client_->OnStartLoadingResponseBody(std::move(consumer_handle_));
       }
       OnFileWritten(MOJO_RESULT_OK);
       return;

@@ -23,7 +23,7 @@ FakeOAuth2TokenServiceDelegate::CreateAccessTokenFetcher(
     const std::string& account_id,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     OAuth2AccessTokenConsumer* consumer) {
-  AccountInfoMap::const_iterator it = refresh_tokens_.find(account_id);
+  auto it = refresh_tokens_.find(account_id);
   DCHECK(it != refresh_tokens_.end());
   return new OAuth2AccessTokenFetcherImpl(consumer, url_loader_factory,
                                           it->second->refresh_token);
@@ -43,7 +43,7 @@ GoogleServiceAuthError FakeOAuth2TokenServiceDelegate::GetAuthError(
 
 std::string FakeOAuth2TokenServiceDelegate::GetRefreshToken(
     const std::string& account_id) const {
-  AccountInfoMap::const_iterator it = refresh_tokens_.find(account_id);
+  auto it = refresh_tokens_.find(account_id);
   if (it != refresh_tokens_.end())
     return it->second->refresh_token;
   return std::string();
@@ -51,19 +51,15 @@ std::string FakeOAuth2TokenServiceDelegate::GetRefreshToken(
 
 std::vector<std::string> FakeOAuth2TokenServiceDelegate::GetAccounts() {
   std::vector<std::string> account_ids;
-  for (AccountInfoMap::const_iterator iter = refresh_tokens_.begin();
-       iter != refresh_tokens_.end(); ++iter) {
-    account_ids.push_back(iter->first);
-  }
+  for (const auto& token : refresh_tokens_)
+    account_ids.push_back(token.first);
   return account_ids;
 }
 
 void FakeOAuth2TokenServiceDelegate::RevokeAllCredentials() {
   std::vector<std::string> account_ids = GetAccounts();
-  for (std::vector<std::string>::const_iterator it = account_ids.begin();
-       it != account_ids.end(); it++) {
-    RevokeCredentials(*it);
-  }
+  for (const auto& account : account_ids)
+    RevokeCredentials(account);
 }
 
 void FakeOAuth2TokenServiceDelegate::LoadCredentials(
@@ -106,15 +102,29 @@ void FakeOAuth2TokenServiceDelegate::RevokeCredentials(
   IssueRefreshTokenForUser(account_id, std::string());
 }
 
+void FakeOAuth2TokenServiceDelegate::ExtractCredentials(
+    OAuth2TokenService* to_service,
+    const std::string& account_id) {
+  auto it = refresh_tokens_.find(account_id);
+  DCHECK(it != refresh_tokens_.end());
+  to_service->GetDelegate()->UpdateCredentials(account_id,
+                                               it->second->refresh_token);
+  RevokeCredentials(account_id);
+}
+
 scoped_refptr<network::SharedURLLoaderFactory>
 FakeOAuth2TokenServiceDelegate::GetURLLoaderFactory() const {
   return shared_factory_;
 }
 
+bool FakeOAuth2TokenServiceDelegate::FixRequestErrorIfPossible() {
+  return fix_request_if_possible_;
+}
+
 void FakeOAuth2TokenServiceDelegate::UpdateAuthError(
     const std::string& account_id,
     const GoogleServiceAuthError& error) {
-  if (GetAuthError(account_id) == error)
+  if (error.IsTransientError() || GetAuthError(account_id) == error)
     return;
 
   // Drop transient errors to match OAuth2TokenService's stated contract for

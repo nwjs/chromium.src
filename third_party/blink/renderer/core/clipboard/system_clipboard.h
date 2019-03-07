@@ -50,7 +50,10 @@ class CORE_EXPORT SystemClipboard {
   String ReadRTF();
 
   SkBitmap ReadImage(mojom::ClipboardBuffer);
-  void WriteImage(Image*, const KURL&, const String& title);
+  // Write the image and its associated tag (bookmark/HTML types).
+  void WriteImageWithTag(Image*, const KURL&, const String& title);
+  // Write the image only.
+  void WriteImage(const SkBitmap&);
 
   String ReadCustomData(const String& type);
   void WriteDataObject(DataObject*);

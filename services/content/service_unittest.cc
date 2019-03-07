@@ -30,6 +30,7 @@ class TestNavigableContentsClient : public mojom::NavigableContentsClient {
 
  private:
   // mojom::NavigableContentsClient:
+  void ClearViewFocus() override {}
   void DidFinishNavigation(const GURL& url,
                            bool is_main_frame,
                            bool is_error_page,
@@ -111,29 +112,25 @@ class TestServiceDelegate : public ServiceDelegate {
 
 class ContentServiceTest : public testing::Test {
  public:
-  ContentServiceTest() = default;
+  ContentServiceTest()
+      : service_(&delegate_,
+                 connector_factory_.RegisterInstance(mojom::kServiceName)) {}
   ~ContentServiceTest() override = default;
-
-  void SetUp() override {
-    connector_factory_ =
-        service_manager::TestConnectorFactory::CreateForUniqueService(
-            std::make_unique<Service>(&delegate_));
-    connector_ = connector_factory_->CreateConnector();
-  }
 
  protected:
   TestServiceDelegate& delegate() { return delegate_; }
 
   template <typename T>
   void BindInterface(mojo::InterfaceRequest<T> request) {
-    connector_->BindInterface(content::mojom::kServiceName, std::move(request));
+    connector_factory_.GetDefaultConnector()->BindInterface(
+        content::mojom::kServiceName, std::move(request));
   }
 
  private:
   base::test::ScopedTaskEnvironment task_environment_;
-  std::unique_ptr<service_manager::TestConnectorFactory> connector_factory_;
-  std::unique_ptr<service_manager::Connector> connector_;
+  service_manager::TestConnectorFactory connector_factory_;
   TestServiceDelegate delegate_;
+  Service service_;
 
   DISALLOW_COPY_AND_ASSIGN(ContentServiceTest);
 };

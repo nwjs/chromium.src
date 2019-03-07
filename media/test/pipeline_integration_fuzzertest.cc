@@ -12,6 +12,7 @@
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/test/test_timeouts.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "media/base/bind_to_current_loop.h"
 #include "media/base/eme_constants.h"
@@ -160,7 +161,7 @@ class ProgressivePipelineIntegrationFuzzerTest
   ~ProgressivePipelineIntegrationFuzzerTest() override = default;
 
   void RunTest(const uint8_t* data, size_t size) {
-    if (PIPELINE_OK != Start(data, size, kUnreliableDuration))
+    if (PIPELINE_OK != Start(data, size, kUnreliableDuration | kFuzzing))
       return;
 
     Play();
@@ -201,11 +202,18 @@ class MediaSourcePipelineIntegrationFuzzerTest
     source.set_encrypted_media_init_data_cb(
         base::Bind(&OnEncryptedMediaInitData, this));
 
+    // Allow parsing to either pass or fail without emitting a gtest failure
+    // from MockMediaSource.
+    source.set_expected_append_result(
+        MockMediaSource::ExpectedAppendResult::kSuccessOrFailure);
+
     // TODO(wolenetz): Vary the behavior (abort/remove/seek/endOfStream/Append
     // in pieces/append near play-head/vary append mode/etc), perhaps using
     // CustomMutator and Seed to insert/update the variation information into/in
     // the |data| we process here.  See https://crbug.com/750818.
-    if (PIPELINE_OK != StartPipelineWithMediaSource(&source))
+    // Use |kFuzzing| test type to allow pipeline start to either pass or fail
+    // without emitting a gtest failure.
+    if (PIPELINE_OK != StartPipelineWithMediaSource(&source, kFuzzing, nullptr))
       return;
 
     Play();
@@ -217,6 +225,13 @@ class MediaSourcePipelineIntegrationFuzzerTest
 // Disable noisy logging.
 struct Environment {
   Environment() {
+    base::CommandLine::Init(0, nullptr);
+
+    // |test| instances uses ScopedTaskEnvironment, which needs TestTimeouts.
+    TestTimeouts::Initialize();
+
+    media::InitializeMediaLibrary();
+
     // Note, instead of LOG_FATAL, use a value at or below logging::LOG_VERBOSE
     // here to assist local debugging.
     logging::SetMinLogLevel(logging::LOG_FATAL);
@@ -229,11 +244,6 @@ Environment* env = new Environment();
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   // Media pipeline starts new threads, which needs AtExitManager.
   base::AtExitManager at_exit;
-
-  // Media pipeline checks command line arguments internally.
-  base::CommandLine::Init(0, nullptr);
-
-  media::InitializeMediaLibrary();
 
   FuzzerVariant variant = PIPELINE_FUZZER_VARIANT;
 

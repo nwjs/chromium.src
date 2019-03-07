@@ -31,6 +31,7 @@
 #include "chrome/credential_provider/gaiacp/gaia_credential_provider_module.h"
 #include "chrome/credential_provider/gaiacp/gcp_utils.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
+#include "chrome/credential_provider/gaiacp/os_process_manager.h"
 #include "chrome/credential_provider/gaiacp/os_user_manager.h"
 #include "chrome/credential_provider/gaiacp/reauth_credential.h"
 #include "chrome/credential_provider/gaiacp/reg_utils.h"
@@ -65,6 +66,13 @@ STDAPI DllCanUnloadNow(void) {
 
 // Returns a class factory to create an object of the requested type.
 STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv) {
+  // Check to see if the credential provider has crashed too much recently.
+  // If it has then do not allow it to create any credential providers.
+  if (!credential_provider::VerifyStartupSentinel()) {
+    LOGFN(ERROR) << "Disabled due to previous unsuccessful starts";
+    return E_NOTIMPL;
+  }
+
   return _AtlModule.DllGetClassObject(rclsid, riid, ppv);
 }
 
@@ -94,7 +102,7 @@ STDAPI DllRegisterServer(void) {
     } else {
       sts = key.WriteValue(
           L"name",
-          credential_provider::GetStringResource(IDS_PROJNAME).c_str());
+          credential_provider::GetStringResource(IDS_PROJNAME_BASE).c_str());
       if (sts != ERROR_SUCCESS) {
         hr = HRESULT_FROM_WIN32(sts);
         LOGFN(ERROR) << "key.WriteValue(name) hr=" << putHR(hr);
@@ -226,7 +234,9 @@ SetFakesForTesting(const credential_provider::FakesForTesting* fakes) {
   credential_provider::ScopedLsaPolicy::SetCreatorForTesting(
       fakes->scoped_lsa_policy_creator);
   credential_provider::OSUserManager::SetInstanceForTesting(
-      fakes->os_manager_for_testing);
+      fakes->os_user_manager_for_testing);
+  credential_provider::OSProcessManager::SetInstanceForTesting(
+      fakes->os_process_manager_for_testing);
 
   _AtlModule.set_is_testing(true);
 }

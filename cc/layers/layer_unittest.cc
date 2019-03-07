@@ -877,22 +877,22 @@ TEST_F(LayerTest, TestSettingMainThreadScrollingReason) {
   EXPECT_SET_NEEDS_COMMIT(1,
                           test_layer->AddMainThreadScrollingReasons(
                               MainThreadScrollingReason::kScrollbarScrolling));
-  EXPECT_EQ(reasons, test_layer->main_thread_scrolling_reasons());
+  EXPECT_EQ(reasons, test_layer->GetMainThreadScrollingReasons());
 
   // Check that the reasons can be selectively cleared.
   EXPECT_SET_NEEDS_COMMIT(
       1, test_layer->ClearMainThreadScrollingReasons(reasons_to_clear));
   EXPECT_EQ(reasons_after_clearing,
-            test_layer->main_thread_scrolling_reasons());
+            test_layer->GetMainThreadScrollingReasons());
 
   // Check that clearing non-set reasons doesn't set needs commit.
   reasons_to_clear = 0;
   reasons_to_clear |= MainThreadScrollingReason::kCustomScrollbarScrolling;
-  reasons_to_clear |= MainThreadScrollingReason::kPageOverlay;
+  reasons_to_clear |= MainThreadScrollingReason::kFrameOverlay;
   EXPECT_SET_NEEDS_COMMIT(
       0, test_layer->ClearMainThreadScrollingReasons(reasons_to_clear));
   EXPECT_EQ(reasons_after_clearing,
-            test_layer->main_thread_scrolling_reasons());
+            test_layer->GetMainThreadScrollingReasons());
 
   // Check that adding an existing condition doesn't set needs commit.
   EXPECT_SET_NEEDS_COMMIT(
@@ -1346,7 +1346,7 @@ TEST_F(LayerTest, PushUpdatesShouldHitTest) {
   root_layer->PushPropertiesTo(impl_layer.get());
   EXPECT_TRUE(impl_layer->DrawsContent());
   EXPECT_FALSE(impl_layer->hit_testable_without_draws_content());
-  EXPECT_TRUE(impl_layer->should_hit_test());
+  EXPECT_TRUE(impl_layer->ShouldHitTest());
 
   // A layer that does not draw content and does not hit test without drawing
   // content should not be hit testable.
@@ -1354,7 +1354,7 @@ TEST_F(LayerTest, PushUpdatesShouldHitTest) {
   root_layer->PushPropertiesTo(impl_layer.get());
   EXPECT_FALSE(impl_layer->DrawsContent());
   EXPECT_FALSE(impl_layer->hit_testable_without_draws_content());
-  EXPECT_FALSE(impl_layer->should_hit_test());
+  EXPECT_FALSE(impl_layer->ShouldHitTest());
 
   // |SetHitTestableWithoutDrawsContent| should cause a layer to become hit
   // testable even though it does not draw content.
@@ -1362,7 +1362,7 @@ TEST_F(LayerTest, PushUpdatesShouldHitTest) {
   root_layer->PushPropertiesTo(impl_layer.get());
   EXPECT_FALSE(impl_layer->DrawsContent());
   EXPECT_TRUE(impl_layer->hit_testable_without_draws_content());
-  EXPECT_TRUE(impl_layer->should_hit_test());
+  EXPECT_TRUE(impl_layer->ShouldHitTest());
 }
 
 void ReceiveCopyOutputResult(int* result_count,
@@ -1548,21 +1548,31 @@ class LayerTestWithLayerLists : public LayerTest {
   }
 };
 
-TEST_F(LayerTestWithLayerLists, LayerTreeHostRegistersElementId) {
-  scoped_refptr<Layer> test_layer = Layer::Create();
-  ElementId element_id = ElementId(2);
-  test_layer->SetElementId(element_id);
+TEST_F(LayerTestWithLayerLists, LayerTreeHostRegistersScrollingElementId) {
+  scoped_refptr<Layer> normal_layer = Layer::Create();
+  scoped_refptr<Layer> scrolling_layer = Layer::Create();
+  scrolling_layer->SetScrollable(gfx::Size(1000, 1000));
+  ElementId normal_element_id = ElementId(2);
+  ElementId scrolling_element_id = ElementId(3);
+  normal_layer->SetElementId(normal_element_id);
+  scrolling_layer->SetElementId(scrolling_element_id);
 
-  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(element_id));
-  test_layer->SetLayerTreeHost(layer_tree_host_.get());
-  EXPECT_EQ(test_layer, layer_tree_host_->LayerByElementId(element_id));
+  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(normal_element_id));
+  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(scrolling_element_id));
+  normal_layer->SetLayerTreeHost(layer_tree_host_.get());
+  scrolling_layer->SetLayerTreeHost(layer_tree_host_.get());
+  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(normal_element_id));
+  EXPECT_EQ(scrolling_layer,
+            layer_tree_host_->LayerByElementId(scrolling_element_id));
 
-  test_layer->SetLayerTreeHost(nullptr);
-  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(element_id));
+  normal_layer->SetLayerTreeHost(nullptr);
+  scrolling_layer->SetLayerTreeHost(nullptr);
+  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(scrolling_element_id));
 }
 
-TEST_F(LayerTestWithLayerLists, ChangingElementIdRegistersElement) {
+TEST_F(LayerTestWithLayerLists, ChangingScrollableElementIdRegistersElement) {
   scoped_refptr<Layer> test_layer = Layer::Create();
+  test_layer->SetScrollable(gfx::Size(1000, 1000));
   EXPECT_CALL(*layer_tree_host_, SetNeedsCommit()).Times(1);
   test_layer->SetLayerTreeHost(layer_tree_host_.get());
 
@@ -1571,6 +1581,33 @@ TEST_F(LayerTestWithLayerLists, ChangingElementIdRegistersElement) {
 
   // Setting the element id should register the layer.
   test_layer->SetElementId(element_id);
+  EXPECT_CALL(*layer_tree_host_, SetNeedsCommit()).Times(1);
+  EXPECT_EQ(test_layer, layer_tree_host_->LayerByElementId(element_id));
+
+  // Unsetting the element id should unregister the layer.
+  test_layer->SetElementId(ElementId());
+  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(element_id));
+
+  test_layer->SetLayerTreeHost(nullptr);
+  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(element_id));
+}
+
+TEST_F(LayerTestWithLayerLists, ChangingScrollableRegistersElement) {
+  scoped_refptr<Layer> test_layer = Layer::Create();
+  EXPECT_CALL(*layer_tree_host_, SetNeedsCommit()).Times(1);
+  test_layer->SetLayerTreeHost(layer_tree_host_.get());
+
+  ElementId element_id = ElementId(2);
+  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(element_id));
+
+  // Setting the element id commits the element id but should not register
+  // the layer.
+  test_layer->SetElementId(element_id);
+  EXPECT_CALL(*layer_tree_host_, SetNeedsCommit()).Times(1);
+  EXPECT_EQ(nullptr, layer_tree_host_->LayerByElementId(element_id));
+
+  // Making the layer scrollable should register it.
+  test_layer->SetScrollable(gfx::Size(1000, 1000));
   EXPECT_CALL(*layer_tree_host_, SetNeedsCommit()).Times(1);
   EXPECT_EQ(test_layer, layer_tree_host_->LayerByElementId(element_id));
 

@@ -24,8 +24,8 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_FORMS_FORM_CONTROLLER_H_
 
 #include <memory>
+#include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
-#include "third_party/blink/renderer/platform/heap/heap_allocator.h"
 #include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string_hash.h"
@@ -33,6 +33,7 @@
 
 namespace blink {
 
+class Document;
 class FormKeyGenerator;
 class HTMLFormControlElementWithState;
 class HTMLFormElement;
@@ -76,32 +77,31 @@ inline void FormControlState::Append(const String& value) {
 using SavedFormStateMap =
     HashMap<AtomicString, std::unique_ptr<SavedFormState>>;
 
-class DocumentState final : public GarbageCollected<DocumentState> {
+class CORE_EXPORT DocumentState final
+    : public GarbageCollectedFinalized<DocumentState> {
  public:
-  static DocumentState* Create();
-  void Trace(blink::Visitor*);
+  DocumentState(Document& document);
+  void Trace(Visitor*);
 
-  void AddControl(HTMLFormControlElementWithState*);
-  void RemoveControl(HTMLFormControlElementWithState*);
+  void InvalidateControlList();
   Vector<String> ToStateVector();
 
  private:
-  using FormElementList = HeapDoublyLinkedList<HTMLFormControlElementWithState>;
+  Member<Document> document_;
+  using FormElementList =
+      HeapVector<Member<HTMLFormControlElementWithState>, 64>;
   FormElementList form_controls_;
+  bool form_controls_dirty_ = true;
 };
 
-class FormController final : public GarbageCollectedFinalized<FormController> {
+class CORE_EXPORT FormController final
+    : public GarbageCollectedFinalized<FormController> {
  public:
-  static FormController* Create() {
-    return MakeGarbageCollected<FormController>();
-  }
-
-  FormController();
+  FormController(Document& document);
   ~FormController();
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
-  void RegisterStatefulFormControl(HTMLFormControlElementWithState&);
-  void UnregisterStatefulFormControl(HTMLFormControlElementWithState&);
+  void InvalidateStatefulFormControlList();
   // This should be callled only by Document::formElementsState().
   DocumentState* FormElementsState() const;
   // This should be callled only by Document::setStateForNewFormElements().

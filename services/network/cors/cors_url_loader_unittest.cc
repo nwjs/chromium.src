@@ -124,7 +124,7 @@ class CorsURLLoaderTest : public testing::Test {
     test_url_loader_factory_ = factory->GetWeakPtr();
     cors_url_loader_factory_ = std::make_unique<CorsURLLoaderFactory>(
         false, std::move(factory), base::RepeatingCallback<void(int)>(),
-        &origin_access_list_);
+        &origin_access_list_, 0);
   }
 
  protected:
@@ -190,7 +190,10 @@ class CorsURLLoaderTest : public testing::Test {
 
   void FollowRedirect() {
     DCHECK(url_loader_);
-    url_loader_->FollowRedirect(base::nullopt, base::nullopt, base::nullopt);
+    url_loader_->FollowRedirect({},            // removed_headers
+                                {},            // modified_headers
+                                base::nullopt  // new_url
+    );
   }
 
   const ResourceRequest& GetRequest() const {
@@ -1026,6 +1029,35 @@ TEST_F(CorsURLLoaderTest, OriginAccessList) {
   EXPECT_TRUE(IsNetworkLoaderStarted());
   EXPECT_FALSE(client().has_received_redirect());
   EXPECT_TRUE(client().has_received_response());
+  EXPECT_EQ(network::mojom::FetchResponseType::kBasic,
+            client().response_head().response_type);
+  EXPECT_TRUE(client().has_received_completion());
+  EXPECT_EQ(net::OK, client().completion_status().error_code);
+}
+
+// Tests if OriginAccessList is actually used to decide response tainting.
+TEST_F(CorsURLLoaderTest, OriginAccessList_NoCors) {
+  const GURL origin("http://example.com");
+  const GURL url("http://other.com/foo.png");
+
+  // Adds an entry to allow the cross origin request without using
+  // CORS.
+  AddAllowListEntryForOrigin(
+      url::Origin::Create(origin), url.scheme(), url.host(),
+      mojom::CorsOriginAccessMatchMode::kDisallowSubdomains);
+
+  CreateLoaderAndStart(origin, url, mojom::FetchRequestMode::kNoCors);
+
+  NotifyLoaderClientOnReceiveResponse();
+  NotifyLoaderClientOnComplete(net::OK);
+
+  RunUntilComplete();
+
+  EXPECT_TRUE(IsNetworkLoaderStarted());
+  EXPECT_FALSE(client().has_received_redirect());
+  EXPECT_TRUE(client().has_received_response());
+  EXPECT_EQ(network::mojom::FetchResponseType::kBasic,
+            client().response_head().response_type);
   EXPECT_TRUE(client().has_received_completion());
   EXPECT_EQ(net::OK, client().completion_status().error_code);
 }
@@ -1171,6 +1203,104 @@ TEST_F(CorsURLLoaderTest, RevalidationAndPreflight) {
   EXPECT_TRUE(client().has_received_response());
   ASSERT_TRUE(client().has_received_completion());
   EXPECT_EQ(net::OK, client().completion_status().error_code);
+}
+
+// Keep this in sync with the CalculateResponseTainting test in
+// Blink's cors_test.cc.
+TEST(CorsURLLoaderTaintingTest, CalculateResponseTainting) {
+  using mojom::FetchRequestMode;
+  using mojom::FetchResponseType;
+
+  const GURL same_origin_url("https://example.com/");
+  const GURL cross_origin_url("https://example2.com/");
+  const url::Origin origin = url::Origin::Create(GURL("https://example.com"));
+  const base::Optional<url::Origin> no_origin;
+
+  OriginAccessList origin_access_list;
+
+  // CORS flag is false, same-origin request
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kSameOrigin, origin, false,
+                false, &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kNoCors, origin, false,
+                false, &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kCors, origin, false, false,
+                &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kCorsWithForcedPreflight,
+                origin, false, false, &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kNavigate, origin, false,
+                false, &origin_access_list));
+
+  // CORS flag is false, cross-origin request
+  EXPECT_EQ(FetchResponseType::kOpaque,
+            CorsURLLoader::CalculateResponseTainting(
+                cross_origin_url, FetchRequestMode::kNoCors, origin, false,
+                false, &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                cross_origin_url, FetchRequestMode::kNavigate, origin, false,
+                false, &origin_access_list));
+
+  // CORS flag is true, same-origin request
+  EXPECT_EQ(FetchResponseType::kCors,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kCors, origin, true, false,
+                &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kCors,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kCorsWithForcedPreflight,
+                origin, true, false, &origin_access_list));
+
+  // CORS flag is true, cross-origin request
+  EXPECT_EQ(FetchResponseType::kCors,
+            CorsURLLoader::CalculateResponseTainting(
+                cross_origin_url, FetchRequestMode::kCors, origin, true, false,
+                &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kCors,
+            CorsURLLoader::CalculateResponseTainting(
+                cross_origin_url, FetchRequestMode::kCorsWithForcedPreflight,
+                origin, true, false, &origin_access_list));
+
+  // Origin is not provided.
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kNoCors, no_origin, false,
+                false, &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kNavigate, no_origin, false,
+                false, &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                cross_origin_url, FetchRequestMode::kNoCors, no_origin, false,
+                false, &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                cross_origin_url, FetchRequestMode::kNavigate, no_origin, false,
+                false, &origin_access_list));
+
+  // Tainted origin.
+  EXPECT_EQ(FetchResponseType::kOpaque,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kNoCors, origin, false, true,
+                &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kCorsWithForcedPreflight,
+                origin, false, true, &origin_access_list));
+  EXPECT_EQ(FetchResponseType::kBasic,
+            CorsURLLoader::CalculateResponseTainting(
+                same_origin_url, FetchRequestMode::kNavigate, origin, false,
+                true, &origin_access_list));
 }
 
 }  // namespace

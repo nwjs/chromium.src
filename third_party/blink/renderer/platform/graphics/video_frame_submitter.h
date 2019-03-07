@@ -28,28 +28,19 @@ namespace blink {
 
 // This single-threaded class facilitates the communication between the media
 // stack and browser renderer, providing compositor frames containing video
-// frames and corresponding resources to the |compositor_frame_sink_|. This
-// class has dependencies on classes that use the media thread's OpenGL
-// ContextProvider, and thus, besides construction, should be consistently ran
-// from the same media SingleThreadTaskRunner.
+// frames and corresponding resources to the |compositor_frame_sink_|.
+//
+// This class requires and uses a viz::ContextProvider, and thus, besides
+// construction, must be consistently accessed from the same thread.
 class PLATFORM_EXPORT VideoFrameSubmitter
     : public WebVideoFrameSubmitter,
       public viz::ContextLostObserver,
       public viz::SharedBitmapReporter,
       public viz::mojom::blink::CompositorFrameSinkClient {
  public:
-  explicit VideoFrameSubmitter(WebContextProviderCallback,
-                               std::unique_ptr<VideoFrameResourceProvider>);
-
+  VideoFrameSubmitter(WebContextProviderCallback,
+                      std::unique_ptr<VideoFrameResourceProvider>);
   ~VideoFrameSubmitter() override;
-
-  bool Rendering() { return is_rendering_; }
-  cc::VideoFrameProvider* Provider() { return video_frame_provider_; }
-  mojo::Binding<viz::mojom::blink::CompositorFrameSinkClient>* Binding() {
-    return &binding_;
-  }
-
-  void OnReceivedContextProvider(bool, scoped_refptr<viz::ContextProvider>);
 
   // cc::VideoFrameProvider::Client implementation.
   void StopUsingProvider() override;
@@ -61,11 +52,11 @@ class PLATFORM_EXPORT VideoFrameSubmitter
   // WebVideoFrameSubmitter implementation.
   void Initialize(cc::VideoFrameProvider*) override;
   void SetRotation(media::VideoRotation) override;
-  void SetIsOpaque(bool) override;
-  void EnableSubmission(viz::SurfaceId,
-                        base::TimeTicks local_surface_id_allocation_time,
-                        WebFrameSinkDestroyedCallback) override;
-  void UpdateSubmissionState(bool is_visible) override;
+  void EnableSubmission(
+      viz::SurfaceId,
+      base::TimeTicks local_surface_id_allocation_time) override;
+  void SetIsSurfaceVisible(bool is_visible) override;
+  void SetIsPageVisible(bool is_visible) override;
   void SetForceSubmit(bool) override;
 
   // viz::ContextLostObserver implementation.
@@ -87,42 +78,49 @@ class PLATFORM_EXPORT VideoFrameSubmitter
                                const viz::SharedBitmapId&) override;
   void DidDeleteSharedBitmap(const viz::SharedBitmapId&) override;
 
-  void SetCompositorFrameSinkPtrForTesting(
-      viz::mojom::blink::CompositorFrameSinkPtr* sink) {
-    compositor_frame_sink_ = std::move(*sink);
-  }
-  void SetSurfaceEmbedderPtrForTesting(
-      mojom::blink::SurfaceEmbedderPtr embedder) {
-    surface_embedder_ = std::move(embedder);
-  }
-  void SetSurfaceIdForTesting(const viz::SurfaceId&, base::TimeTicks);
-
  private:
-  FRIEND_TEST_ALL_PREFIXES(VideoFrameSubmitterTest, ContextLostDuringSubmit);
-  FRIEND_TEST_ALL_PREFIXES(VideoFrameSubmitterTest,
-                           ShouldSubmitPreventsSubmission);
-  FRIEND_TEST_ALL_PREFIXES(VideoFrameSubmitterTest,
-                           SetForceSubmitForcesSubmission);
-  FRIEND_TEST_ALL_PREFIXES(VideoFrameSubmitterTest,
-                           FrameSizeChangeUpdatesLocalSurfaceId);
-  FRIEND_TEST_ALL_PREFIXES(VideoFrameSubmitterTest,
-                           StopUsingProviderDuringContextLost);
+  friend class VideoFrameSubmitterTest;
 
+  // Called during Initialize() and OnContextLost() after a new ContextGL is
+  // requested.
+  void OnReceivedContextProvider(
+      bool use_gpu_compositing,
+      scoped_refptr<viz::ContextProvider> context_provider);
+
+  // Starts submission and calls UpdateSubmissionState(); which may submit.
   void StartSubmitting();
-  void UpdateSubmissionStateInternal();
+
+  // Sets CompositorFrameSink::SetNeedsBeginFrame() state and submits a frame if
+  // visible or an empty frame if not.
+  void UpdateSubmissionState();
+
   // Returns whether a frame was submitted.
   bool SubmitFrame(const viz::BeginFrameAck&, scoped_refptr<media::VideoFrame>);
+
+  // SubmitEmptyFrame() is used to force the remote CompositorFrameSink to
+  // release resources for the last submission; saving a significant amount of
+  // memory (~30%) when content goes off-screen. See https://crbug.com/829813.
   void SubmitEmptyFrame();
 
-  // Pulls frame and submits it to compositor.
-  // Used in cases like PaintSingleFrame, which occurs before video rendering
-  // has started to post a poster image, or to submit a final frame before
-  // ending rendering.
+  // Pulls frame and submits it to compositor. Used in cases like
+  // DidReceiveFrame(), which occurs before video rendering has started to post
+  // the first frame or to submit a final frame before ending rendering.
   void SubmitSingleFrame();
 
   // Return whether the submitter should submit frames based on its current
-  // state.
+  // state. It's important to only submit when this is true to save memory. See
+  // comments above and in UpdateSubmissionState().
   bool ShouldSubmit() const;
+
+  // Generates a new surface ID using using |child_local_surface_id_allocator_|.
+  // Called during context loss or during a frame size change.
+  void GenerateNewSurfaceId();
+
+  // Helper method for creating viz::CompositorFrame. If |video_frame| is null
+  // then the frame will be empty.
+  viz::CompositorFrame CreateCompositorFrame(
+      const viz::BeginFrameAck& begin_frame_ack,
+      scoped_refptr<media::VideoFrame> video_frame);
 
   cc::VideoFrameProvider* video_frame_provider_ = nullptr;
   scoped_refptr<viz::ContextProvider> context_provider_;
@@ -131,18 +129,27 @@ class PLATFORM_EXPORT VideoFrameSubmitter
   mojo::Binding<viz::mojom::blink::CompositorFrameSinkClient> binding_;
   WebContextProviderCallback context_provider_callback_;
   std::unique_ptr<VideoFrameResourceProvider> resource_provider_;
-  WebFrameSinkDestroyedCallback frame_sink_destroyed_callback_;
   bool waiting_for_compositor_ack_ = false;
 
+  // Current rendering state. Set by StartRendering() and StopRendering().
   bool is_rendering_ = false;
-  // If we are not on screen, we should not submit.
-  bool should_submit_internal_ = false;
-  // Whether frames should always be submitted, even if we're not visible.
+
+  // If the surface is not visible within in the current view port, we should
+  // not submit. Not submitting when off-screen saves significant memory.
+  bool is_surface_visible_ = false;
+
+  // Likewise, if the entire page is not visible, we should not submit. Not
+  // submitting in the background causes the VideoFrameProvider to enter a
+  // background rendering mode using lower frequency artificial BeginFrames.
+  bool is_page_visible_ = true;
+
+  // Whether frames should always be submitted, even if we're not visible. Used
+  // by Picture-in-Picture mode to ensure submission occurs even off-screen.
   bool force_submit_ = false;
+
   // Needs to be initialized in implementation because media isn't a public_dep
   // of blink/platform.
   media::VideoRotation rotation_;
-  bool is_opaque_ = true;
 
   viz::FrameSinkId frame_sink_id_;
 
@@ -156,8 +163,9 @@ class PLATFORM_EXPORT VideoFrameSubmitter
   viz::ChildLocalSurfaceIdAllocator child_local_surface_id_allocator_;
 
   const bool enable_surface_synchronization_;
+  viz::FrameTokenGenerator next_frame_token_;
 
-  THREAD_CHECKER(media_thread_checker_);
+  THREAD_CHECKER(thread_checker_);
 
   base::WeakPtrFactory<VideoFrameSubmitter> weak_ptr_factory_;
 

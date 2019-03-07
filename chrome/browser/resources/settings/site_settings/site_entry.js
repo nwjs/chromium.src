@@ -9,7 +9,7 @@
 Polymer({
   is: 'site-entry',
 
-  behaviors: [SiteSettingsBehavior],
+  behaviors: [SiteSettingsBehavior, cr.ui.FocusRowBehavior],
 
   properties: {
     /**
@@ -60,6 +60,19 @@ Polymer({
         return [];
       },
     },
+
+    /**
+     * An array containing the strings to display showing the individual cookies
+     * number for each origin in |siteGroup|.
+     * @type {!Array<string>}
+     * @private
+     */
+    cookiesNum_: {
+      type: Array,
+      value: function() {
+        return [];
+      }
+    }
   },
 
   listeners: {
@@ -80,14 +93,16 @@ Polymer({
 
   /** @override */
   detached: function() {
-    if (this.button_)
+    if (this.button_) {
       this.unlisten(this.button_, 'keydown', 'onButtonKeydown_');
+    }
   },
 
   /** @param {!KeyboardEvent} e */
   onButtonKeydown_: function(e) {
-    if (e.shiftKey && e.key === 'Tab')
+    if (e.shiftKey && e.key === 'Tab') {
       this.focus();
+    }
   },
 
   /**
@@ -98,8 +113,9 @@ Polymer({
    * @private
    */
   grouped_: function(siteGroup) {
-    if (siteGroup)
+    if (siteGroup) {
       return siteGroup.origins.length != 1;
+    }
     return false;
   },
 
@@ -115,11 +131,13 @@ Polymer({
    * @private
    */
   siteRepresentation_: function(siteGroup, originIndex) {
-    if (!siteGroup)
+    if (!siteGroup) {
       return '';
+    }
     if (this.grouped_(siteGroup) && originIndex == -1) {
-      if (siteGroup.etldPlus1 != '')
+      if (siteGroup.etldPlus1 != '') {
         return siteGroup.etldPlus1;
+      }
       // Fall back onto using the host of the first origin, if no eTLD+1 name
       // was computed.
     }
@@ -136,45 +154,24 @@ Polymer({
     this.displayName_ = this.siteRepresentation_(siteGroup, -1);
 
     // Update the button listener.
-    if (this.button_)
+    if (this.button_) {
       this.unlisten(this.button_, 'keydown', 'onButtonKeydown_');
+    }
     this.button_ = /** @type Element */
         (this.root.querySelector('#toggleButton *:not([hidden]) button'));
     this.listen(assert(this.button_), 'keydown', 'onButtonKeydown_');
 
     if (!this.grouped_(siteGroup)) {
       // Ensure ungrouped |siteGroup|s do not get stuck in an opened state.
-      if (this.$.collapseChild.opened)
+      if (this.$.collapseChild.opened) {
         this.toggleCollapsible_();
-      // Ungrouped site-entries should not show cookies.
-      if (this.cookieString_)
-        this.cookieString_ = '';
+      }
     }
-    if (!siteGroup)
+    if (!siteGroup) {
       return;
+    }
     this.calculateUsageInfo_(siteGroup);
-
-    if (!this.grouped_(siteGroup))
-      return;
-
-    const siteList = [this.displayName_];
-    this.localDataBrowserProxy_.getNumCookiesList(siteList)
-        .then(numCookiesList => {
-          assert(siteList.length == numCookiesList.length);
-
-          const numCookies = numCookiesList[0].numCookies;
-          if (siteGroup.numCookies != numCookies)
-            this.fire('site-entry-storage-updated');
-          siteGroup.numCookies = numCookies;
-          this.notifyPath('siteGroup.numCookies');
-
-          return numCookies == 0 ?
-              Promise.resolve('') :
-              this.localDataBrowserProxy_.getNumCookiesString(numCookies);
-        })
-        .then(string => {
-          this.cookieString_ = string;
-        });
+    this.calculateNumberOfCookies_(siteGroup);
   },
 
   /**
@@ -188,15 +185,17 @@ Polymer({
    * @private
    */
   scheme_: function(siteGroup, originIndex) {
-    if (!siteGroup || (this.grouped_(siteGroup) && originIndex == -1))
+    if (!siteGroup || (this.grouped_(siteGroup) && originIndex == -1)) {
       return '';
+    }
     originIndex = this.getIndexBoundToOriginList_(siteGroup, originIndex);
 
     const url = this.toUrl(siteGroup.origins[originIndex].origin);
     const scheme = url.protocol.replace(new RegExp(':*$'), '');
     /** @type{string} */ const HTTPS_SCHEME = 'https';
-    if (scheme == HTTPS_SCHEME)
+    if (scheme == HTTPS_SCHEME) {
       return '';
+    }
     return scheme;
   },
 
@@ -222,8 +221,9 @@ Polymer({
    */
   calculateUsageInfo_: function(siteGroup) {
     const getFormattedBytesForSize = (numBytes) => {
-      if (numBytes == 0)
+      if (numBytes == 0) {
         return Promise.resolve('0 B');
+      }
       return this.browserProxy.getFormattedBytes(numBytes);
     };
 
@@ -244,6 +244,34 @@ Polymer({
   },
 
   /**
+   * Calculates the number of cookies set on the given group of origins
+   * and eTLD+1. Also updates the corresponding display strings.
+   * @param {SiteGroup} siteGroup The eTLD+1 group of origins.
+   * @private
+   */
+  calculateNumberOfCookies_: function(siteGroup) {
+    const getCookieNumString = (numCookies) => {
+      if (numCookies == 0) {
+        return Promise.resolve('');
+      }
+      return this.localDataBrowserProxy_.getNumCookiesString(numCookies);
+    };
+
+    this.cookiesNum_ = new Array(siteGroup.origins.length);
+    siteGroup.origins.forEach((originInfo, i) => {
+      if (this.grouped_(siteGroup)) {
+        getCookieNumString(originInfo.numCookies).then((string) => {
+          this.set(`cookiesNum_.${i}`, string);
+        });
+      }
+    });
+
+    getCookieNumString(siteGroup.numCookies).then(string => {
+      this.cookieString_ = string;
+    });
+  },
+
+  /**
    * Array binding for the |originUsages_| array for use in the HTML.
    * @param {!{base: !Array<string>}} change The change record for the array.
    * @param {number} index The index of the array item.
@@ -251,6 +279,17 @@ Polymer({
    * @private
    */
   originUsagesItem_: function(change, index) {
+    return change.base[index];
+  },
+
+  /**
+   * Array binding for the |cookiesNum_| array for use in the HTML.
+   * @param {!{base: !Array<string>}} change The change record for the array.
+   * @param {number} index The index of the array item.
+   * @return {string}
+   * @private
+   */
+  originCookiesItem_: function(change, index) {
     return change.base[index];
   },
 
@@ -326,12 +365,22 @@ Polymer({
 
   /**
    * Confirms the resetting of all content settings for an origin.
-   * @param {!{target: !Element}} e
+   * @param {!Event} e
    * @private
    */
   onConfirmResetSettings_: function(e) {
     e.preventDefault();
     this.$.confirmResetSettings.showModal();
+  },
+
+  /**
+   * Confirms the clearing of all storage data for an etld+1.
+   * @param {!Event} e
+   * @private
+   */
+  onConfirmClearData_: function(e) {
+    e.preventDefault();
+    this.$.confirmClearData.showModal();
   },
 
   /**
@@ -345,9 +394,79 @@ Polymer({
       const origin = this.siteGroup.origins[i].origin;
       this.browserProxy.setOriginPermissions(
           origin, contentSettingsTypes, settings.ContentSetting.DEFAULT);
-      if (contentSettingsTypes.includes(settings.ContentSettingsTypes.PLUGINS))
+      if (contentSettingsTypes.includes(
+              settings.ContentSettingsTypes.PLUGINS)) {
         this.browserProxy.clearFlashPref(origin);
+      }
+      this.siteGroup.origins[i].hasPermissionSettings = false;
     }
+    // Create a new |siteGroup| to make an observable change.
+    const updatedSiteGroup = {
+      etldPlus1: this.siteGroup.etldPlus1,
+      numCookies: this.siteGroup.numCookies,
+      origins: []
+    };
+    for (let i = 0; i < this.siteGroup.origins.length; ++i) {
+      const updatedOrigin = this.siteGroup.origins[i];
+      if (updatedOrigin.numCookies > 0 || updatedOrigin.usage > 0) {
+        updatedOrigin.hasPermissionSettings = false;
+        updatedSiteGroup.origins.push(updatedOrigin);
+      }
+    }
+    if (updatedSiteGroup.origins.length > 0) {
+      this.siteGroup = updatedSiteGroup;
+    } else if (this.siteGroup.numCookies > 0) {
+      // If there is no origin for this site group that has any data,
+      // but the ETLD+1 has cookies in use, create a origin placeholder
+      // for display purposes.
+      const originPlaceHolder = {
+        origin: 'http://' + this.siteGroup.etldPlus1 + '/',
+        engagement: 0,
+        usage: 0,
+        numCookies: this.siteGroup.numCookies,
+        hasPermissionSettings: false
+      };
+      updatedSiteGroup.origins.push(originPlaceHolder);
+      this.siteGroup = updatedSiteGroup;
+    } else {
+      this.fire('delete-current-entry', {
+        etldPlus1: this.siteGroup.etldPlus1,
+      });
+    }
+    this.fire('iron-resize');
+    this.onCloseDialog_(e);
+  },
+
+  /**
+   * Clear data and cookies for an etldPlus1.
+   * @param {!Event} e
+   * @private
+   */
+  onClearData_: function(e) {
+    // Clean up the SiteGroup.
+    this.browserProxy.clearEtldPlus1DataAndCookies(this.siteGroup.etldPlus1);
+    // Create a new |siteGroup| to make an observable change.
+    const updatedSiteGroup = {
+      etldPlus1: this.siteGroup.etldPlus1,
+      numCookies: 0,
+      origins: []
+    };
+    for (let i = 0; i < this.siteGroup.origins.length; ++i) {
+      const updatedOrigin = this.siteGroup.origins[i];
+      if (updatedOrigin.hasPermissionSettings) {
+        updatedOrigin.numCookies = 0;
+        updatedOrigin.usage = 0;
+        updatedSiteGroup.origins.push(updatedOrigin);
+      }
+    }
+    if (updatedSiteGroup.origins.length > 0) {
+      this.siteGroup = updatedSiteGroup;
+    } else {
+      this.fire('delete-current-entry', {
+        etldPlus1: this.siteGroup.etldPlus1,
+      });
+    }
+    this.fire('iron-resize');
     this.onCloseDialog_(e);
   },
 
@@ -382,8 +501,9 @@ Polymer({
    * @private
    */
   getClassForIndex_: function(index) {
-    if (index == 0)
+    if (index == 0) {
       return 'first';
+    }
     return '';
   },
 

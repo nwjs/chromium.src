@@ -232,4 +232,6 @@ void ChromeExtensionWebContentsObserver::ReadyToCommitNavigation(
   }
 }
 
+WEB_CONTENTS_USER_DATA_KEY_IMPL(ChromeExtensionWebContentsObserver)
+
 }  // namespace extensions

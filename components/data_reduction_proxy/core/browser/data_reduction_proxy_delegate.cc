@@ -63,6 +63,10 @@ void DataReductionProxyDelegate::OnResolveProxy(
     const std::string& method,
     const net::ProxyRetryInfoMap& proxy_retry_info,
     net::ProxyInfo* result) {
+  // If initialization hasn't happened yet, ignore the request.
+  if (!io_data_)
+    return;
+
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK(result);
   DCHECK(result->is_empty() || result->is_direct() ||
@@ -147,6 +151,12 @@ void DataReductionProxyDelegate::OnFallback(const net::ProxyServer& bad_proxy,
   DCHECK(thread_checker_.CalledOnValidThread());
   if (bypass_stats_)
     bypass_stats_->OnProxyFallback(bad_proxy, net_error);
+}
+
+net::Error DataReductionProxyDelegate::OnTunnelHeadersReceived(
+    const net::ProxyServer& proxy_server,
+    const net::HttpResponseHeaders& response_headers) {
+  return net::OK;
 }
 
 void DataReductionProxyDelegate::GetAlternativeProxy(

@@ -61,6 +61,9 @@ const CGFloat kActivityIndicatorDimensionIPhone = 56;
   self.appBarViewController.headerView.backgroundColor =
       [UIColor groupTableViewBackgroundColor];
   self.styler.separatorInset = UIEdgeInsetsMake(0, 16, 0, 16);
+
+  self.navigationItem.largeTitleDisplayMode =
+      UINavigationItemLargeTitleDisplayModeNever;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -69,6 +72,14 @@ const CGFloat kActivityIndicatorDimensionIPhone = 56;
   if (!self.navigationItem.rightBarButtonItem && doneButton) {
     self.navigationItem.rightBarButtonItem = doneButton;
   }
+}
+
+- (UIViewController*)childViewControllerForStatusBarHidden {
+  return nil;
+}
+
+- (UIViewController*)childViewControllerForStatusBarStyle {
+  return nil;
 }
 
 - (UIBarButtonItem*)doneButtonIfNeeded {

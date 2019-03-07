@@ -34,6 +34,7 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_simple_job.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/template_expressions.h"
 
 using extensions::ExtensionsBrowserClient;
 
@@ -50,6 +51,30 @@ void DetermineCharset(const std::string& mime_type,
         reinterpret_cast<const char*>(data->front()), data->size())));
     *out_charset = "utf-8";
   }
+}
+
+scoped_refptr<base::RefCountedMemory> GetResource(
+    int resource_id,
+    const std::string& extension_id) {
+  const ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
+  scoped_refptr<base::RefCountedMemory> bytes =
+      rb.LoadDataResourceBytes(resource_id);
+  auto* replacements =
+      ExtensionsBrowserClient::Get()->GetComponentExtensionResourceManager()
+          ? ExtensionsBrowserClient::Get()
+                ->GetComponentExtensionResourceManager()
+                ->GetTemplateReplacementsForExtension(extension_id)
+          : nullptr;
+
+  if (!bytes->size() || !replacements) {
+    return bytes;
+  }
+
+  base::StringPiece input(reinterpret_cast<const char*>(bytes->front()),
+                          bytes->size());
+
+  std::string temp_str = ui::ReplaceTemplateExpressions(input, *replacements);
+  return base::RefCountedString::TakeString(&temp_str);
 }
 
 // A request for an extension resource in a Chrome .pak file. These are used
@@ -76,8 +101,7 @@ class URLRequestResourceBundleJob : public net::URLRequestSimpleJob {
                         std::string* charset,
                         scoped_refptr<base::RefCountedMemory>* data,
                         net::CompletionOnceCallback callback) const override {
-    const ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-    *data = rb.LoadDataResourceBytes(resource_id_);
+    *data = GetResource(resource_id_, request()->url().host());
 
     // Add the Content-Length header now that we know the resource length.
     response_info_.headers->AddHeader(
@@ -150,11 +174,9 @@ class ResourceBundleFileLoader : public network::mojom::URLLoader {
   }
 
   // mojom::URLLoader implementation:
-  void FollowRedirect(
-      const base::Optional<std::vector<std::string>>&
-          to_be_removed_request_headers,
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
-      const base::Optional<GURL>& new_url) override {
+  void FollowRedirect(const std::vector<std::string>& removed_headers,
+                      const net::HttpRequestHeaders& modified_headers,
+                      const base::Optional<GURL>& new_url) override {
     NOTREACHED() << "No redirects for local file loads.";
   }
   // Current implementation reads all resource data at start of resource
@@ -185,9 +207,7 @@ class ResourceBundleFileLoader : public network::mojom::URLLoader {
         &ResourceBundleFileLoader::OnBindingError, base::Unretained(this)));
     client_.set_connection_error_handler(base::BindOnce(
         &ResourceBundleFileLoader::OnConnectionError, base::Unretained(this)));
-    const ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-    scoped_refptr<base::RefCountedMemory> data =
-        rb.LoadDataResourceBytes(resource_id);
+    auto data = GetResource(resource_id, request.url.host());
 
     std::string* read_mime_type = new std::string;
     base::PostTaskWithTraitsAndReplyWithResult(

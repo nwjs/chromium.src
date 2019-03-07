@@ -59,7 +59,7 @@ const uint64_t kSignatureHeaderDate = 1520834000;  // 2018-03-12T05:53:20Z
 const uint64_t kSignatureHeaderExpires = 1520837600;  // 2018-03-12T06:53:20Z
 
 constexpr char kExpectedSXGEnabledAcceptHeaderForPrefetch[] =
-    "application/signed-exchange;v=b2;q=0.9,*/*;q=0.8";
+    "application/signed-exchange;v=b3;q=0.9,*/*;q=0.8";
 
 class RedirectObserver : public WebContentsObserver {
  public:
@@ -284,6 +284,31 @@ IN_PROC_BROWSER_TEST_P(SignedExchangeRequestHandlerBrowserTest, Simple) {
 }
 
 IN_PROC_BROWSER_TEST_P(SignedExchangeRequestHandlerBrowserTest,
+                       MissingNosniff) {
+  InstallUrlInterceptor(GURL("https://test.example.org/test/"),
+                        "content/test/data/sxg/fallback.html");
+  InstallMockCert();
+
+  embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url = embedded_test_server()->GetURL(
+      "/sxg/test.example.org_test_missing_nosniff.sxg");
+  if (PrefetchIsEnabled())
+    TriggerPrefetch(url, false);
+
+  base::string16 title = base::ASCIIToUTF16("Fallback URL response");
+  TitleWatcher title_watcher(shell()->web_contents(), title);
+  RedirectObserver redirect_observer(shell()->web_contents());
+  NavigateToURL(shell(), url);
+  EXPECT_EQ(title, title_watcher.WaitAndGetTitle());
+  EXPECT_EQ(303, redirect_observer.response_code());
+  histogram_tester_.ExpectUniqueSample(
+      "SignedExchange.LoadResult",
+      SignedExchangeLoadResult::kSXGServedWithoutNosniff,
+      PrefetchIsEnabled() ? 2 : 1);
+}
+
+IN_PROC_BROWSER_TEST_P(SignedExchangeRequestHandlerBrowserTest,
                        InvalidContentType) {
   InstallUrlInterceptor(
       GURL("https://cert.example.org/cert.msg"),
@@ -483,6 +508,27 @@ IN_PROC_BROWSER_TEST_F(SignedExchangeRequestHandlerDownloadBrowserTest,
       observer->observed_url());
   EXPECT_EQ("attachment; filename=test.sxg",
             observer->observed_content_disposition());
+}
+
+IN_PROC_BROWSER_TEST_F(SignedExchangeRequestHandlerDownloadBrowserTest,
+                       DataURLDownload) {
+  const GURL sxg_url = GURL("data:application/signed-exchange,");
+  std::unique_ptr<DownloadObserver> observer =
+      std::make_unique<DownloadObserver>(BrowserContext::GetDownloadManager(
+          shell()->web_contents()->GetBrowserContext()));
+
+  embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
+  ASSERT_TRUE(embedded_test_server()->Start());
+  NavigateToURL(shell(), embedded_test_server()->GetURL("/empty.html"));
+
+  const std::string load_sxg = base::StringPrintf(
+      "const iframe = document.createElement('iframe');"
+      "iframe.src = '%s';"
+      "document.body.appendChild(iframe);",
+      sxg_url.spec().c_str());
+  EXPECT_TRUE(ExecuteScript(shell()->web_contents(), load_sxg));
+  observer->WaitUntilDownloadCreated();
+  EXPECT_EQ(sxg_url, observer->observed_url());
 }
 
 class SignedExchangeRequestHandlerRealCertVerifierBrowserTest

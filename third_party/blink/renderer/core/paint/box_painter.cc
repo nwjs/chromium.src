@@ -95,6 +95,12 @@ void BoxPainter::PaintBoxDecorationBackground(const PaintInfo& paint_info,
 }
 
 bool BoxPainter::BackgroundIsKnownToBeOpaque(const PaintInfo& paint_info) {
+  // If the box has multiple fragments, its VisualRect is the bounding box of
+  // all fragments' visual rects, which is likely to cover areas that are not
+  // covered by painted background.
+  if (layout_box_.FirstFragment().NextFragment())
+    return false;
+
   LayoutRect bounds = BoxModelObjectPainter::IsPaintingScrollingBackground(
                           &layout_box_, paint_info)
                           ? layout_box_.LayoutOverflowRect()
@@ -134,7 +140,7 @@ void BoxPainter::PaintBoxDecorationBackgroundWithRect(
   BoxDecorationData box_decoration_data(layout_box_);
   GraphicsContextStateSaver state_saver(paint_info.context, false);
 
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() &&
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
       LayoutRect(EnclosingIntRect(paint_rect)) == paint_rect &&
       BackgroundIsKnownToBeOpaque(paint_info))
     recorder.SetKnownToBeOpaque();

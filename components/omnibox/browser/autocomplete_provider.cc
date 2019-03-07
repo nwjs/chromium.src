@@ -8,15 +8,17 @@
 #include <set>
 #include <string>
 
+#include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/strings/string_split.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/memory_usage_estimator.h"
 #include "components/omnibox/browser/autocomplete_i18n.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
+#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/url_formatter/url_fixer.h"
 #include "url/gurl.h"
 
@@ -110,12 +112,20 @@ ACMatchClassifications AutocompleteProvider::ClassifyAllMatchesInString(
 
   base::string16 text_lowercase(base::i18n::ToLower(text));
 
-  const ACMatchClassification::Style& class_of_find_text =
-      text_is_search_query ? ACMatchClassification::NONE
-                           : ACMatchClassification::MATCH;
-  const ACMatchClassification::Style& class_of_additional_text =
-      text_is_search_query ? ACMatchClassification::MATCH
-                           : ACMatchClassification::NONE;
+  ACMatchClassification::Style class_of_find_text =
+      ACMatchClassification::MATCH;
+  ACMatchClassification::Style class_of_additional_text =
+      ACMatchClassification::NONE;
+
+  // For search queries, we give the "additional text" the bolded "match"
+  // classification instead of the user-entered "find text". But if the
+  // "Bold user-text for search suggestions" experiment is on, we bold the
+  // user-entered text, just like on navigation suggestions.
+  if (text_is_search_query &&
+      !base::FeatureList::IsEnabled(
+          omnibox::kUIExperimentBoldUserTextOnSearchSuggestions)) {
+    std::swap(class_of_find_text, class_of_additional_text);
+  }
 
   ACMatchClassifications match_class;
   size_t current_position = 0;

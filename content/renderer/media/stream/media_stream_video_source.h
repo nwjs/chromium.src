@@ -15,10 +15,11 @@
 #include "base/sequence_checker.h"
 #include "content/common/content_export.h"
 #include "content/common/media/video_capture.h"
-#include "content/renderer/media/stream/media_stream_source.h"
+#include "content/renderer/media/stream/media_stream_types.h"
 #include "content/renderer/media/stream/secure_display_link_tracker.h"
 #include "media/base/video_frame.h"
 #include "media/capture/video_capture_types.h"
+#include "third_party/blink/public/platform/modules/mediastream/platform_media_stream_source.h"
 #include "third_party/blink/public/platform/web_media_constraints.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
 #include "third_party/blink/public/platform/web_media_stream_track.h"
@@ -35,12 +36,13 @@ class VideoTrackAdapterSettings;
 
 // MediaStreamVideoSource is an interface used for sending video frames to a
 // MediaStreamVideoTrack.
-// http://dev.w3.org/2011/webrtc/editor/getusermedia.html
+// https://dev.w3.org/2011/webrtc/editor/getusermedia.html
 // The purpose of this base class is to be able to implement different
-// MediaStreaVideoSources such as local video capture, video sources received
+// MediaStreamVideoSources such as local video capture, video sources received
 // on a PeerConnection or a source created in NaCl.
 // All methods calls will be done from the main render thread.
-class CONTENT_EXPORT MediaStreamVideoSource : public MediaStreamSource {
+class CONTENT_EXPORT MediaStreamVideoSource
+    : public blink::WebPlatformMediaStreamSource {
  public:
   enum {
     // Default resolution. If no constraints are specified and the delegate
@@ -68,6 +70,8 @@ class CONTENT_EXPORT MediaStreamVideoSource : public MediaStreamSource {
   void AddTrack(MediaStreamVideoTrack* track,
                 const VideoTrackAdapterSettings& track_adapter_settings,
                 const VideoCaptureDeliverFrameCB& frame_callback,
+                const VideoTrackSettingsCallback& settings_callback,
+                const VideoTrackFormatCallback& format_callback,
                 const ConstraintsCallback& callback);
   void RemoveTrack(MediaStreamVideoTrack* track, base::OnceClosure callback);
 
@@ -152,7 +156,7 @@ class CONTENT_EXPORT MediaStreamVideoSource : public MediaStreamSource {
 
  protected:
   // MediaStreamSource implementation.
-  void DoChangeSource(const MediaStreamDevice& new_device) override;
+  void DoChangeSource(const blink::MediaStreamDevice& new_device) override;
   void DoStopSource() override;
 
   // Sets ready state and notifies the ready state to all registered tracks.
@@ -167,7 +171,7 @@ class CONTENT_EXPORT MediaStreamVideoSource : public MediaStreamSource {
   // captured frames.
   virtual void StartSourceImpl(
       const VideoCaptureDeliverFrameCB& frame_callback) = 0;
-  void OnStartDone(MediaStreamRequestResult result);
+  void OnStartDone(blink::MediaStreamRequestResult result);
 
   // A subclass that supports restart must override this method such that it
   // immediately stop producing video frames after this method is called.
@@ -229,7 +233,7 @@ class CONTENT_EXPORT MediaStreamVideoSource : public MediaStreamSource {
   virtual void OnCapturingLinkSecured(bool is_secure) {}
 
   // Optionally overridden by subclasses to implement changing source.
-  virtual void ChangeSourceImpl(const MediaStreamDevice& new_device) {}
+  virtual void ChangeSourceImpl(const blink::MediaStreamDevice& new_device) {}
 
   enum State {
     NEW,
@@ -269,6 +273,8 @@ class CONTENT_EXPORT MediaStreamVideoSource : public MediaStreamSource {
     PendingTrackInfo(
         MediaStreamVideoTrack* track,
         const VideoCaptureDeliverFrameCB& frame_callback,
+        const VideoTrackSettingsCallback& settings_callback,
+        const VideoTrackFormatCallback& format_callback,
         std::unique_ptr<VideoTrackAdapterSettings> adapter_settings,
         const ConstraintsCallback& callback);
     PendingTrackInfo(PendingTrackInfo&& other);
@@ -277,6 +283,8 @@ class CONTENT_EXPORT MediaStreamVideoSource : public MediaStreamSource {
 
     MediaStreamVideoTrack* track;
     VideoCaptureDeliverFrameCB frame_callback;
+    VideoTrackSettingsCallback settings_callback;
+    VideoTrackFormatCallback format_callback;
     // TODO(guidou): Make |adapter_settings| a regular field instead of a
     // unique_ptr.
     std::unique_ptr<VideoTrackAdapterSettings> adapter_settings;

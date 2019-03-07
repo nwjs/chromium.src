@@ -59,10 +59,10 @@ class CORE_EXPORT HTMLInputElement
 
   HTMLInputElement(Document&, const CreateElementFlags);
   ~HTMLInputElement() override;
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   // Returns attributes that should be checked against Trusted Types
-  const HashSet<AtomicString>& GetCheckedAttributeNames() const override;
+  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
 
   bool HasPendingActivity() const final;
 
@@ -332,7 +332,7 @@ class CORE_EXPORT HTMLInputElement
   bool MayTriggerVirtualKeyboard() const final;
   bool IsEnumeratable() const final;
   bool IsInteractiveContent() const final;
-  bool SupportLabels() const final;
+  bool IsLabelable() const final;
   bool MatchesDefaultPseudoClass() const override;
 
   bool IsTextControl() const final { return IsTextField(); }

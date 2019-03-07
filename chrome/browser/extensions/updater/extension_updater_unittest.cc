@@ -18,7 +18,6 @@
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
-#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/sequenced_task_runner.h"
@@ -67,12 +66,13 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_urls.h"
 #include "extensions/common/manifest_constants.h"
-#include "google_apis/gaia/fake_oauth2_token_service.h"
+#include "extensions/common/verifier_formats.h"
 #include "net/base/backoff_entry.h"
 #include "net/base/escape.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
 #include "services/data_decoder/public/cpp/test_data_decoder_service.h"
+#include "services/identity/public/cpp/identity_test_environment.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -225,7 +225,7 @@ const int kNotificationsObserved[] = {
 class NotificationsObserver : public content::NotificationObserver {
  public:
   NotificationsObserver() {
-    for (size_t i = 0; i < arraysize(kNotificationsObserved); ++i) {
+    for (size_t i = 0; i < base::size(kNotificationsObserved); ++i) {
       count_[i] = 0;
       registrar_.Add(this,
                      kNotificationsObserved[i],
@@ -234,7 +234,7 @@ class NotificationsObserver : public content::NotificationObserver {
   }
 
   ~NotificationsObserver() override {
-    for (size_t i = 0; i < arraysize(kNotificationsObserved); ++i) {
+    for (size_t i = 0; i < base::size(kNotificationsObserved); ++i) {
       registrar_.Remove(this,
                         kNotificationsObserved[i],
                         content::NotificationService::AllSources());
@@ -262,7 +262,7 @@ class NotificationsObserver : public content::NotificationObserver {
                const content::NotificationDetails& details) override {
     if (!quit_closure_.is_null())
       quit_closure_.Run();
-    for (size_t i = 0; i < arraysize(kNotificationsObserved); ++i) {
+    for (size_t i = 0; i < base::size(kNotificationsObserved); ++i) {
       if (kNotificationsObserved[i] == type) {
         count_[i]++;
         if (type == extensions::NOTIFICATION_EXTENSION_UPDATE_FOUND) {
@@ -276,7 +276,7 @@ class NotificationsObserver : public content::NotificationObserver {
   }
 
   content::NotificationRegistrar registrar_;
-  size_t count_[arraysize(kNotificationsObserved)];
+  size_t count_[base::size(kNotificationsObserved)];
   std::set<std::string> updated_;
   base::Closure quit_closure_;
 
@@ -312,7 +312,6 @@ class MockService : public TestExtensionService {
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
       : prefs_(prefs),
         pending_extension_manager_(prefs->profile()),
-        fake_account_id_("bobloblaw@lawblog.example.com"),
         downloader_delegate_override_(NULL),
         test_shared_url_loader_factory_(url_loader_factory) {}
 
@@ -334,11 +333,11 @@ class MockService : public TestExtensionService {
 
   PrefService* pref_service() { return prefs_->pref_service(); }
 
-  FakeOAuth2TokenService* fake_token_service() {
-    return fake_token_service_.get();
+  identity::IdentityTestEnvironment* identity_test_env() {
+    return identity_test_env_.get();
   }
 
-  const std::string& fake_account_id() { return fake_account_id_; }
+  const std::string& account_id() { return account_info_.account_id; }
 
   // Creates test extensions and inserts them into list. The name and
   // version are all based on their index. If |update_url| is non-null, it
@@ -390,26 +389,24 @@ class MockService : public TestExtensionService {
             url_loader_factory(),
             downloader_delegate_override_ ? downloader_delegate_override_
                                           : delegate,
-            /*connector=*/nullptr);
+            /*connector=*/nullptr, GetTestVerifierFormat());
     return downloader;
   }
 
   std::unique_ptr<ExtensionDownloader> CreateExtensionDownloaderWithIdentity(
       ExtensionDownloaderDelegate* delegate) {
-    fake_token_service_.reset(new FakeOAuth2TokenService());
-    fake_token_service_->AddAccount(fake_account_id_);
+    identity_test_env_ = std::make_unique<identity::IdentityTestEnvironment>();
+    account_info_ = identity_test_env_->MakePrimaryAccountAvailable(
+        "bobloblaw@lawblog.example.com");
 
     std::unique_ptr<ExtensionDownloader> downloader(
         CreateExtensionDownloader(delegate));
-    downloader->SetWebstoreAuthenticationCapabilities(
-        base::BindRepeating(&MockService::fake_account_id,
-                            base::Unretained(this)),
-        fake_token_service_.get());
+    downloader->SetIdentityManager(identity_test_env_->identity_manager());
     return downloader;
   }
 
-  std::string fake_account_id_;
-  std::unique_ptr<FakeOAuth2TokenService> fake_token_service_;
+  AccountInfo account_info_;
+  std::unique_ptr<identity::IdentityTestEnvironment> identity_test_env_;
 
   ExtensionDownloaderDelegate* downloader_delegate_override_;
 
@@ -671,7 +668,8 @@ class ExtensionUpdaterTest : public testing::Test {
         testing_local_state_(TestingBrowserProcess::GetGlobal()) {}
 
   void SetUp() override {
-    prefs_.reset(new TestExtensionPrefs(base::ThreadTaskRunnerHandle::Get()));
+    prefs_ = std::make_unique<TestExtensionPrefs>(
+        base::ThreadTaskRunnerHandle::Get());
   }
 
   void TearDown() override {
@@ -687,11 +685,7 @@ class ExtensionUpdaterTest : public testing::Test {
     base::RunLoop().RunUntilIdle();
   }
 
-  void SimulateTimerFired(ExtensionUpdater* updater) {
-    EXPECT_TRUE(updater->timer_.IsRunning());
-    updater->timer_.Stop();
-    updater->TimerFired();
-  }
+  void SimulateTimerFired(ExtensionUpdater* updater) { updater->NextCheck(); }
 
   // Adds a Result with the given data to results.
   void AddParseResult(const std::string& id,
@@ -839,7 +833,8 @@ class ExtensionUpdaterTest : public testing::Test {
     MockService service(prefs_.get(), test_shared_url_loader_factory_);
     MockExtensionDownloaderDelegate delegate;
     ExtensionDownloader downloader(&delegate, service.url_loader_factory(),
-                                   data_decoder_service_connector());
+                                   data_decoder_service_connector(),
+                                   GetTestVerifierFormat());
     ExtensionList extensions;
 
     service.CreateTestExtensions(1, num_extensions, &extensions, &update_url,
@@ -958,7 +953,8 @@ class ExtensionUpdaterTest : public testing::Test {
   void TestDetermineUpdates() {
     MockExtensionDownloaderDelegate delegate;
     ExtensionDownloader downloader(&delegate, test_shared_url_loader_factory_,
-                                   data_decoder_service_connector());
+                                   data_decoder_service_connector(),
+                                   GetTestVerifierFormat());
 
     // Check passing an empty list of parse results to DetermineUpdates
     std::unique_ptr<ManifestFetchData> fetch_data(
@@ -1009,7 +1005,8 @@ class ExtensionUpdaterTest : public testing::Test {
   void TestDetermineUpdatesError() {
     MockExtensionDownloaderDelegate delegate;
     ExtensionDownloader downloader(&delegate, test_shared_url_loader_factory_,
-                                   data_decoder_service_connector());
+                                   data_decoder_service_connector(),
+                                   GetTestVerifierFormat());
 
     std::unique_ptr<ManifestFetchData> fetch_data(
         CreateManifestFetchData(GURL("http://localhost/foo")));
@@ -1094,7 +1091,8 @@ class ExtensionUpdaterTest : public testing::Test {
 
     MockExtensionDownloaderDelegate delegate;
     ExtensionDownloader downloader(&delegate, test_shared_url_loader_factory_,
-                                   data_decoder_service_connector());
+                                   data_decoder_service_connector(),
+                                   GetTestVerifierFormat());
 
     std::unique_ptr<ManifestFetchData> fetch_data(
         CreateManifestFetchData(GURL("http://localhost/foo")));
@@ -1130,7 +1128,8 @@ class ExtensionUpdaterTest : public testing::Test {
     base::HistogramTester histogram_tester;
     MockExtensionDownloaderDelegate delegate;
     ExtensionDownloader downloader(&delegate, test_shared_url_loader_factory_,
-                                   data_decoder_service_connector());
+                                   data_decoder_service_connector(),
+                                   GetTestVerifierFormat());
 
     const std::string id1 = crx_file::id_util::GenerateId("1");
     const std::string id2 = crx_file::id_util::GenerateId("2");
@@ -1211,7 +1210,8 @@ class ExtensionUpdaterTest : public testing::Test {
     MockService service(prefs_.get(), test_shared_url_loader_factory_);
     MockExtensionDownloaderDelegate delegate;
     ExtensionDownloader downloader(&delegate, service.url_loader_factory(),
-                                   data_decoder_service_connector());
+                                   data_decoder_service_connector(),
+                                   GetTestVerifierFormat());
     downloader.manifests_queue_.set_backoff_policy(&kNoBackoffPolicy);
 
     GURL kUpdateUrl("http://localhost/manifest1");
@@ -1358,7 +1358,8 @@ class ExtensionUpdaterTest : public testing::Test {
     MockService service(prefs_.get(), test_shared_url_loader_factory_);
     MockExtensionDownloaderDelegate delegate;
     ExtensionDownloader downloader(&delegate, service.url_loader_factory(),
-                                   data_decoder_service_connector());
+                                   data_decoder_service_connector(),
+                                   GetTestVerifierFormat());
     downloader.manifests_queue_.set_backoff_policy(&kNoBackoffPolicy);
 
     GURL kUpdateUrl("http://localhost/manifest1");
@@ -1431,9 +1432,10 @@ class ExtensionUpdaterTest : public testing::Test {
   }
 
   void TestSingleExtensionDownloading(bool pending, bool retry, bool fail) {
-    std::unique_ptr<ServiceForDownloadTests> service(
-        new ServiceForDownloadTests(prefs_.get(),
-                                    test_shared_url_loader_factory_));
+    ExtensionUpdater::ScopedSkipScheduledCheckForTest skip_scheduled_checks;
+    std::unique_ptr<ServiceForDownloadTests> service =
+        std::make_unique<ServiceForDownloadTests>(
+            prefs_.get(), test_shared_url_loader_factory_);
     ExtensionUpdater updater(service.get(),
                              service->extension_prefs(),
                              service->pref_service(),
@@ -1457,9 +1459,9 @@ class ExtensionUpdaterTest : public testing::Test {
     base::Version version("0.0.1");
     std::set<int> requests;
     requests.insert(0);
-    std::unique_ptr<ExtensionDownloader::ExtensionFetch> fetch(
-        new ExtensionDownloader::ExtensionFetch(id, test_url, hash,
-                                                version.GetString(), requests));
+    std::unique_ptr<ExtensionDownloader::ExtensionFetch> fetch =
+        std::make_unique<ExtensionDownloader::ExtensionFetch>(
+            id, test_url, hash, version.GetString(), requests);
     updater.downloader_->FetchUpdatedExtension(std::move(fetch));
 
     if (pending) {
@@ -1547,9 +1549,9 @@ class ExtensionUpdaterTest : public testing::Test {
       bool succeed_with_oauth2,
       int valid_authuser,
       int max_authuser) {
-    std::unique_ptr<ServiceForDownloadTests> service(
-        new ServiceForDownloadTests(prefs_.get(),
-                                    test_shared_url_loader_factory_));
+    std::unique_ptr<ServiceForDownloadTests> service =
+        std::make_unique<ServiceForDownloadTests>(
+            prefs_.get(), test_shared_url_loader_factory_);
     const ExtensionDownloader::Factory& downloader_factory =
         enable_oauth2 ? service->GetAuthenticatedDownloaderFactory()
             : service->GetDownloaderFactory();
@@ -1578,9 +1580,9 @@ class ExtensionUpdaterTest : public testing::Test {
     base::Version version("0.0.1");
     std::set<int> requests;
     requests.insert(0);
-    std::unique_ptr<ExtensionDownloader::ExtensionFetch> fetch(
-        new ExtensionDownloader::ExtensionFetch(id, test_url, hash,
-                                                version.GetString(), requests));
+    std::unique_ptr<ExtensionDownloader::ExtensionFetch> fetch =
+        std::make_unique<ExtensionDownloader::ExtensionFetch>(
+            id, test_url, hash, version.GetString(), requests);
     updater.downloader_->FetchUpdatedExtension(std::move(fetch));
 
     EXPECT_EQ(
@@ -1598,11 +1600,19 @@ class ExtensionUpdaterTest : public testing::Test {
                                          net::HTTP_FORBIDDEN);
     delegate.Wait();
 
-    if (service->fake_token_service()) {
-      service->fake_token_service()->IssueAllTokensForAccount(
-          service->fake_account_id(),
-          OAuth2AccessTokenConsumer::TokenResponse(
-              kFakeOAuth2Token, base::Time::Now(), std::string()));
+    // Only call out to WaitForAccessTokenRequest(...) method below if
+    // HTTPS is in use in a google domain and oauth is explicitly enabled.
+    // Otherwise, test will await an access token request that have not
+    // (and will not) happen.
+    //
+    // Note that in case the condition below isn't satisfied, the download
+    // proceeds normally, but the request does not carry an 'Authorization'
+    // HTTP header.
+    if (enable_oauth2 && test_url.DomainIs("google.com") &&
+        test_url.SchemeIsCryptographic()) {
+      service->identity_test_env()
+          ->WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+              service->account_id(), kFakeOAuth2Token, base::Time::Now());
     }
 
     bool using_oauth2 = false;
@@ -1788,12 +1798,12 @@ class ExtensionUpdaterTest : public testing::Test {
     std::set<int> requests;
     requests.insert(0);
     // Start two fetches
-    std::unique_ptr<ExtensionDownloader::ExtensionFetch> fetch1(
-        new ExtensionDownloader::ExtensionFetch(id1, url1, hash1, version1,
-                                                requests));
-    std::unique_ptr<ExtensionDownloader::ExtensionFetch> fetch2(
-        new ExtensionDownloader::ExtensionFetch(id2, url2, hash2, version2,
-                                                requests));
+    std::unique_ptr<ExtensionDownloader::ExtensionFetch> fetch1 =
+        std::make_unique<ExtensionDownloader::ExtensionFetch>(
+            id1, url1, hash1, version1, requests);
+    std::unique_ptr<ExtensionDownloader::ExtensionFetch> fetch2 =
+        std::make_unique<ExtensionDownloader::ExtensionFetch>(
+            id2, url2, hash2, version2, requests);
     updater.downloader_->FetchUpdatedExtension(std::move(fetch1));
     updater.downloader_->FetchUpdatedExtension(std::move(fetch2));
 
@@ -1884,8 +1894,8 @@ class ExtensionUpdaterTest : public testing::Test {
     // rollcall and active pings.
     int ping_cases[] = { ManifestFetchData::kNeverPinged, 0, 1, 5 };
 
-    for (size_t i = 0; i < arraysize(ping_cases); i++) {
-      for (size_t j = 0; j < arraysize(ping_cases); j++) {
+    for (size_t i = 0; i < base::size(ping_cases); i++) {
+      for (size_t j = 0; j < base::size(ping_cases); j++) {
         for (size_t k = 0; k < 2; k++) {
           int rollcall_ping_days = ping_cases[i];
           int active_ping_days = ping_cases[j];
@@ -1921,7 +1931,8 @@ class ExtensionUpdaterTest : public testing::Test {
                            bool expect_brand_code) {
     // Set up 2 mock extensions, one with a google.com update url and one
     // without.
-    prefs_.reset(new TestExtensionPrefs(base::ThreadTaskRunnerHandle::Get()));
+    prefs_ = std::make_unique<TestExtensionPrefs>(
+        base::ThreadTaskRunnerHandle::Get());
     ServiceForManifestTests service(prefs_.get(),
                                     test_shared_url_loader_factory_);
     ExtensionList tmp;
@@ -2488,9 +2499,10 @@ TEST_F(ExtensionUpdaterTest, TestUpdatingDisabledExtensions) {
 TEST_F(ExtensionUpdaterTest, TestManifestFetchesBuilderAddExtension) {
   MockService service(prefs_.get(), test_shared_url_loader_factory_);
   MockExtensionDownloaderDelegate delegate;
-  std::unique_ptr<ExtensionDownloader> downloader(
-      new ExtensionDownloader(&delegate, service.url_loader_factory(),
-                              data_decoder_service_connector()));
+  std::unique_ptr<ExtensionDownloader> downloader =
+      std::make_unique<ExtensionDownloader>(
+          &delegate, service.url_loader_factory(),
+          data_decoder_service_connector(), GetTestVerifierFormat());
   EXPECT_EQ(0u, ManifestFetchersCount(downloader.get()));
 
   // First, verify that adding valid extensions does invoke the callbacks on
@@ -2523,9 +2535,9 @@ TEST_F(ExtensionUpdaterTest, TestManifestFetchesBuilderAddExtension) {
   // converted from user scripts are rejected.
 
   // Reset the ExtensionDownloader so that it drops the current fetcher.
-  downloader.reset(new ExtensionDownloader(&delegate,
-                                           service.url_loader_factory(),
-                                           data_decoder_service_connector()));
+  downloader = std::make_unique<ExtensionDownloader>(
+      &delegate, service.url_loader_factory(), data_decoder_service_connector(),
+      GetTestVerifierFormat());
   EXPECT_EQ(0u, ManifestFetchersCount(downloader.get()));
 
   // Extensions with empty update URLs should have a default one
@@ -2548,7 +2560,8 @@ TEST_F(ExtensionUpdaterTest, TestStartUpdateCheckMemory) {
   MockService service(prefs_.get(), test_shared_url_loader_factory_);
   MockExtensionDownloaderDelegate delegate;
   ExtensionDownloader downloader(&delegate, service.url_loader_factory(),
-                                 data_decoder_service_connector());
+                                 data_decoder_service_connector(),
+                                 GetTestVerifierFormat());
 
   StartUpdateCheck(&downloader,
                    CreateManifestFetchData(GURL("http://localhost/foo")));
@@ -2573,6 +2586,8 @@ TEST_F(ExtensionUpdaterTest, TestCheckSoon) {
                            service.GetDownloaderFactory());
   EXPECT_FALSE(updater.WillCheckSoon());
   updater.Start();
+  EXPECT_TRUE(updater.WillCheckSoon());
+  RunUntilIdle();
   EXPECT_FALSE(updater.WillCheckSoon());
   updater.CheckSoon();
   EXPECT_TRUE(updater.WillCheckSoon());
@@ -2630,23 +2645,6 @@ TEST_F(ExtensionUpdaterTest, TestUninstallWhileUpdateCheck) {
   // runs the extension update process has a chance to exit gracefully; without
   // it, the test would crash.
   RunUntilIdle();
-}
-
-// Tests that we don't get a DCHECK failure when the next check time saved in
-// prefs happens to be within one second of startup.
-TEST_F(ExtensionUpdaterTest, TestPersistedNextCheckTime) {
-  base::Time next_check_time =
-      base::Time::Now() + base::TimeDelta::FromMilliseconds(500);
-  prefs_->pref_service()->SetInt64(pref_names::kNextUpdateCheck,
-                                   next_check_time.ToInternalValue());
-  ServiceForManifestTests service(prefs_.get(),
-                                  test_shared_url_loader_factory_);
-  ExtensionUpdater updater(&service, service.extension_prefs(),
-                           service.pref_service(), service.profile(),
-                           kDefaultUpdateFrequencySeconds, nullptr,
-                           service.GetDownloaderFactory());
-  updater.Start();
-  updater.Stop();
 }
 
 TEST_F(ExtensionUpdaterTest, TestManifestFetchDataAddExtension) {

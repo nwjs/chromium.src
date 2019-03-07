@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
-// Next MinVersion: 38
+// Next MinVersion: 41
 
 module arc.mojom;
 
@@ -26,6 +26,21 @@ struct AppInfo {
   [MinVersion=35] bool suspended;
 };
 
+// Describes the data required to install a web app.
+struct WebAppInfo {
+  string title;
+
+  // The URL which should be opened when the web app starts.
+  string start_url;
+
+  // The scope of URLs which are captured by the web app.
+  string scope_url;
+
+  // The color used for the title bar of the app. Passed as a 32 bit ARGB value.
+  // INT_MAX+1 represents an invalid color.
+  int64 theme_color;
+};
+
 // Describes ARC package.
 struct ArcPackageInfo {
   string package_name;
@@ -36,6 +51,10 @@ struct ArcPackageInfo {
   [MinVersion=11] bool system;  // true if package is system package.
   // true if package registers VPNService intent.
   [MinVersion=25] bool vpn_provider;
+
+  // If non-null, signifies this package represents a web app that should be
+  // installed on the browser side.
+  [MinVersion=38] WebAppInfo? web_app_info;
 };
 
 // Describes ARC app shortcut.
@@ -194,6 +213,30 @@ struct AppShortcutItem {
   [MinVersion=32] int32 rank;
 };
 
+[Extensible]
+enum PaiFlowState {
+    // PAI flow succeeded.
+    SUCCEEDED = 0,
+    // PAI flow state was not returned.
+    UNKNOWN = 1,
+    // PAI flow failed due to no account was provided.
+    NO_ACCOUNT = 2,
+    // PAI flow failed due Play Store returned no app to install.
+    NO_APPS = 3,
+    // PAI flow was interrupted.
+    INTERRUPTED = 4,
+    // PAI flow failed due to no response from Play Store.
+    PLAY_STORE_NOT_RESPONDED = 5,
+    // PAI flow failed due to no access to Play Store.
+    PLAY_STORE_NO_ACCESS = 6,
+    // PAI flow failed due to no ArcGmsProxy found.
+    PROXY_NOT_FOUND = 7,
+    // PAI flow failed due to no ArcGmsProxy access.
+    PROXY_NO_ACCESS = 8,
+    // PAI flow timeout occurred.
+    TIMEOUT = 9,
+};
+
 // Next method ID: 18
 interface AppHost {
   // Sends newly added ARC app to Chrome. This message is sent when ARC receives
@@ -276,7 +319,7 @@ interface AppHost {
 };
 
 // TODO(lhchavez): Migrate all request/response messages to Mojo.
-// Next method ID: 30
+// Next method ID: 33
 interface AppInstance {
   // DEPRECATED: Please use Init@21 instead.
   InitDeprecated@0(AppHost host_ptr);
@@ -349,6 +392,15 @@ interface AppInstance {
       string icon_resource_id, ScaleFactor scale_factor) =>
           (array<uint8> icon_png_data);
 
+  // Sends a request for the ARC icon for a given |package_name| and
+  // |pixel_size|. If |normalize| is true, the icon will be normalized per
+  // Android's icon guidelines, otherwise, the raw unnormalized icon is
+  // returned. Returns an empty array if an error occurred.
+  [MinVersion=38] RequestPackageIcon@30(string package_name,
+                                        int32 pixel_size,
+                                        bool normalize) =>
+                                            (array<uint8> icon_png_data);
+
   // Removes cached shortcut icon with the given resource id.
   [MinVersion=9] RemoveCachedIcon@14(string icon_resource_id);
 
@@ -372,7 +424,10 @@ interface AppInstance {
   [MinVersion=6] SetNotificationsEnabled@10(string package_name, bool enabled);
 
   // Sends a request to ARC to start PAI flow.
-  [MinVersion=21] StartPaiFlow@17();
+  [MinVersion=21] StartPaiFlowDeprecated@17();
+
+  // Sends a request to ARC to start PAI flow and receives result status.
+  [MinVersion=40] StartPaiFlow@32() => (PaiFlowState state);
 
   // Sends a request to ARC to start FastAppReinstall flow.
   [MinVersion=33] StartFastAppReinstallFlow@25(array<string> arc_package_names);

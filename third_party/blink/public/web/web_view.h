@@ -33,7 +33,6 @@
 
 #include "base/time/time.h"
 #include "third_party/blink/public/common/manifest/web_display_mode.h"
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-shared.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
 #include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -49,6 +48,7 @@ class WebFrame;
 class WebHitTestResult;
 class WebLocalFrame;
 class WebPageImportanceSignals;
+class WebPagePopup;
 class WebPrerendererClient;
 class WebRemoteFrame;
 class WebSettings;
@@ -82,12 +82,24 @@ class WebView {
   // as appropriate. It is legal to modify settings before completing
   // initialization.
   //
-  // client may be null, while PageVisibilityState defines the initial
-  // visibility of the page.
+  // clients may be null, but should both be null or not together.
+  // |is_hidden| defines the initial visibility of the page.
+  // |compositing_enabled| dictates whether accelerated compositing should be
+  // enabled for the page. It must be false if no clients are provided, or if a
+  // LayerTreeView will not be set for the WebWidget.
+  // TODO(danakj): This field should go away as WebWidgets always composite
+  // their output.
   BLINK_EXPORT static WebView* Create(WebViewClient*,
-                                      WebWidgetClient*,
-                                      mojom::PageVisibilityState,
+                                      bool is_hidden,
+                                      bool compositing_enabled,
                                       WebView* opener);
+
+  // Called on WebView when a WebFrameWidget is created for a local main frame,
+  // and can be set back to null when the WebWidgetClient is removed due to the
+  // main frame being detached.
+  // TODO(danakj): Move this to WebWidget and merge with SetLayerTreeView, have
+  // it be null/not set when the main frame is remote.
+  virtual void SetWebWidgetClient(WebWidgetClient*) = 0;
 
   // Initializes the various client interfaces.
   virtual void SetPrerendererClient(WebPrerendererClient*) = 0;
@@ -253,6 +265,9 @@ class WebView {
   // Requests a page-scale animation based on the specified point/rect.
   virtual void AnimateDoubleTapZoom(const gfx::Point&, const WebRect&) = 0;
 
+  // Requests a page-scale animation based on the specified rect.
+  virtual void ZoomToFindInPageRect(const WebRect&) = 0;
+
   // Sets the display mode of the web app.
   virtual void SetDisplayMode(WebDisplayMode) = 0;
 
@@ -269,8 +284,8 @@ class WebView {
   virtual float ZoomFactorForDeviceScaleFactor() = 0;
 
   // Resize the view at the same time as changing the state of the top
-  // controls. If |browserControlsShrinkLayout| is true, the embedder shrunk the
-  // WebView size by the browser controls height.
+  // controls. If |browser_controls_shrink_layout| is true, the embedder shrunk
+  // the WebView size by the browser controls height.
   virtual void ResizeWithBrowserControls(
       const WebSize&,
       float top_controls_height,
@@ -330,8 +345,11 @@ class WebView {
   // Sets whether select popup menus should be rendered by the browser.
   BLINK_EXPORT static void SetUseExternalPopupMenus(bool);
 
-  // Hides any popup (suggestions, selects...) that might be showing.
-  virtual void HidePopups() = 0;
+  // Cancels and hides the current popup (datetime, select...) if any.
+  virtual void CancelPagePopup() = 0;
+
+  // Returns the current popup if any.
+  virtual WebPagePopup* GetPagePopup() const = 0;
 
   // Visited link state --------------------------------------------------
 
@@ -353,16 +371,25 @@ class WebView {
                                   unsigned inactive_background_color,
                                   unsigned inactive_foreground_color) = 0;
 
+  // Sets the default background color when the page has not loaded enough to
+  // know a background colour. This can be overridden by the methods below as
+  // well.
+  virtual void SetBaseBackgroundColor(SkColor) {}
+
+  // Overrides the page's background and base background color. You
+  // can use this to enforce a transparent background, which is useful if you
+  // want to have some custom background rendered behind the widget.
+  virtual void SetBackgroundColorOverride(SkColor) {}
+  virtual void ClearBackgroundColorOverride() {}
+  virtual void SetBaseBackgroundColorOverride(SkColor) {}
+  virtual void ClearBaseBackgroundColorOverride() {}
+
   // Modal dialog support ------------------------------------------------
 
   // Call these methods before and after running a nested, modal event loop
   // to suspend script callbacks and resource loads.
   BLINK_EXPORT static void WillEnterModalLoop();
   BLINK_EXPORT static void DidExitModalLoop();
-
-  virtual void SetShowPaintRects(bool) = 0;
-  virtual void SetShowFPSCounter(bool) = 0;
-  virtual void SetShowScrollBottleneckRects(bool) = 0;
 
   // Scheduling -----------------------------------------------------------
 
@@ -371,14 +398,13 @@ class WebView {
   // Visibility -----------------------------------------------------------
 
   // Sets the visibility of the WebView.
-  virtual void SetVisibilityState(mojom::PageVisibilityState visibility_state,
-                                  bool is_initial_state) {}
-  virtual mojom::PageVisibilityState VisibilityState() = 0;
+  virtual void SetIsHidden(bool hidden, bool is_initial_state) = 0;
+  virtual bool IsHidden() = 0;
 
-  // PageOverlay ----------------------------------------------------------
+  // FrameOverlay ----------------------------------------------------------
 
   // Overlay this WebView with a solid color.
-  virtual void SetPageOverlayColor(SkColor) = 0;
+  virtual void SetMainFrameOverlayColor(SkColor) = 0;
 
   // Page Importance Signals ----------------------------------------------
 

@@ -21,12 +21,12 @@
 #include "base/command_line.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
-#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/path_service.h"
+#include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -51,7 +51,7 @@
 #include "chrome/installer/util/scoped_user_protocol_entry.h"
 #include "chrome/installer/util/shell_util.h"
 #include "chrome/services/util_win/public/mojom/constants.mojom.h"
-#include "chrome/services/util_win/public/mojom/shell_util_win.mojom.h"
+#include "chrome/services/util_win/public/mojom/util_win.mojom.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/common/service_manager_connection.h"
 #include "services/service_manager/public/cpp/connector.h"
@@ -182,7 +182,7 @@ base::string16 GetAppForProtocolUsingAssocQuery(const GURL& url) {
   // populate the external protocol dialog box the user sees when invoking
   // an unknown external protocol.
   wchar_t out_buffer[1024];
-  DWORD buffer_size = arraysize(out_buffer);
+  DWORD buffer_size = base::size(out_buffer);
   HRESULT hr =
       AssocQueryString(ASSOCF_IS_PROTOCOL, ASSOCSTR_FRIENDLYAPPNAME,
                        url_scheme.c_str(), NULL, out_buffer, &buffer_size);
@@ -469,7 +469,7 @@ class IsPinnedToTaskbarHelper {
   void OnConnectionError();
   void OnIsPinnedToTaskbarResult(bool succeeded, bool is_pinned_to_taskbar);
 
-  chrome::mojom::ShellUtilWinPtr shell_util_win_ptr_;
+  chrome::mojom::UtilWinPtr util_win_ptr_;
   // The connector used to retrieve the Patch service. We can't simply use
   // content::ServiceManagerConnection::GetForProcess()->GetConnector() as this
   // is called on a background thread.
@@ -503,13 +503,12 @@ IsPinnedToTaskbarHelper::IsPinnedToTaskbarHelper(
   DCHECK(error_callback_);
   DCHECK(result_callback_);
 
-  connector_->BindInterface(chrome::mojom::kUtilWinServiceName,
-                            &shell_util_win_ptr_);
-  // |shell_util_win_ptr_| owns the callbacks and is guaranteed to be destroyed
-  // before |this|, therefore making base::Unretained() safe to use.
-  shell_util_win_ptr_.set_connection_error_handler(base::Bind(
+  connector_->BindInterface(chrome::mojom::kUtilWinServiceName, &util_win_ptr_);
+  // |util_win_ptr_| owns the callbacks and is guaranteed to be destroyed before
+  // |this|, therefore making base::Unretained() safe to use.
+  util_win_ptr_.set_connection_error_handler(base::Bind(
       &IsPinnedToTaskbarHelper::OnConnectionError, base::Unretained(this)));
-  shell_util_win_ptr_->IsPinnedToTaskbar(
+  util_win_ptr_->IsPinnedToTaskbar(
       base::Bind(&IsPinnedToTaskbarHelper::OnIsPinnedToTaskbarResult,
                  base::Unretained(this)));
 }

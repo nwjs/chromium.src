@@ -12,13 +12,16 @@
 #include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
 #include "third_party/blink/renderer/core/page/focus_changed_observer.h"
+#include "third_party/blink/renderer/modules/xr/xr_session.h"
+#include "third_party/blink/renderer/modules/xr/xr_session_creation_options.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
 
 class ScriptPromiseResolver;
-class XRDevice;
+class XRFrameProvider;
 
 class XR final : public EventTargetWithInlineData,
                  public ContextLifecycleObserver,
@@ -36,7 +39,20 @@ class XR final : public EventTargetWithInlineData,
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(devicechange, kDevicechange);
 
-  ScriptPromise requestDevice(ScriptState*);
+  ScriptPromise supportsSessionMode(ScriptState*, const String&);
+  ScriptPromise requestSession(ScriptState*, const XRSessionCreationOptions*);
+
+  XRFrameProvider* frameProvider();
+
+  const device::mojom::blink::XRDevicePtr& xrDevicePtr() const {
+    return device_;
+  }
+  const device::mojom::blink::XRFrameDataProviderPtr& xrMagicWindowProviderPtr()
+      const {
+    return magic_window_provider_;
+  }
+  const device::mojom::blink::XREnvironmentIntegrationProviderAssociatedPtr&
+  xrEnvironmentProviderPtr();
 
   // VRServiceClient overrides.
   void OnDeviceChanged() override;
@@ -56,8 +72,35 @@ class XR final : public EventTargetWithInlineData,
   int64_t GetSourceId() const { return ukm_source_id_; }
 
  private:
+  class PendingSessionQuery final
+      : public GarbageCollected<PendingSessionQuery> {
+    WTF_MAKE_NONCOPYABLE(PendingSessionQuery);
+
+   public:
+    PendingSessionQuery(ScriptPromiseResolver*, XRSession::SessionMode);
+    virtual ~PendingSessionQuery() = default;
+
+    virtual void Trace(blink::Visitor*);
+
+    Member<ScriptPromiseResolver> resolver;
+    const XRSession::SessionMode mode;
+    Member<XRPresentationContext> output_context;
+    bool has_user_activation = false;
+  };
+
+  const char* checkSessionSupport(const XRSessionCreationOptions*) const;
+
   void OnRequestDeviceReturned(device::mojom::blink::XRDevicePtr device);
-  void ResolveRequestDevice();
+  void DispatchPendingSessionCalls();
+
+  void DispatchRequestSession(PendingSessionQuery*);
+  void OnRequestSessionReturned(PendingSessionQuery*,
+                                device::mojom::blink::XRSessionPtr);
+
+  void DispatchSupportsSessionMode(PendingSessionQuery*);
+  void OnSupportsSessionReturned(PendingSessionQuery*, bool supports_session);
+
+  void EnsureDevice();
   void ReportImmersiveSupported(bool supported);
 
   void AddedEventListener(const AtomicString& event_type,
@@ -65,17 +108,31 @@ class XR final : public EventTargetWithInlineData,
 
   void Dispose();
 
-  bool pending_sync_ = false;
+  bool pending_device_ = false;
 
   // Indicates whether use of requestDevice has already been logged.
   bool did_log_requestDevice_ = false;
   bool did_log_returned_device_ = false;
   bool did_log_supports_immersive_ = false;
+
+  // Indicates whether we've already logged a request for an immersive session.
+  bool did_log_request_immersive_session_ = false;
+
   const int64_t ukm_source_id_;
 
-  Member<XRDevice> device_;
-  Member<ScriptPromiseResolver> pending_devices_resolver_;
+  // Track calls that were made prior to the internal device successfully being
+  // queried. Can be removed once the service has been updated to allow the
+  // respective calls to be made directly.
+  HeapVector<Member<PendingSessionQuery>> pending_mode_queries_;
+  HeapVector<Member<PendingSessionQuery>> pending_session_requests_;
+
+  Member<XRFrameProvider> frame_provider_;
+  HeapHashSet<WeakMember<XRSession>> sessions_;
   device::mojom::blink::VRServicePtr service_;
+  device::mojom::blink::XRDevicePtr device_;
+  device::mojom::blink::XRFrameDataProviderPtr magic_window_provider_;
+  device::mojom::blink::XREnvironmentIntegrationProviderAssociatedPtr
+      environment_provider_;
   mojo::Binding<device::mojom::blink::VRServiceClient> binding_;
 };
 

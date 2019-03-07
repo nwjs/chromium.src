@@ -31,6 +31,7 @@
 #include "ui/views/controls/menu/menu_separator.h"
 #include "ui/views/controls/menu/submenu_view.h"
 #include "ui/views/controls/separator.h"
+#include "ui/views/view_properties.h"
 #include "ui/views/widget/widget.h"
 
 namespace views {
@@ -285,6 +286,11 @@ MenuItemView* MenuItemView::AddMenuItemAt(
     item->SetIcon(icon);
   if (type == SUBMENU || type == ACTIONABLE_SUBMENU)
     item->CreateSubmenu();
+  if (type == HIGHLIGHTED) {
+    const MenuConfig& config = MenuConfig::instance();
+    item->SetMargins(config.footnote_vertical_margin,
+                     config.footnote_vertical_margin);
+  }
   if (GetDelegate() && !GetDelegate()->IsCommandVisible(item_id))
     item->SetVisible(false);
   submenu_->AddChildViewAt(item, index);
@@ -490,6 +496,7 @@ int MenuItemView::GetHeightForWidth(int width) const {
   int height = child_at(0)->GetHeightForWidth(width);
   if (!icon_view_ && GetRootMenuItem()->has_icons())
     height = std::max(height, MenuConfig::instance().check_height);
+
   height += GetBottomMargin() + GetTopMargin();
 
   return height;
@@ -611,9 +618,22 @@ void MenuItemView::Layout() {
     return;
 
   if (IsContainer()) {
-    View* child = child_at(0);
-    gfx::Size size = child->GetPreferredSize();
-    child->SetBounds(0, GetTopMargin(), size.width(), size.height());
+    View* const child = child_at(0);
+    const gfx::Size child_size = child->GetPreferredSize();
+
+    // Get child's margins or use default empty margins.
+    const gfx::Insets* margins_prop = child->GetProperty(views::kMarginsKey);
+    const gfx::Insets child_margins =
+        margins_prop ? *margins_prop
+                     : gfx::Insets(GetTopMargin(), 0, GetBottomMargin(), 0);
+
+    gfx::Rect max_bounds = GetContentsBounds();
+    max_bounds.Inset(child_margins);
+
+    gfx::Rect bounds = gfx::Rect(child_margins.left(), child_margins.top(),
+                                 child_size.width(), child_size.height());
+    bounds.Intersect(max_bounds);
+    child->SetBoundsRect(bounds);
   } else {
     // Child views are laid out right aligned and given the full height. To
     // right align start with the last view and progress to the first.
@@ -697,6 +717,11 @@ void MenuItemView::SetCornerRadius(int radius) {
   DCHECK_EQ(GetType(), HIGHLIGHTED);
   corner_radius_ = radius;
   invalidate_dimensions();  // Triggers preferred size recalculation.
+}
+
+void MenuItemView::SetAlerted(bool alerted) {
+  alerted_ = alerted;
+  SchedulePaint();
 }
 
 MenuItemView::MenuItemView(MenuItemView* parent,
@@ -991,18 +1016,26 @@ void MenuItemView::PaintButton(gfx::Canvas* canvas, PaintButtonMode mode) {
 void MenuItemView::PaintBackground(gfx::Canvas* canvas,
                                    PaintButtonMode mode,
                                    bool render_selection) {
-  if (GetType() == HIGHLIGHTED) {
+  if (GetType() == HIGHLIGHTED || alerted_) {
     // Highligted items always have a different-colored background, and ignore
     // system theme.
-    ui::NativeTheme::ColorId color_id =
-        render_selection
-            ? ui::NativeTheme::
-                  kColorId_FocusedHighlightedMenuItemBackgroundColor
-            : ui::NativeTheme::kColorId_HighlightedMenuItemBackgroundColor;
+    ui::NativeTheme::ColorId color_id;
+    if (GetType() == HIGHLIGHTED) {
+      color_id =
+          render_selection
+              ? ui::NativeTheme::
+                    kColorId_FocusedHighlightedMenuItemBackgroundColor
+              : ui::NativeTheme::kColorId_HighlightedMenuItemBackgroundColor;
+    } else {
+      color_id = ui::NativeTheme::kColorId_MenuItemAlertBackgroundColor;
+    }
+
+    const SkColor color = GetNativeTheme()->GetSystemColor(color_id);
+
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
     flags.setStyle(cc::PaintFlags::kFill_Style);
-    flags.setColor(GetNativeTheme()->GetSystemColor(color_id));
+    flags.setColor(color);
     // Draw a rounded rect that spills outside of the clipping area, so that the
     // rounded corners only show in the bottom 2 corners. Note that
     // |corner_radius_| should only be set when the highlighted item is at the
@@ -1115,7 +1148,14 @@ int MenuItemView::GetTopMargin() const {
                  ? MenuConfig::instance().item_top_margin
                  : MenuConfig::instance().item_no_icon_top_margin;
   }
-  return margin + corner_radius_ / 2;
+
+  if (IsContainer()) {
+    const gfx::Insets* child_margins = child_at(0)->GetProperty(kMarginsKey);
+    if (child_margins)
+      margin += child_margins->top();
+  }
+
+  return margin;
 }
 
 int MenuItemView::GetBottomMargin() const {
@@ -1126,18 +1166,32 @@ int MenuItemView::GetBottomMargin() const {
                  ? MenuConfig::instance().item_bottom_margin
                  : MenuConfig::instance().item_no_icon_bottom_margin;
   }
-  // Add half of |corner_radius_| in both GetTopMargin() and GetBottomMargin(),
-  // so that they add up to exactly |corner_radius_|. When |corner_radius_| is
-  // odd, we need to add 1 here to avoid the height being off by 1.
-  return margin + corner_radius_ / 2 + (corner_radius_ % 2);
+
+  if (IsContainer()) {
+    const gfx::Insets* child_margins = child_at(0)->GetProperty(kMarginsKey);
+    if (child_margins)
+      margin += child_margins->bottom();
+  }
+
+  return margin;
 }
 
 gfx::Size MenuItemView::GetChildPreferredSize() const {
   if (!has_children())
     return gfx::Size();
 
-  if (IsContainer())
-    return child_at(0)->GetPreferredSize();
+  if (IsContainer()) {
+    // Take into account both the child's preferred size and their left and
+    // right margins. The top and bottom margins are already accounted for in
+    // GetTopMargin() and GetBottomMargin().
+    const gfx::Insets* child_margins_prop =
+        child_at(0)->GetProperty(kMarginsKey);
+    const gfx::Insets child_margins =
+        child_margins_prop ? *child_margins_prop : gfx::Insets();
+    gfx::Size child_size = child_at(0)->GetPreferredSize();
+    child_size.Enlarge(child_margins.width(), 0);
+    return child_size;
+  }
 
   int width = 0;
   for (int i = 0; i < child_count(); ++i) {
@@ -1249,6 +1303,12 @@ MenuItemView::MenuItemDimensions MenuItemView::CalculateDimensions() const {
 void MenuItemView::ApplyMinimumDimensions(MenuItemDimensions* dims) const {
   // Don't apply minimums to menus without controllers or to comboboxes.
   if (!GetMenuController() || GetMenuController()->is_combobox())
+    return;
+
+  // TODO(nicolaso): PaintBackground() doesn't cover the whole area in footnotes
+  // when minimum height is set too high. For now, just ignore minimum height
+  // for HIGHLIGHTED elements.
+  if (GetType() == HIGHLIGHTED)
     return;
 
   int used =

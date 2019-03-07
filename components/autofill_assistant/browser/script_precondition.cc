@@ -30,11 +30,7 @@ std::unique_ptr<ScriptPrecondition> ScriptPrecondition::FromProto(
       continue;
     }
 
-    Selector a_selector;
-    for (const auto& selector : element.selectors()) {
-      a_selector.selectors.emplace_back(selector);
-    }
-    elements_exist.emplace_back(std::move(a_selector));
+    elements_exist.emplace_back(Selector(element));
   }
 
   std::set<std::string> domain_match;
@@ -104,16 +100,13 @@ void ScriptPrecondition::Check(
     batch_checks->AddElementCheck(kExistenceCheck, selector,
                                   std::move(callback));
   }
-  for (const auto& value_match : form_value_match_) {
+  for (size_t i = 0; i < form_value_match_.size(); i++) {
+    const auto& value_match = form_value_match_[i];
     DCHECK(!value_match.element().selectors().empty());
-    Selector a_selector;
-    for (const auto& selector : value_match.element().selectors()) {
-      a_selector.selectors.emplace_back(selector);
-    }
-
     batch_checks->AddFieldValueCheck(
-        a_selector, base::BindOnce(&ScriptPrecondition::OnGetFieldValue,
-                                   weak_ptr_factory_.GetWeakPtr()));
+        Selector(value_match.element()),
+        base::BindOnce(&ScriptPrecondition::OnGetFieldValue,
+                       weak_ptr_factory_.GetWeakPtr(), i));
   }
 }
 
@@ -208,8 +201,21 @@ void ScriptPrecondition::OnCheckElementExists(bool exists) {
   ReportCheckResult(exists);
 }
 
-void ScriptPrecondition::OnGetFieldValue(bool exists,
+void ScriptPrecondition::OnGetFieldValue(int index,
+                                         bool exists,
                                          const std::string& value) {
+  if (!exists) {
+    ReportCheckResult(false);
+    return;
+  }
+
+  // TODO(crbug.com/806868): Differentiate between empty value and failure.
+  const auto& value_match = form_value_match_[index];
+  if (value_match.has_value()) {
+    ReportCheckResult(value == value_match.value());
+    return;
+  }
+
   ReportCheckResult(!value.empty());
 }
 

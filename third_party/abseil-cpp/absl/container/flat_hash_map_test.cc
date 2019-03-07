@@ -40,9 +40,9 @@ using MapTypes =
                      Map<EnumClass, int>, Map<int, NonStandardLayout>,
                      Map<NonStandardLayout, int>>;
 
-INSTANTIATE_TYPED_TEST_CASE_P(FlatHashMap, ConstructorTest, MapTypes);
-INSTANTIATE_TYPED_TEST_CASE_P(FlatHashMap, LookupTest, MapTypes);
-INSTANTIATE_TYPED_TEST_CASE_P(FlatHashMap, ModifiersTest, MapTypes);
+INSTANTIATE_TYPED_TEST_SUITE_P(FlatHashMap, ConstructorTest, MapTypes);
+INSTANTIATE_TYPED_TEST_SUITE_P(FlatHashMap, LookupTest, MapTypes);
+INSTANTIATE_TYPED_TEST_SUITE_P(FlatHashMap, ModifiersTest, MapTypes);
 
 TEST(FlatHashMap, StandardLayout) {
   struct Int {
@@ -94,7 +94,7 @@ TEST(FlatHashMap, IteratesMsan) {
   }
 }
 
-// Demonstration of the "Lazy Key" pattern.  This uses heterogenous insert to
+// Demonstration of the "Lazy Key" pattern.  This uses heterogeneous insert to
 // avoid creating expensive key elements when the item is already present in the
 // map.
 struct LazyInt {

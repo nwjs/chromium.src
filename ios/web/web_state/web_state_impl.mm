@@ -25,12 +25,12 @@
 #import "ios/web/public/crw_session_storage.h"
 #include "ios/web/public/favicon_url.h"
 #import "ios/web/public/java_script_dialog_presenter.h"
-#include "ios/web/public/load_committed_details.h"
 #import "ios/web/public/navigation_item.h"
 #include "ios/web/public/url_util.h"
 #import "ios/web/public/web_client.h"
 #import "ios/web/public/web_state/context_menu_params.h"
 #import "ios/web/public/web_state/ui/crw_content_view.h"
+#import "ios/web/public/web_state/ui/crw_native_content.h"
 #import "ios/web/public/web_state/web_state_delegate.h"
 #include "ios/web/public/web_state/web_state_interface_provider.h"
 #include "ios/web/public/web_state/web_state_observer.h"
@@ -46,6 +46,7 @@
 #include "ios/web/webui/web_ui_ios_controller_factory_registry.h"
 #include "ios/web/webui/web_ui_ios_impl.h"
 #include "net/http/http_response_headers.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/image/image.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -683,26 +684,37 @@ const GURL& WebStateImpl::GetLastCommittedURL() const {
 }
 
 GURL WebStateImpl::GetCurrentURL(URLVerificationTrustLevel* trust_level) const {
-  GURL URL = [web_controller_ currentURLWithTrustLevel:trust_level];
+  GURL result = [web_controller_ currentURLWithTrustLevel:trust_level];
 
-  GURL lastCommittedUrl = GetLastCommittedURL();
+  web::NavigationItem* item = navigation_manager_->GetLastCommittedItem();
+  GURL lastCommittedURL;
+  if (item) {
+    if ([web_controller_.nativeController
+            respondsToSelector:@selector(virtualURL)]) {
+      // For native content |currentURLWithTrustLevel:| returns virtual URL if
+      // one is available.
+      lastCommittedURL = item->GetVirtualURL();
+    } else {
+      // Otherwise document URL is returned.
+      lastCommittedURL = item->GetURL();
+    }
+  }
+
   bool equalOrigins;
-  if (URL.SchemeIs(url::kAboutScheme) &&
-      web::GetWebClient()->IsAppSpecificURL(lastCommittedUrl)) {
+  if (result.SchemeIs(url::kAboutScheme) &&
+      web::GetWebClient()->IsAppSpecificURL(GetLastCommittedURL())) {
     // This special case is added for any app specific URLs that have been
     // rewritten to about:// URLs.  In this case, an about scheme does not have
     // an origin to compare, only a path.
-    web::NavigationItem* item = navigation_manager_->GetLastCommittedItem();
-    GURL lastCommittedUrl = item ? item->GetURL() : GURL::EmptyGURL();
-    equalOrigins = URL.path() == lastCommittedUrl.path();
+    equalOrigins = result.path() == lastCommittedURL.path();
   } else {
-    equalOrigins = URL.GetOrigin() == lastCommittedUrl.GetOrigin();
+    equalOrigins = result.GetOrigin() == lastCommittedURL.GetOrigin();
   }
-  DCHECK(equalOrigins) << "Origin mismatch. URL: " << URL.spec()
-                       << " Last committed: " << lastCommittedUrl.spec();
+  DCHECK(equalOrigins) << "Origin mismatch. URL: " << result.spec()
+                       << " Last committed: " << lastCommittedURL.spec();
   UMA_HISTOGRAM_BOOLEAN("Web.CurrentOriginEqualsLastCommittedOrigin",
                         equalOrigins);
-  return URL;
+  return result;
 }
 
 void WebStateImpl::AddScriptCommandCallback(
@@ -734,10 +746,11 @@ void WebStateImpl::SetHasOpener(bool has_opener) {
   created_with_opener_ = has_opener;
 }
 
-void WebStateImpl::TakeSnapshot(CGRect rect, SnapshotCallback callback) {
+void WebStateImpl::TakeSnapshot(const gfx::RectF& rect,
+                                SnapshotCallback callback) {
   __block SnapshotCallback shared_callback = std::move(callback);
   [web_controller_
-      takeSnapshotWithRect:rect
+      takeSnapshotWithRect:rect.ToCGRect()
                 completion:^(UIImage* snapshot) {
                   std::move(shared_callback).Run(gfx::Image(snapshot));
                 }];
@@ -844,14 +857,8 @@ void WebStateImpl::OnNavigationItemsPruned(size_t pruned_item_count) {
     observer.NavigationItemsPruned(this, pruned_item_count);
 }
 
-void WebStateImpl::OnNavigationItemChanged() {
-  for (auto& observer : observers_)
-    observer.NavigationItemChanged(this);
-}
-
-void WebStateImpl::OnNavigationItemCommitted(
-    const LoadCommittedDetails& load_details) {
-  if (wk_navigation_util::IsWKInternalUrl(load_details.item->GetURL()))
+void WebStateImpl::OnNavigationItemCommitted(NavigationItem* item) {
+  if (wk_navigation_util::IsWKInternalUrl(item->GetURL()))
     return;
 
   // A committed navigation item indicates that NavigationManager has a new
@@ -859,8 +866,6 @@ void WebStateImpl::OnNavigationItemCommitted(
   // history.
   if (web::GetWebClient()->IsSlimNavigationManagerEnabled())
     restored_session_storage_ = nil;
-  for (auto& observer : observers_)
-    observer.NavigationItemCommitted(this, load_details);
 }
 
 WebState* WebStateImpl::GetWebState() {
@@ -869,6 +874,16 @@ WebState* WebStateImpl::GetWebState() {
 
 id<CRWWebViewNavigationProxy> WebStateImpl::GetWebViewNavigationProxy() const {
   return [web_controller_ webViewNavigationProxy];
+}
+
+void WebStateImpl::GoToBackForwardListItem(WKBackForwardListItem* wk_item,
+                                           NavigationItem* item,
+                                           NavigationInitiationType type,
+                                           bool has_user_gesture) {
+  return [web_controller_ goToBackForwardListItem:wk_item
+                                   navigationItem:item
+                         navigationInitiationType:type
+                                   hasUserGesture:has_user_gesture];
 }
 
 void WebStateImpl::RemoveWebView() {

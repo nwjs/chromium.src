@@ -55,11 +55,6 @@ const int kRouteId2 = 67;
 const int kBackgroundChildId = 35;
 const int kBackgroundRouteId = 43;
 
-// Sync below with cc file.
-const char kPrioritySupportedRequestsDelayable[] =
-    "PrioritySupportedRequestsDelayable";
-const char kHeadPrioritySupportedRequestsDelayable[] =
-    "HeadPriorityRequestsDelayable";
 const size_t kMaxNumDelayableRequestsPerHostPerClient = 6;
 
 class TestRequest {
@@ -274,13 +269,13 @@ class ResourceSchedulerTest : public testing::Test {
     // to be done before initializing the scheduler because the client is
     // created on the call to |InitializeScheduler|, which is where the initial
     // limits for the delayable requests in flight are computed.
-    network_quality_estimator_.set_effective_connection_type(
+    network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
         net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
     // Initialize the scheduler.
     InitializeScheduler();
 
-    // Throw in one high priority request to ensure that it does not matter once
-    // a body exists.
+    // Throw in one high priority request to ensure that high priority requests
+    // do not depend on anything.
     std::unique_ptr<TestRequest> high2(
         NewRequest("http://host/high2", net::HIGHEST));
     EXPECT_TRUE(high2->started());
@@ -397,7 +392,7 @@ class ResourceSchedulerTest : public testing::Test {
     const int kDefaultMaxNumDelayableRequestsPerClient = 8;
     // Initialize the experiment.
     InitializeThrottleDelayableExperiment(false, non_delayable_weight);
-    network_quality_estimator_.set_effective_connection_type(
+    network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
         net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
 
     InitializeScheduler();
@@ -470,8 +465,6 @@ TEST_F(ResourceSchedulerTest, OneLowLoadsUntilCriticalComplete) {
 
 TEST_F(ResourceSchedulerTest, MaxRequestsPerHostForSpdyWhenNotDelayable) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitFromCommandLine("",
-                                          kPrioritySupportedRequestsDelayable);
 
   InitializeScheduler();
   http_server_properties_.SetSupportsSpdy(
@@ -487,71 +480,6 @@ TEST_F(ResourceSchedulerTest, MaxRequestsPerHostForSpdyWhenNotDelayable) {
     EXPECT_TRUE(request->started());
 }
 
-TEST_F(ResourceSchedulerTest, MaxRequestsPerHostForSpdyWhenDelayable) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitFromCommandLine(
-      kPrioritySupportedRequestsDelayable,
-      kHeadPrioritySupportedRequestsDelayable);
-
-  InitializeScheduler();
-  http_server_properties_.SetSupportsSpdy(
-      url::SchemeHostPort("https", "spdyhost", 443), true);
-
-  // Add more than max-per-host low-priority requests.
-  std::vector<std::unique_ptr<TestRequest>> requests;
-  for (size_t i = 0; i < kMaxNumDelayableRequestsPerHostPerClient + 1; ++i)
-    requests.push_back(NewRequest("https://spdyhost/low", net::LOWEST));
-
-  // Only kMaxNumDelayableRequestsPerHostPerClient in body.
-  for (size_t i = 0; i < requests.size(); ++i) {
-    if (i < kMaxNumDelayableRequestsPerHostPerClient)
-      EXPECT_TRUE(requests[i]->started());
-    else
-      EXPECT_FALSE(requests[i]->started());
-  }
-}
-
-TEST_F(ResourceSchedulerTest, MaxRequestsPerHostForSpdyWhenHeadDelayable) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitFromCommandLine(
-      kHeadPrioritySupportedRequestsDelayable,
-      kPrioritySupportedRequestsDelayable);
-
-  InitializeScheduler();
-  http_server_properties_.SetSupportsSpdy(
-      url::SchemeHostPort("https", "spdyhost", 443), true);
-
-  // Add more than max-per-host low-priority requests.
-  std::vector<std::unique_ptr<TestRequest>> requests;
-  for (size_t i = 0; i < kMaxNumDelayableRequestsPerHostPerClient + 1; ++i)
-    requests.push_back(NewRequest("https://spdyhost/low", net::LOWEST));
-
-  // No throttling.
-  for (const auto& request : requests)
-    EXPECT_TRUE(request->started());
-}
-
-TEST_F(ResourceSchedulerTest, ThrottlesHeadWhenHeadDelayable) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitFromCommandLine(
-      kHeadPrioritySupportedRequestsDelayable,
-      kPrioritySupportedRequestsDelayable);
-
-  InitializeScheduler();
-  http_server_properties_.SetSupportsSpdy(
-      url::SchemeHostPort("https", "spdyhost", 443), true);
-
-  // Add more than max-per-host low-priority requests.
-  std::vector<std::unique_ptr<TestRequest>> requests;
-  for (size_t i = 0; i < kMaxNumDelayableRequestsPerHostPerClient + 1; ++i)
-    requests.push_back(NewRequest("https://spdyhost/low", net::LOWEST));
-
-  base::RunLoop().RunUntilIdle();
-
-  // No throttling.
-  for (const auto& request : requests)
-    EXPECT_TRUE(request->started());
-}
 
 
 TEST_F(ResourceSchedulerTest, BackgroundRequestStartsImmediately) {
@@ -810,8 +738,6 @@ TEST_F(ResourceSchedulerTest, NonHTTPSchedulesImmediately) {
 
 TEST_F(ResourceSchedulerTest, SpdyProxySchedulesImmediately) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitFromCommandLine("",
-                                          kPrioritySupportedRequestsDelayable);
   InitializeScheduler();
   SetMaxDelayableRequests(1);
 
@@ -827,8 +753,6 @@ TEST_F(ResourceSchedulerTest, SpdyProxySchedulesImmediately) {
 
 TEST_F(ResourceSchedulerTest, NewSpdyHostInDelayableRequests) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitFromCommandLine("",
-                                          kPrioritySupportedRequestsDelayable);
   InitializeScheduler();
 
   const int kDefaultMaxNumDelayableRequestsPerClient =
@@ -869,7 +793,7 @@ TEST_F(ResourceSchedulerTest, NewSpdyHostInDelayableRequests) {
 TEST_F(ResourceSchedulerTest,
        NewDelayableSpdyHostInDelayableRequestsSlowConnection) {
   ConfigureDelayRequestsOnMultiplexedConnectionsFieldTrial();
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_2G);
   InitializeScheduler();
 
@@ -912,45 +836,6 @@ TEST_F(ResourceSchedulerTest,
   std::unique_ptr<TestRequest> low3_spdy(
       NewRequest("http://spdyhost1:8080/low", net::LOWEST));
   EXPECT_FALSE(low3_spdy->started());
-}
-
-TEST_F(ResourceSchedulerTest, NewDelayableSpdyHostInDelayableRequests) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitFromCommandLine(kPrioritySupportedRequestsDelayable,
-                                          "");
-  InitializeScheduler();
-
-  const int kDefaultMaxNumDelayableRequestsPerClient =
-      10;  // Should match the .cc.
-
-  std::unique_ptr<TestRequest> low1_spdy(
-      NewRequest("http://spdyhost1:8080/low", net::LOWEST));
-  // Cancel a request after we learn the server supports SPDY.
-  std::vector<std::unique_ptr<TestRequest>> lows;
-  for (int i = 0; i < kDefaultMaxNumDelayableRequestsPerClient - 1; ++i) {
-    string url = "http://host" + base::IntToString(i) + "/low";
-    lows.push_back(NewRequest(url.c_str(), net::LOWEST));
-  }
-  std::unique_ptr<TestRequest> low1(NewRequest("http://host/low", net::LOWEST));
-  EXPECT_FALSE(low1->started());
-  http_server_properties_.SetSupportsSpdy(
-      url::SchemeHostPort("http", "spdyhost1", 8080), true);
-  low1_spdy.reset();
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(low1->started());
-
-  low1.reset();
-  base::RunLoop().RunUntilIdle();
-  std::unique_ptr<TestRequest> low2_spdy(
-      NewRequest("http://spdyhost2:8080/low", net::IDLE));
-  // Reprioritize a request after we learn the server supports SPDY.
-  EXPECT_TRUE(low2_spdy->started());
-  http_server_properties_.SetSupportsSpdy(
-      url::SchemeHostPort("http", "spdyhost2", 8080), true);
-  ChangeRequestPriority(low2_spdy.get(), net::LOWEST);
-  base::RunLoop().RunUntilIdle();
-  std::unique_ptr<TestRequest> low2(NewRequest("http://host/low", net::LOWEST));
-  EXPECT_FALSE(low2->started());
 }
 
 // Async revalidations which are not started when the tab is closed must be
@@ -1025,14 +910,11 @@ TEST_F(ResourceSchedulerTest, RequestLimitOverrideOutsideECTRange) {
         net::EFFECTIVE_CONNECTION_TYPE_4G}) {
     // Set the effective connection type to a value for which the experiment
     // should not be run.
-    network_quality_estimator_.set_effective_connection_type(ect);
+    network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
+        ect);
 
-    // The limit will matter only once the page has a body, since delayable
-    // requests are not loaded before that.
-    scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
-
-    // Throw in one high priority request to ensure that it does not matter once
-    // a body exists.
+    // Throw in one high priority request to ensure that high priority requests
+    // do not depend on anything.
     std::unique_ptr<TestRequest> high(
         NewRequest("http://host/high", net::HIGHEST));
     EXPECT_TRUE(high->started());
@@ -1065,16 +947,12 @@ TEST_F(ResourceSchedulerTest, RequestLimitOverrideFixedForPageLoad) {
   base::test::ScopedFeatureList scoped_feature_list;
   InitializeThrottleDelayableExperiment(true, 0.0);
   // ECT value is in range for which the limit is overridden to 2.
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
   InitializeScheduler();
 
-  // The limit will matter only once the page has a body, since delayable
-  // requests are not loaded before that.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
-
-  // Throw in one high priority request to ensure that it does not matter once
-  // a body exists.
+  // Throw in one high priority request to ensure that high priority requests
+  // do not depend on anything.
   std::unique_ptr<TestRequest> high(
       NewRequest("http://host/high", net::HIGHEST));
   EXPECT_TRUE(high->started());
@@ -1102,46 +980,32 @@ TEST_F(ResourceSchedulerTest, RequestLimitOverrideFixedForPageLoad) {
   EXPECT_TRUE(second_last_singlehost->started());
 
   // Change the ECT to go outside the experiment buckets and change the network
-  // type to 4G. This should not affect the limit calculated at the beginning of
+  // type to 4G. This should affect the limit calculated at the beginning of
   // the page load.
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_4G);
   base::RunLoop().RunUntilIdle();
 
   std::unique_ptr<TestRequest> last_singlehost(
       NewRequest("http://host/last", net::LOWEST));
 
-  // Last should not start because the limit should not have changed.
-  EXPECT_FALSE(last_singlehost->started());
-
-  // The limit should change when there is a new page navigation.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
-  std::unique_ptr<TestRequest> high2(
-      NewRequest("http://host/high2", net::HIGHEST));
-  EXPECT_TRUE(high2->started());
-  high2.reset();
-
-  base::RunLoop().RunUntilIdle();
+  // Last should start because the limit should have changed.
   EXPECT_TRUE(last_singlehost->started());
 }
 
 // Test that when the network quality changes such that the new limit is lower,
-// and an |DeprecatedOnNavigate| event occurs, the new delayable requests don't
-// start until the number of requests in flight have gone below the new limit.
+// the new delayable requests don't start until the number of requests in
+// flight have gone below the new limit.
 TEST_F(ResourceSchedulerTest, RequestLimitReducedAcrossPageLoads) {
   base::test::ScopedFeatureList scoped_feature_list;
   InitializeThrottleDelayableExperiment(true, 0.0);
   // ECT value is in range for which the limit is overridden to 4.
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_3G);
   InitializeScheduler();
 
-  // The limit will matter only once the page has a body, since delayable
-  // requests are not loaded before that.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
-
-  // Throw in one high priority request to ensure that it does not matter once
-  // a body exists.
+  // Throw in one high priority request to ensure that high priority requests
+  // do not depend on anything.
   std::unique_ptr<TestRequest> high(
       NewRequest("http://host/high", net::HIGHEST));
   EXPECT_TRUE(high->started());
@@ -1162,11 +1026,8 @@ TEST_F(ResourceSchedulerTest, RequestLimitReducedAcrossPageLoads) {
   // Change the network quality so that the ECT value is in range for which the
   // limit is overridden to 2. The effective connection type is set to
   // Slow-2G.
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
-  // Trigger a navigation event which will recompute limits. Also insert a body,
-  // because the limit matters only after the body exists.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
 
   // Ensure that high priority requests still start.
   std::unique_ptr<TestRequest> high2(
@@ -1234,9 +1095,8 @@ TEST_F(ResourceSchedulerTest, ThrottleDelayableDisabled) {
   scoped_feature_list.InitWithFeatureList(std::move(feature_list));
 
   InitializeScheduler();
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_2G);
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
   // Insert one non-delayable request. This should not affect the number of
   // delayable requests started.
   std::unique_ptr<TestRequest> medium(
@@ -1273,12 +1133,10 @@ TEST_F(ResourceSchedulerTest, NonDelayableThrottlesDelayableOutsideECT) {
   InitializeThrottleDelayableExperiment(false, kNonDelayableWeight);
   // Experiment should not run when the effective connection type is faster
   // than 2G.
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_3G);
-  // Limit will only trigger after the page has a body.
 
   InitializeScheduler();
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
   // Insert one non-delayable request. This should not affect the number of
   // delayable requests started.
   std::unique_ptr<TestRequest> medium(
@@ -1304,12 +1162,10 @@ TEST_F(ResourceSchedulerTest, NonDelayableThrottlesDelayableVaryNonDelayable) {
   // Initialize the experiment with |kNonDelayableWeight| as the weight of
   // non-delayable requests.
   InitializeThrottleDelayableExperiment(false, kNonDelayableWeight);
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
 
   InitializeScheduler();
-  // Limit will only trigger after the page has a body.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
   for (int num_non_delayable = 0; num_non_delayable < 10; ++num_non_delayable) {
     base::RunLoop().RunUntilIdle();
     // Start the non-delayable requests.
@@ -1472,7 +1328,7 @@ TEST_F(ResourceSchedulerTest, MultipleInstances_2) {
 TEST_F(ResourceSchedulerTest,
        MaxRequestsPerHostForSpdyWhenDelayableSlowConnections) {
   ConfigureDelayRequestsOnMultiplexedConnectionsFieldTrial();
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_2G);
 
   InitializeScheduler();
@@ -1512,7 +1368,7 @@ TEST_F(ResourceSchedulerTest,
 TEST_F(ResourceSchedulerTest,
        MaxRequestsPerHostForSpdyWhenDelayableFastConnections) {
   ConfigureDelayRequestsOnMultiplexedConnectionsFieldTrial();
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_4G);
 
   InitializeScheduler();
@@ -1541,7 +1397,7 @@ TEST_F(ResourceSchedulerTest,
 TEST_F(ResourceSchedulerTest,
        MaxRequestsPerHostForNonSpdyWhenDelayableSlowConnections) {
   ConfigureDelayRequestsOnMultiplexedConnectionsFieldTrial();
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_2G);
 
   InitializeScheduler();
@@ -1565,16 +1421,13 @@ TEST_F(ResourceSchedulerTest,
 TEST_F(ResourceSchedulerTest,
        DelayableRequestLimitSpdyDelayableSlowConnections) {
   ConfigureDelayRequestsOnMultiplexedConnectionsFieldTrial();
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_2G);
 
   InitializeScheduler();
-  // The limit will matter only once the page has a body, since delayable
-  // requests are not loaded before that.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
 
-  // Throw in one high priority request to ensure that it does not matter once
-  // a body exists.
+  // Throw in one high priority request to ensure that high priority requests
+  // do not depend on anything.
   std::unique_ptr<TestRequest> high(
       NewRequest("http://host/high", net::HIGHEST));
   EXPECT_TRUE(high->started());
@@ -1608,16 +1461,13 @@ TEST_F(ResourceSchedulerTest,
 TEST_F(ResourceSchedulerTest, MaxQueuingDelaySet) {
   base::TimeDelta max_queuing_time = base::TimeDelta::FromSeconds(15);
   InitializeMaxQueuingDelayExperiment(max_queuing_time);
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
 
   InitializeScheduler();
-  // The limit will matter only once the page has a body, since delayable
-  // requests are not loaded before that.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
 
-  // Throw in one high priority request to ensure that it does not matter once
-  // a body exists.
+  // Throw in one high priority request to ensure that high priority requests
+  // do not depend on anything.
   std::unique_ptr<TestRequest> high(
       NewRequest("http://host/high", net::HIGHEST));
   EXPECT_TRUE(high->started());
@@ -1658,16 +1508,13 @@ TEST_F(ResourceSchedulerTest, MaxQueuingDelaySet) {
 // duration are not dispatched to the network.
 TEST_F(ResourceSchedulerTest, MaxQueuingDelayNotSet) {
   base::TimeDelta max_queuing_time = base::TimeDelta::FromSeconds(15);
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
 
   InitializeScheduler();
-  // The limit will matter only once the page has a body, since delayable
-  // requests are not loaded before that.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
 
-  // Throw in one high priority request to ensure that it does not matter once
-  // a body exists.
+  // Throw in one high priority request to ensure that high priority requests
+  // do not depend on anything.
   std::unique_ptr<TestRequest> high(
       NewRequest("http://host/high", net::HIGHEST));
   EXPECT_TRUE(high->started());
@@ -1710,16 +1557,13 @@ TEST_F(ResourceSchedulerTest, MaxQueuingDelayNotSet) {
 TEST_F(ResourceSchedulerTest, MaxQueuingDelayTimerFires) {
   base::TimeDelta max_queuing_time = base::TimeDelta::FromSeconds(15);
   InitializeMaxQueuingDelayExperiment(max_queuing_time);
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
 
   InitializeScheduler();
-  // The limit will matter only once the page has a body, since delayable
-  // requests are not loaded before that.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
 
-  // Throw in one high priority request to ensure that it does not matter once
-  // a body exists.
+  // Throw in one high priority request to ensure that high priority requests
+  // do not depend on anything.
   std::unique_ptr<TestRequest> high(
       NewRequest("http://host/high", net::HIGHEST));
   EXPECT_TRUE(high->started());
@@ -1761,16 +1605,13 @@ TEST_F(ResourceSchedulerTest, MaxQueuingDelayTimerFires) {
 TEST_F(ResourceSchedulerTest, MaxQueuingDelayTimerNotFired) {
   base::TimeDelta max_queuing_time = base::TimeDelta::FromSeconds(15);
   InitializeMaxQueuingDelayExperiment(max_queuing_time);
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
 
   InitializeScheduler();
-  // The limit will matter only once the page has a body, since delayable
-  // requests are not loaded before that.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
 
-  // Throw in one high priority request to ensure that it does not matter once
-  // a body exists.
+  // Throw in one high priority request to ensure that high priority requests
+  // do not depend on anything.
   std::unique_ptr<TestRequest> high(
       NewRequest("http://host/high", net::HIGHEST));
   EXPECT_TRUE(high->started());
@@ -1815,7 +1656,7 @@ TEST_F(ResourceSchedulerTest, MaxQueuingDelayTimerRunsOnRequestSchedule) {
       features::kUnthrottleRequestsAfterLongQueuingDelay.name, "");
   base::TimeDelta max_queuing_time = base::TimeDelta::FromSeconds(15);
   InitializeMaxQueuingDelayExperiment(max_queuing_time);
-  network_quality_estimator_.set_effective_connection_type(
+  network_quality_estimator_.SetAndNotifyObserversOfEffectiveConnectionType(
       net::EFFECTIVE_CONNECTION_TYPE_SLOW_2G);
   // Should be in sync with resource_scheduler.cc for effective connection type
   // (ECT) 2G. For ECT of 2G, number of low priority requests allowed are:
@@ -1827,12 +1668,9 @@ TEST_F(ResourceSchedulerTest, MaxQueuingDelayTimerRunsOnRequestSchedule) {
 
   InitializeScheduler();
   EXPECT_FALSE(scheduler()->IsLongQueuedRequestsDispatchTimerRunning());
-  // The limit will matter only once the page has a body, since delayable
-  // requests are not loaded before that.
-  scheduler()->DeprecatedOnNavigate(kChildId, kRouteId);
 
-  // Throw in one high priority request to ensure that it does not matter once
-  // a body exists.
+  // Throw in one high priority request to ensure that high priority requests
+  // do not depend on anything.
   std::unique_ptr<TestRequest> high(
       NewRequest("http://host/high", net::HIGHEST));
   EXPECT_TRUE(high->started());

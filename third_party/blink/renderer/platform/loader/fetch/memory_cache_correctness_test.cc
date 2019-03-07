@@ -39,6 +39,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/loader/testing/mock_fetch_context.h"
 #include "third_party/blink/renderer/platform/loader/testing/mock_resource.h"
+#include "third_party/blink/renderer/platform/loader/testing/test_resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support_with_mock_scheduler.h"
 
 namespace blink {
@@ -58,9 +59,9 @@ constexpr char kOneDayAfterOriginalRequest[] = "Fri, 26 May 1977 18:30:00 GMT";
 class MemoryCacheCorrectnessTest : public testing::Test {
  protected:
   MockResource* ResourceFromResourceResponse(ResourceResponse response) {
-    if (response.Url().IsNull())
-      response.SetURL(KURL(kResourceURL));
-    ResourceRequest request(response.Url());
+    if (response.CurrentRequestUrl().IsNull())
+      response.SetCurrentRequestUrl(KURL(kResourceURL));
+    ResourceRequest request(response.CurrentRequestUrl());
     request.SetRequestorOrigin(GetSecurityOrigin());
     MockResource* resource = MockResource::Create(request);
     resource->SetResponse(response);
@@ -114,12 +115,15 @@ class MemoryCacheCorrectnessTest : public testing::Test {
     global_memory_cache_ = ReplaceMemoryCacheForTesting(
         MemoryCache::Create(platform_->test_task_runner()));
 
-    MockFetchContext* context =
-        MockFetchContext::Create(MockFetchContext::kShouldNotLoadNewResource);
     security_origin_ = SecurityOrigin::CreateUniqueOpaque();
-    context->SetSecurityOrigin(security_origin_);
-
-    fetcher_ = ResourceFetcher::Create(context);
+    MockFetchContext* context = MakeGarbageCollected<MockFetchContext>();
+    auto* properties =
+        MakeGarbageCollected<TestResourceFetcherProperties>(security_origin_);
+    properties->SetShouldBlockLoadingMainResource(true);
+    properties->SetShouldBlockLoadingSubResource(true);
+    fetcher_ = MakeGarbageCollected<ResourceFetcher>(
+        ResourceFetcherInit(*properties, context,
+                            base::MakeRefCounted<scheduler::FakeTaskRunner>()));
   }
   void TearDown() override {
     GetMemoryCache()->EvictResources();

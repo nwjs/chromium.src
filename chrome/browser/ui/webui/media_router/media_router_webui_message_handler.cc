@@ -27,7 +27,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/browser_sync/profile_sync_service.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/core/browser/account_tracker_service.h"
+#include "components/signin/core/browser/account_info.h"
 #include "content/public/browser/web_ui.h"
 #include "extensions/common/constants.h"
 #include "services/identity/public/cpp/identity_manager.h"
@@ -126,7 +126,7 @@ std::unique_ptr<base::DictionaryValue> SinksAndIdentityToValue(
       // Convert default domains to user domain
       if (domain == "default") {
         domain = user_domain;
-        if (domain == AccountTrackerService::kNoHostedDomainFound) {
+        if (domain == kNoHostedDomainFound) {
           // Default domain will be empty for non-dasher accounts.
           domain.clear();
         }
@@ -964,13 +964,13 @@ void MediaRouterWebUIMessageHandler::OnPlayCurrentMedia(
 void MediaRouterWebUIMessageHandler::OnSeekCurrentMedia(
     const base::ListValue* args) {
   const base::DictionaryValue* args_dict = nullptr;
-  int time;
+  double time;
   if (!args->GetDictionary(0, &args_dict) ||
-      !args_dict->GetInteger("time", &time)) {
+      !args_dict->GetDouble("time", &time)) {
     DVLOG(1) << "Unable to extract time";
     return;
   }
-  base::TimeDelta time_delta = base::TimeDelta::FromSeconds(time);
+  base::TimeDelta time_delta = base::TimeDelta::FromSecondsD(time);
   MediaRouteController* route_controller =
       media_router_ui_->GetMediaRouteController();
   if (route_controller && current_media_status_ &&

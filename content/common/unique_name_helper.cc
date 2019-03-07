@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
@@ -160,9 +161,9 @@ std::string CalculateFrameHash(base::StringPiece name) {
 
   std::string hashed_name;
   uint8_t result[crypto::kSHA256Length];
-  crypto::SHA256HashString(name, result, arraysize(result));
+  crypto::SHA256HashString(name, result, base::size(result));
   hashed_name += "<!--frameHash";
-  hashed_name += base::HexEncode(result, arraysize(result));
+  hashed_name += base::HexEncode(result, base::size(result));
   hashed_name += "-->";
   return hashed_name;
 }
@@ -200,7 +201,7 @@ std::string UniqueNameHelper::GenerateNameForNewChildFrame(
   // The deterministic part of unique name should be included if
   // 1. The new subframe is not created by script or
   // 2. The new subframe is created by script, but we are still asked for the
-  //    old, stable part for layout tests (via
+  //    old, stable part for web tests (via
   //    |g_preserve_stable_unique_name_for_testing|).
   if (!is_created_by_script || g_preserve_stable_unique_name_for_testing) {
     PendingChildFrameAdapter adapter(frame_);

@@ -23,19 +23,20 @@
 
 namespace app_list {
 
-namespace {
+// TODO(crbug.com/826982): move UMA_HISTOGRAM_ENUMERATION code to
+// built_in_chromeos_apps.cc when the AppService feature is enabled by default.
 
-void RecordShowHistogram(InternalAppName name) {
-  UMA_HISTOGRAM_ENUMERATION(
-      "Apps.AppListSearchResultInternalApp.Show", name);
+// static
+void InternalAppResult::RecordShowHistogram(const std::string& app_id) {
+  InternalAppName name = GetInternalAppNameByAppId(app_id);
+  UMA_HISTOGRAM_ENUMERATION("Apps.AppListSearchResultInternalApp.Show", name);
 }
 
-void RecordOpenHistogram(InternalAppName name) {
-  UMA_HISTOGRAM_ENUMERATION(
-      "Apps.AppListSearchResultInternalApp.Open", name);
+// static
+void InternalAppResult::RecordOpenHistogram(const std::string& app_id) {
+  InternalAppName name = GetInternalAppNameByAppId(app_id);
+  UMA_HISTOGRAM_ENUMERATION("Apps.AppListSearchResultInternalApp.Open", name);
 }
-
-}  // namespace
 
 InternalAppResult::InternalAppResult(Profile* profile,
                                      const std::string& app_id,
@@ -60,7 +61,7 @@ InternalAppResult::InternalAppResult(Profile* profile,
     UpdateContinueReadingFavicon(/*continue_to_google_server=*/true);
   }
 
-  RecordShowHistogram(GetInternalAppNameByAppId(app_id));
+  RecordShowHistogram(app_id);
 }
 
 InternalAppResult::~InternalAppResult() = default;
@@ -74,7 +75,7 @@ void InternalAppResult::Open(int event_flags) {
   if (display_type() != DisplayType::kRecommendation)
     RecordHistogram(APP_SEARCH_RESULT);
 
-  RecordOpenHistogram(GetInternalAppNameByAppId(id()));
+  RecordOpenHistogram(id());
 
   if (id() == kInternalAppIdContinueReading &&
       url_for_continuous_reading_.is_valid()) {
@@ -91,7 +92,8 @@ void InternalAppResult::UpdateContinueReadingFavicon(
     bool continue_to_google_server) {
   base::string16 title;
   GURL url;
-  if (HasRecommendableForeignTab(profile(), &title, &url)) {
+  if (HasRecommendableForeignTab(profile(), &title, &url,
+                                 /*test_delegate=*/nullptr)) {
     url_for_continuous_reading_ = url;
 
     // Foreign tab could be updated since the title was set the last time.
@@ -103,7 +105,7 @@ void InternalAppResult::UpdateContinueReadingFavicon(
     // Desired size of the icon. If not available, a smaller one will be used.
     constexpr int min_source_size_in_pixel = 16;
     constexpr int desired_size_in_pixel = 32;
-    large_icon_service_->GetLargeIconImageOrFallbackStyle(
+    large_icon_service_->GetLargeIconImageOrFallbackStyleForPageUrl(
         url_for_continuous_reading_, min_source_size_in_pixel,
         desired_size_in_pixel,
         base::BindRepeating(&InternalAppResult::OnGetFaviconFromCacheFinished,

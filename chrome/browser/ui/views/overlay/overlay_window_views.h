@@ -16,10 +16,12 @@
 #endif
 
 namespace views {
+class BackToTabImageButton;
 class ControlImageButton;
 class CloseImageButton;
 class PlaybackImageButton;
 class ResizeHandleButton;
+class SkipAdLabelButton;
 }  // namespace views
 
 #pragma clang diagnostic push
@@ -49,6 +51,7 @@ class OverlayWindowViews : public content::OverlayWindow,
   void UpdateVideoSize(const gfx::Size& natural_size) override;
   void SetPlaybackState(PlaybackState playback_state) override;
   void SetAlwaysHidePlayPauseButton(bool is_visible) override;
+  void SetSkipAdButtonVisibility(bool is_visible) override;
   void SetPictureInPictureCustomControls(
       const std::vector<blink::PictureInPictureControlInfo>& controls) override;
   ui::Layer* GetWindowBackgroundLayer() override;
@@ -71,6 +74,8 @@ class OverlayWindowViews : public content::OverlayWindow,
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
 
   // Gets the bounds of the controls.
+  gfx::Rect GetBackToTabControlsBounds();
+  gfx::Rect GetSkipAdControlsBounds();
   gfx::Rect GetCloseControlsBounds();
   gfx::Rect GetResizeHandleControlsBounds();
   gfx::Rect GetPlayPauseControlsBounds();
@@ -86,6 +91,8 @@ class OverlayWindowViews : public content::OverlayWindow,
   bool AreControlsVisible() const;
 
   views::PlaybackImageButton* play_pause_controls_view_for_testing() const;
+  gfx::Point back_to_tab_image_position_for_testing() const;
+  views::SkipAdLabelButton* skip_ad_controls_view_for_testing() const;
   gfx::Point close_image_position_for_testing() const;
   gfx::Point resize_handle_position_for_testing() const;
   views::View* controls_parent_view_for_testing() const;
@@ -138,6 +145,8 @@ class OverlayWindowViews : public content::OverlayWindow,
   void SetSecondCustomControlsBounds();
 
   ui::Layer* GetControlsScrimLayer();
+  ui::Layer* GetBackToTabControlsLayer();
+  ui::Layer* GetSkipAdControlsLayer();
   ui::Layer* GetCloseControlsLayer();
   ui::Layer* GetResizeHandleLayer();
   ui::Layer* GetControlsParentLayer();
@@ -189,8 +198,10 @@ class OverlayWindowViews : public content::OverlayWindow,
   std::unique_ptr<views::View> video_view_;
   std::unique_ptr<views::View> controls_scrim_view_;
   // |controls_parent_view_| is the parent view of all control views except
-  // the close view.
+  // the back-to-tab, close and skip-ad views.
   std::unique_ptr<views::View> controls_parent_view_;
+  std::unique_ptr<views::BackToTabImageButton> back_to_tab_controls_view_;
+  std::unique_ptr<views::SkipAdLabelButton> skip_ad_controls_view_;
   std::unique_ptr<views::CloseImageButton> close_controls_view_;
   std::unique_ptr<views::ResizeHandleButton> resize_handle_view_;
   std::unique_ptr<views::PlaybackImageButton> play_pause_controls_view_;
@@ -206,6 +217,10 @@ class OverlayWindowViews : public content::OverlayWindow,
   // Current playback state on the video in Picture-in-Picture window. It is
   // used to toggle play/pause/replay button.
   PlaybackState playback_state_for_testing_ = kEndOfVideo;
+
+  // Whether or not the skip ad button will be shown. This is the
+  // case when Media Session "skipad" action is handled by the website.
+  bool show_skip_ad_button_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(OverlayWindowViews);
 };

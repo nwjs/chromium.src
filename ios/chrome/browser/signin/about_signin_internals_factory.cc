@@ -6,7 +6,7 @@
 
 #include <utility>
 
-#include "base/memory/singleton.h"
+#include "base/no_destructor.h"
 #include "components/keyed_service/ios/browser_state_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/signin/core/browser/about_signin_internals.h"
@@ -18,7 +18,6 @@
 #include "ios/chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "ios/chrome/browser/signin/signin_client_factory.h"
 #include "ios/chrome/browser/signin/signin_error_controller_factory.h"
-#include "ios/chrome/browser/signin/signin_manager_factory.h"
 
 namespace ios {
 
@@ -32,7 +31,6 @@ AboutSigninInternalsFactory::AboutSigninInternalsFactory()
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(SigninClientFactory::GetInstance());
   DependsOn(SigninErrorControllerFactory::GetInstance());
-  DependsOn(SigninManagerFactory::GetInstance());
 }
 
 AboutSigninInternalsFactory::~AboutSigninInternalsFactory() {}
@@ -46,7 +44,8 @@ AboutSigninInternals* AboutSigninInternalsFactory::GetForBrowserState(
 
 // static
 AboutSigninInternalsFactory* AboutSigninInternalsFactory::GetInstance() {
-  return base::Singleton<AboutSigninInternalsFactory>::get();
+  static base::NoDestructor<AboutSigninInternalsFactory> instance;
+  return instance.get();
 }
 
 std::unique_ptr<KeyedService>
@@ -59,7 +58,6 @@ AboutSigninInternalsFactory::BuildServiceInstanceFor(
           chrome_browser_state),
       AccountTrackerServiceFactory::GetForBrowserState(chrome_browser_state),
       IdentityManagerFactory::GetForBrowserState(chrome_browser_state),
-      SigninManagerFactory::GetForBrowserState(chrome_browser_state),
       SigninErrorControllerFactory::GetForBrowserState(chrome_browser_state),
       GaiaCookieManagerServiceFactory::GetForBrowserState(chrome_browser_state),
       signin::AccountConsistencyMethod::kMirror));

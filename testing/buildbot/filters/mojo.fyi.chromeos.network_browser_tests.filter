@@ -6,18 +6,8 @@
 # cross-platform failures in mojo.fyi.network_browser_tests.filter).
 # See https://crbug.com/881976
 
-# Need to convert MergeSessionResourceThrottle to a URLLoaderThrottle.
--MergeSessionTest.XHRThrottle
-
-# The test went into the 'Local Auth Server' screen instead of the Kiosk screen.
-# https://crbug.com/892357
--KioskUpdateTest.LaunchCachedOfflineEnabledAppNoNetwork
-
-# Flaky with error: `Check failed: (sequence_checker_).CalledOnValidSequence()`.
--DevToolsSanityTest.DisposeEmptyBrowserContext
-
-# Flaky with error: `picture_in_picture_window_controller_impl.cc(167)] Check failed: media_player_id_.has_value()`.
--PictureInPictureWindowControllerBrowserTest.TabIconUpdated
+# Crashing on Mash. https://crbug.com/919108
+-ChromeBrowserMainBrowserTest.VariationsServiceStartsRequestOnNetworkChange
 
 # NOTE: if adding an exclusion for an existing failure (e.g. additional test for
 # feature X that is already not working), please add it beside the existing

@@ -2,9 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "ash/accessibility/accessibility_controller.h"
 #include "ash/autoclick/autoclick_controller.h"
 #include "ash/shell.h"
+#include "ash/system/accessibility/autoclick_tray.h"
+#include "ash/system/status_area_widget.h"
+#include "ash/system/status_area_widget_test_helper.h"
 #include "ash/test/ash_test_base.h"
+#include "base/run_loop.h"
+#include "base/test/scoped_task_environment.h"
+#include "ui/accessibility/accessibility_switches.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_event_dispatcher.h"
@@ -69,10 +76,17 @@ class MouseEventCapturer : public ui::EventHandler {
 
 class AutoclickTest : public AshTestBase {
  public:
-  AutoclickTest() = default;
+  AutoclickTest() {
+    DestroyScopedTaskEnvironment();
+    scoped_task_environment_ =
+        std::make_unique<base::test::ScopedTaskEnvironment>(
+            base::test::ScopedTaskEnvironment::MainThreadType::UI_MOCK_TIME);
+  };
   ~AutoclickTest() override = default;
 
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        switches::kEnableExperimentalAccessibilityAutoclick);
     AshTestBase::SetUp();
     Shell::Get()->AddPreTargetHandler(&mouse_event_capturer_);
     GetAutoclickController()->SetAutoclickDelay(base::TimeDelta());
@@ -83,7 +97,7 @@ class AutoclickTest : public AshTestBase {
     // Make sure the display is initialized so we don't fail the test due to any
     // input events caused from creating the display.
     Shell::Get()->display_manager()->UpdateDisplays();
-    RunAllPendingInMessageLoop();
+    base::RunLoop().RunUntilIdle();
   }
 
   void TearDown() override {
@@ -99,12 +113,28 @@ class AutoclickTest : public AshTestBase {
 
   const std::vector<ui::MouseEvent>& WaitForMouseEvents() {
     ClearMouseEvents();
-    RunAllPendingInMessageLoop();
+    base::RunLoop().RunUntilIdle();
     return GetMouseEvents();
+  }
+
+  void FastForwardBy(int milliseconds) {
+    scoped_task_environment_->FastForwardBy(
+        base::TimeDelta::FromMilliseconds(milliseconds));
   }
 
   AutoclickController* GetAutoclickController() {
     return Shell::Get()->autoclick_controller();
+  }
+
+  AutoclickTray* GetAutoclickTray() {
+    return StatusAreaWidgetTestHelper::GetStatusAreaWidget()->autoclick_tray();
+  }
+
+  TrayBubbleWrapper* GetAutoclickTrayBubble() {
+    AutoclickTray* tray = GetAutoclickTray();
+    if (!tray)
+      return nullptr;
+    return tray->bubble_.get();
   }
 
   void ClearMouseEvents() { mouse_event_capturer_.Reset(); }
@@ -115,6 +145,7 @@ class AutoclickTest : public AshTestBase {
 
  private:
   MouseEventCapturer mouse_event_capturer_;
+  std::unique_ptr<base::test::ScopedTaskEnvironment> scoped_task_environment_;
 
   DISALLOW_COPY_AND_ASSIGN(AutoclickTest);
 };
@@ -184,7 +215,7 @@ TEST_F(AutoclickTest, MouseMovement) {
 
 TEST_F(AutoclickTest, MovementThreshold) {
   UpdateDisplay("1280x1024,800x600");
-  RunAllPendingInMessageLoop();
+  base::RunLoop().RunUntilIdle();
   aura::Window::Windows root_windows = Shell::GetAllRootWindows();
   EXPECT_EQ(2u, root_windows.size());
 
@@ -482,6 +513,163 @@ TEST_F(AutoclickTest, AutoclickRevertsToLeftClick) {
   ASSERT_EQ(2u, events.size());
   EXPECT_TRUE(ui::EF_RIGHT_MOUSE_BUTTON & events[0].flags());
   EXPECT_TRUE(ui::EF_RIGHT_MOUSE_BUTTON & events[1].flags());
+}
+
+TEST_F(AutoclickTest, WaitsToDrawAnimationAfterDwellBegins) {
+  float ratio = GetAutoclickController()->GetStartGestureDelayRatioForTesting();
+  int full_delay = ceil(1.0 / ratio) * 5;
+  int animation_delay = 5;
+  GetAutoclickController()->SetAutoclickDelay(
+      base::TimeDelta::FromMilliseconds(full_delay));
+  GetAutoclickController()->SetEnabled(true);
+  std::vector<ui::MouseEvent> events;
+
+  // Start a dwell at (210, 210).
+  GetEventGenerator()->MoveMouseTo(210, 210);
+
+  // The center should change to (205, 205) if the adjustment is made before
+  // the animation starts.
+  FastForwardBy(animation_delay - 1);
+  GetEventGenerator()->MoveMouseTo(205, 205);
+
+  // Now wait the full delay to ensure the click has happened, then check
+  // the result.
+  FastForwardBy(full_delay);
+  events = GetMouseEvents();
+  ASSERT_EQ(2u, events.size());
+  EXPECT_EQ(gfx::Point(205, 205), events[0].location());
+
+  // Start another dwell at (100, 100).
+  ClearMouseEvents();
+  GetEventGenerator()->MoveMouseTo(100, 100);
+
+  // Move the mouse a little to (105, 105), which should become the center.
+  FastForwardBy(animation_delay - 1);
+  GetEventGenerator()->MoveMouseTo(105, 105);
+
+  // Fast forward until the animation would have started. Now moving the mouse
+  // a little does not change the center point.
+  FastForwardBy(animation_delay);
+  GetEventGenerator()->MoveMouseTo(110, 110);
+
+  // Now wait until the click. It should be at the center point from before
+  // the animation started.
+  FastForwardBy(full_delay);
+  events = GetMouseEvents();
+  ASSERT_EQ(2u, events.size());
+  EXPECT_EQ(gfx::Point(105, 105), events[0].location());
+}
+
+TEST_F(AutoclickTest, LeftClicksOnTrayButtonWhenInDifferentModes) {
+  // Enable autoclick from the accessibility controller so that the tray is
+  // constructed too.
+  Shell::Get()->accessibility_controller()->SetAutoclickEnabled(true);
+  GetAutoclickController()->set_revert_to_left_click(false);
+  GetAutoclickController()->SetAutoclickEventType(
+      mojom::AutoclickEventType::kRightClick);
+  std::vector<ui::MouseEvent> events;
+
+  AutoclickTray* tray = GetAutoclickTray();
+  ASSERT_TRUE(tray);
+
+  // Outside of the tray, a right-click still occurs.
+  GetEventGenerator()->MoveMouseTo(30, 30);
+  events = WaitForMouseEvents();
+  ASSERT_EQ(2u, events.size());
+  EXPECT_TRUE(ui::EF_RIGHT_MOUSE_BUTTON & events[0].flags());
+  EXPECT_TRUE(ui::EF_RIGHT_MOUSE_BUTTON & events[1].flags());
+
+  // But over the tray, we get a left click.
+  GetEventGenerator()->MoveMouseTo(tray->GetBoundsInScreen().origin());
+  events = WaitForMouseEvents();
+  ASSERT_EQ(2u, events.size());
+  EXPECT_TRUE(ui::EF_LEFT_MOUSE_BUTTON & events[0].flags());
+  EXPECT_TRUE(ui::EF_LEFT_MOUSE_BUTTON & events[1].flags());
+
+  // Open the bubble.
+  ui::GestureEvent tap_event = ui::GestureEvent(
+      0, 0, 0, base::TimeTicks(), ui::GestureEventDetails(ui::ET_GESTURE_TAP));
+  tray->PerformAction(tap_event);
+
+  // And over the bubble we also get a left click.
+  GetEventGenerator()->MoveMouseTo(
+      GetAutoclickTrayBubble()->bubble_view()->GetBoundsInScreen().origin());
+  events = WaitForMouseEvents();
+  ASSERT_EQ(2u, events.size());
+  EXPECT_TRUE(ui::EF_LEFT_MOUSE_BUTTON & events[0].flags());
+  EXPECT_TRUE(ui::EF_LEFT_MOUSE_BUTTON & events[1].flags());
+
+  // Close the bubble and try again with pause.
+  tray->PerformAction(tap_event);
+  GetAutoclickController()->SetAutoclickEventType(
+      mojom::AutoclickEventType::kNoAction);
+
+  // Outside the tray, no action occurs.
+  GetEventGenerator()->MoveMouseTo(30, 30);
+  events = WaitForMouseEvents();
+  EXPECT_EQ(0u, events.size());
+
+  // If we move over the tray button than a click occurs.
+  GetEventGenerator()->MoveMouseTo(tray->GetBoundsInScreen().origin());
+  events = WaitForMouseEvents();
+  ASSERT_EQ(2u, events.size());
+  EXPECT_TRUE(ui::EF_LEFT_MOUSE_BUTTON & events[0].flags());
+  EXPECT_TRUE(ui::EF_LEFT_MOUSE_BUTTON & events[1].flags());
+
+  // But leaving the tray button we are still paused.
+  GetEventGenerator()->MoveMouseTo(60, 60);
+  events = WaitForMouseEvents();
+  EXPECT_EQ(0u, events.size());
+
+  // Reset state.
+  Shell::Get()->accessibility_controller()->SetAutoclickEnabled(false);
+}
+
+TEST_F(AutoclickTest,
+       StartsGestureOnTrayButtonButDoesNotClickIfMouseMovedWhenPaused) {
+  Shell::Get()->accessibility_controller()->SetAutoclickEnabled(true);
+  GetAutoclickController()->set_revert_to_left_click(false);
+  GetAutoclickController()->SetAutoclickEventType(
+      mojom::AutoclickEventType::kNoAction);
+
+  float ratio = GetAutoclickController()->GetStartGestureDelayRatioForTesting();
+  int full_delay = ceil(1.0 / ratio) * 5;
+  int animation_delay = 5;
+  GetAutoclickController()->SetAutoclickDelay(
+      base::TimeDelta::FromMilliseconds(full_delay));
+
+  std::vector<ui::MouseEvent> events;
+  AutoclickTray* tray = GetAutoclickTray();
+  ASSERT_TRUE(tray);
+
+  // Start a dwell over the tray.
+  GetEventGenerator()->MoveMouseTo(tray->GetBoundsInScreen().origin());
+
+  // Move back off the tray before anything happens.
+  FastForwardBy(animation_delay - 1);
+  GetEventGenerator()->MoveMouseTo(30, 30);
+
+  // Now wait the full delay to ensure pause could have happened.
+  FastForwardBy(full_delay);
+  events = GetMouseEvents();
+  ASSERT_EQ(0u, events.size());
+
+  // This time, dwell over the tray long enough for the animation to begin.
+  // No action should occur if we move off during the dwell.
+  GetEventGenerator()->MoveMouseTo(tray->GetBoundsInScreen().origin());
+
+  // Move back off the tray after the animation begins, but before a click would
+  // occur.
+  FastForwardBy(animation_delay + 1);
+  GetEventGenerator()->MoveMouseTo(30, 30);
+
+  // Now wait the full delay to ensure pause could have happened.
+  FastForwardBy(full_delay);
+  events = GetMouseEvents();
+  ASSERT_EQ(0u, events.size());
+
+  // Reset state.
+  Shell::Get()->accessibility_controller()->SetAutoclickEnabled(false);
 }
 
 }  // namespace ash

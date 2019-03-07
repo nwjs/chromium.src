@@ -95,11 +95,10 @@ TEST_F(ScriptedIdleTaskControllerTest, RunCallback) {
   MockScriptedIdleTaskControllerScheduler scheduler(ShouldYield::DONT_YIELD);
   ScopedSchedulerOverrider scheduler_overrider(&scheduler);
 
-  NullExecutionContext execution_context;
   ScriptedIdleTaskController* controller =
       ScriptedIdleTaskController::Create(execution_context_);
 
-  Persistent<MockIdleTask> idle_task(new MockIdleTask());
+  Persistent<MockIdleTask> idle_task(MakeGarbageCollected<MockIdleTask>());
   IdleRequestOptions* options = IdleRequestOptions::Create();
   EXPECT_FALSE(scheduler.HasIdleTask());
   int id = controller->RegisterCallback(idle_task, options);
@@ -116,11 +115,10 @@ TEST_F(ScriptedIdleTaskControllerTest, DontRunCallbackWhenAskedToYield) {
   MockScriptedIdleTaskControllerScheduler scheduler(ShouldYield::YIELD);
   ScopedSchedulerOverrider scheduler_overrider(&scheduler);
 
-  NullExecutionContext execution_context;
   ScriptedIdleTaskController* controller =
       ScriptedIdleTaskController::Create(execution_context_);
 
-  Persistent<MockIdleTask> idle_task(new MockIdleTask());
+  Persistent<MockIdleTask> idle_task(MakeGarbageCollected<MockIdleTask>());
   IdleRequestOptions* options = IdleRequestOptions::Create();
   int id = controller->RegisterCallback(idle_task, options);
   EXPECT_NE(0, id);

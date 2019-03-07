@@ -10,7 +10,10 @@
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/strings/sys_string_conversions.h"
+#include "base/strings/utf_string_conversions.h"
 #include "chrome/app_shim/app_shim_delegate.h"
+#include "chrome/browser/ui/cocoa/browser_window_command_handler.h"
+#include "chrome/browser/ui/cocoa/chrome_command_dispatcher_delegate.h"
 #include "chrome/browser/ui/cocoa/main_menu_builder.h"
 #include "content/public/browser/ns_view_bridge_factory_impl.h"
 #include "content/public/common/ns_view_bridge_factory.mojom.h"
@@ -19,6 +22,7 @@
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views_bridge_mac/bridge_factory_impl.h"
+#include "ui/views_bridge_mac/bridged_native_widget_impl.h"
 #include "ui/views_bridge_mac/mojo/bridge_factory.mojom.h"
 
 AppShimController::AppShimController(
@@ -65,8 +69,10 @@ void AppShimController::InitBootstrapPipe() {
 
   // The user_data_dir for shims actually contains the app_data_path.
   // I.e. <user_data_dir>/<profile_dir>/Web Applications/_crx_extensionid/
-  base::FilePath user_data_dir =
-      app_mode_info_->user_data_dir.DirName().DirName().DirName();
+  base::FilePath user_data_dir = base::FilePath(app_mode_info_->user_data_dir)
+                                     .DirName()
+                                     .DirName()
+                                     .DirName();
   CHECK(!user_data_dir.empty());
 
   base::FilePath symlink_path =
@@ -86,6 +92,7 @@ void AppShimController::CreateChannelAndSendLaunchApp(
   mojo::ScopedMessagePipeHandle message_pipe =
       bootstrap_mojo_connection_.Connect(
           mojo::NamedPlatformChannel::ConnectToServer(socket_path.value()));
+  CHECK(message_pipe.is_valid());
   host_bootstrap_ = chrome::mojom::AppShimHostBootstrapPtr(
       chrome::mojom::AppShimHostBootstrapPtrInfo(std::move(message_pipe), 0));
   host_bootstrap_.set_connection_error_with_reason_handler(base::BindOnce(
@@ -103,14 +110,15 @@ void AppShimController::CreateChannelAndSendLaunchApp(
   [delegate_ getFilesToOpenAtStartup:&files];
 
   host_bootstrap_->LaunchApp(std::move(host_request_),
-                             app_mode_info_->profile_dir,
+                             base::FilePath(app_mode_info_->profile_dir),
                              app_mode_info_->app_mode_id, launch_type, files,
                              base::BindOnce(&AppShimController::LaunchAppDone,
                                             base::Unretained(this)));
 }
 
 void AppShimController::SetUpMenu() {
-  chrome::BuildMainMenu(NSApp, delegate_, app_mode_info_->app_mode_name, true);
+  chrome::BuildMainMenu(NSApp, delegate_,
+                        base::UTF8ToUTF16(app_mode_info_->app_mode_name), true);
 }
 
 void AppShimController::BootstrapChannelError(uint32_t custom_reason,
@@ -160,8 +168,22 @@ void AppShimController::CreateContentNSViewBridgeFactory(
   content::NSViewBridgeFactoryImpl::Get()->BindRequest(std::move(request));
 }
 
+void AppShimController::CreateCommandDispatcherForWidget(uint64_t widget_id) {
+  if (auto* bridge = views::BridgedNativeWidgetImpl::GetFromId(widget_id)) {
+    bridge->SetCommandDispatcher(
+        [[[ChromeCommandDispatcherDelegate alloc] init] autorelease],
+        [[[BrowserWindowCommandHandler alloc] init] autorelease]);
+  } else {
+    LOG(ERROR) << "Failed to find host for command dispatcher.";
+  }
+}
+
 void AppShimController::Hide() {
   [NSApp hide:nil];
+}
+
+void AppShimController::SetBadgeLabel(const std::string& badge_label) {
+  NSApp.dockTile.badgeLabel = base::SysUTF8ToNSString(badge_label);
 }
 
 void AppShimController::UnhideWithoutActivation() {
@@ -188,7 +210,7 @@ void AppShimController::SetUserAttention(
 }
 
 void AppShimController::Close() {
-  [delegate_ terminateNow];
+  [NSApp terminate:nil];
 }
 
 bool AppShimController::SendFocusApp(apps::AppShimFocusType focus_type,

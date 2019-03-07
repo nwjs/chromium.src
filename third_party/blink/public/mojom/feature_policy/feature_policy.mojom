@@ -99,6 +99,10 @@ enum FeaturePolicyFeature {
   kLazyLoad = 29,
   // Restricts the usage of layout-causing animations in a document.
   kLayoutAnimations = 30,
+  // Controls access to WakeLock
+  kWakeLock = 31,
+  // Controls access to font-display attribute in @font-face CSS rule
+  kFontDisplay = 32,
 
   // Don't change assigned numbers of any item, and don't reuse removed slots.
   // Also, run update_feature_policy_enum.py in
@@ -119,6 +123,5 @@ enum FeaturePolicyDisposition {
 struct ParsedFeaturePolicyDeclaration {
   FeaturePolicyFeature feature;
   bool matches_all_origins;
-  FeaturePolicyDisposition disposition;
   array<url.mojom.Origin> origins;
 };

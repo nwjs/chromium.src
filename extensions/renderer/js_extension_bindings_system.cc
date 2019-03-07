@@ -90,7 +90,7 @@ v8::Local<v8::Object> GetOrCreateChrome(ScriptContext* context, bool hidden, con
     if (chrome->IsUndefined()) {
       chrome = v8::Object::New(context->isolate());
       v8::Local<v8::String> hidden_key(
-       v8::String::NewFromUtf8(context->isolate(), "__nw_is_hidden"));
+                                       v8::String::NewFromUtf8(context->isolate(), "__nw_is_hidden", v8::NewStringType::kNormal).ToLocalChecked());
       chrome->ToObject(context->v8_context()).ToLocalChecked()->Set(hidden_key, v8::Boolean::New(context->isolate(), true));
       priv_obj->Set(chrome_string, chrome);
     }

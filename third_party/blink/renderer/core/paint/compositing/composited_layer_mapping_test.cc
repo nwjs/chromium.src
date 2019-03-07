@@ -477,7 +477,7 @@ TEST_F(CompositedLayerMappingTest, ClippedBigLayer) {
 }
 
 TEST_F(CompositedLayerMappingTestWithoutBGPT, ClippingMaskLayer) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   const AtomicString style_without_clipping =
@@ -2238,20 +2238,8 @@ TEST_F(CompositedLayerMappingTest, StickyPositionNotSquashed) {
       ToLayoutBlock(GetLayoutObjectByElementId("sticky2"))->Layer();
   PaintLayer* sticky3 =
       ToLayoutBlock(GetLayoutObjectByElementId("sticky3"))->Layer();
-  EXPECT_EQ(kPaintsIntoOwnBacking, sticky1->GetCompositingState());
-  EXPECT_EQ(kNotComposited, sticky2->GetCompositingState());
-  EXPECT_EQ(kNotComposited, sticky3->GetCompositingState());
-
-  PaintLayer* scroller =
-      ToLayoutBlock(GetLayoutObjectByElementId("scroller"))->Layer();
-  PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
-  scrollable_area->ScrollToAbsolutePosition(
-      FloatPoint(scrollable_area->ScrollPosition().Y(), 100));
-  UpdateAllLifecyclePhasesForTest();
-
-  // Now that sticky2 and sticky3 overlap sticky1 they will be promoted, but
-  // they should not be squashed into the same layer because they scroll with
-  // respect to each other.
+  // All three sticky-pos elements are composited, because we composite
+  // all sticky elements which stick to scrollers.
   EXPECT_EQ(kPaintsIntoOwnBacking, sticky1->GetCompositingState());
   EXPECT_EQ(kPaintsIntoOwnBacking, sticky2->GetCompositingState());
   EXPECT_EQ(kPaintsIntoOwnBacking, sticky3->GetCompositingState());
@@ -2628,7 +2616,7 @@ TEST_F(CompositedLayerMappingTest, ScrollLayerSizingSubpixelAccumulation) {
 }
 
 TEST_F(CompositedLayerMappingTest, SquashingScroll) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
   SetHtmlInnerHTML(R"HTML(
     <style>
@@ -2658,7 +2646,7 @@ TEST_F(CompositedLayerMappingTest, SquashingScroll) {
 }
 
 TEST_F(CompositedLayerMappingTest, SquashingScrollInterestRect) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
   SetHtmlInnerHTML(R"HTML(
     <style>
@@ -2684,7 +2672,7 @@ TEST_F(CompositedLayerMappingTest, SquashingScrollInterestRect) {
 
 TEST_F(CompositedLayerMappingTest,
        SquashingBoundsUnderCompositedScrollingWithTransform) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   SetHtmlInnerHTML(R"HTML(
@@ -2720,7 +2708,7 @@ transform'></div>
 }
 
 TEST_F(CompositedLayerMappingTest, ContentsNotOpaqueWithForegroundLayer) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   SetHtmlInnerHTML(R"HTML(
@@ -2744,8 +2732,30 @@ TEST_F(CompositedLayerMappingTest, ContentsNotOpaqueWithForegroundLayer) {
   EXPECT_FALSE(mapping->MainGraphicsLayer()->ContentsOpaque());
 }
 
+TEST_F(CompositedLayerMappingTest, TouchActionRectsWithoutContent) {
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
+    return;
+
+  SetBodyInnerHTML(
+      "<div id='target' style='will-change: transform; width: 100px;"
+      "    height: 100px; touch-action: none;'></div>");
+  auto* box = ToLayoutBoxModelObject(GetLayoutObjectByElementId("target"));
+  auto* mapping = box->Layer()->GetCompositedLayerMapping();
+
+  const auto* layer = mapping->MainGraphicsLayer()->CcLayer();
+  auto expected = gfx::Rect(0, 0, 100, 100);
+  EXPECT_EQ(layer->touch_action_region().region().bounds(), expected);
+
+  EXPECT_TRUE(mapping->MainGraphicsLayer()->PaintsHitTest());
+
+  // The only painted content for the main graphics layer is the touch-action
+  // rect which is not sent to cc, so the cc::layer should not draw content.
+  EXPECT_FALSE(layer->DrawsContent());
+  EXPECT_FALSE(mapping->MainGraphicsLayer()->DrawsContent());
+}
+
 TEST_F(CompositedLayerMappingTest, ContentsOpaque) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   SetHtmlInnerHTML(R"HTML(

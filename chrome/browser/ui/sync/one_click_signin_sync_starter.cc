@@ -18,8 +18,7 @@
 #include "chrome/browser/profiles/profile_io_data.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_window.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_tracker_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
@@ -29,7 +28,6 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/sync/one_click_signin_sync_observer.h"
 #include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
@@ -37,18 +35,18 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/account_id/account_id.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_metrics.h"
 #include "components/sync/base/sync_prefs.h"
+#include "components/sync/driver/sync_service.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "components/unified_consent/feature.h"
 #include "components/unified_consent/unified_consent_service.h"
 #include "content/public/browser/storage_partition.h"
 #include "net/base/url_util.h"
+#include "services/identity/public/cpp/identity_manager.h"
+#include "services/identity/public/cpp/primary_account_mutator.h"
 #include "ui/base/l10n/l10n_util.h"
-
-using browser_sync::ProfileSyncService;
 
 namespace {
 
@@ -86,14 +84,10 @@ OneClickSigninSyncStarter::OneClickSigninSyncStarter(
     signin_metrics::AccessPoint signin_access_point,
     signin_metrics::Reason signin_reason,
     ProfileMode profile_mode,
-    StartSyncMode start_mode,
-    ConfirmationRequired confirmation_required,
     Callback sync_setup_completed_callback)
     : profile_(nullptr),
       signin_access_point_(signin_access_point),
       signin_reason_(signin_reason),
-      start_mode_(start_mode),
-      confirmation_required_(confirmation_required),
       sync_setup_completed_callback_(sync_setup_completed_callback),
       first_account_added_to_cookie_(false),
       weak_pointer_factory_(this) {
@@ -101,7 +95,9 @@ OneClickSigninSyncStarter::OneClickSigninSyncStarter(
   BrowserList::AddObserver(this);
   Initialize(profile, browser);
   DCHECK(!refresh_token.empty());
-  SigninManagerFactory::GetForProfile(profile_)->StartSignInWithRefreshToken(
+
+  DCHECK(primary_account_mutator_);
+  primary_account_mutator_->LegacyStartSigninWithRefreshTokenForPrimaryAccount(
       refresh_token, gaia_id, email, password,
       base::BindOnce(&OneClickSigninSyncStarter::ConfirmSignin,
                      weak_pointer_factory_.GetWeakPtr(), profile_mode));
@@ -132,24 +128,31 @@ void OneClickSigninSyncStarter::Initialize(Profile* profile, Browser* browser) {
 
   // Let the sync service know that setup is in progress so it doesn't start
   // syncing until the user has finished any configuration.
-  ProfileSyncService* profile_sync_service = GetProfileSyncService();
-  if (profile_sync_service)
-    sync_blocker_ = profile_sync_service->GetSetupInProgressHandle();
+  syncer::SyncService* sync_service = GetSyncService();
+  if (sync_service)
+    sync_blocker_ = sync_service->GetSetupInProgressHandle();
 
-  // Make sure the syncing is requested, otherwise the SigninManager
-  // will not be able to complete successfully.
+  // Make sure the syncing is requested, otherwise the IdentityManager's primary
+  // account mutator will not be able to complete successfully.
   syncer::SyncPrefs sync_prefs(profile_->GetPrefs());
   sync_prefs.SetSyncRequested(true);
+
+  // Cache the IdentityManager's PrimaryAccountMutator each time the profile
+  // gets changed, as it will be used from multiple places in several methods.
+  primary_account_mutator_ = IdentityManagerFactory::GetForProfile(profile_)
+                                 ->GetPrimaryAccountMutator();
 }
 
 void OneClickSigninSyncStarter::ConfirmSignin(ProfileMode profile_mode,
                                               const std::string& oauth_token) {
-  SigninManager* signin = SigninManagerFactory::GetForProfile(profile_);
-  if (signin->IsAuthenticated()) {
-    // The user is already signed in - just tell SigninManager to continue
-    // with its re-auth flow.
+  identity::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile_);
+
+  if (identity_manager->HasPrimaryAccount()) {
+    // The user is already signed in - just tell IdentityManager's primary
+    // account mutator to continue with its re-auth flow.
     DCHECK_EQ(CURRENT_PROFILE, profile_mode);
-    signin->CompletePendingSignin();
+    primary_account_mutator_->LegacyCompletePendingPrimaryAccountSignin();
     return;
   }
 
@@ -161,7 +164,9 @@ void OneClickSigninSyncStarter::ConfirmSignin(ProfileMode profile_mode,
       policy::UserPolicySigninService* policy_service =
           policy::UserPolicySigninServiceFactory::GetForProfile(profile_);
       policy_service->RegisterForPolicyWithLoginToken(
-          signin->GetUsernameForAuthInProgress(), oauth_token,
+          primary_account_mutator_->LegacyPrimaryAccountForAuthInProgress()
+              .email,
+          oauth_token,
           base::Bind(&OneClickSigninSyncStarter::OnRegisteredForPolicy,
                      weak_pointer_factory_.GetWeakPtr()));
       break;
@@ -213,12 +218,11 @@ void OneClickSigninSyncStarter::SigninDialogDelegate::OnSigninWithNewProfile() {
 
 void OneClickSigninSyncStarter::OnRegisteredForPolicy(
     const std::string& dm_token, const std::string& client_id) {
-  SigninManager* signin = SigninManagerFactory::GetForProfile(profile_);
   // If there's no token for the user (policy registration did not succeed) just
   // finish signing in.
   if (dm_token.empty()) {
     DVLOG(1) << "Policy registration failed";
-    ConfirmAndSignin();
+    primary_account_mutator_->LegacyCompletePendingPrimaryAccountSignin();
     return;
   }
 
@@ -246,21 +250,26 @@ void OneClickSigninSyncStarter::OnRegisteredForPolicy(
 
   base::RecordAction(
       base::UserMetricsAction("Signin_Show_EnterpriseAccountPrompt"));
+
   TabDialogs::FromWebContents(web_contents)
-      ->ShowProfileSigninConfirmation(browser_, profile_,
-                                      signin->GetUsernameForAuthInProgress(),
-                                      std::make_unique<SigninDialogDelegate>(
-                                          weak_pointer_factory_.GetWeakPtr()));
+      ->ShowProfileSigninConfirmation(
+          browser_, profile_,
+          primary_account_mutator_->LegacyPrimaryAccountForAuthInProgress()
+              .email,
+          std::make_unique<SigninDialogDelegate>(
+              weak_pointer_factory_.GetWeakPtr()));
 }
 
 void OneClickSigninSyncStarter::LoadPolicyWithCachedCredentials() {
   DCHECK(!dm_token_.empty());
   DCHECK(!client_id_.empty());
-  SigninManager* signin = SigninManagerFactory::GetForProfile(profile_);
   policy::UserPolicySigninService* policy_service =
       policy::UserPolicySigninServiceFactory::GetForProfile(profile_);
-  std::string username = signin->GetUsernameForAuthInProgress();
-  std::string gaia_id = signin->GetGaiaIdForAuthInProgress();
+
+  std::string username =
+      primary_account_mutator_->LegacyPrimaryAccountForAuthInProgress().email;
+  std::string gaia_id =
+      primary_account_mutator_->LegacyPrimaryAccountForAuthInProgress().gaia;
   DCHECK(username.empty() == gaia_id.empty());
   AccountId account_id =
       username.empty() ? EmptyAccountId()
@@ -276,23 +285,24 @@ void OneClickSigninSyncStarter::LoadPolicyWithCachedCredentials() {
 void OneClickSigninSyncStarter::OnPolicyFetchComplete(bool success) {
   // For now, we allow signin to complete even if the policy fetch fails. If
   // we ever want to change this behavior, we could call
-  // SigninManager::SignOut() here instead.
+  // PrimaryAccountMutator::ClearPrimaryAccount() here instead.
   DLOG_IF(ERROR, !success) << "Error fetching policy for user";
   DVLOG_IF(1, success) << "Policy fetch successful - completing signin";
-  SigninManagerFactory::GetForProfile(profile_)->CompletePendingSignin();
+
+  primary_account_mutator_->LegacyCompletePendingPrimaryAccountSignin();
 }
 
 void OneClickSigninSyncStarter::CreateNewSignedInProfile() {
-  SigninManager* signin = SigninManagerFactory::GetForProfile(profile_);
-  DCHECK(!signin->GetUsernameForAuthInProgress().empty());
+  const std::string email =
+      primary_account_mutator_->LegacyPrimaryAccountForAuthInProgress().email;
+  DCHECK(!email.empty());
 
   // Create a new profile and have it call back when done so we can inject our
   // signin credentials.
   size_t icon_index = g_browser_process->profile_manager()->
       GetProfileAttributesStorage().ChooseAvatarIconIndexForNewProfile();
   ProfileManager::CreateMultiProfileAsync(
-      base::UTF8ToUTF16(signin->GetUsernameForAuthInProgress()),
-      profiles::GetDefaultAvatarIconUrl(icon_index),
+      base::UTF8ToUTF16(email), profiles::GetDefaultAvatarIconUrl(icon_index),
       base::Bind(&OneClickSigninSyncStarter::CompleteInitForNewProfile,
                  weak_pointer_factory_.GetWeakPtr()));
 }
@@ -331,18 +341,25 @@ void OneClickSigninSyncStarter::CompleteInitForNewProfile(
 void OneClickSigninSyncStarter::CopyCredentialsToNewProfileAndFinishSignin(
     Profile* new_profile) {
   // Wait until the profile is initialized before we transfer credentials.
-  SigninManager* old_signin_manager =
-      SigninManagerFactory::GetForProfile(profile_);
-  SigninManager* new_signin_manager =
-      SigninManagerFactory::GetForProfile(new_profile);
-  DCHECK(!old_signin_manager->GetUsernameForAuthInProgress().empty());
-  DCHECK(!old_signin_manager->IsAuthenticated());
-  DCHECK(!new_signin_manager->IsAuthenticated());
+  identity::IdentityManager* new_identity_manager =
+      IdentityManagerFactory::GetForProfile(new_profile);
+  auto* new_primary_account_mutator =
+      new_identity_manager->GetPrimaryAccountMutator();
+  DCHECK(new_primary_account_mutator);
+
+  DCHECK(!primary_account_mutator_->LegacyPrimaryAccountForAuthInProgress()
+              .email.empty());
+
+  identity::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile_);
+  DCHECK(!identity_manager->HasPrimaryAccount());
+  DCHECK(!new_identity_manager->HasPrimaryAccount());
 
   // Copy credentials from the old profile to the just-created profile,
   // and switch over to tracking that profile.
-  new_signin_manager->CopyCredentialsFrom(*old_signin_manager);
-  FinishProfileSyncServiceSetup();
+  new_primary_account_mutator->LegacyCopyCredentialsFrom(
+      *primary_account_mutator_);
+  FinishSyncServiceSetup();
   Initialize(new_profile, nullptr);
   DCHECK_EQ(profile_, new_profile);
 
@@ -350,9 +367,10 @@ void OneClickSigninSyncStarter::CopyCredentialsToNewProfileAndFinishSignin(
   // the signin for the original profile was cancelled (must do this after
   // we have called Initialize() with the new profile, as otherwise this
   // object will get freed when the signin on the old profile is cancelled.
-  // SignoutAndRemoveAllAccounts does not actually remove the accounts. See
-  // http://crbug.com/799437.
-  old_signin_manager->SignOutAndRemoveAllAccounts(
+  // ClearPrimaryAccount does not actually remove the accounts if the
+  // signin is still pending. See http://crbug.com/799437.
+  primary_account_mutator_->ClearPrimaryAccount(
+      identity::PrimaryAccountMutator::ClearAccountsAction::kRemoveAll,
       signin_metrics::TRANSFER_CREDENTIALS,
       signin_metrics::SignoutDelete::IGNORE_METRIC);
 
@@ -363,7 +381,7 @@ void OneClickSigninSyncStarter::CopyCredentialsToNewProfileAndFinishSignin(
     LoadPolicyWithCachedCredentials();
   } else {
     // No policy to load - simply complete the signin process.
-    SigninManagerFactory::GetForProfile(profile_)->CompletePendingSignin();
+    primary_account_mutator_->LegacyCompletePendingPrimaryAccountSignin();
   }
 
   // Unlock the new profile.
@@ -382,57 +400,17 @@ void OneClickSigninSyncStarter::CopyCredentialsToNewProfileAndFinishSignin(
 }
 
 void OneClickSigninSyncStarter::CancelSigninAndDelete() {
-  SigninManager* signin_manager = SigninManagerFactory::GetForProfile(profile_);
-  DCHECK(signin_manager->AuthInProgress());
-  // SignoutAndRemoveAllAccounts does not actually remove the accounts if the
+  DCHECK(primary_account_mutator_->LegacyIsPrimaryAccountAuthInProgress());
+
+  // ClearPrimaryAccount does not actually remove the accounts if the
   // signin is still pending. See http://crbug.com/799437.
-  signin_manager->SignOutAndRemoveAllAccounts(
+  primary_account_mutator_->ClearPrimaryAccount(
+      identity::PrimaryAccountMutator::ClearAccountsAction::kRemoveAll,
       signin_metrics::ABORT_SIGNIN,
       signin_metrics::SignoutDelete::IGNORE_METRIC);
   // The statement above results in a call to SigninFailed() which will free
   // this object, so do not refer to the OneClickSigninSyncStarter object
   // after this point.
-}
-
-void OneClickSigninSyncStarter::ConfirmAndSignin() {
-  SigninManager* signin = SigninManagerFactory::GetForProfile(profile_);
-  if (confirmation_required_ == CONFIRM_UNTRUSTED_SIGNIN) {
-    browser_ = EnsureBrowser(browser_, profile_);
-    base::RecordAction(
-        base::UserMetricsAction("Signin_Show_UntrustedSigninPrompt"));
-    // Display a confirmation dialog to the user.
-    browser_->window()->ShowOneClickSigninConfirmation(
-        base::UTF8ToUTF16(signin->GetUsernameForAuthInProgress()),
-        base::Bind(&OneClickSigninSyncStarter::UntrustedSigninConfirmed,
-                   weak_pointer_factory_.GetWeakPtr()));
-  } else {
-    // No confirmation required - just sign in the user.
-    signin->CompletePendingSignin();
-  }
-}
-
-void OneClickSigninSyncStarter::UntrustedSigninConfirmed(
-    StartSyncMode response) {
-  if (response == UNDO_SYNC) {
-    base::RecordAction(base::UserMetricsAction("Signin_Undo_Signin"));
-    CancelSigninAndDelete();  // This statement frees this object.
-  } else {
-    // If the user clicked the "Advanced" link in the confirmation dialog, then
-    // override the current start_mode_ to bring up the advanced sync settings.
-
-    // If the user signs in from the new avatar bubble, the untrusted dialog
-    // would dismiss the avatar bubble, thus it won't show any confirmation upon
-    // sign in completes. This dialog already has a settings link, thus we just
-    // start sync immediately .
-
-    if (response == CONFIGURE_SYNC_FIRST)
-      start_mode_ = response;
-    else if (start_mode_ == CONFIRM_SYNC_SETTINGS_FIRST)
-      start_mode_ = SYNC_WITH_DEFAULT_SETTINGS;
-
-    SigninManager* signin = SigninManagerFactory::GetForProfile(profile_);
-    signin->CompletePendingSignin();
-  }
 }
 
 void OneClickSigninSyncStarter::OnSyncConfirmationUIClosed(
@@ -451,19 +429,20 @@ void OneClickSigninSyncStarter::OnSyncConfirmationUIClosed(
       ShowSyncSetupSettingsSubpage();
       break;
     case LoginUIService::SYNC_WITH_DEFAULT_SETTINGS: {
-      ProfileSyncService* sync_service = GetProfileSyncService();
+      syncer::SyncService* sync_service = GetSyncService();
       if (sync_service)
         sync_service->GetUserSettings()->SetFirstSetupComplete();
       if (consent_service)
         consent_service->EnableGoogleServices();
-      FinishProfileSyncServiceSetup();
+      FinishSyncServiceSetup();
       break;
     }
     case LoginUIService::ABORT_SIGNIN:
-      SigninManagerFactory::GetForProfile(profile_)->SignOut(
+      primary_account_mutator_->ClearPrimaryAccount(
+          identity::PrimaryAccountMutator::ClearAccountsAction::kDefault,
           signin_metrics::ABORT_SIGNIN,
           signin_metrics::SignoutDelete::IGNORE_METRIC);
-      FinishProfileSyncServiceSetup();
+      FinishSyncServiceSetup();
       break;
   }
 
@@ -475,21 +454,19 @@ void OneClickSigninSyncStarter::SigninFailed(
   if (!sync_setup_completed_callback_.is_null())
     sync_setup_completed_callback_.Run(SYNC_SETUP_FAILURE);
 
-  FinishProfileSyncServiceSetup();
-  if (confirmation_required_ == CONFIRM_AFTER_SIGNIN) {
-    switch (error.state()) {
-      case GoogleServiceAuthError::SERVICE_UNAVAILABLE:
-        DisplayFinalConfirmationBubble(l10n_util::GetStringUTF16(
-            IDS_SYNC_UNRECOVERABLE_ERROR));
-        break;
-      case GoogleServiceAuthError::REQUEST_CANCELED:
-        // No error notification needed if the user manually cancelled signin.
-        break;
-      default:
-        DisplayFinalConfirmationBubble(l10n_util::GetStringUTF16(
-            IDS_SYNC_ERROR_SIGNING_IN));
-        break;
-    }
+  FinishSyncServiceSetup();
+  switch (error.state()) {
+    case GoogleServiceAuthError::SERVICE_UNAVAILABLE:
+      DisplayFinalConfirmationBubble(
+          l10n_util::GetStringUTF16(IDS_SYNC_UNRECOVERABLE_ERROR));
+      break;
+    case GoogleServiceAuthError::REQUEST_CANCELED:
+      // No error notification needed if the user manually cancelled signin.
+      break;
+    default:
+      DisplayFinalConfirmationBubble(
+          l10n_util::GetStringUTF16(IDS_SYNC_ERROR_SIGNING_IN));
+      break;
   }
   delete this;
 }
@@ -512,9 +489,7 @@ void OneClickSigninSyncStarter::AccountAddedToCookie(
   // Regardless of whether the account was successfully added or not,
   // continue with sync starting.
 
-  // The sync confirmation dialog should always be shown regardless of
-  // |start_mode_|. |sync_setup_completed_callback_| will be run after the
-  // modal is closed.
+  // |sync_setup_completed_callback_| will be run after the modal is closed.
   DisplayModalSyncConfirmationWindow();
 }
 
@@ -551,13 +526,12 @@ void OneClickSigninSyncStarter::ShowSyncSetupSettingsSubpage() {
   chrome::ShowSettingsSubPage(browser_, chrome::kSyncSetupSubPage);
 }
 
-ProfileSyncService* OneClickSigninSyncStarter::GetProfileSyncService() {
-  ProfileSyncService* service = nullptr;
-  if (profile_->IsSyncAllowed())
-    service = ProfileSyncServiceFactory::GetForProfile(profile_);
-  return service;
+syncer::SyncService* OneClickSigninSyncStarter::GetSyncService() {
+  if (!profile_->IsSyncAllowed())
+    return nullptr;
+  return ProfileSyncServiceFactory::GetSyncServiceForProfile(profile_);
 }
 
-void OneClickSigninSyncStarter::FinishProfileSyncServiceSetup() {
+void OneClickSigninSyncStarter::FinishSyncServiceSetup() {
   sync_blocker_.reset();
 }

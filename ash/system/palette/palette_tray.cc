@@ -314,8 +314,11 @@ void PaletteTray::HideBubbleWithView(const TrayBubbleView* bubble_view) {
     HidePalette();
 }
 
-void PaletteTray::OnTouchscreenDeviceConfigurationChanged() {
-  UpdateIconVisibility();
+void PaletteTray::OnInputDeviceConfigurationChanged(
+    uint8_t input_device_types) {
+  if (input_device_types & ui::InputDeviceEventObserver::kTouchscreen) {
+    UpdateIconVisibility();
+  }
 }
 
 void PaletteTray::OnStylusStateChanged(ui::StylusState stylus_state) {
@@ -364,7 +367,7 @@ base::string16 PaletteTray::GetAccessibleNameForBubble() {
 }
 
 bool PaletteTray::ShouldEnableExtraKeyboardAccessibility() {
-  return Shell::Get()->accessibility_controller()->IsSpokenFeedbackEnabled();
+  return Shell::Get()->accessibility_controller()->spoken_feedback_enabled();
 }
 
 void PaletteTray::HideBubble(const TrayBubbleView* bubble_view) {

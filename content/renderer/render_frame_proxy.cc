@@ -102,7 +102,7 @@ RenderFrameProxy* RenderFrameProxy::CreateProxyToReplaceFrame(
   // RenderFrameProxy uses its parent's RenderWidget.
   RenderWidget* widget =
       parent_is_local
-          ? frame_to_replace->GetRenderWidget()
+          ? frame_to_replace->GetLocalRootRenderWidget()
           : RenderFrameProxy::FromWebFrame(
                 frame_to_replace->GetWebFrame()->Parent()->ToWebRemoteFrame())
                 ->render_widget();
@@ -173,6 +173,18 @@ RenderFrameProxy* RenderFrameProxy::CreateFrameProxy(
   // for the case of setting up a main frame proxy.
   proxy->SetReplicatedState(replicated_state);
 
+  return proxy.release();
+}
+
+RenderFrameProxy* RenderFrameProxy::CreateProxyForPortal(
+    RenderFrameImpl* parent,
+    int proxy_routing_id) {
+  std::unique_ptr<RenderFrameProxy> proxy(
+      new RenderFrameProxy(proxy_routing_id));
+  blink::WebRemoteFrame* web_frame = blink::WebRemoteFrame::Create(
+      blink::WebTreeScopeType::kDocument, proxy.get());
+  proxy->Init(web_frame, parent->render_view(),
+              parent->GetLocalRootRenderWidget(), true);
   return proxy.release();
 }
 
@@ -787,9 +799,15 @@ void RenderFrameProxy::ForwardPostMessage(
 
 void RenderFrameProxy::Navigate(const blink::WebURLRequest& request,
                                 bool should_replace_current_entry,
+                                bool is_opener_navigation,
+                                bool prevent_sandboxed_download,
                                 mojo::ScopedMessagePipeHandle blob_url_token) {
+  // The request must always have a valid initiator origin.
+  DCHECK(!request.RequestorOrigin().IsNull());
+
   FrameHostMsg_OpenURL_Params params;
   params.url = request.Url();
+  params.initiator_origin = request.RequestorOrigin();
   params.uses_post = request.HttpMethod().Utf8() == "POST";
   params.resource_request_body = GetRequestBodyForWebURLRequest(request);
   params.extra_headers = GetWebURLRequestHeadersAsString(request);
@@ -804,6 +822,11 @@ void RenderFrameProxy::Navigate(const blink::WebURLRequest& request,
   params.triggering_event_info = blink::WebTriggeringEventInfo::kUnknown;
   params.blob_url_token = blob_url_token.release();
 
+  params.download_policy =
+      prevent_sandboxed_download
+          ? NavigationDownloadPolicy::kDisallowSandbox
+          : RenderFrameImpl::GetOpenerDownloadPolicy(
+                is_opener_navigation, request, web_frame_->GetSecurityOrigin());
   Send(new FrameHostMsg_OpenURL(routing_id_, params));
 }
 

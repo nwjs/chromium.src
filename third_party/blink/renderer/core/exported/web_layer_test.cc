@@ -34,7 +34,7 @@ class WebLayerListTest : public PaintTestConfigurations, public testing::Test {
 
   void SetUp() override {
     web_view_helper_ = std::make_unique<frame_test_helpers::WebViewHelper>();
-    web_view_helper_->Initialize(nullptr, &web_view_client_, nullptr,
+    web_view_helper_->Initialize(nullptr, nullptr, &web_widget_client_,
                                  &ConfigureCompositingWebView);
     web_view_helper_->Resize(WebSize(200, 200));
 
@@ -43,6 +43,8 @@ class WebLayerListTest : public PaintTestConfigurations, public testing::Test {
     DCHECK(paint_artifact_compositor());
     paint_artifact_compositor()->EnableExtraDataForTesting();
   }
+
+  void TearDown() override { web_view_helper_.reset(); }
 
   // Both sets the inner html and runs the document lifecycle.
   void InitializeWithHTML(LocalFrame& frame, const String& html_content) {
@@ -85,7 +87,7 @@ class WebLayerListTest : public PaintTestConfigurations, public testing::Test {
   }
 
   cc::LayerTreeHost* LayerTreeHost() {
-    return web_view_client_.layer_tree_view()->layer_tree_host();
+    return web_widget_client_.layer_tree_view()->layer_tree_host();
   }
 
   Element* GetElementById(const AtomicString& id) {
@@ -103,7 +105,7 @@ class WebLayerListTest : public PaintTestConfigurations, public testing::Test {
     return GetLocalFrameView()->GetPaintArtifactCompositorForTesting();
   }
 
-  frame_test_helpers::TestWebViewClient web_view_client_;
+  frame_test_helpers::TestWebWidgetClient web_widget_client_;
   std::unique_ptr<frame_test_helpers::WebViewHelper> web_view_helper_;
 };
 
@@ -137,7 +139,7 @@ TEST_P(WebLayerListTest, DidScrollCallbackAfterScrollableAreaChanges) {
   auto initial_scroll_hit_test_layer_count = ScrollHitTestLayerCount();
 
   cc::Layer* overflow_scroll_layer = nullptr;
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     overflow_scroll_layer = ScrollHitTestLayerAt(ScrollHitTestLayerCount() - 1);
   } else {
     overflow_scroll_layer = ContentLayerAt(ContentLayerCount() - 2);
@@ -167,13 +169,13 @@ TEST_P(WebLayerListTest, DidScrollCallbackAfterScrollableAreaChanges) {
   // The web scroll layer has not been deleted yet and we should be able to
   // apply impl-side offsets without crashing.
   EXPECT_EQ(ContentLayerCount(), initial_content_layer_count);
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     EXPECT_EQ(ScrollHitTestLayerCount(), initial_scroll_hit_test_layer_count);
   overflow_scroll_layer->SetScrollOffsetFromImplSide(gfx::ScrollOffset(0, 3));
 
   UpdateAllLifecyclePhases();
   EXPECT_LT(ContentLayerCount(), initial_content_layer_count);
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     EXPECT_LT(ScrollHitTestLayerCount(), initial_scroll_hit_test_layer_count);
 }
 
@@ -193,7 +195,7 @@ TEST_P(WebLayerListTest, FrameViewScroll) {
   EXPECT_NE(nullptr, scrollable_area);
 
   cc::Layer* scroll_layer = nullptr;
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     EXPECT_EQ(ScrollHitTestLayerCount(), 1u);
     scroll_layer = ScrollHitTestLayerAt(0);
   } else {
@@ -218,7 +220,7 @@ TEST_P(WebLayerListTest, FrameViewScroll) {
 class WebLayerListSimTest : public PaintTestConfigurations, public SimTest {
  public:
   void InitializeWithHTML(const String& html) {
-    WebView().Resize(WebSize(800, 600));
+    WebView().MainFrameWidget()->Resize(WebSize(800, 600));
 
     SimRequest request("https://example.com/test.html", "text/html");
     LoadURL("https://example.com/test.html");
@@ -255,6 +257,10 @@ class WebLayerListSimTest : public PaintTestConfigurations, public SimTest {
         WebWidget::LifecycleUpdateReason::kTest);
   }
 
+  cc::PropertyTrees* GetPropertyTrees() {
+    return Compositor().layer_tree_view().layer_tree_host()->property_trees();
+  }
+
  private:
   PaintArtifactCompositor* paint_artifact_compositor() {
     return MainFrame().GetFrameView()->GetPaintArtifactCompositorForTesting();
@@ -264,10 +270,10 @@ class WebLayerListSimTest : public PaintTestConfigurations, public SimTest {
 INSTANTIATE_LAYER_LIST_TEST_CASE_P(WebLayerListSimTest);
 
 TEST_P(WebLayerListSimTest, LayerUpdatesDoNotInvalidateEarlierLayers) {
-  // TODO(crbug.com/765003): SPV2 may make different layerization decisions and
+  // TODO(crbug.com/765003): CAP may make different layerization decisions and
   // we cannot guarantee that both divs will be composited in this test. When
-  // SPV2 gets closer to launch, this test should be updated to pass.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // CAP gets closer to launch, this test should be updated to pass.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   InitializeWithHTML(R"HTML(
@@ -315,10 +321,10 @@ TEST_P(WebLayerListSimTest, LayerUpdatesDoNotInvalidateEarlierLayers) {
 }
 
 TEST_P(WebLayerListSimTest, LayerUpdatesDoNotInvalidateLaterLayers) {
-  // TODO(crbug.com/765003): SPV2 may make different layerization decisions and
+  // TODO(crbug.com/765003): CAP may make different layerization decisions and
   // we cannot guarantee that both divs will be composited in this test. When
-  // SPV2 gets closer to launch, this test should be updated to pass.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // CAP gets closer to launch, this test should be updated to pass.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   InitializeWithHTML(R"HTML(
@@ -376,7 +382,8 @@ TEST_P(WebLayerListSimTest, LayerUpdatesDoNotInvalidateLaterLayers) {
   EXPECT_FALSE(host->LayersThatShouldPushProperties().count(c_layer));
 }
 
-TEST_P(WebLayerListSimTest, NoopChangeDoesNotCauseFullTreeSync) {
+TEST_P(WebLayerListSimTest,
+       NoopChangeDoesNotCauseFullTreeSyncOrPropertyTreeUpdate) {
   InitializeWithHTML(R"HTML(
       <!DOCTYPE html>
       <style>
@@ -394,10 +401,15 @@ TEST_P(WebLayerListSimTest, NoopChangeDoesNotCauseFullTreeSync) {
   // Initially the host should not need to sync.
   auto* layer_tree_host = Compositor().layer_tree_view().layer_tree_host();
   EXPECT_FALSE(layer_tree_host->needs_full_tree_sync());
+  int sequence_number = GetPropertyTrees()->sequence_number;
+  EXPECT_GT(sequence_number, 0);
 
   // A no-op update should not cause the host to need a full tree sync.
   UpdateAllLifecyclePhases();
   EXPECT_FALSE(layer_tree_host->needs_full_tree_sync());
+  // It should also not cause a property tree update - the sequence number
+  // should not change.
+  EXPECT_EQ(sequence_number, GetPropertyTrees()->sequence_number);
 }
 
 // When a property tree change occurs that affects layer position, all layers
@@ -407,10 +419,10 @@ TEST_P(WebLayerListSimTest, NoopChangeDoesNotCauseFullTreeSync) {
 // this occurs in BuildPropertyTreesInternal (see:
 // SetLayerPropertyChangedForChild).
 TEST_P(WebLayerListSimTest, LayerSubtreeTransformPropertyChanged) {
-  // TODO(crbug.com/765003): SPV2 may make different layerization decisions and
+  // TODO(crbug.com/765003): CAP may make different layerization decisions and
   // we cannot guarantee that both divs will be composited in this test. When
-  // SPV2 gets closer to launch, this test should be updated to pass.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // CAP gets closer to launch, this test should be updated to pass.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   InitializeWithHTML(R"HTML(
@@ -471,10 +483,10 @@ TEST_P(WebLayerListSimTest, LayerSubtreeTransformPropertyChanged) {
 // This test is similar to |LayerSubtreeTransformPropertyChanged| but for
 // effect property node changes.
 TEST_P(WebLayerListSimTest, LayerSubtreeEffectPropertyChanged) {
-  // TODO(crbug.com/765003): SPV2 may make different layerization decisions and
+  // TODO(crbug.com/765003): CAP may make different layerization decisions and
   // we cannot guarantee that both divs will be composited in this test. When
-  // SPV2 gets closer to launch, this test should be updated to pass.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // CAP gets closer to launch, this test should be updated to pass.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   InitializeWithHTML(R"HTML(
@@ -534,10 +546,10 @@ TEST_P(WebLayerListSimTest, LayerSubtreeEffectPropertyChanged) {
 // This test is similar to |LayerSubtreeTransformPropertyChanged| but for
 // clip property node changes.
 TEST_P(WebLayerListSimTest, LayerSubtreeClipPropertyChanged) {
-  // TODO(crbug.com/765003): SPV2 may make different layerization decisions and
+  // TODO(crbug.com/765003): CAP may make different layerization decisions and
   // we cannot guarantee that both divs will be composited in this test. When
-  // SPV2 gets closer to launch, this test should be updated to pass.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // CAP gets closer to launch, this test should be updated to pass.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   InitializeWithHTML(R"HTML(
@@ -593,10 +605,10 @@ TEST_P(WebLayerListSimTest, LayerSubtreeClipPropertyChanged) {
 }
 
 TEST_P(WebLayerListSimTest, LayerSubtreeOverflowClipPropertyChanged) {
-  // TODO(crbug.com/765003): SPV2 may make different layerization decisions and
+  // TODO(crbug.com/765003): CAP may make different layerization decisions and
   // we cannot guarantee that both divs will be composited in this test. When
-  // SPV2 gets closer to launch, this test should be updated to pass.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // CAP gets closer to launch, this test should be updated to pass.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   InitializeWithHTML(R"HTML(

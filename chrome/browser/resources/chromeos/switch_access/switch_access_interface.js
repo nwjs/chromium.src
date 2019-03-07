@@ -8,9 +8,9 @@
  */
 class SwitchAccessInterface {
   /**
-   * Jump to the context menu.
+   * Open and jump to the Switch Access menu.
    */
-  enterContextMenu() {}
+  enterMenu() {}
 
   /**
    * Move to the next interesting node.
@@ -45,6 +45,17 @@ class SwitchAccessInterface {
    * @return {number}
    */
   getDefaultKeyCodeFor(command) {}
+
+  /**
+   * Forwards keycodes received from keyPress events to |callback|.
+   * @param {function(number)} callback
+   */
+  listenForKeycodes(callback) {}
+
+  /**
+   * Stops forwarding keycodes.
+   */
+  stopListeningForKeycodes() {}
 
   /**
    * Run the function binding for the specified command.

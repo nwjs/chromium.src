@@ -28,19 +28,17 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/signin/about_signin_internals_factory.h"
-#include "chrome/browser/signin/chrome_device_id_helper.h"
-#include "chrome/browser/signin/gaia_cookie_manager_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
 #include "chrome/browser/sync/bookmark_sync_service_factory.h"
 #include "chrome/browser/sync/chrome_sync_client.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/model_type_store_service_factory.h"
 #include "chrome/browser/sync/session_sync_service_factory.h"
 #include "chrome/browser/sync/user_event_service_factory.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/undo/bookmark_undo_service_factory.h"
 #include "chrome/browser/web_data_service_factory.h"
-#include "chrome/common/channel_info.h"
 #include "components/browser_sync/profile_sync_components_factory_impl.h"
 #include "components/browser_sync/profile_sync_service.h"
 #include "components/invalidation/impl/invalidation_switches.h"
@@ -109,19 +107,18 @@ ProfileSyncServiceFactory* ProfileSyncServiceFactory::GetInstance() {
 // static
 ProfileSyncService* ProfileSyncServiceFactory::GetForProfile(
     Profile* profile) {
-  return static_cast<ProfileSyncService*>(
-      GetSyncServiceForBrowserContext(profile));
+  return static_cast<ProfileSyncService*>(GetSyncServiceForProfile(profile));
 }
 
 // static
-syncer::SyncService* ProfileSyncServiceFactory::GetSyncServiceForBrowserContext(
-    content::BrowserContext* context) {
+syncer::SyncService* ProfileSyncServiceFactory::GetSyncServiceForProfile(
+    Profile* profile) {
   if (!ProfileSyncService::IsSyncAllowedByFlag()) {
     return nullptr;
   }
 
   return static_cast<syncer::SyncService*>(
-      GetInstance()->GetServiceForBrowserContext(context, true));
+      GetInstance()->GetServiceForBrowserContext(profile, true));
 }
 
 ProfileSyncServiceFactory::ProfileSyncServiceFactory()
@@ -139,9 +136,9 @@ ProfileSyncServiceFactory::ProfileSyncServiceFactory()
   DependsOn(BookmarkSyncServiceFactory::GetInstance());
   DependsOn(browser_sync::UserEventServiceFactory::GetInstance());
   DependsOn(ConsentAuditorFactory::GetInstance());
+  DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(dom_distiller::DomDistillerServiceFactory::GetInstance());
   DependsOn(FaviconServiceFactory::GetInstance());
-  DependsOn(GaiaCookieManagerServiceFactory::GetInstance());
   DependsOn(gcm::GCMProfileServiceFactory::GetInstance());
 #if !defined(OS_ANDROID)
   DependsOn(GlobalErrorServiceFactory::GetInstance());
@@ -193,9 +190,9 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
   init_params.network_connection_tracker =
       content::GetNetworkConnectionTracker();
   init_params.debug_identifier = profile->GetDebugName();
-  init_params.channel = chrome::GetChannel();
 
   bool local_sync_backend_enabled = false;
+
 // Since the local sync backend is currently only supported on Windows don't
 // even check the pref on other os-es.
 #if defined(OS_WIN)
@@ -214,9 +211,6 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
     if (local_sync_backend_folder.empty())
       return nullptr;
 
-    init_params.signin_scoped_device_id_callback =
-        base::BindRepeating([]() { return std::string("local_device"); });
-
     init_params.start_behavior = ProfileSyncService::AUTO_START;
   }
 #endif  // defined(OS_WIN)
@@ -233,10 +227,6 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
 
     init_params.identity_manager =
         IdentityManagerFactory::GetForProfile(profile);
-    init_params.signin_scoped_device_id_callback =
-        base::BindRepeating(&GetSigninScopedDeviceIdForProfile, profile);
-    init_params.gaia_cookie_manager_service =
-        GaiaCookieManagerServiceFactory::GetForProfile(profile);
 
     bool use_fcm_invalidations =
         base::FeatureList::IsEnabled(invalidation::switches::kFCMInvalidations);

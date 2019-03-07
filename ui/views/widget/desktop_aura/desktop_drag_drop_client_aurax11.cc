@@ -17,7 +17,7 @@
 #include "ui/aura/client/drag_drop_delegate.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
-#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/dragdrop/drop_target_event.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/dragdrop/os_exchange_data_provider_aurax11.h"
@@ -774,7 +774,7 @@ int DesktopDragDropClientAuraX11::StartDragAndDrop(
     actions.push_back(gfx::GetAtom(kXdndActionDirectSave));
     ui::SetStringProperty(
         xwindow_, gfx::GetAtom(kXdndDirectSave0),
-        gfx::GetAtom(ui::Clipboard::kMimeTypeText),
+        gfx::GetAtom(ui::kMimeTypeText),
         source_provider_->file_contents_name().AsUTF8Unsafe());
   }
   ui::SetAtomArrayProperty(xwindow_, kXdndActionList, "ATOM", actions);
@@ -1168,6 +1168,8 @@ void DesktopDragDropClientAuraX11::CompleteXdndPosition(
   DragTranslate(screen_point, &data, &drop_target_event, &delegate);
   if (delegate)
     drag_operation = delegate->OnDragUpdated(*drop_target_event);
+  UMA_HISTOGRAM_BOOLEAN("Event.DragDrop.AcceptDragUpdate",
+                        drag_operation != ui::DragDropTypes::DRAG_NONE);
 
   // Sends an XdndStatus message back to the source_window. l[2,3]
   // theoretically represent an area in the window where the current action is

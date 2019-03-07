@@ -27,7 +27,7 @@ class BrowserNonClientFrameViewMac : public BrowserNonClientFrameView {
   // BrowserNonClientFrameView:
   void OnFullscreenStateChanged() override;
   bool CaptionButtonsOnLeadingEdge() const override;
-  gfx::Rect GetBoundsForTabStrip(views::View* tabstrip) const override;
+  gfx::Rect GetBoundsForTabStrip(const views::View* tabstrip) const override;
   int GetTopInset(bool restored) const override;
   int GetThemeBackgroundXInset() const override;
   void UpdateFullscreenTopUI(bool needs_check_tab_fullscreen) override;
@@ -39,10 +39,11 @@ class BrowserNonClientFrameViewMac : public BrowserNonClientFrameView {
   gfx::Rect GetWindowBoundsForClientBounds(
       const gfx::Rect& client_bounds) const override;
   int NonClientHitTest(const gfx::Point& point) override;
-  void GetWindowMask(const gfx::Size& size, gfx::Path* window_mask) override;
+  void GetWindowMask(const gfx::Size& size, SkPath* window_mask) override;
   void UpdateWindowIcon() override;
   void UpdateWindowTitle() override;
   void SizeConstraintsChanged() override;
+  void UpdateMinimumSize() override;
 
   // views::View:
   gfx::Size GetMinimumSize() const override;
@@ -63,10 +64,6 @@ class BrowserNonClientFrameViewMac : public BrowserNonClientFrameView {
                                           int title_width);
 
   void PaintThemedFrame(gfx::Canvas* canvas);
-
-  // Returns the color to use for text and other title bar elements given the
-  // frame background color for |active_state|.
-  SkColor GetReadableFrameForegroundColor(ActiveState active_state) const;
 
   CGFloat FullscreenBackingBarHeight() const;
 

@@ -4,6 +4,9 @@
 
 #include "chromeos/dbus/cicerone_client.h"
 
+#include <string>
+#include <utility>
+
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/observer_list.h"
@@ -51,6 +54,10 @@ class CiceroneClientImpl : public CiceroneClient {
     return is_install_linux_package_progress_signal_connected_;
   }
 
+  bool IsUninstallPackageProgressSignalConnected() override {
+    return is_uninstall_package_progress_signal_connected_;
+  }
+
   bool IsLxdContainerCreatedSignalConnected() override {
     return is_lxd_container_created_signal_connected_;
   }
@@ -61,6 +68,10 @@ class CiceroneClientImpl : public CiceroneClient {
 
   bool IsTremplinStartedSignalConnected() override {
     return is_tremplin_started_signal_connected_;
+  }
+
+  bool IsLxdContainerStartingSignalConnected() override {
+    return is_lxd_container_starting_signal_connected_;
   }
 
   void LaunchContainerApplication(
@@ -157,6 +168,31 @@ class CiceroneClientImpl : public CiceroneClient {
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
 
+  void UninstallPackageOwningFile(
+      const vm_tools::cicerone::UninstallPackageOwningFileRequest& request,
+      DBusMethodCallback<vm_tools::cicerone::UninstallPackageOwningFileResponse>
+          callback) override {
+    dbus::MethodCall method_call(
+        vm_tools::cicerone::kVmCiceroneInterface,
+        vm_tools::cicerone::kUninstallPackageOwningFileMethod);
+    dbus::MessageWriter writer(&method_call);
+
+    if (!writer.AppendProtoAsArrayOfBytes(request)) {
+      LOG(ERROR)
+          << "Failed to encode UninstallPackageOwningFileRequest protobuf";
+      base::ThreadTaskRunnerHandle::Get()->PostTask(
+          FROM_HERE, base::BindOnce(std::move(callback), base::nullopt));
+      return;
+    }
+
+    cicerone_proxy_->CallMethod(
+        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::BindOnce(
+            &CiceroneClientImpl::OnDBusProtoResponse<
+                vm_tools::cicerone::UninstallPackageOwningFileResponse>,
+            weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
   void CreateLxdContainer(
       const vm_tools::cicerone::CreateLxdContainerRequest& request,
       DBusMethodCallback<vm_tools::cicerone::CreateLxdContainerResponse>
@@ -247,6 +283,27 @@ class CiceroneClientImpl : public CiceroneClient {
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
 
+  void SearchApp(const vm_tools::cicerone::AppSearchRequest& request,
+                 DBusMethodCallback<vm_tools::cicerone::AppSearchResponse>
+                     callback) override {
+    dbus::MethodCall method_call(vm_tools::cicerone::kVmCiceroneInterface,
+                                 vm_tools::cicerone::kAppSearchMethod);
+    dbus::MessageWriter writer(&method_call);
+
+    if (!writer.AppendProtoAsArrayOfBytes(request)) {
+      LOG(ERROR) << "Failed to encode AppSearchRequest protobuf";
+      base::ThreadTaskRunnerHandle::Get()->PostTask(
+          FROM_HERE, base::BindOnce(std::move(callback), base::nullopt));
+      return;
+    }
+
+    cicerone_proxy_->CallMethod(
+        &method_call, kDefaultTimeout.InMilliseconds(),
+        base::BindOnce(&CiceroneClientImpl::OnDBusProtoResponse<
+                           vm_tools::cicerone::AppSearchResponse>,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
   void WaitForServiceToBeAvailable(
       dbus::ObjectProxy::WaitForServiceToBeAvailableCallback callback)
       override {
@@ -286,6 +343,14 @@ class CiceroneClientImpl : public CiceroneClient {
                        weak_ptr_factory_.GetWeakPtr()));
     cicerone_proxy_->ConnectToSignal(
         vm_tools::cicerone::kVmCiceroneInterface,
+        vm_tools::cicerone::kUninstallPackageProgressSignal,
+        base::BindRepeating(
+            &CiceroneClientImpl::OnUninstallPackageProgressSignal,
+            weak_ptr_factory_.GetWeakPtr()),
+        base::BindOnce(&CiceroneClientImpl::OnSignalConnected,
+                       weak_ptr_factory_.GetWeakPtr()));
+    cicerone_proxy_->ConnectToSignal(
+        vm_tools::cicerone::kVmCiceroneInterface,
         vm_tools::cicerone::kLxdContainerCreatedSignal,
         base::BindRepeating(&CiceroneClientImpl::OnLxdContainerCreatedSignal,
                             weak_ptr_factory_.GetWeakPtr()),
@@ -303,6 +368,13 @@ class CiceroneClientImpl : public CiceroneClient {
         vm_tools::cicerone::kVmCiceroneInterface,
         vm_tools::cicerone::kTremplinStartedSignal,
         base::BindRepeating(&CiceroneClientImpl::OnTremplinStartedSignal,
+                            weak_ptr_factory_.GetWeakPtr()),
+        base::BindOnce(&CiceroneClientImpl::OnSignalConnected,
+                       weak_ptr_factory_.GetWeakPtr()));
+    cicerone_proxy_->ConnectToSignal(
+        vm_tools::cicerone::kVmCiceroneInterface,
+        vm_tools::cicerone::kLxdContainerStartingSignal,
+        base::BindRepeating(&CiceroneClientImpl::OnLxdContainerStartingSignal,
                             weak_ptr_factory_.GetWeakPtr()),
         base::BindOnce(&CiceroneClientImpl::OnSignalConnected,
                        weak_ptr_factory_.GetWeakPtr()));
@@ -362,6 +434,18 @@ class CiceroneClientImpl : public CiceroneClient {
     }
   }
 
+  void OnUninstallPackageProgressSignal(dbus::Signal* signal) {
+    vm_tools::cicerone::UninstallPackageProgressSignal proto;
+    dbus::MessageReader reader(signal);
+    if (!reader.PopArrayOfBytesAsProto(&proto)) {
+      LOG(ERROR) << "Failed to parse proto from DBus Signal";
+      return;
+    }
+    for (auto& observer : observer_list_) {
+      observer.OnUninstallPackageProgress(proto);
+    }
+  }
+
   void OnLxdContainerCreatedSignal(dbus::Signal* signal) {
     vm_tools::cicerone::LxdContainerCreatedSignal proto;
     dbus::MessageReader reader(signal);
@@ -398,6 +482,18 @@ class CiceroneClientImpl : public CiceroneClient {
     }
   }
 
+  void OnLxdContainerStartingSignal(dbus::Signal* signal) {
+    vm_tools::cicerone::LxdContainerStartingSignal proto;
+    dbus::MessageReader reader(signal);
+    if (!reader.PopArrayOfBytesAsProto(&proto)) {
+      LOG(ERROR) << "Failed to parse proto from DBus Signal";
+      return;
+    }
+    for (auto& observer : observer_list_) {
+      observer.OnLxdContainerStarting(proto);
+    }
+  }
+
   void OnSignalConnected(const std::string& interface_name,
                          const std::string& signal_name,
                          bool is_connected) {
@@ -413,6 +509,9 @@ class CiceroneClientImpl : public CiceroneClient {
     } else if (signal_name ==
                vm_tools::cicerone::kInstallLinuxPackageProgressSignal) {
       is_install_linux_package_progress_signal_connected_ = is_connected;
+    } else if (signal_name ==
+               vm_tools::cicerone::kUninstallPackageProgressSignal) {
+      is_uninstall_package_progress_signal_connected_ = is_connected;
     } else if (signal_name == vm_tools::cicerone::kLxdContainerCreatedSignal) {
       is_lxd_container_created_signal_connected_ = is_connected;
     } else if (signal_name ==
@@ -420,6 +519,8 @@ class CiceroneClientImpl : public CiceroneClient {
       is_lxd_container_downloading_signal_connected_ = is_connected;
     } else if (signal_name == vm_tools::cicerone::kTremplinStartedSignal) {
       is_tremplin_started_signal_connected_ = is_connected;
+    } else if (signal_name == vm_tools::cicerone::kLxdContainerStartingSignal) {
+      is_lxd_container_starting_signal_connected_ = is_connected;
     } else {
       NOTREACHED();
     }
@@ -432,9 +533,11 @@ class CiceroneClientImpl : public CiceroneClient {
   bool is_container_started_signal_connected_ = false;
   bool is_container_shutdown_signal_connected_ = false;
   bool is_install_linux_package_progress_signal_connected_ = false;
+  bool is_uninstall_package_progress_signal_connected_ = false;
   bool is_lxd_container_created_signal_connected_ = false;
   bool is_lxd_container_downloading_signal_connected_ = false;
   bool is_tremplin_started_signal_connected_ = false;
+  bool is_lxd_container_starting_signal_connected_ = false;
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate its weak pointers before any other members are destroyed.

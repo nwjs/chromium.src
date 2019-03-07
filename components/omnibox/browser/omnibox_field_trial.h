@@ -36,20 +36,31 @@ extern const base::Feature kOmniboxNewAnswerLayout;
 extern const base::Feature kOmniboxReverseAnswers;
 extern const base::Feature kOmniboxTailSuggestions;
 extern const base::Feature kOmniboxTabSwitchSuggestions;
+extern const base::Feature kOmniboxReverseTabSwitchLogic;
 extern const base::Feature kExperimentalKeywordMode;
 extern const base::Feature kOmniboxPedalSuggestions;
 extern const base::Feature kEnableClipboardProvider;
+extern const base::Feature kEnableClipboardProviderTextSuggestions;
+extern const base::Feature kEnableClipboardProviderImageSuggestions;
 extern const base::Feature kSearchProviderWarmUpOnFocus;
 extern const base::Feature kZeroSuggestRedirectToChrome;
-extern const base::Feature kZeroSuggestSwapTitleAndUrl;
 extern const base::Feature kDisplayTitleForCurrentUrl;
 extern const base::Feature kQueryInOmnibox;
 extern const base::Feature kUIExperimentMaxAutocompleteMatches;
 extern const base::Feature kUIExperimentShowSuggestionFavicons;
 extern const base::Feature kUIExperimentSwapTitleAndUrl;
 extern const base::Feature kUIExperimentVerticalMargin;
+extern const base::Feature kUIExperimentBlueSearchLoopAndSearchQuery;
+extern const base::Feature kUIExperimentBlueTitlesAndGrayUrlsOnPageSuggestions;
+extern const base::Feature kUIExperimentBlueTitlesOnPageSuggestions;
+extern const base::Feature kUIExperimentShowSuffixOnAllSearchSuggestions;
+extern const base::Feature kUIExperimentBoldUserTextOnSearchSuggestions;
+extern const base::Feature kUIExperimentWhiteBackgroundOnBlur;
+extern const base::Feature kUIExperimentUseGenericSearchEngineIcon;
+extern const base::Feature kUIExperimentUnboldSuggestionText;
 extern const base::Feature kSpeculativeServiceWorkerStartOnQueryInput;
 extern const base::Feature kDocumentProvider;
+extern const base::Feature kDedupeGoogleDriveURLs;
 extern const base::Feature kOmniboxPopupShortcutIconsInZeroState;
 
 }  // namespace omnibox
@@ -431,10 +442,6 @@ class OmniboxFieldTrial {
   // Returns true if the rich entities flag is enabled.
   static bool IsRichEntitySuggestionsEnabled();
 
-  // Returns true if either the new answer layout flag or the
-  // #upcoming-ui-features flag is enabled.
-  static bool IsNewAnswerLayoutEnabled();
-
   // Returns true if either the reverse answers flag or the
   // #upcoming-ui-features flag is enabled.
   static bool IsReverseAnswersEnabled();
@@ -442,6 +449,9 @@ class OmniboxFieldTrial {
   // Returns true if either the tab switch suggestions flag or the
   // #upcoming-ui-features flag is enabled.
   static bool IsTabSwitchSuggestionsEnabled();
+
+  // Returns true if the feature of reversing the tab switch logic is enabled.
+  static bool IsTabSwitchLogicReversed();
 
   // Returns the #omnibox-pedal-suggestions feature's mode parameter as enum.
   static PedalSuggestionMode GetPedalSuggestionMode();

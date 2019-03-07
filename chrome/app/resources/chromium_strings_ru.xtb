@@ -50,7 +50,6 @@
 <translation id="2718390899429598676">В целях повышения безопасности Chromium шифрует ваши данные.</translation>
 <translation id="2770231113462710648">Назначить браузером по умолчанию:</translation>
 <translation id="2799223571221894425">Перезапустить</translation>
-<translation id="2818397554133737874">Данные этого пользователя о работе в браузере будут удалены с устройства. Чтобы восстановить их, войдите в Chromium как $2.</translation>
 <translation id="2847479871509788944">Удалить из Chromium</translation>
 <translation id="2886012850691518054">(Необязательно) Помогите сделать Chromium лучше, автоматически отправляя статистику использования и отчеты об ошибках в Google.</translation>
 <translation id="2898082584336937987">Установите Chromium на телефон. Мы отправим вам SMS на номер <ph name="PHONE_NUMBER" />.</translation>
@@ -75,14 +74,17 @@
 <translation id="3479552764303398839">Не сейчас</translation>
 <translation id="3509308970982693815">Закройте все окна Chromium и повторите попытку снова.</translation>
 <translation id="352783484088404971">Удалить из Chromium</translation>
+<translation id="3575459661164320785">На компьютере обнаружено вредоносное ПО. Chromium может удалить его, восстановить настройки и отключить расширения. Это вернет браузер в обычное состояние.</translation>
 <translation id="3582788516608077514">Выполняется обновление Chromium...</translation>
 <translation id="358997566136285270">Логотип Chromium</translation>
+<translation id="3639635944603682591">Данные о работе этого пользователя в браузере будут удалены с устройства. Чтобы восстановить их, войдите в Chromium как <ph name="USER_EMAIL" />.</translation>
 <translation id="3713809861844741608">Открыть ссылку в новой вкладке браузера Chromium</translation>
 <translation id="3728336900324680424">Chromium получит доступ к вашему Google Диску, чтобы вы могли просматривать рекомендации в адресной строке.</translation>
 <translation id="3762167353400286894">Этот язык сейчас используется в Chromium OS</translation>
 <translation id="378917192836375108">В Chromium вы можете нажать на любой номер телефона и позвонить на него через Skype.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> – Chromium</translation>
 <translation id="3852700440713538496">Как прикрепить Chromium на панель задач</translation>
+<translation id="388648406173476553">Настройка и управление Chromium Требуется ваше внимание. Нажмите, чтобы получить подробную информацию.</translation>
 <translation id="3889543394854987837">Нажмите на свое имя, чтобы войти в Chromium.</translation>
 <translation id="3898493977366060150">Технологии Google для простого и быстрого поиска в Интернете.</translation>
 <translation id="3965668104013180445">{0,plural, =1{Chromium OS перезапустится через 1 час}one{Chromium OS перезапустится через # час}few{Chromium OS перезапустится через # часа}many{Chromium OS перезапустится через # часов}other{Chromium OS перезапустится через # часа}}</translation>
@@ -93,7 +95,6 @@
 <translation id="4222580632002216401">Добро пожаловать в Chromium! Синхронизация отключена администратором.</translation>
 <translation id="4224199872375172890">Вы используете актуальную версию Chromium.</translation>
 <translation id="4230135487732243613">Связать данные Chromium с этим аккаунтом?</translation>
-<translation id="4260985389288095068">На компьютере обнаружено вредоносное ПО. Chromium может удалить его и восстановить настройки, чтобы вернуть браузер в обычное состояние.</translation>
 <translation id="4271805377592243930">Справка Chromium</translation>
 <translation id="4285930937574705105">Установка не удалась из-за неизвестной ошибки. Если Chromium продолжает работать, закройте его и повторите попытку.</translation>
 <translation id="4407044323746248786">Закрыть Chromium?</translation>
@@ -164,6 +165,7 @@
 <translation id="6373523479360886564">Вы действительно хотите удалить Chromium?</translation>
 <translation id="6400072781405947421">В работе Chromium могут возникать сбои, так как браузер больше не поддерживает Mac OS X 10.9.</translation>
 <translation id="6403826409255603130">Chromium – браузер, который открывает веб-страницы и приложения за секунды. Он быстр, стабилен в работе и прост в использовании. Встроенная в Chromium защита от мошенничества и вредоносного ПО обеспечивает максимально безопасную работу в Интернете.</translation>
+<translation id="6434250628340475518">Chromium OS</translation>
 <translation id="6457450909262716557">{SECONDS,plural, =1{Chromium перезапустится через 1 секунду}one{Chromium перезапустится через # секунду}few{Chromium перезапустится через # секунды}many{Chromium перезапустится через # секунд}other{Chromium перезапустится через # секунды}}</translation>
 <translation id="6475912303565314141">Кроме того, расширение изменило стартовую страницу Chromium.</translation>
 <translation id="6485906693002546646">Для синхронизации данных Chromium используется аккаунт <ph name="PROFILE_EMAIL" />. Изменить параметры синхронизации или отключить аккаунт можно в <ph name="SETTINGS_LINK" />.</translation>
@@ -180,6 +182,7 @@
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (скопирована в Chromium)</translation>
 <translation id="6893813176749746474">Chromium был обновлен, однако вы не использовали его в течение последних 30 дней.</translation>
+<translation id="692832138936263906">Chromium может распознавать для вас картинки и текст на них. Чтобы получать метки, браузер отправляет изображения в Google.</translation>
 <translation id="6964305034639999644">Открыть ссылку в режиме инкогнито браузера Chromium</translation>
 <translation id="6970811910055250180">Обновление операционной системы…</translation>
 <translation id="6990124437352146030">Для этого сайта Chromium запрашивает доступ к микрофону.</translation>
@@ -208,6 +211,7 @@
 <translation id="7471302858145901434">{0,plural, =1{Перезапустите Chromium OS в течение 1 дня}one{Перезапустите Chromium OS в течение # дня}few{Перезапустите Chromium OS в течение # дней}many{Перезапустите Chromium OS в течение # дней}other{Перезапустите Chromium OS в течение # дня}}</translation>
 <translation id="7483335560992089831">Невозможно установить ту же версию Chromium, которая уже присутствует в системе. Закройте Chromium и повторите попытку.</translation>
 <translation id="7549178288319965365">О Chromium OS</translation>
+<translation id="7561906087460245826">Также удалить данные из Chromium (<ph name="URL" />)</translation>
 <translation id="761356813943268536">Chromium использует камеру и микрофон.</translation>
 <translation id="7617377681829253106">Chromium становится все лучше</translation>
 <translation id="7686590090926151193">Chromium не является браузером по умолчанию.</translation>

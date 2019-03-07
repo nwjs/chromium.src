@@ -162,6 +162,16 @@ const char* BubbleDialogDelegateView::GetClassName() const {
   return kViewClassName;
 }
 
+void BubbleDialogDelegateView::OnWidgetClosing(Widget* widget) {
+  // To prevent keyboard focus traversal issues, the anchor view's
+  // kAnchoredDialogKey property is cleared immediately upon Close(). This
+  // avoids a bug that occured when a focused anchor view is made unfocusable
+  // right after the bubble is closed. Previously, focus would advance into the
+  // bubble then would be lost when the bubble was destroyed.
+  if (widget == GetWidget() && GetAnchorView())
+    GetAnchorView()->ClearProperty(kAnchoredDialogKey);
+}
+
 void BubbleDialogDelegateView::OnWidgetDestroying(Widget* widget) {
   if (anchor_widget() == widget)
     SetAnchorView(NULL);
@@ -433,7 +443,7 @@ void BubbleDialogDelegateView::HandleVisibilityChanged(Widget* widget,
 
 void BubbleDialogDelegateView::OnDeactivate() {
   if (close_on_deactivate() && GetWidget())
-    GetWidget()->Close();
+    GetWidget()->CloseWithReason(views::Widget::ClosedReason::kLostFocus);
 }
 
 void BubbleDialogDelegateView::UpdateAnchorWidgetRenderState(bool visible) {
@@ -446,7 +456,7 @@ void BubbleDialogDelegateView::UpdateAnchorWidgetRenderState(bool visible) {
 void BubbleDialogDelegateView::UpdateHighlightedButton(bool highlighted) {
   Button* button = Button::AsButton(highlighted_button_tracker_.view());
   button = button ? button : Button::AsButton(anchor_view_tracker_->view());
-  if (button)
+  if (button && highlight_button_when_shown_)
     button->SetHighlighted(highlighted);
 }
 

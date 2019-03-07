@@ -16,6 +16,11 @@
 
 namespace blink {
 
+// The spec turned into a discussion that may change. Put this logic on hold
+// until CSSWG resolves the issue.
+// https://github.com/w3c/csswg-drafts/issues/337
+#define SEGMENT_BREAK_TRANSFORMATION_FOR_EAST_ASIAN_WIDTH 0
+
 class NGOffsetMappingTest : public NGLayoutTest {
  protected:
   void SetUp() override {
@@ -292,7 +297,7 @@ TEST_F(NGOffsetMappingTest, CollapseZeroWidthSpaces) {
 
   EXPECT_EQ("{4, 5}{}", TestCollapsing(u"text \n", u"\u200Btext"))
       << "Collapsible space before newline does not affect the result.";
-  EXPECT_EQ("{5}{0}", TestCollapsing(u"text\u200B\n", u" text"))
+  EXPECT_EQ("{5}{}", TestCollapsing(u"text\u200B\n", u" text"))
       << "Collapsible space after newline is removed even when the "
          "newline was removed.";
   EXPECT_EQ("{5}{0}", TestCollapsing(u"text\u200B ", u"\ntext"))
@@ -300,6 +305,7 @@ TEST_F(NGOffsetMappingTest, CollapseZeroWidthSpaces) {
          "a zero width space is collapsed to a zero width space.";
 }
 
+#if SEGMENT_BREAK_TRANSFORMATION_FOR_EAST_ASIAN_WIDTH
 TEST_F(NGOffsetMappingTest, CollapseEastAsianWidth) {
   EXPECT_EQ("{1}", TestCollapsing(u"\u4E00\n\u4E00"))
       << "Newline is removed when both sides are Wide.";
@@ -315,6 +321,7 @@ TEST_F(NGOffsetMappingTest, CollapseEastAsianWidth) {
       << "Newline at the beginning of elements is removed "
          "when both sides are Wide.";
 }
+#endif
 
 #define TEST_UNIT(unit, type, owner, dom_start, dom_end, text_content_start, \
                   text_content_end)                                          \

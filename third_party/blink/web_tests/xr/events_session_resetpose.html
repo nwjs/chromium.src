@@ -19,7 +19,7 @@ let fakeDeviceInitParams = { supportsImmersive:true };
 
 let requestSessionOptions = [
   { outputContext: getOutputContext() },
-  { immersive: true },
+  { mode: 'immersive-vr' },
 ];
 
 let testFunction = function(session, t, fakeDeviceController) {
@@ -52,7 +52,9 @@ let testFunction = function(session, t, fakeDeviceController) {
   session.addEventListener("resetpose", onPoseReset, false);
 
   // Trigger the reset pose.
-  session.requestAnimationFrame((time, xrFrame) => {});
+  session.requestAnimationFrame(() => {
+    session.requestAnimationFrame(() => {});
+  });
 
   return eventPromise;
 };

@@ -16,10 +16,6 @@
 #include "base/test/simple_test_clock.h"
 #include "base/values.h"
 #include "chrome/browser/history/web_history_service_factory.h"
-#include "chrome/browser/signin/fake_profile_oauth2_token_service_builder.h"
-#include "chrome/browser/signin/fake_signin_manager_builder.h"
-#include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/profile_sync_test_util.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -27,8 +23,6 @@
 #include "components/browser_sync/test_profile_sync_service.h"
 #include "components/history/core/browser/browsing_history_service.h"
 #include "components/history/core/test/fake_web_history_service.h"
-#include "components/signin/core/browser/fake_profile_oauth2_token_service.h"
-#include "components/signin/core/browser/fake_signin_manager.h"
 #include "components/sync/base/model_type.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_web_ui.h"
@@ -66,11 +60,14 @@ class TestSyncService : public browser_sync::TestProfileSyncService {
 
   int GetDisableReasons() const override { return DISABLE_REASON_NONE; }
 
-  bool IsFirstSetupComplete() const override { return true; }
-
   syncer::ModelTypeSet GetActiveDataTypes() const override {
     return syncer::ModelTypeSet::All();
   }
+
+  // Overridden to be empty, to prevent the Sync machinery from actually
+  // starting up (which would fail, since not everything is properly set up,
+  // e.g. we're missing an authenticated account).
+  void StartUpSlowEngineComponents() override {}
 
   void SetTransportState(TransportState state) {
     state_ = state;
@@ -112,6 +109,7 @@ class BrowsingHistoryHandlerTest : public ChromeRenderViewHostTestHarness {
         ProfileSyncServiceFactory::GetForProfile(profile()));
     web_history_service_ = static_cast<history::FakeWebHistoryService*>(
         WebHistoryServiceFactory::GetForProfile(profile()));
+    ASSERT_TRUE(web_history_service_);
 
     web_ui_.reset(new content::TestWebUI);
     web_ui_->set_web_contents(web_contents());
@@ -124,12 +122,6 @@ class BrowsingHistoryHandlerTest : public ChromeRenderViewHostTestHarness {
 
   content::BrowserContext* CreateBrowserContext() override {
     TestingProfile::Builder builder;
-    builder.AddTestingFactory(
-        ProfileOAuth2TokenServiceFactory::GetInstance(),
-        base::BindRepeating(&BuildFakeProfileOAuth2TokenService));
-    builder.AddTestingFactory(
-        SigninManagerFactory::GetInstance(),
-        base::BindRepeating(&BuildFakeSigninManagerForTesting));
     builder.AddTestingFactory(ProfileSyncServiceFactory::GetInstance(),
                               base::BindRepeating(&BuildFakeSyncService));
     builder.AddTestingFactory(WebHistoryServiceFactory::GetInstance(),
@@ -145,8 +137,11 @@ class BrowsingHistoryHandlerTest : public ChromeRenderViewHostTestHarness {
  private:
   static std::unique_ptr<KeyedService> BuildFakeSyncService(
       content::BrowserContext* context) {
-    return std::make_unique<TestSyncService>(
+    auto service = std::make_unique<TestSyncService>(
         static_cast<TestingProfile*>(context));
+    service->Initialize();
+    service->GetUserSettings()->SetFirstSetupComplete();
+    return service;
   }
 
   static std::unique_ptr<KeyedService> BuildFakeWebHistoryService(
@@ -154,11 +149,11 @@ class BrowsingHistoryHandlerTest : public ChromeRenderViewHostTestHarness {
     std::unique_ptr<history::FakeWebHistoryService> service =
         std::make_unique<history::FakeWebHistoryService>();
     service->SetupFakeResponse(true /* success */, net::HTTP_OK);
-    return std::move(service);
+    return service;
   }
 
-  TestSyncService* sync_service_;
-  history::FakeWebHistoryService* web_history_service_;
+  TestSyncService* sync_service_ = nullptr;
+  history::FakeWebHistoryService* web_history_service_ = nullptr;
   std::unique_ptr<content::TestWebUI> web_ui_;
 };
 

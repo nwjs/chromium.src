@@ -13,6 +13,7 @@
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/test/history_service_test_util.h"
 #include "components/history/core/test/test_history_database.h"
+#include "components/offline_pages/core/offline_clock.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -135,7 +136,7 @@ TEST_F(HistoryStatisticsReporterTest, HistoryLoadedTimeDelay) {
 TEST_F(HistoryStatisticsReporterTest, HostAddedSimple) {
   ASSERT_TRUE(LoadHistory());
 
-  base::Time time_now = base::Time::Now();
+  base::Time time_now = offline_pages::OfflineTimeNow();
 
   history_service()->AddPage(GURL("http://www.google.com"), time_now,
                              history::VisitSource::SOURCE_BROWSED);
@@ -149,7 +150,7 @@ TEST_F(HistoryStatisticsReporterTest, HostAddedSimple) {
 TEST_F(HistoryStatisticsReporterTest, HostAddedLongAgo) {
   ASSERT_TRUE(LoadHistory());
 
-  base::Time time_now = base::Time::Now();
+  base::Time time_now = offline_pages::OfflineTimeNow();
   base::Time time_29_days_ago = time_now - base::TimeDelta::FromDays(29);
   base::Time time_31_days_ago = time_now - base::TimeDelta::FromDays(31);
 
@@ -169,7 +170,7 @@ TEST_F(HistoryStatisticsReporterTest, HostAddedLongAgo) {
 TEST_F(HistoryStatisticsReporterTest, OneRunPerSession) {
   ASSERT_TRUE(LoadHistory());
 
-  base::Time time_now = base::Time::Now();
+  base::Time time_now = offline_pages::OfflineTimeNow();
 
   history_service()->AddPage(GURL("http://www.google.com"), time_now,
                              history::VisitSource::SOURCE_BROWSED);

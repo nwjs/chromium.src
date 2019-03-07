@@ -79,8 +79,9 @@ bool RemovePrefixAndAssignIfMatches(const base::StringPiece& prefix,
 
   if (spec.starts_with(prefix)) {
     url::RawCanonOutputW<1024> output;
-    url::DecodeURLEscapeSequences(spec.data() + prefix.length(),
-                                  spec.length() - prefix.length(), &output);
+    url::DecodeURLEscapeSequences(
+        spec.data() + prefix.length(), spec.length() - prefix.length(),
+        url::DecodeURLMode::kUTF8OrIsomorphic, &output);
     *dest =
         base::UTF16ToUTF8(base::StringPiece16(output.data(), output.length()));
     return true;
@@ -271,7 +272,7 @@ void AwRenderFrameExt::OnSetTextZoomFactor(float zoom_factor) {
     return;
 
   // Hide selection and autofill popups.
-  webview->HidePopups();
+  webview->CancelPagePopup();
   webview->SetTextZoomFactor(zoom_factor);
 }
 
@@ -292,11 +293,11 @@ void AwRenderFrameExt::OnSetInitialPageScale(double page_scale_factor) {
 }
 
 void AwRenderFrameExt::OnSetBackgroundColor(SkColor c) {
-  blink::WebFrameWidget* web_frame_widget = GetWebFrameWidget();
-  if (!web_frame_widget)
+  blink::WebView* webview = GetWebView();
+  if (!webview)
     return;
 
-  web_frame_widget->SetBaseBackgroundColor(c);
+  webview->SetBaseBackgroundColor(c);
 }
 
 void AwRenderFrameExt::OnSmoothScroll(int target_x,

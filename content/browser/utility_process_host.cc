@@ -13,6 +13,7 @@
 #include "base/files/file_path.h"
 #include "base/i18n/base_i18n_switches.h"
 #include "base/sequenced_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "components/network_session_configurator/common/network_switches.h"
@@ -84,6 +85,9 @@ class UtilitySandboxedProcessLauncherDelegate
         sandbox_type_ == service_manager::SANDBOX_TYPE_PDF_COMPOSITOR ||
         sandbox_type_ == service_manager::SANDBOX_TYPE_PROFILING ||
         sandbox_type_ == service_manager::SANDBOX_TYPE_PPAPI ||
+#if defined(OS_CHROMEOS)
+        sandbox_type_ == service_manager::SANDBOX_TYPE_IME ||
+#endif  // OS_CHROMEOS
         sandbox_type_ == service_manager::SANDBOX_TYPE_AUDIO;
     DCHECK(supported_sandbox_type);
 #endif  // DCHECK_IS_ON()
@@ -161,6 +165,9 @@ class UtilitySandboxedProcessLauncherDelegate
   service_manager::ZygoteHandle GetZygote() override {
     if (service_manager::IsUnsandboxedSandboxType(sandbox_type_) ||
         sandbox_type_ == service_manager::SANDBOX_TYPE_NETWORK ||
+#if defined(OS_CHROMEOS)
+        sandbox_type_ == service_manager::SANDBOX_TYPE_IME ||
+#endif  // OS_CHROMEOS
         sandbox_type_ == service_manager::SANDBOX_TYPE_AUDIO) {
       return nullptr;
     }
@@ -345,6 +352,7 @@ bool UtilityProcessHost::StartProcess() {
       network::switches::kIgnoreUrlFetcherCertRequests,
       network::switches::kLogNetLog,
       network::switches::kNoReferrers,
+      network::switches::kExplicitlyAllowedPorts,
       service_manager::switches::kNoSandbox,
 #if defined(OS_MACOSX)
       service_manager::switches::kEnableSandboxLogging,
@@ -392,7 +400,7 @@ bool UtilityProcessHost::StartProcess() {
 #endif
     };
     cmd_line->CopySwitchesFrom(browser_command_line, kSwitchNames,
-                               arraysize(kSwitchNames));
+                               base::size(kSwitchNames));
 
     network_session_configurator::CopyNetworkSwitches(browser_command_line,
                                                       cmd_line.get());

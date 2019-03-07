@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{1일 전}other{#일 전}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{1분 전}other{#분 전}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{1분}other{#분}}</translation>
+<translation id="1181037720776840403">삭제</translation>
 <translation id="1243314992276662751">업로드</translation>
 <translation id="1269641567813814718">Win</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">아래 화살표</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1일}other{#일}}</translation>
 <translation id="335581015389089642">음성</translation>
+<translation id="3462241349431650993">이 추천을 숨기면 모든 기기의 계정에서 이 추천이 다시 표시되지 않습니다.</translation>
 <translation id="3479552764303398839">나중에</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{1일 남음}other{#일 남음}}</translation>
+<translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" /> 이상</translation>
 <translation id="3618849550573277856">'<ph name="LOOKUP_STRING" />' 찾기</translation>
 <translation id="364720409959344976">업로드할 폴더 선택</translation>
 <translation id="3660179305079774227">위쪽 화살표</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{1초 전}other{#초 전}}</translation>
 <translation id="654149438358937226">모든 알림 차단</translation>
 <translation id="6567071839949112727">상위 개체 클릭</translation>
+<translation id="6578407462441924264">이름 없음</translation>
 <translation id="6612467943526193239">보정을 종료하려면 Esc를 누르세요.</translation>
 <translation id="6620110761915583480">파일 저장</translation>
 <translation id="6699343763173986273">미디어 다음 트랙</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1시간 전}other{#시간 전}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1초 남음}other{#초 남음}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />, 자동 완성</translation>
 <translation id="815598010540052116">아래로 스크롤</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">페이지 아래로</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">선택</translation>
 <translation id="8393700583063109961">메시지 보내기</translation>
 <translation id="8394908167088220973">미디어 재생/일시중지</translation>
+<translation id="8420205633584771378">추천을 삭제하시겠습니까?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1년}other{#년}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> 파일(.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" />KB/초</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">뒤로 버튼</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" />KB</translation>
 <translation id="9002566407876343676">열기</translation>
-<translation id="9038489124413477075">이름이 없는 폴더</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1초}other{#초}}</translation>
 <translation id="9059834730836941392">알림 접기</translation>
 <translation id="9150735707954472829">탭</translation>

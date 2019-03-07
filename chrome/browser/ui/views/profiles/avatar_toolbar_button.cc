@@ -15,9 +15,7 @@
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
 #include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/gaia_cookie_manager_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/sync_ui_util.h"
 #include "chrome/browser/themes/theme_properties.h"
@@ -61,7 +59,7 @@ AvatarToolbarButton::AvatarToolbarButton(Browser* browser)
 #endif  // !defined(OS_CHROMEOS)
       browser_list_observer_(this),
       profile_observer_(this),
-      cookie_manager_service_observer_(this),
+      identity_manager_observer_(this),
       account_tracker_service_observer_(this) {
 
   if (IsIncognitoCounterActive())
@@ -71,8 +69,8 @@ AvatarToolbarButton::AvatarToolbarButton(Browser* browser)
       &g_browser_process->profile_manager()->GetProfileAttributesStorage());
 
   if (!IsIncognito() && !profile_->IsGuestSession()) {
-    cookie_manager_service_observer_.Add(
-        GaiaCookieManagerServiceFactory::GetForProfile(profile_));
+    identity_manager_observer_.Add(
+        IdentityManagerFactory::GetForProfile(profile_));
     account_tracker_service_observer_.Add(
         AccountTrackerServiceFactory::GetForProfile(profile_));
   }
@@ -125,15 +123,26 @@ void AvatarToolbarButton::UpdateText() {
 
   const SyncState sync_state = GetSyncState();
 
+  if (IsIncognito() && GetThemeProvider()) {
+    // Note that this chip does not have a highlight color.
+    const SkColor text_color = GetThemeProvider()->GetColor(
+        ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+    SetEnabledTextColors(text_color);
+    // TODO(pbos): Remove this call once the incognito chip always triggers a
+    // menu.
+    if (!IsIncognitoCounterActive())
+      SetTextColor(STATE_DISABLED, text_color);
+  }
+
   if (IsIncognitoCounterActive()) {
     const int incognito_window_count =
         BrowserList::GetIncognitoSessionsActiveForProfile(profile_);
     if (incognito_window_count > 1) {
       text = base::IntToString16(incognito_window_count);
-      // TODO(http://crbug.com/896235): Update to select from theme colors and
-      // use GetColorWithMinimumContrast to guarantee readability.
-      color = gfx::kGoogleGrey900;
+      SetHorizontalAlignment(gfx::ALIGN_LEFT);
     }
+  } else if (IsIncognito()) {
+    text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_INCOGNITO);
   } else if (sync_state == SyncState::kError) {
     color = gfx::kGoogleRed600;
     text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_ERROR);
@@ -164,6 +173,15 @@ void AvatarToolbarButton::NotifyClick(const ui::Event& event) {
         signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN,
         event.IsKeyEvent());
   }
+}
+
+void AvatarToolbarButton::OnThemeChanged() {
+  UpdateIcon();
+  UpdateText();
+}
+
+void AvatarToolbarButton::AddedToWidget() {
+  UpdateText();
 }
 
 void AvatarToolbarButton::OnAvatarErrorChanged() {
@@ -211,15 +229,13 @@ void AvatarToolbarButton::OnProfileNameChanged(
   UpdateText();
 }
 
-void AvatarToolbarButton::OnGaiaAccountsInCookieUpdated(
-    const std::vector<gaia::ListedAccount>& accounts,
-    const std::vector<gaia::ListedAccount>& signed_out_accounts,
+void AvatarToolbarButton::OnAccountsInCookieUpdated(
+    const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
     const GoogleServiceAuthError& error) {
   UpdateIcon();
 }
 
-void AvatarToolbarButton::OnAccountImageUpdated(const std::string& account_id,
-                                                const gfx::Image& image) {
+void AvatarToolbarButton::OnAccountUpdated(const AccountInfo& info) {
   UpdateIcon();
 }
 
@@ -293,15 +309,8 @@ base::string16 AvatarToolbarButton::GetAvatarTooltipText() const {
 gfx::ImageSkia AvatarToolbarButton::GetAvatarIcon() const {
   const int icon_size = ui::MaterialDesignController::touch_ui() ? 24 : 20;
 
-  SkColor icon_color;
-  if (IsIncognitoCounterActive() &&
-      BrowserList::GetIncognitoSessionsActiveForProfile(profile_) > 1) {
-    // TODO(http://crbug.com/896235): Update to select from theme colors.
-    icon_color = gfx::kGoogleGrey900;
-  } else {
-    icon_color = GetThemeProvider()->GetColor(
-        ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
-  }
+  SkColor icon_color =
+      GetThemeProvider()->GetColor(ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
 
   if (IsIncognito())
     return gfx::CreateVectorIcon(kIncognitoIcon, icon_size, icon_color);
@@ -352,8 +361,7 @@ gfx::Image AvatarToolbarButton::GetIconImageFromProfile() const {
     std::vector<AccountInfo> promo_accounts =
         signin_ui_util::GetAccountsForDicePromos(profile_);
     if (!promo_accounts.empty()) {
-      return AccountTrackerServiceFactory::GetForProfile(profile_)
-          ->GetAccountImage(promo_accounts[0].account_id);
+      return promo_accounts.front().account_image;
     }
   }
 #endif  // !defined(OS_CHROMEOS)
@@ -373,7 +381,7 @@ AvatarToolbarButton::SyncState AvatarToolbarButton::GetSyncState() const {
     const bool should_show_sync_paused_ui =
         AccountConsistencyModeManager::IsDiceEnabledForProfile(profile_) &&
         sync_ui_util::GetMessagesForAvatarSyncError(
-            profile_, *IdentityManagerFactory::GetForProfile(profile_), &unused,
+            profile_, IdentityManagerFactory::GetForProfile(profile_), &unused,
             &unused) == sync_ui_util::AUTH_ERROR;
     return should_show_sync_paused_ui ? SyncState::kPaused : SyncState::kError;
   }

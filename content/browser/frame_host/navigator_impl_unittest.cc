@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #include "base/feature_list.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/browser/frame_host/navigation_controller_impl.h"
@@ -27,6 +27,7 @@
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_utils.h"
+#include "content/test/navigation_simulator_impl.h"
 #include "content/test/test_navigation_url_loader.h"
 #include "content/test/test_render_frame_host.h"
 #include "content/test/test_web_contents.h"
@@ -58,27 +59,16 @@ class NavigatorTestWithBrowserSideNavigation
     return static_cast<TestNavigationURLLoader*>(request->loader_for_testing());
   }
 
-  // Requests a navigation of the specified FrameTreeNode to the specified URL;
-  // returns the unique ID of the pending NavigationEntry.
+  // Requests a navigation of the specified FrameTreeNode to the specified URL.
+  // Returns the unique ID of the pending NavigationEntry.
+  // TODO(ahemery): Convert this usage to NavigationSimulator.
   int RequestNavigation(FrameTreeNode* node, const GURL& url) {
-    return RequestNavigationWithParameters(node, url, Referrer(),
-                                           ui::PAGE_TRANSITION_LINK);
-  }
+    NavigationController::LoadURLParams load_url_params(url);
+    load_url_params.frame_tree_node_id = node->frame_tree_node_id();
+    load_url_params.referrer = Referrer();
+    load_url_params.transition_type = ui::PAGE_TRANSITION_LINK;
 
-  // Requests a navigation of the specified FrameTreeNode to the specified URL,
-  // using other specified parameters; returns the unique ID of the pending
-  // NavigationEntry.
-  int RequestNavigationWithParameters(
-      FrameTreeNode* node,
-      const GURL& url,
-      const Referrer& referrer,
-      ui::PageTransition transition_type) {
-    NavigationController::LoadURLParams load_params(url);
-    load_params.frame_tree_node_id = node->frame_tree_node_id();
-    load_params.referrer = referrer;
-    load_params.transition_type = transition_type;
-
-    controller().LoadURLWithParams(load_params);
+    controller().LoadURLWithParams(load_url_params);
     return controller().GetPendingEntry()->GetUniqueID();
   }
 
@@ -312,6 +302,8 @@ TEST_F(NavigatorTestWithBrowserSideNavigation, BeginNavigation) {
   EXPECT_EQ(kUrl2, subframe_loader->request_info()->common_params.url);
   // First party for cookies url should be that of the main frame.
   EXPECT_EQ(kUrl1, subframe_loader->request_info()->site_for_cookies);
+  EXPECT_EQ(url::Origin::Create(kUrl1),
+            subframe_loader->request_info()->top_frame_origin);
   EXPECT_FALSE(subframe_loader->request_info()->is_main_frame);
   EXPECT_TRUE(subframe_loader->request_info()->parent_is_main_frame);
   EXPECT_TRUE(subframe_request->browser_initiated());
@@ -387,7 +379,7 @@ TEST_F(NavigatorTestWithBrowserSideNavigation, NoContent) {
       new network::ResourceResponse);
   const char kNoContentHeaders[] = "HTTP/1.1 204 No Content\0\0";
   response->head.headers = new net::HttpResponseHeaders(
-      std::string(kNoContentHeaders, arraysize(kNoContentHeaders)));
+      std::string(kNoContentHeaders, base::size(kNoContentHeaders)));
   GetLoaderForNavigationRequest(main_request)
       ->CallOnResponseStarted(response, nullptr);
 
@@ -412,7 +404,7 @@ TEST_F(NavigatorTestWithBrowserSideNavigation, NoContent) {
   response = new network::ResourceResponse;
   const char kResetContentHeaders[] = "HTTP/1.1 205 Reset Content\0\0";
   response->head.headers = new net::HttpResponseHeaders(
-      std::string(kResetContentHeaders, arraysize(kResetContentHeaders)));
+      std::string(kResetContentHeaders, base::size(kResetContentHeaders)));
   GetLoaderForNavigationRequest(main_request)
       ->CallOnResponseStarted(response, nullptr);
 

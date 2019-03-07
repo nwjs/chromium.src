@@ -37,11 +37,12 @@ void ManageMigrationUiController::ShowBubble(
 
 void ManageMigrationUiController::ShowOfferDialog(
     std::unique_ptr<base::DictionaryValue> legal_message,
+    const std::string& user_email,
     const std::vector<MigratableCreditCard>& migratable_credit_cards,
     AutofillClient::LocalCardMigrationCallback start_migrating_cards_callback) {
   flow_step_ = LocalCardMigrationFlowStep::OFFER_DIALOG;
   dialog_controller_->ShowOfferDialog(
-      std::move(legal_message), migratable_credit_cards,
+      std::move(legal_message), user_email, migratable_credit_cards,
       std::move(start_migrating_cards_callback));
 }
 
@@ -55,6 +56,16 @@ void ManageMigrationUiController::UpdateCreditCardIcon(
 
   DCHECK_EQ(flow_step_, LocalCardMigrationFlowStep::MIGRATION_RESULT_PENDING);
   flow_step_ = LocalCardMigrationFlowStep::MIGRATION_FINISHED;
+  for (const auto& cc : migratable_credit_cards) {
+    if (cc.migration_status() ==
+        MigratableCreditCard::MigrationStatus::FAILURE_ON_UPLOAD) {
+      flow_step_ = LocalCardMigrationFlowStep::MIGRATION_FAILED;
+      break;
+    }
+  }
+  if (has_server_error)
+    flow_step_ = LocalCardMigrationFlowStep::MIGRATION_FAILED;
+
   // Show error dialog when |has_server_error| is true, which indicates
   // Payments Rpc failure.
   show_error_dialog_ = has_server_error;
@@ -70,6 +81,10 @@ void ManageMigrationUiController::OnUserClickedCreditCardIcon() {
       break;
     }
     case LocalCardMigrationFlowStep::MIGRATION_FINISHED: {
+      ShowFeedbackDialog();
+      break;
+    }
+    case LocalCardMigrationFlowStep::MIGRATION_FAILED: {
       show_error_dialog_ ? ShowErrorDialog() : ShowFeedbackDialog();
       break;
     }
@@ -135,5 +150,7 @@ void ManageMigrationUiController::ShowFeedbackDialog() {
   flow_step_ = LocalCardMigrationFlowStep::FEEDBACK_DIALOG;
   dialog_controller_->ShowFeedbackDialog();
 }
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(ManageMigrationUiController)
 
 }  // namespace autofill

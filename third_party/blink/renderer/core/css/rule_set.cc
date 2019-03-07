@@ -41,8 +41,6 @@
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 
-#include "third_party/blink/renderer/platform/wtf/terminated_array_builder.h"
-
 namespace blink {
 
 static inline PropertyWhitelistType DeterminePropertyWhitelistType(
@@ -71,7 +69,8 @@ RuleData* RuleData::MaybeCreate(StyleRule* rule,
     return nullptr;
   if (position >= (1 << RuleData::kPositionBits))
     return nullptr;
-  return new RuleData(rule, selector_index, position, add_rule_flags);
+  return MakeGarbageCollected<RuleData>(rule, selector_index, position,
+                                        add_rule_flags);
 }
 
 RuleData::RuleData(StyleRule* rule,
@@ -99,7 +98,7 @@ void RuleSet::AddToRuleSet(const AtomicString& key,
   Member<HeapLinkedStack<Member<const RuleData>>>& rules =
       map.insert(key, nullptr).stored_value->value;
   if (!rules)
-    rules = new HeapLinkedStack<Member<const RuleData>>;
+    rules = MakeGarbageCollected<HeapLinkedStack<Member<const RuleData>>>();
   rules->Push(rule_data);
 }
 
@@ -215,9 +214,13 @@ bool RuleSet::FindBestRuleSetAndAdd(const CSSSelector& component,
       focus_pseudo_class_rules_.push_back(rule_data);
       return true;
     case CSSSelector::kPseudoPlaceholder:
-      AddToRuleSet(AtomicString("-webkit-input-placeholder"),
-                   EnsurePendingRules()->shadow_pseudo_element_rules,
-                   rule_data);
+      if (it->FollowsPart()) {
+        part_pseudo_rules_.push_back(rule_data);
+      } else {
+        AddToRuleSet(AtomicString("-webkit-input-placeholder"),
+                     EnsurePendingRules()->shadow_pseudo_element_rules,
+                     rule_data);
+      }
       return true;
     case CSSSelector::kPseudoHost:
     case CSSSelector::kPseudoHostContext:

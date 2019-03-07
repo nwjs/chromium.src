@@ -7,6 +7,7 @@
 #include <set>
 #include <vector>
 
+#include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/checked_math.h"
@@ -634,8 +635,7 @@ void TransformTree::UpdateNodeAndAncestorsAreAnimatedOrInvertible(
 void TransformTree::SetRootTransformsAndScales(
     float device_scale_factor,
     float page_scale_factor_for_root,
-    const gfx::Transform& device_transform,
-    gfx::PointF root_position) {
+    const gfx::Transform& device_transform) {
   gfx::Vector2dF device_transform_scale_components =
       MathUtil::ComputeTransform2dScaleComponents(device_transform, 1.f);
 
@@ -644,17 +644,14 @@ void TransformTree::SetRootTransformsAndScales(
       std::max(device_transform_scale_components.x(),
                device_transform_scale_components.y());
 
-  // If DT is the device transform, DSF is the matrix scaled by (device scale
-  // factor * page scale factor for root), RP is the matrix translated by root's
-  // position,
-  // Let Screen Space Scale(SSS) = scale component of DT*DSF*RP,
-  // then the screen space transform of the root transform node is set to SSS
-  // and the post local transform of the contents root node is set to
-  // SSS^-1*DT*DSF*RP.
+  // Let DT be the device transform and DSF be the matrix scaled by (device
+  // scale factor * page scale factor for root). Let Screen Space Scale(SSS) =
+  // scale component of DT*DSF. The screen space transform of the root
+  // transform node is set to SSS and the post local transform of the contents
+  // root node is set to SSS^-1*DT*DSF.
   gfx::Transform transform = device_transform;
   transform.Scale(device_scale_factor * page_scale_factor_for_root,
                   device_scale_factor * page_scale_factor_for_root);
-  transform.Translate(root_position.x(), root_position.y());
   float fallback_value = device_scale_factor * page_scale_factor_for_root;
   gfx::Vector2dF screen_space_scale =
       MathUtil::ComputeTransform2dScaleComponents(transform, fallback_value);
@@ -777,6 +774,12 @@ void EffectTree::UpdateOpacities(EffectNode* node, EffectNode* parent_node) {
 
   if (parent_node)
     node->screen_space_opacity *= parent_node->screen_space_opacity;
+}
+
+void EffectTree::UpdateSubtreeHidden(EffectNode* node,
+                                     EffectNode* parent_node) {
+  if (parent_node)
+    node->subtree_hidden |= parent_node->subtree_hidden;
 }
 
 void EffectTree::UpdateIsDrawn(EffectNode* node, EffectNode* parent_node) {
@@ -903,6 +906,7 @@ void EffectTree::UpdateEffects(int id) {
   EffectNode* parent_node = parent(node);
 
   UpdateOpacities(node, parent_node);
+  UpdateSubtreeHidden(node, parent_node);
   UpdateIsDrawn(node, parent_node);
   UpdateEffectChanged(node, parent_node);
   UpdateBackfaceVisibility(node, parent_node);
@@ -1840,7 +1844,7 @@ void PropertyTrees::SetOuterViewportContainerBoundsDelta(
 
 bool PropertyTrees::ElementIsAnimatingChanged(
     const MutatorHost* mutator_host,
-    ElementId element_id,
+    const PropertyToElementIdMap& element_id_map,
     ElementListType list_type,
     const PropertyAnimationState& mask,
     const PropertyAnimationState& state,
@@ -1852,6 +1856,19 @@ bool PropertyTrees::ElementIsAnimatingChanged(
         !mask.potentially_animating[property])
       continue;
 
+    // The mask represents which properties have had their state changed. This
+    // can include properties for which there are no longer any animations, in
+    // which case there will not be an entry in the map.
+    //
+    // It is unclear whether this is desirable; it may be that we are missing
+    // updates to property nodes here because we no longer have the required
+    // ElementId to look them up. See http://crbug.com/912574 for context around
+    // why this code was rewritten.
+    auto it = element_id_map.find(static_cast<TargetProperty::Type>(property));
+    if (it == element_id_map.end())
+      continue;
+
+    const ElementId element_id = it->second;
     switch (property) {
       case TargetProperty::TRANSFORM:
         if (TransformNode* transform_node =
@@ -1994,6 +2011,16 @@ std::unique_ptr<base::trace_event::TracedValue> PropertyTrees::AsTracedValue()
   value->EndDictionary();
 
   return value;
+}
+
+std::string PropertyTrees::ToString() const {
+  std::string str;
+  base::JSONWriter::WriteWithOptions(
+      *AsTracedValue()->ToBaseValue(),
+      base::JSONWriter::OPTIONS_OMIT_DOUBLE_TYPE_PRESERVATION |
+          base::JSONWriter::OPTIONS_PRETTY_PRINT,
+      &str);
+  return str;
 }
 
 CombinedAnimationScale PropertyTrees::GetAnimationScales(

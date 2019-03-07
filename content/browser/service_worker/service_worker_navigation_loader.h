@@ -152,11 +152,9 @@ class CONTENT_EXPORT ServiceWorkerNavigationLoader
   void CommitCompleted(int error_code, const char* reason);
 
   // network::mojom::URLLoader:
-  void FollowRedirect(
-      const base::Optional<std::vector<std::string>>&
-          to_be_removed_request_headers,
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
-      const base::Optional<GURL>& new_url) override;
+  void FollowRedirect(const std::vector<std::string>& removed_headers,
+                      const net::HttpRequestHeaders& modified_headers,
+                      const base::Optional<GURL>& new_url) override;
   void ProceedWithResponse() override;
   void SetPriority(net::RequestPriority priority,
                    int32_t intra_priority_value) override;
@@ -202,6 +200,8 @@ class CONTENT_EXPORT ServiceWorkerNavigationLoader
   bool devtools_attached_ = false;
   blink::mojom::ServiceWorkerFetchEventTimingPtr fetch_event_timing_;
   base::TimeTicks completion_time_;
+  network::mojom::FetchResponseSource response_source_ =
+      network::mojom::FetchResponseSource::kUnspecified;
 
   // Pointer to the URLLoaderClient (i.e. NavigationURLLoader).
   network::mojom::URLLoaderClientPtr url_loader_client_;

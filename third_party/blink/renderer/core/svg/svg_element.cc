@@ -25,6 +25,7 @@
 #include "third_party/blink/renderer/core/svg/svg_element.h"
 
 #include "base/auto_reset.h"
+#include "base/stl_util.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_event_listener.h"
 #include "third_party/blink/renderer/core/animation/document_animations.h"
 #include "third_party/blink/renderer/core/animation/effect_stack.h"
@@ -315,16 +316,23 @@ static inline bool TransformUsesBoxSize(const ComputedStyle& style) {
   return false;
 }
 
-static FloatRect ComputeTransformReferenceBox(const SVGElement& element) {
-  const LayoutObject& layout_object = *element.GetLayoutObject();
+FloatRect ComputeSVGTransformReferenceBox(const LayoutObject& layout_object) {
   const ComputedStyle& style = layout_object.StyleRef();
-  if (style.TransformBox() == ETransformBox::kFillBox)
-    return layout_object.ObjectBoundingBox();
-  DCHECK_EQ(style.TransformBox(), ETransformBox::kViewBox);
-  SVGLengthContext length_context(&element);
-  FloatSize viewport_size;
-  length_context.DetermineViewport(viewport_size);
-  return FloatRect(FloatPoint(), viewport_size);
+  FloatRect reference_box;
+  if (style.TransformBox() == ETransformBox::kFillBox) {
+    reference_box = layout_object.ObjectBoundingBox();
+  } else {
+    DCHECK_EQ(style.TransformBox(), ETransformBox::kViewBox);
+    SVGLengthContext length_context(
+        ToSVGElementOrNull(layout_object.GetNode()));
+    FloatSize viewport_size;
+    length_context.DetermineViewport(viewport_size);
+    reference_box.SetSize(viewport_size);
+  }
+  const float zoom = style.EffectiveZoom();
+  if (zoom != 1)
+    reference_box.Scale(zoom);
+  return reference_box;
 }
 
 AffineTransform SVGElement::CalculateTransform(
@@ -336,7 +344,6 @@ AffineTransform SVGElement::CalculateTransform(
   // set).
   AffineTransform matrix;
   if (style && style->HasTransform()) {
-    FloatRect reference_box = ComputeTransformReferenceBox(*this);
     if (TransformUsesBoxSize(*style))
       UseCounter::Count(GetDocument(), WebFeature::kTransformUsesBoxSizeOnSVG);
 
@@ -344,21 +351,21 @@ AffineTransform SVGElement::CalculateTransform(
     // SVG (which applies the zoom factor globally, at the root level) we
     //
     //   * pre-scale the reference box (to bring it into the same space as the
-    //     other CSS values)
+    //     other CSS values) (Handled by ComputeSVGTransformReferenceBox)
     //   * invert the zoom factor (to effectively compute the CSS transform
     //     under a 1.0 zoom)
     //
     // Note: objectBoundingBox is an emptyRect for elements like pattern or
     // clipPath. See
     // https://svgwg.org/svg2-draft/coords.html#ObjectBoundingBoxUnits
-    float zoom = style->EffectiveZoom();
     TransformationMatrix transform;
-    if (zoom != 1)
-      reference_box.Scale(zoom);
+    FloatRect reference_box =
+        ComputeSVGTransformReferenceBox(*GetLayoutObject());
     style->ApplyTransform(
         transform, reference_box, ComputedStyle::kIncludeTransformOrigin,
         ComputedStyle::kIncludeMotionPath,
         ComputedStyle::kIncludeIndependentTransformProperties);
+    const float zoom = style->EffectiveZoom();
     if (zoom != 1)
       transform.Zoom(1 / zoom);
     // Flatten any 3D transform.
@@ -496,7 +503,7 @@ CSSPropertyID SVGElement::CssPropertyIdForSVGAttributeName(
         &kWordSpacingAttr,
         &kWritingModeAttr,
     };
-    for (size_t i = 0; i < arraysize(attr_names); i++) {
+    for (size_t i = 0; i < base::size(attr_names); i++) {
       CSSPropertyID property_id = cssPropertyID(attr_names[i]->LocalName());
       DCHECK_GT(property_id, 0);
       property_name_to_id_map->Set(attr_names[i]->LocalName().Impl(),
@@ -780,7 +787,7 @@ AnimatedPropertyType SVGElement::AnimatedPropertyTypeForCSSAttribute(
         {kVisibilityAttr, kAnimatedString},
         {kWordSpacingAttr, kAnimatedLength},
     };
-    for (size_t i = 0; i < arraysize(attr_to_types); i++)
+    for (size_t i = 0; i < base::size(attr_to_types); i++)
       css_property_map.Set(attr_to_types[i].attr, attr_to_types[i].prop_type);
   }
   return css_property_map.at(attribute_name);

@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 
 namespace blink {
 
@@ -39,7 +40,7 @@ DataPipeBytesConsumer::DataPipeBytesConsumer(
                mojo::SimpleWatcher::ArmingPolicy::MANUAL,
                execution_context->GetTaskRunner(TaskType::kNetworking)) {
   DCHECK(data_pipe_.is_valid());
-  *notifier = new CompletionNotifier(this);
+  *notifier = MakeGarbageCollected<CompletionNotifier>(this);
   watcher_.Watch(
       data_pipe_.get(),
       MOJO_HANDLE_SIGNAL_READABLE | MOJO_HANDLE_SIGNAL_PEER_CLOSED,
@@ -96,7 +97,7 @@ BytesConsumer::Result DataPipeBytesConsumer::EndRead(size_t read) {
   DCHECK(is_in_two_phase_read_);
   is_in_two_phase_read_ = false;
   DCHECK(IsReadableOrWaiting());
-  MojoResult rv = data_pipe_->EndReadData(read);
+  MojoResult rv = data_pipe_->EndReadData(SafeCast<uint32_t>(read));
   if (rv != MOJO_RESULT_OK) {
     SetError(Error("error"));
     return Result::kError;

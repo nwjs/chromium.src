@@ -1532,15 +1532,17 @@ bool TabsUpdateFunction::UpdateURL(const std::string& url_string,
     return false;
   }
 
-  bool use_renderer_initiated = false;
+  NavigationController::LoadURLParams load_params(url);
+
   // For the PDF extension, treat it as renderer-initiated so that it does not
   // show in the omnibox until it commits.  This avoids URL spoofs since urls
   // can be opened on behalf of untrusted content.
   // TODO(devlin|nasko): Make this the default for all extensions.
-  if (extension() && extension()->id() == extension_misc::kPdfExtensionId)
-    use_renderer_initiated = true;
-  NavigationController::LoadURLParams load_params(url);
-  load_params.is_renderer_initiated = use_renderer_initiated;
+  if (extension() && extension()->id() == extension_misc::kPdfExtensionId) {
+    load_params.is_renderer_initiated = true;
+    load_params.initiator_origin = url::Origin::Create(
+        Extension::GetBaseURLFromExtensionId(extension()->id()));
+  }
   web_contents_->GetController().LoadURLWithParams(load_params);
 
   DCHECK_EQ(url,
@@ -1812,10 +1814,6 @@ TabsCaptureVisibleTabFunction::TabsCaptureVisibleTabFunction()
     : chrome_details_(this) {
 }
 
-bool TabsCaptureVisibleTabFunction::HasPermission() {
-  return true;
-}
-
 bool TabsCaptureVisibleTabFunction::IsScreenshotEnabled() const {
   PrefService* service = chrome_details_.GetProfile()->GetPrefs();
   if (service->GetBoolean(prefs::kDisableScreenshots)) {
@@ -1843,7 +1841,8 @@ WebContents* TabsCaptureVisibleTabFunction::GetWebContentsForID(
 
   if (!extension()->permissions_data()->CanCaptureVisiblePage(
           contents->GetLastCommittedURL(),
-          SessionTabHelper::IdForTab(contents).id(), error)) {
+          SessionTabHelper::IdForTab(contents).id(), error,
+          extensions::CaptureRequirement::kActiveTabOrAllUrls)) {
     return nullptr;
   }
   return contents;

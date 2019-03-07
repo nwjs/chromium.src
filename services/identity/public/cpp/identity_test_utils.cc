@@ -39,11 +39,12 @@ class OneShotIdentityManagerObserver : public IdentityManager::Observer {
   void OnPrimaryAccountSet(const AccountInfo& primary_account_info) override;
   void OnPrimaryAccountCleared(
       const AccountInfo& previous_primary_account_info) override;
-  void OnRefreshTokenUpdatedForAccount(const AccountInfo& account_info,
-                                       bool is_valid) override;
+  void OnRefreshTokenUpdatedForAccount(
+      const AccountInfo& account_info) override;
   void OnRefreshTokenRemovedForAccount(const std::string& account_id) override;
   void OnAccountsInCookieUpdated(
-      const std::vector<AccountInfo>& accounts) override;
+      const AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+      const GoogleServiceAuthError& error) override;
 
   IdentityManager* identity_manager_;
   base::OnceClosure done_closure_;
@@ -85,8 +86,7 @@ void OneShotIdentityManagerObserver::OnPrimaryAccountCleared(
 }
 
 void OneShotIdentityManagerObserver::OnRefreshTokenUpdatedForAccount(
-    const AccountInfo& account_info,
-    bool is_valid) {
+    const AccountInfo& account_info) {
   if (event_to_wait_on_ != IdentityManagerEvent::REFRESH_TOKEN_UPDATED)
     return;
 
@@ -104,7 +104,8 @@ void OneShotIdentityManagerObserver::OnRefreshTokenRemovedForAccount(
 }
 
 void OneShotIdentityManagerObserver::OnAccountsInCookieUpdated(
-    const std::vector<AccountInfo>& accounts) {
+    const AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+    const GoogleServiceAuthError& error) {
   if (event_to_wait_on_ != IdentityManagerEvent::ACCOUNTS_IN_COOKIE_UPDATED)
     return;
 
@@ -178,12 +179,11 @@ AccountInfo SetPrimaryAccount(IdentityManager* identity_manager,
   return identity_manager->GetPrimaryAccountInfo();
 }
 
-void SetRefreshTokenForPrimaryAccount(IdentityManager* identity_manager) {
+void SetRefreshTokenForPrimaryAccount(IdentityManager* identity_manager,
+                                      const std::string& token_value) {
   DCHECK(identity_manager->HasPrimaryAccount());
   std::string account_id = identity_manager->GetPrimaryAccountId();
-
-  std::string refresh_token = "refresh_token_for_" + account_id;
-  SetRefreshTokenForAccount(identity_manager, account_id);
+  SetRefreshTokenForAccount(identity_manager, account_id, token_value);
 }
 
 void SetInvalidRefreshTokenForPrimaryAccount(
@@ -194,8 +194,7 @@ void SetInvalidRefreshTokenForPrimaryAccount(
   SetInvalidRefreshTokenForAccount(identity_manager, account_id);
 }
 
-void RemoveRefreshTokenForPrimaryAccount(
-    IdentityManager* identity_manager) {
+void RemoveRefreshTokenForPrimaryAccount(IdentityManager* identity_manager) {
   if (!identity_manager->HasPrimaryAccount())
     return;
 
@@ -204,9 +203,8 @@ void RemoveRefreshTokenForPrimaryAccount(
   RemoveRefreshTokenForAccount(identity_manager, account_id);
 }
 
-AccountInfo MakePrimaryAccountAvailable(
-    IdentityManager* identity_manager,
-    const std::string& email) {
+AccountInfo MakePrimaryAccountAvailable(IdentityManager* identity_manager,
+                                        const std::string& email) {
   AccountInfo account_info = SetPrimaryAccount(identity_manager, email);
   SetRefreshTokenForPrimaryAccount(identity_manager);
   return account_info;
@@ -275,11 +273,13 @@ AccountInfo MakeAccountAvailable(IdentityManager* identity_manager,
 }
 
 void SetRefreshTokenForAccount(IdentityManager* identity_manager,
-                               const std::string& account_id) {
-  std::string refresh_token = "refresh_token_for_" + account_id;
-  UpdateRefreshTokenForAccount(identity_manager->GetTokenService(),
-                               identity_manager->GetAccountTrackerService(),
-                               identity_manager, account_id, refresh_token);
+                               const std::string& account_id,
+                               const std::string& token_value) {
+  UpdateRefreshTokenForAccount(
+      identity_manager->GetTokenService(),
+      identity_manager->GetAccountTrackerService(), identity_manager,
+      account_id,
+      token_value.empty() ? "refresh_token_for_" + account_id : token_value);
 }
 
 void SetInvalidRefreshTokenForAccount(IdentityManager* identity_manager,
@@ -310,7 +310,7 @@ void SetCookieAccounts(FakeGaiaCookieManagerService* cookie_manager,
                        IdentityManager* identity_manager,
                        const std::vector<CookieParams>& cookie_accounts) {
   // Convert |cookie_accounts| to the format FakeGaiaCookieManagerService wants.
-  std::vector<FakeGaiaCookieManagerService::CookieParams> gaia_cookie_accounts;
+  std::vector<signin::CookieParams> gaia_cookie_accounts;
   for (const CookieParams& params : cookie_accounts) {
     gaia_cookie_accounts.push_back({params.email, params.gaia_id,
                                     /*valid=*/true, /*signed_out=*/false,
@@ -353,14 +353,18 @@ std::string GetTestGaiaIdForEmail(const std::string& email) {
   return gaia_id;
 }
 
-void SetAccountWithRefreshTokenInPersistentErrorState(
+void UpdatePersistentErrorOfRefreshTokenForAccount(
     IdentityManager* identity_manager,
     const std::string& account_id,
     const GoogleServiceAuthError& auth_error) {
+  DCHECK(identity_manager->HasAccountWithRefreshToken(account_id));
   identity_manager->GetTokenService()->GetDelegate()->UpdateAuthError(
-      account_id, GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
-                      GoogleServiceAuthError::InvalidGaiaCredentialsReason::
-                          CREDENTIALS_REJECTED_BY_SERVER));
+      account_id, auth_error);
+}
+
+void DisableAccessTokenFetchRetries(IdentityManager* identity_manager) {
+  identity_manager->GetTokenService()
+      ->set_max_authorization_token_fetch_retries_for_testing(0);
 }
 
 }  // namespace identity

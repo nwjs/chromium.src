@@ -66,7 +66,7 @@ class FrameSerializerTest : public testing::Test,
  protected:
   void SetUp() override {
     // We want the images to load.
-    helper_.Initialize(nullptr, nullptr, nullptr, &ConfigureSettings);
+    helper_.InitializeWithSettings(&ConfigureSettings);
   }
 
   void TearDown() override {
@@ -115,6 +115,10 @@ class FrameSerializerTest : public testing::Test,
     frame_test_helpers::LoadFrame(
         helper_.GetWebView()->MainFrameImpl(),
         KURL(base_url_, url).GetString().Utf8().data());
+    // Sometimes we have iframes created in "onload" handler - wait for them to
+    // load.
+    frame_test_helpers::PumpPendingRequestsForFrameToLoad(
+        helper_.GetWebView()->MainFrameImpl());
     FrameSerializer serializer(resources_, *this);
     Frame* frame = helper_.LocalMainFrame()->GetFrame();
     for (; frame; frame = frame->Tree().TraverseNext()) {

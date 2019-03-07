@@ -96,6 +96,29 @@ TEST_F('CrElementsProfileAvatarSelectorTest', 'All', function() {
  * @constructor
  * @extends {CrElementsBrowserTest}
  */
+function CrElementsSearchFieldTest() {}
+
+CrElementsSearchFieldTest.prototype = {
+  __proto__: CrElementsBrowserTest.prototype,
+
+  /** @override */
+  browsePreload:
+      'chrome://resources/cr_elements/cr_search_field/cr_search_field.html',
+
+  /** @override */
+  extraLibraries: CrElementsBrowserTest.prototype.extraLibraries.concat([
+    'cr_search_field_tests.js',
+  ]),
+};
+
+TEST_F('CrElementsSearchFieldTest', 'All', function() {
+  mocha.run();
+});
+
+/**
+ * @constructor
+ * @extends {CrElementsBrowserTest}
+ */
 function CrElementsToolbarSearchFieldTest() {}
 
 CrElementsToolbarSearchFieldTest.prototype = {
@@ -403,6 +426,7 @@ TEST_F('CrElementsRadioGroupTest', 'All', function() {
 });
 
 
+GEN('#if defined(OS_CHROMEOS)');
 /**
  * @constructor
  * @extends {CrElementsBrowserTest}
@@ -426,6 +450,7 @@ CrElementsSearchableDropDownTest.prototype = {
 TEST_F('CrElementsSearchableDropDownTest', 'All', function() {
   mocha.run();
 });
+GEN('#endif');
 
 ////////////////////////////////////////////////////////////////////////////////
 // View Manager Tests

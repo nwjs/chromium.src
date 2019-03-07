@@ -11,7 +11,7 @@
 #include "net/third_party/quic/platform/api/quic_string_piece.h"
 #include "net/third_party/quic/tools/quic_backend_response.h"
 #include "net/third_party/quic/tools/quic_simple_server_backend.h"
-#include "net/third_party/spdy/core/spdy_framer.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_framer.h"
 
 namespace quic {
 
@@ -25,6 +25,10 @@ class QuicSimpleServerStream : public QuicSpdyServerStreamBase,
                                public QuicSimpleServerBackend::RequestHandler {
  public:
   QuicSimpleServerStream(QuicStreamId id,
+                         QuicSpdySession* session,
+                         StreamType type,
+                         QuicSimpleServerBackend* quic_simple_server_backend);
+  QuicSimpleServerStream(PendingStream pending,
                          QuicSpdySession* session,
                          StreamType type,
                          QuicSimpleServerBackend* quic_simple_server_backend);

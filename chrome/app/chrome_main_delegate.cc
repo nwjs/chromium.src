@@ -15,11 +15,11 @@
 #include "base/files/file_path.h"
 #include "base/i18n/rtl.h"
 #include "base/lazy_instance.h"
-#include "base/macros.h"
 #include "base/path_service.h"
 #include "base/process/memory.h"
 #include "base/process/process.h"
 #include "base/process/process_handle.h"
+#include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
@@ -48,9 +48,8 @@
 #include "components/crash/content/app/crash_reporter_client.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/crash/core/common/crash_keys.h"
-#include "components/gwp_asan/client/gwp_asan.h"
 #include "components/nacl/common/buildflags.h"
-#include "components/services/heap_profiling/public/cpp/allocator_shim.h"
+#include "components/services/heap_profiling/public/cpp/sampling_profiler_wrapper.h"
 #include "components/services/heap_profiling/public/cpp/stream.h"
 #include "components/tracing/common/tracing_sampler_profiler.h"
 #include "components/version_info/version_info.h"
@@ -81,6 +80,7 @@
 #include "chrome/child/v8_crashpad_support_win.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome_elf/chrome_elf_main.h"
+#include "components/gwp_asan/client/gwp_asan.h"  // nogncheck
 #include "sandbox/win/src/sandbox.h"
 #include "ui/base/resource/resource_bundle_win.h"
 #endif
@@ -112,8 +112,8 @@
 #if defined(OS_CHROMEOS)
 #include "base/system/sys_info.h"
 #include "chrome/browser/chromeos/boot_times_recorder.h"
-#include "chromeos/chromeos_paths.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_paths.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/hugepage_text/hugepage_text.h"
 #endif
 
@@ -133,7 +133,7 @@
 #include "ui/base/x/x11_util.h"  // nogncheck
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
+#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
 #include "components/crash/content/app/breakpad_linux.h"
 #include "v8/include/v8.h"
 #endif
@@ -142,7 +142,7 @@
 #include "base/environment.h"
 #endif
 
-#if defined(OS_MACOSX) || defined(OS_WIN)
+#if defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_ANDROID)
 #include "chrome/browser/policy/policy_path_parser.h"
 #include "components/crash/content/app/crashpad.h"
 #endif
@@ -161,8 +161,9 @@
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
 #endif
 
-#if !defined(CHROME_MULTIPLE_DLL_BROWSER)
+#if !defined(CHROME_MULTIPLE_DLL_BROWSER) && BUILDFLAG(ENABLE_PDF)
 #include "chrome/child/pdf_child_init.h"
+#endif
 
 #include "third_party/node-nw/src/node_webkit.h"
 #include "third_party/zlib/google/zip_reader.h"
@@ -174,17 +175,13 @@
 #endif
 
 
+#if !defined(CHROME_MULTIPLE_DLL_BROWSER)
 base::LazyInstance<ChromeContentGpuClient>::DestructorAtExit
     g_chrome_content_gpu_client = LAZY_INSTANCE_INITIALIZER;
 base::LazyInstance<ChromeContentRendererClient>::DestructorAtExit
     g_chrome_content_renderer_client = LAZY_INSTANCE_INITIALIZER;
 base::LazyInstance<ChromeContentUtilityClient>::DestructorAtExit
     g_chrome_content_utility_client = LAZY_INSTANCE_INITIALIZER;
-#endif
-
-#if defined(OS_POSIX)
-base::LazyInstance<ChromeCrashReporterClient>::Leaky g_chrome_crash_client =
-    LAZY_INSTANCE_INITIALIZER;
 #endif
 
 extern int NaClMain(const content::MainFunctionParams&);
@@ -196,7 +193,7 @@ extern int CloudPrintServiceProcessMain(const content::MainFunctionParams&);
 const char* const ChromeMainDelegate::kNonWildcardDomainNonPortSchemes[] = {
     extensions::kExtensionScheme, chrome::kChromeSearchScheme};
 const size_t ChromeMainDelegate::kNonWildcardDomainNonPortSchemesSize =
-    arraysize(kNonWildcardDomainNonPortSchemes);
+    base::size(kNonWildcardDomainNonPortSchemes);
 
 #if defined(COMPONENT_BUILD)
 CONTENT_EXPORT NodeStartFn g_node_start_fn;
@@ -405,9 +402,9 @@ void InitializeUserDataDir(base::CommandLine* command_line) {
   wchar_t user_data_dir_buf[MAX_PATH], invalid_user_data_dir_buf[MAX_PATH];
 
   // In tests this may return false, implying the user data dir should be unset.
-  if (GetUserDataDirectoryThunk(user_data_dir_buf, arraysize(user_data_dir_buf),
-                                invalid_user_data_dir_buf,
-                                arraysize(invalid_user_data_dir_buf))) {
+  if (GetUserDataDirectoryThunk(
+          user_data_dir_buf, base::size(user_data_dir_buf),
+          invalid_user_data_dir_buf, base::size(invalid_user_data_dir_buf))) {
     base::FilePath user_data_dir(user_data_dir_buf);
     if (invalid_user_data_dir_buf[0] != 0) {
       chrome::SetInvalidSpecifiedUserDataDir(
@@ -543,12 +540,10 @@ void ChromeMainDelegate::PostEarlyInitialization(bool is_running_tests) {
   chrome_feature_list_creator_->CreateFeatureList();
   PostFieldTrialInitialization();
 
-  // Initializes the resouce bundle and determines the locale.
+  // Initializes the resource bundle and determines the locale.
   std::string actual_locale =
       LoadLocalState(chrome_feature_list_creator_.get(), is_running_tests);
   chrome_feature_list_creator_->SetApplicationLocale(actual_locale);
-
-  tracing_sampler_profiler_->OnMessageLoopStarted();
 }
 
 bool ChromeMainDelegate::ShouldCreateFeatureList() {
@@ -570,6 +565,22 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
 
   base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
+
+  // Only allow disabling web security via the command-line flag if the user has
+  // specified a distinct profile directory. This still enables tests to disable
+  // web security by setting the kWebKitWebSecurityEnabled pref directly.
+  //
+  // Note that this is done in ChromeMainDelegate::BasicStartupComplete()
+  // because this is the earliest callback. Many places in Chromium gate
+  // security features around kDisableWebSecurity, and it is unreasonable to
+  // expect them all to properly also check for kUserDataDir.
+  if (command_line.HasSwitch(switches::kDisableWebSecurity) &&
+      !command_line.HasSwitch(switches::kUserDataDir)) {
+    LOG(ERROR) << "Web security may only be disabled if '--user-data-dir' is "
+                  "also specified.";
+    base::CommandLine::ForCurrentProcess()->RemoveSwitch(
+        switches::kDisableWebSecurity);
+  }
 
 #if defined(OS_WIN)
   // Browser should not be sandboxed.
@@ -723,8 +734,8 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
       command_line.HasSwitch(switches::kDiagnosticsRecovery)) {
     base::CommandLine interim_command_line(command_line.GetProgram());
     const char* const kSwitchNames[] = {switches::kUserDataDir, };
-    interim_command_line.CopySwitchesFrom(
-        command_line, kSwitchNames, arraysize(kSwitchNames));
+    interim_command_line.CopySwitchesFrom(command_line, kSwitchNames,
+                                          base::size(kSwitchNames));
     interim_command_line.AppendSwitch(switches::kDiagnostics);
     interim_command_line.AppendSwitch(switches::kDiagnosticsRecovery);
 
@@ -864,7 +875,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
   crash_reporter::InitializeCrashKeys();
 
 #if defined(OS_POSIX)
-  crash_reporter::SetCrashReporterClient(g_chrome_crash_client.Pointer());
+  ChromeCrashReporterClient::Create();
 #endif
 
   std::string report_url;
@@ -994,7 +1005,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
       kAndroidChrome100PercentPakDescriptor,
       kAndroidUIResourcesPakDescriptor,
     };
-    for (size_t i = 0; i < arraysize(extra_pak_keys); ++i) {
+    for (size_t i = 0; i < base::size(extra_pak_keys); ++i) {
       pak_fd = global_descriptors->Get(extra_pak_keys[i]);
       pak_region = global_descriptors->GetRegion(extra_pak_keys[i]);
       ui::ResourceBundle::GetSharedInstance().AddDataPackFromFileRegion(
@@ -1018,7 +1029,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
         locale;
   }
 
-#if !defined(CHROME_MULTIPLE_DLL_BROWSER)
+#if !defined(CHROME_MULTIPLE_DLL_BROWSER) && BUILDFLAG(ENABLE_PDF)
   InitializePDF();
 #endif
 
@@ -1026,12 +1037,11 @@ void ChromeMainDelegate::PreSandboxStartup() {
   // Zygote needs to call InitCrashReporter() in RunZygote().
   if (process_type != service_manager::switches::kZygoteProcess) {
 #if defined(OS_ANDROID)
+    crash_reporter::InitializeCrashpad(process_type.empty(), process_type);
     if (process_type.empty()) {
-      breakpad::InitCrashReporter(process_type);
       base::android::InitJavaExceptionReporter();
       UninstallPureJavaExceptionHandler();
     } else {
-      breakpad::InitNonBrowserCrashReporterForAndroid(process_type);
       base::android::InitJavaExceptionReporterForChildProcess();
     }
 #else  // !defined(OS_ANDROID)
@@ -1106,7 +1116,7 @@ int ChromeMainDelegate::RunProcess(
 #endif
   };
 
-  for (size_t i = 0; i < arraysize(kMainFunctions); ++i) {
+  for (size_t i = 0; i < base::size(kMainFunctions); ++i) {
     if (process_type == kMainFunctions[i].name)
       return kMainFunctions[i].function(main_function_params);
   }
@@ -1156,7 +1166,7 @@ void ChromeMainDelegate::ZygoteStarting(
     std::vector<std::unique_ptr<service_manager::ZygoteForkDelegate>>*
         delegates) {
 #if defined(OS_CHROMEOS)
-    chromeos::ReloadElfTextInHugePages();
+    chromeos::InitHugepagesAndMlockSelf();
 #endif
 
 #if BUILDFLAG(ENABLE_NACL)

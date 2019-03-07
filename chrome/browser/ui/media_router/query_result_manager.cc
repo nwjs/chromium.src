@@ -4,9 +4,9 @@
 
 #include "chrome/browser/ui/media_router/query_result_manager.h"
 
+#include <unordered_set>
 #include <utility>
 
-#include "base/containers/hash_tables.h"
 #include "base/stl_util.h"
 #include "chrome/browser/media/router/media_router.h"
 #include "chrome/browser/media/router/media_sinks_observer.h"
@@ -121,13 +121,11 @@ std::unique_ptr<MediaSource> QueryResultManager::GetSourceForCastModeAndSink(
     MediaCastMode cast_mode,
     MediaSink::Id sink_id) const {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  for (const auto& sink_pair : all_sinks_) {
-    if (sink_pair.first == sink_id) {
-      return GetHighestPrioritySourceForCastModeAndSink(cast_mode,
-                                                        sink_pair.second);
-    }
-  }
-  return nullptr;
+  auto sink_entry = all_sinks_.find(sink_id);
+  if (sink_entry == all_sinks_.end())
+    return nullptr;
+  return GetHighestPrioritySourceForCastModeAndSink(cast_mode,
+                                                    sink_entry->second);
 }
 
 std::vector<MediaSource> QueryResultManager::GetSourcesForCastMode(
@@ -171,7 +169,7 @@ void QueryResultManager::SetSinksCompatibleWithSource(
     MediaCastMode cast_mode,
     const MediaSource& source,
     const std::vector<MediaSink>& new_sinks) {
-  base::hash_set<MediaSink::Id> new_sink_ids;
+  std::unordered_set<MediaSink::Id> new_sink_ids;
   for (const MediaSink& sink : new_sinks)
     new_sink_ids.insert(sink.id());
 

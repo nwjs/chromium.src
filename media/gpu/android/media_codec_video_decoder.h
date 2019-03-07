@@ -66,13 +66,12 @@ class MEDIA_GPU_EXPORT MediaCodecVideoDecoder : public VideoDecoder,
 
   // VideoDecoder implementation:
   std::string GetDisplayName() const override;
-  void Initialize(
-      const VideoDecoderConfig& config,
-      bool low_delay,
-      CdmContext* cdm_context,
-      const InitCB& init_cb,
-      const OutputCB& output_cb,
-      const WaitingForDecryptionKeyCB& waiting_for_decryption_key_cb) override;
+  void Initialize(const VideoDecoderConfig& config,
+                  bool low_delay,
+                  CdmContext* cdm_context,
+                  const InitCB& init_cb,
+                  const OutputCB& output_cb,
+                  const WaitingCB& waiting_cb) override;
   void Decode(scoped_refptr<DecoderBuffer> buffer,
               const DecodeCB& decode_cb) override;
   void Reset(const base::Closure& closure) override;
@@ -226,9 +225,10 @@ class MEDIA_GPU_EXPORT MediaCodecVideoDecoder : public VideoDecoder,
 
   // The EOS decode cb for an EOS currently being processed by the codec. Called
   // when the EOS is output.
-  VideoDecoder::DecodeCB eos_decode_cb_;
+  DecodeCB eos_decode_cb_;
 
-  VideoDecoder::OutputCB output_cb_;
+  OutputCB output_cb_;
+  WaitingCB waiting_cb_;
   VideoDecoderConfig decoder_config_;
 
   // Codec specific data (SPS and PPS for H264). Some MediaCodecs initialize

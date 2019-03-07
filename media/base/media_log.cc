@@ -84,6 +84,8 @@ std::string MediaLog::EventTypeToString(MediaLogEvent::Type type) {
       return "MEDIA_DEBUG_LOG_ENTRY";
     case MediaLogEvent::PROPERTY_CHANGE:
       return "PROPERTY_CHANGE";
+    case MediaLogEvent::SUSPENDED:
+      return "SUSPENDED";
   }
   NOTREACHED();
   return NULL;
@@ -263,10 +265,11 @@ std::unique_ptr<MediaLogEvent> MediaLog::CreateTimeEvent(
     const std::string& property,
     base::TimeDelta value) {
   std::unique_ptr<MediaLogEvent> event(CreateEvent(type));
-  if (value.is_max())
-    event->params.SetString(property, "unknown");
+  double value_in_seconds = value.InSecondsF();
+  if (std::isfinite(value_in_seconds))
+    event->params.SetDouble(property, value_in_seconds);
   else
-    event->params.SetDouble(property, value.InSecondsF());
+    event->params.SetString(property, "unknown");
   return event;
 }
 

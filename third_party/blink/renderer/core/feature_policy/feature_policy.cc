@@ -18,9 +18,6 @@
 
 namespace blink {
 
-constexpr char kReportOnlySuffix[] = "-report-only";
-constexpr size_t kReportOnlySuffixLength = 12;
-
 ParsedFeaturePolicy ParseFeaturePolicyHeader(
     const String& policy,
     scoped_refptr<const SecurityOrigin> origin,
@@ -48,7 +45,7 @@ ParsedFeaturePolicy ParseFeaturePolicy(
     Document* document) {
   ParsedFeaturePolicy allowlists;
   BitVector features_specified(
-      static_cast<int>(mojom::FeaturePolicyFeature::kMaxValue));
+      static_cast<int>(mojom::FeaturePolicyFeature::kMaxValue) + 1);
 
   // RFC2616, section 4.2 specifies that headers appearing multiple times can be
   // combined with a comma. Walk the header string, and parse each comma
@@ -68,21 +65,9 @@ ParsedFeaturePolicy ParseFeaturePolicy(
       // Empty policy. Skip.
       if (tokens.IsEmpty())
         continue;
-      mojom::FeaturePolicyDisposition disposition =
-          mojom::FeaturePolicyDisposition::kEnforce;
-      String feature_name;
-      if (RuntimeEnabledFeatures::FeaturePolicyReportingEnabled() &&
-          tokens[0].EndsWith(kReportOnlySuffix)) {
-        feature_name = tokens[0].Substring(
-            0, tokens[0].length() - kReportOnlySuffixLength);
-        disposition = mojom::FeaturePolicyDisposition::kReport;
-      } else {
-        feature_name = tokens[0];
-      }
+      String feature_name = tokens[0];
       if (!feature_names.Contains(feature_name)) {
         if (messages) {
-          // Console message should display the entire string, with
-          // "-report-only" suffix if it was originally included.
           messages->push_back("Unrecognized feature: '" + tokens[0] + "'.");
         }
         continue;
@@ -91,8 +76,6 @@ ParsedFeaturePolicy ParseFeaturePolicy(
       mojom::FeaturePolicyFeature feature = feature_names.at(feature_name);
       // If a policy has already been specified for the current feature, drop
       // the new policy.
-      // TODO(crbug.com/904880): Allow a report-only and an enforcing version in
-      // the same parsed policy.
       if (features_specified.QuickGet(static_cast<int>(feature)))
         continue;
 
@@ -112,7 +95,6 @@ ParsedFeaturePolicy ParseFeaturePolicy(
 
       ParsedFeaturePolicyDeclaration allowlist;
       allowlist.feature = feature;
-      allowlist.disposition = disposition;
       features_specified.QuickSet(static_cast<int>(feature));
       std::vector<url::Origin> origins;
       // If a policy entry has no (optional) values (e,g,
@@ -206,7 +188,6 @@ bool DisallowFeatureIfNotPresent(mojom::FeaturePolicyFeature feature,
   allowlist.feature = feature;
   allowlist.matches_all_origins = false;
   allowlist.matches_opaque_src = false;
-  allowlist.disposition = mojom::FeaturePolicyDisposition::kEnforce;
   policy.push_back(allowlist);
   return true;
 }
@@ -219,7 +200,6 @@ bool AllowFeatureEverywhereIfNotPresent(mojom::FeaturePolicyFeature feature,
   allowlist.feature = feature;
   allowlist.matches_all_origins = true;
   allowlist.matches_opaque_src = true;
-  allowlist.disposition = mojom::FeaturePolicyDisposition::kEnforce;
   policy.push_back(allowlist);
   return true;
 }
@@ -276,6 +256,8 @@ const FeatureNameMap& GetDefaultFeatureNameMap() {
     ASSERT_ORIGIN_TRIAL(WebVR);
     ASSERT_ORIGIN_TRIAL(WebXR);
     default_feature_name_map.Set("vr", mojom::FeaturePolicyFeature::kWebVr);
+    default_feature_name_map.Set("wake-lock",
+                                 mojom::FeaturePolicyFeature::kWakeLock);
     if (RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled()) {
       default_feature_name_map.Set(
           "layout-animations", mojom::FeaturePolicyFeature::kLayoutAnimations);
@@ -283,6 +265,8 @@ const FeatureNameMap& GetDefaultFeatureNameMap() {
                                    mojom::FeaturePolicyFeature::kDocumentWrite);
       default_feature_name_map.Set(
           "document-domain", mojom::FeaturePolicyFeature::kDocumentDomain);
+      default_feature_name_map.Set("font-display-late-swap",
+                                   mojom::FeaturePolicyFeature::kFontDisplay);
       default_feature_name_map.Set(
           "unoptimized-images",
           mojom::FeaturePolicyFeature::kUnoptimizedImages);

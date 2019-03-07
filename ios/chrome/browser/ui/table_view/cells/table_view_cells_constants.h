@@ -32,14 +32,14 @@ extern const CGFloat kUseDefaultFontSize;
 // Spacing between text label and cell contentView.
 extern const CGFloat kTableViewLabelVerticalTopSpacing;
 
+// The width taken by the accessory view when it is displayed.
+extern const CGFloat kTableViewAccessoryWidth;
+
 // Hex Value for blue label text color.
 extern const int kTableViewTextLabelColorBlue;
 
 // Hex Value for light gray label text color.
 extern const int kTableViewTextLabelColorLightGrey;
-
-// Hex Value for blue label text color.
-extern const int kTableViewTextLabelColorBlue;
 
 // Hex Value for the text color of the secondary labels (e.g. details, URL,
 // metadata...).

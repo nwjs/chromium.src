@@ -4,9 +4,9 @@
 
 #include "net/third_party/quic/core/qpack/qpack_encoder_stream_receiver.h"
 
-#include "net/third_party/http2/decoder/decode_buffer.h"
-#include "net/third_party/http2/decoder/decode_status.h"
 #include "net/third_party/quic/core/qpack/qpack_constants.h"
+#include "net/third_party/quiche/src/http2/decoder/decode_buffer.h"
+#include "net/third_party/quiche/src/http2/decoder/decode_status.h"
 
 namespace quic {
 
@@ -28,7 +28,7 @@ void QpackEncoderStreamReceiver::Decode(QuicStringPiece data) {
 bool QpackEncoderStreamReceiver::OnInstructionDecoded(
     const QpackInstruction* instruction) {
   if (instruction == InsertWithNameReferenceInstruction()) {
-    delegate_->OnInsertWithNameReference(instruction_decoder_.is_static(),
+    delegate_->OnInsertWithNameReference(instruction_decoder_.s_bit(),
                                          instruction_decoder_.varint(),
                                          instruction_decoder_.value());
     return true;

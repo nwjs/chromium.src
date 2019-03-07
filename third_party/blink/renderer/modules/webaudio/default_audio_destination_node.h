@@ -58,6 +58,8 @@ class DefaultAudioDestinationHandler final : public AudioDestinationHandler,
   // For AudioDestinationHandler.
   void StartRendering() override;
   void StopRendering() override;
+  void Pause() override;
+  void Resume() override;
   void RestartRendering() override;
   uint32_t MaxChannelCount() const override;
   double SampleRate() const override;
@@ -67,10 +69,11 @@ class DefaultAudioDestinationHandler final : public AudioDestinationHandler,
   // |output_position|.
   void Render(AudioBus* destination_bus,
               uint32_t number_of_frames,
-              const AudioIOPosition& output_position) final;
+              const AudioIOPosition& output_position,
+              const AudioIOCallbackMetric& metric) final;
 
   // Returns a hadrware callback buffer size from audio infra.
-  size_t GetCallbackBufferSize() const;
+  uint32_t GetCallbackBufferSize() const;
 
   // Returns a given frames-per-buffer size from audio infra.
   int GetFramesPerBuffer() const;

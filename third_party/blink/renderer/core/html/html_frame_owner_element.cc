@@ -20,7 +20,7 @@
 
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -409,8 +409,6 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
 
   if ((RuntimeEnabledFeatures::LazyFrameLoadingEnabled() ||
        RuntimeEnabledFeatures::LazyFrameVisibleLoadTimeMetricsEnabled()) &&
-      GetDocument().GetSettings() &&
-      GetDocument().GetSettings()->GetLazyLoadEnabled() &&
       !lazy_load_frame_observer_ &&
       // Only http:// or https:// URLs are eligible for lazy loading, excluding
       // URLs like invalid or empty URLs, "about:blank", local file URLs, etc.
@@ -419,20 +417,19 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
       (EqualIgnoringASCIICase(FastGetAttribute(html_names::kLazyloadAttr),
                               "on") ||
        (should_lazy_load_children_ &&
-        // If lazy loading is restricted to only Data Saver users, then avoid
-        // lazy loading unless Data Saver is enabled, taking the Data Saver
-        // holdback into consideration.
-        (!RuntimeEnabledFeatures::
-             RestrictLazyFrameLoadingToDataSaverEnabled() ||
-         (!(GetDocument().GetSettings() &&
-            GetDocument().GetSettings()->GetDataSaverHoldbackWebApi()) &&
-          GetNetworkStateNotifier().SaveDataEnabled())) &&
         // Disallow lazy loading by default if javascript in the embedding
         // document would be able to access the contents of the frame, since in
         // those cases deferring the frame could break the page. Note that this
         // check does not take any possible redirects of |url| into account.
         !GetDocument().GetSecurityOrigin()->CanAccess(
-            SecurityOrigin::Create(url).get())))) {
+            SecurityOrigin::Create(url).get()))) &&
+      // If lazy loading is restricted to only Data Saver users, then avoid
+      // lazy loading unless Data Saver is enabled, taking the Data Saver
+      // holdback into consideration.
+      (!RuntimeEnabledFeatures::RestrictLazyFrameLoadingToDataSaverEnabled() ||
+       (!(GetDocument().GetSettings() &&
+          GetDocument().GetSettings()->GetDataSaverHoldbackWebApi()) &&
+        GetNetworkStateNotifier().SaveDataEnabled()))) {
     // By default, avoid deferring subresources inside a lazily loaded frame.
     // This will make it possible for subresources in hidden frames to load that
     // will never be visible, as well as make it so that deferred frames that
@@ -446,7 +443,9 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
     if (RuntimeEnabledFeatures::LazyFrameVisibleLoadTimeMetricsEnabled())
       lazy_load_frame_observer_->StartTrackingVisibilityMetrics();
 
-    if (RuntimeEnabledFeatures::LazyFrameLoadingEnabled()) {
+    if (RuntimeEnabledFeatures::LazyFrameLoadingEnabled() &&
+        GetDocument().GetSettings() &&
+        GetDocument().GetSettings()->GetLazyLoadEnabled()) {
       lazy_load_frame_observer_->DeferLoadUntilNearViewport(request,
                                                             child_load_type);
       return true;
@@ -488,7 +487,7 @@ void HTMLFrameOwnerElement::ParseAttribute(
   }
 }
 
-void HTMLFrameOwnerElement::Trace(blink::Visitor* visitor) {
+void HTMLFrameOwnerElement::Trace(Visitor* visitor) {
   visitor->Trace(content_frame_);
   visitor->Trace(embedded_content_view_);
   visitor->Trace(lazy_load_frame_observer_);

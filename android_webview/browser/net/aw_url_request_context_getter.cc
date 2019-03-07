@@ -16,7 +16,7 @@
 #include "android_webview/browser/net/aw_request_interceptor.h"
 #include "android_webview/browser/net/aw_url_request_job_factory.h"
 #include "android_webview/browser/net/init_native_callback.h"
-#include "android_webview/browser/net/token_binding_manager.h"
+#include "android_webview/browser/net_helpers.h"
 #include "android_webview/common/aw_content_client.h"
 #include "base/base_paths_android.h"
 #include "base/bind.h"
@@ -43,7 +43,6 @@
 #include "net/cert/cert_verifier.h"
 #include "net/cookies/cookie_store.h"
 #include "net/dns/mapped_host_resolver.h"
-#include "net/extras/sqlite/sqlite_channel_id_store.h"
 #include "net/http/http_auth_filter.h"
 #include "net/http/http_auth_handler_factory.h"
 #include "net/http/http_auth_preferences.h"
@@ -57,7 +56,6 @@
 #include "net/proxy_resolution/proxy_config_service_android.h"
 #include "net/proxy_resolution/proxy_resolution_service.h"
 #include "net/socket/next_proto.h"
-#include "net/ssl/channel_id_service.h"
 #include "net/ssl/ssl_config.h"
 #include "net/ssl/ssl_config_service.h"
 #include "net/url_request/data_protocol_handler.h"
@@ -85,6 +83,7 @@ bool g_check_cleartext_permitted = false;
 
 
 const char kProxyServerSwitch[] = "proxy-server";
+const char kProxyBypassListSwitch[] = "proxy-bypass-list";
 
 void ApplyCmdlineOverridesToHostResolver(
     net::MappedHostResolver* host_resolver) {
@@ -192,7 +191,7 @@ AwURLRequestContextGetter::AwURLRequestContextGetter(
       channel_id_path_(channel_id_path),
       net_log_(net_log),
       proxy_config_service_(std::move(config_service)),
-      proxy_config_service_android_(nullptr),
+      proxy_config_service_android_(proxy_config_service_.get()),
       http_user_agent_settings_(new AwHttpUserAgentSettings()) {
   // CreateSystemProxyConfigService for Android must be called on main thread.
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -272,17 +271,6 @@ void AwURLRequestContextGetter::InitializeURLRequestContext() {
   builder.set_ftp_enabled(false);  // Android WebView does not support ftp yet.
 #endif
   DCHECK(proxy_config_service_.get());
-  std::unique_ptr<net::ChannelIDService> channel_id_service;
-  if (TokenBindingManager::GetInstance()->is_enabled()) {
-    scoped_refptr<net::SQLiteChannelIDStore> channel_id_db;
-    channel_id_db = new net::SQLiteChannelIDStore(
-        channel_id_path_,
-        base::CreateSequencedTaskRunnerWithTraits(
-            {base::MayBlock(), base::TaskPriority::BEST_EFFORT}));
-
-    channel_id_service.reset(new net::ChannelIDService(
-        new net::DefaultChannelIDStore(channel_id_db.get())));
-  }
 
   // Android provides a local HTTP proxy that handles all the proxying.
   // Create the proxy without a resolver since we rely on this local HTTP proxy.
@@ -292,20 +280,24 @@ void AwURLRequestContextGetter::InitializeURLRequestContext() {
       *base::CommandLine::ForCurrentProcess();
   if (command_line.HasSwitch(kProxyServerSwitch)) {
     std::string proxy = command_line.GetSwitchValueASCII(kProxyServerSwitch);
+    net::ProxyConfig proxy_config;
+    proxy_config.proxy_rules().ParseFromString(proxy);
+    if (command_line.HasSwitch(kProxyBypassListSwitch)) {
+      std::string bypass_list =
+          command_line.GetSwitchValueASCII(kProxyBypassListSwitch);
+      proxy_config.proxy_rules().bypass_rules.ParseFromString(bypass_list);
+    }
+
     builder.set_proxy_resolution_service(
-        net::ProxyResolutionService::CreateFixed(proxy,
-                                                 NO_TRAFFIC_ANNOTATION_YET));
+        net::ProxyResolutionService::CreateFixed(net::ProxyConfigWithAnnotation(
+            proxy_config, NO_TRAFFIC_ANNOTATION_YET)));
   } else {
-    // Retain a pointer to the config proxy service before ownership is passed
-    // on.
-    proxy_config_service_android_ = proxy_config_service_.get();
     builder.set_proxy_resolution_service(
         net::ProxyResolutionService::CreateWithoutProxyResolver(
             std::move(proxy_config_service_), net_log_));
   }
   builder.set_net_log(net_log_);
-  builder.SetCookieAndChannelIdStores(std::make_unique<AwCookieStoreWrapper>(),
-                                      std::move(channel_id_service));
+  builder.SetCookieStore(std::make_unique<AwCookieStoreWrapper>());
 
   net::URLRequestContextBuilder::HttpCacheParams cache_params;
   // Note: we create this as IN_MEMORY when the network service is enabled
@@ -315,13 +307,15 @@ void AwURLRequestContextGetter::InitializeURLRequestContext() {
       base::FeatureList::IsEnabled(network::features::kNetworkService)
           ? net::URLRequestContextBuilder::HttpCacheParams::IN_MEMORY
           : net::URLRequestContextBuilder::HttpCacheParams::DISK_SIMPLE;
-  cache_params.max_size = 20 * 1024 * 1024;  // 20M
+  cache_params.max_size = GetHttpCacheSize();
   cache_params.path = cache_path_;
   builder.EnableHttpCache(cache_params);
 
   net::HttpNetworkSession::Params network_session_params;
   ApplyCmdlineOverridesToNetworkSessionParams(&network_session_params);
   builder.set_http_network_session_params(network_session_params);
+
+  // Quic is not currently supported in WebView (http://crbug.com/763187).
   builder.SetSpdyAndQuicEnabled(true, false);
 
   std::unique_ptr<net::MappedHostResolver> host_resolver(
@@ -419,21 +413,19 @@ void AwURLRequestContextGetter::UpdateAndroidAuthNegotiateAccountType() {
       auth_android_negotiate_account_type_.GetValue());
 }
 
-void AwURLRequestContextGetter::SetProxyOverride(
-    const std::string& host,
-    int port,
-    const std::vector<std::string>& exclusion_list,
+std::string AwURLRequestContextGetter::SetProxyOverride(
+    const std::vector<net::ProxyConfigServiceAndroid::ProxyOverrideRule>&
+        proxy_rules,
+    const std::vector<std::string>& bypass_rules,
     base::OnceClosure callback) {
-  if (proxy_config_service_android_ != NULL) {
-    proxy_config_service_android_->SetProxyOverride(host, port, exclusion_list,
-                                                    std::move(callback));
-  }
+  DCHECK(proxy_config_service_android_ != nullptr);
+  return proxy_config_service_android_->SetProxyOverride(
+      proxy_rules, bypass_rules, std::move(callback));
 }
 
 void AwURLRequestContextGetter::ClearProxyOverride(base::OnceClosure callback) {
-  if (proxy_config_service_android_ != NULL) {
-    proxy_config_service_android_->ClearProxyOverride(std::move(callback));
-  }
+  DCHECK(proxy_config_service_android_ != nullptr);
+  proxy_config_service_android_->ClearProxyOverride(std::move(callback));
 }
 
 }  // namespace android_webview

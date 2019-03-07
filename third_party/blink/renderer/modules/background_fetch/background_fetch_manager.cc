@@ -123,9 +123,6 @@ scoped_refptr<BlobDataHandle> ExtractBlobHandle(
     ExceptionState& exception_state) {
   DCHECK(request);
 
-  if (!RuntimeEnabledFeatures::BackgroundFetchUploadsEnabled())
-    return nullptr;
-
   if (request->IsBodyLocked(exception_state) == Body::BodyLocked::kLocked ||
       request->IsBodyUsed(exception_state) == Body::BodyUsed::kUsed) {
     DCHECK(!exception_state.HadException());
@@ -183,15 +180,6 @@ ScriptPromise BackgroundFetchManager::fetch(
   // Record whether any requests had a body. If there were, reject the promise.
   UMA_HISTOGRAM_BOOLEAN("BackgroundFetch.HasRequestsWithBody",
                         has_requests_with_body);
-
-  if (has_requests_with_body &&
-      !RuntimeEnabledFeatures::BackgroundFetchUploadsEnabled()) {
-    return ScriptPromise::Reject(
-        script_state, V8ThrowException::CreateTypeError(
-                          script_state->GetIsolate(),
-                          "Requests with a body are not yet supported. "
-                          "For updates check http://crbug.com/774054"));
-  }
 
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
 
@@ -257,24 +245,8 @@ ScriptPromise BackgroundFetchManager::fetch(
     kurls.insert(request_url);
   }
 
-  const bool has_duplicate_requests = kurls.size() != fetch_api_requests.size();
-
   UMA_HISTOGRAM_BOOLEAN("BackgroundFetch.HasDuplicateRequests",
-                        has_duplicate_requests);
-
-  // Note: This is a proprietary check, due to the way Chrome currently handles
-  // storing background fetch records. Entries are keyed by the URL, so if two
-  // requests have the same URL, and different responses, the first response
-  // will be lost when the second request/response pair is stored.
-  if (has_duplicate_requests) {
-    return ScriptPromise::Reject(
-        script_state,
-        V8ThrowException::CreateTypeError(
-            script_state->GetIsolate(),
-            "Fetches with duplicate requests are not yet supported. "
-            "Consider adding query params to make the requests unique. "
-            "For updates check http://crbug.com/871174"));
-  }
+                        kurls.size() != fetch_api_requests.size());
 
   ScriptPromiseResolver* resolver = ScriptPromiseResolver::Create(script_state);
   ScriptPromise promise = resolver->Promise();
@@ -284,7 +256,8 @@ ScriptPromise BackgroundFetchManager::fetch(
   mojom::blink::BackgroundFetchOptionsPtr options_ptr =
       mojom::blink::BackgroundFetchOptions::From(options);
   if (options->icons().size()) {
-    BackgroundFetchIconLoader* loader = new BackgroundFetchIconLoader();
+    BackgroundFetchIconLoader* loader =
+        MakeGarbageCollected<BackgroundFetchIconLoader>();
     loaders_.push_back(loader);
     loader->Start(
         bridge_.Get(), execution_context, options->icons(),

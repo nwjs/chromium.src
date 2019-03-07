@@ -10,6 +10,7 @@
 
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/interfaces/constants.mojom.h"
+#include "ash/public/interfaces/cros_display_config.mojom-test-utils.h"
 #include "ash/public/interfaces/cros_display_config.mojom.h"
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -575,6 +576,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestScrollingPage) {
                                TopChromeShownState::kFullyShown);
 }
 
+// TODO(https://crbug.com/911949): Times out on CrOS on the waterfall.
 IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
                        DISABLED_TestScrollingPageAndSwitchingToNTP) {
   ToggleTabletMode();
@@ -944,6 +946,10 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestDropDowns) {
   event_generator.MoveMouseTo(54, 300);
   event_generator.ClickLeftButton();
 
+  // Evaluate an empty sentence to make sure that the event processing is done
+  // in the content.
+  ignore_result(content::EvalJs(contents, ";"));
+
   // Verify that the selected option has changed and the forth option is
   // selected.
   EXPECT_EQ(true, content::EvalJs(contents, "selectChanged;"));
@@ -1077,9 +1083,12 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
 
   {
     // We will start scrolling while top-chrome is fully shown, in which case
-    // the `DoBrowserControlsShrinkRendererSize` bit is true. It should remain
-    // true while sliding is in progress.
-    const bool expected_shrink_renderer_size = true;
+    // the `DoBrowserControlsShrinkRendererSize` bit is true ...
+    EXPECT_TRUE(
+        browser_view()->DoBrowserControlsShrinkRendererSize(active_contents));
+    // ... It should change to false at the beginning of sliding and remain
+    // false while sliding is in progress.
+    const bool expected_shrink_renderer_size = false;
 
     TopControlsShownRatioWaiter waiter(top_controls_slide_controller());
     IntermediateShownRatioWaiter fractional_ratio_waiter(
@@ -1095,7 +1104,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest,
     CheckBrowserLayout(browser_view(), TopChromeShownState::kFullyHidden);
 
     // Now that sliding ended, and top-chrome is fully hidden, the
-    // `DoBrowserControlsShrinkRendererSize` bit should be false ...
+    // `DoBrowserControlsShrinkRendererSize` bit should remain false ...
     EXPECT_FALSE(
         browser_view()->DoBrowserControlsShrinkRendererSize(active_contents));
   }
@@ -1172,6 +1181,7 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, TestPermissionBubble) {
   views::Widget::GetWidgetForNativeView(permission_manager->GetBubbleWindow())
       ->CloseNow();
   EXPECT_FALSE(permission_manager->IsBubbleVisible());
+  content::WaitForResizeComplete(active_contents);
 
   // Now it is possible to hide top-chrome again.
   ScrollAndExpectTopChromeToBe(ScrollDirection::kDown,

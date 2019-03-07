@@ -433,8 +433,9 @@ FileType.PLACEHOLDER = {
  */
 FileType.getExtension = function(entry) {
   // No extension for a directory.
-  if (entry.isDirectory)
+  if (entry.isDirectory) {
     return '';
+  }
 
   var extensionStartIndex = entry.name.lastIndexOf('.');
   if (extensionStartIndex === -1 ||
@@ -455,15 +456,17 @@ FileType.getExtension = function(entry) {
 FileType.getTypeForName = function(name) {
   var types = FileType.types;
   for (var i = 0; i < types.length; i++) {
-    if (types[i].pattern.test(name))
+    if (types[i].pattern.test(name)) {
       return types[i];
+    }
   }
 
   // Unknown file type.
   var match = /\.[^\/\.]+$/.exec(name);
   var extension = match ? match[0] : '';
-  if (extension === '')
+  if (extension === '') {
     return FileType.PLACEHOLDER;
+  }
 
   // subtype is the extension excluding the first dot.
   return {
@@ -481,8 +484,9 @@ FileType.getTypeForName = function(name) {
  * @return {!FileType.Descriptor} The matching descriptor or a placeholder.
  */
 FileType.getType = function(entry, opt_mimeType) {
-  if (entry.isDirectory)
+  if (entry.isDirectory) {
     return FileType.DIRECTORY;
+  }
 
   if (opt_mimeType) {
     for (var i = 0; i < FileType.types.length; i++) {
@@ -494,14 +498,16 @@ FileType.getType = function(entry, opt_mimeType) {
   }
 
   for (var i = 0; i < FileType.types.length; i++) {
-    if (FileType.types[i].pattern.test(entry.name))
+    if (FileType.types[i].pattern.test(entry.name)) {
       return FileType.types[i];
+    }
   }
 
   // Unknown file type.
   var extension = FileType.getExtension(entry);
-  if (extension === '')
+  if (extension === '') {
     return FileType.PLACEHOLDER;
+  }
 
   // subtype is the extension excluding the first dot.
   return {
@@ -584,10 +590,34 @@ FileType.isHosted = function(entry, opt_mimeType) {
 /**
  * @param {Entry|VolumeEntry} entry Reference to the file.
  * @param {string=} opt_mimeType Optional mime type for the file.
+ * @param {VolumeManagerCommon.RootType=} opt_rootType The root type of the
+ *     entry.
  * @return {string} Returns string that represents the file icon.
  *     It refers to a file 'images/filetype_' + icon + '.png'.
  */
-FileType.getIcon = function(entry, opt_mimeType) {
+FileType.getIcon = function(entry, opt_mimeType, opt_rootType) {
   const fileType = FileType.getType(entry, opt_mimeType);
-  return entry.iconName || fileType.icon || fileType.type || 'unknown';
+  const overridenIcon = FileType.getIconOverrides(entry, opt_rootType);
+  return entry.iconName || overridenIcon || fileType.icon || fileType.type ||
+      'unknown';
+};
+
+/**
+ * Returns a string to be used as an attribute value to customize the entry
+ * icon.
+ *
+ * @param {Entry|FilesAppEntry} entry
+ * @param {VolumeManagerCommon.RootType=} opt_rootType The root type of the
+ *     entry.
+ * @return {string}
+ */
+FileType.getIconOverrides = function(entry, opt_rootType) {
+  // Overrides per RootType and defined by fullPath.
+  const overrides = {
+    [VolumeManagerCommon.RootType.DOWNLOADS]: {
+      '/Downloads': VolumeManagerCommon.VolumeType.DOWNLOADS,
+    },
+  };
+  const root = overrides[opt_rootType];
+  return root ? root[entry.fullPath] : '';
 };

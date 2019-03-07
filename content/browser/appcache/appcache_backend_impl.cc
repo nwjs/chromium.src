@@ -8,6 +8,7 @@
 #include "content/browser/appcache/appcache_group.h"
 #include "content/browser/appcache/appcache_service_impl.h"
 #include "content/public/browser/browser_thread.h"
+#include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
 
 namespace content {
 
@@ -34,7 +35,8 @@ bool AppCacheBackendImpl::RegisterHost(int id) {
   if (GetHost(id))
     return false;
 
-  hosts_[id] = std::make_unique<AppCacheHost>(id, frontend_, service_);
+  hosts_[id] =
+      std::make_unique<AppCacheHost>(id, process_id(), frontend_, service_);
   return true;
 }
 
@@ -91,8 +93,7 @@ bool AppCacheBackendImpl::GetStatusWithCallback(int host_id,
   if (!host)
     return false;
 
-  host->GetStatusWithCallback(std::move(*callback));
-  return true;
+  return host->GetStatusWithCallback(std::move(*callback));
 }
 
 bool AppCacheBackendImpl::StartUpdateWithCallback(
@@ -102,8 +103,7 @@ bool AppCacheBackendImpl::StartUpdateWithCallback(
   if (!host)
     return false;
 
-  host->StartUpdateWithCallback(std::move(*callback));
-  return true;
+  return host->StartUpdateWithCallback(std::move(*callback));
 }
 
 bool AppCacheBackendImpl::SwapCacheWithCallback(int host_id,
@@ -112,12 +112,12 @@ bool AppCacheBackendImpl::SwapCacheWithCallback(int host_id,
   if (!host)
     return false;
 
-  host->SwapCacheWithCallback(std::move(*callback));
-  return true;
+  return host->SwapCacheWithCallback(std::move(*callback));
 }
 
 void AppCacheBackendImpl::GetResourceList(
-    int host_id, std::vector<AppCacheResourceInfo>* resource_infos) {
+    int host_id,
+    std::vector<blink::mojom::AppCacheResourceInfo>* resource_infos) {
   AppCacheHost* host = GetHost(host_id);
   if (!host)
     return;

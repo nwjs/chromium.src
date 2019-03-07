@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/frame/immersive_mode_controller_ash.h"
 
 #include "ash/public/cpp/immersive/immersive_revealed_lock.h"
+#include "ash/public/cpp/window_pin_type.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/public/cpp/window_state_type.h"
 #include "ash/public/interfaces/window_state_type.mojom.h"
@@ -28,12 +29,14 @@
 #include "ui/aura/mus/window_port_mus.h"
 #include "ui/aura/mus/window_tree_host_mus.h"
 #include "ui/aura/window.h"
+#include "ui/aura/window_targeter.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/paint_context.h"
 #include "ui/compositor/paint_recorder.h"
 #include "ui/events/event_rewriter.h"
 #include "ui/views/background.h"
+#include "ui/views/controls/native/native_view_host.h"
 #include "ui/views/mus/mus_client.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/native_widget_aura.h"
@@ -193,6 +196,13 @@ void ImmersiveModeControllerAsh::OnWidgetActivationChanged(
   if (!TabletModeClient::Get()->tablet_mode_enabled())
     return;
 
+  // Don't use immersive mode as long as we are in the locked fullscreen mode
+  // since immersive shows browser controls which allow exiting the mode.
+  aura::Window* window = widget->GetNativeWindow();
+  window = features::IsUsingWindowService() ? window->GetRootWindow() : window;
+  if (ash::IsWindowTrustedPinned(window))
+    return;
+
   // Enable immersive mode if the widget is activated. Do not disable immersive
   // mode if the widget deactivates, but is not minimized.
   ash::ImmersiveFullscreenController::EnableForWidget(
@@ -254,6 +264,18 @@ void ImmersiveModeControllerAsh::SetVisibleFraction(double visible_fraction) {
   if (visible_fraction_ == visible_fraction)
     return;
 
+  // Sets the top inset only when the top-of-window views is fully visible. This
+  // means some gesture may not be recognized well during the animation, but
+  // that's fine since a complicated gesture wouldn't be involved during the
+  // animation duration. See: https://crbug.com/901544.
+  if (browser_view_->IsBrowserTypeNormal()) {
+    if (visible_fraction == 1.0) {
+      browser_view_->contents_web_view()->holder()->SetHitTestTopInset(
+          browser_view_->top_container()->height());
+    } else if (visible_fraction_ == 1.0) {
+      browser_view_->contents_web_view()->holder()->SetHitTestTopInset(0);
+    }
+  }
   visible_fraction_ = visible_fraction;
   browser_view_->Layout();
   browser_view_->frame()->GetFrameView()->UpdateClientArea();

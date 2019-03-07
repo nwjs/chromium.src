@@ -3,9 +3,11 @@
 # found in the LICENSE file.
 
 import("//base/android/proguard/proguard.gni")
+import("//build/config/android/chrome_version.gni")
 import("//build/config/android/config.gni")
 import("//build/config/android/rules.gni")
 import("//build/config/locales.gni")
+import("//chrome/android/chrome_public_apk_tmpl.gni")
 
 template("system_webview_apk_tmpl") {
   android_apk(target_name) {
@@ -26,26 +28,39 @@ template("system_webview_apk_tmpl") {
 
     shared_resources = true
 
-    if (!defined(use_trichrome_library) || !use_trichrome_library) {
+    _use_trichrome_library =
+        defined(use_trichrome_library) && use_trichrome_library
+
+    if (!_use_trichrome_library) {
       shared_libraries = [ "//android_webview:libwebviewchromium" ]
       if (build_apk_secondary_abi && android_64bit_target_cpu) {
         secondary_abi_shared_libraries = [ "//android_webview:libwebviewchromium($android_secondary_abi_toolchain)" ]
       }
     } else {
+      uncompress_shared_libraries = true
+
       # Include placeholder libraries to ensure we are treated as the desired
       # architecture.
       if (android_64bit_target_cpu) {
-        shared_libraries = [ "//android_webview:monochrome" ]
-        if (build_apk_secondary_abi) {
-          secondary_native_lib_placeholders = [ "libdummy.so" ]
+        if (android_64bit_browser) {
+          native_lib_placeholders = [ "libdummy.so" ]
+          if (build_apk_secondary_abi) {
+            secondary_abi_shared_libraries = [
+              "//android_webview:monochrome($android_secondary_abi_toolchain)",
+            ]
+          }
+        } else {
+          shared_libraries = [ "//android_webview:monochrome" ]
+          if (build_apk_secondary_abi) {
+            secondary_native_lib_placeholders = [ "libdummy.so" ]
+          }
         }
       } else {
         native_lib_placeholders = [ "libdummy.so" ]
       }
     }
 
-    if (!defined(use_trichrome_library) || !use_trichrome_library ||
-        android_64bit_target_cpu) {
+    if (!_use_trichrome_library || android_64bit_target_cpu) {
       # 32-bit TrichromeWebView doesn't have a native library, so only do this
       # for other configs.
       native_lib_version_rule = "//build/util:chrome_version_json"
@@ -89,5 +104,16 @@ template("system_webview_apk_tmpl") {
       png_to_webp = true
     }
     command_line_flags_file = "webview-command-line"
+
+    if (!defined(version_code)) {
+      if (_use_trichrome_library) {
+        version_code = trichrome_version_code
+      } else {
+        version_code = webview_version_code
+      }
+    }
+    if (!defined(version_name)) {
+      version_name = chrome_version_name
+    }
   }
 }

@@ -36,6 +36,8 @@ class HTMLButtonElement final : public HTMLFormControlElement {
 
   explicit HTMLButtonElement(Document&);
 
+  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
+
   void setType(const AtomicString&);
 
   const AtomicString& Value() const;
@@ -61,7 +63,7 @@ class HTMLButtonElement final : public HTMLFormControlElement {
   void AppendToFormData(FormData&) override;
 
   bool IsEnumeratable() const override { return true; }
-  bool SupportLabels() const override { return true; }
+  bool IsLabelable() const override { return true; }
   bool ShouldForceLegacyLayout() const final { return true; }
   bool IsInteractiveContent() const override;
   bool SupportsAutofocus() const override;

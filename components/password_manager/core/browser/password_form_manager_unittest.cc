@@ -11,15 +11,16 @@
 
 #include "base/feature_list.h"
 #include "base/macros.h"
-#include "base/message_loop/message_loop.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/scoped_task_environment.h"
 #include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/autofill_manager.h"
+#include "components/autofill/core/browser/mock_autocomplete_history_manager.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_driver.h"
@@ -50,13 +51,13 @@
 #include "url/gurl.h"
 #include "url/origin.h"
 
-using autofill::features::kAutofillEnforceMinRequiredFieldsForHeuristics;
-using autofill::features::kAutofillEnforceMinRequiredFieldsForQuery;
-using autofill::features::kAutofillEnforceMinRequiredFieldsForUpload;
 using autofill::FieldPropertiesFlags;
 using autofill::FieldPropertiesMask;
 using autofill::PasswordForm;
 using autofill::ValueElementPair;
+using autofill::features::kAutofillEnforceMinRequiredFieldsForHeuristics;
+using autofill::features::kAutofillEnforceMinRequiredFieldsForQuery;
+using autofill::features::kAutofillEnforceMinRequiredFieldsForUpload;
 using base::ASCIIToUTF16;
 using ::testing::_;
 using ::testing::AllOf;
@@ -73,6 +74,7 @@ using ::testing::Pointee;
 using ::testing::Return;
 using ::testing::SaveArg;
 using ::testing::SaveArgPointee;
+using ::testing::StrictMock;
 using ::testing::UnorderedElementsAre;
 using ::testing::WithArg;
 
@@ -227,10 +229,15 @@ class MockAutofillDownloadManager : public autofill::AutofillDownloadManager {
 
 class MockAutofillManager : public autofill::AutofillManager {
  public:
-  MockAutofillManager(autofill::AutofillDriver* driver,
-                      autofill::AutofillClient* client,
-                      autofill::PersonalDataManager* data_manager)
-      : AutofillManager(driver, client, data_manager) {}
+  MockAutofillManager(
+      autofill::AutofillDriver* driver,
+      autofill::AutofillClient* client,
+      autofill::PersonalDataManager* data_manager,
+      autofill::MockAutocompleteHistoryManager* autocomplete_manager)
+      : AutofillManager(driver, client, data_manager, autocomplete_manager) {
+    // This function will be called in the destructor of AutofillManager.
+    EXPECT_CALL(*autocomplete_manager, CancelPendingQueries(this));
+  }
 
   void SetDownloadManager(autofill::AutofillDownloadManager* manager) {
     set_download_manager(manager);
@@ -239,15 +246,13 @@ class MockAutofillManager : public autofill::AutofillManager {
   // Workaround for std::unique_ptr<> lacking a copy constructor.
   bool MaybeStartVoteUploadProcess(
       std::unique_ptr<FormStructure> form_structure,
-      const base::TimeTicks& timestamp,
       bool observed_submission) override {
-    MaybeStartVoteUploadProcessPtr(form_structure.release(), timestamp,
+    MaybeStartVoteUploadProcessPtr(form_structure.release(),
                                    observed_submission);
     return true;
   }
 
-  MOCK_METHOD3(MaybeStartVoteUploadProcessPtr,
-               void(FormStructure*, const base::TimeTicks&, bool));
+  MOCK_METHOD2(MaybeStartVoteUploadProcessPtr, void(FormStructure*, bool));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockAutofillManager);
@@ -258,7 +263,8 @@ class MockPasswordManagerDriver : public StubPasswordManagerDriver {
   MockPasswordManagerDriver()
       : mock_autofill_manager_(&test_autofill_driver_,
                                &test_autofill_client_,
-                               &test_personal_data_manager_) {
+                               &test_personal_data_manager_,
+                               &mock_autocomplete_history_manager_) {
     std::unique_ptr<TestingPrefServiceSimple> prefs(
         new TestingPrefServiceSimple());
     prefs->registry()->RegisterBooleanPref(
@@ -292,6 +298,8 @@ class MockPasswordManagerDriver : public StubPasswordManagerDriver {
   }
 
  private:
+  StrictMock<autofill::MockAutocompleteHistoryManager>
+      mock_autocomplete_history_manager_;
   autofill::TestAutofillDriver test_autofill_driver_;
   autofill::TestAutofillClient test_autofill_client_;
   autofill::TestPersonalDataManager test_personal_data_manager_;
@@ -310,6 +318,8 @@ class TestPasswordManagerClient : public StubPasswordManagerClient {
     prefs_->registry()->RegisterStringPref(
         autofill::prefs::kAutofillUploadEncodingSeed, "");
   }
+
+  MOCK_CONST_METHOD0(IsIncognito, bool());
 
   PrefService* GetPrefs() const override { return prefs_.get(); }
 
@@ -984,12 +994,12 @@ class PasswordFormManagerTest : public testing::Test {
 
  private:
   // Necessary for callbacks, and for TestAutofillDriver.
-  base::MessageLoop message_loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
 
   PasswordForm observed_form_;
   PasswordForm saved_match_;
   PasswordForm psl_saved_match_;
-  TestPasswordManagerClient client_;
+  NiceMock<TestPasswordManagerClient> client_;
   std::unique_ptr<PasswordManager> password_manager_;
   // Define |fake_form_fetcher_| before |form_manager_|, because the former
   // needs to outlive the latter.
@@ -4864,6 +4874,75 @@ TEST_F(PasswordFormManagerTest, UserEventsForGeneration) {
         "PasswordGeneration.UserDecision",
         GeneratedPasswordStatus::kPasswordDeleted, 1);
   }
+}
+
+TEST_F(PasswordFormManagerTest, ProvisionallySaveUpdatesUserAction) {
+  // Setup existing matches.
+  PasswordForm preferred_match = *saved_match();
+
+  PasswordForm other_match = *saved_match();
+  other_match.username_value = ASCIIToUTF16("other_username");
+  other_match.password_value = ASCIIToUTF16("other_password");
+  other_match.preferred = false;
+
+  PasswordForm psl_match = *psl_saved_match();
+  psl_match.username_value = ASCIIToUTF16("psl_match_username");
+
+  fake_form_fetcher()->SetNonFederated(
+      {&preferred_match, &other_match, &psl_match}, 0);
+
+  // Verify that provisionally saving the |preferred_match| results in the
+  // correct user action.
+  form_manager()->ProvisionallySave(preferred_match);
+  EXPECT_EQ(UserAction::kNone,
+            form_manager()->GetMetricsRecorder()->GetUserAction());
+
+  // Verify that provisionally saving an |other_match| results in the
+  // correct user action.
+  form_manager()->ProvisionallySave(other_match);
+  EXPECT_EQ(UserAction::kChoose,
+            form_manager()->GetMetricsRecorder()->GetUserAction());
+
+  // Verify that provisionally saving a |psl_match| results in the correct user
+  // action.
+  form_manager()->ProvisionallySave(psl_match);
+  EXPECT_EQ(UserAction::kChoosePslMatch,
+            form_manager()->GetMetricsRecorder()->GetUserAction());
+
+  // Verify that provisionally saving a credential with a |new_password| results
+  // in the correct user action.
+  PasswordForm new_password;
+  new_password.username_value = preferred_match.username_value;
+  new_password.password_value = ASCIIToUTF16("new_password");
+  form_manager()->ProvisionallySave(new_password);
+  EXPECT_EQ(UserAction::kOverridePassword,
+            form_manager()->GetMetricsRecorder()->GetUserAction());
+
+  // Verify that provisionally saving a |new_credential| results in the correct
+  // user action.
+  PasswordForm new_credential;
+  new_credential.username_value = ASCIIToUTF16("new_username");
+  new_credential.password_value = ASCIIToUTF16("new_password");
+  form_manager()->ProvisionallySave(new_credential);
+  EXPECT_EQ(UserAction::kOverrideUsernameAndPassword,
+            form_manager()->GetMetricsRecorder()->GetUserAction());
+
+  // Verify that provisionally saving the |preferred_match| results in resetting
+  // the user action.
+  form_manager()->ProvisionallySave(preferred_match);
+  EXPECT_EQ(UserAction::kNone,
+            form_manager()->GetMetricsRecorder()->GetUserAction());
+
+  // Verify that provisionally saving the |preferred_match| with filling on
+  // account select results in the corresponding user action. Fill on account
+  // select is simulated by pretending we are in incognito mode.
+  EXPECT_CALL(*client(), IsIncognito).WillOnce(Return(true));
+  fake_form_fetcher()->SetNonFederated(
+      {&preferred_match, &other_match, &psl_match}, 0);
+
+  form_manager()->ProvisionallySave(preferred_match);
+  EXPECT_EQ(UserAction::kChoose,
+            form_manager()->GetMetricsRecorder()->GetUserAction());
 }
 
 }  // namespace password_manager

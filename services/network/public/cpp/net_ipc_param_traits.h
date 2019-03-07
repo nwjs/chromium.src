@@ -232,7 +232,7 @@ IPC_ENUM_TRAITS_MAX_VALUE(net::SSLInfo::HandshakeType,
                           net::SSLInfo::HANDSHAKE_FULL)
 
 IPC_ENUM_TRAITS_MAX_VALUE(net::URLRequest::ReferrerPolicy,
-                          net::URLRequest::MAX_REFERRER_POLICY - 1)
+                          net::URLRequest::MAX_REFERRER_POLICY)
 
 IPC_STRUCT_TRAITS_BEGIN(net::HttpRequestHeaders::HeaderKeyValuePair)
   IPC_STRUCT_TRAITS_MEMBER(key)
@@ -253,6 +253,7 @@ IPC_STRUCT_TRAITS_BEGIN(net::RedirectInfo)
   IPC_STRUCT_TRAITS_MEMBER(new_method)
   IPC_STRUCT_TRAITS_MEMBER(new_url)
   IPC_STRUCT_TRAITS_MEMBER(new_site_for_cookies)
+  IPC_STRUCT_TRAITS_MEMBER(new_top_frame_origin)
   IPC_STRUCT_TRAITS_MEMBER(new_referrer)
   IPC_STRUCT_TRAITS_MEMBER(insecure_scheme_was_upgraded)
   IPC_STRUCT_TRAITS_MEMBER(new_referrer_policy)

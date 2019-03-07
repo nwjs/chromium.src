@@ -102,6 +102,8 @@ class CORE_EXPORT HTMLCanvasElement final
   using Node::GetExecutionContext;
 
   DECLARE_NODE_FACTORY(HTMLCanvasElement);
+
+  explicit HTMLCanvasElement(Document&);
   ~HTMLCanvasElement() override;
 
   // Attributes and functions exposed to script
@@ -195,7 +197,7 @@ class CORE_EXPORT HTMLCanvasElement final
   scoped_refptr<Image> GetSourceImageForCanvas(SourceImageStatus*,
                                                AccelerationHint,
                                                const FloatSize&) override;
-  bool WouldTaintOrigin(const SecurityOrigin*) const override;
+  bool WouldTaintOrigin() const override;
   FloatSize ElementSize(const FloatSize&) const override;
   bool IsCanvasElement() const override { return true; }
   bool IsOpaque() const override;
@@ -232,7 +234,7 @@ class CORE_EXPORT HTMLCanvasElement final
                            base::WeakPtr<CanvasResourceDispatcher>,
                            scoped_refptr<base::SingleThreadTaskRunner>,
                            unsigned resource_id) override;
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   void SetResourceProviderForTesting(std::unique_ptr<CanvasResourceProvider>,
                                      std::unique_ptr<Canvas2DLayerBridge>,
@@ -299,11 +301,15 @@ class CORE_EXPORT HTMLCanvasElement final
   scoped_refptr<StaticBitmapImage> Snapshot(SourceDrawingBuffer,
                                             AccelerationHint) const;
 
+  // Returns the cc layer containing the contents. It's the cc layer of
+  // SurfaceLayerBridge() or RenderingContext(), or nullptr if the canvas is not
+  // composited.
+  cc::Layer* ContentsCcLayer() const;
+
  protected:
   void DidMoveToNewDocument(Document& old_document) override;
 
  private:
-  explicit HTMLCanvasElement(Document&);
   void Dispose();
 
   using ContextFactoryVector =
@@ -338,6 +344,12 @@ class CORE_EXPORT HTMLCanvasElement final
   // Returns true if the canvas' context type is inherited from
   // ImageBitmapRenderingContextBase.
   bool HasImageBitmapContext() const;
+
+  CanvasRenderingContext* GetCanvasRenderingContextInternal(
+      const String&,
+      const CanvasContextCreationAttributesCore&);
+
+  void OnContentsCcLayerChanged();
 
   HeapHashSet<WeakMember<CanvasDrawListener>> listeners_;
 

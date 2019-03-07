@@ -43,23 +43,26 @@ Polymer({
   },
 
   onRouteExit: function() {
-    if (this.finalized_)
+    if (this.finalized_) {
       return;
+    }
     this.finalized_ = true;
     this.browserProxy_.recordNavigatedAwayThroughBrowserHistory();
   },
 
   onRouteUnload: function() {
-    if (this.finalized_)
+    if (this.finalized_) {
       return;
+    }
     this.finalized_ = true;
     this.browserProxy_.recordNavigatedAway();
   },
 
   /** @private */
   onDeclineClick_: function() {
-    if (this.finalized_)
+    if (this.finalized_) {
       return;
+    }
 
     this.browserProxy_.recordSkip();
     this.finished_();
@@ -67,8 +70,9 @@ Polymer({
 
   /** @private */
   onSetDefaultClick_: function() {
-    if (this.finalized_)
+    if (this.finalized_) {
       return;
+    }
 
     this.browserProxy_.recordBeginSetDefault();
     this.browserProxy_.setAsDefault();
@@ -83,7 +87,15 @@ Polymer({
     if (status.isDefault) {
       this.browserProxy_.recordSuccessfullySetDefault();
       this.finished_();
+      return;
     }
+
+    // <if expr="is_macosx">
+    // On Mac OS, we do not get a notification when the default browser changes.
+    // This will fake the notification.
+    window.setTimeout(
+        () => this.browserProxy_.requestDefaultBrowserState(), 100);
+    // </if>
   },
 
   /** @private */

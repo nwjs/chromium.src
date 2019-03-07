@@ -37,7 +37,6 @@
 #include "base/optional.h"
 #include "build/build_config.h"
 #include "cc/layers/picture_layer.h"
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/public/web/web_autofill_client.h"
@@ -160,10 +159,6 @@ WebFrameWidgetImpl::WebFrameWidgetImpl(WebWidgetClient& client)
       is_accelerated_compositing_active_(false),
       layer_tree_view_closed_(false),
       suppress_next_keypress_event_(false),
-      background_color_override_enabled_(false),
-      background_color_override_(Color::kTransparent),
-      base_background_color_override_enabled_(false),
-      base_background_color_override_(Color::kTransparent),
       ime_accept_events_(true),
       self_keep_alive_(this) {}
 
@@ -258,7 +253,7 @@ void WebFrameWidgetImpl::ResizeVisualViewport(const WebSize& new_size) {
   // both the WebViewImpl size and the Page's VisualViewport. If there are
   // multiple OOPIFs on a page, this will currently be set redundantly by
   // each of them. See https://crbug.com/599688.
-  View()->Resize(new_size);
+  View()->MainFrameWidget()->Resize(new_size);
 
   View()->DidUpdateFullscreenSize();
 }
@@ -277,11 +272,11 @@ void WebFrameWidgetImpl::UpdateMainFrameLayoutSize() {
 }
 
 void WebFrameWidgetImpl::DidEnterFullscreen() {
-  View()->DidEnterFullscreen();
+  View()->MainFrameWidget()->DidEnterFullscreen();
 }
 
 void WebFrameWidgetImpl::DidExitFullscreen() {
-  View()->DidExitFullscreen();
+  View()->MainFrameWidget()->DidExitFullscreen();
 }
 
 void WebFrameWidgetImpl::SetSuppressFrameRequestsWorkaroundFor704763Only(
@@ -324,7 +319,6 @@ void WebFrameWidgetImpl::UpdateLifecycle(LifecycleUpdate requested_update,
       LocalRootImpl()->GetFrame()->GetDocument()->Lifecycle());
   PageWidgetDelegate::UpdateLifecycle(*GetPage(), *LocalRootImpl()->GetFrame(),
                                       requested_update, reason);
-  UpdateLayerTreeBackgroundColor();
 }
 
 void WebFrameWidgetImpl::PaintContent(cc::PaintCanvas* canvas,
@@ -341,58 +335,6 @@ void WebFrameWidgetImpl::UpdateLayerTreeViewport() {
   // needed in setting the raster scale.
   layer_tree_view_->SetPageScaleFactorAndLimits(
       1, View()->MinimumPageScaleFactor(), View()->MaximumPageScaleFactor());
-}
-
-void WebFrameWidgetImpl::UpdateLayerTreeBackgroundColor() {
-  if (!layer_tree_view_)
-    return;
-
-  SkColor color = BackgroundColor();
-  layer_tree_view_->SetBackgroundColor(color);
-}
-
-void WebFrameWidgetImpl::SetBackgroundColorOverride(SkColor color) {
-  background_color_override_enabled_ = true;
-  background_color_override_ = color;
-  UpdateLayerTreeBackgroundColor();
-}
-
-void WebFrameWidgetImpl::ClearBackgroundColorOverride() {
-  background_color_override_enabled_ = false;
-  UpdateLayerTreeBackgroundColor();
-}
-
-void WebFrameWidgetImpl::SetBaseBackgroundColorOverride(SkColor color) {
-  if (base_background_color_override_enabled_ &&
-      base_background_color_override_ == color) {
-    return;
-  }
-
-  base_background_color_override_enabled_ = true;
-  base_background_color_override_ = color;
-  // Force lifecycle update to ensure we're good to call
-  // LocalFrameView::setBaseBackgroundColor().
-  LocalRootImpl()
-      ->GetFrameView()
-      ->UpdateLifecycleToCompositingCleanPlusScrolling();
-  UpdateBaseBackgroundColor();
-}
-
-void WebFrameWidgetImpl::ClearBaseBackgroundColorOverride() {
-  if (!base_background_color_override_enabled_)
-    return;
-
-  base_background_color_override_enabled_ = false;
-  // Force lifecycle update to ensure we're good to call
-  // LocalFrameView::setBaseBackgroundColor().
-  LocalRootImpl()
-      ->GetFrameView()
-      ->UpdateLifecycleToCompositingCleanPlusScrolling();
-  UpdateBaseBackgroundColor();
-}
-
-void WebFrameWidgetImpl::LayoutAndPaintAsync(base::OnceClosure callback) {
-  layer_tree_view_->LayoutAndPaintAsync(std::move(callback));
 }
 
 void WebFrameWidgetImpl::CompositeAndReadbackAsync(
@@ -533,25 +475,6 @@ void WebFrameWidgetImpl::SetCursorVisibilityState(bool is_visible) {
   GetPage()->SetIsCursorVisible(is_visible);
 }
 
-Color WebFrameWidgetImpl::BaseBackgroundColor() const {
-  return base_background_color_override_enabled_
-             ? base_background_color_override_
-             : base_background_color_;
-}
-
-void WebFrameWidgetImpl::SetBaseBackgroundColor(SkColor color) {
-  if (base_background_color_ == color)
-    return;
-
-  base_background_color_ = color;
-  UpdateBaseBackgroundColor();
-}
-
-void WebFrameWidgetImpl::UpdateBaseBackgroundColor() {
-  LocalRootImpl()->GetFrameView()->SetBaseBackgroundColor(
-      BaseBackgroundColor());
-}
-
 WebInputMethodController*
 WebFrameWidgetImpl::GetActiveWebInputMethodController() const {
   WebLocalFrameImpl* local_frame =
@@ -575,17 +498,6 @@ bool WebFrameWidgetImpl::ScrollFocusedEditableElementIntoView() {
 }
 
 void WebFrameWidgetImpl::Initialize() {
-  if (LocalRoot()->Parent())
-    SetBackgroundColorOverride(Color::kTransparent);
-}
-
-void WebFrameWidgetImpl::ScheduleAnimation() {
-  if (layer_tree_view_) {
-    layer_tree_view_->SetNeedsBeginFrame();
-    return;
-  }
-  DCHECK(Client());
-  Client()->ScheduleAnimation();
 }
 
 void WebFrameWidgetImpl::IntrinsicSizingInfoChanged(
@@ -666,15 +578,6 @@ void WebFrameWidgetImpl::SetFocus(bool enable) {
       ime_accept_events_ = false;
     }
   }
-}
-
-SkColor WebFrameWidgetImpl::BackgroundColor() const {
-  if (background_color_override_enabled_)
-    return background_color_override_;
-  if (!LocalRootImpl()->GetFrameView())
-    return base_background_color_;
-  LocalFrameView* view = LocalRootImpl()->GetFrameView();
-  return view->DocumentBackgroundColor().Rgb();
 }
 
 bool WebFrameWidgetImpl::SelectionBounds(WebRect& anchor_web,
@@ -768,7 +671,7 @@ void WebFrameWidgetImpl::HandleMouseDown(LocalFrame& main_frame,
   scoped_refptr<WebPagePopupImpl> page_popup;
   if (event.button == WebMouseEvent::Button::kLeft) {
     page_popup = view_impl->GetPagePopup();
-    view_impl->HidePopups();
+    view_impl->CancelPagePopup();
   }
 
   // Take capture on a mouse down on a plugin so we can send it mouse events.
@@ -802,7 +705,7 @@ void WebFrameWidgetImpl::HandleMouseDown(LocalFrame& main_frame,
       view_impl->GetPagePopup()->HasSamePopupClient(page_popup.get())) {
     // That click triggered a page popup that is the same as the one we just
     // closed.  It needs to be closed.
-    view_impl->HidePopups();
+    view_impl->CancelPagePopup();
   }
 
   // Dispatch the contextmenu event regardless of if the click was swallowed.
@@ -848,7 +751,7 @@ void WebFrameWidgetImpl::MouseContextMenu(const WebMouseEvent& event) {
   {
     ContextMenuAllowedScope scope;
     target_local_frame->GetEventHandler().SendContextMenuEvent(
-        transformed_event, nullptr);
+        transformed_event);
   }
   // Actually showing the context menu is handled by the ContextMenuClient
   // implementation...
@@ -869,8 +772,7 @@ void WebFrameWidgetImpl::HandleMouseUp(LocalFrame& main_frame,
 WebInputEventResult WebFrameWidgetImpl::HandleMouseWheel(
     LocalFrame& frame,
     const WebMouseWheelEvent& event) {
-
-  View()->HidePopups();
+  View()->CancelPagePopup();
   return PageWidgetEventHandler::HandleMouseWheel(frame, event);
 }
 
@@ -892,15 +794,15 @@ WebInputEventResult WebFrameWidgetImpl::HandleGestureEvent(
       // Touch pinch zoom and scroll on the page (outside of a popup) must hide
       // the popup. In case of a touch scroll or pinch zoom, this function is
       // called with GestureTapDown rather than a GSB/GSU/GSE or GPB/GPU/GPE.
-      // When we close a popup because of a GestureTapDown, we also save it so
-      // we can prevent the following GestureTap from immediately reopening the
-      // same popup.
-      view_impl->SetLastHiddenPagePopup(view_impl->GetPagePopup());
-      View()->HidePopups();
-      FALLTHROUGH;
-    case WebInputEvent::kGestureTapCancel:
-      View()->SetLastHiddenPagePopup(nullptr);
+      // WebViewImpl takes additional steps to avoid the following GestureTap
+      // from re-opening the popup being closed here, but since GestureTap will
+      // unconditionally close the current popup here, it is not used/needed.
+      // TODO(wjmaclean): We should maybe mirror what WebViewImpl does, the
+      // HandleGestureEvent() needs to happen inside or before the GestureTap
+      // case to do so.
+      View()->CancelPagePopup();
       break;
+    case WebInputEvent::kGestureTapCancel:
     case WebInputEvent::kGestureShowPress:
       break;
     case WebInputEvent::kGestureDoubleTap:
@@ -1087,6 +989,10 @@ void WebFrameWidgetImpl::SetLayerTreeView(WebLayerTreeView* layer_tree_view) {
   // be moved from WebViewImpl into WebFrameWidget and used for all local
   // frame roots. https://crbug.com/712794
   layer_tree_view_->HeuristicsForGpuRasterizationUpdated(true);
+
+  // WebFrameWidgetImpl is used for child frames, which always have a
+  // transparent background color.
+  layer_tree_view_->SetBackgroundColor(SK_ColorTRANSPARENT);
 }
 
 void WebFrameWidgetImpl::SetIsAcceleratedCompositingActive(bool active) {
@@ -1105,7 +1011,6 @@ void WebFrameWidgetImpl::SetIsAcceleratedCompositingActive(bool active) {
     TRACE_EVENT0("blink",
                  "WebViewImpl::setIsAcceleratedCompositingActive(true)");
     layer_tree_view_->SetRootLayer(root_layer_);
-    UpdateLayerTreeBackgroundColor();
     UpdateLayerTreeViewport();
     is_accelerated_compositing_active_ = true;
   }
@@ -1164,6 +1069,11 @@ HitTestResult WebFrameWidgetImpl::CoreHitTestResultAt(
   IntPoint point_in_root_frame =
       view->ViewportToFrame(IntPoint(point_in_viewport));
   return HitTestResultForRootFramePos(point_in_root_frame);
+}
+
+void WebFrameWidgetImpl::ZoomToFindInPageRect(
+    const WebRect& rect_in_root_frame) {
+  Client()->ZoomToFindInPageRectInMainFrame(rect_in_root_frame);
 }
 
 HitTestResult WebFrameWidgetImpl::HitTestResultForRootFramePos(

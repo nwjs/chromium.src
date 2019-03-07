@@ -12,6 +12,10 @@
 class SkCanvas;
 class SkImage;
 
+namespace gfx {
+class ColorSpace;
+}
+
 namespace viz {
 
 class ContextLostObserver;
@@ -55,6 +59,14 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurface : public OutputSurface {
       SkYUVColorSpace yuv_color_space,
       bool has_alpha) = 0;
 
+  // Release SkImage created by MakePromiseSkImage on the thread on which
+  // it was fulfilled. SyncToken represents point after which SkImage is
+  // released.
+  virtual gpu::SyncToken QueueReleasePromiseSkImage(sk_sp<SkImage>&& image) = 0;
+
+  // Flush all the queued releases. No-op if none were queued.
+  virtual void FlushQueuedReleases() = 0;
+
   // Swaps the current backbuffer to the screen.
   virtual void SkiaSwapBuffers(OutputSurfaceFrame frame) = 0;
 
@@ -94,6 +106,8 @@ class VIZ_SERVICE_EXPORT SkiaOutputSurface : public OutputSurface {
   // the output of a cached SkSurface for the given |id|.
   virtual void CopyOutput(RenderPassId id,
                           const gfx::Rect& copy_rect,
+                          const gfx::ColorSpace& color_space,
+                          const gfx::Rect& result_rect,
                           std::unique_ptr<CopyOutputRequest> request) = 0;
 
   // Add context lost observer.

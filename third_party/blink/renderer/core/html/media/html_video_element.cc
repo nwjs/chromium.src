@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/core/html/media/media_element_parser_helpers.h"
 #include "third_party/blink/renderer/core/html/media/media_remoting_interstitial.h"
 #include "third_party/blink/renderer/core/html/media/picture_in_picture_interstitial.h"
+#include "third_party/blink/renderer/core/html/media/video_wake_lock.h"
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap.h"
@@ -52,6 +53,7 @@
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 #include "third_party/blink/renderer/core/layout/layout_video.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/extensions_3d_util.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
@@ -95,6 +97,8 @@ inline HTMLVideoElement::HTMLVideoElement(Document& document)
     overridden_intrinsic_size_ =
         IntSize(LayoutReplaced::kDefaultWidth, LayoutReplaced::kDefaultHeight);
   }
+
+  wake_lock_ = MakeGarbageCollected<VideoWakeLock>(*this);
 }
 
 HTMLVideoElement* HTMLVideoElement::Create(Document& document) {
@@ -104,9 +108,10 @@ HTMLVideoElement* HTMLVideoElement::Create(Document& document) {
   return video;
 }
 
-void HTMLVideoElement::Trace(blink::Visitor* visitor) {
+void HTMLVideoElement::Trace(Visitor* visitor) {
   visitor->Trace(image_loader_);
   visitor->Trace(custom_controls_fullscreen_detector_);
+  visitor->Trace(wake_lock_);
   visitor->Trace(remoting_interstitial_);
   visitor->Trace(picture_in_picture_interstitial_);
   HTMLMediaElement::Trace(visitor);
@@ -232,6 +237,16 @@ void HTMLVideoElement::ParseAttribute(
     if (intrinsic_size_changed && GetLayoutObject() &&
         GetLayoutObject()->IsVideo())
       ToLayoutVideo(GetLayoutObject())->IntrinsicSizeChanged();
+  } else if (params.name == kAutopictureinpictureAttr &&
+             origin_trials::AutoPictureInPictureEnabled(
+                 GetExecutionContext())) {
+    if (!params.new_value.IsNull()) {
+      PictureInPictureController::From(GetDocument())
+          .AddToAutoPictureInPictureElementsList(this);
+    } else {
+      PictureInPictureController::From(GetDocument())
+          .RemoveFromAutoPictureInPictureElementsList(this);
+    }
   } else {
     HTMLMediaElement::ParseAttribute(params);
   }
@@ -583,7 +598,7 @@ scoped_refptr<Image> HTMLVideoElement::GetSourceImageForCanvas(
   return snapshot;
 }
 
-bool HTMLVideoElement::WouldTaintOrigin(const SecurityOrigin*) const {
+bool HTMLVideoElement::WouldTaintOrigin() const {
   return !IsMediaDataCorsSameOrigin();
 }
 
@@ -682,8 +697,7 @@ void HTMLVideoElement::PictureInPictureControlClicked(
 
 WebMediaPlayer::DisplayType HTMLVideoElement::DisplayType() const {
   if (is_auto_picture_in_picture_ ||
-      PictureInPictureController::From(GetDocument())
-          .IsPictureInPictureElement(this)) {
+      PictureInPictureController::IsElementInPictureInPicture(this)) {
     return WebMediaPlayer::DisplayType::kPictureInPicture;
   }
 

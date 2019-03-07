@@ -20,7 +20,7 @@
 #include "chrome/browser/ui/ash/launcher/app_window_launcher_item_controller.h"
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/shelf_spinner_controller.h"
-#include "chrome/browser/ui/ash/multi_user/multi_user_window_manager.h"
+#include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_client.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -69,17 +69,28 @@ CrostiniAppWindowShelfController::CrostiniAppWindowShelfController(
   // https://crbug.com/887156
   if (!features::IsMultiProcessMash())
     ash::Shell::Get()->aura_env()->AddObserver(this);
+  // When window service is enabled, aura::Env::GetInstance() is a different
+  // instance from ash::Shell::Get()->aura_env(), and it needs to be observed
+  // for the Crostini terminal, which is a Chrome app window. Note that it still
+  // needs to observe ash::Shell::Get()->aura_env() too for other crostini apps,
+  // which are hosted by exo.
+  // TODO(mukai): clean this up. https://crbug.com/887156
+  if (features::IsUsingWindowService())
+    aura::Env::GetInstance()->AddObserver(this);
 }
 
 CrostiniAppWindowShelfController::~CrostiniAppWindowShelfController() {
   for (auto* window : observed_windows_)
     window->RemoveObserver(this);
+  if (features::IsUsingWindowService())
+    aura::Env::GetInstance()->RemoveObserver(this);
   if (!features::IsMultiProcessMash())
     ash::Shell::Get()->aura_env()->RemoveObserver(this);
 }
 
 void CrostiniAppWindowShelfController::AddToShelf(aura::Window* window,
                                                   AppWindowBase* app_window) {
+  window->SetProperty<int>(ash::kShelfItemTypeKey, ash::TYPE_APP);
   ash::ShelfID shelf_id = app_window->shelf_id();
   AppWindowLauncherItemController* item_controller =
       owner()->shelf_model()->GetAppWindowLauncherItemController(shelf_id);
@@ -124,7 +135,7 @@ ash::ShelfID CrostiniAppWindowShelfController::RemoveFromShelf(
 void CrostiniAppWindowShelfController::ActiveUserChanged(
     const std::string& user_email) {
   for (auto& w : aura_window_to_app_window_) {
-    if (MultiUserWindowManager::GetInstance()
+    if (MultiUserWindowManagerClient::GetInstance()
             ->GetWindowOwner(w.first)
             .GetUserEmail() == user_email) {
       AddToShelf(w.first, w.second.get());
@@ -218,7 +229,7 @@ void CrostiniAppWindowShelfController::OnWindowVisibilityChanging(
   RegisterAppWindow(window, shelf_app_id);
 
   // Prevent Crostini window from showing up after user switch.
-  MultiUserWindowManager::GetInstance()->SetWindowOwner(
+  MultiUserWindowManagerClient::GetInstance()->SetWindowOwner(
       window,
       user_manager::UserManager::Get()->GetActiveUser()->GetAccountId());
 

@@ -41,6 +41,7 @@ class NativeViewHostMac : public NativeViewHostWrapper,
   void AddedToWidget() override;
   void RemovedFromWidget() override;
   bool SetCustomMask(std::unique_ptr<ui::LayerOwner> mask) override;
+  void SetHitTestTopInset(int top_inset) override;
   void InstallClip(int x, int y, int w, int h) override;
   bool HasInstalledClip() override;
   void UninstallClip() override;
@@ -52,6 +53,7 @@ class NativeViewHostMac : public NativeViewHostWrapper,
   gfx::NativeViewAccessible GetNativeViewAccessible() override;
   gfx::NativeCursor GetCursor(int x, int y) override;
   void SetVisible(bool visible) override;
+  void SetParentAccessible(gfx::NativeViewAccessible) override;
 
  private:
   // Return the BridgedNativeWidgetHostImpl for this hosted view.

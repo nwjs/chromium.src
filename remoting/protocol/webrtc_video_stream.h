@@ -25,8 +25,8 @@
 #include "third_party/webrtc/modules/desktop_capture/desktop_capturer.h"
 
 namespace webrtc {
-class MediaStreamInterface;
 class PeerConnectionInterface;
+class RtpSenderInterface;
 }  // namespace webrtc
 
 namespace remoting {
@@ -54,6 +54,7 @@ class WebrtcVideoStream : public VideoStream,
   void SetLosslessEncode(bool want_lossless) override;
   void SetLosslessColor(bool want_lossless) override;
   void SetObserver(Observer* observer) override;
+  void SelectSource(int id) override;
 
  private:
   struct FrameStats;
@@ -86,7 +87,7 @@ class WebrtcVideoStream : public VideoStream,
   scoped_refptr<InputEventTimestampsSource> event_timestamps_source_;
 
   scoped_refptr<webrtc::PeerConnectionInterface> peer_connection_;
-  scoped_refptr<webrtc::MediaStreamInterface> stream_;
+  scoped_refptr<webrtc::RtpSenderInterface> video_sender_;
 
   HostVideoStatsDispatcher video_stats_dispatcher_;
 

@@ -12,9 +12,9 @@
 
 #include "base/base64.h"
 #include "base/command_line.h"
-#include "base/macros.h"
 #include "base/metrics/field_trial.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_entropy_provider.h"
@@ -65,7 +65,6 @@ const char kOldSuccessSessionKey[] = "OldSecretSessionKey";
 
 // The following values should match those in
 // DataReductionProxyConfigServiceClientTest.loaded_config_:
-const char kPersistedOrigin[] = "https://persisted.net:443";
 const char kPersistedFallback[] = "persisted.net:80";
 const char kPersistedSessionKey[] = "PersistedSessionKey";
 
@@ -248,8 +247,9 @@ class DataReductionProxyConfigServiceClientTest : public testing::Test {
     std::vector<DataReductionProxyServer> expected_http_proxies;
     if (expect_secure_proxies) {
       expected_http_proxies.push_back(DataReductionProxyServer(
-          net::ProxyServer::FromURI(kSuccessOrigin,
-                                    net::ProxyServer::SCHEME_HTTP),
+          net::ProxyServer(net::ProxyServer::SCHEME_HTTPS,
+                           net::HostPortPair("origin.net", 443),
+                           true /* is_trusted_proxy */),
           ProxyServer::CORE));
     }
     expected_http_proxies.push_back(DataReductionProxyServer(
@@ -294,8 +294,9 @@ class DataReductionProxyConfigServiceClientTest : public testing::Test {
   void VerifyRemoteSuccessWithOldConfig() {
     std::vector<DataReductionProxyServer> expected_http_proxies;
     expected_http_proxies.push_back(DataReductionProxyServer(
-        net::ProxyServer::FromURI(kOldSuccessOrigin,
-                                  net::ProxyServer::SCHEME_HTTP),
+        net::ProxyServer(net::ProxyServer::SCHEME_HTTPS,
+                         net::HostPortPair("old.origin.net", 443),
+                         true /* is_trusted_proxy */),
         ProxyServer::CORE));
     expected_http_proxies.push_back(DataReductionProxyServer(
         net::ProxyServer::FromURI(kOldSuccessFallback,
@@ -329,8 +330,9 @@ class DataReductionProxyConfigServiceClientTest : public testing::Test {
     std::vector<DataReductionProxyServer> expected_http_proxies;
     if (expect_secure_proxies) {
       expected_http_proxies.push_back(DataReductionProxyServer(
-          net::ProxyServer::FromURI(kPersistedOrigin,
-                                    net::ProxyServer::SCHEME_HTTP),
+          net::ProxyServer(net::ProxyServer::SCHEME_HTTPS,
+                           net::HostPortPair("persisted.net", 443),
+                           true /* is_trusted_proxy */),
           ProxyServer::CORE));
     }
     expected_http_proxies.push_back(DataReductionProxyServer(
@@ -664,7 +666,7 @@ TEST_F(DataReductionProxyConfigServiceClientTest, OnIPAddressChange) {
       },
   };
 
-  for (size_t i = 0; i < arraysize(tests); ++i) {
+  for (size_t i = 0; i < base::size(tests); ++i) {
     SetDataReductionProxyEnabled(true, tests[i].secure_proxies_allowed);
     config_client()->RetrieveConfig();
 
@@ -1220,7 +1222,7 @@ TEST_F(DataReductionProxyConfigServiceClientTest, HTTPRequests) {
       },
   };
 
-  for (size_t i = 0; i < arraysize(tests); ++i) {
+  for (size_t i = 0; i < base::size(tests); ++i) {
     base::HistogramTester histogram_tester;
     SetDataReductionProxyEnabled(tests[i].enabled_by_user, true);
 
@@ -1342,8 +1344,9 @@ TEST_F(DataReductionProxyConfigServiceClientTest, ApplySerializedConfigLocal) {
   // ApplySerializedConfig should apply the encoded config.
   config_client()->ApplySerializedConfig(encoded_config());
   EXPECT_EQ(std::vector<net::ProxyServer>(
-                {net::ProxyServer::FromURI(kSuccessOrigin,
-                                           net::ProxyServer::SCHEME_HTTP),
+                {net::ProxyServer(net::ProxyServer::SCHEME_HTTPS,
+                                  net::HostPortPair("origin.net", 443),
+                                  true /* is_trusted_proxy */),
                  net::ProxyServer::FromURI(kSuccessFallback,
                                            net::ProxyServer::SCHEME_HTTP)}),
             GetConfiguredProxiesForHttp());

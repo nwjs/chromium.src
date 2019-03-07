@@ -100,7 +100,7 @@ HTMLImportLoader::State HTMLImportLoader::StartWritingAndParsing(
   DCHECK(!imports_.IsEmpty());
   document_ = HTMLDocument::Create(
       DocumentInit::CreateWithImportsController(controller_)
-          .WithURL(response.Url()));
+          .WithURL(response.CurrentRequestUrl()));
   document_->OpenForNavigation(kAllowAsynchronousParsing, response.MimeType(),
                                "UTF-8");
 
@@ -201,7 +201,7 @@ V0CustomElementSyncMicrotaskQueue* HTMLImportLoader::MicrotaskQueue() const {
   return microtask_queue_;
 }
 
-void HTMLImportLoader::Trace(blink::Visitor* visitor) {
+void HTMLImportLoader::Trace(Visitor* visitor) {
   visitor->Trace(controller_);
   visitor->Trace(imports_);
   visitor->Trace(document_);

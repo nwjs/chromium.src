@@ -17,6 +17,7 @@
 #include "content/shell/test_runner/web_widget_test_proxy.h"
 #include "third_party/blink/public/platform/web_screen_info.h"
 #include "third_party/blink/public/web/web_page_popup.h"
+#include "third_party/blink/public/web/web_view.h"
 #include "third_party/blink/public/web/web_widget.h"
 
 namespace test_runner {
@@ -52,9 +53,20 @@ void WebWidgetTestClient::AnimateNow() {
   blink::WebWidget* web_widget = web_widget_test_proxy_base_->web_widget();
   web_widget->UpdateAllLifecyclePhasesAndCompositeForTesting(
       animation_requires_raster);
-  if (blink::WebPagePopup* popup = web_widget->GetPagePopup())
-    popup->UpdateAllLifecyclePhasesAndCompositeForTesting(
-        animation_requires_raster);
+
+  // If this is the main frame, we composite the current PagePopup with the
+  // widget.
+  // TODO(danakj): This means that an OOPIF's popup, which is attached to a
+  // WebView without a main frame, would have no opportunity to execute this
+  // method call.
+  if (web_widget_test_proxy_base_->main_frame_widget()) {
+    blink::WebView* view =
+        web_widget_test_proxy_base_->web_view_test_proxy_base()->web_view();
+    if (blink::WebPagePopup* popup = view->GetPagePopup()) {
+      popup->UpdateAllLifecyclePhasesAndCompositeForTesting(
+          animation_requires_raster);
+    }
+  }
 }
 
 bool WebWidgetTestClient::RequestPointerLock() {
@@ -84,12 +96,6 @@ void WebWidgetTestClient::StartDragging(network::mojom::ReferrerPolicy policy,
   // When running a test, we need to fake a drag drop operation otherwise
   // Windows waits for real mouse events to know when the drag is over.
   web_widget_test_proxy_base_->event_sender()->DoDragDrop(data, mask);
-}
-
-bool WebWidgetTestClient::AllowsBrokenNullLayerTreeView() const {
-  // This call should go to the production client, not here.
-  NOTREACHED();
-  return false;
 }
 
 TestRunnerForSpecificView* WebWidgetTestClient::view_test_runner() {

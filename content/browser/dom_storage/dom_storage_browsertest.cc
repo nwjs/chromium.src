@@ -77,7 +77,7 @@ class DOMStorageBrowserTest : public ContentBrowserTest {
     return usage;
   }
 
-  void DeletePhysicalOrigin(GURL origin) {
+  void DeletePhysicalOrigin(url::Origin origin) {
     auto* context = BrowserContext::GetDefaultStoragePartition(
                         shell()->web_contents()->GetBrowserContext())
                         ->GetDOMStorageContext();

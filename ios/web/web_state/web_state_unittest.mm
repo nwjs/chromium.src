@@ -25,6 +25,7 @@
 #import "ios/web/public/test/web_test_with_web_state.h"
 #import "ios/web/public/test/web_view_content_test_util.h"
 #import "ios/web/public/web_client.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/image/image.h"
 #include "ui/gfx/image/image_unittest_util.h"
 
@@ -215,7 +216,7 @@ TEST_P(WebStateTest, Snapshot) {
   CGRect rect = [web_state()->GetView() bounds];
   base::test::ios::SpinRunLoopWithMinDelay(base::TimeDelta::FromSecondsD(0.2));
   web_state()->TakeSnapshot(
-      rect, base::BindOnce(^(gfx::Image snapshot) {
+      gfx::RectF(rect), base::BindOnce(^(const gfx::Image& snapshot) {
         if (@available(iOS 11, *)) {
           ASSERT_FALSE(snapshot.IsEmpty());
           EXPECT_GT(snapshot.Width(), 0);
@@ -351,31 +352,41 @@ TEST_P(WebStateTest, RestoreLargeSession) {
   EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
     bool restored = navigation_manager->GetItemCount() == kExpectedItemCount &&
                     navigation_manager->CanGoForward();
+    EXPECT_EQ(restored, !navigation_manager->IsRestoreSessionInProgress());
     if (!restored) {
+      EXPECT_FALSE(navigation_manager->GetLastCommittedItem());
+      EXPECT_EQ(-1, navigation_manager->GetLastCommittedItemIndex());
+      EXPECT_TRUE(web_state_ptr->GetLastCommittedURL().is_empty());
       EXPECT_FALSE(navigation_manager->CanGoForward());
-      DCHECK_EQ(0.0, web_state_ptr->GetLoadingProgress());
-      // TODO(crbug.com/877671): Ensure that the following API work correctly:
-      //  - WebState::GetLastCommittedURL
-      //  - NavigationManager::GetBackwardItems
-      //  - NavigationManager::GetForwardItems
-      //  - NavigationManager::GetLastCommittedItem
-      //  - NavigationManager::GetPendingItem
-      //  - NavigationManager::GetLastCommittedItemIndex
-      //  - NavigationManager::GetPendingItemIndex
+      EXPECT_TRUE(navigation_manager->GetBackwardItems().empty());
+      EXPECT_TRUE(navigation_manager->GetForwardItems().empty());
+      EXPECT_EQ("Test0", base::UTF16ToASCII(web_state_ptr->GetTitle()));
+      EXPECT_EQ(0.0, web_state_ptr->GetLoadingProgress());
+      EXPECT_EQ(-1, navigation_manager->GetPendingItemIndex());
+      EXPECT_FALSE(navigation_manager->GetPendingItem());
     } else {
-      EXPECT_EQ("http://www.0.com/", web_state_ptr->GetLastCommittedURL());
+      EXPECT_EQ("Test0", base::UTF16ToASCII(web_state_ptr->GetTitle()));
       NavigationItem* last_committed_item =
           navigation_manager->GetLastCommittedItem();
-      EXPECT_TRUE(last_committed_item);
-      EXPECT_TRUE(last_committed_item &&
-                  last_committed_item->GetURL() == "http://www.0.com/");
-      EXPECT_EQ(0, navigation_manager->GetLastCommittedItemIndex());
+      // After restoration is complete GetLastCommittedItem() will return null
+      // until fist post-restore navigation is finished.
+      if (last_committed_item) {
+        EXPECT_EQ("http://www.0.com/", last_committed_item->GetURL());
+        EXPECT_EQ("http://www.0.com/", web_state_ptr->GetLastCommittedURL());
+        EXPECT_EQ(0, navigation_manager->GetLastCommittedItemIndex());
+      } else {
+        EXPECT_EQ("", web_state_ptr->GetLastCommittedURL());
+        EXPECT_EQ(-1, navigation_manager->GetLastCommittedItemIndex());
+        NavigationItem* pending_item = navigation_manager->GetPendingItem();
+        EXPECT_TRUE(pending_item);
+        if (pending_item) {
+          EXPECT_EQ("http://www.0.com/", pending_item->GetURL());
+        }
+      }
       EXPECT_TRUE(navigation_manager->GetBackwardItems().empty());
       EXPECT_EQ(std::max(navigation_manager->GetItemCount() - 1, 0),
                 static_cast<int>(navigation_manager->GetForwardItems().size()));
     }
-    // TODO(crbug.com/877671): Ensure that the following API work correctly:
-    //  - WebState::GetTitle
     EXPECT_FALSE(web_state_ptr->IsCrashed());
     EXPECT_FALSE(web_state_ptr->IsEvicted());
     EXPECT_EQ("http://www.0.com/", web_state_ptr->GetVisibleURL());
@@ -447,6 +458,56 @@ TEST_P(WebStateTest, CallStopDuringSessionRestore) {
   // Now wait until the last committed item is fully loaded.
   EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
     return !navigation_manager->GetPendingItem() && !web_state_ptr->IsLoading();
+  }));
+}
+
+// Verifies that calling NavigationManager::LoadURLWithParams() does not stop
+// the session restoration and eventually loads the requested URL.
+TEST_P(WebStateTest, CallLoadURLWithParamsDuringSessionRestore) {
+  // Create session storage with large number of items.
+  const int kItemCount = 10;
+  NSMutableArray<CRWNavigationItemStorage*>* item_storages =
+      [NSMutableArray arrayWithCapacity:kItemCount];
+  for (unsigned int i = 0; i < kItemCount; i++) {
+    CRWNavigationItemStorage* item = [[CRWNavigationItemStorage alloc] init];
+    item.virtualURL = GURL(base::StringPrintf("http://www.%u.test", i));
+    item.userAgentType = UserAgentType::MOBILE;
+    [item_storages addObject:item];
+  }
+
+  // Restore the session.
+  WebState::CreateParams params(GetBrowserState());
+  CRWSessionStorage* session_storage = [[CRWSessionStorage alloc] init];
+  session_storage.itemStorages = item_storages;
+  auto web_state = WebState::CreateWithStorageSession(params, session_storage);
+  WebState* web_state_ptr = web_state.get();
+  NavigationManager* navigation_manager = web_state->GetNavigationManager();
+  // TODO(crbug.com/873729): The session will not be restored until
+  // LoadIfNecessary call. Fix the bug and remove extra call.
+  navigation_manager->LoadIfNecessary();
+
+  // Attempt to interrupt the session restoration.
+  GURL url("http://foo.test/");
+  NavigationManager::WebLoadParams load_params(url);
+  navigation_manager->LoadURLWithParams(load_params);
+
+  // Verify that session was fully restored.
+  EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+    bool restored = navigation_manager->GetItemCount() == kItemCount &&
+                    navigation_manager->CanGoForward();
+    if (!restored) {
+      // Attempt to interrupt the session restoration multiple times, which is
+      // something that the user can do on the slow network.
+      navigation_manager->LoadURLWithParams(load_params);
+    }
+    return restored;
+  }));
+  EXPECT_EQ(kItemCount, navigation_manager->GetItemCount());
+  EXPECT_TRUE(navigation_manager->CanGoForward());
+
+  // Now wait until the last committed item is fully loaded.
+  EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+    return web_state_ptr->GetLastCommittedURL() == url;
   }));
 }
 

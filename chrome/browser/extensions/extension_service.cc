@@ -59,7 +59,6 @@
 #include "chrome/browser/extensions/updater/extension_updater.h"
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search/thumbnail_source.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/theme_source.h"
@@ -914,13 +913,6 @@ void ExtensionService::PostActivateExtension(
   if (permissions_data->HasHostPermission(GURL(chrome::kChromeUIThemeURL))) {
     content::URLDataSource::Add(profile_,
                                 std::make_unique<ThemeSource>(profile_));
-  }
-
-  // Same for chrome://thumb/ resources.
-  if (permissions_data->HasHostPermission(
-          GURL(chrome::kChromeUIThumbnailURL))) {
-    content::URLDataSource::Add(
-        profile_, std::make_unique<ThumbnailSource>(profile_, false));
   }
 }
 

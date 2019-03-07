@@ -23,9 +23,13 @@ class TaskBase::AsyncFunctionCompleted : public ScriptFunction {
   static v8::Local<v8::Function> CreateFunction(ScriptState* script_state,
                                                 TaskBase* task,
                                                 State state) {
-    return (new AsyncFunctionCompleted(script_state, task, state))
+    return (MakeGarbageCollected<AsyncFunctionCompleted>(script_state, task,
+                                                         state))
         ->BindToV8Function();
   }
+
+  AsyncFunctionCompleted(ScriptState* script_state, TaskBase* task, State state)
+      : ScriptFunction(script_state), task_(task), state_(state) {}
 
   ScriptValue Call(ScriptValue v) override {
     task_->TaskCompletedOnWorkerThread(v.V8Value(), state_);
@@ -33,8 +37,6 @@ class TaskBase::AsyncFunctionCompleted : public ScriptFunction {
   }
 
  private:
-  AsyncFunctionCompleted(ScriptState* script_state, TaskBase* task, State state)
-      : ScriptFunction(script_state), task_(task), state_(state) {}
   CrossThreadPersistent<TaskBase> task_;
   const State state_;
 };
@@ -168,7 +170,7 @@ scoped_refptr<SerializedScriptValue> TaskBase::GetSerializedResult() {
     DCHECK(v8_result_);
     ScriptState::Scope scope(
         worker_thread_->GlobalScope()->ScriptController()->GetScriptState());
-    v8::Isolate* isolate = ToIsolate(worker_thread_->GlobalScope());
+    v8::Isolate* isolate = worker_thread_->GlobalScope()->GetIsolate();
     serialized_result_ = SerializedScriptValue::SerializeAndSwallowExceptions(
         isolate, v8_result_->GetResult(isolate));
   }
@@ -247,8 +249,8 @@ bool TaskBase::WillStartTaskOnWorkerThread() {
 void TaskBase::TaskCompletedOnWorkerThread(v8::Local<v8::Value> v8_result,
                                            State state) {
   DCHECK(worker_thread_->IsCurrentThread());
-  v8_result_ =
-      new V8ResultHolder(ToIsolate(worker_thread_->GlobalScope()), v8_result);
+  v8_result_ = MakeGarbageCollected<V8ResultHolder>(
+      worker_thread_->GlobalScope()->GetIsolate(), v8_result);
   function_ = nullptr;
   arguments_.clear();
 
@@ -276,7 +278,7 @@ void TaskBase::RunTaskOnWorkerThread() {
   // so no mutex needed while actually running the task.
   WorkerOrWorkletGlobalScope* global_scope = worker_thread_->GlobalScope();
   ScriptState::Scope scope(global_scope->ScriptController()->GetScriptState());
-  v8::Isolate* isolate = ToIsolate(global_scope);
+  v8::Isolate* isolate = global_scope->GetIsolate();
   v8::Local<v8::Context> context = isolate->GetCurrentContext();
 
   v8::Local<v8::Function> script_function;
@@ -399,7 +401,7 @@ void Task::StartTaskOnWorkerThread() {
   DCHECK(worker_thread_->IsCurrentThread());
   if (!WillStartTaskOnWorkerThread()) {
     WorkerOrWorkletGlobalScope* global_scope = worker_thread_->GlobalScope();
-    v8::Isolate* isolate = ToIsolate(global_scope);
+    v8::Isolate* isolate = global_scope->GetIsolate();
     ScriptState::Scope scope(
         global_scope->ScriptController()->GetScriptState());
     TaskCompletedOnWorkerThread(V8String(isolate, "Task aborted"),

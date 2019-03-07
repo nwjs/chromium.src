@@ -12,9 +12,11 @@
 #include <vector>
 
 #include "base/containers/span.h"
+#include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "chrome/browser/ui/tabs/tab_group_data.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_order_controller.h"
 #include "ui/base/models/list_selection_model.h"
@@ -283,6 +285,14 @@ class TabStripModel {
   // Returns true if the tab at |index| is blocked by a tab modal dialog.
   bool IsTabBlocked(int index) const;
 
+  // Returns the group that contains the tab at |index|, or nullptr if it is not
+  // grouped. This feature is in development and gated behind a feature flag.
+  // https://crbug.com/915956.
+  const TabGroupData* GetTabGroupForTab(int index) const;
+
+  // Returns the list of tab groups that contain at least one tab in this strip.
+  std::vector<TabGroupData*> ListTabGroups() const;
+
   // Returns the index of the first tab that is not a pinned tab. This returns
   // |count()| if all of the tabs are pinned tabs, and 0 if none of the tabs are
   // pinned tabs.
@@ -333,9 +343,32 @@ class TabStripModel {
   void MoveTabNext();
   void MoveTabPrevious();
 
+  // Create a new tab group and add the set of tabs pointed to be |indices| to
+  // it. Pins all of the tabs if any of them were pinned, and reorders the tabs
+  // so they are contiguous and do not split an existing group in half.
+  // |indices| must be sorted in ascending order. This feature is in development
+  // and gated behind a feature flag. https://crbug.com/915956.
+  void AddToNewGroup(const std::vector<int>& indices);
+
+  // Add the set of tabs pointed to by |indices| to the tab group |group|. The
+  // tabs take on the pinnedness of the tabs already in the group, and are moved
+  // to immediately follow the tabs already in the group. |indices| must be
+  // sorted in ascending order. This feature is in development and gated behind
+  // a feature flag. https://crbug.com/915956.
+  void AddToExistingGroup(const std::vector<int>& indices,
+                          const TabGroupData* group);
+
+  // Removes the set of tabs pointed to by |indices| from the the groups they
+  // are in, if any. The tabs are moved out of the group if necessary. Returns
+  // the new locations of the tabs formerly located at |indices|. |indices| must
+  // be sorted in ascending order. This feature is in development and gated
+  // behind a feature flag. https://crbug.com/915956.
+  std::vector<int> RemoveFromGroup(const std::vector<int>& indices);
+
   // View API //////////////////////////////////////////////////////////////////
 
-  // Context menu functions.
+  // Context menu functions. Tab groups uses command ids following CommandLast
+  // for entries in the 'Add to existing group' submenu.
   enum ContextMenuCommand {
     CommandFirst,
     CommandNewTab,
@@ -348,7 +381,11 @@ class TabStripModel {
     CommandTogglePinned,
     CommandToggleTabAudioMuted,
     CommandToggleSiteMuted,
+    CommandSendToMyDevices,
     CommandBookmarkAllTabs,
+    CommandAddToNewGroup,
+    CommandAddToExistingGroup,
+    CommandRemoveFromGroup,
     CommandLast
   };
 
@@ -363,11 +400,10 @@ class TabStripModel {
   void ExecuteContextMenuCommand(int context_index,
                                  ContextMenuCommand command_id);
 
-  // Returns a vector of indices of the tabs that will close when executing the
-  // command |id| for the tab at |index|. The returned indices are sorted in
-  // descending order.
-  std::vector<int> GetIndicesClosedByCommand(int index,
-                                             ContextMenuCommand id) const;
+  // Adds the tab at |context_index| to the given tab group |group|. If
+  // |context_index| is selected the command applies to all selected tabs.
+  void ExecuteAddToExistingGroupCommand(int context_index,
+                                        const TabGroupData* group);
 
   // Returns true if 'CommandToggleTabAudioMuted' will mute. |index| is the
   // index supplied to |ExecuteContextMenuCommand|.
@@ -409,6 +445,8 @@ class TabStripModel {
   bool ShouldResetOpenerOnActiveTabChange(content::WebContents* contents) const;
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, GetIndicesClosedByCommand);
+
   class WebContentsData;
   struct DetachedWebContents;
   struct DetachNotifications;
@@ -441,8 +479,15 @@ class TabStripModel {
 
   // If |index| is selected all the selected indices are returned, otherwise a
   // vector with |index| is returned. This is used when executing commands to
-  // determine which indices the command applies to.
+  // determine which indices the command applies to. Indices are sorted in
+  // increasing order.
   std::vector<int> GetIndicesForCommand(int index) const;
+
+  // Returns a vector of indices of the tabs that will close when executing the
+  // command |id| for the tab at |index|. The returned indices are sorted in
+  // descending order.
+  std::vector<int> GetIndicesClosedByCommand(int index,
+                                             ContextMenuCommand id) const;
 
   // Returns true if the specified WebContents is a New Tab at the end of
   // the tabstrip. We check for this because opener relationships are _not_
@@ -507,6 +552,22 @@ class TabStripModel {
   // starting at |start| to |index|. See MoveSelectedTabsTo for more details.
   void MoveSelectedTabsToImpl(int index, size_t start, size_t length);
 
+  // Moves the set of tabs indicated by |indices| to precede the tab at index
+  // |destination_index|, maintaining their order and the order of tabs not
+  // being moved, and adds them to the tab group |group|.
+  void MoveTabsIntoGroup(const std::vector<int>& indices,
+                         int destination_index,
+                         const TabGroupData* group);
+
+  // Removes the tab at |index| from the group that contains it, if any. Moves
+  // the tab to the end of the group if necessary to keep the group it was in
+  // contiguous. Returns the new index of the ungrouped tab.
+  int UngroupTab(int index);
+
+  // Ensures all tabs indicated by |indices| are pinned, moving them in the
+  // process if necessary. Returns the new locations of all of those tabs.
+  std::vector<int> SetTabsPinned(const std::vector<int>& indices, bool pinned);
+
   // Sets the sound content setting for each site at the |indices|.
   void SetSitesMuted(const std::vector<int>& indices, bool mute) const;
 
@@ -517,6 +578,9 @@ class TabStripModel {
   // The WebContents data currently hosted within this TabStripModel. This must
   // be kept in sync with |selection_model_|.
   std::vector<std::unique_ptr<WebContentsData>> contents_data_;
+
+  // The tab groups hosted within this TabStripModel.
+  std::vector<std::unique_ptr<TabGroupData>> group_data_;
 
   TabStripModelDelegate* delegate_;
 

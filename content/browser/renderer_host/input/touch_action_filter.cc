@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
@@ -153,14 +154,20 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
           touch_action = cc::kTouchActionAuto;
         }
       }
-      if (!compositor_touch_action_enabled_) {
-        gesture_sequence_.append("B");
-        if (!active_touch_action_.has_value()) {
-          static auto* crash_key = base::debug::AllocateCrashKeyString(
-              "scrollbegin-gestures", base::debug::CrashKeySize::Size256);
-          base::debug::SetCrashKeyString(crash_key, gesture_sequence_);
-          gesture_sequence_.clear();
-        }
+      gesture_sequence_.append("B");
+      if (!compositor_touch_action_enabled_ &&
+          !active_touch_action_.has_value()) {
+        static auto* crash_key = base::debug::AllocateCrashKeyString(
+            "scrollbegin-gestures", base::debug::CrashKeySize::Size256);
+        base::debug::SetCrashKeyString(crash_key, gesture_sequence_);
+        gesture_sequence_.clear();
+      }
+      if (compositor_touch_action_enabled_ && !touch_action.has_value()) {
+        static auto* crash_key = base::debug::AllocateCrashKeyString(
+            "scrollbegin1-gestures", base::debug::CrashKeySize::Size256);
+        base::debug::SetCrashKeyString(crash_key, gesture_sequence_);
+        base::debug::DumpWithoutCrashing();
+        gesture_sequence_.clear();
       }
       DCHECK(touch_action.has_value());
       drop_scroll_events_ =
@@ -187,8 +194,8 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
         return FilterGestureEventResult::kFilterGestureEventFiltered;
       }
 
+      gesture_sequence_.append("U");
       if (!compositor_touch_action_enabled_)
-        gesture_sequence_.append("U");
       // Scrolls restricted to a specific axis shouldn't permit movement
       // in the perpendicular axis.
       //
@@ -257,8 +264,7 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
           (touch_action.value() & cc::kTouchActionPinchZoom) == 0;
       FALLTHROUGH;
     case WebInputEvent::kGesturePinchUpdate:
-      if (!compositor_touch_action_enabled_)
-        gesture_sequence_.append("P");
+      gesture_sequence_.append("P");
       return drop_pinch_events_
                  ? FilterGestureEventResult::kFilterGestureEventFiltered
                  : FilterGestureEventResult::kFilterGestureEventAllowed;
@@ -277,8 +283,7 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
     // assumption here at least to avoid introducing new bugs in future.
     case WebInputEvent::kGestureDoubleTap:
       gesture_sequence_in_progress_ = false;
-      if (!compositor_touch_action_enabled_)
-        gesture_sequence_.append("D");
+      gesture_sequence_.append("D");
       DCHECK_EQ(1, gesture_event->data.tap.tap_count);
       if (!allow_current_double_tap_event_) {
         gesture_event->SetType(WebInputEvent::kGestureTap);
@@ -290,14 +295,13 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
     // If double tap is disabled, there's no reason for the tap delay.
     case WebInputEvent::kGestureTapUnconfirmed: {
       DCHECK_EQ(1, gesture_event->data.tap.tap_count);
-      if (!compositor_touch_action_enabled_) {
-        gesture_sequence_.append("C");
-        if (!active_touch_action_.has_value()) {
-          static auto* crash_key = base::debug::AllocateCrashKeyString(
-              "tapunconfirmed-gestures", base::debug::CrashKeySize::Size256);
-          base::debug::SetCrashKeyString(crash_key, gesture_sequence_);
-          gesture_sequence_.clear();
-        }
+      gesture_sequence_.append("C");
+      if (!compositor_touch_action_enabled_ &&
+          !active_touch_action_.has_value()) {
+        static auto* crash_key = base::debug::AllocateCrashKeyString(
+            "tapunconfirmed-gestures", base::debug::CrashKeySize::Size256);
+        base::debug::SetCrashKeyString(crash_key, gesture_sequence_);
+        gesture_sequence_.clear();
       }
       allow_current_double_tap_event_ =
           (touch_action.value() & cc::kTouchActionDoubleTapZoom) != 0;
@@ -310,8 +314,7 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
 
     case WebInputEvent::kGestureTap:
       gesture_sequence_in_progress_ = false;
-      if (!compositor_touch_action_enabled_)
-        gesture_sequence_.append("A");
+      gesture_sequence_.append("A");
       if (drop_current_tap_ending_event_) {
         drop_current_tap_ending_event_ = false;
         return FilterGestureEventResult::kFilterGestureEventFiltered;
@@ -319,8 +322,7 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
       break;
 
     case WebInputEvent::kGestureTapCancel:
-      if (!compositor_touch_action_enabled_)
-        gesture_sequence_.append("K");
+      gesture_sequence_.append("K");
       if (drop_current_tap_ending_event_) {
         drop_current_tap_ending_event_ = false;
         return FilterGestureEventResult::kFilterGestureEventFiltered;
@@ -329,24 +331,34 @@ FilterGestureEventResult TouchActionFilter::FilterGestureEvent(
 
     case WebInputEvent::kGestureTapDown:
       gesture_sequence_in_progress_ = true;
+      if (allowed_touch_action_.has_value())
+        gesture_sequence_.append("AY");
+      else
+        gesture_sequence_.append("AN");
+      if (white_listed_touch_action_.has_value())
+        gesture_sequence_.append("WY");
+      else
+        gesture_sequence_.append("WN");
+      if (active_touch_action_.has_value())
+        gesture_sequence_.append("OY");
+      else
+        gesture_sequence_.append("ON");
+      // TODO(xidachen): investigate why the touch action has no value.
+      if (compositor_touch_action_enabled_ && !touch_action.has_value())
+        SetTouchAction(cc::kTouchActionAuto);
       // In theory, the num_of_active_touches_ should be > 0 at this point. But
       // crash reports suggest otherwise.
       if (num_of_active_touches_ <= 0)
         SetTouchAction(cc::kTouchActionAuto);
       active_touch_action_ = allowed_touch_action_;
-      if (!compositor_touch_action_enabled_) {
-        if (active_touch_action_.has_value())
-          gesture_sequence_.append("OY");
-        else
-          gesture_sequence_.append("ON");
-        gesture_sequence_.append(
-            base::NumberToString(gesture_event->unique_touch_event_id));
-      }
+      gesture_sequence_.append(
+          base::NumberToString(gesture_event->unique_touch_event_id));
       DCHECK(!drop_current_tap_ending_event_);
       break;
 
     case WebInputEvent::kGestureLongTap:
     case WebInputEvent::kGestureTwoFingerTap:
+      gesture_sequence_.append("G");
       gesture_sequence_in_progress_ = false;
       break;
 
@@ -542,6 +554,7 @@ void TouchActionFilter::OnHasTouchEventHandlers(bool has_handlers) {
   if (!gesture_sequence_in_progress_ && num_of_active_touches_ <= 0) {
     ResetTouchAction();
     if (has_touch_event_handler_) {
+      gesture_sequence_.append("H");
       active_touch_action_.reset();
       white_listed_touch_action_.reset();
     }

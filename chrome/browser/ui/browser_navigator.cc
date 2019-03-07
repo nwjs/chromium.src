@@ -47,7 +47,7 @@
 #include "url/url_constants.h"
 
 #if defined(OS_CHROMEOS)
-#include "chrome/browser/ui/ash/multi_user/multi_user_window_manager.h"
+#include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_client.h"
 #include "components/account_id/account_id.h"
 #endif
 
@@ -319,6 +319,7 @@ void LoadURLInContents(WebContents* target_contents,
                        const GURL& url,
                        NavigateParams* params) {
   NavigationController::LoadURLParams load_url_params(url);
+  load_url_params.initiator_origin = params->initiator_origin;
   load_url_params.source_site_instance = params->source_site_instance;
   load_url_params.referrer = params->referrer;
   load_url_params.frame_name = params->frame_name;
@@ -335,6 +336,7 @@ void LoadURLInContents(WebContents* target_contents,
   load_url_params.input_start = params->input_start;
   load_url_params.was_activated = params->was_activated;
   load_url_params.href_translate = params->href_translate;
+  load_url_params.reload_type = params->reload_type;
 
   // |frame_tree_node_id| is kNoFrameTreeNodeId for main frame navigations.
   if (params->frame_tree_node_id ==
@@ -515,25 +517,35 @@ void Navigate(NavigateParams* params) {
   if (singleton_index != -1) {
     contents_to_navigate_or_insert =
         params->browser->tab_strip_model()->GetWebContentsAt(singleton_index);
+  } else if (params->disposition == WindowOpenDisposition::SWITCH_TO_TAB) {
+    // The user is trying to open a tab that no longer exists. If we open a new
+    // tab, it could leave orphaned NTPs around, but always overwriting the
+    // current tab could could clobber state that the user was trying to
+    // preserve. Fallback to the behavior used for singletons: overwrite the
+    // current tab if it's the NTP, otherwise open a new tab.
+    params->disposition = WindowOpenDisposition::SINGLETON_TAB;
+    ShowSingletonTabOverwritingNTP(params->browser, std::move(*params));
+    return;
   }
 #if defined(OS_CHROMEOS)
   if (source_browser && source_browser != params->browser) {
     // When the newly created browser was spawned by a browser which visits
     // another user's desktop, it should be shown on the same desktop as the
     // originating one. (This is part of the desktop separation per profile).
-    MultiUserWindowManager* manager = MultiUserWindowManager::GetInstance();
-    // Some unit tests have no manager instantiated.
-    if (manager) {
+    MultiUserWindowManagerClient* client =
+        MultiUserWindowManagerClient::GetInstance();
+    // Some unit tests have no client instantiated.
+    if (client) {
       aura::Window* src_window = source_browser->window()->GetNativeWindow();
       aura::Window* new_window = params->browser->window()->GetNativeWindow();
       const AccountId& src_account_id =
-          manager->GetUserPresentingWindow(src_window);
-      if (src_account_id != manager->GetUserPresentingWindow(new_window)) {
+          client->GetUserPresentingWindow(src_window);
+      if (src_account_id != client->GetUserPresentingWindow(new_window)) {
         // Once the window gets presented, it should be shown on the same
         // desktop as the desktop of the creating browser. Note that this
         // command will not show the window if it wasn't shown yet by the
         // browser creation.
-        manager->ShowWindowForUser(new_window, src_account_id);
+        client->ShowWindowForUser(new_window, src_account_id);
       }
     }
   }
@@ -733,7 +745,7 @@ bool IsHostAllowedInIncognito(const GURL& url) {
     // retrieve the login scope token without touching any profiles. This
     // option is only available on Windows for use with Google Credential
     // Provider for Windows.
-    return signin::GetSigninReasonForPromoURL(url) ==
+    return signin::GetSigninReasonForEmbeddedPromoURL(url) ==
            signin_metrics::Reason::REASON_FETCH_LST_ONLY;
 #else
     return false;

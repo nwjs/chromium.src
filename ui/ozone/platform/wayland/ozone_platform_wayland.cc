@@ -5,8 +5,8 @@
 #include "ui/ozone/platform/wayland/ozone_platform_wayland.h"
 
 #include "base/memory/ptr_util.h"
+#include "ui/base/buildflags.h"
 #include "ui/base/cursor/ozone/bitmap_cursor_factory_ozone.h"
-#include "ui/base/ui_features.h"
 #include "ui/display/manager/fake_display_delegate.h"
 #include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
 #include "ui/events/system_input_injector.h"
@@ -115,7 +115,13 @@ class OzonePlatformWayland : public OzonePlatform {
     // The WaylandConnection and the WaylandOutputManager must be created before
     // PlatformScreen.
     DCHECK(connection_ && connection_->wayland_output_manager());
-    return connection_->wayland_output_manager()->CreateWaylandScreen();
+    return connection_->wayland_output_manager()->CreateWaylandScreen(
+        connection_.get());
+  }
+
+  PlatformClipboard* GetPlatformClipboard() override {
+    DCHECK(connection_);
+    return connection_->GetPlatformClipboard();
   }
 
   bool IsNativePixmapConfigSupported(gfx::BufferFormat format,

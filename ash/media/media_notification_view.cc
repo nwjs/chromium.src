@@ -7,8 +7,11 @@
 #include "ash/media/media_notification_constants.h"
 #include "ash/media/media_notification_controller.h"
 #include "ash/shell.h"
+#include "base/stl_util.h"
 #include "components/vector_icons/vector_icons.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
+#include "ui/gfx/font.h"
+#include "ui/gfx/font_list.h"
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/message_center_constants.h"
 #include "ui/message_center/views/notification_control_buttons_view.h"
@@ -23,13 +26,27 @@ using media_session::mojom::MediaSessionAction;
 
 namespace {
 
+// The right padding is 1/5th the size of the notification.
+constexpr int kRightMarginSize = message_center::kNotificationWidth / 5;
+
+// The right padding is 1/3rd the size of the notification when the
+// notification is expanded.
+constexpr int kRightMarginExpandedSize = message_center::kNotificationWidth / 3;
+
 // Dimensions.
-constexpr gfx::Insets kButtonRowPadding(0, 12, 16, 12);
-constexpr int kMediaButtonIconSize = 32;
+constexpr int kDefaultMarginSize = 16;
+constexpr int kMediaButtonIconSize = 24;
 
 SkColor GetMediaNotificationColor(const views::View& view) {
   return views::style::GetColor(view, views::style::CONTEXT_LABEL,
                                 views::style::STYLE_PRIMARY);
+}
+
+bool ShouldShowActionWhenCollapsed(MediaSessionAction action) {
+  return action == MediaSessionAction::kPlay ||
+         action == MediaSessionAction::kPause ||
+         action == MediaSessionAction::kNextTrack ||
+         action == MediaSessionAction::kPreviousTrack;
 }
 
 }  // namespace
@@ -48,21 +65,52 @@ MediaNotificationView::MediaNotificationView(
   // |header_row_| contains app_icon, app_name, control buttons, etc.
   header_row_ = new message_center::NotificationHeaderView(
       control_buttons_view_.get(), this);
-  header_row_->SetExpandButtonEnabled(false);
+  header_row_->SetExpandButtonEnabled(true);
   header_row_->SetAppName(
       message_center::MessageCenter::Get()->GetSystemNotificationAppName());
   AddChildView(header_row_);
+
+  // |main_row_| holds the main content of the notification.
+  main_row_ = new views::View();
+  AddChildView(main_row_);
+
+  // |title_artist_row_| contains the title and artist labels.
+  title_artist_row_ = new views::View();
+  auto* title_artist_row_layout =
+      title_artist_row_->SetLayoutManager(std::make_unique<views::BoxLayout>(
+          views::BoxLayout::kVertical, gfx::Insets(), 0));
+  title_artist_row_layout->set_main_axis_alignment(
+      views::BoxLayout::MAIN_AXIS_ALIGNMENT_CENTER);
+  title_artist_row_layout->set_cross_axis_alignment(
+      views::BoxLayout::CROSS_AXIS_ALIGNMENT_START);
+  title_artist_row_->SetVisible(false);
+  main_row_->AddChildView(title_artist_row_);
+
+  title_label_ = new views::Label(base::string16(), views::style::CONTEXT_LABEL,
+                                  views::style::STYLE_PRIMARY);
+  const gfx::FontList& base_font_list = views::Label::GetDefaultFontList();
+  title_label_->SetFontList(base_font_list.Derive(
+      0, gfx::Font::FontStyle::NORMAL, gfx::Font::Weight::SEMIBOLD));
+  title_label_->SetVisible(false);
+  title_artist_row_->AddChildView(title_label_);
+
+  artist_label_ =
+      new views::Label(base::string16(), views::style::CONTEXT_LABEL,
+                       views::style::STYLE_PRIMARY);
+  artist_label_->SetVisible(false);
+  title_artist_row_->AddChildView(artist_label_);
 
   // |button_row_| contains the buttons for controlling playback.
   button_row_ = new views::View();
   auto* button_row_layout =
       button_row_->SetLayoutManager(std::make_unique<views::BoxLayout>(
-          views::BoxLayout::kHorizontal, kButtonRowPadding, 16));
+          views::BoxLayout::kHorizontal, gfx::Insets(), 0));
   button_row_layout->set_main_axis_alignment(
       views::BoxLayout::MAIN_AXIS_ALIGNMENT_CENTER);
   button_row_layout->set_cross_axis_alignment(
       views::BoxLayout::CROSS_AXIS_ALIGNMENT_STRETCH);
-  AddChildView(button_row_);
+  button_row_layout->SetDefaultFlex(1);
+  main_row_->AddChildView(button_row_);
 
   CreateMediaButton(vector_icons::kMediaPreviousTrackIcon,
                     MediaSessionAction::kPreviousTrack);
@@ -91,12 +139,15 @@ MediaNotificationView::MediaNotificationView(
   UpdateControlButtonsVisibilityWithNotification(notification);
   UpdateCornerRadius(message_center::kNotificationCornerRadius,
                      message_center::kNotificationCornerRadius);
+  UpdateViewForExpandedState();
 
-  Shell::Get()->media_notification_controller()->SetView(this);
+  Shell::Get()->media_notification_controller()->SetView(notification_id(),
+                                                         this);
 }
 
 MediaNotificationView::~MediaNotificationView() {
-  Shell::Get()->media_notification_controller()->SetView(nullptr);
+  Shell::Get()->media_notification_controller()->SetView(notification_id(),
+                                                         nullptr);
 }
 
 void MediaNotificationView::UpdateWithNotification(
@@ -113,13 +164,14 @@ MediaNotificationView::GetControlButtonsView() const {
   return control_buttons_view_.get();
 }
 
-void MediaNotificationView::UpdateControlButtonsVisibility() {
-  const bool target_visibility =
-      (IsMouseHovered() || control_buttons_view_->IsCloseButtonFocused() ||
-       control_buttons_view_->IsSettingsButtonFocused()) &&
-      (GetMode() != Mode::SETTING);
+void MediaNotificationView::SetExpanded(bool expanded) {
+  if (expanded_ == expanded)
+    return;
 
-  control_buttons_view_->SetVisible(target_visibility);
+  expanded_ = expanded;
+
+  UpdateViewForExpandedState();
+  PreferredSizeChanged();
 }
 
 void MediaNotificationView::OnMouseEvent(ui::MouseEvent* event) {
@@ -137,10 +189,18 @@ void MediaNotificationView::OnMouseEvent(ui::MouseEvent* event) {
 
 void MediaNotificationView::ButtonPressed(views::Button* sender,
                                           const ui::Event& event) {
+  if (sender == header_row_) {
+    SetExpanded(!expanded_);
+    return;
+  }
+
   if (sender->parent() == button_row_) {
     message_center::MessageCenter::Get()->ClickOnNotificationButton(
         notification_id(), sender->tag());
+    return;
   }
+
+  NOTREACHED();
 }
 
 void MediaNotificationView::UpdateWithMediaSessionInfo(
@@ -148,9 +208,42 @@ void MediaNotificationView::UpdateWithMediaSessionInfo(
   bool playing = session_info->playback_state ==
                  media_session::mojom::MediaPlaybackState::kPlaying;
   play_pause_button_->SetToggled(playing);
-  play_pause_button_->set_tag(
-      playing ? static_cast<int>(MediaSessionAction::kPause)
-              : static_cast<int>(MediaSessionAction::kPlay));
+
+  MediaSessionAction action =
+      playing ? MediaSessionAction::kPause : MediaSessionAction::kPlay;
+  play_pause_button_->set_tag(static_cast<int>(action));
+  play_pause_button_->SetVisible(IsActionButtonVisible(action));
+  PreferredSizeChanged();
+}
+
+void MediaNotificationView::UpdateWithMediaMetadata(
+    const media_session::MediaMetadata& metadata) {
+  if (!metadata.source_title.empty()) {
+    header_row_->SetAppName(metadata.source_title);
+  } else {
+    header_row_->SetAppName(
+        message_center::MessageCenter::Get()->GetSystemNotificationAppName());
+  }
+
+  if (metadata.title.empty() && metadata.artist.empty()) {
+    title_artist_row_->SetVisible(false);
+    return;
+  }
+
+  title_artist_row_->SetVisible(true);
+
+  title_label_->SetText(metadata.title);
+  title_label_->SetVisible(!metadata.title.empty());
+
+  artist_label_->SetText(metadata.artist);
+  artist_label_->SetVisible(!metadata.artist.empty());
+}
+
+void MediaNotificationView::UpdateWithMediaActions(
+    const std::set<media_session::mojom::MediaSessionAction>& actions) {
+  enabled_actions_ = actions;
+  UpdateActionButtonsVisibility();
+  PreferredSizeChanged();
 }
 
 void MediaNotificationView::UpdateControlButtonsVisibilityWithNotification(
@@ -161,6 +254,57 @@ void MediaNotificationView::UpdateControlButtonsVisibilityWithNotification(
 
   control_buttons_view_->ShowCloseButton(!notification.pinned());
   UpdateControlButtonsVisibility();
+}
+
+bool MediaNotificationView::IsActionButtonVisible(
+    MediaSessionAction action) const {
+  // Not all media sessions support the same actions.
+  bool visible = base::ContainsKey(enabled_actions_, action);
+
+  // We should reduce the number of action buttons we show when we are
+  // collapsed.
+  // TODO(beccahughes): Use priority based ranking here
+  if (!expanded_ && visible)
+    visible = ShouldShowActionWhenCollapsed(action);
+
+  return visible;
+}
+
+void MediaNotificationView::UpdateActionButtonsVisibility() {
+  for (int i = 0; i < button_row_->child_count(); ++i) {
+    views::Button* action_button =
+        views::Button::AsButton(button_row_->child_at(i));
+
+    action_button->SetVisible(IsActionButtonVisible(
+        static_cast<MediaSessionAction>(action_button->tag())));
+  }
+}
+
+void MediaNotificationView::UpdateViewForExpandedState() {
+  // Adjust the layout of the |main_row_| based on the expanded state. If the
+  // notification is expanded then the buttons should be below the title/artist
+  // information. If it is collapsed then the buttons will be to the right.
+  if (expanded_) {
+    main_row_
+        ->SetLayoutManager(std::make_unique<views::BoxLayout>(
+            views::BoxLayout::kVertical,
+            gfx::Insets(kDefaultMarginSize, kDefaultMarginSize,
+                        kDefaultMarginSize, kRightMarginExpandedSize),
+            kDefaultMarginSize))
+        ->SetDefaultFlex(1);
+  } else {
+    main_row_
+        ->SetLayoutManager(std::make_unique<views::BoxLayout>(
+            views::BoxLayout::kHorizontal,
+            gfx::Insets(0, kDefaultMarginSize, kDefaultMarginSize,
+                        kRightMarginSize),
+            kDefaultMarginSize, true))
+        ->SetDefaultFlex(1);
+  }
+
+  header_row_->SetExpanded(expanded_);
+
+  UpdateActionButtonsVisibility();
 }
 
 void MediaNotificationView::CreateMediaButton(const gfx::VectorIcon& icon,

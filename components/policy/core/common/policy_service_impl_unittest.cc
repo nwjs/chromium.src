@@ -11,8 +11,8 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/macros.h"
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
+#include "base/test/scoped_task_environment.h"
 #include "base/values.h"
 #include "components/policy/core/common/external_data_fetcher.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
@@ -146,7 +146,7 @@ class PolicyServiceTest : public testing::Test {
   }
 
  protected:
-  base::MessageLoop loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
   MockConfigurationPolicyProvider provider0_;
   MockConfigurationPolicyProvider provider1_;
   MockConfigurationPolicyProvider provider2_;
@@ -362,6 +362,8 @@ TEST_F(PolicyServiceTest, Priorities) {
                std::make_unique<base::Value>(13), nullptr);
   expected.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
                POLICY_SOURCE_CLOUD, std::make_unique<base::Value>(0), nullptr);
+  expected.GetMutable("aaa")->AddError(kPolicyConfictDiffValue);
+  expected.GetMutable("aaa")->AddError(kPolicyConfictDiffValue);
   policy0_.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
                POLICY_SOURCE_CLOUD, std::make_unique<base::Value>(0), nullptr);
   policy1_.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
@@ -376,6 +378,7 @@ TEST_F(PolicyServiceTest, Priorities) {
 
   expected.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
                POLICY_SOURCE_CLOUD, std::make_unique<base::Value>(1), nullptr);
+  expected.GetMutable("aaa")->AddError(kPolicyConfictDiffValue);
   policy0_.Erase("aaa");
   provider0_.UpdateChromePolicy(policy0_);
   EXPECT_TRUE(VerifyPolicies(
@@ -383,6 +386,7 @@ TEST_F(PolicyServiceTest, Priorities) {
 
   expected.Set("aaa", POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
                POLICY_SOURCE_CLOUD, std::make_unique<base::Value>(2), nullptr);
+  expected.GetMutable("aaa")->AddError(kPolicyConfictSameValue);
   policy1_.Set("aaa", POLICY_LEVEL_RECOMMENDED, POLICY_SCOPE_USER,
                POLICY_SOURCE_CLOUD, std::make_unique<base::Value>(1), nullptr);
   provider1_.UpdateChromePolicy(policy1_);
@@ -537,11 +541,14 @@ TEST_F(PolicyServiceTest, NamespaceMerge) {
   expected.Set(kSameLevelPolicy, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
                POLICY_SOURCE_ENTERPRISE_DEFAULT,
                std::make_unique<base::Value>("bundle0"), nullptr);
+  expected.GetMutable(kSameLevelPolicy)->AddError(kPolicyConfictDiffValue);
+  expected.GetMutable(kSameLevelPolicy)->AddError(kPolicyConfictDiffValue);
   // For policies with different levels and scopes, the highest priority
   // level/scope combination takes precedence, on every namespace.
   expected.Set(kDiffLevelPolicy, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
                POLICY_SOURCE_PLATFORM, std::make_unique<base::Value>("bundle2"),
                nullptr);
+  expected.GetMutable(kDiffLevelPolicy)->AddError(kPolicyConfictSameValue);
   EXPECT_TRUE(policy_service_->GetPolicies(
       PolicyNamespace(POLICY_DOMAIN_CHROME, std::string())).Equals(expected));
   EXPECT_TRUE(policy_service_->GetPolicies(

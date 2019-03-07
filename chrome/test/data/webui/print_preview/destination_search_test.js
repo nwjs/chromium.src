@@ -22,20 +22,20 @@ cr.define('destination_search_test', function() {
     /** @type {?print_preview.DestinationStore} */
     let destinationStore = null;
 
-    /** @type {?print_preview.UserInfo} */
-    let userInfo = null;
-
     /** @type {?print_preview.NativeLayer} */
     let nativeLayer = null;
+
+    /** @override */
+    suiteSetup(function() {
+      print_preview_test_utils.setupTestListenerElement();
+    });
 
     /** @override */
     setup(function() {
       // Create data classes
       nativeLayer = new print_preview.NativeLayerStub();
       print_preview.NativeLayer.setInstance(nativeLayer);
-      userInfo = new print_preview.UserInfo();
-      destinationStore = new print_preview.DestinationStore(
-          userInfo, new WebUIListenerTracker());
+      destinationStore = print_preview_test_utils.createDestinationStore();
       nativeLayer.setLocalDestinationCapabilities(
           print_preview_test_utils.getCddTemplate('FooDevice', 'FooName'));
       destinationStore.init(
@@ -45,10 +45,10 @@ cr.define('destination_search_test', function() {
 
       // Set up dialog
       dialog = document.createElement('print-preview-destination-dialog');
-      dialog.userInfo = userInfo;
+      dialog.users = [];
+      dialog.activeUser = '';
       dialog.destinationStore = destinationStore;
-      dialog.invitationStore = new print_preview.InvitationStore(userInfo);
-      dialog.recentDestinations = [];
+      dialog.invitationStore = new print_preview.InvitationStore();
       PolymerTest.clearBody();
       document.body.appendChild(dialog);
       return nativeLayer.whenCalled('getPrinterCapabilities').then(function() {
@@ -69,8 +69,7 @@ cr.define('destination_search_test', function() {
       item.destination = destination;
 
       // Get print list and fire event.
-      const list = dialog.shadowRoot.querySelectorAll(
-          'print-preview-destination-list')[1];
+      const list = dialog.$$('print-preview-destination-list');
       list.fire('destination-selected', item);
     }
 

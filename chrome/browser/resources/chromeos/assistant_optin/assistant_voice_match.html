@@ -18,7 +18,11 @@
             <div class="title" i18n-content="assistantVoiceMatchTitle"></div>
             <div class="content" i18n-content="assistantVoiceMatchMessage">
             </div>
-            <img id="voice-match-img" src="assistant_voice_match.png">
+            <div id="voice-match-video">
+              <video muted autoplay loop>
+                <source src="voice_laptop_1x.webm" type="video/webm">
+              </video>
+            </div>
           </div>
           <div id="recording-container">
             <div class="title" id="title-recording"
@@ -69,14 +73,6 @@
         <oobe-text-button id="agree-button" inverse on-tap="onAgreeTap_"
             disabled="[[buttonsDisabled]]">
           <div i18n-content="assistantOptinAgreeButton"></div>
-        </oobe-text-button>
-        <oobe-text-button id="done-button" inverse on-tap="onDoneTap_"
-            disabled="[[buttonsDisabled]]">
-          <div i18n-content="assistantOptinSaveButton"></div>
-        </oobe-text-button>
-        <oobe-text-button id="next-button" inverse on-tap="onDoneTap_"
-            disabled="[[buttonsDisabled]]">
-          <div i18n-content="next"></div>
         </oobe-text-button>
       </div>
     </oobe-dialog>

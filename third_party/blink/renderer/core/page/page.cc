@@ -57,13 +57,14 @@
 #include "third_party/blink/renderer/core/page/context_menu_controller.h"
 #include "third_party/blink/renderer/core/page/drag_controller.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
-#include "third_party/blink/renderer/core/page/page_overlay.h"
+#include "third_party/blink/renderer/core/page/page_hidden_state.h"
 #include "third_party/blink/renderer/core/page/plugins_changed_observer.h"
 #include "third_party/blink/renderer/core/page/pointer_lock_controller.h"
 #include "third_party/blink/renderer/core/page/scoped_page_pauser.h"
 #include "third_party/blink/renderer/core/page/scrolling/overscroll_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator.h"
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
+#include "third_party/blink/renderer/core/page/spatial_navigation_controller.h"
 #include "third_party/blink/renderer/core/page/validation_message_client_impl.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -75,6 +76,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/plugins/plugin_data.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
+#include "third_party/skia/include/core/SkColor.h"
 
 namespace blink {
 
@@ -161,7 +163,7 @@ Page::Page(PageClients& page_clients)
       page_scale_constraints_set_(PageScaleConstraintsSet::Create(this)),
       pointer_lock_controller_(PointerLockController::Create(this)),
       browser_controls_(BrowserControls::Create(*this)),
-      console_message_storage_(new ConsoleMessageStorage()),
+      console_message_storage_(MakeGarbageCollected<ConsoleMessageStorage>()),
       global_root_scroller_controller_(
           TopDocumentRootScrollerController::Create(*this)),
       visual_viewport_(VisualViewport::Create(*this)),
@@ -175,7 +177,7 @@ Page::Page(PageClients& page_clients)
       tab_key_cycles_through_elements_(true),
       paused_(false),
       device_scale_factor_(1),
-      visibility_state_(mojom::PageVisibilityState::kVisible),
+      is_hidden_(false),
       page_lifecycle_state_(kDefaultPageLifecycleState),
       is_cursor_visible_(true),
       subframe_count_(0),
@@ -296,6 +298,13 @@ bool Page::OpenedByDOM() const {
 
 void Page::SetOpenedByDOM() {
   opened_by_dom_ = true;
+}
+
+SpatialNavigationController& Page::GetSpatialNavigationController() {
+  DCHECK(GetSettings().GetSpatialNavigationEnabled());
+  if (!spatial_navigation_controller_)
+    spatial_navigation_controller_ = SpatialNavigationController::Create(*this);
+  return *spatial_navigation_controller_;
 }
 
 void Page::PlatformColorsChanged() {
@@ -450,16 +459,15 @@ void Page::VisitedStateChanged(LinkHash link_hash) {
   }
 }
 
-void Page::SetVisibilityState(mojom::PageVisibilityState visibility_state,
-                              bool is_initial_state) {
-  if (visibility_state_ == visibility_state)
+void Page::SetIsHidden(bool hidden, bool is_initial_state) {
+  if (is_hidden_ == hidden)
     return;
-  visibility_state_ = visibility_state;
+  is_hidden_ = hidden;
 
   if (is_initial_state)
     return;
-  NotifyPageVisibilityChanged();
 
+  NotifyPageVisibilityChanged();
   if (main_frame_) {
     if (IsPageVisible())
       RestoreSVGImageAnimations();
@@ -467,12 +475,8 @@ void Page::SetVisibilityState(mojom::PageVisibilityState visibility_state,
   }
 }
 
-mojom::PageVisibilityState Page::VisibilityState() const {
-  return visibility_state_;
-}
-
 bool Page::IsPageVisible() const {
-  return VisibilityState() == mojom::PageVisibilityState::kVisible;
+  return !is_hidden_;
 }
 
 void Page::SetLifecycleState(PageLifecycleState state) {
@@ -651,6 +655,14 @@ void Page::SettingsChanged(SettingsDelegate::ChangeType change_type) {
       NotifyPluginsChanged();
       break;
     }
+    case SettingsDelegate::kHighlightAdsChange: {
+      for (Frame* frame = MainFrame(); frame;
+           frame = frame->Tree().TraverseNext()) {
+        if (frame->IsLocalFrame())
+          ToLocalFrame(frame)->UpdateAdHighlight();
+      }
+      break;
+    }
   }
 }
 
@@ -720,6 +732,7 @@ void Page::Trace(blink::Visitor* visitor) {
   visitor->Trace(visual_viewport_);
   visitor->Trace(overscroll_controller_);
   visitor->Trace(link_highlights_);
+  visitor->Trace(spatial_navigation_controller_);
   visitor->Trace(main_frame_);
   visitor->Trace(plugin_data_);
   visitor->Trace(validation_message_client_);
@@ -838,59 +851,6 @@ void Page::ClearAutoplayFlags() {
 
 int32_t Page::AutoplayFlags() const {
   return autoplay_flags_;
-}
-
-namespace {
-
-class ColorOverlay final : public PageOverlay::Delegate {
- public:
-  explicit ColorOverlay(SkColor color) : color_(color) {}
-
- private:
-  void PaintPageOverlay(const PageOverlay& page_overlay,
-                        GraphicsContext& graphics_context,
-                        const IntSize& size) const override {
-    if (DrawingRecorder::UseCachedDrawingIfPossible(
-            graphics_context, page_overlay, DisplayItem::kPageOverlay))
-      return;
-    FloatRect rect(0, 0, size.Width(), size.Height());
-    DrawingRecorder recorder(graphics_context, page_overlay,
-                             DisplayItem::kPageOverlay);
-    graphics_context.FillRect(rect, color_);
-  }
-
-  SkColor color_;
-};
-
-}  // namespace
-
-void Page::SetPageOverlayColor(SkColor color) {
-  if (page_color_overlay_)
-    page_color_overlay_.reset();
-
-  if (color == Color::kTransparent)
-    return;
-
-  if (!MainFrame() || !MainFrame()->IsLocalFrame())
-    return;
-  auto* local_frame = ToLocalFrame(MainFrame());
-  page_color_overlay_ =
-      PageOverlay::Create(local_frame, std::make_unique<ColorOverlay>(color));
-
-  // Update compositing which will create graphics layers so the page color
-  // update below will be able to attach to the root graphics layer.
-  local_frame->View()->UpdateLifecycleToCompositingCleanPlusScrolling();
-  page_color_overlay_->Update();
-}
-
-void Page::UpdatePageColorOverlay() {
-  if (page_color_overlay_)
-    page_color_overlay_->Update();
-}
-
-void Page::PaintPageColorOverlay() {
-  if (page_color_overlay_)
-    page_color_overlay_->GetGraphicsLayer()->Paint(nullptr);
 }
 
 Page::PageClients::PageClients() : chrome_client(nullptr) {}

@@ -99,8 +99,7 @@ void LayoutReplaced::UpdateLayout() {
   UpdateLogicalWidth();
   UpdateLogicalHeight();
 
-  overflow_.reset();
-  AddVisualEffectOverflow();
+  ClearLayoutOverflow();
   UpdateAfterLayout();
 
   ClearNeedsLayout();
@@ -153,8 +152,19 @@ static inline bool LayoutObjectHasAspectRatio(
          layout_object->IsVideo();
 }
 
+void LayoutReplaced::RecalcVisualOverflow() {
+  LayoutObject::RecalcVisualOverflow();
+  ClearVisualOverflow();
+  AddVisualEffectOverflow();
+}
+
 void LayoutReplaced::ComputeIntrinsicSizingInfoForReplacedContent(
     IntrinsicSizingInfo& intrinsic_sizing_info) const {
+  if (ShouldApplySizeContainment()) {
+    intrinsic_sizing_info.size = FloatSize();
+    return;
+  }
+
   ComputeIntrinsicSizingInfo(intrinsic_sizing_info);
 
   // Update our intrinsic size to match what was computed, so that
@@ -648,11 +658,7 @@ LayoutRect LayoutReplaced::PreSnappedRectForPersistentSizing(LayoutRect rect) {
 
 void LayoutReplaced::ComputeIntrinsicSizingInfo(
     IntrinsicSizingInfo& intrinsic_sizing_info) const {
-  if (ShouldApplySizeContainment()) {
-    intrinsic_sizing_info.size = FloatSize();
-    return;
-  }
-
+  DCHECK(!ShouldApplySizeContainment());
   intrinsic_sizing_info.size = FloatSize(IntrinsicLogicalWidth().ToFloat(),
                                          IntrinsicLogicalHeight().ToFloat());
 

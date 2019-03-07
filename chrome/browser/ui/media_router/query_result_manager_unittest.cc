@@ -5,7 +5,6 @@
 #include "chrome/browser/ui/media_router/query_result_manager.h"
 
 #include "base/bind.h"
-#include "base/containers/hash_tables.h"
 #include "base/json/json_writer.h"
 #include "base/macros.h"
 #include "chrome/browser/media/router/media_sinks_observer.h"
@@ -82,7 +81,7 @@ MATCHER_P(VectorEquals, expected, "") {
     return false;
   }
   for (size_t i = 0; i < expected.size(); ++i) {
-    if (!expected[i].Equals(arg[i])) {
+    if (!(expected[i] == arg[i])) {
       return false;
     }
   }

@@ -17,6 +17,17 @@ let BlockAutoplayStatus;
  */
 (function() {
 
+/**
+ * Must be kept in sync with the C++ enum of the same name.
+ * @enum {number}
+ */
+const NetworkPredictionOptions = {
+  ALWAYS: 0,
+  WIFI_ONLY: 1,
+  NEVER: 2,
+  DEFAULT: 1,
+};
+
 Polymer({
   is: 'settings-privacy-page',
 
@@ -62,6 +73,17 @@ Polymer({
     showDoNotTrackDialog_: {
       type: Boolean,
       value: false,
+    },
+
+    /**
+     * Used for HTML bindings. This is defined as a property rather than within
+     * the ready callback, because the value needs to be available before
+     * local DOM initialization - otherwise, the toggle has unexpected behavior.
+     * @private
+     */
+    networkPredictionUncheckedValue_: {
+      type: Number,
+      value: NetworkPredictionOptions.NEVER,
     },
 
     /** @private */
@@ -169,6 +191,9 @@ Polymer({
 
     /** @private */
     showSignoutDialog_: Boolean,
+
+    /** @private */
+    searchFilter_: String,
   },
 
   /** @override */
@@ -212,8 +237,9 @@ Polymer({
    * @private
    */
   onDoNotTrackDomChange_: function(event) {
-    if (this.showDoNotTrackDialog_)
+    if (this.showDoNotTrackDialog_) {
       this.maybeShowDoNotTrackDialog_();
+    }
   },
 
   /**
@@ -257,8 +283,9 @@ Polymer({
   /** @private */
   maybeShowDoNotTrackDialog_: function() {
     const dialog = this.$$('#confirmDoNotTrackDialog');
-    if (dialog && !dialog.open)
+    if (dialog && !dialog.open) {
       dialog.showModal();
+    }
   },
 
   /** @private */
@@ -303,17 +330,11 @@ Polymer({
     // </if>
   },
 
-  /**
-   * @param {!Event} e
-   * @private
-   */
-  onMoreSettingsBoxClicked_: function(e) {
-    if (e.target.tagName === 'A') {
-      e.preventDefault();
-      // Navigate to sync page, and remove (privacy related) search text to
-      // avoid the sync page from being hidden.
-      settings.navigateTo(settings.routes.SYNC, null, true);
-    }
+  /** @private */
+  onSyncAndGoogleServicesClick_: function() {
+    // Navigate to sync page, and remove (privacy related) search text to
+    // avoid the sync page from being hidden.
+    settings.navigateTo(settings.routes.SYNC, null, true);
   },
 
   /**
@@ -323,8 +344,9 @@ Polymer({
   onRemoveAllCookiesFromSite_: function() {
     const node = /** @type {?SiteDataDetailsSubpageElement} */ (
         this.$$('site-data-details-subpage'));
-    if (node)
+    if (node) {
       node.removeAll();
+    }
   },
 
   /** @private */

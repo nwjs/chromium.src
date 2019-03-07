@@ -15,11 +15,12 @@
 #include "net/third_party/quic/core/quic_session.h"
 #include "net/third_party/quic/tools/quic_simple_crypto_server_stream_helper.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
+#include "third_party/blink/renderer/modules/peerconnection/adapters/p2p_quic_crypto_config_factory.h"
 #include "third_party/blink/renderer/modules/peerconnection/adapters/p2p_quic_packet_transport.h"
 #include "third_party/blink/renderer/modules/peerconnection/adapters/p2p_quic_stream_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/adapters/p2p_quic_transport.h"
 #include "third_party/blink/renderer/modules/peerconnection/adapters/p2p_quic_transport_factory.h"
-#include "third_party/webrtc/rtc_base/rtccertificate.h"
+#include "third_party/webrtc/rtc_base/rtc_certificate.h"
 
 namespace blink {
 
@@ -43,6 +44,17 @@ class MODULES_EXPORT P2PQuicTransportImpl final
       public P2PQuicPacketTransport::ReceiveDelegate,
       public quic::QuicCryptoClientStream::ProofHandler {
  public:
+  // Creates the necessary QUIC and Chromium specific objects before
+  // creating P2PQuicTransportImpl.
+  static std::unique_ptr<P2PQuicTransportImpl> Create(
+      quic::QuicClock* clock,
+      quic::QuicAlarmFactory* alarm_factory,
+      quic::QuicRandom* quic_random,
+      Delegate* delegate,
+      P2PQuicPacketTransport* packet_transport,
+      const P2PQuicTransportConfig& config,
+      std::unique_ptr<P2PQuicCryptoConfigFactory> crypto_config_factory);
+
   P2PQuicTransportImpl(
       Delegate* delegate,
       P2PQuicPacketTransport* packet_transport,
@@ -50,33 +62,26 @@ class MODULES_EXPORT P2PQuicTransportImpl final
       std::unique_ptr<net::QuicChromiumConnectionHelper> helper,
       std::unique_ptr<quic::QuicConnection> connection,
       const quic::QuicConfig& quic_config,
+      std::unique_ptr<P2PQuicCryptoConfigFactory> crypto_config_factory,
       quic::QuicClock* clock);
 
   ~P2PQuicTransportImpl() override;
 
   // P2PQuicTransport overrides.
-
   void Stop() override;
-
-  // Sets the remote fingerprints, and if the the P2PQuicTransportImpl is a
-  // client starts the QUIC handshake . This handshake is currently insecure,
-  // meaning that the certificates used are fake and are not verified. It also
-  // assumes a handshake for a server/client case. This must be called before
-  // creating any streams.
+  // This handshake is currently insecure in the case of using remote
+  // fingerprints to verify the remote certificate. For a secure handshake, set
+  // the pre_shared_key attribute of the |config| before calling this. This
+  // function must be called before creating any streams.
   //
   // TODO(https://crbug.com/874300): Verify both the client and server
   // certificates with the signaled remote fingerprints. Until the TLS 1.3
   // handshake is supported in the QUIC core library we can only verify the
-  // server's certificate, but not the client's. Note that this means
-  // implementing the handshake for a P2P case, in which case verification
-  // completes after both receiving the signaled remote fingerprint and getting
-  // a client hello. Because either can come first, a synchronous call to verify
-  // the remote fingerprint is not possible.
-  void Start(std::vector<std::unique_ptr<rtc::SSLFingerprint>>
-                 remote_fingerprints) override;
-
+  // server's certificate, but not the client's.
+  void Start(StartConfig config) override;
   // Creates an outgoing stream that is owned by the quic::QuicSession.
   P2PQuicStreamImpl* CreateStream() override;
+  P2PQuicTransportStats GetStats() const override;
 
   // P2PQuicPacketTransport::Delegate override.
   void OnPacketDataReceived(const char* data, size_t data_len) override;
@@ -108,6 +113,7 @@ class MODULES_EXPORT P2PQuicTransportImpl final
   // quic::QuicSession.
   P2PQuicStreamImpl* CreateIncomingStream(
       quic::QuicStreamId id) override;
+  P2PQuicStreamImpl* CreateIncomingStream(quic::PendingStream pending) override;
 
   // Creates a new outgoing stream. The caller does not own the
   // stream, so the stream is activated and ownership is moved to the
@@ -142,6 +148,7 @@ class MODULES_EXPORT P2PQuicTransportImpl final
   // Creates a new stream. This helper function is used when we need to create
   // a new incoming stream or outgoing stream.
   P2PQuicStreamImpl* CreateStreamInternal(quic::QuicStreamId id);
+  P2PQuicStreamImpl* CreateStreamInternal(quic::PendingStream pending);
 
   // The server_config and client_config are used for setting up the crypto
   // connection. The ownership of these objects or the objects they own
@@ -159,11 +166,16 @@ class MODULES_EXPORT P2PQuicTransportImpl final
 
   std::unique_ptr<quic::QuicConnection> connection_;
 
+  // Used to create either a crypto client or server config.
+  std::unique_ptr<P2PQuicCryptoConfigFactory> crypto_config_factory_;
+
   std::unique_ptr<quic::QuicCryptoStream> crypto_stream_;
-  // Crypto information. Note that currently the handshake is insecure and these
-  // are not used...
+  // Crypto certificate information. Note that currently the handshake is
+  // insecure and these are not used...
   rtc::scoped_refptr<rtc::RTCCertificate> certificate_;
   std::vector<std::unique_ptr<rtc::SSLFingerprint>> remote_fingerprints_;
+
+  bool pre_shared_key_set_ = false;
 
   quic::Perspective perspective_;
   // Outlives the P2PQuicTransport.
@@ -177,6 +189,10 @@ class MODULES_EXPORT P2PQuicTransportImpl final
   uint32_t stream_delegate_read_buffer_size_;
   // Determines the size of the write buffer when P2PQuicStreams.
   uint32_t stream_write_buffer_size_;
+
+  // For stats:
+  uint32_t num_outgoing_streams_created_ = 0;
+  uint32_t num_incoming_streams_created_ = 0;
 
   THREAD_CHECKER(thread_checker_);
 };

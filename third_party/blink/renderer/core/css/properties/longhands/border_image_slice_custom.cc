@@ -29,9 +29,14 @@ const CSSValue* BorderImageSlice::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* BorderImageSlice::InitialValue() const {
-  DEFINE_STATIC_LOCAL(Persistent<CSSValue>, value,
-                      (CSSPrimitiveValue::Create(
-                          100, CSSPrimitiveValue::UnitType::kPercentage)));
+  DEFINE_STATIC_LOCAL(
+      Persistent<CSSBorderImageSliceValue>, value,
+      (CSSBorderImageSliceValue::Create(
+          CSSQuadValue::Create(
+              CSSPrimitiveValue::Create(
+                  100, CSSPrimitiveValue::UnitType::kPercentage),
+              CSSQuadValue::kSerializeAsQuad),
+          /* fill */ false)));
   return value;
 }
 

@@ -8,7 +8,7 @@
 #include <memory>
 
 #include "base/macros.h"
-#include "third_party/blink/public/platform/modules/cache_storage/cache_storage.mojom-blink.h"
+#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
 #include "third_party/blink/renderer/core/inspector/inspector_base_agent.h"
 #include "third_party/blink/renderer/core/inspector/protocol/CacheStorage.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
@@ -36,6 +36,7 @@ class MODULES_EXPORT InspectorCacheStorageAgent final
   void requestEntries(const String& cache_id,
                       int skip_count,
                       int page_size,
+                      protocol::Maybe<String> path_filter,
                       std::unique_ptr<RequestEntriesCallback>) override;
   void deleteCache(const String& cache_id,
                    std::unique_ptr<DeleteCacheCallback>) override;

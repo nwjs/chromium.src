@@ -10,11 +10,13 @@
   data: [
     "BackgroundFetchRegistration",
     "BatteryManager",
+    "Bluetooth",
     "BluetoothDevice",
     "BluetoothRemoteGATTCharacteristic",
     "CookieStore",
     "MediaKeySession",
     "FileWriter",
+    "IdleStatus",
     "ImageCapture",
     "IDBDatabase",
     "IDBOpenDBRequest",
@@ -64,8 +66,8 @@
     "MIDIInput",
     "MIDIPort",
     "XR",
-    "XRCoordinateSystem",
     "XRSession",
+    "XRSpace",
     {
       name: "WebSocket",
       ImplementedAs: "DOMWebSocket",

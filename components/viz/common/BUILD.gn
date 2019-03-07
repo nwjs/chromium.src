@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 import("//components/viz/viz.gni")
-import("//testing/test.gni")
 import("//gpu/vulkan/features.gni")
+import("//testing/test.gni")
 
 source_set("resource_format") {
   sources = [
@@ -33,6 +33,7 @@ viz_component("resource_format_utils") {
   deps = [
     "//base",
     "//cc/base:base",
+    "//gpu/vulkan:buildflags",
     "//skia",
     "//ui/gfx:buffer_types",
     "//ui/gfx/geometry:geometry",
@@ -45,6 +46,13 @@ if (enable_vulkan) {
 
     defines = [ "VIZ_VULKAN_CONTEXT_PROVIDER_IMPLEMENTATION" ]
 
+    # TODO(cblume): http://crbug.com/911313
+    # Abstract out the platform specific defines. Right now we need the android
+    # platform specific define here to be able to include android specific
+    # functions.
+    if (is_android) {
+      defines += [ "VK_USE_PLATFORM_ANDROID_KHR" ]
+    }
     sources = [
       "gpu/vulkan_context_provider.h",
       "gpu/vulkan_in_process_context_provider.cc",
@@ -106,9 +114,9 @@ viz_component("common") {
     "gpu/context_provider.h",
     "gpu/raster_context_provider.cc",
     "gpu/raster_context_provider.h",
-    "gpu/texture_allocation.cc",
-    "gpu/texture_allocation.h",
     "hit_test/aggregated_hit_test_region.h",
+    "hit_test/hit_test_data_builder.cc",
+    "hit_test/hit_test_data_builder.h",
     "hit_test/hit_test_region_list.cc",
     "hit_test/hit_test_region_list.h",
     "quads/compositor_frame.cc",
@@ -219,6 +227,10 @@ viz_component("common") {
     ]
 
     deps += [ "//ui/base" ]
+  }
+
+  if (is_chromecast) {
+    defines += [ "IS_CHROMECAST" ]
   }
 
   public_deps = [

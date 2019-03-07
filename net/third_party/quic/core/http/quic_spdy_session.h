@@ -16,7 +16,7 @@
 #include "net/third_party/quic/platform/api/quic_export.h"
 #include "net/third_party/quic/platform/api/quic_string.h"
 #include "net/third_party/quic/platform/api/quic_string_piece.h"
-#include "net/third_party/spdy/core/http2_frame_decoder_adapter.h"
+#include "net/third_party/quiche/src/spdy/core/http2_frame_decoder_adapter.h"
 
 namespace quic {
 
@@ -140,6 +140,7 @@ class QUIC_EXPORT_PRIVATE QuicSpdySession : public QuicSession {
   // CreateOutgoingUnidirectionalStream() with QuicSpdyStream return type to
   // make sure that all data streams are QuicSpdyStreams.
   QuicSpdyStream* CreateIncomingStream(QuicStreamId id) override = 0;
+  QuicSpdyStream* CreateIncomingStream(PendingStream pending) override = 0;
   virtual QuicSpdyStream* CreateOutgoingBidirectionalStream() = 0;
   virtual QuicSpdyStream* CreateOutgoingUnidirectionalStream() = 0;
 
@@ -148,12 +149,13 @@ class QUIC_EXPORT_PRIVATE QuicSpdySession : public QuicSession {
   // If an incoming stream can be created, return true.
   virtual bool ShouldCreateIncomingStream(QuicStreamId id) = 0;
 
-  // If an outgoing stream can be created, return true.
-  // TODO(fayang): In IETF QUIC, there are different stream limits on
-  // unidirectional v.s. bidirectional outgoing streams. Need to split this
-  // method to ShouldCreateOutgoingUnidirectionalStream and
-  // ShouldCreateOutgoingBidirectionalStream.
-  virtual bool ShouldCreateOutgoingStream() = 0;
+  // If an outgoing bidirectional/unidirectional stream can be created, return
+  // true.
+  virtual bool ShouldCreateOutgoingBidirectionalStream() = 0;
+  virtual bool ShouldCreateOutgoingUnidirectionalStream() = 0;
+
+  // Overridden to buffer incoming streams for version 99.
+  bool ShouldBufferIncomingStream(QuicStreamId id) const override;
 
   // This was formerly QuicHeadersStream::WriteHeaders.  Needs to be
   // separate from QuicSpdySession::WriteHeaders because tests call

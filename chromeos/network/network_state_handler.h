@@ -12,11 +12,11 @@
 #include <vector>
 
 #include "base/callback_forward.h"
+#include "base/component_export.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
-#include "chromeos/chromeos_export.h"
 #include "chromeos/network/managed_state.h"
 #include "chromeos/network/network_handler.h"
 #include "chromeos/network/network_handler_callbacks.h"
@@ -60,7 +60,7 @@ class NetworkStateHandlerTest;
 //   the initial properties are received. The GUID will be consistent for
 //   the duration of a session, even if the network drops out and returns.
 
-class CHROMEOS_EXPORT NetworkStateHandler
+class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkStateHandler
     : public internal::ShillPropertyHandler::Listener {
  public:
   typedef std::vector<std::unique_ptr<ManagedState>> ManagedStateList;
@@ -478,11 +478,17 @@ class CHROMEOS_EXPORT NetworkStateHandler
   // |hex_ssid_to_captive_portal_provider_map_|.
   void UpdateCaptivePortalProvider(NetworkState* network);
 
+  // Update networkState properties from the associated DeviceState.
+  void UpdateCellularStateFromDevice(NetworkState* network);
+
   // Cellular networks may not have an associated Shill Service (e.g. when the
-  // SIM is locked or a mobile network is not available). To simplify the UI,
-  // if a Cellular Device exists |cellular_networks| will be modified to contain
-  // exactly one network, creating a default network if necessary.
-  void EnsureCellularNetwork(ManagedStateList* cellular_networks);
+  // SIM is locked or a mobile network is not available). This returns a new
+  // default cellular network if necessary.
+  std::unique_ptr<NetworkState> MaybeCreateDefaultCellularNetwork();
+
+  // Removes the default Cellular network if it exists. Called when there is
+  // more than one Cellular network in the list.
+  void RemoveDefaultCellularNetwork();
 
   // Sends NetworkListChanged() to observers and logs an event.
   void NotifyNetworkListChanged();

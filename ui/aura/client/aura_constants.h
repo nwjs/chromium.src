@@ -6,6 +6,7 @@
 #define UI_AURA_CLIENT_AURA_CONSTANTS_H_
 
 #include <string>
+#include <vector>
 
 #include "base/strings/string16.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -85,12 +86,16 @@ AURA_EXPORT extern const WindowProperty<FocusClient*>* const kFocusClientKey;
 // WebContentsViews find the windows that should constrain NPAPI plugins.
 AURA_EXPORT extern const WindowProperty<Window*>* const kHostWindowKey;
 
+// A property key to store the maximum size of the window.
+AURA_EXPORT extern const WindowProperty<gfx::Size*>* const kMaximumSize;
+
 // A property key to store the minimum size of the window.
 AURA_EXPORT extern const WindowProperty<gfx::Size*>* const kMinimumSize;
 
-// A property key to indicate that a window is being "mirrored" and its contents
-// should render regardless of its actual visibility state.
-AURA_EXPORT extern const WindowProperty<bool>* const kMirroringEnabledKey;
+// A property key to store a list of windows showing a mirror of the window this
+// property is set on.
+AURA_EXPORT extern const WindowProperty<std::vector<Window*>*>* const
+    kMirrorWindowList;
 
 // The modal parent of a child modal window.
 AURA_EXPORT extern const WindowProperty<Window*>* const kChildModalParentKey;
@@ -100,6 +105,12 @@ AURA_EXPORT extern const WindowProperty<ui::ModalType>* const kModalKey;
 
 // A property key to store the name of the window; mostly used for debugging.
 AURA_EXPORT extern const WindowProperty<std::string*>* const kNameKey;
+
+// A property key to store the accessible parent of a native view. This is
+// used to allow WebContents to access their accessible parents for use in
+// walking up the accessibility tree via platform APIs.
+AURA_EXPORT extern const aura::WindowProperty<gfx::NativeViewAccessible>* const
+    kParentNativeViewAccessibleKey;
 
 // A property key to store the preferred size of the window.
 AURA_EXPORT extern const WindowProperty<gfx::Size*>* const kPreferredSize;

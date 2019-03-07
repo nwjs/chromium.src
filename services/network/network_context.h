@@ -183,6 +183,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void ComputeHttpCacheSize(base::Time start_time,
                             base::Time end_time,
                             ComputeHttpCacheSizeCallback callback) override;
+  void NotifyExternalCacheHit(
+      const GURL& url,
+      const std::string& http_method,
+      const base::Optional<url::Origin>& top_frame_origin) override;
   void WriteCacheMetadata(const GURL& url,
                           net::RequestPriority priority,
                           base::Time expected_response_time,
@@ -328,6 +332,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       AddDomainReliabilityContextForTestingCallback callback) override;
   void ForceDomainReliabilityUploadsForTesting(
       ForceDomainReliabilityUploadsForTestingCallback callback) override;
+  void SaveHttpAuthCache(SaveHttpAuthCacheCallback callback) override;
+  void LoadHttpAuthCache(const base::UnguessableToken& cache_key,
+                         LoadHttpAuthCacheCallback callback) override;
   void LookupBasicAuthCredentials(
       const GURL& url,
       LookupBasicAuthCredentialsCallback callback) override;
@@ -341,6 +348,16 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // Destroys the specified factory. Called by the factory itself when it has
   // no open pipes.
   void DestroyURLLoaderFactory(cors::CorsURLLoaderFactory* url_loader_factory);
+
+  // The following methods are used to track the number of requests per process
+  // and ensure it doesn't go over a reasonable limit.
+  void LoaderCreated(uint32_t process_id);
+  void LoaderDestroyed(uint32_t process_id);
+  bool CanCreateLoader(uint32_t process_id);
+
+  void set_max_loaders_per_process_for_testing(uint32_t count) {
+    max_loaders_per_process_ = count;
+  }
 
   size_t GetNumOutstandingResolveHostRequestsForTesting() const;
 
@@ -367,6 +384,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   cors::PreflightController* cors_preflight_controller() {
     return &cors_preflight_controller_;
   }
+
+  // Returns true if reports should unconditionally be sent without first
+  // consulting NetworkContextClient.OnCanSendReportingReports()
+  bool SkipReportingPermissionCheck() const;
 
  private:
   class ContextNetworkDelegate;
@@ -468,6 +489,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   std::set<std::unique_ptr<cors::CorsURLLoaderFactory>,
            base::UniquePtrComparator>
       url_loader_factories_;
+
+  // A count of outstanding requests per initiating process.
+  std::map<uint32_t, uint32_t> loader_count_per_process_;
+
+  static constexpr uint32_t kMaxOutstandingRequestsPerProcess = 2700;
+  uint32_t max_loaders_per_process_ = kMaxOutstandingRequestsPerProcess;
 
   base::flat_map<P2PSocketManager*, std::unique_ptr<P2PSocketManager>>
       socket_managers_;

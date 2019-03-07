@@ -56,14 +56,6 @@
 extern sandbox::TargetServices* g_utility_target_services;
 #endif
 
-#if defined(OS_CHROMEOS)
-#include "chromeos/assistant/buildflags.h"  // nogncheck
-#if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
-#include "chromeos/services/assistant/audio_decoder/assistant_audio_decoder_service.h"  // nogncheck
-#include "chromeos/services/assistant/public/mojom/constants.mojom.h"  // nogncheck
-#endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
-#endif
-
 namespace content {
 
 namespace {
@@ -109,22 +101,19 @@ class ContentCdmServiceClient final : public media::CdmService::Client {
 
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
-std::unique_ptr<service_manager::Service> CreateVizService() {
-  return std::make_unique<viz::Service>();
-}
-
 }  // namespace
 
 UtilityServiceFactory::UtilityServiceFactory()
     : network_registry_(std::make_unique<service_manager::BinderRegistry>()),
-      audio_registry_(std::make_unique<service_manager::BinderRegistry>()) {}
+      audio_registry_(std::make_unique<service_manager::BinderRegistry>()) {
+  GetContentClient()->utility()->RegisterAudioBinders(audio_registry_.get());
+}
 
 UtilityServiceFactory::~UtilityServiceFactory() {}
 
-void UtilityServiceFactory::CreateService(
-    service_manager::mojom::ServiceRequest request,
+bool UtilityServiceFactory::HandleServiceRequest(
     const std::string& name,
-    service_manager::mojom::PIDReceiverPtr pid_receiver) {
+    service_manager::mojom::ServiceRequest request) {
   auto* trace_log = base::trace_event::TraceLog::GetInstance();
   if (trace_log->IsProcessNameEmpty())
     trace_log->set_process_name("Service: " + name);
@@ -133,40 +122,12 @@ void UtilityServiceFactory::CreateService(
       "service-name", base::debug::CrashKeySize::Size32);
   base::debug::SetCrashKeyString(service_name, name);
 
-  ServiceFactory::CreateService(std::move(request), name,
-                                std::move(pid_receiver));
-}
-
-void UtilityServiceFactory::RegisterServices(ServiceMap* services) {
-  GetContentClient()->utility()->RegisterServices(services);
-
-  GetContentClient()->utility()->RegisterAudioBinders(audio_registry_.get());
-
-#if defined(OS_CHROMEOS)
-#if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
-  {
-    service_manager::EmbeddedServiceInfo assistant_audio_decoder_info;
-    assistant_audio_decoder_info.factory = base::BindRepeating(
-        &chromeos::assistant::AssistantAudioDecoderService::CreateService);
-    services->emplace(chromeos::assistant::mojom::kAudioDecoderServiceName,
-                      assistant_audio_decoder_info);
-  }
-#endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
-#endif
-
-  service_manager::EmbeddedServiceInfo viz_info;
-  viz_info.factory = base::Bind(&CreateVizService);
-  services->insert(std::make_pair(viz::mojom::kVizServiceName, viz_info));
-}
-
-bool UtilityServiceFactory::HandleServiceRequest(
-    const std::string& name,
-    service_manager::mojom::ServiceRequest request) {
+  std::unique_ptr<service_manager::Service> service;
   if (name == audio::mojom::kServiceName) {
-    running_service_ = CreateAudioService(std::move(request));
+    service = CreateAudioService(std::move(request));
   } else if (name == data_decoder::mojom::kServiceName) {
     content::UtilityThread::Get()->EnsureBlinkInitialized();
-    running_service_ =
+    service =
         std::make_unique<data_decoder::DataDecoderService>(std::move(request));
   } else if (name == mojom::kNetworkServiceName &&
              base::FeatureList::IsEnabled(network::features::kNetworkService)) {
@@ -181,34 +142,28 @@ bool UtilityServiceFactory::HandleServiceRequest(
                        base::SequencedTaskRunnerHandle::Get()));
     return true;
   } else if (name == video_capture::mojom::kServiceName) {
-    running_service_ =
-        std::make_unique<video_capture::ServiceImpl>(std::move(request));
+    service = std::make_unique<video_capture::ServiceImpl>(
+        std::move(request), base::ThreadTaskRunnerHandle::Get());
+  } else if (name == viz::mojom::kVizServiceName) {
+    service = std::make_unique<viz::Service>(std::move(request));
   }
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   else if (name == media::mojom::kCdmServiceName) {
-    running_service_ = std::make_unique<media::CdmService>(
+    service = std::make_unique<media::CdmService>(
         std::make_unique<ContentCdmServiceClient>(), std::move(request));
   }
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 
-  if (!running_service_) {
-    running_service_ = GetContentClient()->utility()->HandleServiceRequest(
-        name, std::move(request));
-  }
-
-  if (running_service_) {
-    // If we actually started a service for this request, make sure its
-    // self-termination results in full process termination.
-    running_service_->set_termination_closure(
-        base::BindOnce(&TerminateThisProcess));
+  if (service) {
+    service_manager::Service::RunAsyncUntilTermination(
+        std::move(service),
+        base::BindOnce(&UtilityThread::ReleaseProcess,
+                       base::Unretained(UtilityThread::Get())));
     return true;
   }
 
-  return false;
-}
-
-void UtilityServiceFactory::OnServiceQuit() {
-  TerminateThisProcess();
+  return GetContentClient()->utility()->HandleServiceRequest(
+      name, std::move(request));
 }
 
 void UtilityServiceFactory::OnLoadFailed() {
@@ -223,7 +178,7 @@ void UtilityServiceFactory::RunNetworkServiceOnIOThread(
     scoped_refptr<base::SequencedTaskRunner> main_thread_task_runner) {
   auto service = std::make_unique<network::NetworkService>(
       std::move(network_registry_), nullptr /* request */,
-      nullptr /* net_log */, std::move(service_request));
+      nullptr /* net_log */, std::move(service_request), true);
 
   // Transfer ownership of the service to itself, and have it post to the main
   // thread on self-termination to kill the process.

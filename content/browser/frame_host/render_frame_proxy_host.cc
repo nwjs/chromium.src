@@ -4,10 +4,12 @@
 
 #include "content/browser/frame_host/render_frame_proxy_host.h"
 
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "base/callback.h"
+#include "base/hash.h"
 #include "base/lazy_instance.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
@@ -33,7 +35,9 @@ namespace {
 
 // The (process id, routing id) pair that identifies one RenderFrameProxy.
 typedef std::pair<int32_t, int32_t> RenderFrameProxyHostID;
-typedef base::hash_map<RenderFrameProxyHostID, RenderFrameProxyHost*>
+typedef std::unordered_map<RenderFrameProxyHostID,
+                           RenderFrameProxyHost*,
+                           base::IntPairHash<RenderFrameProxyHostID>>
     RoutingIDFrameProxyMap;
 base::LazyInstance<RoutingIDFrameProxyMap>::DestructorAtExit
     g_routing_id_frame_proxy_map = LAZY_INSTANCE_INITIALIZER;
@@ -274,8 +278,7 @@ void RenderFrameProxyHost::OnDetach() {
     return;
   }
 
-  if (frame_tree_node_->current_frame_host()->is_active())
-    frame_tree_node_->frame_tree()->RemoveFrame(frame_tree_node_);
+  frame_tree_node_->current_frame_host()->DetachFromProxy();
 }
 
 void RenderFrameProxyHost::OnOpenURL(
@@ -299,9 +302,15 @@ void RenderFrameProxyHost::OnOpenURL(
             GetSiteInstance()->GetBrowserContext(), std::move(blob_url_token));
   }
 
+  RenderFrameHostImpl* current_rfh = frame_tree_node_->current_frame_host();
+
+  // The current_rfh may be pending deletion. In this case, ignore the
+  // navigation, because the frame is going to disappear soon anyway.
+  if (!current_rfh->is_active())
+    return;
+
   // Verify that we are in the same BrowsingInstance as the current
   // RenderFrameHost.
-  RenderFrameHostImpl* current_rfh = frame_tree_node_->current_frame_host();
   if (!site_instance_->IsRelatedSiteInstance(current_rfh->GetSiteInstance()))
     return;
 
@@ -327,8 +336,9 @@ void RenderFrameProxyHost::OnOpenURL(
   // TODO(clamy): The transition should probably be changed for POST navigations
   // to PAGE_TRANSITION_FORM_SUBMIT. See https://crbug.com/829827.
   frame_tree_node_->navigator()->NavigateFromFrameProxy(
-      current_rfh, validated_url, site_instance_.get(), params.referrer,
-      ui::PAGE_TRANSITION_LINK, params.should_replace_current_entry,
+      current_rfh, validated_url, params.initiator_origin, site_instance_.get(),
+      params.referrer, ui::PAGE_TRANSITION_LINK,
+      params.should_replace_current_entry, params.download_policy,
       params.uses_post ? "POST" : "GET", params.resource_request_body,
       params.extra_headers, std::move(blob_url_loader_factory));
 }
@@ -341,6 +351,39 @@ void RenderFrameProxyHost::OnCheckCompleted() {
 void RenderFrameProxyHost::OnRouteMessageEvent(
     const FrameMsg_PostMessage_Params& params) {
   RenderFrameHostImpl* target_rfh = frame_tree_node()->current_frame_host();
+
+  // |targetOrigin| argument of postMessage is already checked by
+  // blink::LocalDOMWindow::DispatchMessageEventWithOriginCheck (needed for
+  // messages sent within the same process - e.g. same-site, cross-origin),
+  // but this check needs to be duplicated below in case the recipient renderer
+  // process got compromised (i.e. in case the renderer-side check may be
+  // bypassed).
+  if (!params.target_origin.empty()) {
+    url::Origin target_origin =
+        url::Origin::Create(GURL(base::UTF16ToUTF8(params.target_origin)));
+
+    // Renderer should send either an empty string (this is how "*" is expressed
+    // in the IPC) or a valid, non-opaque origin.  OTOH, there are no security
+    // implications here - the message payload needs to be protected from an
+    // unintended recipient, not from the sender.
+    DCHECK(!target_origin.opaque());
+
+    // While the postMessage was in flight, the target might have navigated away
+    // to another origin.  In this case, the postMessage should be silently
+    // dropped.
+    if (target_origin != target_rfh->GetLastCommittedOrigin())
+      return;
+  }
+
+  // TODO(lukasza): Move opaque-ness check into ChildProcessSecurityPolicyImpl.
+  auto* policy = ChildProcessSecurityPolicyImpl::GetInstance();
+  if (params.source_origin != base::UTF8ToUTF16("null") &&
+      !policy->CanAccessDataForOrigin(GetProcess()->GetID(),
+                                      GURL(params.source_origin))) {
+    bad_message::ReceivedBadMessage(
+        GetProcess(), bad_message::RFPH_POST_MESSAGE_INVALID_SOURCE_ORIGIN);
+    return;
+  }
 
   // Only deliver the message if the request came from a RenderFrameHost in the
   // same BrowsingInstance or if this WebContents is dedicated to a browser

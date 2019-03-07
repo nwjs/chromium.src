@@ -67,6 +67,7 @@
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
+#include "ui/views/window/dialog_client_view.h"
 #include "url/gurl.h"
 
 #if defined(SAFE_BROWSING_DB_LOCAL)
@@ -504,11 +505,12 @@ PageInfoBubbleView::PageInfoBubbleView(
   if (!profile->IsGuestSession())
     layout->AddView(CreateSiteSettingsLink(side_margin, this).release());
 
-  // We don't want the PageInfo to adjust as it causes some weirdness with
-  // bubble views which are snapped to the left hand edge of the screen, causing
-  // them to display in the wrong place.
-  set_adjust_if_offscreen(false);
   views::BubbleDialogDelegateView::CreateBubble(this);
+
+  // CreateBubble() may not set our size synchronously so explicitly set it here
+  // before PageInfo updates trigger child layouts.
+  SetSize(GetPreferredSize());
+
   presenter_.reset(new PageInfo(
       this, profile, TabSpecificContentSettings::FromWebContents(web_contents),
       web_contents, url, security_info));
@@ -529,12 +531,30 @@ void PageInfoBubbleView::OnPermissionChanged(
 
 void PageInfoBubbleView::OnChosenObjectDeleted(
     const PageInfoUI::ChosenObjectInfo& info) {
-  presenter_->OnSiteChosenObjectDeleted(info.ui_info, *info.object);
+  presenter_->OnSiteChosenObjectDeleted(info.ui_info,
+                                        info.chooser_object->value);
 }
 
 void PageInfoBubbleView::OnWidgetDestroying(views::Widget* widget) {
   PageInfoBubbleViewBase::OnWidgetDestroying(widget);
   presenter_->OnUIClosing();
+
+  // If we're closing the bubble because the user pressed ESC or because the
+  // user clicked Close (rather than the user clicking directly on something
+  // else), we should refocus the Omnibox. This lets the user tab into the
+  // "You should reload this page" infobar rather than dumping them back out
+  // into a stale webpage.
+  const views::Widget::ClosedReason closed_reason =
+      GetWidget()->closed_reason();
+  if (closed_reason == views::Widget::ClosedReason::kEscKeyPressed ||
+      closed_reason == views::Widget::ClosedReason::kCloseButtonClicked) {
+    // Because of how this bubble shows, the anchor is always in the toolbar,
+    // which means the infobar with the reload prompt is just after in the focus
+    // order.
+    View* const anchor = GetAnchorView();
+    if (anchor)
+      anchor->GetFocusManager()->SetFocusedView(anchor);
+  }
 }
 
 void PageInfoBubbleView::ButtonPressed(views::Button* button,
@@ -704,6 +724,7 @@ void PageInfoBubbleView::SetPermissionInfo(
   chosen_object_set->AddPaddingColumn(views::GridLayout::kFixedSize,
                                       side_margin);
 
+  int min_height_for_permission_rows = 0;
   for (const auto& permission : permission_info_list) {
     std::unique_ptr<PermissionSelectorRow> selector =
         std::make_unique<PermissionSelectorRow>(
@@ -712,6 +733,8 @@ void PageInfoBubbleView::SetPermissionInfo(
                            : GURL::EmptyGURL(),
             permission, layout);
     selector->AddObserver(this);
+    min_height_for_permission_rows = std::max(
+        min_height_for_permission_rows, selector->MinHeightForPermissionRow());
     selector_rows_.push_back(std::move(selector));
   }
 
@@ -736,9 +759,8 @@ void PageInfoBubbleView::SetPermissionInfo(
     // Since chosen objects are presented after permissions in the same list,
     // make sure its height is the same as the permissions row's minimum height
     // plus padding.
-    layout->StartRow(
-        1.0, kChosenObjectSectionId,
-        PermissionSelectorRow::MinHeightForPermissionRow() + list_item_padding);
+    layout->StartRow(1.0, kChosenObjectSectionId,
+                     min_height_for_permission_rows + list_item_padding);
     // The view takes ownership of the object info.
     auto object_view = std::make_unique<ChosenObjectView>(std::move(object));
     object_view->AddObserver(this);

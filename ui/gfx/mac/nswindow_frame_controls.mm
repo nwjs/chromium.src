@@ -64,8 +64,8 @@ void SetNSWindowShowInTaskbar(NSWindow* window, bool show) {
     NSArray* windowList = [[NSArray alloc] init];
     windowList = [NSWindow windowNumbersWithOptions:NSWindowNumberListAllSpaces];
     for (unsigned int i = 0; i < [windowList count]; ++i) {
-      NSWindow *window = [NSApp windowWithWindowNumber:[[windowList objectAtIndex:i] integerValue]];
-      [window setCanHide:NO];
+      NSWindow *win = [NSApp windowWithWindowNumber:[[windowList objectAtIndex:i] integerValue]];
+      [win setCanHide:NO];
     }
     TransformProcessType(&psn, kProcessTransformToUIElementApplication);
   }

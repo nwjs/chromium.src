@@ -48,9 +48,6 @@ bool AppWindowDesktopWindowTreeHostWin::GetClientAreaInsets(
 
 bool AppWindowDesktopWindowTreeHostWin::GetDwmFrameInsetsInPixels(
     gfx::Insets* insets) const {
-#if 1
-  return false;
-#else
   // If there's no glass view we never need to change DWM frame insets.
   if (!GetWidget()->client_view() || !app_window_->glass_frame_view() ||
       !DesktopWindowTreeHostWin::ShouldUseNativeFrame())
@@ -67,7 +64,6 @@ bool AppWindowDesktopWindowTreeHostWin::GetDwmFrameInsetsInPixels(
     *insets = insets->Scale(display::win::GetDPIScale());
   }
   return true;
-#endif
 }
 
 void AppWindowDesktopWindowTreeHostWin::HandleFrameChanged() {

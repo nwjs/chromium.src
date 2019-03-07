@@ -8,7 +8,6 @@
 #include "ash/frame/header_view.h"
 #include "ash/frame/non_client_frame_view_ash.h"
 #include "ash/frame/wide_frame_view.h"
-#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/caption_buttons/caption_button_model.h"
 #include "ash/public/cpp/caption_buttons/frame_caption_button_container_view.h"
 #include "ash/public/cpp/window_properties.h"
@@ -17,7 +16,7 @@
 #include "ash/shell_test_api.h"
 #include "ash/system/unified/unified_system_tray.h"
 #include "ash/wm/drag_window_resizer.h"
-#include "ash/wm/overview/window_selector_controller.h"
+#include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_window_drag_delegate.h"
@@ -29,7 +28,6 @@
 #include "ash/wm/workspace_controller_test_api.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/scoped_feature_list.h"
 #include "cc/paint/display_item_list.h"
 #include "components/exo/buffer.h"
 #include "components/exo/display.h"
@@ -675,7 +673,7 @@ TEST_F(ClientControlledShellSurfaceTest,
 
   EXPECT_TRUE(shell_surface->GetWidget()->IsActive());
 
-  // Show system tray by perfoming a gesture tap at tray.
+  // Show system tray by performing a gesture tap at tray.
   ash::UnifiedSystemTray* system_tray = GetPrimaryUnifiedSystemTray();
   ui::GestureEvent tap(0, 0, 0, base::TimeTicks(),
                        ui::GestureEventDetails(ui::ET_GESTURE_TAP));
@@ -1090,8 +1088,6 @@ TEST_F(ClientControlledShellSurfaceTest, ClientIniatedResize) {
 // Test the functionalities of dragging a window from top in tablet mode.
 TEST_F(ClientControlledShellSurfaceTest, DragWindowFromTopInTabletMode) {
   UpdateDisplay("800x600");
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(ash::features::kDragAppsInTabletMode);
   ash::Shell* shell = ash::Shell::Get();
   shell->tablet_mode_controller()->EnableTabletModeWindowManager(true);
   std::unique_ptr<Surface> surface(new Surface());
@@ -1121,7 +1117,7 @@ TEST_F(ClientControlledShellSurfaceTest, DragWindowFromTopInTabletMode) {
 
   // FLING the window not inisde preview area with large enough y veloicty
   // (larger than kFlingToOverviewThreshold) will drop the window into overview.
-  EXPECT_FALSE(shell->window_selector_controller()->IsSelecting());
+  EXPECT_FALSE(shell->overview_controller()->IsSelecting());
   end = gfx::Point(400, 210);
   const base::TimeDelta duration =
       event_generator->CalculateScrollDurationForFlingVelocity(
@@ -1129,16 +1125,16 @@ TEST_F(ClientControlledShellSurfaceTest, DragWindowFromTopInTabletMode) {
           ash::TabletModeWindowDragDelegate::kFlingToOverviewThreshold + 10.f,
           200);
   event_generator->GestureScrollSequence(start, end, duration, 200);
-  EXPECT_TRUE(shell->window_selector_controller()->IsSelecting());
-  EXPECT_TRUE(shell->window_selector_controller()
-                  ->window_selector()
-                  ->IsWindowInOverview(window));
+  EXPECT_TRUE(shell->overview_controller()->IsSelecting());
+  EXPECT_TRUE(
+      shell->overview_controller()->overview_session()->IsWindowInOverview(
+          window));
 
   // Drag the window long enough (pass one fourth of the screen vertical
   // height) to snap the window to splitscreen.
   end = gfx::Point(0, 210);
-  shell->window_selector_controller()->ToggleOverview();
-  EXPECT_FALSE(shell->window_selector_controller()->IsSelecting());
+  shell->overview_controller()->ToggleOverview();
+  EXPECT_FALSE(shell->overview_controller()->IsSelecting());
   EXPECT_TRUE(ash::wm::GetWindowState(window)->IsMaximized());
   event_generator->GestureScrollSequence(
       start, end, base::TimeDelta::FromMilliseconds(100), 20);
@@ -1329,18 +1325,19 @@ TEST_F(ClientControlledShellSurfaceTest, CaptionButtonModel) {
   shell_surface->SetGeometry(gfx::Rect(0, 0, 64, 64));
   surface->Commit();
 
-  constexpr ash::CaptionButtonIcon kAllButtons[] = {
-      ash::CAPTION_BUTTON_ICON_MINIMIZE,
-      ash::CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE,
-      ash::CAPTION_BUTTON_ICON_CLOSE,
-      ash::CAPTION_BUTTON_ICON_BACK,
-      ash::CAPTION_BUTTON_ICON_MENU,
+  constexpr views::CaptionButtonIcon kAllButtons[] = {
+      views::CAPTION_BUTTON_ICON_MINIMIZE,
+      views::CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE,
+      views::CAPTION_BUTTON_ICON_CLOSE,
+      views::CAPTION_BUTTON_ICON_BACK,
+      views::CAPTION_BUTTON_ICON_MENU,
   };
   constexpr uint32_t kAllButtonMask =
-      1 << ash::CAPTION_BUTTON_ICON_MINIMIZE |
-      1 << ash::CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE |
-      1 << ash::CAPTION_BUTTON_ICON_CLOSE | 1 << ash::CAPTION_BUTTON_ICON_BACK |
-      1 << ash::CAPTION_BUTTON_ICON_MENU;
+      1 << views::CAPTION_BUTTON_ICON_MINIMIZE |
+      1 << views::CAPTION_BUTTON_ICON_MAXIMIZE_RESTORE |
+      1 << views::CAPTION_BUTTON_ICON_CLOSE |
+      1 << views::CAPTION_BUTTON_ICON_BACK |
+      1 << views::CAPTION_BUTTON_ICON_MENU;
 
   ash::NonClientFrameViewAsh* frame_view =
       static_cast<ash::NonClientFrameViewAsh*>(
@@ -1378,7 +1375,7 @@ TEST_F(ClientControlledShellSurfaceTest, CaptionButtonModel) {
   // Zoom mode
   EXPECT_FALSE(container->model()->InZoomMode());
   shell_surface->SetFrameButtons(
-      kAllButtonMask | 1 << ash::CAPTION_BUTTON_ICON_ZOOM, kAllButtonMask);
+      kAllButtonMask | 1 << views::CAPTION_BUTTON_ICON_ZOOM, kAllButtonMask);
   EXPECT_TRUE(container->model()->InZoomMode());
 }
 

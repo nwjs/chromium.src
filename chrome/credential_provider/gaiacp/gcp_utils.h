@@ -6,6 +6,7 @@
 #define CHROME_CREDENTIAL_PROVIDER_GAIACP_GCP_UTILS_H_
 
 #include "base/callback.h"
+#include "base/files/file_path.h"
 #include "base/strings/string16.h"
 #include "base/values.h"
 #include "base/win/scoped_handle.h"
@@ -32,27 +33,12 @@ class FilePath;
 
 namespace credential_provider {
 
+// Windows supports a maximum of 20 characters plus null in username.
+constexpr int kWindowsUsernameBufferLength = 21;
+
 // Because of some strange dependency problems with windows header files,
 // define STATUS_SUCCESS here instead of including ntstatus.h or SubAuth.h
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
-
-// The the UI process can exit with the following exit code.
-enum UiExitCodes {
-  // The user completed the sign in successfully.
-  kUiecSuccess,
-
-  // The sign in was aborted by the user.
-  kUiecAbort,
-
-  // The sign in timed out.
-  kUiecTimeout,
-
-  // The process was killed by the GCP.
-  kUiecKilled,
-
-  // The email does not match the required pattern.
-  kUiecEMailMissmatch,
-};
 
 // A bitfield indicating which standard handles are to be created.
 using StdHandlesToCreate = uint32_t;
@@ -97,6 +83,17 @@ class ScopedStartupInfo {
   STARTUPINFOW info_;
   base::string16 desktop_;
 };
+
+// Gets the brand specific path in which to install GCPW.
+base::FilePath::StringType GetInstallParentDirectoryName();
+
+// Gets the directory where the GCP is installed
+base::FilePath GetInstallDirectory();
+
+// Deletes versions of GCP found under |gcp_path| except for version
+// |product_version|.
+void DeleteVersionsExcept(const base::FilePath& gcp_path,
+                          const base::string16& product_version);
 
 // Waits for the process specified by |procinfo| to terminate.  The handles
 // in |read_handles| can be used to read stdout/err from the process.  Upon
@@ -181,8 +178,17 @@ HRESULT EnrollToGoogleMdmIfNeeded(const base::DictionaryValue& properties);
 // Gets the auth package id for NEGOSSP_NAME_A.
 HRESULT GetAuthenticationPackageId(ULONG* id);
 
+// Handles the writing and deletion of a startup sentinel file used to ensure
+// that the GCPW does not crash continuously on startup and render the
+// winlogon process unusable.
+bool VerifyStartupSentinel();
+void DeleteStartupSentinel();
+
 // Gets a string resource from the DLL with the given id.
-base::string16 GetStringResource(UINT id);
+base::string16 GetStringResource(int base_message_id);
+
+// Gets the language selected by the base::win::i18n::LanguageSelector.
+base::string16 GetSelectedLanguage();
 
 // Helpers to get strings from DictionaryValues.
 base::string16 GetDictString(const base::DictionaryValue* dict,
@@ -196,6 +202,7 @@ std::string GetDictStringUTF8(
     const char* name);
 
 class OSUserManager;
+class OSProcessManager;
 
 // This structure is used in tests to set fake objects in the credential
 // provider dll.  See the function SetFakesForTesting() for details.
@@ -204,7 +211,8 @@ struct FakesForTesting {
   ~FakesForTesting();
 
   ScopedLsaPolicy::CreatorCallback scoped_lsa_policy_creator;
-  OSUserManager* os_manager_for_testing = nullptr;
+  OSUserManager* os_user_manager_for_testing = nullptr;
+  OSProcessManager* os_process_manager_for_testing = nullptr;
 };
 
 // DLL entrypoint signature for settings testing fakes.  This is used by

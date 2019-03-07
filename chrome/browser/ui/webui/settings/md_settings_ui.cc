@@ -14,11 +14,16 @@
 #include "ash/public/cpp/ash_features.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/stl_util.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/passwords/manage_passwords_view_utils.h"
+#include "chrome/browser/ui/webui/dark_mode_handler.h"
+#include "chrome/browser/ui/webui/managed_ui_handler.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
 #include "chrome/browser/ui/webui/settings/about_handler.h"
+#include "chrome/browser/ui/webui/settings/accessibility_main_handler.h"
 #include "chrome/browser/ui/webui/settings/appearance_handler.h"
 #include "chrome/browser/ui/webui/settings/browser_lifetime_handler.h"
 #include "chrome/browser/ui/webui/settings/downloads_handler.h"
@@ -73,11 +78,12 @@
 #include "ash/public/cpp/resources/grit/ash_public_unscaled_resources.h"
 #include "ash/public/cpp/stylus_utils.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/android_sms/android_sms_app_manager.h"
+#include "chrome/browser/chromeos/android_sms/android_sms_service_factory.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_session.h"
 #include "chrome/browser/chromeos/login/quick_unlock/quick_unlock_utils.h"
-#include "chrome/browser/chromeos/multidevice_setup/android_sms_app_helper_delegate_impl.h"
 #include "chrome/browser/chromeos/multidevice_setup/multidevice_setup_client_factory.h"
 #include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/ui/webui/chromeos/smb_shares/smb_handler.h"
@@ -102,8 +108,8 @@
 #include "chrome/grit/browser_resources.h"
 #include "chromeos/account_manager/account_manager.h"
 #include "chromeos/account_manager/account_manager_factory.h"
-#include "chromeos/chromeos_features.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_features.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/services/multidevice_setup/public/cpp/prefs.h"
 #include "components/arc/arc_util.h"
 #include "ui/base/ui_base_features.h"
@@ -159,6 +165,7 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(std::make_unique<NativeCertificatesHandler>());
 #endif  // defined(USE_NSS_CERTS)
 
+  AddSettingsPageUIHandler(std::make_unique<AccessibilityMainHandler>());
   AddSettingsPageUIHandler(std::make_unique<BrowserLifetimeHandler>());
   AddSettingsPageUIHandler(std::make_unique<ClearBrowsingDataHandler>(web_ui));
   AddSettingsPageUIHandler(std::make_unique<CookiesViewHandler>());
@@ -200,12 +207,13 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
     AddSettingsPageUIHandler(
         std::make_unique<chromeos::settings::AccountManagerUIHandler>(
             account_manager,
-            AccountTrackerServiceFactory::GetInstance()->GetForProfile(
-                profile)));
+            AccountTrackerServiceFactory::GetInstance()->GetForProfile(profile),
+            IdentityManagerFactory::GetForProfile(profile)));
   }
   AddSettingsPageUIHandler(
       std::make_unique<chromeos::settings::ChangePictureHandler>());
-  if (crostini::IsCrostiniUIAllowedForProfile(profile)) {
+  if (crostini::IsCrostiniUIAllowedForProfile(profile,
+                                              false /* check_policy */)) {
     AddSettingsPageUIHandler(
         std::make_unique<chromeos::settings::CrostiniHandler>(profile));
   }
@@ -213,8 +221,7 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
       std::make_unique<chromeos::settings::CupsPrintersHandler>(web_ui));
   AddSettingsPageUIHandler(
       std::make_unique<chromeos::settings::FingerprintHandler>(profile));
-  if (chromeos::switches::IsVoiceInteractionEnabled() ||
-      chromeos::switches::IsAssistantEnabled()) {
+  if (chromeos::switches::IsAssistantEnabled()) {
     AddSettingsPageUIHandler(
         std::make_unique<chromeos::settings::GoogleAssistantHandler>(profile));
   }
@@ -276,25 +283,21 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
                           password_protection_available);
 
 #if defined(OS_CHROMEOS)
-  if (!profile->IsGuestSession() &&
-      base::FeatureList::IsEnabled(
-          chromeos::features::kEnableUnifiedMultiDeviceSetup) &&
-      base::FeatureList::IsEnabled(
-          chromeos::features::kEnableUnifiedMultiDeviceSettings) &&
-      base::FeatureList::IsEnabled(chromeos::features::kMultiDeviceApi)) {
+  if (!profile->IsGuestSession()) {
+    chromeos::android_sms::AndroidSmsService* android_sms_service =
+        chromeos::android_sms::AndroidSmsServiceFactory::GetForBrowserContext(
+            profile);
     AddSettingsPageUIHandler(
         std::make_unique<chromeos::settings::MultideviceHandler>(
             profile->GetPrefs(),
             chromeos::multidevice_setup::MultiDeviceSetupClientFactory::
                 GetForProfile(profile),
-            std::make_unique<
-                chromeos::multidevice_setup::AndroidSmsAppHelperDelegateImpl>(
-                profile)));
+            android_sms_service
+                ? android_sms_service->android_sms_pairing_state_tracker()
+                : nullptr,
+            android_sms_service ? android_sms_service->android_sms_app_manager()
+                                : nullptr));
   }
-  html_source->AddBoolean(
-      "enableMultideviceSettings",
-      base::FeatureList::IsEnabled(
-          chromeos::features::kEnableUnifiedMultiDeviceSettings));
   html_source->AddBoolean(
       "multideviceAllowedByPolicy",
       chromeos::multidevice_setup::AreAnyMultiDeviceFeaturesAllowed(
@@ -323,6 +326,10 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
                           ash::stylus_utils::HasInternalStylus());
 
   html_source->AddBoolean("showCrostini",
+                          crostini::IsCrostiniUIAllowedForProfile(
+                              profile, false /* check_policy */));
+
+  html_source->AddBoolean("allowCrostini",
                           crostini::IsCrostiniUIAllowedForProfile(profile));
 
   html_source->AddBoolean("isDemoSession",
@@ -335,9 +342,8 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
   // For AOSP images we don't have the Play Store app. In last case we Android
   // apps settings consists only from root link to Android settings and only
   // visible once settings app is registered.
-  const bool androidAppsVisible = arc::IsArcAllowedForProfile(profile) &&
-                                  !arc::IsArcOptInVerificationDisabled();
-  html_source->AddBoolean("androidAppsVisible", androidAppsVisible);
+  html_source->AddBoolean("androidAppsVisible",
+                          arc::IsArcAllowedForProfile(profile));
   html_source->AddBoolean("havePlayStoreApp", arc::IsPlayStoreAvailable());
 
   // TODO(mash): Support Chrome power settings in Mash. https://crbug.com/644348
@@ -397,7 +403,12 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
   html_source->SetDefaultResource(use_polymer_2
                                       ? IDR_MD_SETTINGS_VULCANIZED_P2_HTML
                                       : IDR_MD_SETTINGS_VULCANIZED_HTML);
-  html_source->UseGzip(exclude_from_gzip);
+  html_source->UseGzip(base::BindRepeating(
+      [](const std::vector<std::string>& excluded_paths,
+         const std::string& path) {
+        return !base::ContainsValue(excluded_paths, path);
+      },
+      std::move(exclude_from_gzip)));
 #if defined(OS_CHROMEOS)
   html_source->AddResourcePath("manifest.json", IDR_MD_SETTINGS_MANIFEST);
 #endif  // defined (OS_CHROMEOS)
@@ -411,6 +422,9 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
 #endif
 
   AddLocalizedStrings(html_source, profile);
+
+  DarkModeHandler::Initialize(web_ui, html_source);
+  ManagedUIHandler::Initialize(web_ui, html_source);
 
   content::WebUIDataSource::Add(web_ui->GetWebContents()->GetBrowserContext(),
                                 html_source);

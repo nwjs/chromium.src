@@ -16,13 +16,15 @@
 #include "third_party/blink/renderer/core/frame/use_counter.h"
 #include "third_party/blink/renderer/core/workers/worklet_pending_tasks.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
 
 namespace blink {
 
 Worklet::Worklet(Document* document)
     : ContextLifecycleObserver(document),
-      module_responses_map_(new WorkletModuleResponsesMap) {
+      module_responses_map_(MakeGarbageCollected<WorkletModuleResponsesMap>()) {
   DCHECK(IsMainThread());
 }
 
@@ -123,7 +125,11 @@ void Worklet::FetchAndInvokeScript(const KURL& module_url_record,
 
   // Step 7: "Let outsideSettings be the relevant settings object of this."
   auto* outside_settings_object =
-      GetExecutionContext()->CreateFetchClientSettingsObjectSnapshot();
+      MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
+          GetExecutionContext()
+              ->Fetcher()
+              ->GetProperties()
+              .GetFetchClientSettingsObject());
   // Specify TaskType::kInternalLoading because it's commonly used for module
   // loading.
   scoped_refptr<base::SingleThreadTaskRunner> outside_settings_task_runner =

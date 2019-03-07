@@ -5,7 +5,7 @@
 #ifndef ASH_LOGIN_LOGIN_SCREEN_TEST_API_H_
 #define ASH_LOGIN_LOGIN_SCREEN_TEST_API_H_
 
-#include "ash/public/interfaces/login_screen_test_api.mojom.h"
+#include "ash/public/interfaces/login_screen_test_api.test-mojom.h"
 #include "base/macros.h"
 #include "components/account_id/account_id.h"
 
@@ -22,6 +22,7 @@ class LoginScreenTestApi : public mojom::LoginScreenTestApi {
 
   // mojom::LoginScreen:
   void IsLockShown(IsLockShownCallback callback) override;
+  void IsLoginShelfShown(IsLoginShelfShownCallback callback) override;
   void SubmitPassword(const AccountId& account_id,
                       const std::string& password,
                       SubmitPasswordCallback callback) override;

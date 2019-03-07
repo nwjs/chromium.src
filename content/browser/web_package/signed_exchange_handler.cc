@@ -4,6 +4,8 @@
 
 #include "content/browser/web_package/signed_exchange_handler.h"
 
+#include <utility>
+
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
@@ -60,6 +62,11 @@ constexpr char kHistogramOCSPResponseStatus[] =
     "SignedExchange.OCSPResponseStatus";
 constexpr char kHistogramOCSPRevocationStatus[] =
     "SignedExchange.OCSPRevocationStatus";
+constexpr char kSXGFromNonHTTPSErrorMessage[] =
+    "Signed exchange response from non secure origin is not supported.";
+constexpr char kSXGWithoutNoSniffErrorMessage[] =
+    "Signed exchange response without \"X-Content-Type-Options: nosniff\" "
+    "header is not supported.";
 
 network::mojom::NetworkContext* g_network_context_for_testing = nullptr;
 
@@ -73,7 +80,7 @@ base::Time GetVerificationTime() {
 
 bool IsSupportedSignedExchangeVersion(
     const base::Optional<SignedExchangeVersion>& version) {
-  return version == SignedExchangeVersion::kB2;
+  return version == SignedExchangeVersion::kB3;
 }
 
 using VerifyCallback = base::OnceCallback<void(int32_t,
@@ -169,6 +176,8 @@ void SignedExchangeHandler::SetVerificationTimeForTesting(
 }
 
 SignedExchangeHandler::SignedExchangeHandler(
+    bool is_secure_transport,
+    bool has_nosniff,
     std::string content_type,
     std::unique_ptr<net::SourceStream> body,
     ExchangeHeadersCallback headers_callback,
@@ -176,7 +185,9 @@ SignedExchangeHandler::SignedExchangeHandler(
     int load_flags,
     std::unique_ptr<SignedExchangeDevToolsProxy> devtools_proxy,
     base::RepeatingCallback<int(void)> frame_tree_node_id_getter)
-    : headers_callback_(std::move(headers_callback)),
+    : is_secure_transport_(is_secure_transport),
+      has_nosniff_(has_nosniff),
+      headers_callback_(std::move(headers_callback)),
       source_(std::move(body)),
       cert_fetcher_factory_(std::move(cert_fetcher_factory)),
       load_flags_(load_flags),
@@ -187,13 +198,35 @@ SignedExchangeHandler::SignedExchangeHandler(
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("loading"),
                "SignedExchangeHandler::SignedExchangeHandler");
 
+  // https://wicg.github.io/webpackage/draft-yasskin-http-origin-signed-responses.html#privacy-considerations
+  // This can be difficult to determine when the exchange is being loaded from
+  // local disk, but when the client itself requested the exchange over a
+  // network it SHOULD require TLS ([I-D.ietf-tls-tls13]) or a successor
+  // transport layer, and MUST NOT accept exchanges transferred over plain HTTP
+  // without TLS. [spec text]
+  if (!is_secure_transport_) {
+    signed_exchange_utils::ReportErrorAndTraceEvent(
+        devtools_proxy_.get(), kSXGFromNonHTTPSErrorMessage);
+    // Proceed to extract and redirect to the fallback URL.
+  }
+
+  // https://wicg.github.io/webpackage/draft-yasskin-http-origin-signed-responses.html#seccons-content-sniffing
+  // To encourage servers to include the `X-Content-Type-Options: nosniff`
+  // header field, clients SHOULD reject signed exchanges served without it.
+  // [spec text]
+  if (!has_nosniff_) {
+    signed_exchange_utils::ReportErrorAndTraceEvent(
+        devtools_proxy_.get(), kSXGWithoutNoSniffErrorMessage);
+    // Proceed to extract and redirect to the fallback URL.
+  }
+
   version_ = signed_exchange_utils::GetSignedExchangeVersion(content_type);
   if (!IsSupportedSignedExchangeVersion(version_)) {
     signed_exchange_utils::ReportErrorAndTraceEvent(
         devtools_proxy_.get(),
         base::StringPrintf("Unsupported version of the content type. Currently "
                            "content type must be "
-                           "\"application/signed-exchange;v=b2\". But the "
+                           "\"application/signed-exchange;v=b3\". But the "
                            "response content type was \"%s\"",
                            content_type.c_str()));
     // Proceed to extract and redirect to the fallback URL.
@@ -210,10 +243,13 @@ SignedExchangeHandler::SignedExchangeHandler(
 SignedExchangeHandler::~SignedExchangeHandler() = default;
 
 SignedExchangeHandler::SignedExchangeHandler()
-    : load_flags_(net::LOAD_NORMAL), weak_factory_(this) {}
+    : is_secure_transport_(true),
+      has_nosniff_(true),
+      load_flags_(net::LOAD_NORMAL),
+      weak_factory_(this) {}
 
 const GURL& SignedExchangeHandler::GetFallbackUrl() const {
-  return prologue_fallback_url_and_after_.fallback_url();
+  return prologue_fallback_url_and_after_.fallback_url().url;
 }
 
 void SignedExchangeHandler::SetupBuffers(size_t size) {
@@ -339,6 +375,12 @@ SignedExchangeHandler::ParsePrologueFallbackUrlAndAfter() {
   if (!GetFallbackUrl().is_valid())
     return SignedExchangeLoadResult::kFallbackURLParseError;
 
+  if (!is_secure_transport_)
+    return SignedExchangeLoadResult::kSXGServedFromNonHTTPS;
+
+  if (!has_nosniff_)
+    return SignedExchangeLoadResult::kSXGServedWithoutNosniff;
+
   // If the signed exchange version from content-type is unsupported or the
   // prologue's magic string is incorrect, abort parsing and redirect to the
   // fallback URL.
@@ -363,6 +405,8 @@ SignedExchangeHandler::ParseHeadersAndFetchCertificate() {
                "SignedExchangeHandler::ParseHeadersAndFetchCertificate");
   DCHECK_EQ(state_, State::kReadingHeaders);
 
+  DCHECK(version_.has_value());
+
   base::StringPiece data(header_buf_->data(), header_read_buf_->size());
   base::StringPiece signature_header_field = data.substr(
       0, prologue_fallback_url_and_after_.signature_header_field_length());
@@ -370,9 +414,9 @@ SignedExchangeHandler::ParseHeadersAndFetchCertificate() {
       base::as_bytes(base::make_span(data.substr(
           prologue_fallback_url_and_after_.signature_header_field_length(),
           prologue_fallback_url_and_after_.cbor_header_length())));
-  envelope_ =
-      SignedExchangeEnvelope::Parse(GetFallbackUrl(), signature_header_field,
-                                    cbor_header, devtools_proxy_.get());
+  envelope_ = SignedExchangeEnvelope::Parse(
+      *version_, prologue_fallback_url_and_after_.fallback_url(),
+      signature_header_field, cbor_header, devtools_proxy_.get());
   header_read_buf_ = nullptr;
   header_buf_ = nullptr;
   if (!envelope_) {
@@ -385,7 +429,6 @@ SignedExchangeHandler::ParseHeadersAndFetchCertificate() {
   // TODO(https://crbug.com/819467): When we will support ed25519Key, |cert_url|
   // may be empty.
   DCHECK(cert_url.is_valid());
-  DCHECK(version_.has_value());
 
   DCHECK(cert_fetcher_factory_);
 
@@ -394,7 +437,7 @@ SignedExchangeHandler::ParseHeadersAndFetchCertificate() {
   cert_fetch_start_time_ = base::TimeTicks::Now();
   cert_fetcher_ = std::move(cert_fetcher_factory_)
                       ->CreateFetcherAndStart(
-                          cert_url, force_fetch, *version_,
+                          cert_url, force_fetch,
                           base::BindOnce(&SignedExchangeHandler::OnCertReceived,
                                          base::Unretained(this)),
                           devtools_proxy_.get());
@@ -414,8 +457,8 @@ void SignedExchangeHandler::RunErrorCallback(SignedExchangeLoadResult result,
         nullptr);
   }
   std::move(headers_callback_)
-      .Run(result, error, GetFallbackUrl(), std::string(),
-           network::ResourceResponseHead(), nullptr);
+      .Run(result, error, GetFallbackUrl(), network::ResourceResponseHead(),
+           nullptr);
   state_ = State::kHeadersCallbackCalled;
 }
 
@@ -443,10 +486,11 @@ void SignedExchangeHandler::OnCertReceived(
                              cert_fetch_duration);
   unverified_cert_chain_ = std::move(cert_chain);
 
+  DCHECK(version_.has_value());
   const SignedExchangeSignatureVerifier::Result verify_result =
       SignedExchangeSignatureVerifier::Verify(
-          *envelope_, unverified_cert_chain_->cert(), GetVerificationTime(),
-          devtools_proxy_.get());
+          *version_, *envelope_, unverified_cert_chain_->cert(),
+          GetVerificationTime(), devtools_proxy_.get());
   UMA_HISTOGRAM_ENUMERATION(kHistogramSignatureVerificationResult,
                             verify_result);
   if (verify_result != SignedExchangeSignatureVerifier::Result::kSuccess) {
@@ -463,7 +507,7 @@ void SignedExchangeHandler::OnCertReceived(
   }
 
   auto certificate = unverified_cert_chain_->cert();
-  auto url = envelope_->request_url();
+  auto url = envelope_->request_url().url;
 
   // https://wicg.github.io/webpackage/draft-yasskin-http-origin-signed-responses.html#cross-origin-trust
   // Step 6.4 Validate that valid SCTs from trusted logs are available from any
@@ -632,8 +676,7 @@ void SignedExchangeHandler::OnVerifyCert(
   response_head.ssl_info = std::move(ssl_info);
   std::move(headers_callback_)
       .Run(SignedExchangeLoadResult::kSuccess, net::OK,
-           envelope_->request_url(), envelope_->request_method(), response_head,
-           std::move(mi_stream));
+           envelope_->request_url().url, response_head, std::move(mi_stream));
   state_ = State::kHeadersCallbackCalled;
 }
 

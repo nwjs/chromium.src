@@ -145,8 +145,7 @@ PrintJobWorker::PrintJobWorker(int render_process_id,
       query_(query),
       thread_("Printing_Worker"),
       weak_factory_(this) {
-  // The object is created in the IO thread.
-  DCHECK(query_->RunsTasksInCurrentSequence());
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
 }
 
 PrintJobWorker::~PrintJobWorker() {
@@ -154,11 +153,11 @@ PrintJobWorker::~PrintJobWorker() {
   // user cancels printing or in the case of print preview, the worker is
   // destroyed with the PrinterQuery, which is on the I/O thread.
   if (query_) {
+    DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
     DCHECK(!print_job_);
-    DCHECK(query_->RunsTasksInCurrentSequence());
   } else {
+    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
     DCHECK(print_job_);
-    DCHECK(print_job_->RunsTasksInCurrentSequence());
   }
   Stop();
 }
@@ -211,8 +210,7 @@ void PrintJobWorker::GetSettings(bool ask_user_for_settings,
   }
 }
 
-void PrintJobWorker::SetSettings(
-    std::unique_ptr<base::DictionaryValue> new_settings) {
+void PrintJobWorker::SetSettings(base::Value new_settings) {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
   DCHECK(query_);
 
@@ -239,11 +237,10 @@ void PrintJobWorker::SetSettingsFromPOD(
 }
 #endif
 
-void PrintJobWorker::UpdatePrintSettings(
-    std::unique_ptr<base::DictionaryValue> new_settings) {
+void PrintJobWorker::UpdatePrintSettings(base::Value new_settings) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   PrintingContext::Result result =
-      printing_context_->UpdatePrintSettings(*new_settings);
+      printing_context_->UpdatePrintSettings(std::move(new_settings));
   GetSettingsDone(result);
 }
 

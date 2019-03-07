@@ -12,13 +12,16 @@
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
+#include "base/stl_util.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/webui/browsing_history_handler.h"
+#include "chrome/browser/ui/webui/dark_mode_handler.h"
 #include "chrome/browser/ui/webui/foreign_session_handler.h"
 #include "chrome/browser/ui/webui/history_login_handler.h"
+#include "chrome/browser/ui/webui/managed_ui_handler.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -137,6 +140,7 @@ content::WebUIDataSource* CreateMdHistoryUIHTMLSource(Profile* profile,
      IDR_MD_HISTORY_IMAGES_100_SIGN_IN_PROMO_JPG},
     {"images/200/sign_in_promo.jpg",
      IDR_MD_HISTORY_IMAGES_200_SIGN_IN_PROMO_JPG},
+    {"strings.html", IDR_MD_HISTORY_STRINGS_HTML},
 #if !BUILDFLAG(OPTIMIZE_WEBUI)
     {"app.html", IDR_MD_HISTORY_APP_HTML},
     {"app.js", IDR_MD_HISTORY_APP_JS},
@@ -172,7 +176,12 @@ content::WebUIDataSource* CreateMdHistoryUIHTMLSource(Profile* profile,
     source->AddResourcePath(resource.path, resource.idr);
     exclude_from_gzip.push_back(resource.path);
   }
-  source->UseGzip(exclude_from_gzip);
+  source->UseGzip(base::BindRepeating(
+      [](const std::vector<std::string> excluded_paths,
+         const std::string& path) {
+        return !base::ContainsValue(excluded_paths, path);
+      },
+      std::move(exclude_from_gzip)));
 
 #if BUILDFLAG(OPTIMIZE_WEBUI)
   const bool use_polymer_2 =
@@ -203,6 +212,8 @@ MdHistoryUI::MdHistoryUI(content::WebUI* web_ui) : WebUIController(web_ui) {
   Profile* profile = Profile::FromWebUI(web_ui);
   content::WebUIDataSource* data_source =
       CreateMdHistoryUIHTMLSource(profile, use_test_title_);
+  DarkModeHandler::Initialize(web_ui, data_source);
+  ManagedUIHandler::Initialize(web_ui, data_source);
   content::WebUIDataSource::Add(profile, data_source);
 
   web_ui->AddMessageHandler(std::make_unique<BrowsingHistoryHandler>());

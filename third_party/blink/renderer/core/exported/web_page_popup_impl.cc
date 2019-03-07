@@ -125,19 +125,18 @@ class PagePopupChromeClient final : public EmptyChromeClient {
   }
 
   void ScheduleAnimation(const LocalFrameView*) override {
-    // Calling scheduleAnimation on m_webView so WebViewTestProxy will call
-    // beginFrame.
     if (WebTestSupport::IsRunningWebTest()) {
-      popup_->web_view_->MainFrameImpl()
-          ->FrameWidgetImpl()
-          ->ScheduleAnimation();
-    }
-
-    if (popup_->layer_tree_view_) {
-      popup_->layer_tree_view_->SetNeedsBeginFrame();
+      // In single threaded web tests, the main frame's WebWidgetClient
+      // (provided by WebViewTestProxy or WebWidgetTestProxy) runs the composite
+      // step for the current popup. We don't run popup tests with a compositor
+      // thread.
+      popup_->web_view_->WidgetClient()->ScheduleAnimation();
       return;
     }
-    popup_->widget_client_->ScheduleAnimation();
+
+    // TODO(danakj): Why null check? Can ScheduleAnimation() happen after the
+    // call to WillCloseLayerTreeView()?
+    popup_->WidgetClient()->ScheduleAnimation();
   }
 
   void AttachCompositorAnimationTimeline(CompositorAnimationTimeline* timeline,
@@ -421,7 +420,7 @@ void WebPagePopupImpl::UpdateAllLifecyclePhasesAndCompositeForTesting(
 void WebPagePopupImpl::PaintContent(cc::PaintCanvas* canvas,
                                     const WebRect& rect) {
   if (!closing_) {
-    PageWidgetDelegate::PaintContent(*page_, canvas, rect, MainFrame());
+    PageWidgetDelegate::PaintContent(canvas, rect, MainFrame());
   }
 }
 
@@ -576,10 +575,6 @@ LocalDOMWindow* WebPagePopupImpl::Window() {
   return MainFrame().DomWindow();
 }
 
-void WebPagePopupImpl::LayoutAndPaintAsync(base::OnceClosure callback) {
-  layer_tree_view_->LayoutAndPaintAsync(std::move(callback));
-}
-
 void WebPagePopupImpl::CompositeAndReadbackAsync(
     base::OnceCallback<void(const SkBitmap&)> callback) {
   DCHECK(IsAcceleratedCompositingActive());
@@ -595,7 +590,7 @@ WebPoint WebPagePopupImpl::PositionRelativeToOwner() {
 
 void WebPagePopupImpl::Cancel() {
   if (popup_client_)
-    popup_client_->ClosePopup();
+    popup_client_->CancelPopup();
 }
 
 WebRect WebPagePopupImpl::WindowRectInScreen() const {

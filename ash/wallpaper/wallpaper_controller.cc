@@ -25,7 +25,8 @@
 #include "ash/wallpaper/wallpaper_view.h"
 #include "ash/wallpaper/wallpaper_widget_controller.h"
 #include "ash/wallpaper/wallpaper_window_state_manager.h"
-#include "ash/wm/overview/window_selector_controller.h"
+#include "ash/wm/overview/overview_constants.h"
+#include "ash/wm/overview/overview_controller.h"
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_enumerator.h"
@@ -39,7 +40,7 @@
 #include "base/task/post_task.h"
 #include "base/task_runner_util.h"
 #include "base/values.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "services/data_decoder/public/cpp/decode_image.h"
@@ -476,7 +477,7 @@ WallpaperController::WallpaperController()
       color_profiles_(GetProminentColorProfiles()),
       wallpaper_reload_delay_(kWallpaperReloadDelay),
       sequenced_task_runner_(base::CreateSequencedTaskRunnerWithTraits(
-          {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN})),
       scoped_session_observer_(this),
       weak_factory_(this) {
@@ -730,15 +731,11 @@ void WallpaperController::UpdateWallpaperBlur(bool blur) {
 
 bool WallpaperController::ShouldApplyDimming() const {
   return Shell::Get()->session_controller()->IsUserSessionBlocked() &&
-         !IsOneShotWallpaper() &&
-         !base::CommandLine::ForCurrentProcess()->HasSwitch(
-             switches::kAshDisableLoginDimAndBlur);
+         !IsOneShotWallpaper();
 }
 
 bool WallpaperController::IsBlurAllowed() const {
-  return !IsDevicePolicyWallpaper() && !IsOneShotWallpaper() &&
-         !base::CommandLine::ForCurrentProcess()->HasSwitch(
-             switches::kAshDisableLoginDimAndBlur);
+  return !IsDevicePolicyWallpaper() && !IsOneShotWallpaper();
 }
 
 bool WallpaperController::IsWallpaperBlurred() const {
@@ -1085,6 +1082,10 @@ void WallpaperController::ConfirmPreviewWallpaper() {
 }
 
 void WallpaperController::CancelPreviewWallpaper() {
+  if (!confirm_preview_wallpaper_callback_) {
+    DCHECK(!reload_preview_wallpaper_callback_);
+    return;
+  }
   confirm_preview_wallpaper_callback_.Reset();
   reload_preview_wallpaper_callback_.Reset();
   ReloadWallpaper(/*clear_cache=*/false);
@@ -1451,7 +1452,7 @@ void WallpaperController::InstallDesktopController(aura::Window* root_window) {
 
   bool session_blocked =
       Shell::Get()->session_controller()->IsUserSessionBlocked();
-  bool in_overview = Shell::Get()->window_selector_controller()->IsSelecting();
+  bool in_overview = Shell::Get()->overview_controller()->IsSelecting();
   bool is_wallpaper_blurred =
       (session_blocked || in_overview) && IsBlurAllowed();
 
@@ -1467,8 +1468,7 @@ void WallpaperController::InstallDesktopController(aura::Window* root_window) {
   const int container_id = GetWallpaperContainerId(locked_);
   float blur = login_constants::kClearBlurSigma;
   if (is_wallpaper_blurred) {
-    blur = session_blocked ? login_constants::kBlurSigma
-                           : WindowSelectorController::kWallpaperBlurSigma;
+    blur = session_blocked ? login_constants::kBlurSigma : kWallpaperBlurSigma;
   }
   RootWindowController::ForWindow(root_window)
       ->wallpaper_widget_controller()

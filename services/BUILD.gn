@@ -28,7 +28,10 @@ test("services_unittests") {
       "//services/audio:tests",
       "//services/data_decoder:tests",
       "//services/device:tests",
+      "//services/image_annotation:tests",
+      "//services/image_annotation/public/cpp:tests",
       "//services/media_session:tests",
+      "//services/media_session/public/cpp:tests",
       "//services/preferences:tests",
       "//services/proxy_resolver:tests",
       "//services/resource_coordinator:tests",
@@ -55,6 +58,7 @@ test("services_unittests") {
     deps += [
       "//services/data_decoder/public/cpp/android:safe_json_java",
       "//services/device:java",
+      "//services/identity:java",
       "//services/media_session/public/cpp/android:media_session_java",
 
       # Some tests make network requests.

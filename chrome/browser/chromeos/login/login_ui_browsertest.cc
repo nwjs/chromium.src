@@ -4,6 +4,7 @@
 
 #include "base/command_line.h"
 #include "base/memory/ptr_util.h"
+#include "base/stl_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/login/login_manager_test.h"
@@ -36,7 +37,7 @@ struct {
 class LoginUITest : public chromeos::LoginManagerTest {
  public:
   LoginUITest() : LoginManagerTest(false, true /* should_initialize_webui */) {
-    for (size_t i = 0; i < arraysize(kTestUsers); ++i) {
+    for (size_t i = 0; i < base::size(kTestUsers); ++i) {
       test_users_.emplace_back(AccountId::FromUserEmailGaiaId(
           kTestUsers[i].email, kTestUsers[i].gaia_id));
     }
@@ -63,16 +64,16 @@ IN_PROC_BROWSER_TEST_F(LoginUITest, PRE_LoginUIVisible) {
 
 // Verifies basic login UI properties.
 IN_PROC_BROWSER_TEST_F(LoginUITest, LoginUIVisible) {
-  JSExpect("!!document.querySelector('#account-picker')");
-  JSExpect("!!document.querySelector('#pod-row')");
-  JSExpect(
+  test::OobeJS().ExpectTrue("!!document.querySelector('#account-picker')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#pod-row')");
+  test::OobeJS().ExpectTrue(
       "document.querySelectorAll('.pod:not(#user-pod-template)').length == 2");
 
-  JSExpect(
+  test::OobeJS().ExpectTrue(
       "document.querySelectorAll('.pod:not(#user-pod-template)')[0]"
       ".user.emailAddress == '" +
       test_users_[0].GetUserEmail() + "'");
-  JSExpect(
+  test::OobeJS().ExpectTrue(
       "document.querySelectorAll('.pod:not(#user-pod-template)')[1]"
       ".user.emailAddress == '" +
       test_users_[1].GetUserEmail() + "'");
@@ -93,7 +94,7 @@ IN_PROC_BROWSER_TEST_F(LoginUITest, InterruptedAutoStartEnrollment) {
 }
 
 IN_PROC_BROWSER_TEST_F(LoginUITest, OobeNoExceptions) {
-  JSExpect("cr.ErrorStore.getInstance().length == 0");
+  test::OobeJS().ExpectTrue("cr.ErrorStore.getInstance().length == 0");
 }
 
 IN_PROC_BROWSER_TEST_F(LoginUITest, PRE_LoginNoExceptions) {
@@ -104,15 +105,15 @@ IN_PROC_BROWSER_TEST_F(LoginUITest, PRE_LoginNoExceptions) {
 
 IN_PROC_BROWSER_TEST_F(LoginUITest, LoginNoExceptions) {
   OobeScreenWaiter(OobeScreen::SCREEN_ACCOUNT_PICKER).Wait();
-  JSExpect("cr.ErrorStore.getInstance().length == 0");
+  test::OobeJS().ExpectTrue("cr.ErrorStore.getInstance().length == 0");
 }
 
 IN_PROC_BROWSER_TEST_F(LoginUITest, OobeCatchException) {
-  JSExpect("cr.ErrorStore.getInstance().length == 0");
-  js_checker().ExecuteAsync("aelrt('misprint')");
-  JSExpect("cr.ErrorStore.getInstance().length == 1");
-  js_checker().ExecuteAsync("consle.error('Some error')");
-  JSExpect("cr.ErrorStore.getInstance().length == 2");
+  test::OobeJS().ExpectTrue("cr.ErrorStore.getInstance().length == 0");
+  test::OobeJS().ExecuteAsync("aelrt('misprint')");
+  test::OobeJS().ExpectTrue("cr.ErrorStore.getInstance().length == 1");
+  test::OobeJS().ExecuteAsync("consle.error('Some error')");
+  test::OobeJS().ExpectTrue("cr.ErrorStore.getInstance().length == 2");
 }
 
 }  // namespace chromeos

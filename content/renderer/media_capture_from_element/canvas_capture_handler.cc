@@ -471,22 +471,23 @@ void CanvasCaptureHandler::AddVideoCapturerSourceToVideoTrack(
   base::Base64Encode(base::RandBytesAsString(64), &str_track_id);
   const blink::WebString track_id = blink::WebString::FromASCII(str_track_id);
   media::VideoCaptureFormats preferred_formats = source->GetPreferredFormats();
-  std::unique_ptr<MediaStreamVideoSource> media_stream_source(
+  MediaStreamVideoSource* media_stream_source =
       new MediaStreamVideoCapturerSource(
-          MediaStreamSource::SourceStoppedCallback(), std::move(source)));
+          blink::WebPlatformMediaStreamSource::SourceStoppedCallback(),
+          std::move(source));
   blink::WebMediaStreamSource webkit_source;
   webkit_source.Initialize(track_id, blink::WebMediaStreamSource::kTypeVideo,
                            track_id, false);
-  webkit_source.SetExtraData(media_stream_source.get());
+  webkit_source.SetPlatformSource(base::WrapUnique(media_stream_source));
   webkit_source.SetCapabilities(ComputeCapabilitiesForVideoSource(
       track_id, preferred_formats,
       media::VideoFacingMode::MEDIA_VIDEO_FACING_NONE,
       false /* is_device_capture */));
 
   web_track->Initialize(webkit_source);
-  web_track->SetTrackData(new MediaStreamVideoTrack(
-      media_stream_source.release(),
-      MediaStreamVideoSource::ConstraintsCallback(), true));
+  web_track->SetPlatformTrack(std::make_unique<MediaStreamVideoTrack>(
+      media_stream_source, MediaStreamVideoSource::ConstraintsCallback(),
+      true));
 }
 
 }  // namespace content

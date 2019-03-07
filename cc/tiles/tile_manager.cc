@@ -24,6 +24,7 @@
 #include "cc/base/devtools_instrumentation.h"
 #include "cc/base/histograms.h"
 #include "cc/layers/picture_layer_impl.h"
+#include "cc/raster/paint_worklet_image_provider.h"
 #include "cc/raster/playback_image_provider.h"
 #include "cc/raster/raster_buffer.h"
 #include "cc/raster/task_category.h"
@@ -85,6 +86,7 @@ class RasterTaskImpl : public TileTask {
                  TileTask::Vector* dependencies,
                  bool is_gpu_rasterization,
                  PlaybackImageProvider image_provider,
+                 PaintWorkletImageProvider paint_worklet_image_provider,
                  GURL url)
       : TileTask(!is_gpu_rasterization, dependencies),
         tile_manager_(tile_manager),
@@ -104,9 +106,12 @@ class RasterTaskImpl : public TileTask {
         is_gpu_rasterization_(is_gpu_rasterization),
         raster_buffer_(std::move(raster_buffer)),
         image_provider_(std::move(image_provider)),
+        paint_worklet_image_provider_(std::move(paint_worklet_image_provider)),
         url_(std::move(url)) {
     DCHECK(origin_thread_checker_.CalledOnValidThread());
     playback_settings_.image_provider = &image_provider_;
+    playback_settings_.paint_worklet_image_provider =
+        &paint_worklet_image_provider_;
   }
 
   // Overridden from Task:
@@ -173,6 +178,7 @@ class RasterTaskImpl : public TileTask {
   bool is_gpu_rasterization_;
   std::unique_ptr<RasterBuffer> raster_buffer_;
   PlaybackImageProvider image_provider_;
+  PaintWorkletImageProvider paint_worklet_image_provider_;
   GURL url_;
 
   DISALLOW_COPY_AND_ASSIGN(RasterTaskImpl);
@@ -298,10 +304,11 @@ class TaskSetFinishedTaskImpl : public TileTask {
  public:
   explicit TaskSetFinishedTaskImpl(
       base::SequencedTaskRunner* task_runner,
-      const base::Closure& on_task_set_finished_callback)
+      base::RepeatingClosure on_task_set_finished_callback)
       : TileTask(true),
         task_runner_(task_runner),
-        on_task_set_finished_callback_(on_task_set_finished_callback) {}
+        on_task_set_finished_callback_(
+            std::move(on_task_set_finished_callback)) {}
 
   // Overridden from Task:
   void RunOnWorkerThread() override {
@@ -321,7 +328,7 @@ class TaskSetFinishedTaskImpl : public TileTask {
 
  private:
   base::SequencedTaskRunner* task_runner_;
-  const base::Closure on_task_set_finished_callback_;
+  const base::RepeatingClosure on_task_set_finished_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(TaskSetFinishedTaskImpl);
 };
@@ -397,11 +404,12 @@ TileManager::TileManager(
                              tile_manager_settings_.min_image_bytes_to_checker),
       more_tiles_need_prepare_check_notifier_(
           task_runner_,
-          base::Bind(&TileManager::CheckIfMoreTilesNeedToBePrepared,
-                     base::Unretained(this))),
-      signals_check_notifier_(task_runner_,
-                              base::Bind(&TileManager::FlushAndIssueSignals,
-                                         base::Unretained(this))),
+          base::BindRepeating(&TileManager::CheckIfMoreTilesNeedToBePrepared,
+                              base::Unretained(this))),
+      signals_check_notifier_(
+          task_runner_,
+          base::BindRepeating(&TileManager::FlushAndIssueSignals,
+                              base::Unretained(this))),
       has_scheduled_tile_tasks_(false),
       prepare_tiles_count_(0u),
       next_tile_id_(0u),
@@ -997,6 +1005,7 @@ void TileManager::ScheduleTasks(PrioritizedWorkToSchedule work_to_schedule) {
     DCHECK(tile->HasRasterTask());
 
     TileTask* task = tile->raster_task_.get();
+    task->set_frame_number(tile->source_frame_number());
 
     DCHECK(!task->HasCompleted());
 
@@ -1177,8 +1186,10 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
       prepare_tiles_count_, prioritized_tile.priority().priority_bin,
       ImageDecodeCache::TaskType::kInRaster);
   bool has_at_raster_images = false;
-  image_controller_.GetTasksForImagesAndRef(
+  image_controller_.ConvertDataImagesToTasks(
       &sync_decoded_images, &decode_tasks, &has_at_raster_images, tracing_info);
+  image_controller_.ConvertPaintWorkletImagesToTask(&sync_decoded_images,
+                                                    &decode_tasks);
   // Notify |decoded_image_tracker_| after |image_controller_| to ensure we've
   // taken new refs on the images before releasing the predecode API refs.
   decoded_image_tracker_.OnImagesUsedInDraw(sync_decoded_images);
@@ -1233,12 +1244,16 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
                                        std::move(settings));
 
   playback_settings.raster_color_space = raster_color_space;
+
+  PaintWorkletImageProvider paint_worklet_image_provider(
+      image_controller_.paint_worklet_image_cache());
+
   return base::MakeRefCounted<RasterTaskImpl>(
       this, tile, std::move(resource), prioritized_tile.raster_source(),
       playback_settings, prioritized_tile.priority().resolution,
       invalidated_rect, prepare_tiles_count_, std::move(raster_buffer),
       &decode_tasks, use_gpu_rasterization_, std::move(image_provider),
-      active_url_);
+      std::move(paint_worklet_image_provider), active_url_);
 }
 
 void TileManager::ResetSignalsForTesting() {
@@ -1384,7 +1399,7 @@ void TileManager::ScheduleCheckRasterFinishedQueries() {
   if (!check_pending_tile_queries_callback_.IsCancelled())
     return;
 
-  check_pending_tile_queries_callback_.Reset(base::Bind(
+  check_pending_tile_queries_callback_.Reset(base::BindOnce(
       &TileManager::CheckRasterFinishedQueries, base::Unretained(this)));
   task_runner_->PostDelayedTask(FROM_HERE,
                                 check_pending_tile_queries_callback_.callback(),
@@ -1647,8 +1662,9 @@ void TileManager::CheckPendingGpuWorkAndIssueSignals() {
     pending_required_for_activation_callback_id_ =
         raster_buffer_provider_->SetReadyToDrawCallback(
             required_for_activation,
-            base::Bind(&TileManager::CheckPendingGpuWorkAndIssueSignals,
-                       ready_to_draw_callback_weak_ptr_factory_.GetWeakPtr()),
+            base::BindOnce(
+                &TileManager::CheckPendingGpuWorkAndIssueSignals,
+                ready_to_draw_callback_weak_ptr_factory_.GetWeakPtr()),
             pending_required_for_activation_callback_id_);
   }
 
@@ -1658,8 +1674,9 @@ void TileManager::CheckPendingGpuWorkAndIssueSignals() {
     pending_required_for_draw_callback_id_ =
         raster_buffer_provider_->SetReadyToDrawCallback(
             required_for_draw,
-            base::Bind(&TileManager::CheckPendingGpuWorkAndIssueSignals,
-                       ready_to_draw_callback_weak_ptr_factory_.GetWeakPtr()),
+            base::BindOnce(
+                &TileManager::CheckPendingGpuWorkAndIssueSignals,
+                ready_to_draw_callback_weak_ptr_factory_.GetWeakPtr()),
             pending_required_for_draw_callback_id_);
   }
 
@@ -1681,7 +1698,8 @@ scoped_refptr<TileTask> TileManager::CreateTaskSetFinishedTask(
     void (TileManager::*callback)()) {
   return base::MakeRefCounted<TaskSetFinishedTaskImpl>(
       task_runner_,
-      base::Bind(callback, task_set_finished_weak_ptr_factory_.GetWeakPtr()));
+      base::BindRepeating(callback,
+                          task_set_finished_weak_ptr_factory_.GetWeakPtr()));
 }
 
 std::unique_ptr<base::trace_event::ConvertableToTraceFormat>
@@ -1689,6 +1707,11 @@ TileManager::ActivationStateAsValue() {
   auto state = std::make_unique<base::trace_event::TracedValue>();
   ActivationStateAsValueInto(state.get());
   return std::move(state);
+}
+
+void TileManager::SetPaintWorkletLayerPainter(
+    std::unique_ptr<PaintWorkletLayerPainter> painter) {
+  image_controller_.SetPaintWorkletLayerPainter(std::move(painter));
 }
 
 void TileManager::ActivationStateAsValueInto(

@@ -5,7 +5,7 @@
 #include "third_party/blink/renderer/core/workers/experimental/thread_pool.h"
 
 #include "services/service_manager/public/cpp/interface_provider.h"
-#include "third_party/blink/public/platform/dedicated_worker_factory.mojom-blink.h"
+#include "third_party/blink/public/mojom/worker/dedicated_worker_factory.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
@@ -78,7 +78,7 @@ const char ThreadPool::kSupplementName[] = "ThreadPool";
 ThreadPool* ThreadPool::From(Document& document) {
   ThreadPool* thread_pool = Supplement<Document>::From<ThreadPool>(document);
   if (!thread_pool) {
-    thread_pool = new ThreadPool(document);
+    thread_pool = MakeGarbageCollected<ThreadPool>(document);
     Supplement<Document>::ProvideTo(document, thread_pool);
   }
   return thread_pool;
@@ -104,14 +104,16 @@ ThreadPoolThread* ThreadPool::CreateNewThread() {
                  : base::UnguessableToken::Create();
   ExecutionContext* context = GetExecutionContext();
 
-  ThreadPoolMessagingProxy* proxy = new ThreadPoolMessagingProxy(context);
+  ThreadPoolMessagingProxy* proxy =
+      MakeGarbageCollected<ThreadPoolMessagingProxy>(context);
   std::unique_ptr<WorkerSettings> settings =
       std::make_unique<WorkerSettings>(GetFrame()->GetSettings());
 
   // WebWorkerFetchContext is provided later in
   // ThreadedMessagingProxyBase::InitializeWorkerThread().
   proxy->StartWorker(std::make_unique<GlobalScopeCreationParams>(false, std::string(),
-      context->Url(), mojom::ScriptType::kClassic, context->UserAgent(),
+      context->Url(), mojom::ScriptType::kClassic,
+      OffMainThreadWorkerScriptFetchOption::kDisabled, context->UserAgent(),
       nullptr /* web_worker_fetch_context */,
       context->GetContentSecurityPolicy()->Headers(),
       network::mojom::ReferrerPolicy::kDefault, context->GetSecurityOrigin(),

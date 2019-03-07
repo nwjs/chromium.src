@@ -7,6 +7,7 @@
 #include "base/command_line.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
+#include "services/ws/test_ws/test_ws.mojom-test-utils.h"
 #include "services/ws/test_ws/test_ws.mojom.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/cursor_client.h"
@@ -30,9 +31,11 @@
 #include "ui/events/gestures/gesture_recognizer_observer.h"
 #include "ui/gfx/geometry/dip_util.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/mus/ax_remote_host.h"
 #include "ui/views/mus/mus_client.h"
 #include "ui/views/mus/mus_client_test_api.h"
 #include "ui/views/mus/screen_mus.h"
+#include "ui/views/test/native_widget_factory.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -45,9 +48,14 @@ namespace views {
 class DesktopWindowTreeHostMusTest : public ViewsTestBase,
                                      public WidgetObserver {
  public:
-  DesktopWindowTreeHostMusTest()
-      : widget_activated_(nullptr), widget_deactivated_(nullptr) {}
-  ~DesktopWindowTreeHostMusTest() override {}
+  DesktopWindowTreeHostMusTest() = default;
+  ~DesktopWindowTreeHostMusTest() override = default;
+
+  // ViewsTestBase:
+  void SetUp() override {
+    set_native_widget_type(NativeWidgetType::kDesktop);
+    ViewsTestBase::SetUp();
+  }
 
   // Creates a test widget. Takes ownership of |delegate|.
   std::unique_ptr<Widget> CreateWidget(WidgetDelegate* delegate = nullptr,
@@ -77,8 +85,8 @@ class DesktopWindowTreeHostMusTest : public ViewsTestBase,
     }
   }
 
-  Widget* widget_activated_;
-  Widget* widget_deactivated_;
+  Widget* widget_activated_ = nullptr;
+  Widget* widget_deactivated_ = nullptr;
 
   DISALLOW_COPY_AND_ASSIGN(DesktopWindowTreeHostMusTest);
 };
@@ -406,7 +414,7 @@ TEST_F(DesktopWindowTreeHostMusTest, CreateFullscreenWidget) {
 
   for (auto widget_type : kWidgetTypes) {
     Widget widget;
-    Widget::InitParams params(widget_type);
+    Widget::InitParams params = CreateParams(widget_type);
     params.show_state = ui::SHOW_STATE_FULLSCREEN;
     params.ownership = Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
     widget.Init(params);
@@ -580,6 +588,9 @@ TEST_F(DesktopWindowTreeHostMusTest, WindowTitle) {
 }
 
 TEST_F(DesktopWindowTreeHostMusTest, Accessibility) {
+  // Pretend we're using the remote AX service, like shortcut_viewer.
+  MusClientTestApi::SetAXRemoteHost(std::make_unique<AXRemoteHost>());
+
   std::unique_ptr<Widget> widget = CreateWidget();
   // Widget frame views do not participate in accessibility node hierarchy
   // because the frame is provided by the window manager.
@@ -910,6 +921,43 @@ TEST_F(DesktopWindowTreeHostMusTest, TransientChildMatchesParentVisibility) {
   EXPECT_TRUE(transient_child->GetNativeWindow()->GetRootWindow()->IsVisible());
 
   transient_child->RemoveObserver(&observer);
+}
+
+// DesktopWindowTreeHostMusTest with --force-device-scale-factor=1.25.
+class DesktopWindowTreeHostMusTestFractionalDPI
+    : public DesktopWindowTreeHostMusTest {
+ public:
+  DesktopWindowTreeHostMusTestFractionalDPI() = default;
+  ~DesktopWindowTreeHostMusTestFractionalDPI() override = default;
+
+  // DesktopWindowTreeHostMusTest:
+  void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+        switches::kForceDeviceScaleFactor, "1.25");
+    DesktopWindowTreeHostMusTest::SetUp();
+  }
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(DesktopWindowTreeHostMusTestFractionalDPI);
+};
+
+TEST_F(DesktopWindowTreeHostMusTestFractionalDPI,
+       SetBoundsInDipWithFractionalScale) {
+  std::unique_ptr<Widget> widget(CreateWidget());
+  // These numbers are carefully chosen such that if enclosing rect is used
+  // the pixel values differ between the two. The WindowServcie assumes ceiling
+  // is used on the size, which is not impacted by the location.
+  const gfx::Rect bounds1(408, 48, 339, 296);
+  const int expected_pixel_height =
+      gfx::ScaleToCeiledSize(bounds1.size(), 1.25f).height();
+  widget->SetBounds(bounds1);
+  EXPECT_EQ(expected_pixel_height,
+            widget->GetNativeWindow()->GetHost()->GetBoundsInPixels().height());
+
+  const gfx::Rect bounds2(gfx::Point(408, 49), bounds1.size());
+  widget->SetBounds(bounds2);
+  EXPECT_EQ(expected_pixel_height,
+            widget->GetNativeWindow()->GetHost()->GetBoundsInPixels().height());
 }
 
 }  // namespace views

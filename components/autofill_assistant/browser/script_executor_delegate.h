@@ -8,6 +8,9 @@
 #include <map>
 #include <string>
 
+#include "components/autofill_assistant/browser/details.h"
+#include "components/autofill_assistant/browser/state.h"
+
 namespace autofill {
 class PersonalDataManager;
 }  // namespace autofill
@@ -39,13 +42,20 @@ class ScriptExecutorDelegate {
 
   virtual content::WebContents* GetWebContents() = 0;
 
+  virtual void EnterState(AutofillAssistantState state) = 0;
+
   // Make the area of the screen that correspond to the given elements
   // touchable.
-  virtual void SetTouchableElementArea(
-      const std::vector<Selector>& elements) = 0;
+  virtual void SetTouchableElementArea(const ElementAreaProto& element) = 0;
+  virtual void SetStatusMessage(const std::string& message) = 0;
+  virtual std::string GetStatusMessage() const = 0;
+  virtual void SetDetails(const Details& details) = 0;
+  virtual void ClearDetails() = 0;
 
   // Makes no area of the screen touchable.
-  void ClearTouchableElementArea() { SetTouchableElementArea({}); }
+  void ClearTouchableElementArea() {
+    SetTouchableElementArea(ElementAreaProto::default_instance());
+  }
 
  protected:
   virtual ~ScriptExecutorDelegate() {}

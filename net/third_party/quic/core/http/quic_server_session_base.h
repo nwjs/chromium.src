@@ -80,7 +80,8 @@ class QUIC_EXPORT_PRIVATE QuicServerSessionBase : public QuicSpdySession {
   // Return false when connection is closed or forward secure encryption hasn't
   // established yet or number of server initiated streams already reaches the
   // upper limit.
-  bool ShouldCreateOutgoingStream() override;
+  bool ShouldCreateOutgoingBidirectionalStream() override;
+  bool ShouldCreateOutgoingUnidirectionalStream() override;
 
   // If we should create an incoming stream, returns true. Otherwise
   // does error handling, including communicating the error to the client and
@@ -125,7 +126,7 @@ class QUIC_EXPORT_PRIVATE QuicServerSessionBase : public QuicSpdySession {
   QuicTime last_scup_time_;
 
   // Number of packets sent to the peer, at the time we last sent a SCUP.
-  int64_t last_scup_packet_number_;
+  QuicPacketNumber last_scup_packet_number_;
 
   // Converts QuicBandwidth to an int32 bytes/second that can be
   // stored in CachedNetworkParameters.  TODO(jokulik): This function

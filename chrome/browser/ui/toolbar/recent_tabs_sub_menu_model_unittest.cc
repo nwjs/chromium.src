@@ -22,7 +22,7 @@
 #include "chrome/browser/sessions/session_service.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
-#include "chrome/browser/sync/profile_sync_service_factory.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/session_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -31,14 +31,15 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/menu_model_test.h"
-#include "components/browser_sync/profile_sync_service.h"
-#include "components/sessions/core/persistent_tab_restore_service.h"
 #include "components/sessions/core/serialized_navigation_entry_test_helper.h"
 #include "components/sessions/core/session_types.h"
+#include "components/sessions/core/tab_restore_service_impl.h"
+#include "components/sync/device_info/device_info_sync_service.h"
 #include "components/sync/device_info/local_device_info_provider_mock.h"
 #include "components/sync/driver/data_type_controller.h"
 #include "components/sync/engine/data_type_activation_response.h"
 #include "components/sync/model/data_type_activation_request.h"
+#include "components/sync/model/model_type_controller_delegate.h"
 #include "components/sync_sessions/session_sync_service_impl.h"
 #include "components/sync_sessions/synced_session.h"
 #include "content/public/browser/browser_thread.h"
@@ -124,10 +125,8 @@ class RecentTabsSubMenuModelTest
     activation_request.cache_guid = "test_cache_guid";
     activation_request.error_handler = base::DoNothing();
 
-    ProfileSyncServiceFactory::GetForProfile(profile())
-        ->GetLocalDeviceInfoProviderForTest()
-        ->Initialize(activation_request.cache_guid, "Test Machine",
-                     "device_id");
+    DeviceInfoSyncServiceFactory::GetForProfile(profile())->InitLocalCacheGuid(
+        activation_request.cache_guid, "Test Machine");
 
     std::unique_ptr<syncer::DataTypeActivationResponse> activation_response;
     base::RunLoop loop;
@@ -158,10 +157,10 @@ class RecentTabsSubMenuModelTest
 
   static std::unique_ptr<KeyedService> GetTabRestoreService(
       content::BrowserContext* browser_context) {
-    return std::make_unique<sessions::PersistentTabRestoreService>(
+    return std::make_unique<sessions::TabRestoreServiceImpl>(
         base::WrapUnique(new ChromeTabRestoreServiceClient(
             Profile::FromBrowserContext(browser_context))),
-        nullptr);
+        nullptr, nullptr);
   }
 
   void RegisterRecentTabs(RecentTabsBuilderTestHelper* helper) {
@@ -272,17 +271,8 @@ TEST_F(RecentTabsSubMenuModelTest, RecentlyClosedTabsFromCurrentSession) {
   EXPECT_FALSE(model.GetURLAndTitleForItemAtIndex(6, &url, &title));
 }
 
-// TODO(sail): enable this test when dynamic model is enabled in
-// RecentTabsSubMenuModel.
-#if defined(OS_MACOSX)
-#define MAYBE_RecentlyClosedTabsAndWindowsFromLastSession \
-    DISABLED_RecentlyClosedTabsAndWindowsFromLastSession
-#else
-#define MAYBE_RecentlyClosedTabsAndWindowsFromLastSession \
-    RecentlyClosedTabsAndWindowsFromLastSession
-#endif
 TEST_F(RecentTabsSubMenuModelTest,
-       MAYBE_RecentlyClosedTabsAndWindowsFromLastSession) {
+       RecentlyClosedTabsAndWindowsFromLastSession) {
   DisableSync();
 
   TabRestoreServiceFactory::GetInstance()->SetTestingFactory(
@@ -509,13 +499,7 @@ TEST_F(RecentTabsSubMenuModelTest, OtherDevices) {
   EXPECT_TRUE(model.GetURLAndTitleForItemAtIndex(12, &url, &title));
 }
 
-// Mac doesn't support the dynamic menu.
-#if defined(OS_MACOSX)
-#define MAYBE_OtherDevicesDynamicUpdate DISABLED_OtherDevicesDynamicUpdate
-#else
-#define MAYBE_OtherDevicesDynamicUpdate OtherDevicesDynamicUpdate
-#endif
-TEST_F(RecentTabsSubMenuModelTest, MAYBE_OtherDevicesDynamicUpdate) {
+TEST_F(RecentTabsSubMenuModelTest, OtherDevicesDynamicUpdate) {
   // Create menu with disabled synchronization.
   DisableSync();
 

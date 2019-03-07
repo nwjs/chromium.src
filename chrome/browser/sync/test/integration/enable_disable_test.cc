@@ -7,6 +7,7 @@
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/test/bind_test_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/values.h"
 #include "chrome/browser/sync/test/integration/bookmarks_helper.h"
 #include "chrome/browser/sync/test/integration/profile_sync_service_harness.h"
@@ -19,7 +20,6 @@
 #include "components/sync/test/fake_server/bookmark_entity_builder.h"
 #include "components/sync/test/fake_server/entity_builder_factory.h"
 
-using base::FeatureList;
 using syncer::ModelType;
 using syncer::ModelTypeSet;
 using syncer::ModelTypeFromString;
@@ -116,7 +116,8 @@ class EnableDisableSingleClientTest : public SyncTest {
     if (all_types_enabled) {
       ASSERT_TRUE(GetClient(0)->SetupSync());
     } else {
-      ASSERT_TRUE(GetClient(0)->SetupSync(ModelTypeSet()));
+      ASSERT_TRUE(GetClient(0)->SetupSyncNoWaitForCompletion(ModelTypeSet()));
+      ASSERT_TRUE(GetClient(0)->AwaitSyncSetupCompletion());
     }
 
     registered_types_ = GetSyncService(0)->GetRegisteredDataTypes();
@@ -155,10 +156,23 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest, EnableOneAtATime) {
       ASSERT_FALSE(ModelTypeExists(sgt)) << " for " << ModelTypeToString(st);
     }
 
+    base::HistogramTester histogram_tester;
     EXPECT_TRUE(GetClient(0)->EnableSyncForDatatype(st));
 
     for (ModelType gt : grouped_types) {
       EXPECT_TRUE(ModelTypeExists(gt)) << " for " << ModelTypeToString(st);
+
+      if (syncer::CommitOnlyTypes().Has(gt)) {
+        EXPECT_EQ(0, histogram_tester.GetBucketCount(
+                         "Sync.PostedDataTypeGetUpdatesRequest",
+                         ModelTypeToHistogramInt(gt)))
+            << " for " << ModelTypeToString(gt);
+      } else {
+        EXPECT_NE(0, histogram_tester.GetBucketCount(
+                         "Sync.PostedDataTypeGetUpdatesRequest",
+                         ModelTypeToHistogramInt(gt)))
+            << " for " << ModelTypeToString(gt);
+      }
     }
   }
 }
@@ -338,7 +352,7 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest,
   ASSERT_GT(initial_updates_downloaded, 0);
 
   // Stop and restart Sync.
-  GetClient(0)->StopSyncService(syncer::SyncService::CLEAR_DATA);
+  GetClient(0)->StopSyncServiceAndClearData();
   GetClient(0)->StartSyncService();
   ASSERT_TRUE(GetSyncService(0)->IsSyncFeatureActive());
 
@@ -367,7 +381,7 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest,
   ASSERT_GT(GetNumUpdatesDownloadedInLastCycle(), 0);
 
   // Stop and restart Sync.
-  GetClient(0)->StopSyncService(syncer::SyncService::KEEP_DATA);
+  GetClient(0)->StopSyncServiceWithoutClearingData();
   GetClient(0)->StartSyncService();
   ASSERT_TRUE(GetSyncService(0)->IsSyncFeatureActive());
 
@@ -377,12 +391,41 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest,
   EXPECT_EQ(0, GetNumUpdatesDownloadedInLastCycle());
 }
 
-IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest,
-                       DoesNotRedownloadAfterKeepDataWithStandaloneTransport) {
-  base::test::ScopedFeatureList enable_standalone_transport;
-  enable_standalone_transport.InitAndEnableFeature(
-      switches::kSyncStandaloneTransport);
+IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest, ClearsPrefsIfClearData) {
+  SetupTest(/*all_types_enabled=*/true);
 
+  SyncPrefs prefs(GetProfile(0)->GetPrefs());
+  ASSERT_NE("", prefs.GetCacheGuidForTesting());
+
+  GetClient(0)->StopSyncServiceAndClearData();
+  EXPECT_EQ("", prefs.GetCacheGuidForTesting());
+}
+
+IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest,
+                       DoesNotClearPrefsWithKeepData) {
+  SetupTest(/*all_types_enabled=*/true);
+
+  SyncPrefs prefs(GetProfile(0)->GetPrefs());
+  const std::string cache_guid = prefs.GetCacheGuidForTesting();
+  ASSERT_NE("", cache_guid);
+
+  GetClient(0)->StopSyncServiceWithoutClearingData();
+  EXPECT_EQ(cache_guid, prefs.GetCacheGuidForTesting());
+}
+
+class EnableDisableSingleClientWithStandaloneTransportTest
+    : public EnableDisableSingleClientTest {
+ public:
+  EnableDisableSingleClientWithStandaloneTransportTest() {
+    features_.InitAndEnableFeature(switches::kSyncStandaloneTransport);
+  }
+
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientWithStandaloneTransportTest,
+                       DoesNotRedownloadAfterKeepDataWithStandaloneTransport) {
   ASSERT_TRUE(SetupClients());
   ASSERT_FALSE(bookmarks_helper::GetBookmarkModel(0)->IsBookmarked(
       GURL(kSyncedBookmarkURL)));
@@ -400,21 +443,27 @@ IN_PROC_BROWSER_TEST_F(EnableDisableSingleClientTest,
   ASSERT_GT(GetNumUpdatesDownloadedInLastCycle(), 0);
 
   // Stop Sync and let it start up again in standalone transport mode.
-  GetClient(0)->StopSyncService(syncer::SyncService::KEEP_DATA);
-  ASSERT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  GetClient(0)->StopSyncServiceWithoutClearingData();
+  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureActive());
 
   // Now start full Sync again.
+  base::HistogramTester histogram_tester;
   GetClient(0)->StartSyncService();
   ASSERT_TRUE(GetSyncService(0)->IsSyncFeatureActive());
 
   // The bookmark should still be there, *without* having been redownloaded.
+  ASSERT_TRUE(SetupSync());
   ASSERT_TRUE(bookmarks_helper::GetBookmarkModel(0)->IsBookmarked(
       GURL(kSyncedBookmarkURL)));
-  EXPECT_EQ(0, GetNumUpdatesDownloadedInLastCycle());
+  EXPECT_EQ(
+      0, histogram_tester.GetBucketCount("Sync.ModelTypeEntityChange3.BOOKMARK",
+                                         /*REMOTE_NON_INITIAL_UPDATE=*/4));
+  EXPECT_EQ(
+      0, histogram_tester.GetBucketCount("Sync.ModelTypeEntityChange3.BOOKMARK",
+                                         /*REMOTE_INITIAL_UPDATE=*/5));
 }
 
 }  // namespace

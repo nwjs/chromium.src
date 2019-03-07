@@ -31,8 +31,8 @@ class CustomPropertyTest : public PageTestBase {
   const CSSValue* GetComputedValue(const CustomProperty& property) {
     Element* node = GetDocument().getElementById("target");
     return property.CSSValueFromComputedStyle(node->ComputedStyleRef(),
-                                              nullptr /* layout_object*/, node,
-                                              false /* allow_visisted_style */);
+                                              nullptr /* layout_object */, node,
+                                              false /* allow_visited_style */);
   }
 
   const CSSValue* ParseValue(const Longhand& property,
@@ -192,6 +192,11 @@ TEST_F(CustomPropertyTest, ParseSingleValueValidatedUntyped) {
 
   const CSSValue* value2 = ParseValue(property, "maroon", local_context);
   EXPECT_FALSE(value2);
+}
+
+TEST_F(CustomPropertyTest, GetCSSPropertyName) {
+  CustomProperty property("--x", GetDocument());
+  EXPECT_EQ(CSSPropertyName("--x"), property.GetCSSPropertyName());
 }
 
 }  // namespace blink

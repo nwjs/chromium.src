@@ -10,10 +10,10 @@
 #include "chrome/browser/ui/webui/chromeos/user_image_source.h"
 #include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
+#include "chromeos/audio/cras_audio_handler.h"
 #include "chromeos/services/assistant/public/features.h"
 #include "components/arc/arc_prefs.h"
 #include "components/consent_auditor/consent_auditor.h"
-#include "components/signin/core/browser/signin_manager_base.h"
 #include "components/user_manager/user_manager.h"
 #include "services/identity/public/cpp/identity_manager.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -200,15 +200,6 @@ base::Value GetSettingsUiStrings(const assistant::SettingsUi& settings_ui,
                     base::Value(third_party_disclosure_ui.button_continue()));
   dictionary.SetKey("thirdPartyFooter", base::Value(consent_ui.tos_pp_links()));
 
-  // Add get more screen string constants.
-  dictionary.SetKey("getMoreTitle", base::Value(l10n_util::GetStringUTF16(
-                                        IDS_ASSISTANT_GET_MORE_SCREEN_TITLE)));
-  dictionary.SetKey("getMoreIntro", base::Value(l10n_util::GetStringUTF16(
-                                        IDS_ASSISTANT_GET_MORE_SCREEN_INTRO)));
-  dictionary.SetKey(
-      "getMoreContinueButton",
-      base::Value(l10n_util::GetStringUTF16(IDS_ASSISTANT_CONTINUE_BUTTON)));
-
   return dictionary;
 }
 
@@ -227,6 +218,17 @@ void RecordActivityControlConsent(Profile* profile,
 
   ConsentAuditorFactory::GetForProfile(profile)
       ->RecordAssistantActivityControlConsent(account_id, consent);
+}
+
+bool IsHotwordDspAvailable() {
+  chromeos::AudioDeviceList devices;
+  chromeos::CrasAudioHandler::Get()->GetAudioDevices(&devices);
+  for (const chromeos::AudioDevice& device : devices) {
+    if (device.type == chromeos::AUDIO_TYPE_HOTWORD) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace chromeos

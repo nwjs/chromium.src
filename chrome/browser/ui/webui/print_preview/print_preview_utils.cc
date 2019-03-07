@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/stl_util.h"
@@ -21,7 +20,7 @@
 #include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/ui/webui/print_preview/printer_handler.h"
 #include "components/crash/core/common/crash_keys.h"
-#include "components/printing/common/printer_capabilities.h"
+#include "components/printing/browser/printer_capabilities.h"
 #include "content/public/browser/render_frame_host.h"
 #include "printing/backend/print_backend_consts.h"
 #include "printing/page_range.h"
@@ -184,17 +183,10 @@ void ConvertPrinterListForCallback(
   std::move(done_callback).Run();
 }
 
-void StartLocalPrint(const std::string& ticket_json,
-                     const scoped_refptr<base::RefCountedMemory>& print_data,
+void StartLocalPrint(base::Value job_settings,
+                     scoped_refptr<base::RefCountedMemory> print_data,
                      content::WebContents* preview_web_contents,
                      PrinterHandler::PrintCallback callback) {
-  std::unique_ptr<base::DictionaryValue> job_settings =
-      base::DictionaryValue::From(base::JSONReader::Read(ticket_json));
-  if (!job_settings) {
-    std::move(callback).Run(base::Value("Invalid settings"));
-    return;
-  }
-
   // Get print view manager.
   PrintPreviewDialogController* dialog_controller =
       PrintPreviewDialogController::GetInstance();
@@ -208,11 +200,8 @@ void StartLocalPrint(const std::string& ticket_json,
     return;
   }
 
-  bool system_dialog = false;
-  job_settings->GetBoolean(kSettingShowSystemDialog, &system_dialog);
-  bool open_in_pdf = false;
-  job_settings->GetBoolean(kSettingOpenPDFInPreview, &open_in_pdf);
-  if (system_dialog || open_in_pdf) {
+  if (job_settings.FindBoolKey(kSettingShowSystemDialog).value_or(false) ||
+      job_settings.FindBoolKey(kSettingOpenPDFInPreview).value_or(false)) {
     // Run the callback early, or the modal dialogs will prevent the preview
     // from closing until they do.
     std::move(callback).Run(base::Value());

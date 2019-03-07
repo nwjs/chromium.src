@@ -26,7 +26,7 @@ namespace container_internal {
 template <class UnordSet>
 class ModifiersTest : public ::testing::Test {};
 
-TYPED_TEST_CASE_P(ModifiersTest);
+TYPED_TEST_SUITE_P(ModifiersTest);
 
 TYPED_TEST_P(ModifiersTest, Clear) {
   using T = hash_internal::GeneratedType<TypeParam>;
@@ -184,4 +184,5 @@ REGISTER_TYPED_TEST_CASE_P(ModifiersTest, Clear, Insert, InsertHint,
 
 }  // namespace container_internal
 }  // namespace absl
+
 #endif  // ABSL_CONTAINER_INTERNAL_UNORDERED_SET_MODIFIERS_TEST_H_

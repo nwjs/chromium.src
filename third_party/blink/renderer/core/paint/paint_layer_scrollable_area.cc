@@ -80,6 +80,7 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/page/scrolling/fragment_anchor.h"
 #include "third_party/blink/renderer/core/page/scrolling/root_scroller_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/root_scroller_util.h"
 #include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator.h"
@@ -487,10 +488,12 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
     }
   }
 
+  if (FragmentAnchor* anchor = frame_view->GetFragmentAnchor())
+    anchor->DidScroll(scroll_type);
+
   if (IsExplicitScrollType(scroll_type)) {
     if (scroll_type != kCompositorScroll)
       ShowOverlayScrollbars();
-    frame_view->ClearFragmentAnchor();
     GetScrollAnchor()->Clear();
   }
 
@@ -520,7 +523,7 @@ void PaintLayerScrollableArea::InvalidatePaintForScrollOffsetChange() {
   // If not composited, background always paints into the main graphics layer.
   bool background_paint_in_graphics_layer = true;
   bool background_paint_in_scrolling_contents = false;
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
       UsesCompositedScrolling()) {
     auto background_paint_location = box->GetBackgroundPaintLocation();
     background_paint_in_graphics_layer =
@@ -545,7 +548,7 @@ void PaintLayerScrollableArea::InvalidatePaintForScrollOffsetChange() {
   // scrollers, this will be taken care of by the interest rect computation
   // in CompositedLayerMapping.
   // TODO(wangxianzhu): replace this shortcut with interest rects.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
       !UsesCompositedScrolling())
     Layer()->SetNeedsRepaint();
 }
@@ -832,7 +835,7 @@ void PaintLayerScrollableArea::UpdateScrollOrigin() {
   LayoutRect scrollable_overflow(overflow_rect_);
   scrollable_overflow.Move(-GetLayoutBox()->BorderLeft(),
                            -GetLayoutBox()->BorderTop());
-  IntPoint new_origin(-scrollable_overflow.PixelSnappedLocation() +
+  IntPoint new_origin(FlooredIntPoint(-scrollable_overflow.Location()) +
                       GetLayoutBox()->OriginAdjustmentForScrollbars());
   if (new_origin != scroll_origin_)
     scroll_origin_changed_ = true;
@@ -1626,9 +1629,9 @@ void PaintLayerScrollableArea::SnapAfterScrollbarScrolling(
   if (!snap_coordinator)
     return;
 
-  snap_coordinator->SnapForEndPosition(*GetLayoutBox(),
-                                       orientation == kHorizontalScrollbar,
-                                       orientation == kVerticalScrollbar);
+  snap_coordinator->SnapAtCurrentPosition(*GetLayoutBox(),
+                                          orientation == kHorizontalScrollbar,
+                                          orientation == kVerticalScrollbar);
 }
 
 void PaintLayerScrollableArea::PositionOverflowControls() {
@@ -1827,7 +1830,7 @@ void PaintLayerScrollableArea::UpdateResizerAreaSet() {
 
 void PaintLayerScrollableArea::UpdateResizerStyle(
     const ComputedStyle* old_style) {
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled() && old_style &&
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() && old_style &&
       old_style->Resize() != GetLayoutBox()->StyleRef().Resize()) {
     // Invalidate the composited scroll corner layer on resize style change.
     if (auto* graphics_layer = LayerForScrollCorner())
@@ -2156,12 +2159,21 @@ void PaintLayerScrollableArea::UpdateCompositingLayersAfterScroll() {
     DCHECK(Layer()->HasCompositedLayerMapping());
     ScrollingCoordinator* scrolling_coordinator = GetScrollingCoordinator();
     bool handled_scroll =
-        Layer()->IsRootLayer() && scrolling_coordinator &&
+        (Layer()->IsRootLayer() ||
+         RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) &&
+        scrolling_coordinator &&
         scrolling_coordinator->UpdateCompositedScrollOffset(this);
 
     if (!handled_scroll) {
-      Layer()->GetCompositedLayerMapping()->SetNeedsGraphicsLayerUpdate(
-          kGraphicsLayerUpdateSubtree);
+      if (!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
+        // In non-BGPT mode, we need to do a full sub-tree update here, because
+        // we need to update the position property to compute
+        // offset_to_transform_parent. For more context, see the comment from
+        // chrishtr@ here:
+        // https://chromium-review.googlesource.com/c/chromium/src/+/1403639/6/third_party/blink/renderer/core/paint/paint_layer_scrollable_area.cc
+        Layer()->GetCompositedLayerMapping()->SetNeedsGraphicsLayerUpdate(
+            kGraphicsLayerUpdateSubtree);
+      }
       compositor->SetNeedsCompositingUpdate(
           kCompositingUpdateAfterGeometryChange);
     }
@@ -2682,7 +2694,7 @@ static LayoutRect InvalidatePaintOfScrollbarIfNeeded(
     // container to ensure newly expanded/shrunk areas of the box to be
     // invalidated.
     needs_paint_invalidation = false;
-    DCHECK(!graphics_layer->DrawsContent() ||
+    DCHECK(!graphics_layer->PaintsContentOrHitTest() ||
            graphics_layer->GetPaintController().GetPaintArtifact().IsEmpty());
   }
 
@@ -2847,15 +2859,15 @@ LayoutRect
 PaintLayerScrollableArea::ScrollingBackgroundDisplayItemClient::VisualRect()
     const {
   const auto* box = scrollable_area_->GetLayoutBox();
-  auto overflow_clip_rect = box->OverflowClipRect(LayoutPoint());
-  auto scroll_size = scrollable_area_->overflow_rect_.Size();
+  const auto& paint_offset = box->FirstFragment().PaintOffset();
+  auto overflow_clip_rect =
+      PixelSnappedIntRect(box->OverflowClipRect(paint_offset));
+  auto scroll_size = scrollable_area_->PixelSnappedContentsSize(paint_offset);
   // Ensure scrolling contents are at least as large as the scroll clip
   scroll_size = scroll_size.ExpandedTo(overflow_clip_rect.Size());
   LayoutRect result(overflow_clip_rect.Location(), scroll_size);
-  result.MoveBy(box->FirstFragment().PaintOffset());
-  result = LayoutRect(PixelSnappedIntRect(result));
 #if DCHECK_IS_ON()
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     DCHECK_EQ(result,
               scrollable_area_->layer_->GraphicsLayerBacking()->VisualRect());
   }

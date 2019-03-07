@@ -8,10 +8,10 @@
 
 #include "base/run_loop.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/test_signin_client.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "google_apis/gaia/oauth2_access_token_consumer.h"
+#include "services/identity/public/cpp/accounts_mutator.h"
 #include "services/identity/public/cpp/identity_test_utils.h"
 #include "services/identity/public/cpp/primary_account_mutator.h"
 
@@ -19,13 +19,18 @@
 #include "services/identity/public/cpp/primary_account_mutator_impl.h"
 #endif
 
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
+#include "services/identity/public/cpp/accounts_mutator_impl.h"
+#endif
+
 namespace identity {
 
 class IdentityManagerDependenciesOwner {
  public:
   IdentityManagerDependenciesOwner(
-      bool use_fake_url_loader_for_gaia_cookie_manager,
-      sync_preferences::TestingPrefServiceSyncable* pref_service);
+      network::TestURLLoaderFactory* test_url_loader_factory,
+      sync_preferences::TestingPrefServiceSyncable* pref_service,
+      signin::AccountConsistencyMethod account_consistency);
   ~IdentityManagerDependenciesOwner();
 
   AccountTrackerService* account_tracker_service();
@@ -49,14 +54,15 @@ class IdentityManagerDependenciesOwner {
   TestSigninClient signin_client_;
   FakeProfileOAuth2TokenService token_service_;
   SigninManagerForTest signin_manager_;
-  FakeGaiaCookieManagerService gaia_cookie_manager_service_;
+  std::unique_ptr<FakeGaiaCookieManagerService> gaia_cookie_manager_service_;
 
   DISALLOW_COPY_AND_ASSIGN(IdentityManagerDependenciesOwner);
 };
 
 IdentityManagerDependenciesOwner::IdentityManagerDependenciesOwner(
-    bool use_fake_url_loader_for_gaia_cookie_manager,
-    sync_preferences::TestingPrefServiceSyncable* pref_service_param)
+    network::TestURLLoaderFactory* test_url_loader_factory,
+    sync_preferences::TestingPrefServiceSyncable* pref_service_param,
+    signin::AccountConsistencyMethod account_consistency)
     : owned_pref_service_(
           pref_service_param
               ? nullptr
@@ -66,26 +72,23 @@ IdentityManagerDependenciesOwner::IdentityManagerDependenciesOwner(
       signin_client_(pref_service()),
       token_service_(pref_service()),
 #if defined(OS_CHROMEOS)
-      signin_manager_(&signin_client_, &account_tracker_),
+      signin_manager_(&signin_client_, &token_service_, &account_tracker_) {
 #else
       signin_manager_(&signin_client_,
                       &token_service_,
                       &account_tracker_,
-                      nullptr),
+                      nullptr,
+                      account_consistency) {
 #endif
-      // NOTE: Some unittests set up their own TestURLFetcherFactory. In these
-      // contexts FakeGaiaCookieManagerService can't set up its own
-      // FakeURLFetcherFactory, as {Test, Fake}URLFetcherFactory allow only one
-      // instance to be alive at a time. If some users require that
-      // GaiaCookieManagerService have a FakeURLFetcherFactory while *also*
-      // having their own FakeURLFetcherFactory, we'll need to pass the actual
-      // object in and have GaiaCookieManagerService have a reference to the
-      // object (or figure out the sharing some other way). Contact
-      // blundell@chromium.org if you come up against this issue.
-      gaia_cookie_manager_service_(
-          &token_service_,
-          &signin_client_,
-          use_fake_url_loader_for_gaia_cookie_manager) {
+  if (test_url_loader_factory != nullptr) {
+    gaia_cookie_manager_service_ =
+        std::make_unique<FakeGaiaCookieManagerService>(
+            &token_service_, &signin_client_, test_url_loader_factory);
+  } else {
+    gaia_cookie_manager_service_ =
+        std::make_unique<FakeGaiaCookieManagerService>(&token_service_,
+                                                       &signin_client_);
+  }
   AccountTrackerService::RegisterPrefs(pref_service()->registry());
   ProfileOAuth2TokenService::RegisterProfilePrefs(pref_service()->registry());
   SigninManagerBase::RegisterProfilePrefs(pref_service()->registry());
@@ -113,7 +116,7 @@ IdentityManagerDependenciesOwner::token_service() {
 
 FakeGaiaCookieManagerService*
 IdentityManagerDependenciesOwner::gaia_cookie_manager_service() {
-  return &gaia_cookie_manager_service_;
+  return gaia_cookie_manager_service_.get();
 }
 
 sync_preferences::TestingPrefServiceSyncable*
@@ -125,16 +128,18 @@ IdentityManagerDependenciesOwner::pref_service() {
 }
 
 IdentityTestEnvironment::IdentityTestEnvironment(
-    bool use_fake_url_loader_for_gaia_cookie_manager,
-    sync_preferences::TestingPrefServiceSyncable* pref_service)
+    network::TestURLLoaderFactory* test_url_loader_factory,
+    sync_preferences::TestingPrefServiceSyncable* pref_service,
+    signin::AccountConsistencyMethod account_consistency)
     : IdentityTestEnvironment(
           /*account_tracker_service=*/nullptr,
           /*token_service=*/nullptr,
           /*signin_manager=*/nullptr,
           /*gaia_cookie_manager_service=*/nullptr,
           std::make_unique<IdentityManagerDependenciesOwner>(
-              use_fake_url_loader_for_gaia_cookie_manager,
-              pref_service),
+              test_url_loader_factory,
+              pref_service,
+              account_consistency),
           /*identity_manager=*/nullptr) {}
 
 IdentityTestEnvironment::IdentityTestEnvironment(
@@ -201,18 +206,22 @@ IdentityTestEnvironment::IdentityTestEnvironment(
   if (identity_manager) {
     raw_identity_manager_ = identity_manager;
   } else {
+    std::unique_ptr<PrimaryAccountMutator> primary_account_mutator;
+    std::unique_ptr<AccountsMutator> accounts_mutator;
 #if !defined(OS_CHROMEOS)
-    std::unique_ptr<PrimaryAccountMutator> account_mutator =
-        std::make_unique<PrimaryAccountMutatorImpl>(
-            account_tracker_service_,
-            static_cast<SigninManager*>(signin_manager_));
-#else
-    std::unique_ptr<PrimaryAccountMutator> account_mutator;
+    primary_account_mutator = std::make_unique<PrimaryAccountMutatorImpl>(
+        account_tracker_service_, static_cast<SigninManager*>(signin_manager_));
+#endif
+
+#if !defined(OS_ANDROID) && !defined(OS_IOS)
+    accounts_mutator = std::make_unique<AccountsMutatorImpl>(
+        token_service_, account_tracker_service_, signin_manager_);
 #endif
 
     owned_identity_manager_ = std::make_unique<IdentityManager>(
         signin_manager_, token_service_, account_tracker_service_,
-        gaia_cookie_manager_service_, std::move(account_mutator));
+        gaia_cookie_manager_service_, std::move(primary_account_mutator),
+        std::move(accounts_mutator));
   }
 
   this->identity_manager()->AddDiagnosticsObserver(this);
@@ -276,6 +285,13 @@ void IdentityTestEnvironment::SetInvalidRefreshTokenForAccount(
 void IdentityTestEnvironment::RemoveRefreshTokenForAccount(
     const std::string& account_id) {
   return identity::RemoveRefreshTokenForAccount(identity_manager(), account_id);
+}
+
+void IdentityTestEnvironment::UpdatePersistentErrorOfRefreshTokenForAccount(
+    const std::string& account_id,
+    const GoogleServiceAuthError& auth_error) {
+  return identity::UpdatePersistentErrorOfRefreshTokenForAccount(
+      identity_manager(), account_id, auth_error);
 }
 
 void IdentityTestEnvironment::SetCookieAccounts(
@@ -425,6 +441,20 @@ void IdentityTestEnvironment::WaitForAccessTokenRequestIfNecessary(
 void IdentityTestEnvironment::UpdateAccountInfoForAccount(
     AccountInfo account_info) {
   identity::UpdateAccountInfoForAccount(identity_manager(), account_info);
+}
+
+void IdentityTestEnvironment::ResetToAccountsNotYetLoadedFromDiskState() {
+  token_service_->set_all_credentials_loaded_for_testing(false);
+}
+
+void IdentityTestEnvironment::ReloadAccountsFromDisk() {
+  token_service_->LoadCredentials("");
+}
+
+void IdentityTestEnvironment::SetFreshnessOfAccountsInGaiaCookie(
+    bool accounts_are_fresh) {
+  gaia_cookie_manager_service_->set_list_accounts_stale_for_testing(
+      accounts_are_fresh);
 }
 
 }  // namespace identity

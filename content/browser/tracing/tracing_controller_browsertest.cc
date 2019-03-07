@@ -253,8 +253,9 @@ class TracingControllerTest : public ContentBrowserTest {
         base::Bind(&IsTraceEventArgsWhitelisted));
 
     TracingControllerImpl* controller = TracingControllerImpl::GetInstance();
-    controller->GetTraceEventAgent()->AddMetadataGeneratorFunction(base::Bind(
-        &TracingControllerTest::GenerateMetadataDict, base::Unretained(this)));
+    tracing::TraceEventAgent::GetInstance()->AddMetadataGeneratorFunction(
+        base::Bind(&TracingControllerTest::GenerateMetadataDict,
+                   base::Unretained(this)));
 
     {
       base::RunLoop run_loop;
@@ -390,15 +391,8 @@ IN_PROC_BROWSER_TEST_F(TracingControllerTest, EnableAndStopTracing) {
   TestStartAndStopTracingString();
 }
 
-// TODO(crbug.com/871770): Disabled for failing on ASAN.
-#if defined(ADDRESS_SANITIZER)
-#define MAYBE_DisableRecordingStoresMetadata \
-  DISABLED_DisableRecordingStoresMetadata
-#else
-#define MAYBE_DisableRecordingStoresMetadata DisableRecordingStoresMetadata
-#endif
 IN_PROC_BROWSER_TEST_F(TracingControllerTest,
-                       MAYBE_DisableRecordingStoresMetadata) {
+                       DisableRecordingStoresMetadata) {
   TestStartAndStopTracingString();
   // Check that a number of important keys exist in the metadata dictionary. The
   // values are not checked to ensure the test is robust.
@@ -526,13 +520,6 @@ IN_PROC_BROWSER_TEST_F(TracingControllerTest, DoubleStopTracing) {
 #define MAYBE_SystemTraceEvents DISABLED_SystemTraceEvents
 #endif
 IN_PROC_BROWSER_TEST_F(TracingControllerTest, MAYBE_SystemTraceEvents) {
-#if !defined(OS_CHROMEOS)
-  // TODO(crbug.com/900603): Enable this test for perfetto on other platforms
-  // once passing.
-  if (tracing::TracingUsesPerfettoBackend())
-    return;
-#endif
-
   TestStartAndStopTracingString(true /* enable_systrace */);
   EXPECT_TRUE(last_data().find("systemTraceEvents") != std::string::npos);
 }

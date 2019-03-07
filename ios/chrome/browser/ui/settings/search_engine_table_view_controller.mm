@@ -43,7 +43,7 @@ const char kUmaSelectDefaultSearchEngine[] =
 
 }  // namespace
 
-@interface SearchEngineTableViewController ()<SearchEngineObserving>
+@interface SearchEngineTableViewController () <SearchEngineObserving>
 @end
 
 @implementation SearchEngineTableViewController {
@@ -64,9 +64,8 @@ const char kUmaSelectDefaultSearchEngine[] =
 
 - (instancetype)initWithBrowserState:(ios::ChromeBrowserState*)browserState {
   DCHECK(browserState);
-  self =
-      [super initWithTableViewStyle:UITableViewStyleGrouped
-                        appBarStyle:ChromeTableViewControllerStyleWithAppBar];
+  self = [super initWithTableViewStyle:UITableViewStyleGrouped
+                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
   if (self) {
     _templateURLService =
         ios::TemplateURLServiceFactory::GetForBrowserState(browserState);

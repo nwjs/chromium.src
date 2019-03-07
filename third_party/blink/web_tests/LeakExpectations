@@ -21,17 +21,6 @@ crbug.com/891575 virtual/android/rootscroller/remove-rootscroller-crash.html [ L
 crbug.com/891575 virtual/android/rootscroller/set-root-scroller.html [ Leak ]
 crbug.com/891575 virtual/android/fullscreen/video-overlay-scroll.html [ Leak Pass ]
 
-# -----------------------------------------------------------------
-# Untriaged but known leaks of PausableObject (fast).
-# -----------------------------------------------------------------
-crbug.com/661182 fast/loader/open-in-srcdoc-unload.html [ Leak ]
-
-# -----------------------------------------------------------------
-# Untriaged but known leaks of PausableObject (http).
-# -----------------------------------------------------------------
-crbug.com/506754 http/tests/serviceworker/resolve-after-window-close.html [ Leak ]
-crbug.com/506754 http/tests/serviceworker/window-close-during-registration.html [ Leak ]
-
 crbug.com/786995 virtual/threaded/http/tests/devtools/tracing/timeline-style/timeline-style-recalc-all-invalidator-types.js [ Leak Pass ]
 crbug.com/859640 http/tests/devtools/tracing/timeline-style/timeline-style-recalc-all-invalidator-types.js  [ Leak Pass ]
 
@@ -67,6 +56,9 @@ crbug.com/809609 [ Linux ] editing/inserting/insert_div_with_style.html [ Pass L
 crbug.com/836278 [ Linux ] external/wpt/offscreen-canvas/convert-to-blob/offscreencanvas.convert.to.blob.html [ Pass Leak ]
 crbug.com/836278 [ Linux ] virtual/threaded/external/wpt/offscreen-canvas/convert-to-blob/offscreencanvas.convert.to.blob.html [ Pass Leak ]
 
+# Moved from TestExpectations (Sheriff 2018-05-31)
+crbug.com/848354 [ Linux ] plugins/fullscreen-plugins-dont-reload.html [ Pass Leak ]
+
 # Sheriff 2018-07-10
 # Test flaking on Linux Trusty Leak
 crbug.com/862029 [ Linux ] http/tests/devtools/tracing/timeline-misc/timeline-window-filter.js [ Pass Leak ]
@@ -89,6 +81,14 @@ crbug.com/862029 [ Linux ] virtual/threaded/http/tests/devtools/tracing/timeline
 crbug.com/733494 [ Linux ] media/autoplay/document-user-activation.html [ Pass Leak ]
 crbug.com/733494 [ Linux ] virtual/video-surface-layer/media/autoplay/document-user-activation.html [ Pass Leak ]
 
+# Sheriff 2018-12-20
+crbug.com/916893 [ Linux ] virtual/bidi-caret-affinity/editing/pasteboard/drag-drop-iframe-refresh-crash.html [ Pass Leak ]
+
+# Sheriff 2019-01-04
+crbug.com/919117 [ Linux ] virtual/mouseevent_fractional/fast/events/middleClickAutoscroll-drag.html [ Pass Leak ]
+
+# Sheriff 2019-01-07
+crbug.com/919497 [ Linux ] virtual/threaded/http/tests/devtools/tracing/timeline-gpu-tasks.js [ Pass Leak ]
 ###########################################################################
 # WARNING: Memory leaks must be fixed asap. Sheriff is expected to revert #
 # culprit CLs instead of suppressing the leaks. If you have any question, #

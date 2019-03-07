@@ -331,7 +331,9 @@ void SyncBackendHostImpl::HandleInitializationSuccessOnFrontendLoop(
     const WeakHandle<DataTypeDebugInfoListener> debug_info_listener,
     std::unique_ptr<ModelTypeConnector> model_type_connector,
     const std::string& cache_guid,
-    const std::string& session_name) {
+    const std::string& session_name,
+    const std::string& birthday,
+    const std::string& bag_of_chips) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   model_type_connector_ = std::move(model_type_connector);
@@ -352,14 +354,17 @@ void SyncBackendHostImpl::HandleInitializationSuccessOnFrontendLoop(
   // the host to ensure they're visible in the customize screen.
   AddExperimentalTypes();
   host_->OnEngineInitialized(initial_types, js_backend, debug_info_listener,
-                             cache_guid, session_name, true);
+                             cache_guid, session_name, birthday, bag_of_chips,
+                             /*success=*/true);
 }
 
 void SyncBackendHostImpl::HandleInitializationFailureOnFrontendLoop() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   host_->OnEngineInitialized(ModelTypeSet(), WeakHandle<JsBackend>(),
                              WeakHandle<DataTypeDebugInfoListener>(),
-                             /*cache_guid=*/"", /*session_name=*/"", false);
+                             /*cache_guid=*/"", /*session_name=*/"",
+                             /*birthday=*/"", /*bag_of_chips=*/"",
+                             /*success=*/false);
 }
 
 void SyncBackendHostImpl::HandleSyncCycleCompletedOnFrontendLoop(
@@ -474,6 +479,14 @@ void SyncBackendHostImpl::SetInvalidationsForSessionsEnabled(bool enabled) {
   bool success = invalidator_->UpdateRegisteredInvalidationIds(
       this, ModelTypeSetToObjectIdSet(enabled_for_invalidation));
   DCHECK(success);
+}
+
+void SyncBackendHostImpl::OnInvalidatorClientIdChange(
+    const std::string& client_id) {
+  sync_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&SyncBackendHostCore::DoOnInvalidatorClientIdChange, core_,
+                     client_id));
 }
 
 void SyncBackendHostImpl::ClearServerDataDoneOnFrontendLoop(

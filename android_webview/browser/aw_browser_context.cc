@@ -22,6 +22,7 @@
 #include "base/path_service.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
+#include "components/autofill/core/browser/autocomplete_history_manager.h"
 #include "components/policy/core/browser/browser_policy_connector_base.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/triggers/trigger_manager.h"
@@ -209,6 +210,19 @@ AwURLRequestContextGetter* AwBrowserContext::GetAwURLRequestContext() {
   return url_request_context_getter_.get();
 }
 
+autofill::AutocompleteHistoryManager*
+AwBrowserContext::GetAutocompleteHistoryManager() {
+  if (!autocomplete_history_manager_) {
+    autocomplete_history_manager_ =
+        std::make_unique<autofill::AutocompleteHistoryManager>();
+    autocomplete_history_manager_->Init(
+        form_database_service_->get_autofill_webdata_service(),
+        user_pref_service_.get(), IsOffTheRecord());
+  }
+
+  return autocomplete_history_manager_.get();
+}
+
 base::FilePath AwBrowserContext::GetPath() const {
   return context_storage_path_;
 }
@@ -261,6 +275,11 @@ AwBrowserContext::GetPermissionControllerDelegate() {
   if (!permission_manager_.get())
     permission_manager_.reset(new AwPermissionManager());
   return permission_manager_.get();
+}
+
+content::ClientHintsControllerDelegate*
+AwBrowserContext::GetClientHintsControllerDelegate() {
+  return nullptr;
 }
 
 content::BackgroundFetchDelegate*

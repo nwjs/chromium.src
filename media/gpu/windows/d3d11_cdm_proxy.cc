@@ -11,6 +11,7 @@
 #include "base/logging.h"
 #include "base/power_monitor/power_monitor.h"
 #include "base/power_monitor/power_observer.h"
+#include "base/stl_util.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/win/object_watcher.h"
 #include "media/base/callback_registry.h"
@@ -203,24 +204,27 @@ class D3D11CdmContext : public CdmContext {
               CdmProxy::KeyType key_type,
               const std::vector<uint8_t>& key_blob) {
     cdm_proxy_context_.SetKey(crypto_session, key_id, key_type, key_blob);
-    new_key_callbacks_.Notify();
+    event_callbacks_.Notify(Event::kHasAdditionalUsableKey);
   }
   void RemoveKey(ID3D11CryptoSession* crypto_session,
                  const std::vector<uint8_t>& key_id) {
     cdm_proxy_context_.RemoveKey(crypto_session, key_id);
   }
 
-  // Removes all keys from the context.
-  void RemoveAllKeys() { cdm_proxy_context_.RemoveAllKeys(); }
+  // Notifies of hardware reset.
+  void OnHardwareReset() {
+    cdm_proxy_context_.RemoveAllKeys();
+    event_callbacks_.Notify(Event::kHardwareContextLost);
+  }
 
   base::WeakPtr<D3D11CdmContext> GetWeakPtr() {
     return weak_factory_.GetWeakPtr();
   }
 
   // CdmContext implementation.
-  std::unique_ptr<CallbackRegistration> RegisterNewKeyCB(
-      base::RepeatingClosure new_key_cb) override {
-    return new_key_callbacks_.Register(std::move(new_key_cb));
+  std::unique_ptr<CallbackRegistration> RegisterEventCB(
+      EventCB event_cb) override {
+    return event_callbacks_.Register(std::move(event_cb));
   }
   CdmProxyContext* GetCdmProxyContext() override { return &cdm_proxy_context_; }
 
@@ -236,7 +240,7 @@ class D3D11CdmContext : public CdmContext {
 
   std::unique_ptr<D3D11Decryptor> decryptor_;
 
-  ClosureRegistry new_key_callbacks_;
+  CallbackRegistry<EventCB::RunType> event_callbacks_;
 
   base::WeakPtrFactory<D3D11CdmContext> weak_factory_;
 
@@ -260,11 +264,14 @@ base::WeakPtr<CdmContext> D3D11CdmProxy::GetCdmContext() {
 }
 
 void D3D11CdmProxy::Initialize(Client* client, InitializeCB init_cb) {
+  DCHECK(client);
+
   auto failed = [this, &init_cb]() {
     // The value doesn't matter as it shouldn't be used on a failure.
     const uint32_t kFailedCryptoSessionId = 0xFF;
     std::move(init_cb).Run(Status::kFail, protocol_, kFailedCryptoSessionId);
   };
+
   if (initialized_) {
     failed();
     NOTREACHED() << "CdmProxy should not be initialized more than once.";
@@ -279,7 +286,7 @@ void D3D11CdmProxy::Initialize(Client* client, InitializeCB init_cb) {
       nullptr,                            // No adapter.
       D3D_DRIVER_TYPE_HARDWARE, nullptr,  // No software rasterizer.
       0,                                  // flags, none.
-      feature_levels, arraysize(feature_levels), D3D11_SDK_VERSION,
+      feature_levels, base::size(feature_levels), D3D11_SDK_VERSION,
       device_.GetAddressOf(), nullptr, device_context_.GetAddressOf());
   if (FAILED(hresult)) {
     DLOG(ERROR) << "Failed to create the D3D11Device:" << hresult;
@@ -288,7 +295,7 @@ void D3D11CdmProxy::Initialize(Client* client, InitializeCB init_cb) {
   }
 
   // TODO(rkuroiwa): This should be registered iff
-  // D3D11_CONTENT_PROTECTION_CAPS_HARDWARE_TEARDOWN is set in the capabilties.
+  // D3D11_CONTENT_PROTECTION_CAPS_HARDWARE_TEARDOWN is set in the capabilities.
   hardware_event_watcher_ = HardwareEventWatcher::Create(
       device_, base::BindRepeating(
                    &D3D11CdmProxy::NotifyHardwareContentProtectionTeardown,
@@ -308,7 +315,7 @@ void D3D11CdmProxy::Initialize(Client* client, InitializeCB init_cb) {
   }
 
   if (!CanDoHardwareProtectedKeyExchange(video_device_, crypto_type_)) {
-    DLOG(ERROR) << "Cannot do hardware proteted key exhange.";
+    DLOG(ERROR) << "Cannot do hardware protected key exchange.";
     failed();
     return;
   }
@@ -534,9 +541,8 @@ void D3D11CdmProxy::SetCreateDeviceCallbackForTesting(
 }
 
 void D3D11CdmProxy::NotifyHardwareContentProtectionTeardown() {
-  cdm_context_->RemoveAllKeys();
-  if (client_)
-    client_->NotifyHardwareReset();
+  cdm_context_->OnHardwareReset();
+  client_->NotifyHardwareReset();
 }
 
 D3D11CdmProxy::HardwareEventWatcher::~HardwareEventWatcher() {

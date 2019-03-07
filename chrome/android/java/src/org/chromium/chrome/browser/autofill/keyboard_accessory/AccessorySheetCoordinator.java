@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.autofill.keyboard_accessory;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessorySheetProperties.ACTIVE_TAB_INDEX;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessorySheetProperties.HEIGHT;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessorySheetProperties.NO_ACTIVE_TAB;
+import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessorySheetProperties.PAGE_CHANGE_LISTENER;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessorySheetProperties.TABS;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessorySheetProperties.TOP_SHADOW_VISIBLE;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessorySheetProperties.VISIBLE;
@@ -18,11 +19,11 @@ import android.support.v4.view.ViewPager;
 import android.support.v7.widget.RecyclerView;
 
 import org.chromium.base.VisibleForTesting;
-import org.chromium.chrome.browser.modelutil.LazyConstructionPropertyMcp;
-import org.chromium.chrome.browser.modelutil.ListModel;
-import org.chromium.chrome.browser.modelutil.ListModelChangeProcessor;
-import org.chromium.chrome.browser.modelutil.PropertyModel;
 import org.chromium.ui.ViewProvider;
+import org.chromium.ui.modelutil.LazyConstructionPropertyMcp;
+import org.chromium.ui.modelutil.ListModel;
+import org.chromium.ui.modelutil.ListModelChangeProcessor;
+import org.chromium.ui.modelutil.PropertyModel;
 
 /**
  * Creates and owns all elements which are part of the accessory sheet component.
@@ -39,14 +40,14 @@ public class AccessorySheetCoordinator {
      * @param viewProvider A provider for the accessory layout.
      */
     public AccessorySheetCoordinator(ViewProvider<AccessorySheetView> viewProvider) {
-        PropertyModel model =
-                new PropertyModel
-                        .Builder(TABS, ACTIVE_TAB_INDEX, VISIBLE, HEIGHT, TOP_SHADOW_VISIBLE)
-                        .with(TABS, new ListModel<>())
-                        .with(ACTIVE_TAB_INDEX, NO_ACTIVE_TAB)
-                        .with(VISIBLE, false)
-                        .with(TOP_SHADOW_VISIBLE, false)
-                        .build();
+        PropertyModel model = new PropertyModel
+                                      .Builder(TABS, ACTIVE_TAB_INDEX, VISIBLE, HEIGHT,
+                                              TOP_SHADOW_VISIBLE, PAGE_CHANGE_LISTENER)
+                                      .with(TABS, new ListModel<>())
+                                      .with(ACTIVE_TAB_INDEX, NO_ACTIVE_TAB)
+                                      .with(VISIBLE, false)
+                                      .with(TOP_SHADOW_VISIBLE, false)
+                                      .build();
 
         LazyConstructionPropertyMcp.create(
                 model, VISIBLE, viewProvider, AccessorySheetViewBinder::bind);
@@ -148,5 +149,9 @@ public class AccessorySheetCoordinator {
      */
     public void setActiveTab(int position) {
         mMediator.setActiveTab(position);
+    }
+
+    void setOnPageChangeListener(ViewPager.OnPageChangeListener onPageChangeListener) {
+        mMediator.setOnPageChangeListener(onPageChangeListener);
     }
 }

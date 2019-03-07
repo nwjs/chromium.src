@@ -33,6 +33,7 @@
 #include <memory>
 
 #include "build/build_config.h"
+#include "third_party/blink/public/platform/web_screen_info.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_regexp.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_source_code.h"
@@ -88,23 +89,23 @@ using protocol::Response;
 
 namespace {
 
-String ScheduledNavigationReasonToProtocol(ScheduledNavigation::Reason reason) {
+String ClientNavigationReasonToProtocol(ClientNavigationReason reason) {
   using ReasonEnum =
       protocol::Page::FrameScheduledNavigationNotification::ReasonEnum;
   switch (reason) {
-    case ScheduledNavigation::Reason::kFormSubmissionGet:
+    case ClientNavigationReason::kFormSubmissionGet:
       return ReasonEnum::FormSubmissionGet;
-    case ScheduledNavigation::Reason::kFormSubmissionPost:
+    case ClientNavigationReason::kFormSubmissionPost:
       return ReasonEnum::FormSubmissionPost;
-    case ScheduledNavigation::Reason::kHttpHeaderRefresh:
+    case ClientNavigationReason::kHttpHeaderRefresh:
       return ReasonEnum::HttpHeaderRefresh;
-    case ScheduledNavigation::Reason::kFrameNavigation:
+    case ClientNavigationReason::kFrameNavigation:
       return ReasonEnum::ScriptInitiated;
-    case ScheduledNavigation::Reason::kMetaTagRefresh:
+    case ClientNavigationReason::kMetaTagRefresh:
       return ReasonEnum::MetaTagRefresh;
-    case ScheduledNavigation::Reason::kPageBlock:
+    case ClientNavigationReason::kPageBlock:
       return ReasonEnum::PageBlockInterstitial;
-    case ScheduledNavigation::Reason::kReload:
+    case ClientNavigationReason::kReload:
       return ReasonEnum::Reload;
     default:
       NOTREACHED();
@@ -843,7 +844,9 @@ void InspectorPageAgent::DidClearDocumentOfWindowObject(LocalFrame* frame) {
     const String source = scripts_to_evaluate_on_load_.Get(key);
     const String world_name = worlds_to_evaluate_on_load_.Get(key);
     if (world_name.IsEmpty()) {
-      frame->GetScriptController().ExecuteScriptInMainWorld(source);
+      frame->GetScriptController().ExecuteScriptInMainWorld(
+          source, ScriptSourceLocationType::kUnknown,
+          ScriptController::kExecuteScriptWhenScriptsDisabled);
       continue;
     }
 
@@ -876,7 +879,8 @@ void InspectorPageAgent::DidClearDocumentOfWindowObject(LocalFrame* frame) {
 
   if (!script_to_evaluate_on_load_once_.IsEmpty()) {
     frame->GetScriptController().ExecuteScriptInMainWorld(
-        script_to_evaluate_on_load_once_);
+        script_to_evaluate_on_load_once_, ScriptSourceLocationType::kUnknown,
+        ScriptController::kExecuteScriptWhenScriptsDisabled);
   }
 }
 
@@ -936,11 +940,12 @@ void InspectorPageAgent::FrameStoppedLoading(LocalFrame* frame) {
 
 void InspectorPageAgent::FrameScheduledNavigation(
     LocalFrame* frame,
-    ScheduledNavigation* scheduled_navigation) {
+    const KURL& url,
+    double delay,
+    ClientNavigationReason reason) {
   GetFrontend()->frameScheduledNavigation(
-      IdentifiersFactory::FrameId(frame), scheduled_navigation->Delay(),
-      ScheduledNavigationReasonToProtocol(scheduled_navigation->GetReason()),
-      scheduled_navigation->Url().GetString());
+      IdentifiersFactory::FrameId(frame), delay,
+      ClientNavigationReasonToProtocol(reason), url.GetString());
 }
 
 void InspectorPageAgent::FrameClearedScheduledNavigation(LocalFrame* frame) {
@@ -1019,14 +1024,14 @@ void InspectorPageAgent::WindowOpen(Document* document,
 std::unique_ptr<protocol::Page::Frame> InspectorPageAgent::BuildObjectForFrame(
     LocalFrame* frame) {
   DocumentLoader* loader = frame->Loader().GetDocumentLoader();
-  KURL url = loader->GetRequest().Url();
   std::unique_ptr<protocol::Page::Frame> frame_object =
       protocol::Page::Frame::create()
           .setId(IdentifiersFactory::FrameId(frame))
           .setLoaderId(IdentifiersFactory::LoaderId(loader))
-          .setUrl(UrlWithoutFragment(url).GetString())
+          .setUrl(UrlWithoutFragment(loader->Url()).GetString())
           .setMimeType(frame->Loader().GetDocumentLoader()->MimeType())
-          .setSecurityOrigin(SecurityOrigin::Create(url)->ToRawString())
+          .setSecurityOrigin(
+              SecurityOrigin::Create(loader->Url())->ToRawString())
           .build();
   Frame* parent_frame = frame->Tree().Parent();
   if (parent_frame) {
@@ -1155,7 +1160,13 @@ Response InspectorPageAgent::getLayoutMetrics(
 
   LocalFrameView* frame_view = main_frame->View();
   ScrollOffset page_offset = frame_view->GetScrollableArea()->GetScrollOffset();
+  // page_zoom is either CSS-to-DP or CSS-to-DIP depending on
+  // enable-use-zoom-for-dsf flag.
   float page_zoom = main_frame->PageZoomFactor();
+  // page_zoom_factor is CSS to DIP (device independent pixels).
+  float page_zoom_factor =
+      page_zoom /
+      main_frame->GetPage()->GetChromeClient().WindowToViewportScalar(1);
   FloatRect visible_rect = visual_viewport.VisibleRect();
   float scale = visual_viewport.Scale();
 
@@ -1179,6 +1190,7 @@ Response InspectorPageAgent::getLayoutMetrics(
                              .setClientWidth(visible_rect.Width())
                              .setClientHeight(visible_rect.Height())
                              .setScale(scale)
+                             .setZoom(page_zoom_factor)
                              .build();
   return Response::OK();
 }
@@ -1334,12 +1346,17 @@ Response InspectorPageAgent::clearCompilationCache() {
   return Response::OK();
 }
 
+Response InspectorPageAgent::waitForDebugger() {
+  client_->WaitForDebugger();
+  return Response::OK();
+}
+
 protocol::Response InspectorPageAgent::generateTestReport(const String& message,
                                                           Maybe<String> group) {
   Document* document = inspected_frames_->Root()->GetDocument();
 
   // Construct the test report.
-  TestReportBody* body = new TestReportBody(message);
+  TestReportBody* body = MakeGarbageCollected<TestReportBody>(message);
   Report* report =
       MakeGarbageCollected<Report>("test", document->Url().GetString(), body);
 

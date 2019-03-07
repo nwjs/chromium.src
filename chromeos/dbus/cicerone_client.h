@@ -7,7 +7,7 @@
 
 #include <memory>
 
-#include "chromeos/chromeos_export.h"
+#include "base/component_export.h"
 #include "chromeos/dbus/cicerone/cicerone_service.pb.h"
 #include "chromeos/dbus/dbus_client.h"
 #include "chromeos/dbus/dbus_method_call_status.h"
@@ -17,7 +17,7 @@ namespace chromeos {
 
 // CiceroneClient is used to communicate with Cicerone, which is used to
 // communicate with containers running inside VMs.
-class CHROMEOS_EXPORT CiceroneClient : public DBusClient {
+class COMPONENT_EXPORT(CHROMEOS_DBUS) CiceroneClient : public DBusClient {
  public:
   class Observer {
    public:
@@ -36,6 +36,11 @@ class CHROMEOS_EXPORT CiceroneClient : public DBusClient {
         const vm_tools::cicerone::InstallLinuxPackageProgressSignal&
             signal) = 0;
 
+    // This is signaled from the container while a package is being uninstalled
+    // via UninstallPackageOwningFile.
+    virtual void OnUninstallPackageProgress(
+        const vm_tools::cicerone::UninstallPackageProgressSignal& signal) = 0;
+
     // OnLxdContainerCreated is signaled from Cicerone when the long running
     // creation of an Lxd container is complete.
     virtual void OnLxdContainerCreated(
@@ -51,6 +56,12 @@ class CHROMEOS_EXPORT CiceroneClient : public DBusClient {
     // and StartLxdContainer.
     virtual void OnTremplinStarted(
         const vm_tools::cicerone::TremplinStartedSignal& signal) = 0;
+
+    // OnLxdContainerStarting is signaled from Cicerone when async container
+    // startup is used. This is necessary if long running file remapping is
+    // required before an old container is safe to use.
+    virtual void OnLxdContainerStarting(
+        const vm_tools::cicerone::LxdContainerStartingSignal& signal) = 0;
 
    protected:
     virtual ~Observer() = default;
@@ -75,6 +86,9 @@ class CHROMEOS_EXPORT CiceroneClient : public DBusClient {
   // This should be true prior to calling InstallLinuxPackage.
   virtual bool IsInstallLinuxPackageProgressSignalConnected() = 0;
 
+  // This should be true prior to calling UninstallPackageOwningFile.
+  virtual bool IsUninstallPackageProgressSignalConnected() = 0;
+
   // This should be true prior to calling CreateLxdContainer or
   // StartLxdContainer.
   virtual bool IsLxdContainerCreatedSignalConnected() = 0;
@@ -86,6 +100,9 @@ class CHROMEOS_EXPORT CiceroneClient : public DBusClient {
   // This should be true prior to calling CreateLxdContainer or
   // StartLxdContainer.
   virtual bool IsTremplinStartedSignalConnected() = 0;
+
+  // This should be true prior to calling StartLxdContainer in async mode
+  virtual bool IsLxdContainerStartingSignalConnected() = 0;
 
   // Launches an application inside a running Container.
   // |callback| is called after the method call finishes.
@@ -113,6 +130,13 @@ class CHROMEOS_EXPORT CiceroneClient : public DBusClient {
   virtual void InstallLinuxPackage(
       const vm_tools::cicerone::InstallLinuxPackageRequest& request,
       DBusMethodCallback<vm_tools::cicerone::InstallLinuxPackageResponse>
+          callback) = 0;
+
+  // Uninstalls the package that owns the indicated .desktop file.
+  // |callback| is called after the method call finishes.
+  virtual void UninstallPackageOwningFile(
+      const vm_tools::cicerone::UninstallPackageOwningFileRequest& request,
+      DBusMethodCallback<vm_tools::cicerone::UninstallPackageOwningFileResponse>
           callback) = 0;
 
   // Creates a new Lxd Container.
@@ -144,6 +168,12 @@ class CHROMEOS_EXPORT CiceroneClient : public DBusClient {
       const vm_tools::cicerone::SetUpLxdContainerUserRequest& request,
       DBusMethodCallback<vm_tools::cicerone::SetUpLxdContainerUserResponse>
           callback) = 0;
+
+  // Searches for not installed Linux packages in a container.
+  // |callback| is called after the method call finishes.
+  virtual void SearchApp(
+      const vm_tools::cicerone::AppSearchRequest& request,
+      DBusMethodCallback<vm_tools::cicerone::AppSearchResponse> callback) = 0;
 
   // Registers |callback| to run when the Cicerone service becomes available.
   // If the service is already available, or if connecting to the name-owner-

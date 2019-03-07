@@ -94,7 +94,7 @@ std::string GenerateGetUserMediaWithDisableLocalEcho(
 }
 
 bool VerifyDisableLocalEcho(bool expect_value,
-                            const content::StreamControls& controls) {
+                            const blink::StreamControls& controls) {
   return expect_value == controls.disable_local_echo;
 }
 
@@ -753,8 +753,14 @@ IN_PROC_BROWSER_TEST_P(WebRtcGetUserMediaBrowserTest,
   ExecuteJavascriptAndWaitForOk("applyConstraintsVideoOverconstrained()");
 }
 
+// Flaky on Win, see https://crbug.com/915135
+#if defined(OS_WIN)
+#define MAYBE_ApplyConstraintsNonDevice DISABLED_ApplyConstraintsNonDevice
+#else
+#define MAYBE_ApplyConstraintsNonDevice ApplyConstraintsNonDevice
+#endif
 IN_PROC_BROWSER_TEST_P(WebRtcGetUserMediaBrowserTest,
-                       ApplyConstraintsNonDevice) {
+                       MAYBE_ApplyConstraintsNonDevice) {
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url(embedded_test_server()->GetURL("/media/getusermedia.html"));
   NavigateToURL(shell(), url);

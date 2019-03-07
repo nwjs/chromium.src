@@ -12,7 +12,6 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/process/process.h"
-#include "base/values.h"
 #include "mojo/public/cpp/bindings/binding_set.h"
 #include "mojo/public/cpp/bindings/interface_ptr_set.h"
 #include "services/catalog/catalog.h"
@@ -20,42 +19,35 @@
 #include "services/service_manager/connect_params.h"
 #include "services/service_manager/public/cpp/identity.h"
 #include "services/service_manager/public/cpp/interface_provider_spec.h"
+#include "services/service_manager/public/cpp/manifest.h"
+#include "services/service_manager/public/cpp/service.h"
+#include "services/service_manager/public/cpp/service_binding.h"
 #include "services/service_manager/public/mojom/connector.mojom.h"
 #include "services/service_manager/public/mojom/interface_provider.mojom.h"
 #include "services/service_manager/public/mojom/service.mojom.h"
 #include "services/service_manager/public/mojom/service_factory.mojom.h"
 #include "services/service_manager/public/mojom/service_manager.mojom.h"
 #include "services/service_manager/runner/host/service_process_launcher_factory.h"
-#include "services/service_manager/service_overrides.h"
-
-namespace catalog {
-class ManifestProvider;
-}
 
 namespace service_manager {
-
-class ServiceContext;
 
 // Creates an identity for the singular Service Manager instance which is always
 // present in the system.
 const Identity& GetServiceManagerInstanceIdentity();
 
-class ServiceManager {
+class ServiceManager : public Service {
  public:
+  // Constructs a new ServiceManager instance which exclusively uses |manifests|
+  // as its source of truth regarding what services exist and how they should
+  // be configured.
+  //
   // |service_process_launcher_factory| is an instance of an object capable of
   // vending implementations of ServiceProcessLauncher, e.g. for out-of-process
   // execution.
-  //
-  // |catalog_contents|, if not null, will be used to prepoulate the service
-  // manager catalog with a fixed data set. |manifest_provider|, if not null,
-  // will be consulted for dynamic manifest resolution if a manifest is not
-  // found within the catalog; if used, |manifest_provider| is not owned and
-  // must outlive this ServiceManager.
-  ServiceManager(std::unique_ptr<ServiceProcessLauncherFactory>
-                     service_process_launcher_factory,
-                 std::unique_ptr<base::Value> catalog_contents,
-                 catalog::ManifestProvider* manifest_provider);
-  ~ServiceManager();
+  explicit ServiceManager(std::unique_ptr<ServiceProcessLauncherFactory>
+                              service_process_launcher_factory,
+                          const std::vector<Manifest>& manifests);
+  ~ServiceManager() override;
 
   // Provide a callback to be notified whenever an instance is destroyed.
   // Typically the creator of the Service Manager will use this to determine
@@ -114,8 +106,6 @@ class ServiceManager {
     kSingleton,
   };
 
-  void InitCatalog(mojom::ServicePtr catalog);
-
   // Called when |instance| encounters an error. Deletes |instance|.
   void OnInstanceError(Instance* instance);
 
@@ -159,6 +149,13 @@ class ServiceManager {
 
   base::WeakPtr<ServiceManager> GetWeakPtr();
 
+  // Service:
+  void OnBindInterface(const BindSourceInfo& source_info,
+                       const std::string& interface_name,
+                       mojo::ScopedMessagePipeHandle interface_pipe) override;
+
+  ServiceBinding service_binding_{this};
+
   // Ownership of all Instances.
   using InstanceMap = std::map<Instance*, std::unique_ptr<Instance>>;
   InstanceMap instances_;
@@ -178,8 +175,7 @@ class ServiceManager {
   base::Callback<void(const Identity&)> instance_quit_callback_;
   std::unique_ptr<ServiceProcessLauncherFactory>
       service_process_launcher_factory_;
-  std::unique_ptr<ServiceContext> service_context_;
-  base::WeakPtrFactory<ServiceManager> weak_ptr_factory_;
+  base::WeakPtrFactory<ServiceManager> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(ServiceManager);
 };

@@ -9,11 +9,12 @@ import android.graphics.RectF;
 import android.view.MotionEvent;
 
 import org.chromium.base.SysUtils;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayContentDelegate;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel;
-import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.PanelProgressObserver;
+import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.PanelState;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.StateChangeReason;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelContent;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelManager;
@@ -22,18 +23,29 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.eventfilter.OverlayPanelEventFilter;
 import org.chromium.chrome.browser.compositor.scene_layer.EphemeralTabSceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.SceneOverlayLayer;
+import org.chromium.chrome.browser.tabmodel.TabLaunchType;
+import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.resources.ResourceManager;
 
 /**
  * The panel containing an ephemeral tab.
  * TODO(jinsukkim): Write tests.
  *                  Add animation effect upon opening ephemeral tab.
- *                  Bring back the bottom bar animation hidden behind ephemeral tab.
  */
 public class EphemeralTabPanel extends OverlayPanel {
     /** The compositor layer used for drawing the panel. */
     private EphemeralTabSceneLayer mSceneLayer;
+
+    /** Remembers whether the panel was opened beyond the peeking state. */
+    private boolean mWasPanelOpened;
+
+    /** True if the Tab from which the panel is opened is in incognito mode. */
+    private boolean mIsIncognito;
+
+    /** Url for which this epehemral tab was created. */
+    private String mUrl;
 
     /**
      * Checks if this feature (a.k.a. "Sneak peek") for html and image is supported.
@@ -72,7 +84,7 @@ public class EphemeralTabPanel extends OverlayPanel {
     @Override
     public OverlayPanelContent createNewOverlayPanelContent() {
         return new OverlayPanelContent(new OverlayContentDelegate(), new PanelProgressObserver(),
-                mActivity, getBarHeight());
+                mActivity, mIsIncognito, getBarHeight());
     }
 
     @Override
@@ -96,12 +108,26 @@ public class EphemeralTabPanel extends OverlayPanel {
         return 1.0f;
     }
 
+    @Override
+    public void setPanelState(PanelState toState, @StateChangeReason int reason) {
+        super.setPanelState(toState, reason);
+        if (toState == PanelState.CLOSED) {
+            RecordHistogram.recordBooleanHistogram("EphemeralTab.Ctr", mWasPanelOpened);
+            RecordHistogram.recordEnumeratedHistogram(
+                    "EphemeralTab.CloseReason", reason, StateChangeReason.MAX_VALUE + 1);
+            mWasPanelOpened = false;
+        } else if (toState == PanelState.EXPANDED || toState == PanelState.MAXIMIZED) {
+            mWasPanelOpened = true;
+        }
+    }
+
     // Scene Overlay
 
     @Override
     public SceneOverlayLayer getUpdatedSceneOverlayTree(RectF viewport, RectF visibleViewport,
             LayerTitleCache layerTitleCache, ResourceManager resourceManager, float yOffset) {
-        mSceneLayer.update(resourceManager, this, getBarTextViewId(), 1.0f);
+        mSceneLayer.update(resourceManager, this, getBarControl(),
+                getBarControl().getTitleControl(), getBarControl().getCaptionControl());
         return mSceneLayer;
     }
 
@@ -120,8 +146,19 @@ public class EphemeralTabPanel extends OverlayPanel {
         if (isCoordinateInsideCloseButton(x)) {
             closePanel(StateChangeReason.CLOSE_BUTTON, true);
         } else {
-            maximizePanel(StateChangeReason.SEARCH_BAR_TAP);
+            if (isPeeking()) {
+                maximizePanel(StateChangeReason.SEARCH_BAR_TAP);
+            } else if (canPromoteToNewTab() && mUrl != null) {
+                closePanel(StateChangeReason.TAB_PROMOTION, false);
+                mActivity.getCurrentTabCreator().createNewTab(
+                        new LoadUrlParams(mUrl, PageTransition.LINK), TabLaunchType.FROM_LINK,
+                        mActivity.getActivityTabProvider().getActivityTab());
+            }
         }
+    }
+
+    boolean canPromoteToNewTab() {
+        return !mActivity.isCustomTab();
     }
 
     // Panel base methods
@@ -129,7 +166,7 @@ public class EphemeralTabPanel extends OverlayPanel {
     @Override
     public void destroyComponents() {
         super.destroyComponents();
-        destroyEphemeralTabBarControl();
+        destroyBarControl();
     }
 
     @Override
@@ -148,39 +185,48 @@ public class EphemeralTabPanel extends OverlayPanel {
         if (mSceneLayer != null) mSceneLayer.hideTree();
     }
 
+    @Override
+    protected void updatePanelForCloseOrPeek(float percentage) {
+        super.updatePanelForCloseOrPeek(percentage);
+        getBarControl().updateForCloseOrPeek(percentage);
+    }
+
+    @Override
+    protected void updatePanelForMaximization(float percentage) {
+        super.updatePanelForMaximization(percentage);
+        getBarControl().updateForMaximize(percentage);
+    }
+
     /**
      * Request opening the ephemeral tab panel when triggered from context menu.
      * @param url URL of the content to open in the panel
      * @param text Link text which will appear on the tab bar.
+     * @param isIncognito {@link True} if the panel is opened from an incognito tab.
      */
-    public void requestOpenPanel(String url, String text) {
+    public void requestOpenPanel(String url, String text, boolean isIncognito) {
+        if (isShowing()) closePanel(StateChangeReason.RESET, false);
+        mIsIncognito = isIncognito;
+        mUrl = url;
         loadUrlInPanel(url);
         WebContents panelWebContents = getWebContents();
         if (panelWebContents != null) panelWebContents.onShow();
-        getEphemeralTabBarControl().setBarText(text);
+        getBarControl().setBarText(text);
         requestPanelShow(StateChangeReason.CLICK);
     }
 
     @Override
     public void onLayoutChanged(float width, float height, float visibleViewportOffsetY) {
-        if (width != getWidth()) destroyEphemeralTabBarControl();
+        if (width != getWidth()) destroyBarControl();
         super.onLayoutChanged(width, height, visibleViewportOffsetY);
     }
 
     private EphemeralTabBarControl mEphemeralTabBarControl;
 
     /**
-     * @return The Id of the Search Term View.
-     */
-    public int getBarTextViewId() {
-        return getEphemeralTabBarControl().getViewId();
-    }
-
-    /**
      * Creates the EphemeralTabBarControl, if needed. The Views are set to INVISIBLE, because
      * they won't actually be displayed on the screen (their snapshots will be displayed instead).
      */
-    protected EphemeralTabBarControl getEphemeralTabBarControl() {
+    private EphemeralTabBarControl getBarControl() {
         assert mContainerView != null;
         assert mResourceLoader != null;
         if (mEphemeralTabBarControl == null) {
@@ -194,7 +240,7 @@ public class EphemeralTabPanel extends OverlayPanel {
     /**
      * Destroys the EphemeralTabBarControl.
      */
-    protected void destroyEphemeralTabBarControl() {
+    private void destroyBarControl() {
         if (mEphemeralTabBarControl != null) {
             mEphemeralTabBarControl.destroy();
             mEphemeralTabBarControl = null;

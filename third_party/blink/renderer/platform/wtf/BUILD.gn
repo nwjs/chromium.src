@@ -17,20 +17,10 @@ visibility = [
 
 config("wtf_config") {
   if (is_win) {
-    defines = [
-      "__STD_C",
-      "_CRT_SECURE_NO_DEPRECATE",
-      "_SCL_SECURE_NO_DEPRECATE",
-    ]
-    include_dirs = [ "os-win32" ]
-
     cflags = [
       # Don't complain about calling specific versions of templatized
       # functions (e.g. in RefPtrHashMap.h).
       "/wd4344",
-
-      # dtoa, icu, etc. like doing assignment within conditional.
-      "/wd4706",
     ]
 
     if (is_component_build) {
@@ -56,7 +46,6 @@ jumbo_component("wtf") {
     "ascii_ctype.h",
     "assertions.cc",
     "assertions.h",
-    "atomics.h",
     "bit_vector.cc",
     "bit_vector.h",
     "bloom_filter.h",
@@ -134,8 +123,6 @@ jumbo_component("wtf") {
     "std_lib_extras.h",
     "string_extras.h",
     "string_hasher.h",
-    "terminated_array.h",
-    "terminated_array_builder.h",
     "text/ascii_fast_path.h",
     "text/atomic_string.cc",
     "text/atomic_string.h",

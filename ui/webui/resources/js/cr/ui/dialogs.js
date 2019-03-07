@@ -40,7 +40,7 @@ cr.define('cr.ui.dialogs', function() {
 
   /** @protected */
   BaseDialog.prototype.initDom_ = function() {
-    var doc = this.document_;
+    const doc = this.document_;
     this.container_ = doc.createElement('div');
     this.container_.className = 'cr-dialog-container';
     this.container_.addEventListener(
@@ -112,7 +112,7 @@ cr.define('cr.ui.dialogs', function() {
   /** @private */
   BaseDialog.prototype.onContainerMouseDown_ = function(event) {
     if (event.target == this.container_) {
-      var classList = this.container_.classList;
+      const classList = this.container_.classList;
       // Start 'pulse' animation.
       classList.remove('pulse');
       setTimeout(classList.add.bind(classList, 'pulse'), 0);
@@ -123,15 +123,17 @@ cr.define('cr.ui.dialogs', function() {
   /** @private */
   BaseDialog.prototype.onOkClick_ = function(event) {
     this.hide();
-    if (this.onOk_)
+    if (this.onOk_) {
       this.onOk_();
+    }
   };
 
   /** @private */
   BaseDialog.prototype.onCancelClick_ = function(event) {
     this.hide();
-    if (this.onCancel_)
+    if (this.onCancel_) {
       this.onCancel_();
+    }
   };
 
   /** @param {string} label */
@@ -174,23 +176,24 @@ cr.define('cr.ui.dialogs', function() {
 
   /** @private */
   BaseDialog.prototype.findFocusableElements_ = function(doc) {
-    var elements =
+    let elements =
         Array.prototype.filter.call(doc.querySelectorAll('*'), function(n) {
           return n.tabIndex >= 0;
         });
 
-    var iframes = doc.querySelectorAll('iframe');
-    for (var i = 0; i < iframes.length; i++) {
+    const iframes = doc.querySelectorAll('iframe');
+    for (let i = 0; i < iframes.length; i++) {
       // Some iframes have an undefined contentDocument for security reasons,
       // such as chrome://terms (which is used in the chromeos OOBE screens).
-      var iframe = iframes[i];
-      var contentDoc;
+      const iframe = iframes[i];
+      let contentDoc;
       try {
         contentDoc = iframe.contentDocument;
       } catch (e) {
       }  // ignore SecurityError
-      if (contentDoc)
+      if (contentDoc) {
         elements = elements.concat(this.findFocusableElements_(contentDoc));
+      }
     }
     return elements;
   };
@@ -241,7 +244,7 @@ cr.define('cr.ui.dialogs', function() {
       this.title_.hidden = true;
     }
 
-    var self = this;
+    const self = this;
     setTimeout(function() {
       // Check that hide() was not called in between.
       if (self.showing_) {
@@ -249,8 +252,9 @@ cr.define('cr.ui.dialogs', function() {
         self.initialFocusElement_.focus();
       }
       setTimeout(function() {
-        if (opt_onShow)
+        if (opt_onShow) {
           opt_onShow();
+        }
       }, BaseDialog.ANIMATE_STABLE_DURATION);
     }, 0);
   };
@@ -259,12 +263,13 @@ cr.define('cr.ui.dialogs', function() {
   BaseDialog.prototype.hide = function(opt_onHide) {
     this.showing_ = false;
     // Restore focusability.
-    for (var i = 0; i < this.deactivatedNodes_.length; i++) {
-      var node = this.deactivatedNodes_[i];
-      if (this.tabIndexes_[i] === null)
+    for (let i = 0; i < this.deactivatedNodes_.length; i++) {
+      const node = this.deactivatedNodes_[i];
+      if (this.tabIndexes_[i] === null) {
         node.removeAttribute('tabindex');
-      else
+      } else {
         node.setAttribute('tabindex', this.tabIndexes_[i]);
+      }
     }
     this.deactivatedNodes_ = null;
     this.tabIndexes_ = null;
@@ -278,16 +283,18 @@ cr.define('cr.ui.dialogs', function() {
     }
     this.frame_.classList.remove('pulse');
 
-    var self = this;
+    const self = this;
     setTimeout(function() {
       // Wait until the transition is done before removing the dialog.
       // Check show() was not called in between.
       // It is also possible to show/hide/show/hide and have hide called twice
       // and container_ already removed from parentNode_.
-      if (!self.showing_ && self.parentNode_ === self.container_.parentNode)
+      if (!self.showing_ && self.parentNode_ === self.container_.parentNode) {
         self.parentNode_.removeChild(self.container_);
-      if (opt_onHide)
+      }
+      if (opt_onHide) {
         opt_onHide();
+      }
     }, BaseDialog.ANIMATE_STABLE_DURATION);
   };
 
@@ -378,8 +385,9 @@ cr.define('cr.ui.dialogs', function() {
   /** @private */
   PromptDialog.prototype.onOkClick_ = function(event) {
     this.hide();
-    if (this.onOk_)
+    if (this.onOk_) {
       this.onOk_(this.getValue());
+    }
   };
 
   return {

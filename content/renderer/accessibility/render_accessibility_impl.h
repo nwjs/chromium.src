@@ -5,9 +5,9 @@
 #ifndef CONTENT_RENDERER_ACCESSIBILITY_RENDER_ACCESSIBILITY_IMPL_H_
 #define CONTENT_RENDERER_ACCESSIBILITY_RENDER_ACCESSIBILITY_IMPL_H_
 
+#include <unordered_map>
 #include <vector>
 
-#include "base/containers/hash_tables.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "content/common/ax_content_node_data.h"
@@ -171,7 +171,7 @@ class CONTENT_EXPORT RenderAccessibilityImpl
   PluginAXTreeSource* plugin_tree_source_;
 
   // Current location of every object, so we can detect when it moves.
-  base::hash_map<int, ui::AXRelativeBounds> locations_;
+  std::unordered_map<int, ui::AXRelativeBounds> locations_;
 
   // The most recently observed scroll offset of the root document element.
   // TODO(dmazzoni): remove once https://bugs.webkit.org/show_bug.cgi?id=73460

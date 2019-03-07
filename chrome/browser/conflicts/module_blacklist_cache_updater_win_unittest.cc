@@ -16,6 +16,7 @@
 #include "base/files/file_util.h"
 #include "base/i18n/case_conversion.h"
 #include "base/logging.h"
+#include "base/optional.h"
 #include "base/path_service.h"
 #include "base/sha1.h"
 #include "base/strings/stringprintf.h"
@@ -49,7 +50,7 @@ constexpr base::FilePath::CharType kDllPath2[] =
 ModuleInfoData CreateLoadedModuleInfoData() {
   ModuleInfoData module_data;
   module_data.module_properties |= ModuleInfoData::kPropertyLoadedModule;
-  module_data.inspection_result = std::make_unique<ModuleInspectionResult>();
+  module_data.inspection_result = base::make_optional<ModuleInspectionResult>();
   return module_data;
 }
 
@@ -59,7 +60,7 @@ ModuleInfoData CreateSignedLoadedModuleInfoData() {
   ModuleInfoData module_data = CreateLoadedModuleInfoData();
 
   module_data.inspection_result->certificate_info.type =
-      CertificateType::CERTIFICATE_IN_FILE;
+      CertificateInfo::Type::CERTIFICATE_IN_FILE;
   module_data.inspection_result->certificate_info.path =
       base::FilePath(kCertificatePath);
   module_data.inspection_result->certificate_info.subject = kCertificateSubject;
@@ -102,7 +103,7 @@ class ModuleBlacklistCacheUpdaterTest : public testing::Test,
         module_list_filter_(CreateModuleListFilter()),
         module_blacklist_cache_path_(
             ModuleBlacklistCacheUpdater::GetModuleBlacklistCachePath()) {
-    exe_certificate_info_.type = CertificateType::CERTIFICATE_IN_FILE;
+    exe_certificate_info_.type = CertificateInfo::Type::CERTIFICATE_IN_FILE;
     exe_certificate_info_.path = base::FilePath(kCertificatePath);
     exe_certificate_info_.subject = kCertificateSubject;
   }
@@ -245,7 +246,7 @@ TEST_F(ModuleBlacklistCacheUpdaterTest, IgnoreMicrosoftModules) {
 
   ModuleInfoKey module_key(module_path, module_size, time_date_stamp, 0);
   ModuleInfoData module_data = CreateLoadedModuleInfoData();
-  module_data.inspection_result = InspectModule(StringMapping(), module_key);
+  module_data.inspection_result = InspectModule(module_key.module_path);
 
   module_blacklist_cache_updater->OnNewModuleFound(module_key, module_data);
   module_blacklist_cache_updater->OnModuleDatabaseIdle();

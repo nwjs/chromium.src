@@ -111,6 +111,7 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   // Return the internal elements, which is used by registering clicking
   // EventHandlers from MediaControlsWindowEventListener.
   HTMLDivElement* PanelElement() override;
+  HTMLDivElement* ButtonPanelElement();
   // TODO(mlamouri): this method is needed in order to notify the controls that
   // the `MediaControlsEnabled` setting has changed.
   void OnMediaControlsEnabledChange() override {
@@ -248,6 +249,9 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   void InitializeControls();
   void PopulatePanel();
 
+  // Attach hover background div to buttons
+  void AttachHoverBackground(Element*);
+
   void MakeOpaque();
   void MakeOpaqueFromPointerEvent();
   void MakeTransparent();
@@ -278,6 +282,9 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
 
   bool ShouldOpenVolumeSlider() const;
   bool ShouldCloseVolumeSlider() const;
+  void ShowVolumeControlHoverBackground();
+  void HideVolumeControlHoverBackground();
+  void SetVolumeControlContainerIsWanted(bool) const;
 
   void ElementSizeChangedTimerFired(TimerBase*);
 
@@ -286,8 +293,11 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   // current.
   void ComputeWhichControlsFit();
 
+  void HidePopupMenu();
   void UpdateOverflowMenuWanted() const;
+  void UpdateOverflowMenuItemCSSClass() const;
   void UpdateScrubbingMessageFits() const;
+  void UpdateOverflowAndTrackListCSSClassForPip() const;
   void UpdateSizingCSSClass();
   void MaybeRecordElementsDisplayed() const;
 
@@ -388,6 +398,8 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   bool is_mouse_over_controls_ : 1;
   bool is_paused_for_scrubbing_ : 1;
   bool is_scrubbing_ = false;
+
+  Member<HTMLDivElement> volume_control_container_;
 
   // Watches the video element for resize and updates media controls as
   // necessary.

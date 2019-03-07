@@ -28,7 +28,7 @@
 #include "net/quic/quic_utils_chromium.h"
 #include "net/spdy/spdy_session_pool.h"
 #include "net/third_party/quic/core/quic_packets.h"
-#include "net/third_party/spdy/core/spdy_protocol.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_protocol.h"
 
 #if defined(OS_MACOSX) && !defined(OS_IOS)
 #include "base/mac/mac_util.h"
@@ -38,9 +38,6 @@ namespace {
 
 // Map from name to value for all parameters associate with a field trial.
 using VariationParameters = std::map<std::string, std::string>;
-
-const char kTCPFastOpenFieldTrialName[] = "TCPFastOpen";
-const char kTCPFastOpenHttpsEnabledGroupName[] = "HttpsEnabled";
 
 const char kQuicFieldTrialName[] = "QUIC";
 const char kQuicFieldTrialEnabledGroupName[] = "Enabled";
@@ -71,18 +68,6 @@ const std::string& GetVariationParam(
     return base::EmptyString();
 
   return it->second;
-}
-
-void ConfigureTCPFastOpenParams(const base::CommandLine& command_line,
-                                base::StringPiece tfo_trial_group,
-                                net::HttpNetworkSession::Params* params) {
-  if (command_line.HasSwitch(switches::kEnableTcpFastOpen)) {
-    params->tcp_fast_open_mode =
-        net::HttpNetworkSession::Params::TcpFastOpenMode::ENABLED_FOR_ALL;
-  } else if (tfo_trial_group == kTCPFastOpenHttpsEnabledGroupName) {
-    params->tcp_fast_open_mode =
-        net::HttpNetworkSession::Params::TcpFastOpenMode::ENABLED_FOR_SSL_ONLY;
-  }
 }
 
 spdy::SettingsMap GetHttp2Settings(
@@ -177,6 +162,14 @@ bool ShouldEnableQuic(base::StringPiece quic_trial_group,
          quic_trial_group.starts_with(kQuicFieldTrialHttpsEnabledGroupName) ||
          base::LowerCaseEqualsASCII(
              GetVariationParam(quic_trial_params, "enable_quic"), "true");
+}
+
+bool ShouldEnableQuicProxiesForHttpsUrls(
+    const VariationParameters& quic_trial_params) {
+  return base::LowerCaseEqualsASCII(
+      GetVariationParam(quic_trial_params,
+                        "enable_quic_proxies_for_https_urls"),
+      "true");
 }
 
 bool ShouldMarkQuicBrokenWhenNetworkBlackholes(
@@ -436,6 +429,8 @@ void ConfigureQuicParams(base::StringPiece quic_trial_group,
       ShouldSupportIetfFormatQuicAltSvc(quic_trial_params);
 
   if (params->enable_quic) {
+    params->enable_quic_proxies_for_https_urls =
+        ShouldEnableQuicProxiesForHttpsUrls(quic_trial_params);
     params->quic_connection_options =
         GetQuicConnectionOptions(quic_trial_params);
     params->quic_client_connection_options =
@@ -574,10 +569,6 @@ void ParseCommandLineAndFieldTrials(const base::CommandLine& command_line,
   ConfigureHttp2Params(command_line, http2_trial_group, http2_trial_params,
                        params);
 
-  const std::string tfo_trial_group =
-      base::FieldTrialList::FindFullName(kTCPFastOpenFieldTrialName);
-  ConfigureTCPFastOpenParams(command_line, tfo_trial_group, params);
-
   // Command line flags override field trials.
   if (command_line.HasSwitch(switches::kDisableHttp2))
     params->enable_http2 = false;
@@ -645,18 +636,8 @@ void ParseCommandLineAndFieldTrials(const base::CommandLine& command_line,
   }
 }
 
-net::URLRequestContextBuilder::HttpCacheParams::Type ChooseCacheType(
-    const base::CommandLine& command_line) {
+net::URLRequestContextBuilder::HttpCacheParams::Type ChooseCacheType() {
 #if !defined(OS_ANDROID)
-  if (command_line.HasSwitch(switches::kUseSimpleCacheBackend)) {
-    const std::string opt_value =
-        command_line.GetSwitchValueASCII(switches::kUseSimpleCacheBackend);
-    if (base::LowerCaseEqualsASCII(opt_value, "off"))
-      return net::URLRequestContextBuilder::HttpCacheParams::DISK_BLOCKFILE;
-    if (opt_value.empty() || base::LowerCaseEqualsASCII(opt_value, "on"))
-      return net::URLRequestContextBuilder::HttpCacheParams::DISK_SIMPLE;
-  }
-
   const std::string experiment_name =
       base::FieldTrialList::FindFullName("SimpleCacheTrial");
   if (base::StartsWith(experiment_name, "Disable",

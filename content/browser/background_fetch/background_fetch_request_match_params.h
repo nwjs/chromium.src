@@ -7,7 +7,7 @@
 
 #include "base/optional.h"
 #include "content/common/service_worker/service_worker_types.h"
-#include "third_party/blink/public/platform/modules/cache_storage/cache_storage.mojom.h"
+#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom.h"
 
 namespace content {
 
@@ -26,6 +26,10 @@ class CONTENT_EXPORT BackgroundFetchRequestMatchParams {
   const blink::mojom::FetchAPIRequestPtr& request_to_match() const {
     DCHECK(request_to_match_);
     return request_to_match_;
+  }
+
+  const blink::mojom::QueryParamsPtr& cache_query_params() const {
+    return cache_query_params_;
   }
 
   blink::mojom::QueryParamsPtr cloned_cache_query_params() const {

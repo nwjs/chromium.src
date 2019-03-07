@@ -65,21 +65,9 @@
 @implementation TabGridCoordinator
 // Superclass property.
 @synthesize baseViewController = _baseViewController;
-// Public properties.
-@synthesize animationsDisabledForTesting = _animationsDisabledForTesting;
+// Ivars are not auto-synthesized when both accessor and mutator are overridden.
 @synthesize regularTabModel = _regularTabModel;
 @synthesize incognitoTabModel = _incognitoTabModel;
-// Private properties.
-@synthesize launchMaskView = _launchMaskView;
-@synthesize dispatcher = _dispatcher;
-@synthesize adaptor = _adaptor;
-@synthesize bvcContainer = _bvcContainer;
-@synthesize transitionHandler = _transitionHandler;
-@synthesize regularTabsMediator = _regularTabsMediator;
-@synthesize incognitoTabsMediator = _incognitoTabsMediator;
-@synthesize remoteTabsMediator = _remoteTabsMediator;
-@synthesize historyCoordinator = _historyCoordinator;
-@synthesize URLLoader = _URLLoader;
 
 - (instancetype)initWithWindow:(nullable UIWindow*)window
     applicationCommandEndpoint:
@@ -208,6 +196,10 @@
             incognitoBrowserState:self.incognitoTabModel.browserState];
   self.adaptor.loader = self.URLLoader;
   baseViewController.remoteTabsViewController.loader = self.URLLoader;
+  baseViewController.remoteTabsViewController.restoredTabDisposition =
+      WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  baseViewController.remoteTabsViewController.webStateList =
+      self.regularTabModel.webStateList;
   baseViewController.remoteTabsViewController.presentationDelegate = self;
 
   // Insert the launch screen view in front of this view to hide it until after
@@ -277,8 +269,7 @@
       prepareForAppearance];
 }
 
-- (void)showTabSwitcher:(id<TabSwitcher>)tabSwitcher
-             completion:(ProceduralBlock)completion {
+- (void)showTabSwitcher:(id<TabSwitcher>)tabSwitcher {
   DCHECK(tabSwitcher);
   DCHECK_EQ([tabSwitcher viewController], self.baseViewController);
   // It's also expected that |tabSwitcher| will be |self.tabSwitcher|, but that
@@ -291,11 +282,7 @@
     self.bvcContainer = nil;
     BOOL animated = !self.animationsDisabledForTesting;
     [self.baseViewController dismissViewControllerAnimated:animated
-                                                completion:completion];
-  } else {
-    if (completion) {
-      completion();
-    }
+                                                completion:nil];
   }
   // Record when the tab switcher is presented.
   // TODO(crbug.com/856965) : Rename metrics.

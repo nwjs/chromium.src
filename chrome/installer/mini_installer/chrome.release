@@ -7,6 +7,7 @@
 # Chrome Application dir entries, sorted alphabetically.
 #
 nw.exe: %(ChromeDir)s\
+nw_proxy.exe: %(ChromeDir)s\
 #
 # Chrome version dir assembly manifest.
 # The name of this file must match the name of the version dir, so we cannot
@@ -23,7 +24,6 @@ nw_child.dll: %(ChromeDir)s\
 nw_elf.dll: %(ChromeDir)s\
 nw_watcher.dll: %(ChromeDir)s\
 d3dcompiler_47.dll: %(ChromeDir)s\
-elevation_service.exe: %(ChromeDir)s\
 eventlog_provider.dll: %(ChromeDir)s\
 ffmpeg.dll: %(ChromeDir)s\
 icudt.dll: %(ChromeDir)s\
@@ -33,7 +33,6 @@ libGLESv2.dll: %(ChromeDir)s\
 nacl64.exe: %(ChromeDir)s\
 nacl_irt_x86_32.nexe: %(ChromeDir)s\
 nacl_irt_x86_64.nexe: %(ChromeDir)s\
-notification_helper.exe: %(ChromeDir)s\
 natives_blob.bin: %(ChromeDir)s\
 resources.pak: %(ChromeDir)s\
 notification_helper.exe: %(ChromeDir)s\
@@ -69,23 +68,28 @@ SmallLogoDev.png: %(ChromeDir)s\VisualElements\
 swiftshader\libEGL.dll: %(ChromeDir)s\swiftshader\
 swiftshader\libGLESv2.dll: %(ChromeDir)s\swiftshader\
 
+#
+# MEI Preload sub dir
+#
+MEIPreload\manifest.json: %(VersionDir)s\MEIPreload\
+MEIPreload\preloaded_data.pb: %(VersionDir)s\MEIPreload\
+
 [HIDPI]
 nw_200_percent.pak: %(ChromeDir)s\
 
 [TOUCH]
 
 [GOOGLE_CHROME]
+# The elevation service is only installed for Google Chrome builds.
+elevation_service.exe: %(VersionDir)s\
+
 #
 # Widevine CDM sub-dir
 #
 WidevineCdm\manifest.json: %(ChromeDir)s\WidevineCdm\
+WidevineCdm\LICENSE: %(ChromeDir)s\WidevineCdm\
 WidevineCdm\_platform_specific\win_x86\widevinecdm.dll: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x86\
 WidevineCdm\_platform_specific\win_x86\widevinecdm.dll.sig: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x86\
 WidevineCdm\_platform_specific\win_x64\widevinecdm.dll: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x64\
 WidevineCdm\_platform_specific\win_x64\widevinecdm.dll.sig: %(ChromeDir)s\WidevineCdm\_platform_specific\win_x64\
 
-#
-# MEI Preload sub dir
-#
-MEIPreload\manifest.json: %(ChromeDir)s\MEIPreload\
-MEIPreload\preloaded_data.pb: %(ChromeDir)s\MEIPreload\

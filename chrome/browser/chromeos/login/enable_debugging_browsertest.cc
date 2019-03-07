@@ -22,7 +22,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_debug_daemon_client.h"
 #include "chromeos/dbus/fake_power_manager_client.h"
@@ -181,10 +181,6 @@ class EnableDebuggingTest : public LoginManagerTest {
     LoginManagerTest::SetUpInProcessBrowserTestFixture();
   }
 
-  bool JSExecuted(const std::string& script) {
-    return content::ExecuteScript(web_contents(), script);
-  }
-
   void WaitUntilJSIsReady() {
     LoginDisplayHost* host = LoginDisplayHost::default_host();
     if (!host)
@@ -199,58 +195,66 @@ class EnableDebuggingTest : public LoginManagerTest {
   }
 
   void InvokeEnableDebuggingScreen() {
-    ASSERT_TRUE(JSExecuted("cr.ui.Oobe.handleAccelerator('debugging');"));
+    test::ExecuteOobeJS("cr.ui.Oobe.handleAccelerator('debugging');");
     OobeScreenWaiter(OobeScreen::SCREEN_OOBE_ENABLE_DEBUGGING).Wait();
   }
 
   void CloseEnableDebuggingScreen() {
-    ASSERT_TRUE(JSExecuted("$('debugging-cancel-button').click();"));
+    test::ExecuteOobeJS("$('debugging-cancel-button').click();");
   }
 
   void ClickRemoveProtectionButton() {
-    ASSERT_TRUE(JSExecuted("$('debugging-remove-protection-button').click();"));
+    test::ExecuteOobeJS("$('debugging-remove-protection-button').click();");
   }
 
   void ClickEnableButton() {
-    ASSERT_TRUE(JSExecuted("$('debugging-enable-button').click();"));
+    test::ExecuteOobeJS("$('debugging-enable-button').click();");
   }
 
   void ClickOKButton() {
-    ASSERT_TRUE(JSExecuted("$('debugging-ok-button').click();"));
+    test::ExecuteOobeJS("$('debugging-ok-button').click();");
   }
 
   void ShowRemoveProtectionScreen() {
     debug_daemon_client_->SetDebuggingFeaturesStatus(
         DebugDaemonClient::DEV_FEATURE_NONE);
     WaitUntilJSIsReady();
-    JSExpect("!!document.querySelector('#debugging.hidden')");
+    test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.hidden')");
     InvokeEnableDebuggingScreen();
-    JSExpect("!document.querySelector('#debugging.hidden')");
+    test::OobeJS().ExpectTrue("!document.querySelector('#debugging.hidden')");
     debug_daemon_client_->WaitUntilCalled();
     base::RunLoop().RunUntilIdle();
     VerifyRemoveProtectionScreen();
   }
 
   void VerifyRemoveProtectionScreen() {
-    JSExpect("!!document.querySelector('#debugging.remove-protection-view')");
-    JSExpect("!document.querySelector('#debugging.setup-view')");
-    JSExpect("!document.querySelector('#debugging.done-view')");
-    JSExpect("!document.querySelector('#debugging.wait-view')");
+    test::OobeJS().ExpectTrue(
+        "!!document.querySelector('#debugging.remove-protection-view')");
+    test::OobeJS().ExpectTrue(
+        "!document.querySelector('#debugging.setup-view')");
+    test::OobeJS().ExpectTrue(
+        "!document.querySelector('#debugging.done-view')");
+    test::OobeJS().ExpectTrue(
+        "!document.querySelector('#debugging.wait-view')");
   }
 
   void ShowSetupScreen() {
     debug_daemon_client_->SetDebuggingFeaturesStatus(
         debugd::DevFeatureFlag::DEV_FEATURE_ROOTFS_VERIFICATION_REMOVED);
     WaitUntilJSIsReady();
-    JSExpect("!!document.querySelector('#debugging.hidden')");
+    test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.hidden')");
     InvokeEnableDebuggingScreen();
-    JSExpect("!document.querySelector('#debugging.hidden')");
+    test::OobeJS().ExpectTrue("!document.querySelector('#debugging.hidden')");
     debug_daemon_client_->WaitUntilCalled();
     base::RunLoop().RunUntilIdle();
-    JSExpect("!document.querySelector('#debugging.remove-protection-view')");
-    JSExpect("!!document.querySelector('#debugging.setup-view')");
-    JSExpect("!document.querySelector('#debugging.done-view')");
-    JSExpect("!document.querySelector('#debugging.wait-view')");
+    test::OobeJS().ExpectTrue(
+        "!document.querySelector('#debugging.remove-protection-view')");
+    test::OobeJS().ExpectTrue(
+        "!!document.querySelector('#debugging.setup-view')");
+    test::OobeJS().ExpectTrue(
+        "!document.querySelector('#debugging.done-view')");
+    test::OobeJS().ExpectTrue(
+        "!document.querySelector('#debugging.wait-view')");
   }
 
   TestDebugDaemonClient* debug_daemon_client_;
@@ -261,7 +265,7 @@ class EnableDebuggingTest : public LoginManagerTest {
 IN_PROC_BROWSER_TEST_F(EnableDebuggingTest, ShowAndCancelRemoveProtection) {
   ShowRemoveProtectionScreen();
   CloseEnableDebuggingScreen();
-  JSExpect("!!document.querySelector('#debugging.hidden')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.hidden')");
 
   EXPECT_EQ(debug_daemon_client_->num_query_debugging_features(), 1);
   EXPECT_EQ(debug_daemon_client_->num_enable_debugging_features(), 0);
@@ -275,7 +279,7 @@ IN_PROC_BROWSER_TEST_F(EnableDebuggingTest, ShowAndRemoveProtection) {
   debug_daemon_client_->ResetWait();
   ClickRemoveProtectionButton();
   debug_daemon_client_->WaitUntilCalled();
-  JSExpect("!!document.querySelector('#debugging.wait-view')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.wait-view')");
   // Check if we have rebooted after enabling.
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(debug_daemon_client_->num_remove_protection(), 1);
@@ -290,7 +294,7 @@ IN_PROC_BROWSER_TEST_F(EnableDebuggingTest, ShowSetup) {
   ClickEnableButton();
   debug_daemon_client_->WaitUntilCalled();
   base::RunLoop().RunUntilIdle();
-  JSExpect("!!document.querySelector('#debugging.done-view')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.done-view')");
   EXPECT_EQ(debug_daemon_client_->num_enable_debugging_features(), 1);
   EXPECT_EQ(debug_daemon_client_->num_remove_protection(), 0);
 }
@@ -302,9 +306,9 @@ IN_PROC_BROWSER_TEST_F(EnableDebuggingTest, ShowOnTestImages) {
       debugd::DevFeatureFlag::DEV_FEATURE_SSH_SERVER_CONFIGURED |
       debugd::DevFeatureFlag::DEV_FEATURE_SYSTEM_ROOT_PASSWORD_SET);
   WaitUntilJSIsReady();
-  JSExpect("!!document.querySelector('#debugging.hidden')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.hidden')");
   InvokeEnableDebuggingScreen();
-  JSExpect("!document.querySelector('#debugging.hidden')");
+  test::OobeJS().ExpectTrue("!document.querySelector('#debugging.hidden')");
   debug_daemon_client_->WaitUntilCalled();
   base::RunLoop().RunUntilIdle();
   VerifyRemoveProtectionScreen();
@@ -322,10 +326,10 @@ IN_PROC_BROWSER_TEST_F(EnableDebuggingTest, WaitForDebugDaemon) {
   WaitUntilJSIsReady();
 
   // Invoking UI and it should land on wait-view.
-  JSExpect("!!document.querySelector('#debugging.hidden')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.hidden')");
   InvokeEnableDebuggingScreen();
-  JSExpect("!document.querySelector('#debugging.hidden')");
-  JSExpect("!!document.querySelector('#debugging.wait-view')");
+  test::OobeJS().ExpectTrue("!document.querySelector('#debugging.hidden')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.wait-view')");
 
   // Mark service ready and it should proceed to remove protection view.
   debug_daemon_client_->SetServiceIsAvailable(true);
@@ -355,15 +359,17 @@ class EnableDebuggingNonDevTest : public EnableDebuggingTest {
 
 // Try to show enable debugging dialog, we should see error screen here.
 IN_PROC_BROWSER_TEST_F(EnableDebuggingNonDevTest, NoShowInNonDevMode) {
-  JSExpect("!!document.querySelector('#debugging.hidden')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.hidden')");
   InvokeEnableDebuggingScreen();
-  JSExpect("!document.querySelector('#debugging.hidden')");
+  test::OobeJS().ExpectTrue("!document.querySelector('#debugging.hidden')");
   base::RunLoop().RunUntilIdle();
-  JSExpect("!!document.querySelector('#debugging.error-view')");
-  JSExpect("!document.querySelector('#debugging.remove-protection-view')");
-  JSExpect("!document.querySelector('#debugging.setup-view')");
-  JSExpect("!document.querySelector('#debugging.done-view')");
-  JSExpect("!document.querySelector('#debugging.wait-view')");
+  test::OobeJS().ExpectTrue(
+      "!!document.querySelector('#debugging.error-view')");
+  test::OobeJS().ExpectTrue(
+      "!document.querySelector('#debugging.remove-protection-view')");
+  test::OobeJS().ExpectTrue("!document.querySelector('#debugging.setup-view')");
+  test::OobeJS().ExpectTrue("!document.querySelector('#debugging.done-view')");
+  test::OobeJS().ExpectTrue("!document.querySelector('#debugging.wait-view')");
 }
 
 class EnableDebuggingRequestedTest : public EnableDebuggingTest {
@@ -401,7 +407,7 @@ IN_PROC_BROWSER_TEST_F(EnableDebuggingRequestedTest, AutoShowSetup) {
 IN_PROC_BROWSER_TEST_F(EnableDebuggingRequestedTest, CancelAutoShowSetup) {
   OobeScreenWaiter(OobeScreen::SCREEN_OOBE_ENABLE_DEBUGGING).Wait();
   CloseEnableDebuggingScreen();
-  JSExpect("!!document.querySelector('#debugging.hidden')");
+  test::OobeJS().ExpectTrue("!!document.querySelector('#debugging.hidden')");
 }
 
 }  // namespace chromeos

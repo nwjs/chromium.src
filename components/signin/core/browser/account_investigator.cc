@@ -17,7 +17,7 @@
 #include "components/signin/core/browser/signin_pref_names.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
-#include "services/identity/public/cpp/identity_manager.h"
+#include "services/identity/public/cpp/accounts_in_cookie_jar_info.h"
 
 using base::Time;
 using base::TimeDelta;
@@ -42,12 +42,9 @@ const TimeDelta AccountInvestigator::kPeriodicReportingInterval =
     TimeDelta::FromDays(1);
 
 AccountInvestigator::AccountInvestigator(
-    GaiaCookieManagerService* cookie_service,
     PrefService* pref_service,
     identity::IdentityManager* identity_manager)
-    : cookie_service_(cookie_service),
-      pref_service_(pref_service),
-      identity_manager_(identity_manager) {}
+    : pref_service_(pref_service), identity_manager_(identity_manager) {}
 
 AccountInvestigator::~AccountInvestigator() {}
 
@@ -59,7 +56,7 @@ void AccountInvestigator::RegisterPrefs(PrefRegistrySimple* registry) {
 }
 
 void AccountInvestigator::Initialize() {
-  cookie_service_->AddObserver(this);
+  identity_manager_->AddObserver(this);
   previously_authenticated_ = identity_manager_->HasPrimaryAccount();
 
   Time previous = Time::FromDoubleT(
@@ -72,7 +69,7 @@ void AccountInvestigator::Initialize() {
 }
 
 void AccountInvestigator::Shutdown() {
-  cookie_service_->RemoveObserver(this);
+  identity_manager_->RemoveObserver(this);
   timer_.Stop();
 }
 
@@ -82,6 +79,14 @@ void AccountInvestigator::OnAddAccountToCookieCompleted(
   // This hook isn't particularly useful for us. Most cookie jar changes fly by
   // without invoking this method, and some sign ins cause this method can get
   // called serveral times.
+}
+
+void AccountInvestigator::OnAccountsInCookieUpdated(
+    const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+    const GoogleServiceAuthError& error) {
+  OnGaiaAccountsInCookieUpdated(accounts_in_cookie_jar_info.signed_in_accounts,
+                                accounts_in_cookie_jar_info.signed_out_accounts,
+                                error);
 }
 
 void AccountInvestigator::OnGaiaAccountsInCookieUpdated(
@@ -186,8 +191,8 @@ AccountRelation AccountInvestigator::DiscernRelation(
   } else if (signed_out_match_iter != signed_out_accounts.end()) {
     if (signed_in_accounts.empty()) {
       return signed_out_accounts.size() == 1
-               ? AccountRelation::NO_SIGNED_IN_SINGLE_SIGNED_OUT_MATCH
-               : AccountRelation::NO_SIGNED_IN_ONE_OF_SIGNED_OUT_MATCH;
+                 ? AccountRelation::NO_SIGNED_IN_SINGLE_SIGNED_OUT_MATCH
+                 : AccountRelation::NO_SIGNED_IN_ONE_OF_SIGNED_OUT_MATCH;
     } else {
       return AccountRelation::WITH_SIGNED_IN_ONE_OF_SIGNED_OUT_MATCH;
     }
@@ -199,10 +204,11 @@ AccountRelation AccountInvestigator::DiscernRelation(
 }
 
 void AccountInvestigator::TryPeriodicReport() {
-  std::vector<ListedAccount> signed_in_accounts, signed_out_accounts;
-  if (cookie_service_->ListAccounts(&signed_in_accounts,
-                                    &signed_out_accounts)) {
-    DoPeriodicReport(signed_in_accounts, signed_out_accounts);
+  auto accounts_in_cookie_jar_info =
+      identity_manager_->GetAccountsInCookieJar();
+  if (accounts_in_cookie_jar_info.accounts_are_fresh) {
+    DoPeriodicReport(accounts_in_cookie_jar_info.signed_in_accounts,
+                     accounts_in_cookie_jar_info.signed_out_accounts);
   } else {
     periodic_pending_ = true;
   }
@@ -235,8 +241,7 @@ void AccountInvestigator::SharedCookieJarReport(
 
   int signed_in_count = signed_in_accounts.size();
   int signed_out_count = signed_out_accounts.size();
-  signin_metrics::LogCookieJarCounts(signed_in_count,
-                                     signed_out_count,
+  signin_metrics::LogCookieJarCounts(signed_in_count, signed_out_count,
                                      signed_in_count + signed_out_count, type);
 
   if (identity_manager_->HasPrimaryAccount()) {

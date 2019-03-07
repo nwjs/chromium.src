@@ -12,8 +12,8 @@
 #include "base/rand_util.h"
 #include "base/time/default_tick_clock.h"
 #include "build/build_config.h"
-#include "chrome/browser/net/spdyproxy/data_reduction_proxy_chrome_settings.h"
-#include "chrome/browser/net/spdyproxy/data_reduction_proxy_chrome_settings_factory.h"
+#include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings.h"
+#include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings_factory.h"
 #include "chrome/browser/previews/previews_lite_page_infobar_delegate.h"
 #include "chrome/browser/previews/previews_lite_page_navigation_throttle.h"
 #include "chrome/browser/previews/previews_service.h"
@@ -28,6 +28,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/previews/content/previews_user_data.h"
 #include "components/previews/core/previews_experiments.h"
+#include "components/previews/core/previews_features.h"
 #include "components/previews/core/previews_switches.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_entry.h"
@@ -124,7 +125,10 @@ class UserNotificationWebContentsObserver
   }
 
   base::OnceClosure ui_shown_callback_;
+  WEB_CONTENTS_USER_DATA_KEY_DECL();
 };
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(UserNotificationWebContentsObserver)
 
 PreviewsLitePageDecider::PreviewsLitePageDecider(
     content::BrowserContext* browser_context)
@@ -132,7 +136,7 @@ PreviewsLitePageDecider::PreviewsLitePageDecider(
       page_id_(base::RandUint64()),
       drp_settings_(nullptr),
       pref_service_(nullptr),
-      host_blacklist_(std::make_unique<base::DictionaryValue>()) {
+      host_bypass_blacklist_(std::make_unique<base::DictionaryValue>()) {
   if (!browser_context)
     return;
 
@@ -145,15 +149,15 @@ PreviewsLitePageDecider::PreviewsLitePageDecider(
   DCHECK(!browser_context->IsOffTheRecord());
 
   pref_service_ = Profile::FromBrowserContext(browser_context)->GetPrefs();
-  host_blacklist_ =
+  host_bypass_blacklist_ =
       pref_service_->GetDictionary(kHostBlacklist)->CreateDeepCopy();
 
   // Note: This switch has no effect if |drp_settings| was null since
-  // |host_blacklist_| would be empty anyways.
+  // |host_bypass_blacklist_| would be empty anyways.
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           previews::switches::kClearLitePageRedirectLocalBlacklist)) {
-    host_blacklist_->Clear();
-    pref_service_->Set(kHostBlacklist, *host_blacklist_);
+    host_bypass_blacklist_->Clear();
+    pref_service_->Set(kHostBlacklist, *host_bypass_blacklist_);
   }
 
   // Add |this| as an observer to DRP, but if DRP is already initialized, check
@@ -184,6 +188,14 @@ PreviewsLitePageDecider::MaybeCreateThrottleFor(
   DCHECK(handle->GetWebContents());
   DCHECK(handle->GetWebContents()->GetBrowserContext());
 
+  if (!handle->IsInMainFrame())
+    return nullptr;
+
+  if (base::FeatureList::IsEnabled(
+          previews::features::kHTTPSServerPreviewsUsingURLLoader)) {
+    return nullptr;
+  }
+
   content::BrowserContext* browser_context =
       handle->GetWebContents()->GetBrowserContext();
 
@@ -193,20 +205,19 @@ PreviewsLitePageDecider::MaybeCreateThrottleFor(
     return nullptr;
   DCHECK(!browser_context->IsOffTheRecord());
 
-  PreviewsUITabHelper* tab_helper =
-      PreviewsUITabHelper::FromWebContents(handle->GetWebContents());
-  if (!tab_helper)
-    return nullptr;
+  PreviewsLitePageDecider* decider =
+      previews_service->previews_lite_page_decider();
+  DCHECK(decider);
 
-  previews::PreviewsUserData* previews_data =
-      tab_helper->GetPreviewsUserData(handle);
-  if (!previews_data)
-    return nullptr;
+  bool drp_enabled = decider->drp_settings_->IsDataReductionProxyEnabled();
+  bool preview_enabled = previews::params::ArePreviewsAllowed() &&
+                         previews::params::IsLitePageServerPreviewsEnabled();
 
-  if (previews_data->allowed_previews_state() &
-      content::LITE_PAGE_REDIRECT_ON) {
-    return std::make_unique<PreviewsLitePageNavigationThrottle>(
-        handle, previews_service->previews_lite_page_decider());
+  // Always create a navigation throttle if the feature is enabled. The throttle
+  // itself will check the PreviewsState bit for triggering.
+  if (drp_enabled && preview_enabled) {
+    return std::make_unique<PreviewsLitePageNavigationThrottle>(handle,
+                                                                decider);
   }
 
   return nullptr;
@@ -250,14 +261,14 @@ void PreviewsLitePageDecider::SetDRPSettingsForTesting(
 
 void PreviewsLitePageDecider::ClearBlacklist() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  host_blacklist_->Clear();
+  host_bypass_blacklist_->Clear();
   if (pref_service_)
-    pref_service_->Set(kHostBlacklist, *host_blacklist_);
+    pref_service_->Set(kHostBlacklist, *host_bypass_blacklist_);
 }
 
 void PreviewsLitePageDecider::ClearStateForTesting() {
   single_bypass_.clear();
-  host_blacklist_->Clear();
+  host_bypass_blacklist_->Clear();
 }
 
 void PreviewsLitePageDecider::SetUserHasSeenUINotification() {
@@ -366,21 +377,22 @@ void PreviewsLitePageDecider::NotifyUser(content::WebContents* web_contents) {
                      base::Unretained(this)));
 }
 
-void PreviewsLitePageDecider::BlacklistHost(const std::string& host,
-                                            base::TimeDelta duration) {
+void PreviewsLitePageDecider::BlacklistBypassedHost(const std::string& host,
+                                                    base::TimeDelta duration) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // If there is an existing entry, intentionally update it.
-  host_blacklist_->SetKey(
+  host_bypass_blacklist_->SetKey(
       host, base::Value((base::Time::Now() + duration).ToDoubleT()));
 
-  RemoveStaleEntries(host_blacklist_.get());
+  RemoveStaleEntries(host_bypass_blacklist_.get());
   if (pref_service_)
-    pref_service_->Set(kHostBlacklist, *host_blacklist_);
+    pref_service_->Set(kHostBlacklist, *host_bypass_blacklist_);
 }
 
-bool PreviewsLitePageDecider::HostBlacklisted(const std::string& host) {
+bool PreviewsLitePageDecider::HostBlacklistedFromBypass(
+    const std::string& host) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  base::Value* value = host_blacklist_->FindKey(host);
+  base::Value* value = host_bypass_blacklist_->FindKey(host);
   if (!value)
     return false;
 

@@ -18,8 +18,8 @@
 #include "base/containers/flat_map.h"
 #include "base/debug/alias.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/no_destructor.h"
+#include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
@@ -92,7 +92,7 @@ HRESULT FindDirectWriteFontForLOGFONT(IDWriteFactory* factory,
   if (SUCCEEDED(hr)) {
     hr = font_collection->GetFontFromFontFace(font_face.Get(), dwrite_font);
     if (SUCCEEDED(hr)) {
-      wcscpy_s(font_info->lfFaceName, arraysize(font_info->lfFaceName),
+      wcscpy_s(font_info->lfFaceName, base::size(font_info->lfFaceName),
                converted_font.lfFaceName);
     }
   }
@@ -155,12 +155,12 @@ HRESULT GetMatchingDirectWriteFont(LOGFONT* font_info,
     }
 
     if (wcsncmp(font_info->lfFaceName, metrics.lfMessageFont.lfFaceName,
-                arraysize(font_info->lfFaceName))) {
+                base::size(font_info->lfFaceName))) {
       // First try the GDI compat route to get a matching DirectWrite font. If
       // that succeeds we are good. If not find a matching font from the font
       // collection.
-      wcscpy_s(font_info->lfFaceName, arraysize(font_info->lfFaceName),
-                metrics.lfMessageFont.lfFaceName);
+      wcscpy_s(font_info->lfFaceName, base::size(font_info->lfFaceName),
+               metrics.lfMessageFont.lfFaceName);
       hr = FindDirectWriteFontForLOGFONT(factory, font_info, dwrite_font);
       if (SUCCEEDED(hr))
         return hr;
@@ -219,7 +219,7 @@ HRESULT GetMatchingDirectWriteFont(LOGFONT* font_info,
 
   base::string16 font_name;
   gfx::GetFamilyNameFromDirectWriteFont(*dwrite_font, &font_name);
-  wcscpy_s(font_info->lfFaceName, arraysize(font_info->lfFaceName),
+  wcscpy_s(font_info->lfFaceName, base::size(font_info->lfFaceName),
            font_name.c_str());
   return hr;
 }
@@ -377,7 +377,7 @@ HRESULT GetFamilyNameFromDirectWriteFont(IDWriteFont* dwrite_font,
   // Add support for retrieving the family for the current locale.
   wchar_t family_name_for_locale[MAX_PATH] = {0};
   hr = family_names->GetString(0, family_name_for_locale,
-                               arraysize(family_name_for_locale));
+                               base::size(family_name_for_locale));
   if (FAILED(hr))
     CHECK(false);
 
@@ -513,7 +513,7 @@ std::string PlatformFontWin::GetLocalizedFontName() const {
   // locale, GetTextFace() returns the localized name.
   base::win::ScopedSelectObject font(memory_dc.Get(), font_ref_->hfont());
   wchar_t localized_font_name[LF_FACESIZE];
-  int length = GetTextFace(memory_dc.Get(), arraysize(localized_font_name),
+  int length = GetTextFace(memory_dc.Get(), base::size(localized_font_name),
                            &localized_font_name[0]);
   if (length <= 0)
     return GetFontName();
@@ -673,21 +673,20 @@ PlatformFontWin::HFontRef* PlatformFontWin::CreateHFontRefFromSkia(
       FontRenderParams::SubpixelRenderingToSkiaLCDOrientation(
           font_params.subpixel_rendering));
 
-  SkPaint paint;
-  paint.setAntiAlias(font_params.antialiasing);
-  paint.setTypeface(std::move(skia_face));
-  paint.setTextSize(-font_info.lfHeight);
+  SkFont font(std::move(skia_face), -font_info.lfHeight);
+  font.setEdging(font_params.antialiasing ? SkFont::Edging::kAntiAlias
+                                          : SkFont::Edging::kAlias);
   SkFontMetrics skia_metrics;
-  paint.getFontMetrics(&skia_metrics);
+  font.getMetrics(&skia_metrics);
 
   // The calculations below are similar to those in the CreateHFontRef
   // function. The height, baseline and cap height are rounded up to ensure
   // that they match up closely with GDI.
   const int height = std::ceil(skia_metrics.fDescent - skia_metrics.fAscent);
   const int baseline = std::max<int>(1, std::ceil(-skia_metrics.fAscent));
-  const int cap_height = std::ceil(paint.getTextSize() *
-      static_cast<double>(dwrite_font_metrics.capHeight) /
-          dwrite_font_metrics.designUnitsPerEm);
+  const int cap_height = std::ceil(
+      font.getSize() * static_cast<double>(dwrite_font_metrics.capHeight) /
+      dwrite_font_metrics.designUnitsPerEm);
 
   // The metrics retrieved from skia don't have the average character width. In
   // any case if we get the average character width from skia then use that or

@@ -25,7 +25,7 @@
 #include "gpu/config/gpu_preferences.h"
 #include "gpu/config/gpu_switches.h"
 #include "ui/gfx/extension_set.h"
-#include "ui/gl/gl_features.h"
+#include "ui/gl/buildflags.h"
 #include "ui/gl/gl_switches.h"
 
 #if defined(OS_ANDROID)
@@ -92,6 +92,10 @@ GpuFeatureStatus GetOopRasterizationFeatureStatus(
   // If we can't create a GrContext for whatever reason, don't enable oop
   // rasterization.
   if (!gpu_info.oop_rasterization_supported)
+    return kGpuFeatureStatusDisabled;
+
+  if (gpu_preferences.use_passthrough_cmd_decoder &&
+      !gpu_preferences.enable_passthrough_raster_decoder)
     return kGpuFeatureStatusDisabled;
 
   if (gpu_preferences.disable_oop_rasterization)
@@ -228,9 +232,14 @@ void AppendWorkaroundsToCommandLine(const GpuFeatureInfo& gpu_feature_info,
   if (gpu_feature_info.IsWorkaroundEnabled(DISABLE_ES3_GL_CONTEXT)) {
     command_line->AppendSwitch(switches::kDisableES3GLContext);
   }
+#if defined(OS_WIN)
   if (gpu_feature_info.IsWorkaroundEnabled(DISABLE_DIRECT_COMPOSITION)) {
     command_line->AppendSwitch(switches::kDisableDirectComposition);
   }
+  if (gpu_feature_info.IsWorkaroundEnabled(DISABLE_DIRECT_COMPOSITION_LAYERS)) {
+    command_line->AppendSwitch(switches::kDisableDirectCompositionLayers);
+  }
+#endif
 }
 
 // Adjust gpu feature status based on enabled gpu driver bug workarounds.

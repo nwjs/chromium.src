@@ -75,29 +75,35 @@ class GM2TabStyle : public TabStyle {
 
  protected:
   // TabStyle:
-  gfx::Path GetPath(
+  SkPath GetPath(
       PathType path_type,
       float scale,
       bool force_active = false,
       RenderUnits render_units = RenderUnits::kPixels) const override;
-  SeparatorBounds GetSeparatorBounds(float scale) const override;
   gfx::Insets GetContentsInsets() const override;
   int GetStrokeThickness(bool should_paint_as_active = false) const override;
-  SeparatorOpacities GetSeparatorOpacities(bool for_layout) const override;
-  void PaintTab(gfx::Canvas* canvas, const gfx::Path& clip) const override;
+  void PaintTab(gfx::Canvas* canvas, const SkPath& clip) const override;
 
  private:
+  // Gets the bounds for the leading and trailing separators for a tab.
+  SeparatorBounds GetSeparatorBounds(float scale) const;
+
+  // Returns the opacities of the separators. If |for_layout| is true, returns
+  // the "layout" opacities, which ignore the effects of surrounding tabs' hover
+  // effects and consider only the current tab's state.
+  SeparatorOpacities GetSeparatorOpacities(bool for_layout) const;
+
   // Returns whether we shoould extend the hit test region for Fitts' Law.
   bool ShouldExtendHitTest() const;
 
   // Painting helper functions:
   void PaintInactiveTabBackground(gfx::Canvas* canvas,
-                                  const gfx::Path& clip) const;
+                                  const SkPath& clip) const;
   void PaintTabBackground(gfx::Canvas* canvas,
                           bool active,
                           int fill_id,
                           int y_inset,
-                          const gfx::Path* clip) const;
+                          const SkPath* clip) const;
   void PaintTabBackgroundFill(gfx::Canvas* canvas,
                               bool active,
                               bool paint_hover_effect,
@@ -190,10 +196,10 @@ bool BackgroundCache::UpdateCacheKey(float scale,
 
 GM2TabStyle::GM2TabStyle(const Tab* tab) : tab_(tab) {}
 
-gfx::Path GM2TabStyle::GetPath(PathType path_type,
-                               float scale,
-                               bool force_active,
-                               RenderUnits render_units) const {
+SkPath GM2TabStyle::GetPath(PathType path_type,
+                            float scale,
+                            bool force_active,
+                            RenderUnits render_units) const {
   const int stroke_thickness = GetStrokeThickness(force_active);
 
   // We'll do the entire path calculation in aligned pixels.
@@ -269,7 +275,7 @@ gfx::Path GM2TabStyle::GetPath(PathType path_type,
   // may have made to the location of the tab!
   const float corner_gap = (right - tab_right) - bottom_radius;
 
-  gfx::Path path;
+  SkPath path;
 
   if (path_type == PathType::kInteriorClip) {
     // Clip path is a simple rectangle.
@@ -371,6 +377,46 @@ gfx::Path GM2TabStyle::GetPath(PathType path_type,
   return path;
 }
 
+gfx::Insets GM2TabStyle::GetContentsInsets() const {
+  const int stroke_thickness = GetStrokeThickness();
+  const int horizontal_inset = GetContentsHorizontalInsetSize();
+  return gfx::Insets(
+      stroke_thickness, horizontal_inset,
+      stroke_thickness + GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP),
+      horizontal_inset);
+}
+
+int GM2TabStyle::GetStrokeThickness(bool should_paint_as_active) const {
+  return (tab_->IsActive() || should_paint_as_active)
+             ? tab_->controller()->GetStrokeThickness()
+             : 0;
+}
+
+void GM2TabStyle::PaintTab(gfx::Canvas* canvas, const SkPath& clip) const {
+  int active_tab_fill_id = 0;
+  int active_tab_y_inset = 0;
+  if (tab_->GetThemeProvider()->HasCustomImage(IDR_THEME_TOOLBAR)) {
+    active_tab_fill_id = IDR_THEME_TOOLBAR;
+    active_tab_y_inset = GetStrokeThickness(true);
+  }
+
+  if (tab_->IsActive()) {
+    PaintTabBackground(canvas, true /* active */, active_tab_fill_id,
+                       active_tab_y_inset, nullptr /* clip */);
+  } else {
+    PaintInactiveTabBackground(canvas, clip);
+
+    const float throb_value = tab_->GetThrobValue();
+    if (throb_value > 0) {
+      canvas->SaveLayerAlpha(gfx::ToRoundedInt(throb_value * 0xff),
+                             tab_->GetLocalBounds());
+      PaintTabBackground(canvas, true /* active */, active_tab_fill_id,
+                         active_tab_y_inset, nullptr /* clip */);
+      canvas->Restore();
+    }
+  }
+}
+
 TabStyle::SeparatorBounds GM2TabStyle::GetSeparatorBounds(float scale) const {
   const gfx::RectF aligned_bounds =
       ScaleAndAlignBounds(tab_->bounds(), scale, GetStrokeThickness());
@@ -398,21 +444,6 @@ TabStyle::SeparatorBounds GM2TabStyle::GetSeparatorBounds(float scale) const {
   return separator_bounds;
 }
 
-gfx::Insets GM2TabStyle::GetContentsInsets() const {
-  const int stroke_thickness = GetStrokeThickness();
-  const int horizontal_inset = GetContentsHorizontalInsetSize();
-  return gfx::Insets(
-      stroke_thickness, horizontal_inset,
-      stroke_thickness + GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP),
-      horizontal_inset);
-}
-
-int GM2TabStyle::GetStrokeThickness(bool should_paint_as_active) const {
-  return (tab_->IsActive() || should_paint_as_active)
-             ? tab_->controller()->GetStrokeThickness()
-             : 0;
-}
-
 TabStyle::SeparatorOpacities GM2TabStyle::GetSeparatorOpacities(
     bool for_layout) const {
   // Something should visually separate tabs from each other and any adjacent
@@ -431,10 +462,13 @@ TabStyle::SeparatorOpacities GM2TabStyle::GetSeparatorOpacities(
     // hovered.  If the subsequent tab is active, don't consider its hover
     // animation value, lest the trailing separator on this tab disappear while
     // the subsequent tab is being dragged.
-    const float hover_value = tab_->hover_controller()->GetAnimationValue();
+    const float hover_value =
+        tab_->hover_controller() ? tab_->hover_controller()->GetAnimationValue()
+                                 : 0;
     const Tab* subsequent_tab = tab_->controller()->GetAdjacentTab(tab_, 1);
     const float subsequent_hover =
-        !for_layout && subsequent_tab && !subsequent_tab->IsActive()
+        !for_layout && subsequent_tab && subsequent_tab->hover_controller() &&
+                !subsequent_tab->IsActive()
             ? float{subsequent_tab->hover_controller()->GetAnimationValue()}
             : 0;
     trailing_opacity = 1.f - std::max(hover_value, subsequent_hover);
@@ -497,38 +531,13 @@ TabStyle::SeparatorOpacities GM2TabStyle::GetSeparatorOpacities(
   return {leading_opacity, trailing_opacity};
 }
 
-void GM2TabStyle::PaintTab(gfx::Canvas* canvas, const gfx::Path& clip) const {
-  int active_tab_fill_id = 0;
-  int active_tab_y_inset = 0;
-  if (tab_->GetThemeProvider()->HasCustomImage(IDR_THEME_TOOLBAR)) {
-    active_tab_fill_id = IDR_THEME_TOOLBAR;
-    active_tab_y_inset = GetStrokeThickness(true);
-  }
-
-  if (tab_->IsActive()) {
-    PaintTabBackground(canvas, true /* active */, active_tab_fill_id,
-                       active_tab_y_inset, nullptr /* clip */);
-  } else {
-    PaintInactiveTabBackground(canvas, clip);
-
-    const float throb_value = tab_->GetThrobValue();
-    if (throb_value > 0) {
-      canvas->SaveLayerAlpha(gfx::ToRoundedInt(throb_value * 0xff),
-                             tab_->GetLocalBounds());
-      PaintTabBackground(canvas, true /* active */, active_tab_fill_id,
-                         active_tab_y_inset, nullptr /* clip */);
-      canvas->Restore();
-    }
-  }
-}
-
 bool GM2TabStyle::ShouldExtendHitTest() const {
   const views::Widget* widget = tab_->GetWidget();
   return widget->IsMaximized() || widget->IsFullscreen();
 }
 
 void GM2TabStyle::PaintInactiveTabBackground(gfx::Canvas* canvas,
-                                             const gfx::Path& clip) const {
+                                             const SkPath& clip) const {
   bool has_custom_image;
   int fill_id = tab_->controller()->GetBackgroundResourceId(&has_custom_image);
   if (!has_custom_image)
@@ -542,7 +551,7 @@ void GM2TabStyle::PaintTabBackground(gfx::Canvas* canvas,
                                      bool active,
                                      int fill_id,
                                      int y_inset,
-                                     const gfx::Path* clip) const {
+                                     const SkPath* clip) const {
   // |y_inset| is only set when |fill_id| is being used.
   DCHECK(!y_inset || fill_id);
 
@@ -555,8 +564,8 @@ void GM2TabStyle::PaintTabBackground(gfx::Canvas* canvas,
           : SK_ColorTRANSPARENT;
   const SkColor stroke_color =
       tab_->controller()->GetToolbarTopSeparatorColor();
-  const bool paint_hover_effect =
-      !active && tab_->hover_controller()->ShouldDraw();
+  const bool paint_hover_effect = !active && tab_->hover_controller() &&
+                                  tab_->hover_controller()->ShouldDraw();
   const float scale = canvas->image_scale();
   const float stroke_thickness = GetStrokeThickness(active);
 
@@ -624,7 +633,7 @@ void GM2TabStyle::PaintTabBackgroundFill(gfx::Canvas* canvas,
                                          SkColor inactive_color,
                                          int fill_id,
                                          int y_inset) const {
-  const gfx::Path fill_path =
+  const SkPath fill_path =
       GetPath(PathType::kFill, canvas->image_scale(), active);
   gfx::ScopedCanvas scoped_canvas(canvas);
   const float scale = canvas->UndoDeviceScaleFactor();
@@ -666,7 +675,7 @@ void GM2TabStyle::PaintTabBackgroundFill(gfx::Canvas* canvas,
 void GM2TabStyle::PaintBackgroundStroke(gfx::Canvas* canvas,
                                         bool active,
                                         SkColor stroke_color) const {
-  gfx::Path outer_path =
+  SkPath outer_path =
       GetPath(TabStyle::PathType::kBorder, canvas->image_scale(), active);
   gfx::ScopedCanvas scoped_canvas(canvas);
   float scale = canvas->UndoDeviceScaleFactor();
@@ -758,8 +767,8 @@ gfx::RectF GM2TabStyle::ScaleAndAlignBounds(const gfx::Rect& bounds,
 TabStyle::~TabStyle() = default;
 
 // static
-TabStyle* TabStyle::CreateForTab(const Tab* tab) {
-  return new GM2TabStyle(tab);
+std::unique_ptr<TabStyle> TabStyle::CreateForTab(const Tab* tab) {
+  return std::make_unique<GM2TabStyle>(tab);
 }
 
 // static

@@ -21,7 +21,7 @@
 #include "chrome/browser/chromeos/login/ui/login_display_host_webui.h"
 #include "chrome/browser/chromeos/login/ui/webui_login_view.h"
 #include "chrome/common/chrome_paths.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/login/auth/key.h"
 #include "chromeos/login/auth/user_context.h"
 #include "components/account_id/account_id.h"
@@ -73,8 +73,7 @@ constexpr char LoginManagerTest::kEnterpriseUser2GaiaId[] = "0000222222";
 LoginManagerTest::LoginManagerTest(bool should_launch_browser,
                                    bool should_initialize_webui)
     : should_launch_browser_(should_launch_browser),
-      should_initialize_webui_(should_initialize_webui),
-      web_contents_(NULL) {
+      should_initialize_webui_(should_initialize_webui) {
   set_exit_when_last_browser_closes(false);
 }
 
@@ -117,7 +116,6 @@ void LoginManagerTest::SetUpCommandLine(base::CommandLine* command_line) {
   command_line->AppendSwitchASCII(::switches::kGoogleApisUrl, gaia_url.spec());
 
   fake_gaia_.Initialize();
-  fake_gaia_.set_issue_oauth_code_cookie(true);
 
   MixinBasedBrowserTest::SetUpCommandLine(command_line);
 }
@@ -148,7 +146,6 @@ void LoginManagerTest::SetUpOnMainThread() {
         chrome::NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE,
         content::NotificationService::AllSources())
         .Wait();
-    InitializeWebContents();
   }
   test::UserSessionManagerTestApi session_manager_test_api(
       UserSessionManager::GetInstance());
@@ -214,29 +211,6 @@ void LoginManagerTest::AddUser(const AccountId& account_id) {
   const UserContext user_context = CreateUserContext(account_id);
   SetExpectedCredentials(user_context);
   EXPECT_TRUE(AddUserToSession(user_context));
-}
-
-// static
-std::string LoginManagerTest::GetGaiaIDForUserID(const std::string& user_id) {
-  if (user_id == LoginManagerTest::kEnterpriseUser1)
-    return LoginManagerTest::kEnterpriseUser1GaiaId;
-  if (user_id == LoginManagerTest::kEnterpriseUser2)
-    return LoginManagerTest::kEnterpriseUser2GaiaId;
-  return "gaia-id-" + user_id;
-}
-
-void LoginManagerTest::JSExpect(const std::string& expression) {
-  js_checker_.ExpectTrue(expression);
-}
-
-void LoginManagerTest::InitializeWebContents() {
-  LoginDisplayHost* host = LoginDisplayHost::default_host();
-  EXPECT_TRUE(host != NULL);
-
-  content::WebContents* web_contents = host->GetOobeWebContents();
-  EXPECT_TRUE(web_contents != NULL);
-  set_web_contents(web_contents);
-  js_checker_.set_web_contents(web_contents);
 }
 
 }  // namespace chromeos

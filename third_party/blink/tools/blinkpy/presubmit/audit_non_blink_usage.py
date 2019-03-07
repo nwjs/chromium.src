@@ -69,6 +69,10 @@ _CONFIG = [
             'base::span',
             'logging::GetVlogLevel',
 
+            # //base/observer_list.h.
+            'base::ObserverList',
+            'base::CheckedObserver',
+
             # //base/bind_helpers.h.
             'base::DoNothing',
 
@@ -108,6 +112,9 @@ _CONFIG = [
             'base::IsTypeInRangeForNumericType',
             'base::IsValueNegative',
 
+            # //base/strings/char_traits.h.
+            'base::CharTraits',
+
             # //base/synchronization/waitable_event.h.
             'base::WaitableEvent',
 
@@ -134,6 +141,7 @@ _CONFIG = [
             'base::debug::.+',
 
             # Base atomic utilities
+            'base::AtomicFlag',
             'base::AtomicSequenceNumber',
 
             # Task traits
@@ -172,6 +180,7 @@ _CONFIG = [
 
             # Chromium geometry types.
             'gfx::Point',
+            'gfx::Point3F',
             'gfx::Rect',
             'gfx::RectF',
             'gfx::Size',
@@ -248,6 +257,7 @@ _CONFIG = [
             'root_scroller_util::.+',
             'scheduler::.+',
             'scroll_customization::.+',
+            'scroll_timeline_util::.+',
             'style_change_extra_data::.+',
             'style_change_reason::.+',
             'svg_path_parser::.+',
@@ -321,6 +331,12 @@ _CONFIG = [
         'allowed': [
             # For memory reduction histogram.
             'base::ProcessMetrics',
+        ],
+    },
+    {
+        'paths': ['third_party/blink/renderer/controller/oom_intervention_impl.cc'],
+        'allowed': [
+            'base::BindOnce',
         ],
     },
     {
@@ -401,6 +417,15 @@ _CONFIG = [
         ],
     },
     {
+        'paths': ['third_party/blink/renderer/core/inspector/inspector_overlay_agent.cc'],
+        'allowed': [
+            # cc painting types.
+            'cc::ContentLayerClient',
+            'cc::DisplayItemList',
+            'cc::DrawRecordOp',
+        ],
+    },
+    {
         'paths': ['third_party/blink/renderer/core/inspector/inspector_performance_agent.cc'],
         'allowed': [
             'base::subtle::TimeTicksNowIgnoringOverride',
@@ -431,6 +456,14 @@ _CONFIG = [
             'gpu::MailboxHolder',
             'display::Display',
         ],
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/modules/mediastream/',
+        ],
+        'allowed': [
+            'media::.+',
+        ]
     },
     {
         'paths': [

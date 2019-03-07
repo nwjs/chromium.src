@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 
+#include "base/stl_util.h"
 #include "build/build_config.h"
 #include "cc/layers/content_layer_client.h"
 #include "cc/layers/picture_image_layer.h"
@@ -296,7 +297,9 @@ TEST_P(LayerTreeHostMasksForBackdropFiltersPixelTest,
 
   FilterOperations filters;
   filters.Append(FilterOperation::CreateGrayscaleFilter(1.0));
+  gfx::RectF backdrop_filter_bounds;
   blur->SetBackdropFilters(filters);
+  blur->SetBackdropFilterBounds(backdrop_filter_bounds);
 
   gfx::Size mask_bounds(100, 100);
   CircleContentLayerClient mask_client(mask_bounds);
@@ -493,7 +496,7 @@ class LayerTreeHostMaskAsBlendingPixelTest
     for (int j = 0; j < (bounds.height() + grid_size - 1) / grid_size; j++) {
       for (int i = 0; i < (bounds.width() + grid_size - 1) / grid_size; i++) {
         PaintFlags flags;
-        flags.setColor(test_colors[(i + j * 3) % arraysize(test_colors)]);
+        flags.setColor(test_colors[(i + j * 3) % base::size(test_colors)]);
         display_list->push<DrawRectOp>(
             SkRect::MakeXYWH(i * grid_size, j * grid_size, grid_size,
                              grid_size),
@@ -756,6 +759,8 @@ TEST_P(LayerTreeHostMasksForBackdropFiltersPixelTest,
   FilterOperations filters;
   filters.Append(FilterOperation::CreateGrayscaleFilter(1.0));
   picture_horizontal->SetBackdropFilters(filters);
+  gfx::RectF backdrop_filter_bounds;
+  picture_horizontal->SetBackdropFilterBounds(backdrop_filter_bounds);
 
   background->AddChild(picture_vertical);
   background->AddChild(picture_horizontal);

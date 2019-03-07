@@ -10,6 +10,9 @@
 
 #include "android_webview/browser/aw_browser_context.h"
 #include "android_webview/browser/aw_browser_main_parts.h"
+#include "android_webview/browser/aw_content_browser_overlay_manifest.h"
+#include "android_webview/browser/aw_content_renderer_overlay_manifest.h"
+#include "android_webview/browser/aw_content_utility_overlay_manifest.h"
 #include "android_webview/browser/aw_contents.h"
 #include "android_webview/browser/aw_contents_client_bridge.h"
 #include "android_webview/browser/aw_contents_io_thread_client.h"
@@ -17,20 +20,20 @@
 #include "android_webview/browser/aw_devtools_manager_delegate.h"
 #include "android_webview/browser/aw_feature_list_creator.h"
 #include "android_webview/browser/aw_login_delegate.h"
-#include "android_webview/browser/aw_printing_message_filter.h"
 #include "android_webview/browser/aw_proxying_url_loader_factory.h"
 #include "android_webview/browser/aw_quota_permission_context.h"
 #include "android_webview/browser/aw_settings.h"
 #include "android_webview/browser/aw_speech_recognition_manager_delegate.h"
 #include "android_webview/browser/aw_url_checker_delegate_impl.h"
+#include "android_webview/browser/aw_url_loader_throttle.h"
 #include "android_webview/browser/aw_web_contents_view_delegate.h"
 #include "android_webview/browser/net/aw_url_request_context_getter.h"
+#include "android_webview/browser/net_helpers.h"
 #include "android_webview/browser/renderer_host/aw_resource_dispatcher_host_delegate.h"
 #include "android_webview/browser/tracing/aw_tracing_delegate.h"
 #include "android_webview/common/aw_content_client.h"
 #include "android_webview/common/aw_descriptors.h"
 #include "android_webview/common/aw_switches.h"
-#include "android_webview/common/crash_reporter/aw_crash_reporter_client.h"
 #include "android_webview/common/render_view_messages.h"
 #include "android_webview/common/url_constants.h"
 #include "android_webview/grit/aw_resources.h"
@@ -41,7 +44,6 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/scoped_file.h"
-#include "base/json/json_reader.h"
 #include "base/memory/ptr_util.h"
 #include "base/path_service.h"
 #include "base/stl_util.h"
@@ -49,7 +51,7 @@
 #include "base/task/post_task.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/cdm/browser/cdm_message_filter_android.h"
-#include "components/crash/content/browser/child_exit_observer_android.h"
+#include "components/crash/content/browser/crash_handler_host_linux.h"
 #include "components/navigation_interception/intercept_navigation_delegate.h"
 #include "components/policy/content/policy_blacklist_navigation_throttle.h"
 #include "components/policy/core/browser/browser_policy_connector_base.h"
@@ -72,10 +74,12 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_descriptors.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/service_names.mojom.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_loader_throttle.h"
+#include "content/public/common/user_agent.h"
 #include "content/public/common/web_preferences.h"
 #include "net/android/network_library.h"
 #include "net/log/net_log.h"
@@ -210,6 +214,21 @@ void OnReceivedErrorOnUIThread(
 
 }  // anonymous namespace
 
+std::string GetProduct() {
+  return version_info::GetProductNameAndVersionForUserAgent();
+}
+
+std::string GetUserAgent() {
+  // "Version/4.0" had been hardcoded in the legacy WebView.
+  std::string product = "Version/4.0 " + GetProduct();
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kUseMobileUserAgent)) {
+    product += " Mobile";
+  }
+  return content::BuildUserAgentFromProductAndExtraOSInfo(
+      product, "; wv", true /* include_android_build_number */);
+}
+
 // TODO(yirui): can use similar logic as in PrependToAcceptLanguagesIfNecessary
 // in chrome/browser/android/preferences/pref_service_bridge.cc
 // static
@@ -259,6 +278,20 @@ network::mojom::NetworkContextPtr AwContentBrowserClient::CreateNetworkContext(
 
   network::mojom::NetworkContextPtr network_context;
   network::mojom::NetworkContextParamsPtr context_params =
+      GetNetworkContextParams();
+
+  content::GetNetworkService()->CreateNetworkContext(
+      MakeRequest(&network_context), std::move(context_params));
+
+  // Quic is not currently supported in WebView (http://crbug.com/763187).
+  content::GetNetworkService()->DisableQuic();
+
+  return network_context;
+}
+
+network::mojom::NetworkContextParamsPtr
+AwContentBrowserClient::GetNetworkContextParams() {
+  network::mojom::NetworkContextParamsPtr context_params =
       network::mojom::NetworkContextParams::New();
   context_params->user_agent = GetUserAgent();
   // TODO(ntfschr): set this value to a proper value based on the user's
@@ -269,16 +302,25 @@ network::mojom::NetworkContextPtr AwContentBrowserClient::CreateNetworkContext(
   context_params->enable_data_url_support = true;
 
   context_params->http_cache_enabled = true;
-  context_params->http_cache_max_size = 20 * 1024 * 1024;  // 20M
+  context_params->http_cache_max_size = GetHttpCacheSize();
   context_params->http_cache_path = AwBrowserContext::GetCacheDir();
 
-  content::GetNetworkService()->CreateNetworkContext(
-      MakeRequest(&network_context), std::move(context_params));
+  context_params->initial_ssl_config = network::mojom::SSLConfig::New();
+  // Allow SHA-1 to be used for locally-installed trust anchors, as WebView
+  // should behave like the Android system would.
+  context_params->initial_ssl_config->sha1_local_anchors_enabled = true;
+  // Do not enforce the Legacy Symantec PKI policies outlined in
+  // https://security.googleblog.com/2017/09/chromes-plan-to-distrust-symantec.html,
+  // defer to the Android system.
+  context_params->initial_ssl_config->symantec_enforcement_disabled = true;
 
-  // Quic is not currently supported in WebView.
-  content::GetNetworkService()->DisableQuic();
+  // WebView does not currently support Certificate Transparency
+  // (http://crbug.com/921750).
+  context_params->enforce_chrome_ct_policy = false;
 
-  return network_context;
+  // WebView does not support ftp yet.
+  context_params->enable_ftp_url_support = false;
+  return context_params;
 }
 
 AwBrowserContext* AwContentBrowserClient::InitBrowserContext() {
@@ -316,7 +358,6 @@ void AwContentBrowserClient::RenderProcessWillLaunch(
   host->AddFilter(new AwContentsMessageFilter(host->GetID()));
   // WebView always allows persisting data.
   host->AddFilter(new cdm::CdmMessageFilterAndroid(true, false));
-  host->AddFilter(new AwPrintingMessageFilter(host->GetID()));
 }
 
 bool AwContentBrowserClient::ShouldUseMobileFlingCurve() const {
@@ -368,7 +409,8 @@ void AwContentBrowserClient::AppendExtraCommandLineSwitches(
            process_type == switches::kUtilityProcess)
         << process_type;
     // Pass crash reporter enabled state to renderer processes.
-    if (crash_reporter::IsCrashReporterEnabled()) {
+    if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+            ::switches::kEnableCrashReporter)) {
       command_line->AppendSwitch(::switches::kEnableCrashReporter);
     }
   }
@@ -498,7 +540,7 @@ bool AwContentBrowserClient::CanCreateWindow(
     content::RenderFrameHost* opener,
     const GURL& opener_url,
     const GURL& opener_top_level_frame_url,
-    const GURL& source_origin,
+    const url::Origin& source_origin,
     content::mojom::WindowContainerType container_type,
     const GURL& target_url,
     const content::Referrer& referrer,
@@ -588,8 +630,11 @@ void AwContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
   fd = ui::GetLocalePackFd(&region);
   mappings->ShareWithRegion(kAndroidWebViewLocalePakDescriptor, fd, region);
 
-  ::crash_reporter::ChildExitObserver::GetInstance()
-      ->BrowserChildProcessStarted(child_process_id, mappings);
+  int crash_signal_fd =
+      crashpad::CrashHandlerHost::Get()->GetDeathSignalSocket();
+  if (crash_signal_fd >= 0) {
+    mappings->Share(service_manager::kCrashDumpSignal, crash_signal_fd);
+  }
 }
 
 void AwContentBrowserClient::OverrideWebkitPrefs(
@@ -624,22 +669,15 @@ AwContentBrowserClient::GetDevToolsManagerDelegate() {
   return new AwDevToolsManagerDelegate();
 }
 
-std::unique_ptr<base::Value> AwContentBrowserClient::GetServiceManifestOverlay(
-    base::StringPiece name) {
-  int id = -1;
+base::Optional<service_manager::Manifest>
+AwContentBrowserClient::GetServiceManifestOverlay(base::StringPiece name) {
   if (name == content::mojom::kBrowserServiceName)
-    id = IDR_AW_BROWSER_MANIFEST_OVERLAY;
+    return GetAWContentBrowserOverlayManifest();
   else if (name == content::mojom::kRendererServiceName)
-    id = IDR_AW_RENDERER_MANIFEST_OVERLAY;
+    return GetAWContentRendererOverlayManifest();
   else if (name == content::mojom::kUtilityServiceName)
-    id = IDR_AW_UTILITY_MANIFEST_OVERLAY;
-  if (id == -1)
-    return nullptr;
-
-  base::StringPiece manifest_contents =
-      ui::ResourceBundle::GetSharedInstance().GetRawDataResourceForScale(
-          id, ui::ScaleFactor::SCALE_FACTOR_NONE);
-  return base::JSONReader::Read(manifest_contents);
+    return GetAWContentUtilityOverlayManifest();
+  return base::nullopt;
 }
 
 void AwContentBrowserClient::BindInterfaceRequestFromFrame(
@@ -712,6 +750,18 @@ AwContentBrowserClient::CreateURLLoaderThrottles(
       if (safe_browsing_throttle)
         result.push_back(std::move(safe_browsing_throttle));
     }
+  }
+
+  if (request.resource_type == content::RESOURCE_TYPE_MAIN_FRAME) {
+    const bool is_load_url =
+        request.transition_type & ui::PAGE_TRANSITION_FROM_API;
+    const bool is_go_back_forward =
+        request.transition_type & ui::PAGE_TRANSITION_FORWARD_BACK;
+    const bool is_reload = ui::PageTransitionCoreTypeIs(
+        static_cast<ui::PageTransition>(request.transition_type),
+        ui::PAGE_TRANSITION_RELOAD);
+    if (is_load_url || is_go_back_forward || is_reload)
+      result.push_back(std::make_unique<AwURLLoaderThrottle>(resource_context));
   }
 
   return result;
@@ -850,6 +900,7 @@ bool AwContentBrowserClient::WillCreateURLLoaderFactory(
     content::RenderFrameHost* frame,
     int render_process_id,
     bool is_navigation,
+    bool is_download,
     const url::Origin& request_initiator,
     network::mojom::URLLoaderFactoryRequest* factory_request,
     network::mojom::TrustedURLLoaderHeaderClientPtrInfo* header_client,
@@ -869,6 +920,14 @@ bool AwContentBrowserClient::WillCreateURLLoaderFactory(
                      std::move(proxied_request), std::move(target_factory_info),
                      nullptr /* AwInterceptedRequestHandler */));
   return true;
+}
+
+std::string AwContentBrowserClient::GetProduct() const {
+  return android_webview::GetProduct();
+}
+
+std::string AwContentBrowserClient::GetUserAgent() const {
+  return android_webview::GetUserAgent();
 }
 
 content::SpeechRecognitionManagerDelegate*

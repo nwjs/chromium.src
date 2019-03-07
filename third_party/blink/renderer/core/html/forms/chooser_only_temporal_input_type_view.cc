@@ -46,14 +46,15 @@ ChooserOnlyTemporalInputTypeView::ChooserOnlyTemporalInputTypeView(
 ChooserOnlyTemporalInputTypeView* ChooserOnlyTemporalInputTypeView::Create(
     HTMLInputElement& element,
     BaseTemporalInputType& input_type) {
-  return new ChooserOnlyTemporalInputTypeView(element, input_type);
+  return MakeGarbageCollected<ChooserOnlyTemporalInputTypeView>(element,
+                                                                input_type);
 }
 
 ChooserOnlyTemporalInputTypeView::~ChooserOnlyTemporalInputTypeView() {
   DCHECK(!date_time_chooser_);
 }
 
-void ChooserOnlyTemporalInputTypeView::Trace(blink::Visitor* visitor) {
+void ChooserOnlyTemporalInputTypeView::Trace(Visitor* visitor) {
   visitor->Trace(input_type_);
   visitor->Trace(date_time_chooser_);
   InputTypeView::Trace(visitor);

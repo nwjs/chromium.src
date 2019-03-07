@@ -87,7 +87,9 @@ class BASE_EXPORT ThreadControllerWithMessagePumpImpl
   friend class DoWorkScope;
   friend class RunScope;
 
-  bool DoWorkImpl(base::TimeTicks* next_run_time);
+  // Returns the delay till the next task. If there's no delay TimeDelta::Max()
+  // will be returned.
+  TimeDelta DoWorkImpl(LazyNow* continuation_lazy_now, bool* ran_task);
 
   bool InTopLevelDoWork() const;
 
@@ -102,7 +104,8 @@ class BASE_EXPORT ThreadControllerWithMessagePumpImpl
     RunLoop::NestingObserver* nesting_observer = nullptr;  // Not owned.
     std::unique_ptr<ThreadTaskRunnerHandle> thread_task_runner_handle;
 
-    // Indicates that we should yield DoWork ASAP.
+    // Indicates that we should yield DoWork between each task to let a possibly
+    // nested RunLoop exit.
     bool quit_pending = false;
 
     // Whether high resolution timing is enabled or not.
@@ -110,6 +113,10 @@ class BASE_EXPORT ThreadControllerWithMessagePumpImpl
 
     // Used to prevent redundant calls to ScheduleWork / ScheduleDelayedWork.
     bool immediate_do_work_posted = false;
+
+    // Whether we're currently executing delayed work (as opposed to immediate
+    // work).
+    bool doing_delayed_work = false;
 
     // Number of tasks processed in a single DoWork invocation.
     int work_batch_size = 1;

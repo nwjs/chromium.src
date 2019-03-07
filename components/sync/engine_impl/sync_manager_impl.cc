@@ -688,13 +688,14 @@ void SyncManagerImpl::SetExtraChangeRecordData(
     sync_pb::EntitySpecifics original_specifics(original.ref(SPECIFICS));
     if (type == PASSWORDS) {
       // Passwords must use their own legacy ExtraPasswordChangeRecordData.
-      std::unique_ptr<sync_pb::PasswordSpecificsData> data(
-          DecryptPasswordSpecifics(original_specifics, cryptographer));
+      std::unique_ptr<sync_pb::PasswordSpecificsData> data =
+          DecryptPasswordSpecifics(original_specifics, cryptographer);
       if (!data) {
         NOTREACHED();
         return;
       }
-      buffer->SetExtraDataForId(id, new ExtraPasswordChangeRecordData(*data));
+      buffer->SetExtraDataForId(
+          id, std::make_unique<ExtraPasswordChangeRecordData>(*data));
     } else if (original_specifics.has_encrypted()) {
       // All other datatypes can just create a new unencrypted specifics and
       // attach it.
@@ -976,6 +977,12 @@ void SyncManagerImpl::OnCookieJarChanged(bool account_mismatch,
 
 void SyncManagerImpl::OnMemoryDump(base::trace_event::ProcessMemoryDump* pmd) {
   directory()->OnMemoryDump(pmd);
+}
+
+void SyncManagerImpl::UpdateInvalidationClientId(const std::string& client_id) {
+  DVLOG(1) << "Setting invalidator client ID: " << client_id;
+  allstatus_.SetInvalidatorClientId(client_id);
+  cycle_context_->set_invalidator_client_id(client_id);
 }
 
 }  // namespace syncer

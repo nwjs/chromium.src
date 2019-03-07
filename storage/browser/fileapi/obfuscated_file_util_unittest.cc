@@ -19,6 +19,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
@@ -341,7 +342,7 @@ class ObfuscatedFileUtilTest : public testing::Test {
     EXPECT_EQ(0, GetSize(data_path));
 
     const char data[] = "test data";
-    const int length = arraysize(data) - 1;
+    const int length = base::size(data) - 1;
 
     if (!file.IsValid()) {
       file.Initialize(data_path,
@@ -744,51 +745,6 @@ class ObfuscatedFileUtilTest : public testing::Test {
     SandboxDirectoryDatabase* db2 =
         file_util->GetDirectoryDatabase(url, false /* create */);
     ASSERT_EQ(db, db2);
-  }
-
-  void MigrationBackFromIsolatedTestBody() {
-    std::string kFakeDirectoryData("0123456789");
-    base::FilePath old_directory_db_path;
-
-    // Initialize the directory with one origin using
-    // SandboxIsolatedOriginDatabase.
-    {
-      std::string origin_string = storage::GetIdentifierFromOrigin(origin_);
-      SandboxIsolatedOriginDatabase database_old(
-          origin_string, data_dir_path(),
-          base::FilePath(
-              SandboxIsolatedOriginDatabase::kObsoleteOriginDirectory));
-      base::FilePath path;
-      EXPECT_TRUE(database_old.GetPathForOrigin(origin_string, &path));
-      EXPECT_FALSE(path.empty());
-
-      // Populate the origin directory with some fake data.
-      old_directory_db_path = data_dir_path().Append(path);
-      ASSERT_TRUE(base::CreateDirectory(old_directory_db_path));
-      EXPECT_EQ(static_cast<int>(kFakeDirectoryData.size()),
-                base::WriteFile(old_directory_db_path.AppendASCII("dummy"),
-                                kFakeDirectoryData.data(),
-                                kFakeDirectoryData.size()));
-    }
-
-    storage_policy_->AddIsolated(origin_);
-    std::unique_ptr<ObfuscatedFileUtil> file_util =
-        CreateObfuscatedFileUtil(storage_policy_.get());
-    base::File::Error error = base::File::FILE_ERROR_FAILED;
-    base::FilePath origin_directory = file_util->GetDirectoryForOrigin(
-        origin_, true /* create */, &error);
-    EXPECT_EQ(base::File::FILE_OK, error);
-
-    // The database is migrated from the old one.
-    EXPECT_TRUE(base::DirectoryExists(origin_directory));
-    EXPECT_FALSE(base::DirectoryExists(old_directory_db_path));
-
-    // Check we see the same contents in the new origin directory.
-    std::string origin_db_data;
-    EXPECT_TRUE(base::PathExists(origin_directory.AppendASCII("dummy")));
-    EXPECT_TRUE(base::ReadFileToString(
-            origin_directory.AppendASCII("dummy"), &origin_db_data));
-    EXPECT_EQ(kFakeDirectoryData, origin_db_data);
   }
 
   int64_t ComputeCurrentUsage() {
@@ -1341,7 +1297,7 @@ TEST_F(ObfuscatedFileUtilTest, TestCopyOrMoveFileSuccess) {
   const int64_t kSourceLength = 5;
   const int64_t kDestLength = 50;
 
-  for (size_t i = 0; i < arraysize(kCopyMoveTestCases); ++i) {
+  for (size_t i = 0; i < base::size(kCopyMoveTestCases); ++i) {
     SCOPED_TRACE(testing::Message() << "kCopyMoveTestCase " << i);
     const CopyMoveTestCaseRecord& test_case = kCopyMoveTestCases[i];
     SCOPED_TRACE(testing::Message() << "\t is_copy_not_move " <<
@@ -1587,7 +1543,7 @@ TEST_F(ObfuscatedFileUtilTest, TestOriginEnumerator) {
   std::set<GURL> origins_expected;
   origins_expected.insert(origin());
 
-  for (size_t i = 0; i < arraysize(kOriginEnumerationTestRecords); ++i) {
+  for (size_t i = 0; i < base::size(kOriginEnumerationTestRecords); ++i) {
     SCOPED_TRACE(testing::Message() <<
         "Validating kOriginEnumerationTestRecords " << i);
     const OriginEnumerationTestRecord& record =
@@ -1629,10 +1585,7 @@ TEST_F(ObfuscatedFileUtilTest, TestOriginEnumerator) {
     origins_found.insert(origin_url);
     SCOPED_TRACE(testing::Message() << "Handling " << origin_url.spec());
     bool found = false;
-    for (size_t i = 0; !found && i < arraysize(kOriginEnumerationTestRecords);
-        ++i) {
-      const OriginEnumerationTestRecord& record =
-          kOriginEnumerationTestRecords[i];
+    for (const auto& record : kOriginEnumerationTestRecords) {
       if (origin_url != record.origin_url)
         continue;
       found = true;
@@ -1790,11 +1743,11 @@ TEST_F(ObfuscatedFileUtilTest, TestIncompleteDirectoryReading) {
   const FileSystemURL empty_path = CreateURL(base::FilePath());
   std::unique_ptr<FileSystemOperationContext> context;
 
-  for (size_t i = 0; i < arraysize(kPath); ++i) {
+  for (const auto& path : kPath) {
     bool created = false;
     context.reset(NewContext(nullptr));
     EXPECT_EQ(base::File::FILE_OK,
-              ofu()->EnsureFileExists(context.get(), kPath[i], &created));
+              ofu()->EnsureFileExists(context.get(), path, &created));
     EXPECT_TRUE(created);
   }
 
@@ -1813,7 +1766,7 @@ TEST_F(ObfuscatedFileUtilTest, TestIncompleteDirectoryReading) {
   EXPECT_EQ(base::File::FILE_OK,
             AsyncFileTestHelper::ReadDirectory(
                 file_system_context(), empty_path, &entries));
-  EXPECT_EQ(arraysize(kPath) - 1, entries.size());
+  EXPECT_EQ(base::size(kPath) - 1, entries.size());
 }
 
 TEST_F(ObfuscatedFileUtilTest, TestDirectoryTimestampForCreation) {
@@ -2404,10 +2357,6 @@ TEST_F(ObfuscatedFileUtilTest, DestroyDirectoryDatabase_Isolated) {
 
 TEST_F(ObfuscatedFileUtilTest, GetDirectoryDatabase_Isolated) {
   GetDirectoryDatabase_IsolatedTestBody();
-}
-
-TEST_F(ObfuscatedFileUtilTest, MigrationBackFromIsolated) {
-  MigrationBackFromIsolatedTestBody();
 }
 
 TEST_F(ObfuscatedFileUtilTest, OpenPathInNonDirectory) {

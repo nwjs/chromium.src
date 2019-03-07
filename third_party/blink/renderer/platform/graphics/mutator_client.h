@@ -7,6 +7,7 @@
 
 #include "third_party/blink/renderer/platform/graphics/animation_worklet_mutators_state.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
 
@@ -14,7 +15,12 @@ class PLATFORM_EXPORT MutatorClient {
  public:
   virtual ~MutatorClient() = default;
 
+  virtual void SynchronizeAnimatorName(const String& animator_name) = 0;
   virtual void SetMutationUpdate(std::unique_ptr<AnimationWorkletOutput>) = 0;
+
+  virtual void NotifyAnimationsPending() = 0;
+
+  virtual void NotifyAnimationsReady() = 0;
 };
 
 }  // namespace blink

@@ -5,12 +5,16 @@
 package org.chromium.chrome.browser.media.router.caf;
 
 import android.support.annotation.Nullable;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.media.MediaRouter;
 
 import com.google.android.gms.cast.CastDevice;
 import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.Status;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import org.chromium.base.Log;
 import org.chromium.chrome.browser.media.router.CastSessionUtil;
@@ -18,30 +22,60 @@ import org.chromium.chrome.browser.media.router.FlingingController;
 import org.chromium.chrome.browser.media.router.MediaSink;
 import org.chromium.chrome.browser.media.router.MediaSource;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 
 /**
  * A base wrapper for {@link CastSession}, extending its functionality for Chrome MediaRouter.
  *
  * Has persistent lifecycle and always attaches itself to the current {@link CastSession}.
  */
-public class BaseSessionController {
+public abstract class BaseSessionController {
     private static final String TAG = "BaseSessionCtrl";
 
+    /** Callback class for listening to state changes. */
+    public static interface Callback {
+        /** Called when session started. */
+        void onSessionStarted();
+
+        /** Called when session ended. */
+        void onSessionEnded();
+
+        /** Called when status updated. */
+        void onStatusUpdated();
+
+        /** Called when metadata updated. */
+        void onMetadataUpdated();
+    }
+
+    private final Random mRequestIdGenerator = new Random();
     private CastSession mCastSession;
+    private int mLatestMediaSessionId;
     private final CafBaseMediaRouteProvider mProvider;
-    private final MediaRouter.Callback mMediaRouterCallbackForSessionLaunch;
     private CreateRouteRequestInfo mRouteCreationInfo;
-    @VisibleForTesting
-    CafNotificationController mNotificationController;
     private final RemoteMediaClient.Callback mRemoteMediaClientCallback;
+    private final List<WeakReference<Callback>> mCallbacks = new ArrayList<>();
 
     public BaseSessionController(CafBaseMediaRouteProvider provider) {
         mProvider = provider;
-        mMediaRouterCallbackForSessionLaunch = new MediaRouterCallbackForSessionLaunch();
-        mNotificationController = new CafNotificationController(this);
         mRemoteMediaClientCallback = new RemoteMediaClientCallback();
+    }
+
+    public void addCallback(Callback callback) {
+        mCallbacks.add(new WeakReference<>(callback));
+    }
+
+    public void removeCallback(Callback callback) {
+        Iterator<WeakReference<Callback>> iterator = mCallbacks.iterator();
+
+        while (iterator.hasNext()) {
+            if (iterator.next().get() == callback) {
+                iterator.remove();
+            }
+        }
     }
 
     public void requestSessionLaunch() {
@@ -49,21 +83,10 @@ public class BaseSessionController {
         CastUtils.getCastContext().setReceiverApplicationId(
                 mRouteCreationInfo.source.getApplicationId());
 
-        if (mRouteCreationInfo.routeInfo.isSelected()) {
-            // If a route has just been selected, CAF might not be ready yet before setting the app
-            // ID. So unselect and select the route will let CAF be aware that the route has been
-            // selected thus it can start the session.
-            //
-            // An issue of this workaround is that if a route is unselected and selected in a very
-            // short time, the selection might be ignored by MediaRouter, so put the reselection in
-            // a callback.
-            mProvider.getAndroidMediaRouter().addCallback(
-                    mRouteCreationInfo.source.buildRouteSelector(),
-                    mMediaRouterCallbackForSessionLaunch);
-            mProvider.getAndroidMediaRouter().unselect(MediaRouter.UNSELECT_REASON_UNKNOWN);
-        } else {
-            mRouteCreationInfo.routeInfo.select();
-        }
+        // When the user clicks a route on the MediaRouteChooserDialog, we intercept the click event
+        // and do not select the route. Instead the route selection is postponed to here. This will
+        // trigger CAF to launch the session.
+        mRouteCreationInfo.routeInfo.select();
     }
 
     public MediaSource getSource() {
@@ -86,9 +109,7 @@ public class BaseSessionController {
         return isConnected() ? mCastSession.getRemoteMediaClient() : null;
     }
 
-    public CafNotificationController getNotificationController() {
-        return mNotificationController;
-    }
+    public abstract BaseNotificationController getNotificationController();
 
     public void endSession() {
         CastUtils.getCastContext().getSessionManager().endCurrentSession(/* stopCasting= */ true);
@@ -116,6 +137,44 @@ public class BaseSessionController {
 
     public boolean isConnected() {
         return mCastSession != null && mCastSession.isConnected();
+    }
+
+    /**
+     * Safely seek to a position. This is an workaround for an IllegalStateException in
+     * RemoteMediaClient when a seek command times out. The code should be replaced by a normal
+     * seek() call when the Google Play services SDK gets updated.
+     */
+    public PendingResult<Status> safelySeek(long position) {
+        JSONObject json = new JSONObject();
+        try {
+            json.put("requestId", mRequestIdGenerator.nextInt(10000));
+            json.put("mediaSessionId", mLatestMediaSessionId);
+            json.put("type", "SEEK");
+            json.put("currentTime", position / 1000.0);
+        } catch (JSONException e) {
+            // Ignore.
+        }
+        return getSession().sendMessage(CastSessionUtil.MEDIA_NAMESPACE, json.toString());
+    }
+
+    private void updateMediaSessionId(String message) {
+        try {
+            JSONObject json = new JSONObject(message);
+            JSONArray statusArray = json.optJSONArray("status");
+
+            if (statusArray == null || statusArray.length() == 0) {
+                return;
+            }
+
+            JSONObject status = statusArray.optJSONObject(0);
+            if (status == null) {
+                return;
+            }
+
+            mLatestMediaSessionId = status.optInt("mediaSessionId", mLatestMediaSessionId);
+        } catch (JSONException e) {
+            // Ignore.
+        }
     }
 
     private void updateRemoteMediaClient(String message) {
@@ -147,13 +206,12 @@ public class BaseSessionController {
 
     /** Called when session started. */
     public void onSessionStarted() {
-        mNotificationController.onSessionStarted();
+        notifyCallback((Callback callback) -> callback.onSessionStarted());
     }
 
     /** Called when session ended. */
     public void onSessionEnded() {
-        mNotificationController.onSessionEnded();
-        mRouteCreationInfo = null;
+        notifyCallback((Callback callback) -> callback.onSessionEnded());
     }
 
     protected final CafBaseMediaRouteProvider getProvider() {
@@ -169,21 +227,8 @@ public class BaseSessionController {
                 "Received message from Cast device: namespace=\"" + namespace + "\" message=\""
                         + message + "\"");
         if (CastSessionUtil.MEDIA_NAMESPACE.equals(namespace)) {
+            updateMediaSessionId(message);
             updateRemoteMediaClient(message);
-        }
-    }
-
-    private class MediaRouterCallbackForSessionLaunch extends MediaRouter.Callback {
-        @Override
-        public void onRouteUnselected(MediaRouter mediaRouter, MediaRouter.RouteInfo routeInfo) {
-            if (mProvider.getPendingCreateRouteRequestInfo() == null) return;
-
-            if (routeInfo.getId().equals(
-                        mProvider.getPendingCreateRouteRequestInfo().routeInfo.getId())) {
-                routeInfo.select();
-                mProvider.getAndroidMediaRouter().removeCallback(
-                        mMediaRouterCallbackForSessionLaunch);
-            }
         }
     }
 
@@ -200,11 +245,11 @@ public class BaseSessionController {
     }
 
     protected void onStatusUpdated() {
-        mNotificationController.onStatusUpdated();
+        notifyCallback((Callback callback) -> callback.onStatusUpdated());
     }
 
     protected void onMetadataUpdated() {
-        mNotificationController.onMetadataUpdated();
+        notifyCallback((Callback callback) -> callback.onMetadataUpdated());
     }
 
     @Nullable
@@ -219,4 +264,19 @@ public class BaseSessionController {
     public String getSessionId() {
         return isConnected() ? getSession().getSessionId() : null;
     }
+
+    private void notifyCallback(NotifyCallbackAction action) {
+        Iterator<WeakReference<Callback>> iterator = mCallbacks.iterator();
+
+        while (iterator.hasNext()) {
+            Callback callback = iterator.next().get();
+            if (callback == null) {
+                iterator.remove();
+            } else {
+                action.notify(callback);
+            }
+        }
+    }
+
+    private interface NotifyCallbackAction { void notify(Callback callback); }
 }

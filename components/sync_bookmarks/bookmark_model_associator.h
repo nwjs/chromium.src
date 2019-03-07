@@ -12,10 +12,10 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/containers/hash_tables.h"
 #include "base/containers/stack.h"
 #include "base/hash.h"
 #include "base/macros.h"
@@ -204,7 +204,7 @@ class BookmarkModelAssociator : public syncer::AssociatorInterface {
     // for the purpose of detecting duplicates. A small number of
     // false positives due to hash collisions is OK because this
     // data is used for reporting purposes only.
-    base::hash_set<size_t> hashes_;
+    std::unordered_set<size_t> hashes_;
     // Overall number of bookmark collisions from RecordDuplicates call.
     int duplicate_count_;
     // Result of the most recent BookmarkModelAssociator::CheckModelSyncState.

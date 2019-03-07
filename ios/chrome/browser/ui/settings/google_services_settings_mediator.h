@@ -13,37 +13,43 @@
 #import "ios/chrome/browser/ui/settings/google_services_settings_view_controller_model_delegate.h"
 
 class AuthenticationService;
+@protocol GoogleServicesSettingsCommandHandler;
 @class GoogleServicesSettingsViewController;
 class PrefService;
 class SyncSetupService;
 
-namespace browser_sync {
-class ProfileSyncService;
-}  // namespace browser_sync
-namespace unified_consent {
-class UnifiedConsentService;
-}  // namespace unified_consent
+namespace syncer {
+class SyncService;
+}  // namespace syncer
+
+namespace identity {
+class IdentityManager;
+}  // namespace identity
 
 // Mediator for the Google services settings.
 @interface GoogleServicesSettingsMediator
-    : NSObject<GoogleServicesSettingsServiceDelegate,
-               GoogleServicesSettingsViewControllerModelDelegate>
+    : NSObject <GoogleServicesSettingsServiceDelegate,
+                GoogleServicesSettingsViewControllerModelDelegate>
 
 // View controller.
 @property(nonatomic, weak) id<GoogleServicesSettingsConsumer> consumer;
 // Authentication service.
 @property(nonatomic, assign) AuthenticationService* authService;
+// Command handler.
+@property(nonatomic, weak) id<GoogleServicesSettingsCommandHandler>
+    commandHandler;
+// Sync service.
+@property(nonatomic, assign) syncer::SyncService* syncService;
+// Identity manager;
+@property(nonatomic, assign) identity::IdentityManager* identityManager;
 
 // Designated initializer. All the paramters should not be null.
 // |userPrefService|: preference service from the browser state.
 // |localPrefService|: preference service from the application context.
-- (instancetype)
-initWithUserPrefService:(PrefService*)userPrefService
-       localPrefService:(PrefService*)localPrefService
-            syncService:(browser_sync::ProfileSyncService*)syncService
-       syncSetupService:(SyncSetupService*)syncSetupService
-  unifiedConsentService:
-      (unified_consent::UnifiedConsentService*)unifiedConsentService
+// |syncSetupService|: allows configuring sync.
+- (instancetype)initWithUserPrefService:(PrefService*)userPrefService
+                       localPrefService:(PrefService*)localPrefService
+                       syncSetupService:(SyncSetupService*)syncSetupService
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

@@ -189,8 +189,7 @@ class CC_EXPORT TransformTree final : public PropertyTree<TransformNode> {
 
   void SetRootTransformsAndScales(float device_scale_factor,
                                   float page_scale_factor_for_root,
-                                  const gfx::Transform& device_transform,
-                                  gfx::PointF root_position);
+                                  const gfx::Transform& device_transform);
   float device_transform_scale_factor() const {
     return device_transform_scale_factor_;
   }
@@ -375,6 +374,7 @@ class CC_EXPORT EffectTree final : public PropertyTree<EffectNode> {
 
  private:
   void UpdateOpacities(EffectNode* node, EffectNode* parent_node);
+  void UpdateSubtreeHidden(EffectNode* node, EffectNode* parent_node);
   void UpdateIsDrawn(EffectNode* node, EffectNode* parent_node);
   void UpdateBackfaceVisibility(EffectNode* node, EffectNode* parent_node);
   void UpdateHasMaskingChild(EffectNode* node, EffectNode* parent_node);
@@ -625,8 +625,8 @@ class CC_EXPORT PropertyTrees final {
   // respective property node. This will eventually allow simplifying logic in
   // various places that today has to map from element id to layer id, and then
   // from layer id to the respective property node. Completing that work is
-  // pending the launch of Slimming Paint v2 and reworking UI compositor logic
-  // to produce cc property trees and these maps.
+  // pending the launch of BlinkGenPropertyTrees and reworking UI compositor
+  // logic to produce cc property trees and these maps.
   base::flat_map<ElementId, int> element_id_to_effect_node_index;
   base::flat_map<ElementId, int> element_id_to_scroll_node_index;
   base::flat_map<ElementId, int> element_id_to_transform_node_index;
@@ -658,7 +658,7 @@ class CC_EXPORT PropertyTrees final {
   // this property tree. Returns whether a draw property update is
   // needed.
   bool ElementIsAnimatingChanged(const MutatorHost* mutator_host,
-                                 ElementId element_id,
+                                 const PropertyToElementIdMap& element_id_map,
                                  ElementListType list_type,
                                  const PropertyAnimationState& mask,
                                  const PropertyAnimationState& state,
@@ -683,6 +683,7 @@ class CC_EXPORT PropertyTrees final {
   }
 
   std::unique_ptr<base::trace_event::TracedValue> AsTracedValue() const;
+  std::string ToString() const;
 
   CombinedAnimationScale GetAnimationScales(int transform_node_id,
                                             LayerTreeImpl* layer_tree_impl);

@@ -46,24 +46,6 @@ namespace blink {
 FrameConsole::FrameConsole(LocalFrame& frame) : frame_(&frame) {}
 
 void FrameConsole::AddMessage(ConsoleMessage* console_message) {
-  // PlzNavigate: when trying to commit a navigation, the SourceLocation
-  // information for how the request was triggered has been stored in the
-  // provisional DocumentLoader. Use it instead.
-  DocumentLoader* provisional_loader =
-      frame_->Loader().GetProvisionalDocumentLoader();
-  if (provisional_loader) {
-    std::unique_ptr<SourceLocation> source_location =
-        provisional_loader->CopySourceLocation();
-    if (source_location) {
-      Vector<DOMNodeId> nodes(console_message->Nodes());
-      LocalFrame* frame = console_message->Frame();
-      console_message = ConsoleMessage::Create(
-          console_message->Source(), console_message->Level(),
-          console_message->Message(), std::move(source_location));
-      console_message->SetNodes(frame, std::move(nodes));
-    }
-  }
-
   if (AddMessageToStorage(console_message))
     ReportMessageToClient(console_message->Source(), console_message->Level(),
                           console_message->Message(),
@@ -124,7 +106,7 @@ void FrameConsole::ReportResourceResponseReceived(
       response.HttpStatusText() + ')';
   ConsoleMessage* console_message = ConsoleMessage::CreateForRequest(
       kNetworkMessageSource, kErrorMessageLevel, message,
-      response.Url().GetString(), loader, request_identifier);
+      response.CurrentRequestUrl().GetString(), loader, request_identifier);
   AddMessage(console_message);
 }
 
@@ -146,6 +128,7 @@ void FrameConsole::DidFailLoading(DocumentLoader* loader,
 
 void FrameConsole::Trace(blink::Visitor* visitor) {
   visitor->Trace(frame_);
+  ConsoleLoggerImplBase::Trace(visitor);
 }
 
 }  // namespace blink

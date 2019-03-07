@@ -5,6 +5,7 @@
 module viz.mojom;
 
 import "ui/gfx/geometry/mojo/geometry.mojom";
+import "ui/gfx/mojo/color_space.mojom";
 
 struct RendererSettings {
   bool allow_antialiasing;
@@ -20,11 +21,13 @@ struct RendererSettings {
   bool enable_draw_occlusion;
   int32 slow_down_compositing_scale_factor;
   bool use_skia_renderer;
-  bool use_skia_deferred_display_list;
   bool record_sk_picture;
   bool allow_overlays;
   bool requires_alpha_channel;
 
   [EnableIf=is_android]
   gfx.mojom.Size initial_screen_size;
+
+  [EnableIf=is_android]
+  gfx.mojom.ColorSpace color_space;
 };

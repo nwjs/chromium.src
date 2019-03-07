@@ -68,11 +68,11 @@
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
 <translation id="1993072747612765854">Más información sobre la actualización más reciente de <ph name="SYSTEM_APP_NAME" /></translation>
 <translation id="1995660704900986789">Apagar</translation>
+<translation id="1999763610967697511">Arrastrar y soltar</translation>
 <translation id="2012624427112548395">Ctrl+Buscar+H</translation>
 <translation id="2016340657076538683">Escribe un mensaje</translation>
 <translation id="2050339315714019657">Vertical</translation>
 <translation id="2067602449040652523">Brillo del teclado</translation>
-<translation id="2081529251031312395">$1 podrá acceder más tarde.</translation>
 <translation id="2127372758936585790">Carga lenta</translation>
 <translation id="2135456203358955318">Lupa con vista acoplada</translation>
 <translation id="2144487987174258011">Reinicia para actualizar Adobe Flash Player</translation>
@@ -95,6 +95,7 @@
 <translation id="2412593942846481727">Actualización disponible</translation>
 <translation id="2413728805700750528"><ph name="DISPLAY_NAME" /> es una sesión administrada por <ph name="DOMAIN" /></translation>
 <translation id="2416346634399901812">Conexión establecida con <ph name="NETWORK_NAME" /></translation>
+<translation id="2427507373259914951">Clic con botón izquierdo</translation>
 <translation id="2429753432712299108">El dispositivo Bluetooth "<ph name="DEVICE_NAME" />" solicita permiso para sincronizarse. Antes de aceptar, debes confirmar que aparece la siguiente clave de contraseña en el dispositivo: <ph name="PASSKEY" />.</translation>
 <translation id="2482878487686419369">Notificaciones</translation>
 <translation id="2484513351006226581">Presiona <ph name="KEYBOARD_SHORTCUT" /> para cambiar de diseño de teclado.</translation>
@@ -133,6 +134,7 @@
 <translation id="3000461861112256445">Audio mono</translation>
 <translation id="3009178788565917040">Salida</translation>
 <translation id="3019353588588144572">Tiempo restante hasta que la batería esté completamente cargada: <ph name="TIME_REMAINING" /></translation>
+<translation id="3051128274746680507">Pronto se quitará el perfil de tu usuario supervisado. Accede para obtener más información.</translation>
 <translation id="3055162170959710888">Hoy usaste este dispositivo durante <ph name="USED_TIME" /></translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3081696990447829002">Expandir menú</translation>
@@ -148,6 +150,7 @@
 <translation id="3236488194889173876">No hay redes móviles disponibles</translation>
 <translation id="3255483164551725916">¿Qué puedes hacer?</translation>
 <translation id="3294437725009624529">Invitado</translation>
+<translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> podrá acceder más tarde.</translation>
 <translation id="332587331255250389">Reemplaza la batería</translation>
 <translation id="3351879221545518001">Estás transmitiendo la pantalla.</translation>
 <translation id="3364721542077212959">Herramientas de pluma stylus</translation>
@@ -160,7 +163,6 @@
 <translation id="3465223694362104965">Se conectó otro teclado a este dispositivo desde la última vez que accediste. Asegúrate de que este teclado sea de confianza antes de usarlo.</translation>
 <translation id="3477079411857374384">Control-Mayúscula-Espacio</translation>
 <translation id="3510164367642747937">Resaltar el cursor del mouse</translation>
-<translation id="3510503721818156981">La Chromebook se conectó a un teléfono nuevo</translation>
 <translation id="3513798432020909783">Cuenta administrada por <ph name="MANAGER_EMAIL" /></translation>
 <translation id="3573179567135747900">Volver a "<ph name="FROM_LOCALE" />" (debes reiniciar).</translation>
 <translation id="3595596368722241419">Batería completa</translation>
@@ -196,11 +198,12 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4072264167173457037">Señal media</translation>
 <translation id="4146833061457621061">Reproducir música</translation>
 <translation id="4181841719683918333">Idiomas</translation>
+<translation id="4195877955194704651">Botón de clic automáticos</translation>
 <translation id="4217571870635786043">Dictado</translation>
 <translation id="4261870227682513959">Mostrar la configuración de las notificaciones: Están desactivadas</translation>
 <translation id="4269883910223712419">El administrador de este dispositivo puede hacer lo siguiente:</translation>
-<translation id="4274921305979314545">Conecta tu Chromebook con el teléfono</translation>
 <translation id="4279490309300973883">Duplicando</translation>
+<translation id="4281007048406351813">Agregar 1 minuto al cronómetro</translation>
 <translation id="4292681942966152062">Activando la red <ph name="NETWORK_NAME" /></translation>
 <translation id="4321179778687042513">ctrl</translation>
 <translation id="4321776623976362024">Presionaste la combinación de teclas para activar el modo de contraste alto. ¿Quieres activarlo?</translation>
@@ -233,6 +236,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="479989351350248267">search</translation>
 <translation id="4804818685124855865">Desconectar</translation>
 <translation id="4849058404725798627">Resaltar el objeto con el enfoque del teclado</translation>
+<translation id="485592688953820832">No es necesaria ninguna acción (pausa)</translation>
 <translation id="4872237917498892622">Alt+tecla de búsqueda o Mayús</translation>
 <translation id="4890187583552566966">Tu administrador inhabilitó el Asistente de Google.</translation>
 <translation id="4895488851634969361">La batería está completa.</translation>
@@ -243,18 +247,20 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4924411785043111640">Reiniciar y restablecer</translation>
 <translation id="4961318399572185831">Transmitir pantalla</translation>
 <translation id="5030687792513154421">Se acabó el tiempo</translation>
+<translation id="5035236842988137213">Se conectó el dispositivo <ph name="DEVICE_NAME" /> a un teléfono nuevo</translation>
 <translation id="5083553833479578423">Desbloquea más funciones del Asistente.</translation>
 <translation id="5136175204352732067">Se conectó otro teclado</translation>
 <translation id="5168181903108465623">Dispositivos de transmisión disponibles</translation>
 <translation id="5207949376430453814">Destacar el cursor de texto</translation>
 <translation id="5222676887888702881">Salir</translation>
 <translation id="523505283826916779">Configuración de accesibilidad</translation>
+<translation id="5283198616748585639">Agregar 1 min</translation>
 <translation id="5302048478445481009">Idioma</translation>
 <translation id="5313326810920013265">Configuración de Bluetooth</translation>
 <translation id="5331975486040154427">Dispositivo USB-C (puerto lateral izquierdo trasero)</translation>
 <translation id="5379115545237091094">Realizaste demasiados intentos</translation>
 <translation id="5397578532367286026">El administrador (<ph name="MANAGER_EMAIL" />) puede revisar el uso y el historial de este usuario en la página chrome.com.</translation>
-<translation id="5430931332414098647">Conexión instantánea mediante dispositivo portátil</translation>
+<translation id="5430931332414098647">Conexión instantánea mediante dispositivo móvil</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="544691375626129091">Todos los usuarios disponibles ya se agregaron a esta sesión.</translation>
 <translation id="5496819745535887422">El administrador está restableciendo tu dispositivo. Cuando se reinicie, se borrarán todos los datos.</translation>
@@ -265,7 +271,6 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="5571066253365925590">Bluetooth activado</translation>
 <translation id="5597451508971090205"><ph name="SHORT_WEEKDAY" />, <ph name="DATE" /></translation>
 <translation id="5600837773213129531">Presiona Ctrl + Alt + Z para inhabilitar los comentarios por voz.</translation>
-<translation id="5626283214046138476">Tu cuenta de usuario supervisado vencerá pronto.</translation>
 <translation id="5648021990716966815">Conector para micrófono</translation>
 <translation id="5669267381087807207">Activando</translation>
 <translation id="5673434351075758678">De "<ph name="FROM_LOCALE" />" a "<ph name="TO_LOCALE" />" después de sincronizar tu configuración</translation>
@@ -283,7 +288,6 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="5901316534475909376">Mayúscula + Esc</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Activada</translation>
-<translation id="592343074608792716">La Chromebook y el teléfono se conectarán automáticamente</translation>
 <translation id="5947494881799873997">Revertir</translation>
 <translation id="595202126637698455">Seguimiento de rendimiento habilitado</translation>
 <translation id="5957083217255311415">Los datos móviles están desactivados.</translation>
@@ -351,6 +355,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="6981982820502123353">Accesibilidad</translation>
 <translation id="698231206551913481">Todos los archivos y datos locales asociados a este usuario se borrarán de forma permanente una vez que se quite este usuario.</translation>
 <translation id="7015766095477679451">Regresa a las <ph name="COME_BACK_TIME" />.</translation>
+<translation id="7025533177575372252">Conectar tu dispositivo <ph name="DEVICE_NAME" /> a tu teléfono</translation>
 <translation id="7029814467594812963">Salir de la sesión</translation>
 <translation id="7066646422045619941">El administrador inhabilitó esta red.</translation>
 <translation id="7067196344162293536">Rotación automática</translation>
@@ -362,12 +367,14 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="7143207342074048698">Conectando</translation>
 <translation id="7165278925115064263">Alt+mayúscula+K</translation>
 <translation id="7168224885072002358">Se revertirá a la resolución anterior en <ph name="TIMEOUT_SECONDS" />.</translation>
+<translation id="7222902781030499995">Detener temporizador</translation>
 <translation id="7256634071279256947">Micrófono posterior</translation>
 <translation id="726276584504105859">Arrastra hasta aquí para usar la pantalla dividida</translation>
 <translation id="7303365578352795231">Se responderá en otro dispositivo.</translation>
 <translation id="7348093485538360975">Teclado en pantalla</translation>
 <translation id="735745346212279324">VPN desconectada</translation>
 <translation id="7377169924702866686">Bloq Mayús está activado.</translation>
+<translation id="7384299914270925461"><ph name="SIGN" /><ph name="MINUTES_REMAINING" />:<ph name="SECONDS_REMAINING" /> s</translation>
 <translation id="7398254312354928459">Se cambió la conexión de red</translation>
 <translation id="742594950370306541">Cámara en uso</translation>
 <translation id="743058460480092004">Cámara y micrófono en uso</translation>
@@ -394,6 +401,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="7798302898096527229">Presiona mayúscula o la tecla de búsqueda para cancelarlo.</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> y <ph name="MINUTE" /></translation>
 <translation id="7829386189513694949">Señal fuerte</translation>
+<translation id="7837740436429729974">Tiempo agotado</translation>
 <translation id="7842211907556571265">Conectando a <ph name="NETWORK_NAME" /></translation>
 <translation id="7842569679327885685">Advertencia: Función experimental</translation>
 <translation id="7846634333498149051">Teclado</translation>
@@ -418,15 +426,19 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="8113423164597455979">Activadas para todas las apps</translation>
 <translation id="8132793192354020517">Conectado a <ph name="NAME" /></translation>
 <translation id="813913629614996137">Inicializando…</translation>
+<translation id="8142441511840089262">Doble clic</translation>
 <translation id="8142699993796781067">Red privada</translation>
+<translation id="8167567890448493835"><ph name="LOCALE_NAME" /> en uso</translation>
 <translation id="8190698733819146287">Personalizar idiomas y la entrada de datos</translation>
 <translation id="8192202700944119416">Las notificaciones están ocultas.</translation>
+<translation id="8203795194971602413">Clic con botón derecho</translation>
 <translation id="8236042855478648955">Es hora de descansar</translation>
 <translation id="8261506727792406068">Borrar</translation>
 <translation id="8297006494302853456">Débil</translation>
 <translation id="8308637677604853869">Menú anterior</translation>
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
 <translation id="8351131234907093545">Crear nota</translation>
+<translation id="8375916635258623388">Este dispositivo <ph name="DEVICE_NAME" /> y el teléfono se conectarán automáticamente</translation>
 <translation id="8392451568018454956">Menú de opciones para <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8394567579869570560">Tus padres bloquearon este dispositivo</translation>
 <translation id="8406981827175133772">Lupa de pantalla completa</translation>
@@ -454,7 +466,6 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="8734991477317290293">Es posible que alguien esté intentando determinar qué teclas presionaste</translation>
 <translation id="8735953464173050365">Mostrar la configuración del teclado: Está seleccionado el teclado <ph name="KEYBOARD_NAME" /></translation>
 <translation id="875593634123171288">Mostrar la configuración de la VPN</translation>
-<translation id="8809737090443522491">Escribe el nombre de la app o el documento</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
 <translation id="8825534185036233643">La duplicación con más de dos pantallas no es compatible.</translation>
 <translation id="8828714802988429505">90°</translation>
@@ -464,6 +475,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="8874184842967597500">No conectado</translation>
 <translation id="8877788021141246043">Establecer un recordatorio</translation>
 <translation id="8878886163241303700">Ampliando pantalla</translation>
+<translation id="890616557918890486">Cambiar la fuente</translation>
 <translation id="8921624153894383499">El Asistente de Google no habla este idioma</translation>
 <translation id="8938800817013097409">Dispositivo USB-C (puerto derecho en la parte posterior)</translation>
 <translation id="8940956008527784070">Batería baja (<ph name="PERCENTAGE" />%)</translation>

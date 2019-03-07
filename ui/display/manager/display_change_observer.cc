@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/user_activity/user_activity_detector.h"
 #include "ui/display/display.h"
@@ -199,15 +200,18 @@ void DisplayChangeObserver::OnDisplayModeChangeFailed(
     OnDisplayModeChanged(displays);
 }
 
-void DisplayChangeObserver::OnTouchscreenDeviceConfigurationChanged() {
-  // If there are no cached display snapshots, either there are no attached
-  // displays or the cached snapshots have been invalidated. For the first case
-  // there aren't any touchscreens to associate. For the second case, the
-  // displays and touch input-devices will get associated when display
-  // configuration finishes.
-  const auto& cached_displays = display_configurator_->cached_displays();
-  if (!cached_displays.empty())
-    OnDisplayModeChanged(cached_displays);
+void DisplayChangeObserver::OnInputDeviceConfigurationChanged(
+    uint8_t input_device_types) {
+  if (input_device_types & ui::InputDeviceEventObserver::kTouchscreen) {
+    // If there are no cached display snapshots, either there are no attached
+    // displays or the cached snapshots have been invalidated. For the first
+    // case there aren't any touchscreens to associate. For the second case,
+    // the displays and touch input-devices will get associated when display
+    // configuration finishes.
+    const auto& cached_displays = display_configurator_->cached_displays();
+    if (!cached_displays.empty())
+      OnDisplayModeChanged(cached_displays);
+  }
 }
 
 void DisplayChangeObserver::UpdateInternalDisplay(
@@ -313,7 +317,7 @@ ManagedDisplayInfo DisplayChangeObserver::CreateManagedDisplayInfo(
 
 // static
 float DisplayChangeObserver::FindDeviceScaleFactor(float dpi) {
-  for (size_t i = 0; i < arraysize(kThresholdTableForInternal); ++i) {
+  for (size_t i = 0; i < base::size(kThresholdTableForInternal); ++i) {
     if (dpi > kThresholdTableForInternal[i].dpi)
       return kThresholdTableForInternal[i].device_scale_factor;
   }

@@ -23,16 +23,11 @@ namespace learning {
 // registering tasks.
 struct COMPONENT_EXPORT(LEARNING_COMMON) LearningTask {
   // Not all models support all feature / target descriptions.  For example,
-  // NaiveBayes requires kUnordered features.  Similarly, kLogLinear doesn't
+  // NaiveBayes requires kUnordered features.  Similarly, LogLinear woudln't
   // support kUnordered features or targets.  kRandomForest might support more
   // combination of orderings and types.
-  //
-  // Also note that not all of these are implemented yet.
   enum class Model {
-    kMostCommonTarget,
-    kNaiveBayes,
-    kRandomForest,
-    kLogLinear,
+    kExtraTrees,
   };
 
   enum class Ordering {
@@ -81,7 +76,7 @@ struct COMPONENT_EXPORT(LEARNING_COMMON) LearningTask {
   // Unique name for this learner.
   std::string name;
 
-  Model model = Model::kMostCommonTarget;
+  Model model = Model::kExtraTrees;
 
   std::vector<ValueDescription> feature_descriptions;
 
@@ -91,6 +86,48 @@ struct COMPONENT_EXPORT(LEARNING_COMMON) LearningTask {
 
   // TODO(liberato): add training parameters, like smoothing constants.  It's
   // okay if some of these are model-specific.
+  // TODO(liberato): switch to base::DictionaryValue?
+
+  // Maximum data set size until we start replacing examples.
+  size_t max_data_set_size = 100u;
+
+  // Fraction of examples that must be new before the task controller will train
+  // a new model.  Note that this is a fraction of the number of examples that
+  // we currently have, which might be less than |max_data_set_size|.
+  double min_new_data_fraction = 0.1;
+
+  // If set, then we'll record a confusion matrix hackily to UMA using this as
+  // the histogram name.
+  std::string uma_hacky_confusion_matrix;
+
+  // RandomTree parameters
+
+  // How RandomTree handles unknown feature values.
+  enum class RTUnknownValueHandling {
+    // Return an empty distribution as the prediction.
+    kEmptyDistribution,
+
+    // Return the sum of the traversal of all splits.
+    kUseAllSplits,
+  };
+  RTUnknownValueHandling rt_unknown_value_handling =
+      RTUnknownValueHandling::kUseAllSplits;
+
+  // RandomForest parameters
+
+  // Number of trees in the random forest.
+  size_t rf_number_of_trees = 100;
+
+  // Reporting parameters
+
+  // This is a hack for the initial media capabilities investigation. It
+  // represents the threshold that we'll use to decide if a prediction would be
+  // T / F.  We should not do this -- instead we should report the distribution
+  // average for the prediction and the observation via UKM.
+  //
+  // In particular, if the percentage of dropped frames is greater than this,
+  // then report "false" (not smooth), else we report true.
+  double smoothness_threshold = 0.1;
 };
 
 }  // namespace learning

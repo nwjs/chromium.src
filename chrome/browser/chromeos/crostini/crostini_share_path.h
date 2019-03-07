@@ -11,6 +11,7 @@
 #include "base/files/file_path.h"
 #include "base/observer_list.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
+#include "chrome/browser/chromeos/file_manager/volume_manager_observer.h"
 #include "chromeos/dbus/seneschal/seneschal_service.pb.h"
 #include "components/keyed_service/core/keyed_service.h"
 
@@ -20,8 +21,17 @@ namespace crostini {
 
 // Handles sharing and unsharing paths from the Chrome OS host to the crostini
 // VM via seneschal.
-class CrostiniSharePath : public KeyedService {
+class CrostiniSharePath : public KeyedService,
+                          public file_manager::VolumeManagerObserver {
  public:
+  using SharePathCallback =
+      base::OnceCallback<void(const base::FilePath&, bool, std::string)>;
+  using MountEventSeneschalCallback =
+      base::RepeatingCallback<void(const std::string& operation,
+                                   const base::FilePath& cros_path,
+                                   const base::FilePath& container_path,
+                                   bool result,
+                                   std::string failure_reason)>;
   class Observer {
    public:
     virtual void OnUnshare(const base::FilePath& path) = 0;
@@ -35,12 +45,12 @@ class CrostiniSharePath : public KeyedService {
   void AddObserver(Observer* obs);
 
   // Share specified absolute |path| with vm. If |persist| is set, the path will
-  // be automatically shared at container startup. Callback receives success
-  // bool and failure reason string.
+  // be automatically shared at container startup. Callback receives path mapped
+  // in container, success bool and failure reason string.
   void SharePath(std::string vm_name,
                  const base::FilePath& path,
                  bool persist,
-                 base::OnceCallback<void(bool, std::string)> callback);
+                 SharePathCallback callback);
 
   // Share specified absolute |paths| with vm. If |persist| is set, the paths
   // will be automatically shared at container startup. Callback receives
@@ -70,12 +80,23 @@ class CrostiniSharePath : public KeyedService {
   // Save |path| into prefs.
   void RegisterPersistedPath(const base::FilePath& path);
 
+  // file_manager::VolumeManagerObserver
+  void OnVolumeMounted(chromeos::MountError error_code,
+                       const file_manager::Volume& volume) override;
+  void OnVolumeUnmounted(chromeos::MountError error_code,
+                         const file_manager::Volume& volume) override;
+
+  // Allow seneschal callback for mount events to be overridden for testing.
+  void SetMountEventSeneschalCallbackForTesting(
+      MountEventSeneschalCallback callback) {
+    mount_event_seneschal_callback_ = std::move(callback);
+  }
+
  private:
-  void CallSeneschalSharePath(
-      std::string vm_name,
-      const base::FilePath& path,
-      bool persist,
-      base::OnceCallback<void(bool, std::string)> callback);
+  void CallSeneschalSharePath(std::string vm_name,
+                              const base::FilePath& path,
+                              bool persist,
+                              SharePathCallback callback);
 
   void CallSeneschalUnsharePath(
       std::string vm_name,
@@ -84,6 +105,9 @@ class CrostiniSharePath : public KeyedService {
 
   Profile* profile_;
   bool first_for_session_ = true;
+
+  // Allow callback for mount event to be overidden for testing.
+  MountEventSeneschalCallback mount_event_seneschal_callback_;
   base::ObserverList<Observer>::Unchecked observers_;
 
   DISALLOW_COPY_AND_ASSIGN(CrostiniSharePath);

@@ -6,7 +6,6 @@
 
 #include "base/bind.h"
 #include "base/compiler_specific.h"
-#include "base/containers/hash_tables.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -44,7 +43,7 @@ const int PhishingDOMFeatureExtractor::kMaxTotalTimeMs = 500;
 struct PhishingDOMFeatureExtractor::PageFeatureState {
   // Link related features
   int external_links;
-  base::hash_set<std::string> external_domains;
+  std::unordered_set<std::string> external_domains;
   int secure_links;
   int total_links;
 
@@ -56,7 +55,7 @@ struct PhishingDOMFeatureExtractor::PageFeatureState {
   int num_check_inputs;
   int action_other_domain;
   int total_actions;
-  base::hash_set<std::string> page_action_urls;
+  std::unordered_set<std::string> page_action_urls;
 
   // Image related features
   int img_other_domain;

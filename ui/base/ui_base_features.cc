@@ -17,16 +17,6 @@ namespace features {
 const base::Feature kCalculateNativeWinOcclusion{
     "CalculateNativeWinOcclusion", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif  // OW_WIN
-// If enabled, the emoji picker context menu item may be shown for editable
-// text areas.
-const base::Feature kEnableEmojiContextMenu {
-  "EnableEmojiContextMenu",
-#if defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_CHROMEOS)
-      base::FEATURE_ENABLED_BY_DEFAULT
-#else
-      base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-};
 
 // Enables the full screen handwriting virtual keyboard behavior.
 const base::Feature kEnableFullscreenHandwritingVirtualKeyboard = {
@@ -58,14 +48,6 @@ const base::Feature kInputMethodSettingsUiUpdate = {
 // Allows system keyboard event capture when |features::kKeyboardLockApi| is on.
 const base::Feature kSystemKeyboardLock{"SystemKeyboardLock",
                                         base::FEATURE_ENABLED_BY_DEFAULT};
-
-const base::Feature kTouchableAppContextMenu = {
-    "EnableTouchableAppContextMenu", base::FEATURE_ENABLED_BY_DEFAULT};
-
-bool IsTouchableAppContextMenuEnabled() {
-  return base::FeatureList::IsEnabled(kTouchableAppContextMenu) ||
-         switches::IsTouchableAppContextMenuEnabled();
-}
 
 const base::Feature kNotificationIndicator = {
     "EnableNotificationIndicator", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -101,7 +83,7 @@ const base::Feature kUiCompositorScrollWithLayers = {
 #if defined(OS_WIN)
 // Enables InputPane API for controlling on screen keyboard.
 const base::Feature kInputPaneOnScreenKeyboard = {
-    "InputPaneOnScreenKeyboard", base::FEATURE_DISABLED_BY_DEFAULT};
+    "InputPaneOnScreenKeyboard", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables using WM_POINTER instead of WM_TOUCH for touch events.
 const base::Feature kPointerEventsForTouch = {"PointerEventsForTouch",
@@ -162,7 +144,8 @@ bool IsMashOopVizEnabled() {
 }
 
 bool IsSingleProcessMash() {
-  return base::FeatureList::IsEnabled(features::kSingleProcessMash);
+  return base::FeatureList::IsEnabled(features::kSingleProcessMash) &&
+         !base::FeatureList::IsEnabled(features::kMash);
 }
 
 bool IsAutomaticUiAdjustmentsForTouchEnabled() {
@@ -178,7 +161,7 @@ bool IsAutomaticUiAdjustmentsForTouchEnabled() {
 // When enabled, the NSWindows for apps will be created in the app's process,
 // and will forward input to the browser process.
 const base::Feature kHostWindowsInAppShimProcess{
-    "HostWindowsInAppShimProcess", base::FEATURE_DISABLED_BY_DEFAULT};
+    "HostWindowsInAppShimProcess", base::FEATURE_ENABLED_BY_DEFAULT};
 
 bool HostWindowsInAppShimProcess() {
   return base::FeatureList::IsEnabled(kHostWindowsInAppShimProcess);
@@ -193,6 +176,14 @@ bool IsOzoneDrmMojo() {
          IsMultiProcessMash();
 }
 
+#if defined(OS_MACOSX)
+const base::Feature kDarkMode = {"DarkMode", base::FEATURE_ENABLED_BY_DEFAULT};
+#else
 const base::Feature kDarkMode = {"DarkMode", base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
 
+#if defined(OS_CHROMEOS)
+const base::Feature kHandwritingGesture = {"HandwritingGesture",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+#endif
 }  // namespace features

@@ -64,6 +64,24 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupContentsView* model,
 OmniboxResultView::~OmniboxResultView() {}
 
 SkColor OmniboxResultView::GetColor(OmniboxPart part) const {
+  if (!AutocompleteMatch::IsSearchType(match_.type)) {
+    // These recoloring experiments affect all non-search matches.
+    bool color_titles_blue =
+        base::FeatureList::IsEnabled(
+            omnibox::kUIExperimentBlueTitlesAndGrayUrlsOnPageSuggestions) ||
+        base::FeatureList::IsEnabled(
+            omnibox::kUIExperimentBlueTitlesOnPageSuggestions);
+    bool color_urls_gray = base::FeatureList::IsEnabled(
+        omnibox::kUIExperimentBlueTitlesAndGrayUrlsOnPageSuggestions);
+
+    // If these recoloring experiments are enabled, change |part| to fetch an
+    // alternate color for this text.
+    if (color_titles_blue && part == OmniboxPart::RESULTS_TEXT_DEFAULT)
+      part = OmniboxPart::RESULTS_TEXT_URL;
+    else if (color_urls_gray && part == OmniboxPart::RESULTS_TEXT_URL)
+      part = OmniboxPart::RESULTS_TEXT_DIMMED;
+  }
+
   return GetOmniboxColor(part, GetTint(), GetThemeState());
 }
 
@@ -74,18 +92,28 @@ void OmniboxResultView::SetMatch(const AutocompleteMatch& match) {
   suggestion_view_->OnMatchUpdate(this, match_);
   keyword_view_->OnMatchUpdate(this, match_);
 
-  // Set up 'switch to tab' button.
-  if (match.ShouldShowTabMatch()) {
+  // Set up possible button.
+  if (match.ShouldShowButton()) {
     if (match.pedal) {
       const OmniboxPedal::LabelStrings& strings =
           match.pedal->GetLabelStrings();
       suggestion_tab_switch_button_ = std::make_unique<OmniboxTabSwitchButton>(
           model_, this, strings.hint, strings.hint_short, omnibox::kPedalIcon);
     } else {
-      suggestion_tab_switch_button_ = std::make_unique<OmniboxTabSwitchButton>(
-          model_, this, l10n_util::GetStringUTF16(IDS_OMNIBOX_TAB_SUGGEST_HINT),
-          l10n_util::GetStringUTF16(IDS_OMNIBOX_TAB_SUGGEST_SHORT_HINT),
-          omnibox::kSwitchIcon);
+      if (!OmniboxFieldTrial::IsTabSwitchLogicReversed()) {
+        suggestion_tab_switch_button_ =
+            std::make_unique<OmniboxTabSwitchButton>(
+                model_, this,
+                l10n_util::GetStringUTF16(IDS_OMNIBOX_TAB_SUGGEST_HINT),
+                l10n_util::GetStringUTF16(IDS_OMNIBOX_TAB_SUGGEST_SHORT_HINT),
+                omnibox::kSwitchIcon);
+      } else {
+        suggestion_tab_switch_button_ =
+            std::make_unique<OmniboxTabSwitchButton>(
+                // TODO(krb): Make official strings when we accept the feature.
+                model_, this, base::ASCIIToUTF16("Open in this tab"),
+                base::ASCIIToUTF16("Open"), omnibox::kSwitchIcon);
+      }
     }
 
     suggestion_tab_switch_button_->set_owned_by_client();
@@ -135,6 +163,8 @@ void OmniboxResultView::Invalidate() {
   // Answers use their own styling for additional content text and the
   // description text, whereas non-answer suggestions use the match text and
   // calculated classifications for the description text.
+  bool blue_search_query = base::FeatureList::IsEnabled(
+      omnibox::kUIExperimentBlueSearchLoopAndSearchQuery);
   if (match_.answer) {
     const bool reverse = OmniboxFieldTrial::IsReverseAnswersEnabled() &&
                          !match_.IsExceptedFromLineReversal();
@@ -143,14 +173,16 @@ void OmniboxResultView::Invalidate() {
       suggestion_view_->description()->SetText(match_.contents,
                                                match_.contents_class, true);
       suggestion_view_->description()->ApplyTextColor(
-          OmniboxPart::RESULTS_TEXT_DIMMED);
+          blue_search_query ? OmniboxPart::RESULTS_TEXT_URL
+                            : OmniboxPart::RESULTS_TEXT_DIMMED);
       suggestion_view_->description()->AppendExtraText(
           match_.answer->first_line());
     } else {
       suggestion_view_->content()->SetText(match_.contents,
                                            match_.contents_class);
       suggestion_view_->content()->ApplyTextColor(
-          OmniboxPart::RESULTS_TEXT_DEFAULT);
+          blue_search_query ? OmniboxPart::RESULTS_TEXT_URL
+                            : OmniboxPart::RESULTS_TEXT_DEFAULT);
       suggestion_view_->content()->AppendExtraText(match_.answer->first_line());
       suggestion_view_->description()->SetText(match_.answer->second_line(),
                                                true);
@@ -161,6 +193,10 @@ void OmniboxResultView::Invalidate() {
     // adjustments like answers above.  Pedals do likewise.
     suggestion_view_->content()->SetText(match_.contents,
                                          match_.contents_class);
+    if (blue_search_query) {
+      suggestion_view_->content()->ApplyTextColor(
+          OmniboxPart::RESULTS_TEXT_URL);
+    }
     suggestion_view_->description()->SetText(match_.description,
                                              match_.description_class, -1);
     suggestion_view_->description()->ApplyTextColor(
@@ -178,6 +214,13 @@ void OmniboxResultView::Invalidate() {
     if (high_contrast) {
       suggestion_view_->content()->ReapplyStyling();
       suggestion_view_->description()->ReapplyStyling();
+    }
+
+    // If the blue search query experiment is on, search suggestions are
+    // recolored at the end.
+    if (blue_search_query && AutocompleteMatch::IsSearchType(match_.type)) {
+      suggestion_view_->content()->ApplyTextColor(
+          OmniboxPart::RESULTS_TEXT_URL);
     }
   }
 
@@ -238,7 +281,12 @@ void OmniboxResultView::SetRichSuggestionImage(const gfx::ImageSkia& image) {
 // |button| is the tab switch button.
 void OmniboxResultView::ButtonPressed(views::Button* button,
                                       const ui::Event& event) {
-  OpenMatch(WindowOpenDisposition::SWITCH_TO_TAB, event.time_stamp());
+  if (!(OmniboxFieldTrial::IsTabSwitchLogicReversed() &&
+        match_.ShouldShowTabMatch())) {
+    OpenMatch(WindowOpenDisposition::SWITCH_TO_TAB, event.time_stamp());
+  } else {
+    OpenMatch(WindowOpenDisposition::CURRENT_TAB, event.time_stamp());
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -317,10 +365,15 @@ bool OmniboxResultView::OnMouseDragged(const ui::MouseEvent& event) {
 
 void OmniboxResultView::OnMouseReleased(const ui::MouseEvent& event) {
   if (event.IsOnlyMiddleMouseButton() || event.IsOnlyLeftMouseButton()) {
-    OpenMatch(event.IsOnlyLeftMouseButton()
-                  ? WindowOpenDisposition::CURRENT_TAB
-                  : WindowOpenDisposition::NEW_BACKGROUND_TAB,
-              event.time_stamp());
+    WindowOpenDisposition disposition =
+        event.IsOnlyLeftMouseButton()
+            ? WindowOpenDisposition::CURRENT_TAB
+            : WindowOpenDisposition::NEW_BACKGROUND_TAB;
+    if (OmniboxFieldTrial::IsTabSwitchLogicReversed() &&
+        match_.ShouldShowTabMatch()) {
+      disposition = WindowOpenDisposition::SWITCH_TO_TAB;
+    }
+    OpenMatch(disposition, event.time_stamp());
   }
 }
 
@@ -337,7 +390,7 @@ void OmniboxResultView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   // The positional info is provided via
   // ax::mojom::IntAttribute::kPosInSet/SET_SIZE and providing it via text as
   // well would result in duplicate announcements.
-  // Pass false for is_tab_switch_button_focused, because the button will
+  // Pass false for |is_tab_switch_button_focused|, because the button will
   // receive its own label in the case that a screen reader is listening to
   // selection events on items rather than announcements or value change events.
   node_data->SetName(AutocompleteMatchType::ToAccessibilityLabel(
@@ -375,7 +428,17 @@ void OmniboxResultView::ProvideButtonFocusHint() {
 // OmniboxResultView, private:
 
 gfx::Image OmniboxResultView::GetIcon() const {
-  return model_->GetMatchIcon(match_, GetColor(OmniboxPart::RESULTS_ICON));
+  SkColor color = GetColor(OmniboxPart::RESULTS_ICON);
+
+  // If the blue search loop experiment is enabled, set the color of search
+  // match icons to be the same as result URLs (conventionally blue).
+  if (base::FeatureList::IsEnabled(
+          omnibox::kUIExperimentBlueSearchLoopAndSearchQuery) &&
+      AutocompleteMatch::IsSearchType(match_.type)) {
+    color = GetColor(OmniboxPart::RESULTS_TEXT_URL);
+  }
+
+  return model_->GetMatchIcon(match_, color);
 }
 
 void OmniboxResultView::SetHovered(bool hovered) {

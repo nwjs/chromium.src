@@ -13,6 +13,7 @@
 #include "components/viz/service/display/output_surface_frame.h"
 #include "components/viz/service/gl/gpu_service_impl.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
+#include "gpu/command_buffer/service/context_state.h"
 #include "gpu/command_buffer/service/gr_shader_cache.h"
 #include "gpu/command_buffer/service/mailbox_manager.h"
 #include "gpu/command_buffer/service/scheduler.h"
@@ -27,7 +28,10 @@
 #include "gpu/ipc/common/gpu_surface_lookup.h"
 #include "gpu/ipc/service/image_transport_surface.h"
 #include "gpu/vulkan/buildflags.h"
+#include "skia/ext/image_operations.h"
+#include "third_party/skia/include/core/SkPixelRef.h"
 #include "third_party/skia/include/private/SkDeferredDisplayList.h"
+#include "ui/gfx/color_space.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context.h"
@@ -40,12 +44,49 @@
 #include "gpu/vulkan/vulkan_implementation.h"
 #endif
 
+#if defined(USE_OZONE)
+#include "ui/ozone/public/ozone_platform.h"
+#include "ui/ozone/public/platform_window_surface.h"
+#include "ui/ozone/public/surface_factory_ozone.h"
+#endif
+
 namespace viz {
 namespace {
 
 base::AtomicSequenceNumber g_next_command_buffer_id;
 
+// FakeOnScreenSurface is used to force GLContextVirtual::MakeCurrent to set
+// |surface| as the default framebuffer.
+class FakeOnScreenSurface : public gl::GLSurfaceAdapter {
+ public:
+  explicit FakeOnScreenSurface(gl::GLSurface* surface)
+      : gl::GLSurfaceAdapter(surface) {}
+
+  bool IsOffscreen() override { return false; }
+
+ private:
+  ~FakeOnScreenSurface() override = default;
+};
+
 }  // namespace
+
+SkiaOutputSurfaceImplOnGpu::OffscreenSurface::OffscreenSurface() = default;
+
+SkiaOutputSurfaceImplOnGpu::OffscreenSurface::~OffscreenSurface() = default;
+
+SkiaOutputSurfaceImplOnGpu::OffscreenSurface::OffscreenSurface(
+    const OffscreenSurface& offscreen_surface) = default;
+
+SkiaOutputSurfaceImplOnGpu::OffscreenSurface::OffscreenSurface(
+    OffscreenSurface&& offscreen_surface) = default;
+
+SkiaOutputSurfaceImplOnGpu::OffscreenSurface&
+SkiaOutputSurfaceImplOnGpu::OffscreenSurface::operator=(
+    const OffscreenSurface& offscreen_surface) = default;
+
+SkiaOutputSurfaceImplOnGpu::OffscreenSurface&
+SkiaOutputSurfaceImplOnGpu::OffscreenSurface::operator=(
+    OffscreenSurface&& offscreen_surface) = default;
 
 SkiaOutputSurfaceImplOnGpu::SkiaOutputSurfaceImplOnGpu(
     GpuServiceImpl* gpu_service,
@@ -73,6 +114,17 @@ SkiaOutputSurfaceImplOnGpu::SkiaOutputSurfaceImplOnGpu(
       gpu_service_->sync_point_manager()->CreateSyncPointClientState(
           gpu::CommandBufferNamespace::VIZ_OUTPUT_SURFACE, command_buffer_id_,
           gpu_service_->skia_output_surface_sequence_id());
+
+  gpu::GpuChannelManager* channel_manager = gpu_service_->gpu_channel_manager();
+  feature_info_ = base::MakeRefCounted<gpu::gles2::FeatureInfo>(
+      channel_manager->gpu_driver_bug_workarounds(),
+      channel_manager->gpu_feature_info());
+
+#if defined(USE_OZONE)
+  window_surface_ = ui::OzonePlatform::GetInstance()
+                        ->GetSurfaceFactoryOzone()
+                        ->CreatePlatformWindowSurface(surface_handle);
+#endif
 
   if (gpu_service_->is_using_vulkan())
     InitializeForVulkan();
@@ -119,7 +171,6 @@ void SkiaOutputSurfaceImplOnGpu::Reshape(
       LOG(FATAL) << "Failed to resize.";
       // TODO(penghuang): Handle the failure.
     }
-    DCHECK(gl_context()->IsCurrent(gl_surface_.get()));
     DCHECK(gr_context());
 
     SkSurfaceProps surface_props =
@@ -193,15 +244,26 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintCurrentFrame(
 
   {
     base::Optional<gpu::raster::GrShaderCache::ScopedCacheUse> cache_use;
-    if (gpu_service_->gr_shader_cache())
+    if (gpu_service_->gr_shader_cache()) {
       cache_use.emplace(gpu_service_->gr_shader_cache(),
                         gpu::kInProcessCommandBufferClientId);
+    }
     sk_surface_->draw(ddl.get());
     gr_context()->flush();
   }
+
+  // Note that the ScopedCacheUse for GrShaderCache is scoped until the
+  // ReleaseFenceSync call here since releasing the fence may schedule a
+  // different decoder's stream which also uses the shader cache.
   sync_point_client_state_->ReleaseFenceSync(sync_fence_release);
 
   if (overdraw_ddl) {
+    base::Optional<gpu::raster::GrShaderCache::ScopedCacheUse> cache_use;
+    if (gpu_service_->gr_shader_cache()) {
+      cache_use.emplace(gpu_service_->gr_shader_cache(),
+                        gpu::kInProcessCommandBufferClientId);
+    }
+
     sk_sp<SkSurface> overdraw_surface = SkSurface::MakeRenderTarget(
         gr_context(), overdraw_ddl->characterization(), SkBudgeted::kNo);
     overdraw_surface->draw(overdraw_ddl.get());
@@ -226,9 +288,7 @@ void SkiaOutputSurfaceImplOnGpu::SwapBuffers(OutputSurfaceFrame frame) {
       return;
     swap_start = base::TimeTicks::Now();
     OnSwapBuffers();
-    gl_surface_->SwapBuffers(frame.need_presentation_feedback
-                                 ? buffer_presented_callback_
-                                 : base::DoNothing());
+    gl_surface_->SwapBuffers(buffer_presented_callback_);
     swap_end = base::TimeTicks::Now();
   } else {
 #if BUILDFLAG(ENABLE_VULKAN)
@@ -260,6 +320,7 @@ void SkiaOutputSurfaceImplOnGpu::SwapBuffers(OutputSurfaceFrame frame) {
     latency.AddLatencyNumberWithTimestamp(
         ui::INPUT_EVENT_LATENCY_FRAME_SWAP_COMPONENT, swap_end, 1);
   }
+  latency_tracker_.OnGpuSwapBuffersCompleted(frame.latency_info);
 }
 
 void SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass(
@@ -272,7 +333,7 @@ void SkiaOutputSurfaceImplOnGpu::FinishPaintRenderPass(
   if (!MakeCurrent())
     return;
 
-  auto& surface = offscreen_surfaces_[id];
+  auto& surface = offscreen_surfaces_[id].surface;
   SkSurfaceCharacterization characterization;
   // TODO(penghuang): Using characterization != ddl->characterization(), when
   // the SkSurfaceCharacterization::operator!= is implemented in Skia.
@@ -307,91 +368,154 @@ void SkiaOutputSurfaceImplOnGpu::RemoveRenderPassResource(
 void SkiaOutputSurfaceImplOnGpu::CopyOutput(
     RenderPassId id,
     const gfx::Rect& copy_rect,
+    const gfx::ColorSpace& color_space,
+    const gfx::Rect& result_rect,
     std::unique_ptr<CopyOutputRequest> request) {
+  // TODO(crbug.com/914502): Do this on the GPU instead of CPU with GL.
+  // TODO(crbug.com/898595): Do this on the GPU instead of CPU with Vulkan.
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  if (!MakeCurrent()) {
-    request->SendResult(
-        std::make_unique<CopyOutputSkBitmapResult>(gfx::Rect(), SkBitmap()));
+  if (!MakeCurrent())
     return;
-  }
-
-  // TODO(crbug.com/644851): Complete the implementation for all request types,
-  // scaling, etc.
-  DCHECK_EQ(request->result_format(), CopyOutputResult::Format::RGBA_BITMAP);
-  DCHECK(!request->is_scaled());
-  DCHECK(!request->has_result_selection() ||
-         request->result_selection() == gfx::Rect(copy_rect.size()));
 
   DCHECK(!id || offscreen_surfaces_.find(id) != offscreen_surfaces_.end());
-  auto* surface = id ? offscreen_surfaces_[id].get() : sk_surface_.get();
+  auto* surface =
+      id ? offscreen_surfaces_[id].surface.get() : sk_surface_.get();
 
-  sk_sp<SkImage> copy_image =
-      surface->makeImageSnapshot()->makeSubset(RectToSkIRect(copy_rect));
-  // Send copy request by copying into a bitmap.
   SkBitmap bitmap;
-  copy_image->asLegacyBitmap(&bitmap);
-  request->SendResult(
-      std::make_unique<CopyOutputSkBitmapResult>(copy_rect, bitmap));
+  SkImageInfo copy_rect_info = SkImageInfo::Make(
+      copy_rect.width(), copy_rect.height(), SkColorType::kN32_SkColorType,
+      SkAlphaType::kPremul_SkAlphaType,
+      surface->getCanvas()->imageInfo().refColorSpace());
+  bitmap.allocPixels(copy_rect_info, copy_rect.width() * 4);
+  surface->readPixels(bitmap, copy_rect.x(), copy_rect.y());
+
+  if (request->is_scaled()) {
+    // Execute the scaling: For downscaling, use the RESIZE_BETTER strategy
+    // (appropriate for thumbnailing); and, for upscaling, use the RESIZE_BEST
+    // strategy. Note that processing is only done on the subset of the
+    // RenderPass output that contributes to the result.
+    using skia::ImageOperations;
+    const bool is_downscale_in_both_dimensions =
+        request->scale_to().x() < request->scale_from().x() &&
+        request->scale_to().y() < request->scale_from().y();
+    const ImageOperations::ResizeMethod method =
+        is_downscale_in_both_dimensions ? ImageOperations::RESIZE_BETTER
+                                        : ImageOperations::RESIZE_BEST;
+    bitmap = ImageOperations::Resize(
+        bitmap, method, result_rect.width(), result_rect.height(),
+        SkIRect{result_rect.x(), result_rect.y(), result_rect.right(),
+                result_rect.bottom()});
+  }
+
+  // TODO(crbug.com/795132): Plumb color space throughout SkiaRenderer up to the
+  // the SkSurface/SkImage here. Until then, play "musical chairs" with the
+  // SkPixelRef to hack-in the RenderPass's |color_space|.
+  sk_sp<SkPixelRef> pixels(SkSafeRef(bitmap.pixelRef()));
+  SkIPoint origin = bitmap.pixelRefOrigin();
+  bitmap.setInfo(bitmap.info().makeColorSpace(color_space.ToSkColorSpace()),
+                 bitmap.rowBytes());
+  bitmap.setPixelRef(std::move(pixels), origin.x(), origin.y());
+
+  // Deliver the result. SkiaRenderer supports RGBA_BITMAP and I420_PLANES
+  // only. For legacy reasons, if a RGBA_TEXTURE request is being made, clients
+  // are prepared to accept RGBA_BITMAP results.
+  //
+  // TODO(crbug/754872): Get rid of the legacy behavior and send empty results
+  // for RGBA_TEXTURE requests once tab capture is moved into VIZ.
+  const CopyOutputResult::Format result_format =
+      (request->result_format() == CopyOutputResult::Format::RGBA_TEXTURE)
+          ? CopyOutputResult::Format::RGBA_BITMAP
+          : request->result_format();
+  // Note: The CopyOutputSkBitmapResult automatically provides I420 format
+  // conversion, if needed.
+  request->SendResult(std::make_unique<CopyOutputSkBitmapResult>(
+      result_format, result_rect, bitmap));
 }
 
-void SkiaOutputSurfaceImplOnGpu::FulfillPromiseTexture(
-    const ResourceMetadata& metadata,
-    std::unique_ptr<gpu::SharedImageRepresentationSkia>* shared_image_out,
-    GrBackendTexture* backend_texture) {
+sk_sp<SkPromiseImageTexture> SkiaOutputSurfaceImplOnGpu::FulfillPromiseTexture(
+    const gpu::MailboxHolder& mailbox_holder,
+    const gfx::Size& size,
+    const ResourceFormat resource_format,
+    std::unique_ptr<gpu::SharedImageRepresentationSkia>* shared_image_out) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(!*shared_image_out);
-  if (shared_image_representation_factory_->IsSharedImage(metadata.mailbox)) {
+  if (!*shared_image_out && mailbox_holder.mailbox.IsSharedImage()) {
     std::unique_ptr<gpu::SharedImageRepresentationSkia> shared_image =
-        shared_image_representation_factory_->ProduceSkia(metadata.mailbox);
-    DCHECK(shared_image);
-    if (!shared_image->BeginReadAccess(metadata.color_type, backend_texture)) {
-      DLOG(ERROR)
-          << "Failed to begin read access for SharedImageRepresentationSkia";
-      return;
+        shared_image_representation_factory_->ProduceSkia(
+            mailbox_holder.mailbox);
+    if (!shared_image) {
+      DLOG(ERROR) << "Failed to fulfill the promise texture - SharedImage "
+                     "mailbox not found in SharedImageManager.";
+      return nullptr;
     }
     *shared_image_out = std::move(shared_image);
-    return;
+  }
+  if (*shared_image_out) {
+    auto promise_texture =
+        (*shared_image_out)->BeginReadAccess(sk_surface_.get());
+    DLOG_IF(ERROR, !promise_texture)
+        << "Failed to begin read access for SharedImageRepresentationSkia";
+    return promise_texture;
   }
 
   if (gpu_service_->is_using_vulkan()) {
     // Probably this texture is created with wrong inteface (GLES2Interface).
     DLOG(ERROR) << "Failed to fulfill the promise texture whose backend is not "
                    "compitable with vulkan.";
-    return;
+    return nullptr;
   }
 
   auto* mailbox_manager = gpu_service_->mailbox_manager();
-  auto* texture_base = mailbox_manager->ConsumeTexture(metadata.mailbox);
+  auto* texture_base = mailbox_manager->ConsumeTexture(mailbox_holder.mailbox);
   if (!texture_base) {
     DLOG(ERROR) << "Failed to fulfill the promise texture.";
-    return;
+    return nullptr;
   }
   BindOrCopyTextureIfNecessary(texture_base);
-  gpu::GetGrBackendTexture(texture_base->target(), metadata.size,
-                           *metadata.backend_format.getGLFormat(),
-                           *metadata.driver_backend_format.getGLFormat(),
-                           texture_base->service_id(), metadata.color_type,
-                           backend_texture);
+  GrBackendTexture backend_texture;
+  gpu::GetGrBackendTexture(gl_version_info_, texture_base->target(), size,
+                           texture_base->service_id(), resource_format,
+                           &backend_texture);
+  if (!backend_texture.isValid()) {
+    DLOG(ERROR) << "Failed to fulfill the promise texture.";
+    return nullptr;
+  }
+  return SkPromiseImageTexture::Make(backend_texture);
 }
 
-void SkiaOutputSurfaceImplOnGpu::FulfillPromiseTexture(
+sk_sp<SkPromiseImageTexture> SkiaOutputSurfaceImplOnGpu::FulfillPromiseTexture(
     const RenderPassId id,
-    std::unique_ptr<gpu::SharedImageRepresentationSkia>* shared_image_out,
-    GrBackendTexture* backend_texture) {
+    std::unique_ptr<gpu::SharedImageRepresentationSkia>* shared_image_out) {
   DCHECK(!*shared_image_out);
   auto it = offscreen_surfaces_.find(id);
   DCHECK(it != offscreen_surfaces_.end());
-  sk_sp<SkSurface>& surface = it->second;
-  *backend_texture =
-      surface->getBackendTexture(SkSurface::kFlushRead_BackendHandleAccess);
-  DLOG_IF(ERROR, !backend_texture->isValid())
-      << "Failed to fulfill the promise texture created from RenderPassId:"
-      << id;
+  auto& surface = it->second.surface;
+  auto& promise_texture = it->second.promise_texture;
+  if (!promise_texture) {
+    promise_texture = SkPromiseImageTexture::Make(
+        surface->getBackendTexture(SkSurface::kFlushRead_BackendHandleAccess));
+    if (!promise_texture) {
+      DLOG(ERROR)
+          << "Failed to fulfill the promise texture created from RenderPassId:"
+          << id;
+      return nullptr;
+    }
+  } else {
+    surface->flush();
+  }
+  return promise_texture;
 }
 
 sk_sp<GrContextThreadSafeProxy>
 SkiaOutputSurfaceImplOnGpu::GetGrContextThreadSafeProxy() {
   return gr_context()->threadSafeProxy();
+}
+
+void SkiaOutputSurfaceImplOnGpu::DestroySkImages(
+    std::vector<sk_sp<SkImage>>&& images,
+    uint64_t sync_fence_release) {
+  MakeCurrent();
+  images.clear();
+  sync_point_client_state_->ReleaseFenceSync(sync_fence_release);
 }
 
 #if defined(OS_WIN)
@@ -415,8 +539,7 @@ void SkiaOutputSurfaceImplOnGpu::DidSwapBuffersComplete(
 const gpu::gles2::FeatureInfo* SkiaOutputSurfaceImplOnGpu::GetFeatureInfo()
     const {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  NOTIMPLEMENTED();
-  return nullptr;
+  return feature_info_.get();
 }
 
 const gpu::GpuPreferences& SkiaOutputSurfaceImplOnGpu::GetGpuPreferences()
@@ -447,8 +570,12 @@ void SkiaOutputSurfaceImplOnGpu::InitializeForGL() {
     gl_surface_ = gpu::ImageTransportSurface::CreateNativeSurface(
         weak_ptr_factory_.GetWeakPtr(), surface_handle_, gl::GLSurfaceFormat());
   } else {
-    // surface_ could be null for pixel tests.
-    gl_surface_ = gl::init::CreateOffscreenGLSurface(gfx::Size(1, 1));
+    // surface_ could be null for pixel tests. Use FakeOnScreenSurface so that
+    // virtual contexts always render to the surface.
+    scoped_refptr<gl::GLSurface> offscreen_surface =
+        gl::init::CreateOffscreenGLSurface(gfx::Size(1, 1));
+    gl_surface_ =
+        base::MakeRefCounted<FakeOnScreenSurface>(offscreen_surface.get());
   }
   DCHECK(gl_surface_);
 
@@ -461,14 +588,17 @@ void SkiaOutputSurfaceImplOnGpu::InitializeForGL() {
   if (!MakeCurrent())
     return;
 
-  gl_version_info_ = gl_context()->GetVersionInfo();
+  auto* context = context_state_->real_context();
+  gl_version_info_ = context->GetVersionInfo();
 
   capabilities_.flipped_output_surface = gl_surface_->FlipsVertically();
 
   // Get stencil bits from the default frame buffer.
-  auto* current_gl = gl_context()->GetCurrentGL();
+  auto* current_gl = context->GetCurrentGL();
   const auto* version = current_gl->Version;
   auto* api = current_gl->Api;
+  api->glBindFramebufferEXTFn(GL_FRAMEBUFFER, 0);
+  gr_context()->resetContext(kRenderTarget_GrGLBackendState);
   GLint stencil_bits = 0;
   if (version->is_desktop_core_profile) {
     api->glGetFramebufferAttachmentParameterivEXTFn(
@@ -477,7 +607,7 @@ void SkiaOutputSurfaceImplOnGpu::InitializeForGL() {
   } else {
     api->glGetIntegervFn(GL_STENCIL_BITS, &stencil_bits);
   }
-
+  CHECK_GL_ERROR();
   capabilities_.supports_stencil = stencil_bits > 0;
 }
 
@@ -540,6 +670,7 @@ void SkiaOutputSurfaceImplOnGpu::CreateSkSurfaceForVulkan() {
     sk_surface = SkSurface::MakeFromBackendRenderTarget(
         gr_context(), render_target, kTopLeft_GrSurfaceOrigin,
         kBGRA_8888_SkColorType, nullptr, &surface_props);
+    DCHECK(sk_surface);
   } else {
     auto backend = sk_surface->getBackendRenderTarget(
         SkSurface::kFlushRead_BackendHandleAccess);
@@ -552,14 +683,12 @@ void SkiaOutputSurfaceImplOnGpu::CreateSkSurfaceForVulkan() {
 
 bool SkiaOutputSurfaceImplOnGpu::MakeCurrent() {
   if (!gpu_service_->is_using_vulkan()) {
-    if (context_state_->context_lost ||
-        !gl_context()->MakeCurrent(gl_surface_.get())) {
+    if (!context_state_->MakeCurrent(gl_surface_.get())) {
       LOG(ERROR) << "Failed to make current.";
-      context_state_->context_lost = true;
       context_lost_callback_.Run();
       return false;
     }
-    context_state_->need_context_state_reset = true;
+    context_state_->set_need_context_state_reset(true);
   }
   return true;
 }

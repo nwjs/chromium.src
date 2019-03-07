@@ -41,8 +41,8 @@
 class AccountTrackerService;
 class PrefRegistrySimple;
 class PrefService;
+class ProfileOAuth2TokenService;
 class SigninClient;
-class SigninErrorController;
 
 class SigninManagerBase : public KeyedService {
  public:
@@ -95,8 +95,8 @@ class SigninManagerBase : public KeyedService {
  private:
 #endif
   SigninManagerBase(SigninClient* client,
-                    AccountTrackerService* account_tracker_service,
-                    SigninErrorController* signin_error_controller);
+                    ProfileOAuth2TokenService* token_service,
+                    AccountTrackerService* account_tracker_service);
 #if !defined(OS_CHROMEOS)
  public:
 #endif
@@ -110,7 +110,7 @@ class SigninManagerBase : public KeyedService {
   static void RegisterPrefs(PrefRegistrySimple* registry);
 
   // If user was signed in, load tokens from DB if available.
-  virtual void Initialize(PrefService* local_state);
+  void Initialize(PrefService* local_state);
   bool IsInitialized() const;
 
   // Returns true if a signin to Chrome is allowed (by policy or pref).
@@ -154,14 +154,10 @@ class SigninManagerBase : public KeyedService {
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
-  // Methods to register or remove SigninDiagnosticObservers.
-  void AddSigninDiagnosticsObserver(
-      signin_internals_util::SigninDiagnosticsObserver* observer);
-  void RemoveSigninDiagnosticsObserver(
-      signin_internals_util::SigninDiagnosticsObserver* observer);
-
   // Gives access to the SigninClient instance associated with this instance.
   SigninClient* signin_client() const { return client_; }
+
+  ProfileOAuth2TokenService* token_service() const { return token_service_; }
 
   // Adds a callback that will be called when this instance is shut down.Not
   // intended for general usage, but rather for usage only by the Identity
@@ -176,6 +172,10 @@ class SigninManagerBase : public KeyedService {
   AccountTrackerService* account_tracker_service() const {
     return account_tracker_service_;
   }
+
+  // Invoked at the end of |Initialize| before the refresh token for the primary
+  // account is loaded.
+  virtual void FinalizeInitBeforeLoadingRefreshTokens(PrefService* local_state);
 
   // Sets the authenticated user's account id.
   // If the user is already authenticated with the same account id, then this
@@ -196,11 +196,6 @@ class SigninManagerBase : public KeyedService {
   // Makes sure list is empty on destruction.
   base::ObserverList<Observer, true>::Unchecked observer_list_;
 
-  // Helper method to notify all registered diagnostics observers with.
-  void NotifyDiagnosticsObservers(
-      const signin_internals_util::TimedSigninStatusField& field,
-      const std::string& value);
-
  private:
   friend class FakeSigninManagerBase;
   friend class FakeSigninManager;
@@ -211,16 +206,16 @@ class SigninManagerBase : public KeyedService {
   friend class SigninManager;
 
   SigninClient* client_;
+
+  // The ProfileOAuth2TokenService instance associated with this object. Must
+  // outlive this object.
+  ProfileOAuth2TokenService* token_service_;
+
   AccountTrackerService* account_tracker_service_;
-  SigninErrorController* signin_error_controller_;
   bool initialized_;
 
   // Account id after successful authentication.
   std::string authenticated_account_id_;
-
-  // The list of SigninDiagnosticObservers.
-  base::ObserverList<signin_internals_util::SigninDiagnosticsObserver,
-                     true>::Unchecked signin_diagnostics_observers_;
 
   // The list of callbacks notified on shutdown.
   base::CallbackList<void()> on_shutdown_callback_list_;

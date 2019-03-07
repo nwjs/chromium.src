@@ -33,6 +33,7 @@
 #include <memory>
 
 #include "base/memory/ptr_util.h"
+#include "base/stl_util.h"
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -92,7 +93,7 @@ class WebAssociatedURLLoaderTest : public testing::Test,
         "invisible_iframe.html", "visible_iframe.html",
         "zero_sized_iframe.html",
     };
-    for (size_t i = 0; i < arraysize(iframe_support_files); ++i) {
+    for (size_t i = 0; i < base::size(iframe_support_files); ++i) {
       RegisterMockedUrl(url_root, iframe_support_files[i]);
     }
 
@@ -122,7 +123,8 @@ class WebAssociatedURLLoaderTest : public testing::Test,
                           const WebURLResponse& redirect_response) override {
     will_follow_redirect_ = true;
     EXPECT_EQ(expected_new_url_, new_url);
-    EXPECT_EQ(expected_redirect_response_.Url(), redirect_response.Url());
+    EXPECT_EQ(expected_redirect_response_.CurrentRequestUrl(),
+              redirect_response.CurrentRequestUrl());
     EXPECT_EQ(expected_redirect_response_.HttpStatusCode(),
               redirect_response.HttpStatusCode());
     EXPECT_EQ(expected_redirect_response_.MimeType(),
@@ -138,11 +140,14 @@ class WebAssociatedURLLoaderTest : public testing::Test,
   void DidReceiveResponse(const WebURLResponse& response) override {
     did_receive_response_ = true;
     actual_response_ = WebURLResponse(response);
-    EXPECT_EQ(expected_response_.Url(), response.Url());
+    EXPECT_EQ(expected_response_.CurrentRequestUrl(),
+              response.CurrentRequestUrl());
     EXPECT_EQ(expected_response_.HttpStatusCode(), response.HttpStatusCode());
   }
 
-  void DidDownloadData(int data_length) override { did_download_data_ = true; }
+  void DidDownloadData(unsigned long long data_length) override {
+    did_download_data_ = true;
+  }
 
   void DidReceiveData(const char* data, int data_length) override {
     did_receive_data_ = true;

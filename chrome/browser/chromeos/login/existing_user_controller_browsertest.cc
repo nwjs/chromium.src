@@ -37,7 +37,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/testing_browser_process.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/fake_auth_policy_client.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
 #include "chromeos/dbus/util/tpm_util.h"
@@ -221,7 +221,7 @@ class ExistingUserControllerTest : public policy::DevicePolicyCrosBrowserTest {
         .Times(1)
         .WillOnce(ReturnNull());
     EXPECT_CALL(*mock_login_display_host_, OnPreferencesChanged()).Times(1);
-    EXPECT_CALL(*mock_login_display_, Init(_, false, true, true)).Times(1);
+    EXPECT_CALL(*mock_login_display_, Init(_, true, true, true)).Times(1);
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -954,7 +954,7 @@ class ExistingUserControllerActiveDirectoryUserWhitelistTest
         .Times(1)
         .WillOnce(ReturnNull());
     EXPECT_CALL(*mock_login_display_host_, OnPreferencesChanged()).Times(1);
-    EXPECT_CALL(*mock_login_display_, Init(_, false, true, false)).Times(1);
+    EXPECT_CALL(*mock_login_display_, Init(_, true, true, false)).Times(1);
   }
 };
 

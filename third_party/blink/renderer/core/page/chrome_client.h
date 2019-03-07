@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
+#include "third_party/blink/renderer/platform/transforms/transformation_matrix.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 
 // To avoid conflicts with the CreateWindow macro from the Windows SDK...
@@ -216,6 +217,10 @@ class CORE_EXPORT ChromeClient
     return base::nullopt;
   }
 
+  // Returns the scale used to convert incoming input events while emulating
+  // device metics.
+  virtual float InputEventsScaleForEmulation() const { return 1; }
+
   virtual void DispatchViewportPropertiesDidChange(
       const ViewportDescription&) const {}
 
@@ -290,6 +295,7 @@ class CORE_EXPORT ChromeClient
       cc::EventListenerClass) const = 0;
   virtual void SetHasScrollEventHandlers(LocalFrame*, bool) = 0;
   virtual void SetNeedsLowLatencyInput(LocalFrame*, bool) = 0;
+  virtual void SetNeedsUnbufferedInputForDebugger(LocalFrame*, bool) = 0;
   virtual void RequestUnbufferedInputEvents(LocalFrame*) = 0;
   virtual void SetTouchAction(LocalFrame*, TouchAction) = 0;
 
@@ -345,6 +351,10 @@ class CORE_EXPORT ChromeClient
   virtual void ShowVirtualKeyboardOnElementFocus(LocalFrame&) {}
 
   virtual void RegisterViewportLayers() const {}
+
+  virtual TransformationMatrix GetDeviceEmulationTransform() const {
+    return TransformationMatrix();
+  }
 
   virtual void OnMouseDown(Node&) {}
 

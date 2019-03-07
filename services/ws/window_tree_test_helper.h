@@ -83,13 +83,14 @@ class WindowTreeTestHelper {
   void SetHitTestInsets(aura::Window* window,
                         const gfx::Insets& mouse,
                         const gfx::Insets& touch);
+  bool SetWindowVisibility(aura::Window* window, bool visible);
   void SetWindowProperty(aura::Window* window,
                          const std::string& name,
                          const std::vector<uint8_t>& value,
                          uint32_t change_id = 1);
 
   // Creates a new embedding. On success the new Embedding is returned. The
-  // returned Embedding is owned by the ServerWindow for |window|.
+  // returned Embedding is owned by the ProxyWindow for |window|.
   Embedding* Embed(aura::Window* window,
                    mojom::WindowTreeClientPtr client_ptr,
                    mojom::WindowTreeClient* client,
@@ -98,7 +99,7 @@ class WindowTreeTestHelper {
                                mojom::EventTargetingPolicy policy);
   bool SetFocus(aura::Window* window);
   void SetCanFocus(aura::Window* window, bool can_focus);
-  void SetCursor(aura::Window* window, ui::CursorData cursor);
+  void SetCursor(aura::Window* window, ui::Cursor cursor);
   void OnWindowInputEventAck(uint32_t event_id, mojom::EventResult result);
   bool StackAbove(aura::Window* above_window, aura::Window* below_window);
   bool StackAtTop(aura::Window* window);

@@ -42,6 +42,7 @@
 // <include src="../../file_manager/common/js/async_util.js">
 // <include src="../../file_manager/common/js/file_type.js">
 // <include src="../../file_manager/common/js/util.js">
+// <include src="../../base/js/mediasession_types.js">
 // <include src="../../base/js/volume_manager_types.js">
 // <include src="../../base/js/filtered_volume_manager.js">
 
@@ -53,6 +54,7 @@
 // <include src="media_controls.js">
 // <include src="mouse_inactivity_watcher.js">
 
+// <include src="video_player_native_controls.js">
 // <include src="video_player.js">
 
 window.unload = unload;

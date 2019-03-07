@@ -39,6 +39,15 @@ MACHINE_GROUP_JSON_FILE = os.path.join(
 
 JSON_CONTENT_TYPE = 'application/json'
 
+# Cache of what data format (ChartJSON, Histograms, etc.) each results file is
+# in so that only one disk read is required when checking the format multiple
+# times.
+_data_format_cache = {}
+DATA_FORMAT_GTEST = 'gtest'
+DATA_FORMAT_CHARTJSON = 'chartjson'
+DATA_FORMAT_HISTOGRAMS = 'histograms'
+DATA_FORMAT_UNKNOWN = 'unknown'
+
 
 def _GetMachineGroup(build_properties):
   machine_group = None
@@ -104,11 +113,29 @@ def _upload_perf_results(json_to_upload, name, configuration_name,
   return upload_results_to_perf_dashboard.main(args)
 
 def _is_histogram(json_file):
-  with open(json_file) as f:
-    data = json.load(f)
-    return isinstance(data, list)
-  return False
+  return _determine_data_format(json_file) == DATA_FORMAT_HISTOGRAMS
 
+
+def _is_gtest(json_file):
+  return _determine_data_format(json_file) == DATA_FORMAT_GTEST
+
+
+def _determine_data_format(json_file):
+  if json_file not in _data_format_cache:
+    with open(json_file) as f:
+      data = json.load(f)
+      if isinstance(data, list):
+        _data_format_cache[json_file] = DATA_FORMAT_HISTOGRAMS
+      elif isinstance(data, dict):
+        if 'charts' in data:
+          _data_format_cache[json_file] = DATA_FORMAT_CHARTJSON
+        else:
+          _data_format_cache[json_file] = DATA_FORMAT_GTEST
+      else:
+        _data_format_cache[json_file] = DATA_FORMAT_UNKNOWN
+      return _data_format_cache[json_file]
+    _data_format_cache[json_file] = DATA_FORMAT_UNKNOWN
+  return _data_format_cache[json_file]
 
 def _merge_json_output(output_json, jsons_to_merge, extra_links):
   """Merges the contents of one or more results JSONs.

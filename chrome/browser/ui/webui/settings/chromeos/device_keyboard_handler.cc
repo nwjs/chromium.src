@@ -11,7 +11,7 @@
 #include "base/values.h"
 #include "chrome/browser/ui/ash/ksv/keyboard_shortcut_viewer_util.h"
 #include "chrome/browser/ui/ash/tablet_mode_client.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/common/service_manager_connection.h"
 #include "services/service_manager/public/cpp/connector.h"
@@ -86,10 +86,13 @@ void KeyboardHandler::OnJavascriptDisallowed() {
   observer_.RemoveAll();
 }
 
-void KeyboardHandler::OnKeyboardDeviceConfigurationChanged() {
-  AllowJavascript();
-  UpdateShowKeys();
-  UpdateKeyboards();
+void KeyboardHandler::OnInputDeviceConfigurationChanged(
+    uint8_t input_device_types) {
+  if (input_device_types & ui::InputDeviceEventObserver::kKeyboard) {
+    AllowJavascript();
+    UpdateShowKeys();
+    UpdateKeyboards();
+  }
 }
 
 void KeyboardHandler::HandleInitialize(const base::ListValue* args) {

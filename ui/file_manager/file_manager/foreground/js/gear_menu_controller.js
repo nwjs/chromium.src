@@ -3,9 +3,10 @@
 // found in the LICENSE file.
 
 /**
- * @param {!cr.ui.MenuButton} gearButton
+ * @param {!cr.ui.MultiMenuButton} gearButton
  * @param {!FilesToggleRipple} toggleRipple
  * @param {!GearMenu} gearMenu
+ * @param {!ProvidersMenu} providersMenu
  * @param {!DirectoryModel} directoryModel
  * @param {!CommandHandler} commandHandler
  * @param {!ProvidersModel} providersModel
@@ -13,8 +14,8 @@
  * @struct
  */
 function GearMenuController(
-    gearButton, toggleRipple, gearMenu, directoryModel, commandHandler,
-    providersModel) {
+    gearButton, toggleRipple, gearMenu, providersMenu, directoryModel,
+    commandHandler, providersModel) {
   /**
    * @type {!FilesToggleRipple}
    * @const
@@ -28,6 +29,13 @@ function GearMenuController(
    * @private
    */
   this.gearMenu_ = gearMenu;
+
+  /**
+   * @type {!ProvidersMenu}
+   * @const
+   * @private
+   */
+  this.providersMenu_ = providersMenu;
 
   /**
    * @type {!DirectoryModel}
@@ -92,11 +100,12 @@ GearMenuController.prototype.updateNewServiceItem = function() {
       // provider option.
       desiredMenu = '#new-service';
       label = str('ADD_NEW_SERVICES_BUTTON_LABEL');
+      // Trigger an update of the providers submenu.
+      this.providersMenu_.updateSubMenu();
     }
 
     this.gearMenu_.setNewServiceCommand(desiredMenu, label);
   });
-
 };
 
 /**
@@ -112,8 +121,9 @@ GearMenuController.prototype.onHideGearMenu_ = function() {
  */
 GearMenuController.prototype.onDirectoryChanged_ = function(event) {
   event = /** @type {DirectoryChangeEvent} */ (event);
-  if (event.volumeChanged)
-    this.refreshRemainingSpace_(true);  // Show loading caption.
+  if (event.volumeChanged) {
+    this.refreshRemainingSpace_(true);
+  }  // Show loading caption.
 };
 
 /**
@@ -130,8 +140,9 @@ GearMenuController.prototype.refreshRemainingSpace_ = function(
   }
 
   var currentVolumeInfo = this.directoryModel_.getCurrentVolumeInfo();
-  if (!currentVolumeInfo)
+  if (!currentVolumeInfo) {
     return;
+  }
 
   // TODO(mtomasz): Add support for remaining space indication for provided
   // file systems.
@@ -154,12 +165,14 @@ GearMenuController.prototype.refreshRemainingSpace_ = function(
  */
 GearMenuController.prototype.onPreferencesChanged_ = function() {
   chrome.fileManagerPrivate.getPreferences(function(prefs) {
-    if (chrome.runtime.lastError)
+    if (chrome.runtime.lastError) {
       return;
+    }
 
-    if (prefs.cellularDisabled)
+    if (prefs.cellularDisabled) {
       this.gearMenu_.syncButton.setAttribute('checked', '');
-    else
+    } else {
       this.gearMenu_.syncButton.removeAttribute('checked');
+    }
   }.bind(this));
 };

@@ -15,9 +15,10 @@ namespace blink {
 CredentialManagerProxy::CredentialManagerProxy(Document& document) {
   LocalFrame* frame = document.GetFrame();
   DCHECK(frame);
-  frame->GetInterfaceProvider().GetInterface(&credential_manager_);
   frame->GetInterfaceProvider().GetInterface(
-      mojo::MakeRequest(&authenticator_));
+      &credential_manager_, frame->GetTaskRunner(TaskType::kUserInteraction));
+  frame->GetInterfaceProvider().GetInterface(mojo::MakeRequest(
+      &authenticator_, frame->GetTaskRunner(TaskType::kUserInteraction)));
 }
 
 CredentialManagerProxy::~CredentialManagerProxy() {}
@@ -27,7 +28,7 @@ CredentialManagerProxy* CredentialManagerProxy::From(Document& document) {
   auto* supplement =
       Supplement<Document>::From<CredentialManagerProxy>(document);
   if (!supplement) {
-    supplement = new CredentialManagerProxy(document);
+    supplement = MakeGarbageCollected<CredentialManagerProxy>(document);
     ProvideTo(document, supplement);
   }
   return supplement;

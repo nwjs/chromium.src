@@ -44,6 +44,7 @@ class CastWebViewDefault : public CastWebView,
   // CastWebView implementation:
   shell::CastContentWindow* window() const override;
   content::WebContents* web_contents() const override;
+  CastWebContents* cast_web_contents() override;
   void LoadUrl(GURL url) override;
   void ClosePage(const base::TimeDelta& shutdown_delay) override;
   void InitializeWindow(CastWindowManager* window_manager,
@@ -74,7 +75,7 @@ class CastWebViewDefault : public CastWebView,
   void ActivateContents(content::WebContents* contents) override;
   bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
                                   const GURL& security_origin,
-                                  content::MediaStreamType type) override;
+                                  blink::MediaStreamType type) override;
   bool DidAddMessageToConsole(content::WebContents* source,
                               int32_t level,
                               const base::string16& message,

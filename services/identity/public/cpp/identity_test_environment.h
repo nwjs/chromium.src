@@ -6,6 +6,7 @@
 #define SERVICES_IDENTITY_PUBLIC_CPP_IDENTITY_TEST_ENVIRONMENT_H_
 
 #include "base/optional.h"
+#include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/account_tracker_service.h"
 #include "components/signin/core/browser/fake_gaia_cookie_manager_service.h"
 #include "components/signin/core/browser/fake_profile_oauth2_token_service.h"
@@ -28,7 +29,7 @@ using SigninManagerForTest = FakeSigninManagerBase;
 #else
 using SigninManagerForTest = FakeSigninManager;
 #endif  // OS_CHROMEOS
-}
+}  // namespace
 
 // Internal class that creates and owns dependencies of IdentityManager
 // when those dependencies are not passed in externally.
@@ -51,14 +52,22 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   // a test). In that case, use the below constructor and switch to this
   // constructor once the conversion is complete.
   //
-  // Additionally, this constructor also takes an optional PrefService
-  // instance as parameter, which allows tests to move away from referencing
-  // IdentityManager's dependencies directly (namely AccountTrackerService,
-  // PO2TS, SigninManager and GaiaCookieManagerService), but still be able
-  // to tweak preferences on demand.
+  // This constructor takes an optional parameter |test_url_loader_factory| to
+  // use for cookie-related network requests.
+  //
+  // This constructor also takes an optional PrefService instance as parameter,
+  // which allows tests to move away from referencing IdentityManager's
+  // dependencies directly (namely AccountTrackerService, PO2TS, SigninManager
+  // and GaiaCookieManagerService), but still be able to tweak preferences on
+  // demand.
+  //
+  // Last, this constructor can take an optional parameter |account_consistency|
+  // as parameter, to specify the account consistency policy that will be used.
   IdentityTestEnvironment(
-      bool use_fake_url_loader_for_gaia_cookie_manager = false,
-      sync_preferences::TestingPrefServiceSyncable* pref_service = nullptr);
+      network::TestURLLoaderFactory* test_url_loader_factory = nullptr,
+      sync_preferences::TestingPrefServiceSyncable* pref_service = nullptr,
+      signin::AccountConsistencyMethod account_consistency =
+          signin::AccountConsistencyMethod::kDisabled);
 
   // Constructor that takes in instances of the dependencies of
   // IdentityManager and constructs an IdentityManager instance from those
@@ -132,6 +141,12 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   // until the refresh token is removed.
   // NOTE: See disclaimer at top of file re: direct usage.
   void RemoveRefreshTokenForAccount(const std::string& account_id);
+
+  // Updates the persistent auth error set on |account_id| which must be a known
+  // account, i.e., an account with a refresh token.
+  void UpdatePersistentErrorOfRefreshTokenForAccount(
+      const std::string& account_id,
+      const GoogleServiceAuthError& auth_error);
 
   // Puts the given accounts into the Gaia cookie, replacing any previous
   // accounts. Blocks until the accounts have been set.
@@ -220,6 +235,16 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   // Updates the info for |account_info.account_id|, which must be a known
   // account.
   void UpdateAccountInfoForAccount(AccountInfo account_info);
+
+  // Resets to the state where accounts have not yet been loaded from disk.
+  void ResetToAccountsNotYetLoadedFromDiskState();
+
+  // Simulates the reloading of the accounts from disk.
+  void ReloadAccountsFromDisk();
+
+  // Sets whether the list of accounts in Gaia cookie jar is fresh and does not
+  // need to be updated.
+  void SetFreshnessOfAccountsInGaiaCookie(bool accounts_are_fresh);
 
  private:
   friend class ::IdentityTestEnvironmentChromeBrowserStateAdaptor;

@@ -38,6 +38,7 @@
 #include "base/test/bind_test_util.h"
 #include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_simple_task_runner.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/platform_thread.h"
@@ -46,7 +47,6 @@
 #include "base/threading/thread.h"
 #include "base/threading/thread_checker_impl.h"
 #include "base/threading/thread_local_storage.h"
-#include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
@@ -69,24 +69,12 @@ constexpr size_t kNumTasksPostedPerThread = 150;
 constexpr TimeDelta kReclaimTimeForCleanupTests =
     TimeDelta::FromMilliseconds(500);
 
-// Waits on |event| in a scope where the blocking observer is null, to avoid
-// affecting the max tasks.
-void WaitWithoutBlockingObserver(WaitableEvent* event) {
-  internal::ScopedClearBlockingObserverForTesting clear_blocking_observer;
-  ScopedAllowBaseSyncPrimitivesForTesting allow_base_sync_primitives;
-  event->Wait();
-}
-
 class TaskSchedulerWorkerPoolImplTestBase
     : public SchedulerWorkerPool::Delegate {
  protected:
   TaskSchedulerWorkerPoolImplTestBase()
       : service_thread_("TaskSchedulerServiceThread"),
         tracked_ref_factory_(this){};
-
-  void CommonSetUp(TimeDelta suggested_reclaim_time = TimeDelta::Max()) {
-    CreateAndStartWorkerPool(suggested_reclaim_time, kMaxTasks);
-  }
 
   void CommonTearDown() {
     service_thread_.Stop();
@@ -108,19 +96,23 @@ class TaskSchedulerWorkerPoolImplTestBase
     mock_scheduler_task_runner_delegate_.SetWorkerPool(worker_pool_.get());
   }
 
-  virtual void StartWorkerPool(TimeDelta suggested_reclaim_time,
-                               size_t max_tasks) {
+  void StartWorkerPool(
+      TimeDelta suggested_reclaim_time,
+      size_t max_tasks,
+      Optional<TimeDelta> may_block_threshold = Optional<TimeDelta>()) {
     ASSERT_TRUE(worker_pool_);
     worker_pool_->Start(
         SchedulerWorkerPoolParams(max_tasks, suggested_reclaim_time), max_tasks,
         service_thread_.task_runner(), nullptr,
-        SchedulerWorkerPoolImpl::WorkerEnvironment::NONE);
+        SchedulerWorkerPoolImpl::WorkerEnvironment::NONE, may_block_threshold);
   }
 
-  void CreateAndStartWorkerPool(TimeDelta suggested_reclaim_time,
-                                size_t max_tasks) {
+  void CreateAndStartWorkerPool(
+      TimeDelta suggested_reclaim_time = TimeDelta::Max(),
+      size_t max_tasks = kMaxTasks,
+      Optional<TimeDelta> may_block_threshold = Optional<TimeDelta>()) {
     CreateWorkerPool();
-    StartWorkerPool(suggested_reclaim_time, max_tasks);
+    StartWorkerPool(suggested_reclaim_time, max_tasks, may_block_threshold);
   }
 
   Thread service_thread_;
@@ -147,7 +139,7 @@ class TaskSchedulerWorkerPoolImplTest
  protected:
   TaskSchedulerWorkerPoolImplTest() = default;
 
-  void SetUp() override { TaskSchedulerWorkerPoolImplTestBase::CommonSetUp(); }
+  void SetUp() override { CreateAndStartWorkerPool(); }
 
   void TearDown() override {
     TaskSchedulerWorkerPoolImplTestBase::CommonTearDown();
@@ -163,7 +155,7 @@ class TaskSchedulerWorkerPoolImplTestParam
  protected:
   TaskSchedulerWorkerPoolImplTestParam() = default;
 
-  void SetUp() override { TaskSchedulerWorkerPoolImplTestBase::CommonSetUp(); }
+  void SetUp() override { CreateAndStartWorkerPool(); }
 
   void TearDown() override {
     TaskSchedulerWorkerPoolImplTestBase::CommonTearDown();
@@ -252,7 +244,7 @@ TEST_P(TaskSchedulerWorkerPoolImplTestParam, PostTasksWithOneAvailableWorker) {
         GetParam()));
     EXPECT_TRUE(blocked_task_factories.back()->PostTask(
         PostNestedTask::NO,
-        BindOnce(&WaitWithoutBlockingObserver, Unretained(&event))));
+        BindOnce(&test::WaitWithoutBlockingObserver, Unretained(&event))));
     blocked_task_factories.back()->WaitForAllTasksToRun();
   }
 
@@ -288,7 +280,7 @@ TEST_P(TaskSchedulerWorkerPoolImplTestParam, Saturate) {
         GetParam()));
     EXPECT_TRUE(factories.back()->PostTask(
         PostNestedTask::NO,
-        BindOnce(&WaitWithoutBlockingObserver, Unretained(&event))));
+        BindOnce(&test::WaitWithoutBlockingObserver, Unretained(&event))));
     factories.back()->WaitForAllTasksToRun();
   }
 
@@ -339,22 +331,19 @@ class TaskSchedulerWorkerPoolImplTestCOMMTAParam
  protected:
   TaskSchedulerWorkerPoolImplTestCOMMTAParam() = default;
 
-  void SetUp() override { TaskSchedulerWorkerPoolImplTestBase::CommonSetUp(); }
+  void SetUp() override {
+    CreateWorkerPool();
+    ASSERT_TRUE(worker_pool_);
+    worker_pool_->Start(SchedulerWorkerPoolParams(kMaxTasks, TimeDelta::Max()),
+                        kMaxTasks, service_thread_.task_runner(), nullptr,
+                        SchedulerWorkerPoolImpl::WorkerEnvironment::COM_MTA);
+  }
 
   void TearDown() override {
     TaskSchedulerWorkerPoolImplTestBase::CommonTearDown();
   }
 
  private:
-  void StartWorkerPool(TimeDelta suggested_reclaim_time,
-                       size_t max_tasks) override {
-    ASSERT_TRUE(worker_pool_);
-    worker_pool_->Start(
-        SchedulerWorkerPoolParams(max_tasks, suggested_reclaim_time), max_tasks,
-        service_thread_.task_runner(), nullptr,
-        SchedulerWorkerPoolImpl::WorkerEnvironment::COM_MTA);
-  }
-
   DISALLOW_COPY_AND_ASSIGN(TaskSchedulerWorkerPoolImplTestCOMMTAParam);
 };
 
@@ -404,7 +393,7 @@ void TaskPostedBeforeStart(PlatformThreadRef* platform_thread_ref,
                            WaitableEvent* barrier) {
   *platform_thread_ref = PlatformThread::CurrentRef();
   task_running->Signal();
-  WaitWithoutBlockingObserver(barrier);
+  test::WaitWithoutBlockingObserver(barrier);
 }
 
 }  // namespace
@@ -483,7 +472,7 @@ class TaskSchedulerWorkerPoolCheckTlsReuse
  public:
   void SetTlsValueAndWait() {
     slot_.Set(reinterpret_cast<void*>(kMagicTlsValue));
-    WaitWithoutBlockingObserver(&waiter_);
+    test::WaitWithoutBlockingObserver(&waiter_);
   }
 
   void CountZeroTlsValuesAndWait(WaitableEvent* count_waiter) {
@@ -491,7 +480,7 @@ class TaskSchedulerWorkerPoolCheckTlsReuse
       subtle::NoBarrier_AtomicIncrement(&zero_tls_values_, 1);
 
     count_waiter->Signal();
-    WaitWithoutBlockingObserver(&waiter_);
+    test::WaitWithoutBlockingObserver(&waiter_);
   }
 
  protected:
@@ -596,7 +585,7 @@ class TaskSchedulerWorkerPoolHistogramTest
           BindOnce(
               [](OnceClosure on_running, WaitableEvent* continue_event) {
                 std::move(on_running).Run();
-                WaitWithoutBlockingObserver(continue_event);
+                test::WaitWithoutBlockingObserver(continue_event);
               },
               all_workers_running_barrier, continue_event));
     }
@@ -619,8 +608,8 @@ TEST_F(TaskSchedulerWorkerPoolHistogramTest, NumTasksBetweenWaits) {
       {WithBaseSyncPrimitives()}, &mock_scheduler_task_runner_delegate_);
 
   // Post a task.
-  task_runner->PostTask(
-      FROM_HERE, BindOnce(&WaitWithoutBlockingObserver, Unretained(&event)));
+  task_runner->PostTask(FROM_HERE, BindOnce(&test::WaitWithoutBlockingObserver,
+                                            Unretained(&event)));
 
   // Post 2 more tasks while the first task hasn't completed its execution. It
   // is guaranteed that these tasks will run immediately after the first task,
@@ -733,7 +722,7 @@ TEST_F(TaskSchedulerWorkerPoolHistogramTest, NumTasksBeforeCleanup) {
             ASSERT_FALSE(thread_ref->is_null());
             EXPECT_EQ(*thread_ref, PlatformThread::CurrentRef());
             cleanup_thread_running->Signal();
-            WaitWithoutBlockingObserver(cleanup_thread_continue);
+            test::WaitWithoutBlockingObserver(cleanup_thread_continue);
           },
           Unretained(&thread_ref), Unretained(&cleanup_thread_running),
           Unretained(&cleanup_thread_continue)));
@@ -778,7 +767,8 @@ TEST_F(TaskSchedulerWorkerPoolHistogramTest, NumTasksBeforeCleanup) {
                            << "Worker reused. Worker will not cleanup and the "
                               "histogram value will be wrong.";
                        top_idle_thread_running->Signal();
-                       WaitWithoutBlockingObserver(top_idle_thread_continue);
+                       test::WaitWithoutBlockingObserver(
+                           top_idle_thread_continue);
                      },
                      thread_ref, Unretained(&top_idle_thread_running),
                      Unretained(&top_idle_thread_continue)));
@@ -813,8 +803,7 @@ class TaskSchedulerWorkerPoolStandbyPolicyTest
   TaskSchedulerWorkerPoolStandbyPolicyTest() = default;
 
   void SetUp() override {
-    TaskSchedulerWorkerPoolImplTestBase::CommonSetUp(
-        kReclaimTimeForCleanupTests);
+    CreateAndStartWorkerPool(kReclaimTimeForCleanupTests);
   }
 
   void TearDown() override {
@@ -842,7 +831,7 @@ TEST_F(TaskSchedulerWorkerPoolStandbyPolicyTest, VerifyStandbyThread) {
 
   RepeatingClosure thread_blocker = BindLambdaForTesting([&]() {
     thread_running.Signal();
-    WaitWithoutBlockingObserver(&threads_continue);
+    test::WaitWithoutBlockingObserver(&threads_continue);
   });
 
   // There should be one idle thread until we reach capacity
@@ -932,7 +921,7 @@ TEST_F(TaskSchedulerWorkerPoolStandbyPolicyTest, OnlyKeepActiveStandbyThreads) {
 
     RepeatingClosure thread_blocker = BindLambdaForTesting([&]() {
       thread_running.Signal();
-      WaitWithoutBlockingObserver(&threads_continue);
+      test::WaitWithoutBlockingObserver(&threads_continue);
     });
 
     for (size_t i = 0; i < kMaxTasks; ++i) {
@@ -1022,13 +1011,6 @@ class TaskSchedulerWorkerPoolBlockingTest
     return str;
   }
 
-  void SetUp() override {
-    TaskSchedulerWorkerPoolImplTestBase::CommonSetUp();
-    task_runner_ =
-        test::CreateTaskRunnerWithTraits({MayBlock(), WithBaseSyncPrimitives()},
-                                         &mock_scheduler_task_runner_delegate_);
-  }
-
   void TearDown() override {
     TaskSchedulerWorkerPoolImplTestBase::CommonTearDown();
   }
@@ -1054,7 +1036,7 @@ class TaskSchedulerWorkerPoolBlockingTest
                 NestedScopedBlockingCall nested_scoped_blocking_call(
                     nested_blocking_type);
                 blocking_threads_running_closure->Run();
-                WaitWithoutBlockingObserver(blocking_threads_continue_);
+                test::WaitWithoutBlockingObserver(blocking_threads_continue_);
               },
               Unretained(&blocking_threads_running_closure),
               Unretained(&blocking_threads_continue_), nested_blocking_type));
@@ -1086,7 +1068,9 @@ class TaskSchedulerWorkerPoolBlockingTest
   // Unblocks tasks posted by SaturateWithBlockingTasks().
   void UnblockTasks() { blocking_threads_continue_.Signal(); }
 
-  scoped_refptr<TaskRunner> task_runner_;
+  const scoped_refptr<TaskRunner> task_runner_ =
+      test::CreateTaskRunnerWithTraits({MayBlock(), WithBaseSyncPrimitives()},
+                                       &mock_scheduler_task_runner_delegate_);
 
  private:
   WaitableEvent blocking_threads_running_;
@@ -1099,6 +1083,8 @@ class TaskSchedulerWorkerPoolBlockingTest
 // worker if needed. Also verify that BlockingScopeExited() decreases max tasks
 // after an increase.
 TEST_P(TaskSchedulerWorkerPoolBlockingTest, ThreadBlockedUnblocked) {
+  CreateAndStartWorkerPool();
+
   ASSERT_EQ(worker_pool_->GetMaxTasksForTesting(), kMaxTasks);
 
   SaturateWithBlockingTasks(GetParam());
@@ -1118,6 +1104,8 @@ TEST_P(TaskSchedulerWorkerPoolBlockingTest, ThreadBlockedUnblocked) {
 // Verify that tasks posted in a saturated pool before a ScopedBlockingCall will
 // execute after ScopedBlockingCall is instantiated.
 TEST_P(TaskSchedulerWorkerPoolBlockingTest, PostBeforeBlocking) {
+  CreateAndStartWorkerPool();
+
   WaitableEvent thread_running(WaitableEvent::ResetPolicy::AUTOMATIC);
   WaitableEvent thread_can_block;
   WaitableEvent threads_continue;
@@ -1130,11 +1118,11 @@ TEST_P(TaskSchedulerWorkerPoolBlockingTest, PostBeforeBlocking) {
                WaitableEvent* thread_running, WaitableEvent* thread_can_block,
                WaitableEvent* threads_continue) {
               thread_running->Signal();
-              WaitWithoutBlockingObserver(thread_can_block);
+              test::WaitWithoutBlockingObserver(thread_can_block);
 
               NestedScopedBlockingCall nested_scoped_blocking_call(
                   nested_blocking_type);
-              WaitWithoutBlockingObserver(threads_continue);
+              test::WaitWithoutBlockingObserver(threads_continue);
             },
             GetParam(), Unretained(&thread_running),
             Unretained(&thread_can_block), Unretained(&threads_continue)));
@@ -1157,7 +1145,8 @@ TEST_P(TaskSchedulerWorkerPoolBlockingTest, PostBeforeBlocking) {
                        [](Closure* extra_threads_running_barrier,
                           WaitableEvent* extra_threads_continue) {
                          extra_threads_running_barrier->Run();
-                         WaitWithoutBlockingObserver(extra_threads_continue);
+                         test::WaitWithoutBlockingObserver(
+                             extra_threads_continue);
                        },
                        Unretained(&extra_threads_running_barrier),
                        Unretained(&extra_threads_continue)));
@@ -1180,6 +1169,8 @@ TEST_P(TaskSchedulerWorkerPoolBlockingTest, PostBeforeBlocking) {
 // Verify that workers become idle when the pool is over-capacity and that
 // those workers do no work.
 TEST_P(TaskSchedulerWorkerPoolBlockingTest, WorkersIdleWhenOverCapacity) {
+  CreateAndStartWorkerPool();
+
   ASSERT_EQ(worker_pool_->GetMaxTasksForTesting(), kMaxTasks);
 
   SaturateWithBlockingTasks(GetParam());
@@ -1202,7 +1193,7 @@ TEST_P(TaskSchedulerWorkerPoolBlockingTest, WorkersIdleWhenOverCapacity) {
     auto callback = BindOnce(
         [](Closure* threads_running_barrier, WaitableEvent* threads_continue) {
           threads_running_barrier->Run();
-          WaitWithoutBlockingObserver(threads_continue);
+          test::WaitWithoutBlockingObserver(threads_continue);
         },
         Unretained(&threads_running_barrier), Unretained(&threads_continue));
     task_runner_->PostTask(FROM_HERE, std::move(callback));
@@ -1268,18 +1259,22 @@ INSTANTIATE_TEST_CASE_P(
     TaskSchedulerWorkerPoolBlockingTest::ParamInfoToString);
 
 // Verify that if a thread enters the scope of a MAY_BLOCK ScopedBlockingCall,
-// but exits the scope before the MayBlockThreshold() is reached, that the max
+// but exits the scope before the MayBlock threshold is reached, that the max
 // tasks does not increase.
 TEST_F(TaskSchedulerWorkerPoolBlockingTest, ThreadBlockUnblockPremature) {
+  // Create a pool with an infinite MayBlock threshold so that a MAY_BLOCK
+  // ScopedBlockingCall never increases the max tasks.
+  CreateAndStartWorkerPool(TimeDelta::Max(),  // |suggested_reclaim_time|
+                           kMaxTasks,         // |max_tasks|
+                           TimeDelta::Max()   // |may_block_threshold|
+  );
   ASSERT_EQ(worker_pool_->GetMaxTasksForTesting(), kMaxTasks);
-
-  TimeDelta max_tasks_change_sleep = GetMaxTasksChangeSleepTime();
-  worker_pool_->MaximizeMayBlockThresholdForTesting();
 
   SaturateWithBlockingTasks(NestedBlockingType(BlockingType::MAY_BLOCK,
                                                OptionalBlockingType::NO_BLOCK,
                                                BlockingType::MAY_BLOCK));
-  PlatformThread::Sleep(max_tasks_change_sleep);
+  PlatformThread::Sleep(2 * TimeDelta::FromMicroseconds(
+                                kBlockedWorkersPollMicrosecondsParam.Get()));
   EXPECT_EQ(worker_pool_->NumberOfWorkersForTesting(), kMaxTasks);
   EXPECT_EQ(worker_pool_->GetMaxTasksForTesting(), kMaxTasks);
 
@@ -1293,6 +1288,8 @@ TEST_F(TaskSchedulerWorkerPoolBlockingTest, ThreadBlockUnblockPremature) {
 // WILL_BLOCK ScopedBlockingCall.
 TEST_F(TaskSchedulerWorkerPoolBlockingTest,
        MayBlockIncreaseCapacityNestedWillBlock) {
+  CreateAndStartWorkerPool();
+
   ASSERT_EQ(worker_pool_->GetMaxTasksForTesting(), kMaxTasks);
   auto task_runner =
       test::CreateTaskRunnerWithTraits({MayBlock(), WithBaseSyncPrimitives()},
@@ -1302,8 +1299,9 @@ TEST_F(TaskSchedulerWorkerPoolBlockingTest,
   // Saturate the pool so that a MAY_BLOCK ScopedBlockingCall would increment
   // the max tasks.
   for (size_t i = 0; i < kMaxTasks - 1; ++i) {
-    task_runner->PostTask(FROM_HERE, BindOnce(&WaitWithoutBlockingObserver,
-                                              Unretained(&can_return)));
+    task_runner->PostTask(
+        FROM_HERE,
+        BindOnce(&test::WaitWithoutBlockingObserver, Unretained(&can_return)));
   }
 
   WaitableEvent can_instantiate_will_block;
@@ -1317,10 +1315,10 @@ TEST_F(TaskSchedulerWorkerPoolBlockingTest,
              WaitableEvent* did_instantiate_will_block,
              WaitableEvent* can_return) {
             ScopedBlockingCall may_block(BlockingType::MAY_BLOCK);
-            WaitWithoutBlockingObserver(can_instantiate_will_block);
+            test::WaitWithoutBlockingObserver(can_instantiate_will_block);
             ScopedBlockingCall will_block(BlockingType::WILL_BLOCK);
             did_instantiate_will_block->Signal();
-            WaitWithoutBlockingObserver(can_return);
+            test::WaitWithoutBlockingObserver(can_return);
           },
           Unretained(&can_instantiate_will_block),
           Unretained(&did_instantiate_will_block), Unretained(&can_return)));
@@ -1391,9 +1389,9 @@ TEST_F(TaskSchedulerWorkerPoolOverCapacityTest, VerifyCleanup) {
         threads_running_barrier->Run();
         {
           ScopedBlockingCall scoped_blocking_call(BlockingType::WILL_BLOCK);
-          WaitWithoutBlockingObserver(blocked_call_continue);
+          test::WaitWithoutBlockingObserver(blocked_call_continue);
         }
-        WaitWithoutBlockingObserver(threads_continue);
+        test::WaitWithoutBlockingObserver(threads_continue);
       },
       Unretained(&threads_running_barrier), Unretained(&threads_continue),
       Unretained(&blocked_call_continue));
@@ -1416,7 +1414,8 @@ TEST_F(TaskSchedulerWorkerPoolOverCapacityTest, VerifyCleanup) {
                        [](Closure* extra_threads_running_barrier,
                           WaitableEvent* extra_threads_continue) {
                          extra_threads_running_barrier->Run();
-                         WaitWithoutBlockingObserver(extra_threads_continue);
+                         test::WaitWithoutBlockingObserver(
+                             extra_threads_continue);
                        },
                        Unretained(&extra_threads_running_barrier),
                        Unretained(&extra_threads_continue)));
@@ -1447,6 +1446,8 @@ TEST_F(TaskSchedulerWorkerPoolOverCapacityTest, VerifyCleanup) {
 // Verify that the maximum number of workers is 256 and that hitting the max
 // leaves the pool in a valid state with regards to max tasks.
 TEST_F(TaskSchedulerWorkerPoolBlockingTest, MaximumWorkersTest) {
+  CreateAndStartWorkerPool();
+
   constexpr size_t kMaxNumberOfWorkers = 256;
   constexpr size_t kNumExtraTasks = 10;
 
@@ -1475,7 +1476,8 @@ TEST_F(TaskSchedulerWorkerPoolBlockingTest, MaximumWorkersTest) {
                 ScopedBlockingCall scoped_blocking_call(
                     BlockingType::WILL_BLOCK);
                 early_threads_barrier_closure->Run();
-                WaitWithoutBlockingObserver(early_release_threads_continue);
+                test::WaitWithoutBlockingObserver(
+                    early_release_threads_continue);
               }
               early_threads_finished->Run();
             },
@@ -1506,7 +1508,7 @@ TEST_F(TaskSchedulerWorkerPoolBlockingTest, MaximumWorkersTest) {
                WaitableEvent* late_release_thread_contine) {
               ScopedBlockingCall scoped_blocking_call(BlockingType::WILL_BLOCK);
               late_threads_barrier_closure->Run();
-              WaitWithoutBlockingObserver(late_release_thread_contine);
+              test::WaitWithoutBlockingObserver(late_release_thread_contine);
             },
             Unretained(&late_threads_barrier_closure),
             Unretained(&late_release_thread_contine)));
@@ -1533,7 +1535,7 @@ TEST_F(TaskSchedulerWorkerPoolBlockingTest, MaximumWorkersTest) {
         BindOnce(
             [](Closure* closure, WaitableEvent* final_tasks_continue) {
               closure->Run();
-              WaitWithoutBlockingObserver(final_tasks_continue);
+              test::WaitWithoutBlockingObserver(final_tasks_continue);
             },
             Unretained(&final_tasks_running_barrier),
             Unretained(&final_tasks_continue)));
@@ -1572,7 +1574,7 @@ TEST_F(TaskSchedulerWorkerPoolImplStartInBodyTest, MaxBestEffortTasks) {
     background_runner->PostTask(
         FROM_HERE, base::BindLambdaForTesting([&]() {
           best_effort_tasks_running_barrier.Run();
-          WaitWithoutBlockingObserver(&unblock_best_effort_tasks);
+          test::WaitWithoutBlockingObserver(&unblock_best_effort_tasks);
         }));
   }
   best_effort_tasks_running.Wait();
@@ -1651,7 +1653,8 @@ TEST_P(TaskSchedulerWorkerPoolBlockingCallAndMaxBestEffortTasksTest,
         FROM_HERE, base::BindLambdaForTesting([&]() {
           blocking_best_effort_tasks_running_barrier.Run();
           ScopedBlockingCall scoped_blocking_call(GetParam());
-          WaitWithoutBlockingObserver(&unblock_blocking_best_effort_tasks);
+          test::WaitWithoutBlockingObserver(
+              &unblock_blocking_best_effort_tasks);
         }));
   }
   blocking_best_effort_tasks_running.Wait();
@@ -1671,7 +1674,7 @@ TEST_P(TaskSchedulerWorkerPoolBlockingCallAndMaxBestEffortTasksTest,
     background_runner->PostTask(
         FROM_HERE, base::BindLambdaForTesting([&]() {
           best_effort_tasks_running_barrier.Run();
-          WaitWithoutBlockingObserver(&unblock_best_effort_tasks);
+          test::WaitWithoutBlockingObserver(&unblock_best_effort_tasks);
         }));
   }
   best_effort_tasks_running.Wait();
@@ -1724,7 +1727,7 @@ TEST_F(TaskSchedulerWorkerPoolImplStartInBodyTest, RacyCleanup) {
         BindOnce(
             [](OnceClosure on_running, WaitableEvent* unblock_threads) {
               std::move(on_running).Run();
-              WaitWithoutBlockingObserver(unblock_threads);
+              test::WaitWithoutBlockingObserver(unblock_threads);
             },
             threads_running_barrier, Unretained(&unblock_threads)));
   }
@@ -1744,11 +1747,14 @@ TEST_F(TaskSchedulerWorkerPoolImplStartInBodyTest, RacyCleanup) {
   worker_pool_.reset();
 }
 
-TEST_P(TaskSchedulerWorkerPoolImplTestParam, RecordNumWorkersHistogram) {
+TEST_P(TaskSchedulerWorkerPoolImplTestParam, ReportHeartbeatMetrics) {
   HistogramTester tester;
-  worker_pool_->RecordNumWorkersHistogram();
+  worker_pool_->ReportHeartbeatMetrics();
   EXPECT_FALSE(
       tester.GetAllSamples("TaskScheduler.NumWorkers.TestWorkerPoolPool")
+          .empty());
+  EXPECT_FALSE(
+      tester.GetAllSamples("TaskScheduler.NumActiveWorkers.TestWorkerPoolPool")
           .empty());
 }
 

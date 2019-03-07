@@ -11,13 +11,13 @@
 
 #include "base/feature_list.h"
 #include "base/macros.h"
-#include "base/message_loop/message_loop.h"
 #include "base/optional.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/scoped_task_environment.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "build/build_config.h"
 #include "components/autofill/core/common/form_data.h"
@@ -44,6 +44,7 @@
 using autofill::FormData;
 using autofill::FormFieldData;
 using autofill::PasswordForm;
+using autofill::PasswordFormFillData;
 using base::ASCIIToUTF16;
 using base::TestMockTimeTaskRunner;
 using testing::_;
@@ -207,6 +208,20 @@ void CheckMetricHasValue(const ukm::TestUkmRecorder& test_ukm_recorder,
       static_cast<int64_t>(value));
 }
 
+// Sets |unique_id| in fields on iOS.
+void SetUniqueIdIfNeeded(FormData* form) {
+  // On iOS the unique_id member uniquely addresses this field in the DOM.
+  // This is an ephemeral value which is not guaranteed to be stable across
+  // page loads. It serves to allow a given field to be found during the
+  // current navigation.
+  // TODO(crbug.com/896689): Expand the logic/application of this to other
+  // platforms and/or merge this concept with |unique_renderer_id|.
+#if defined(OS_IOS)
+  for (auto& f : form->fields)
+    f.unique_id = f.id_attribute;
+#endif
+}
+
 }  // namespace
 
 class PasswordManagerTest : public testing::Test {
@@ -270,7 +285,7 @@ class PasswordManagerTest : public testing::Test {
     form.form_data.name = ASCIIToUTF16("the-form-name");
     form.form_data.unique_renderer_id = 10;
 
-    autofill::FormFieldData field;
+    FormFieldData field;
     field.name = ASCIIToUTF16("Email");
     field.id_attribute = field.name;
     field.name_attribute = field.name;
@@ -287,17 +302,7 @@ class PasswordManagerTest : public testing::Test {
     field.unique_renderer_id = 3;
     form.form_data.fields.push_back(field);
 
-// On iOS the unique_id member uniquely addresses this field in the DOM.
-// This is an ephemeral value which is not guaranteed to be stable across
-// page loads. It serves to allow a given field to be found during the
-// current navigation.
-// TODO(crbug.com/896689): Expand the logic/application of this to other
-// platforms and/or merge this concept with |unique_renderer_id|.
-#if defined(OS_IOS)
-    for (auto& f : form.form_data.fields) {
-      f.unique_id = f.id_attribute;
-    }
-#endif
+    SetUniqueIdIfNeeded(&form.form_data);
 
     return form;
   }
@@ -376,6 +381,38 @@ class PasswordManagerTest : public testing::Test {
     return form;
   }
 
+  PasswordForm MakeSimpleCreditCardForm() {
+    PasswordForm form;
+    form.origin = GURL("https://accounts.google.com");
+    form.signon_realm = form.origin.spec();
+    form.username_element = ASCIIToUTF16("cc-number");
+    form.password_element = ASCIIToUTF16("cvc");
+    form.username_value = ASCIIToUTF16("1234567");
+    form.password_value = ASCIIToUTF16("123");
+    form.form_data.origin = form.origin;
+
+    FormFieldData field;
+    field.name = form.username_element;
+    field.id_attribute = field.name;
+    field.value = form.username_value;
+    field.form_control_type = "text";
+    field.unique_renderer_id = 2;
+    field.autocomplete_attribute = "cc-name";
+    form.form_data.fields.push_back(field);
+
+    field.name = form.password_element;
+    field.id_attribute = field.name;
+    field.value = form.password_value;
+    field.form_control_type = "password";
+    field.unique_renderer_id = 3;
+    field.autocomplete_attribute = "cc-number";
+    form.form_data.fields.push_back(field);
+
+    SetUniqueIdIfNeeded(&form.form_data);
+
+    return form;
+  }
+
   PasswordManager* manager() { return manager_.get(); }
 
   void OnPasswordFormSubmitted(const PasswordForm& form) {
@@ -401,7 +438,7 @@ class PasswordManagerTest : public testing::Test {
   }
 
   const GURL test_url_;
-  base::MessageLoop message_loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
   scoped_refptr<MockPasswordStore> store_;
   testing::NiceMock<MockPasswordManagerClient> client_;
   MockPasswordManagerDriver driver_;
@@ -2968,6 +3005,28 @@ TEST_F(PasswordManagerTest, NoSavePromptWhenPasswordManagerDisabled) {
   manager()->OnPasswordFormSubmittedNoChecks(&driver_, submitted_form);
 }
 
+TEST_F(PasswordManagerTest, NoSavePromptForNotPasswordForm) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  TurnOnNewParsingForSaving(&scoped_feature_list);
+
+  PasswordForm form(MakeSimpleForm());
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled(form.origin))
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*store_, GetLogins(_, _))
+      .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
+  // Make the form to be credit card form.
+  form.form_data.fields[1].autocomplete_attribute = "cc-csc";
+
+  manager()->OnPasswordFormsParsed(&driver_, {form});
+
+  auto submitted_form = form;
+  submitted_form.form_data.fields[0].value = ASCIIToUTF16("text");
+  submitted_form.form_data.fields[1].value = ASCIIToUTF16("1234");
+
+  EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_)).Times(0);
+  manager()->OnPasswordFormSubmittedNoChecks(&driver_, submitted_form);
+}
+
 // Check that when autofill predictions are received before a form is found then
 // server predictions are not ignored and used for filling.
 TEST_F(PasswordManagerTest, AutofillPredictionBeforeFormParsed) {
@@ -3052,6 +3111,8 @@ TEST_F(PasswordManagerTest, SavingAfterUserTypingAndNavigation) {
 TEST_F(PasswordManagerTest, ProvisionallySaveFailure) {
   EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
       .WillRepeatedly(Return(true));
+  EXPECT_CALL(*store_, GetLogins(_, _))
+      .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
   for (bool new_parsing_for_saving : {false, true}) {
     SCOPED_TRACE(testing::Message()
                  << "new_parsing_for_saving = " << new_parsing_for_saving);
@@ -3109,6 +3170,9 @@ struct MissingFormManagerTestCase {
   // The expected value of the PageWithPassword::kFormManagerAvailableName
   // metric, or base::nullopt if no value should be logged.
   base::Optional<int64_t> expected_metric_value;
+
+  bool run_for_old_parser = true;
+  bool run_for_new_parser = true;
 };
 
 }  // namespace
@@ -3145,6 +3209,19 @@ TEST_F(PasswordManagerTest, ReportMissingFormManager) {
           .expected_metric_value =
               MetricValue(PasswordManagerMetricsRecorder::FormManagerAvailable::
                               kMissingManual),
+          .run_for_new_parser = false,
+      },
+      {
+          .description = "Manual saving is requested and a "
+                         "NewPasswordFormManager is created.",
+          .parsed_forms = {},
+          .save_signal = MissingFormManagerTestCase::Signal::Manual,
+          // .parsed_forms is empty, so the processed form below was not
+          // observed and has no form manager associated.
+          .processed_forms = {form},
+          .expected_metric_value = MetricValue(
+              PasswordManagerMetricsRecorder::FormManagerAvailable::kSuccess),
+          .run_for_old_parser = false,
       },
       {
           .description = "Manual saving is successfully requested.",
@@ -3198,6 +3275,10 @@ TEST_F(PasswordManagerTest, ReportMissingFormManager) {
         .WillRepeatedly(Return(test_case.saving ==
                                MissingFormManagerTestCase::Saving::Enabled));
     for (bool new_parsing_for_saving : {false, true}) {
+      if ((new_parsing_for_saving && !test_case.run_for_new_parser) ||
+          (!new_parsing_for_saving && !test_case.run_for_old_parser)) {
+        continue;
+      }
       SCOPED_TRACE(testing::Message()
                    << "test case = " << test_case.description
                    << ", new_parsing_for_saving = " << new_parsing_for_saving);
@@ -3248,6 +3329,127 @@ TEST_F(PasswordManagerTest, ReportMissingFormManager) {
             ukm::builders::PageWithPassword::kFormManagerAvailableName));
       }
     }
+  }
+}
+
+// Tests that despite there a form was not seen on a page load, new
+// |NewPasswordFormManager| is created in process of saving.
+TEST_F(PasswordManagerTest, CreateNewPasswordFormManagerOnSaving) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  TurnOnNewParsingForSaving(&scoped_feature_list);
+
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
+      .WillRepeatedly(Return(true));
+
+  PasswordForm form(MakeSimpleForm());
+  EXPECT_CALL(*store_, GetLogins(_, _))
+      .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
+
+  manager()->OnPasswordFormsParsed(&driver_, {form});
+
+  // Simulate that JavaScript creates a new form, fills username/password and
+  // submits it.
+  auto submitted_form = form;
+  submitted_form.form_data.unique_renderer_id += 1000;
+  submitted_form.username_value = ASCIIToUTF16("username1");
+  submitted_form.form_data.fields[0].value = submitted_form.username_value;
+  submitted_form.password_value = ASCIIToUTF16("password1");
+  submitted_form.form_data.fields[1].value = submitted_form.password_value;
+
+  OnPasswordFormSubmitted(submitted_form);
+  EXPECT_TRUE(manager()->GetSubmittedManagerForTest());
+
+  std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
+  EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_))
+      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+
+  // The form disappeared, so the submission is condered to be successful.
+  manager()->OnPasswordFormsRendered(&driver_, {}, true);
+  ASSERT_TRUE(form_manager_to_save);
+  EXPECT_THAT(form_manager_to_save->GetPendingCredentials(),
+              FormMatches(submitted_form));
+}
+
+// Tests that no save prompt from form manager is shown when Credentials
+// Management API function store is called.
+TEST_F(PasswordManagerTest, NoSavePromptAfterStoreCalled) {
+  for (bool new_parsing_for_saving : {false, true}) {
+    SCOPED_TRACE(testing::Message()
+                 << "new_parsing_for_saving = " << new_parsing_for_saving);
+    base::test::ScopedFeatureList scoped_feature_list;
+    if (new_parsing_for_saving)
+      TurnOnNewParsingForSaving(&scoped_feature_list);
+
+    EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
+        .WillRepeatedly(Return(true));
+
+    PasswordForm form(MakeSimpleForm());
+    EXPECT_CALL(*store_, GetLogins(_, _))
+        .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
+
+    manager()->OnPasswordFormsParsed(&driver_, {form});
+
+    // Simulate that navigator.credentials.store function is called.
+    manager()->NotifyStorePasswordCalled();
+
+    OnPasswordFormSubmitted(form);
+    EXPECT_FALSE(manager()->GetSubmittedManagerForTest());
+    EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_)).Times(0);
+
+    manager()->OnPasswordFormsRendered(&driver_, {}, true);
+    testing::Mock::VerifyAndClearExpectations(&client_);
+  }
+}
+
+// Check that on non-password form, saving and filling fallbacks are available
+// but no automatic filling and saving are available.
+TEST_F(PasswordManagerTest, FillingAndSavingFallbacksOnNonPasswordForm) {
+  NewPasswordFormManager::set_wait_for_server_predictions_for_filling(false);
+  for (bool is_new_parsing_on : {false, true}) {
+    SCOPED_TRACE(testing::Message()
+                 << "is_new_parsing_on = " << is_new_parsing_on);
+    base::test::ScopedFeatureList scoped_feature_list;
+    if (is_new_parsing_on)
+      TurnOnNewParsingForSaving(&scoped_feature_list);
+
+    EXPECT_CALL(client_, IsSavingAndFillingEnabled(_))
+        .WillRepeatedly(Return(true));
+
+    PasswordForm saved_match(MakeSimpleForm());
+    PasswordForm credit_card_form(MakeSimpleCreditCardForm());
+    credit_card_form.only_for_fallback = true;
+
+    EXPECT_CALL(*store_, GetLogins(_, _))
+        .WillRepeatedly(WithArg<1>(InvokeConsumer(saved_match)));
+
+    PasswordFormFillData form_data;
+    EXPECT_CALL(driver_, FillPasswordForm(_)).WillOnce(SaveArg<0>(&form_data));
+
+    manager()->OnPasswordFormsParsed(&driver_, {credit_card_form});
+    // Check that manual filling fallback available.
+    EXPECT_EQ(saved_match.username_value, form_data.username_field.value);
+    EXPECT_EQ(saved_match.password_value, form_data.password_field.value);
+    // Check that no automatic filling available.
+    uint32_t renderer_id_not_set = FormFieldData::kNotSetFormControlRendererId;
+    EXPECT_EQ(renderer_id_not_set, form_data.username_field.unique_renderer_id);
+    EXPECT_EQ(renderer_id_not_set, form_data.password_field.unique_renderer_id);
+
+    // Check that saving fallback is available.
+    std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
+    EXPECT_CALL(client_, ShowManualFallbackForSavingPtr(_, false, false))
+        .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+    manager()->ShowManualFallbackForSaving(&driver_, credit_card_form);
+    ASSERT_TRUE(form_manager_to_save);
+    EXPECT_THAT(form_manager_to_save->GetPendingCredentials(),
+                FormMatches(credit_card_form));
+
+    // Check that no automatic save prompt is shown.
+    OnPasswordFormSubmitted(credit_card_form);
+    EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_)).Times(0);
+    manager()->DidNavigateMainFrame(true);
+    manager()->OnPasswordFormsRendered(&driver_, {}, true);
+
+    testing::Mock::VerifyAndClearExpectations(&client_);
   }
 }
 

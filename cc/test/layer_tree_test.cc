@@ -88,10 +88,11 @@ class SynchronousLayerTreeFrameSink : public viz::TestLayerTreeFrameSink {
     InvalidateIfPossible();
   }
   void SubmitCompositorFrame(viz::CompositorFrame frame,
+                             bool hit_test_data_changed,
                              bool show_hit_test_borders) override {
     frame_ack_pending_ = true;
-    viz::TestLayerTreeFrameSink::SubmitCompositorFrame(std::move(frame),
-                                                       show_hit_test_borders);
+    viz::TestLayerTreeFrameSink::SubmitCompositorFrame(
+        std::move(frame), hit_test_data_changed, show_hit_test_borders);
   }
   void DidReceiveCompositorFrameAck(
       const std::vector<viz::ReturnedResource>& resources) override {
@@ -107,8 +108,8 @@ class SynchronousLayerTreeFrameSink : public viz::TestLayerTreeFrameSink {
       return;
     task_runner_->PostTask(
         FROM_HERE,
-        base::Bind(&SynchronousLayerTreeFrameSink::DispatchInvalidation,
-                   weak_factory_.GetWeakPtr()));
+        base::BindOnce(&SynchronousLayerTreeFrameSink::DispatchInvalidation,
+                       weak_factory_.GetWeakPtr()));
   }
   void DispatchInvalidation() {
     frame_request_pending_ = false;
@@ -450,6 +451,13 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
   void RecordWheelAndTouchScrollingCount(bool has_scrolled_by_wheel,
                                          bool has_scrolled_by_touch) override {}
 
+  void SendOverscrollEventFromImplSide(
+      const gfx::Vector2dF& overscroll_delta,
+      ElementId scroll_latched_element_id) override {}
+
+  void SendScrollEndEventFromImplSide(
+      ElementId scroll_latched_element_id) override {}
+
   void RequestNewLayerTreeFrameSink() override {
     test_hooks_->RequestNewLayerTreeFrameSink();
   }
@@ -486,6 +494,8 @@ class LayerTreeHostClientForTesting : public LayerTreeHostClient,
   void DidPresentCompositorFrame(
       uint32_t frame_token,
       const gfx::PresentationFeedback& feedback) override {}
+  void DidGenerateLocalSurfaceIdAllocation(
+      const viz::LocalSurfaceIdAllocation& allocation) override {}
 
  private:
   explicit LayerTreeHostClientForTesting(TestHooks* test_hooks)
@@ -848,7 +858,8 @@ void LayerTreeTest::DoBeginTest() {
   }
 
   if (timeout_seconds_) {
-    timeout_.Reset(base::Bind(&LayerTreeTest::Timeout, base::Unretained(this)));
+    timeout_.Reset(
+        base::BindOnce(&LayerTreeTest::Timeout, base::Unretained(this)));
     main_task_runner_->PostDelayedTask(
         FROM_HERE, timeout_.callback(),
         base::TimeDelta::FromSeconds(timeout_seconds_));

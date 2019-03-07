@@ -32,9 +32,8 @@ class FilePath;
 
 namespace content {
 class BrowserContext;
-class ColorChooser;
 class WebContents;
-}
+}  // namespace content
 
 namespace extensions {
 class Extension;
@@ -47,14 +46,14 @@ class AuthChallengeInfo;
 namespace payments {
 class PaymentRequest;
 class PaymentRequestDialog;
-}
+}  // namespace payments
 
 namespace safe_browsing {
 class ChromeCleanerController;
 class ChromeCleanerDialogController;
 class ChromeCleanerRebootDialogController;
 class SettingsResetPromptController;
-}
+}  // namespace safe_browsing
 
 namespace task_manager {
 class TaskManagerTableModel;
@@ -63,7 +62,7 @@ class TaskManagerTableModel;
 namespace ui {
 class WebDialogDelegate;
 struct SelectedFileInfo;
-}
+}  // namespace ui
 
 namespace chrome {
 
@@ -84,20 +83,6 @@ gfx::NativeWindow ShowWebDialog(gfx::NativeView parent,
                                 content::BrowserContext* context,
                                 ui::WebDialogDelegate* delegate);
 #endif  // !defined(OS_MACOSX)
-
-#if defined(OS_CHROMEOS)
-// Creates and shows an HTML dialog with the given delegate and browser context.
-// The dialog is placed in the ash window hierarchy in the given container. The
-// window is automatically destroyed when it is closed.
-// Returns the created window.
-// See ash/public/cpp/shell_window_ids.h for |container_id| values. The window
-// is destroyed when it is closed. See also chrome::ShowWebDialog().
-// |is_minimal_style| means whether the title area of the dialog should be hide.
-gfx::NativeWindow ShowWebDialogInContainer(int container_id,
-                                           content::BrowserContext* context,
-                                           ui::WebDialogDelegate* delegate,
-                                           bool is_minimal_style = false);
-#endif  // defined(OS_CHROMEOS)
 
 // Shows the create chrome app shortcut dialog box.
 // |close_callback| may be null.
@@ -137,10 +122,6 @@ void ShowPWAInstallDialog(content::WebContents* web_contents,
 // Sets whether |ShowPWAInstallDialog| should accept immediately without any
 // user interaction.
 void SetAutoAcceptPWAInstallDialogForTesting(bool auto_accept);
-
-// Shows a color chooser that reports to the given WebContents.
-content::ColorChooser* ShowColorChooser(content::WebContents* web_contents,
-                                        SkColor initial_color);
 
 #if defined(OS_MACOSX)
 
@@ -283,6 +264,10 @@ enum class DialogIdentifier {
   HATS_BUBBLE = 90,
   CROSTINI_APP_RESTART = 91,
   INCOGNITO_WINDOW_COUNTER = 92,
+  CROSTINI_APP_UNINSTALLER = 93,
+  CROSTINI_CONTAINER_UPGRADE = 94,
+  // Add values above this line with a corresponding label in
+  // tools/metrics/histograms/enums.xml
   MAX_VALUE
 };
 

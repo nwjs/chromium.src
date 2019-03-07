@@ -29,26 +29,6 @@
 namespace autofill {
 
 #if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
-namespace {
-// Returns the font weight corresponding to the value of param
-// kAutofillForcedFontWeightParameterName, or kDefault if the param is not
-// valid.
-ForcedFontWeight GetFontWeightFromParam() {
-  std::string param = base::GetFieldTrialParamValueByFeature(
-      kAutofillPrimaryInfoStyleExperiment,
-      kAutofillForcedFontWeightParameterName);
-
-  if (param == kAutofillForcedFontWeightParameterMedium)
-    return ForcedFontWeight::kMedium;
-  if (param == kAutofillForcedFontWeightParameterBold)
-    return ForcedFontWeight::kBold;
-
-  return ForcedFontWeight::kDefault;
-}
-}  // namespace
-#endif  // defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
-
-#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
 const base::Feature kAutofillDropdownLayoutExperiment{
     "AutofillDropdownLayout", base::FEATURE_DISABLED_BY_DEFAULT};
 const char kAutofillDropdownLayoutParameterName[] = "variant";
@@ -56,14 +36,6 @@ const char kAutofillDropdownLayoutParameterLeadingIcon[] = "leading-icon";
 const char kAutofillDropdownLayoutParameterTrailingIcon[] = "trailing-icon";
 const char kAutofillDropdownLayoutParameterTwoLinesLeadingIcon[] =
     "two-lines-leading-icon";
-#endif  // defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
-
-#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
-const base::Feature kAutofillPrimaryInfoStyleExperiment{
-    "AutofillPrimaryInfoStyleExperiment", base::FEATURE_DISABLED_BY_DEFAULT};
-const char kAutofillForcedFontWeightParameterName[] = "font_weight";
-const char kAutofillForcedFontWeightParameterMedium[] = "medium";
-const char kAutofillForcedFontWeightParameterBold[] = "bold";
 #endif  // defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
 
 bool IsCreditCardUploadEnabled(const PrefService* pref_service,
@@ -118,10 +90,13 @@ bool IsCreditCardUploadEnabled(const PrefService* pref_service,
   // If the "allow all email domains" flag is off, restrict credit card upload
   // only to Google Accounts with @googlemail, @gmail, @google, or @chromium
   // domains.
+  // example.com is on the list because ChromeOS tests rely on using this. That
+  // should be fine, since example.com is an IANA reserved domain.
   if (!base::FeatureList::IsEnabled(
           features::kAutofillUpstreamAllowAllEmailDomains) &&
       !(domain == "googlemail.com" || domain == "gmail.com" ||
-        domain == "google.com" || domain == "chromium.org")) {
+        domain == "google.com" || domain == "chromium.org" ||
+        domain == "example.com")) {
     return false;
   }
 
@@ -167,13 +142,18 @@ bool IsAutofillNoLocalSaveOnUploadSuccessExperimentEnabled() {
       features::kAutofillNoLocalSaveOnUploadSuccess);
 }
 
-bool OfferStoreUnmaskedCards() {
+bool OfferStoreUnmaskedCards(bool is_off_the_record) {
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
   // The checkbox can be forced on with a flag, but by default we don't store
   // on Linux due to lack of system keychain integration. See crbug.com/162735
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kEnableOfferStoreUnmaskedWalletCards);
 #else
+  // Never offer to store unmasked cards when off the record.
+  if (is_off_the_record) {
+    return false;
+  }
+
   // Query the field trial before checking command line flags to ensure UMA
   // reports the correct group.
   std::string group_name =
@@ -200,17 +180,6 @@ bool ShouldUseActiveSignedInAccount() {
          base::FeatureList::IsEnabled(
              features::kAutofillGetPaymentsIdentityFromSync);
 }
-
-#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
-ForcedFontWeight GetForcedFontWeight() {
-  if (!base::FeatureList::IsEnabled(kAutofillPrimaryInfoStyleExperiment))
-    return ForcedFontWeight::kDefault;
-
-  // Only read the feature param's value the first time it's needed.
-  static ForcedFontWeight font_weight_from_param = GetFontWeightFromParam();
-  return font_weight_from_param;
-}
-#endif  // defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
 
 #if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_WIN)
 ForcedPopupLayoutState GetForcedPopupLayoutState() {

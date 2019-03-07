@@ -27,7 +27,7 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/common/extensions/api/file_browser_handlers/file_browser_handler.h"
 #include "chrome/common/extensions/api/file_manager_private.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/render_process_host.h"
@@ -37,7 +37,8 @@
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_util.h"
-#include "extensions/browser/lazy_background_task_queue.h"
+#include "extensions/browser/lazy_context_id.h"
+#include "extensions/browser/lazy_context_task_queue.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest_handlers/background_info.h"
 #include "extensions/common/url_pattern.h"
@@ -199,7 +200,8 @@ class FileBrowserHandlerExecutor {
       std::unique_ptr<FileDefinitionList> file_definition_list,
       std::unique_ptr<EntryDefinitionList> entry_definition_list,
       int handler_pid_in,
-      extensions::ExtensionHost* host);
+      std::unique_ptr<extensions::LazyContextTaskQueue::ContextInfo>
+          context_info);
 
   // Registers file permissions from |handler_host_permissions_| with
   // ChildProcessSecurityPolicy for process with id |handler_pid|.
@@ -348,14 +350,14 @@ void FileBrowserHandlerExecutor::ExecuteFileActionsOnUIThread(
                                      handler_pid, nullptr);
   } else {
     // We have to wake the handler background page before we proceed.
-    extensions::LazyBackgroundTaskQueue* queue =
-        extensions::LazyBackgroundTaskQueue::Get(profile_);
+    const extensions::LazyContextId context_id(profile_, extension_->id());
+    extensions::LazyContextTaskQueue* queue = context_id.GetTaskQueue();
     if (!queue->ShouldEnqueueTask(profile_, extension_.get())) {
       ExecuteDoneOnUIThread(false);
       return;
     }
     queue->AddPendingTask(
-        profile_, extension_->id(),
+        context_id,
         base::BindOnce(
             &FileBrowserHandlerExecutor::SetupPermissionsAndDispatchEvent,
             weak_ptr_factory_.GetWeakPtr(),
@@ -368,9 +370,11 @@ void FileBrowserHandlerExecutor::SetupPermissionsAndDispatchEvent(
     std::unique_ptr<FileDefinitionList> file_definition_list,
     std::unique_ptr<EntryDefinitionList> entry_definition_list,
     int handler_pid_in,
-    extensions::ExtensionHost* host) {
-  int handler_pid = host ? host->render_process_host()->GetID() :
-      handler_pid_in;
+    std::unique_ptr<extensions::LazyContextTaskQueue::ContextInfo>
+        context_info) {
+  int handler_pid = context_info != nullptr
+                        ? context_info->render_process_host->GetID()
+                        : handler_pid_in;
 
   if (handler_pid <= 0) {
     ExecuteDoneOnUIThread(false);

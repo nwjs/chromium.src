@@ -13,6 +13,7 @@
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/driver/test_sync_user_settings.h"
 #include "components/sync/engine/cycle/sync_cycle_snapshot.h"
+#include "components/sync/engine/sync_status.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "url/gurl.h"
 
@@ -30,6 +31,7 @@ class TestSyncService : public SyncService {
   void SetLocalSyncEnabled(bool local_sync_enabled);
   void SetAuthenticatedAccountInfo(const AccountInfo& account_info);
   void SetIsAuthenticatedAccountPrimary(bool is_primary);
+  void SetSetupInProgress(bool in_progress);
   void SetAuthError(const GoogleServiceAuthError& auth_error);
   void SetFirstSetupComplete(bool first_setup_complete);
   void SetPreferredDataTypes(const ModelTypeSet& types);
@@ -40,6 +42,9 @@ class TestSyncService : public SyncService {
   // the particular values in the snapshot, just whether there is one.
   void SetEmptyLastCycleSnapshot();
   void SetNonEmptyLastCycleSnapshot();
+  void SetDetailedSyncStatus(bool engine_available, SyncStatus status);
+  void SetPassphraseRequired(bool required);
+  void SetPassphraseRequiredForDecryption(bool required);
 
   // SyncService implementation.
   syncer::SyncUserSettings* GetUserSettings() override;
@@ -55,10 +60,12 @@ class TestSyncService : public SyncService {
       override;
   bool IsSetupInProgress() const override;
 
+  ModelTypeSet GetRegisteredDataTypes() const override;
+  ModelTypeSet GetForcedDataTypes() const override;
   ModelTypeSet GetPreferredDataTypes() const override;
   ModelTypeSet GetActiveDataTypes() const override;
 
-  void RequestStop(SyncStopDataFate data_fate) override;
+  void StopAndClear() override;
   void OnDataTypeRequestsSyncStartup(ModelType type) override;
   void TriggerRefresh(const ModelTypeSet& types) override;
   void ReenableDatatype(ModelType type) override;
@@ -69,12 +76,7 @@ class TestSyncService : public SyncService {
   bool HasObserver(const SyncServiceObserver* observer) const override;
 
   bool IsPassphraseRequiredForDecryption() const override;
-  base::Time GetExplicitPassphraseTime() const override;
   bool IsUsingSecondaryPassphrase() const override;
-  void EnableEncryptEverything() override;
-  bool IsEncryptEverythingEnabled() const override;
-  void SetEncryptionPassphrase(const std::string& passphrase) override;
-  bool SetDecryptionPassphrase(const std::string& passphrase) override;
 
   UserShare* GetUserShare() const override;
 
@@ -110,12 +112,18 @@ class TestSyncService : public SyncService {
   bool local_sync_enabled_ = false;
   AccountInfo account_info_;
   bool account_is_primary_ = true;
+  bool setup_in_progress_ = false;
   GoogleServiceAuthError auth_error_;
 
   ModelTypeSet preferred_data_types_;
   ModelTypeSet active_data_types_;
 
   bool using_secondary_passphrase_ = false;
+  bool passphrase_required_ = false;
+  bool passphrase_required_for_decryption_ = false;
+
+  bool detailed_sync_status_engine_available_ = false;
+  SyncStatus detailed_sync_status_;
 
   SyncCycleSnapshot last_cycle_snapshot_;
 

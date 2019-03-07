@@ -29,7 +29,6 @@
 #include <memory>
 
 #include "base/memory/scoped_refptr.h"
-#include "third_party/blink/public/platform/modules/indexeddb/web_idb_database_callbacks.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/string_or_string_sequence.h"
 #include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
@@ -43,6 +42,7 @@
 #include "third_party/blink/renderer/modules/indexeddb/idb_transaction.h"
 #include "third_party/blink/renderer/modules/indexeddb/indexed_db.h"
 #include "third_party/blink/renderer/modules/indexeddb/web_idb_database.h"
+#include "third_party/blink/renderer/modules/indexeddb/web_idb_database_callbacks.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/trace_wrapper_member.h"
@@ -53,8 +53,8 @@ namespace blink {
 class DOMException;
 class ExceptionState;
 class ExecutionContext;
+class IDBObservation;
 class IDBObserver;
-struct WebIDBObservation;
 
 class MODULES_EXPORT IDBDatabase final
     : public EventTargetWithInlineData,
@@ -123,7 +123,7 @@ class MODULES_EXPORT IDBDatabase final
   void OnAbort(int64_t, DOMException*);
   void OnComplete(int64_t);
   void OnChanges(const WebIDBDatabaseCallbacks::ObservationIndexMap&,
-                 WebVector<WebIDBObservation> observations,
+                 Vector<Persistent<IDBObservation>> observations,
                  const WebIDBDatabaseCallbacks::TransactionMap& transactions);
 
   // ScriptWrappable

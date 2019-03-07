@@ -7,7 +7,6 @@
 
 #include "chrome/credential_provider/gaiacp/gaia_credential_base.h"
 #include "chrome/credential_provider/gaiacp/gaia_credential_provider_i.h"
-#include "chrome/credential_provider/gaiacp/grit/gaia_resources.h"
 
 namespace credential_provider {
 
@@ -36,12 +35,8 @@ class ATL_NO_VTABLE CGaiaCredential
 
   DECLARE_PROTECT_FINAL_CONSTRUCT()
 
-  // IGaiaCredential
-  IFACEMETHODIMP FinishAuthentication(BSTR username,
-                                      BSTR password,
-                                      BSTR fullname,
-                                      BSTR* sid,
-                                      BSTR* error_text) override;
+  // CGaiaCredentialBase
+  void ResetInternalState() override;
 };
 
 }  // namespace credential_provider

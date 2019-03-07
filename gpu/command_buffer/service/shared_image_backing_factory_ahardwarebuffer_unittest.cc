@@ -5,18 +5,22 @@
 #include "gpu/command_buffer/service/shared_image_backing_factory_ahardwarebuffer.h"
 
 #include "base/android/android_hardware_buffer_compat.h"
+#include "base/bind_helpers.h"
 #include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/mailbox_manager_impl.h"
-#include "gpu/command_buffer/service/raster_decoder_context_state.h"
+#include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image_backing.h"
 #include "gpu/command_buffer/service/shared_image_factory.h"
 #include "gpu/command_buffer/service/shared_image_manager.h"
 #include "gpu/command_buffer/service/shared_image_representation.h"
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "gpu/config/gpu_driver_bug_workarounds.h"
+#include "gpu/config/gpu_feature_info.h"
+#include "gpu/config/gpu_preferences.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkImage.h"
+#include "third_party/skia/include/core/SkPromiseImageTexture.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "ui/gfx/color_space.h"
@@ -47,14 +51,18 @@ class SharedImageBackingFactoryAHBTest : public testing::Test {
 
     GpuDriverBugWorkarounds workarounds;
     workarounds.max_texture_size = INT_MAX - 1;
-    backing_factory_ = std::make_unique<SharedImageBackingFactoryAHB>(
-        workarounds, GpuFeatureInfo());
 
     scoped_refptr<gl::GLShareGroup> share_group = new gl::GLShareGroup();
-    context_state_ = new raster::RasterDecoderContextState(
+    context_state_ = base::MakeRefCounted<SharedContextState>(
         std::move(share_group), surface_, context_,
-        false /* use_virtualized_gl_contexts */);
+        false /* use_virtualized_gl_contexts */, base::DoNothing());
     context_state_->InitializeGrContext(workarounds, nullptr);
+    auto feature_info =
+        base::MakeRefCounted<gles2::FeatureInfo>(workarounds, GpuFeatureInfo());
+    context_state_->InitializeGL(GpuPreferences(), std::move(feature_info));
+
+    backing_factory_ = std::make_unique<SharedImageBackingFactoryAHB>(
+        workarounds, GpuFeatureInfo(), context_state_.get());
 
     memory_type_tracker_ = std::make_unique<MemoryTypeTracker>(nullptr);
     shared_image_representation_factory_ =
@@ -62,12 +70,12 @@ class SharedImageBackingFactoryAHBTest : public testing::Test {
             &shared_image_manager_, nullptr);
   }
 
-  GrContext* gr_context() { return context_state_->gr_context; }
+  GrContext* gr_context() { return context_state_->gr_context(); }
 
  protected:
   scoped_refptr<gl::GLSurface> surface_;
   scoped_refptr<gl::GLContext> context_;
-  scoped_refptr<raster::RasterDecoderContextState> context_state_;
+  scoped_refptr<SharedContextState> context_state_;
   std::unique_ptr<SharedImageBackingFactoryAHB> backing_factory_;
   gles2::MailboxManagerImpl mailbox_manager_;
   SharedImageManager shared_image_manager_;
@@ -138,18 +146,19 @@ TEST_F(SharedImageBackingFactoryAHBTest, Basic) {
       shared_image_representation_factory_->ProduceSkia(mailbox);
   EXPECT_TRUE(skia_representation);
   auto surface = skia_representation->BeginWriteAccess(
-      gr_context(), 0, kRGBA_8888_SkColorType,
-      SkSurfaceProps(0, kUnknown_SkPixelGeometry));
+      gr_context(), 0, SkSurfaceProps(0, kUnknown_SkPixelGeometry));
   EXPECT_TRUE(surface);
   EXPECT_EQ(size.width(), surface->width());
   EXPECT_EQ(size.height(), surface->height());
   skia_representation->EndWriteAccess(std::move(surface));
-  GrBackendTexture backend_texture;
-  EXPECT_TRUE(skia_representation->BeginReadAccess(
-
-      kRGBA_8888_SkColorType, &backend_texture));
-  EXPECT_EQ(size.width(), backend_texture.width());
-  EXPECT_EQ(size.width(), backend_texture.width());
+  auto promise_texture = skia_representation->BeginReadAccess(nullptr);
+  EXPECT_TRUE(promise_texture);
+  if (promise_texture) {
+    GrBackendTexture backend_texture = promise_texture->backendTexture();
+    EXPECT_TRUE(backend_texture.isValid());
+    EXPECT_EQ(size.width(), backend_texture.width());
+    EXPECT_EQ(size.height(), backend_texture.height());
+  }
   skia_representation->EndReadAccess();
   skia_representation.reset();
 
@@ -206,15 +215,18 @@ TEST_F(SharedImageBackingFactoryAHBTest, GLSkiaGL) {
   auto skia_representation =
       shared_image_representation_factory_->ProduceSkia(mailbox);
   EXPECT_TRUE(skia_representation);
-  GrBackendTexture backend_texture;
-  EXPECT_TRUE(skia_representation->BeginReadAccess(kRGBA_8888_SkColorType,
-                                                   &backend_texture));
-  EXPECT_EQ(size.width(), backend_texture.width());
-  EXPECT_EQ(size.width(), backend_texture.width());
+  auto promise_texture = skia_representation->BeginReadAccess(nullptr);
+  EXPECT_TRUE(promise_texture);
+  if (promise_texture) {
+    GrBackendTexture backend_texture = promise_texture->backendTexture();
+    EXPECT_TRUE(backend_texture.isValid());
+    EXPECT_EQ(size.width(), backend_texture.width());
+    EXPECT_EQ(size.height(), backend_texture.height());
+  }
 
   // Create an Sk Image from GrBackendTexture.
   auto sk_image = SkImage::MakeFromTexture(
-      gr_context(), backend_texture, kTopLeft_GrSurfaceOrigin,
+      gr_context(), promise_texture->backendTexture(), kTopLeft_GrSurfaceOrigin,
       kRGBA_8888_SkColorType, kOpaque_SkAlphaType, nullptr);
 
   SkImageInfo dst_info =

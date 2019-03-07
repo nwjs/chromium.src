@@ -17,17 +17,21 @@ namespace policy {
 // Returns a dictionary with the values of all set policies, with some values
 // converted to be shown in javascript, if it is specified.
 // |with_user_policies| governs if values with POLICY_SCOPE_USER are included.
+// |is_pretty_print| govers if JSON policy value is pretty printed.
 base::Value GetAllPolicyValuesAsDictionary(content::BrowserContext* context,
                                            bool with_user_policies,
-                                           bool convert_values);
+                                           bool convert_values,
+                                           bool is_pretty_print);
 
 // Returns a JSON with the values of all set policies.
 // |with_user_policies| governs if values with POLICY_SCOPE_USER are included.
 // |with_device_identity| governs if device identity data (e.g.
 // enrollment client ID) is included, it is used in remote logging command.
+// |is_pretty_print| governs if the output is formatted.
 std::string GetAllPolicyValuesAsJSON(content::BrowserContext* context,
                                      bool with_user_policies,
-                                     bool with_device_identity);
+                                     bool with_device_identity,
+                                     bool is_pretty_print);
 
 }  // namespace policy
 

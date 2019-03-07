@@ -19,8 +19,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "cc/paint/paint_canvas.h"
-#include "content/shell/common/layout_test/layout_test_switches.h"
-#include "content/shell/test_runner/layout_and_paint_async_then.h"
+#include "content/shell/common/web_test/web_test_switches.h"
 #include "content/shell/test_runner/layout_dump.h"
 #include "content/shell/test_runner/mock_content_settings_client.h"
 #include "content/shell/test_runner/mock_screen_orientation_client.h"
@@ -147,6 +146,7 @@ class TestRunnerBindings : public gin::Wrappable<TestRunnerBindings> {
                                      const std::string& destination_host,
                                      bool allow_destination_subdomains);
   void AddWebPageOverlay();
+  void SetHighlightAds();
   void CapturePixelsAsyncThen(v8::Local<v8::Function> callback);
   void ClearAllDatabases();
   void ClearPrinting();
@@ -194,8 +194,6 @@ class TestRunnerBindings : public gin::Wrappable<TestRunnerBindings> {
   void UpdateAllLifecyclePhasesAndCompositeThen(
       v8::Local<v8::Function> callback);
   void SetAnimationRequiresRaster(bool do_raster);
-  void LayoutAndPaintAsync();
-  void LayoutAndPaintAsyncThen(v8::Local<v8::Function> callback);
   void LogToStderr(const std::string& output);
   void NotImplemented(const gin::Arguments& args);
   void NotifyDone();
@@ -232,7 +230,8 @@ class TestRunnerBindings : public gin::Wrappable<TestRunnerBindings> {
   void SetCustomTextOutput(const std::string& output);
   void SetDatabaseQuota(int quota);
   void SetDisallowedSubresourcePathSuffixes(
-      const std::vector<std::string>& suffixes);
+      const std::vector<std::string>& suffixes,
+      bool block_subresources);
   void SetDomainRelaxationForbiddenForURLScheme(bool forbidden,
                                                 const std::string& scheme);
   void SetDumpConsoleMessages(bool value);
@@ -240,12 +239,10 @@ class TestRunnerBindings : public gin::Wrappable<TestRunnerBindings> {
   void SetEffectiveConnectionType(const std::string& connection_type);
   void SetMockSpellCheckerEnabled(bool enabled);
   void SetImagesAllowed(bool allowed);
-  void SetIsolatedWorldContentSecurityPolicy(int world_id,
-                                             const std::string& policy);
-  void SetIsolatedWorldSecurityOrigin(int world_id,
-                                      v8::Local<v8::Value> origin);
+  void SetIsolatedWorldInfo(int world_id,
+                            v8::Local<v8::Value> security_origin,
+                            v8::Local<v8::Value> content_security_policy);
   void SetJavaScriptCanAccessClipboard(bool can_access);
-  void SetMIDIAccessorResult(bool result);
   void SetMockScreenOrientation(const std::string& orientation);
   void SetPOSIXLocale(const std::string& locale);
   void SetPageVisibility(const std::string& new_visibility);
@@ -483,10 +480,6 @@ gin::ObjectTemplateBuilder TestRunnerBindings::GetObjectTemplateBuilder(
                  &TestRunnerBindings::UpdateAllLifecyclePhasesAndCompositeThen)
       .SetMethod("setAnimationRequiresRaster",
                  &TestRunnerBindings::SetAnimationRequiresRaster)
-      .SetMethod("layoutAndPaintAsync",
-                 &TestRunnerBindings::LayoutAndPaintAsync)
-      .SetMethod("layoutAndPaintAsyncThen",
-                 &TestRunnerBindings::LayoutAndPaintAsyncThen)
       .SetMethod("logToStderr", &TestRunnerBindings::LogToStderr)
       .SetMethod("notifyDone", &TestRunnerBindings::NotifyDone)
       .SetMethod("overridePreference", &TestRunnerBindings::OverridePreference)
@@ -554,18 +547,15 @@ gin::ObjectTemplateBuilder TestRunnerBindings::GetObjectTemplateBuilder(
                  &TestRunnerBindings::SetDumpJavaScriptDialogs)
       .SetMethod("setEffectiveConnectionType",
                  &TestRunnerBindings::SetEffectiveConnectionType)
+      .SetMethod("setHighlightAds", &TestRunnerBindings::SetHighlightAds)
       .SetMethod("setMockSpellCheckerEnabled",
                  &TestRunnerBindings::SetMockSpellCheckerEnabled)
       .SetMethod("setIconDatabaseEnabled", &TestRunnerBindings::NotImplemented)
       .SetMethod("setImagesAllowed", &TestRunnerBindings::SetImagesAllowed)
-      .SetMethod("setIsolatedWorldContentSecurityPolicy",
-                 &TestRunnerBindings::SetIsolatedWorldContentSecurityPolicy)
-      .SetMethod("setIsolatedWorldSecurityOrigin",
-                 &TestRunnerBindings::SetIsolatedWorldSecurityOrigin)
+      .SetMethod("setIsolatedWorldInfo",
+                 &TestRunnerBindings::SetIsolatedWorldInfo)
       .SetMethod("setJavaScriptCanAccessClipboard",
                  &TestRunnerBindings::SetJavaScriptCanAccessClipboard)
-      .SetMethod("setMIDIAccessorResult",
-                 &TestRunnerBindings::SetMIDIAccessorResult)
       .SetMethod("setMainFrameIsFirstResponder",
                  &TestRunnerBindings::NotImplemented)
       .SetMethod("setMockScreenOrientation",
@@ -805,18 +795,14 @@ void TestRunnerBindings::EvaluateScriptInIsolatedWorld(
     view_runner_->EvaluateScriptInIsolatedWorld(world_id, script);
 }
 
-void TestRunnerBindings::SetIsolatedWorldSecurityOrigin(
+void TestRunnerBindings::SetIsolatedWorldInfo(
     int world_id,
-    v8::Local<v8::Value> origin) {
-  if (view_runner_)
-    view_runner_->SetIsolatedWorldSecurityOrigin(world_id, origin);
-}
-
-void TestRunnerBindings::SetIsolatedWorldContentSecurityPolicy(
-    int world_id,
-    const std::string& policy) {
-  if (view_runner_)
-    view_runner_->SetIsolatedWorldContentSecurityPolicy(world_id, policy);
+    v8::Local<v8::Value> security_origin,
+    v8::Local<v8::Value> content_security_policy) {
+  if (view_runner_) {
+    view_runner_->SetIsolatedWorldInfo(world_id, security_origin,
+                                       content_security_policy);
+  }
 }
 
 void TestRunnerBindings::AddOriginAccessAllowListEntry(
@@ -919,9 +905,10 @@ void TestRunnerBindings::DisableMockScreenOrientation() {
 }
 
 void TestRunnerBindings::SetDisallowedSubresourcePathSuffixes(
-    const std::vector<std::string>& suffixes) {
+    const std::vector<std::string>& suffixes,
+    bool block_subresources) {
   if (runner_)
-    runner_->SetDisallowedSubresourcePathSuffixes(suffixes);
+    runner_->SetDisallowedSubresourcePathSuffixes(suffixes, block_subresources);
 }
 
 void TestRunnerBindings::DidAcquirePointerLock() {
@@ -1276,14 +1263,6 @@ void TestRunnerBindings::SetPOSIXLocale(const std::string& locale) {
     runner_->SetPOSIXLocale(locale);
 }
 
-void TestRunnerBindings::SetMIDIAccessorResult(bool result) {
-  if (runner_) {
-    runner_->SetMIDIAccessorResult(
-        result ? midi::mojom::Result::OK
-               : midi::mojom::Result::INITIALIZATION_ERROR);
-  }
-}
-
 void TestRunnerBindings::SimulateWebNotificationClick(gin::Arguments* args) {
   DCHECK_GE(args->Length(), 1);
   if (!runner_)
@@ -1330,6 +1309,11 @@ void TestRunnerBindings::SimulateWebNotificationClose(const std::string& title,
   runner_->SimulateWebNotificationClose(title, by_user);
 }
 
+void TestRunnerBindings::SetHighlightAds() {
+  if (view_runner_)
+    view_runner_->SetHighlightAds(true);
+}
+
 void TestRunnerBindings::AddWebPageOverlay() {
   if (view_runner_)
     view_runner_->AddWebPageOverlay();
@@ -1355,17 +1339,6 @@ void TestRunnerBindings::SetAnimationRequiresRaster(bool do_raster) {
   if (!runner_)
     return;
   runner_->SetAnimationRequiresRaster(do_raster);
-}
-
-void TestRunnerBindings::LayoutAndPaintAsync() {
-  if (view_runner_)
-    view_runner_->LayoutAndPaintAsync();
-}
-
-void TestRunnerBindings::LayoutAndPaintAsyncThen(
-    v8::Local<v8::Function> callback) {
-  if (view_runner_)
-    view_runner_->LayoutAndPaintAsyncThen(callback);
 }
 
 void TestRunnerBindings::GetManifestThen(v8::Local<v8::Function> callback) {
@@ -1478,7 +1451,7 @@ void TestRunner::WorkQueue::ProcessWorkSoon() {
     // We delay processing queued work to avoid recursion problems.
     controller_->delegate_->PostTask(base::BindOnce(
         &TestRunner::WorkQueue::ProcessWork, weak_factory_.GetWeakPtr()));
-  } else if (!controller_->layout_test_runtime_flags_.wait_until_done()) {
+  } else if (!controller_->web_test_runtime_flags_.wait_until_done()) {
     controller_->delegate_->TestFinished();
   }
 }
@@ -1512,7 +1485,7 @@ void TestRunner::WorkQueue::ProcessWork() {
     }
   }
 
-  if (!controller_->layout_test_runtime_flags_.wait_until_done() &&
+  if (!controller_->web_test_runtime_flags_.wait_until_done() &&
       !controller_->topLoadingFrame())
     controller_->delegate_->TestFinished();
 }
@@ -1526,7 +1499,7 @@ TestRunner::TestRunner(TestInterfaces* interfaces)
       delegate_(nullptr),
       main_view_(nullptr),
       mock_content_settings_client_(
-          new MockContentSettingsClient(&layout_test_runtime_flags_)),
+          new MockContentSettingsClient(&web_test_runtime_flags_)),
       mock_screen_orientation_client_(new MockScreenOrientationClient),
       spellcheck_(new SpellCheckClient(this)),
       chooser_count_(0),
@@ -1564,7 +1537,7 @@ void TestRunner::SetMainView(blink::WebView* web_view) {
 void TestRunner::Reset() {
   is_web_platform_tests_mode_ = false;
   top_loading_frame_ = nullptr;
-  layout_test_runtime_flags_.Reset();
+  web_test_runtime_flags_.Reset();
   mock_screen_orientation_client_->ResetData();
   drag_image_.reset();
 
@@ -1591,7 +1564,6 @@ void TestRunner::Reset() {
   dump_back_forward_list_ = false;
   test_repaint_ = false;
   sweep_horizontally_ = false;
-  midi_accessor_result_ = midi::mojom::Result::OK;
   animation_requires_raster_ = false;
 
   http_headers_to_clear_.clear();
@@ -1618,54 +1590,54 @@ void TestRunner::SetTestIsRunning(bool running) {
 }
 
 bool TestRunner::ShouldDumpSelectionRect() const {
-  return layout_test_runtime_flags_.dump_selection_rect();
+  return web_test_runtime_flags_.dump_selection_rect();
 }
 
 bool TestRunner::shouldDumpEditingCallbacks() const {
-  return layout_test_runtime_flags_.dump_editting_callbacks();
+  return web_test_runtime_flags_.dump_editting_callbacks();
 }
 
 void TestRunner::setShouldDumpAsText(bool value) {
-  layout_test_runtime_flags_.set_dump_as_text(value);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_text(value);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::setShouldDumpAsMarkup(bool value) {
-  layout_test_runtime_flags_.set_dump_as_markup(value);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_markup(value);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::setShouldDumpAsLayout(bool value) {
-  layout_test_runtime_flags_.set_dump_as_layout(value);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_layout(value);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 bool TestRunner::shouldDumpAsCustomText() const {
-  return layout_test_runtime_flags_.has_custom_text_output();
+  return web_test_runtime_flags_.has_custom_text_output();
 }
 
 std::string TestRunner::customDumpText() const {
-  return layout_test_runtime_flags_.custom_text_output();
+  return web_test_runtime_flags_.custom_text_output();
 }
 
 void TestRunner::setCustomTextOutput(const std::string& text) {
-  layout_test_runtime_flags_.set_custom_text_output(text);
-  layout_test_runtime_flags_.set_has_custom_text_output(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_custom_text_output(text);
+  web_test_runtime_flags_.set_has_custom_text_output(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 bool TestRunner::ShouldGeneratePixelResults() {
   CheckResponseMimeType();
-  return layout_test_runtime_flags_.generate_pixel_results();
+  return web_test_runtime_flags_.generate_pixel_results();
 }
 
 bool TestRunner::shouldStayOnPageAfterHandlingBeforeUnload() const {
-  return layout_test_runtime_flags_.stay_on_page_after_handling_before_unload();
+  return web_test_runtime_flags_.stay_on_page_after_handling_before_unload();
 }
 
 void TestRunner::setShouldGeneratePixelResults(bool value) {
-  layout_test_runtime_flags_.set_generate_pixel_results(value);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_generate_pixel_results(value);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 bool TestRunner::ShouldDumpAsAudio() const {
@@ -1678,18 +1650,18 @@ void TestRunner::GetAudioData(std::vector<unsigned char>* buffer_view) const {
 
 bool TestRunner::IsRecursiveLayoutDumpRequested() {
   CheckResponseMimeType();
-  return layout_test_runtime_flags_.dump_child_frames();
+  return web_test_runtime_flags_.dump_child_frames();
 }
 
 std::string TestRunner::DumpLayout(blink::WebLocalFrame* frame) {
   CheckResponseMimeType();
-  return ::test_runner::DumpLayout(frame, layout_test_runtime_flags_);
+  return ::test_runner::DumpLayout(frame, web_test_runtime_flags_);
 }
 
 bool TestRunner::DumpPixelsAsync(
     blink::WebLocalFrame* frame,
     base::OnceCallback<void(const SkBitmap&)> callback) {
-  if (layout_test_runtime_flags_.dump_drag_image()) {
+  if (web_test_runtime_flags_.dump_drag_image()) {
     if (drag_image_.isNull()) {
       // This means the test called dumpDragImage but did not initiate a drag.
       // Return a blank image so that the test fails.
@@ -1706,7 +1678,7 @@ bool TestRunner::DumpPixelsAsync(
 
   // If we need to do a display compositor pixel dump, then delegate that to the
   // browser by returning true. Note that printing case can be handled here.
-  if (!layout_test_runtime_flags_.is_printing() &&
+  if (!web_test_runtime_flags_.is_printing() &&
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableDisplayCompositorPixelDump)) {
     frame->View()->MainFrameWidget()->RequestPresentationCallbackForTesting(
@@ -1722,15 +1694,15 @@ bool TestRunner::DumpPixelsAsync(
   }
 
   // See if we need to draw the selection bounds rect on top of the snapshot.
-  if (layout_test_runtime_flags_.dump_selection_rect()) {
+  if (web_test_runtime_flags_.dump_selection_rect()) {
     callback =
         CreateSelectionBoundsRectDrawingCallback(frame, std::move(callback));
   }
 
   // Request appropriate kind of pixel dump.
-  if (layout_test_runtime_flags_.is_printing()) {
+  if (web_test_runtime_flags_.is_printing()) {
     auto* target_frame = frame;
-    std::string frame_name = layout_test_runtime_flags_.printing_frame();
+    std::string frame_name = web_test_runtime_flags_.printing_frame();
     if (!frame_name.empty()) {
       auto* frame_to_print =
           frame->FindFrameByName(blink::WebString::FromUTF8(frame_name));
@@ -1747,13 +1719,13 @@ bool TestRunner::DumpPixelsAsync(
   return false;
 }
 
-void TestRunner::ReplicateLayoutTestRuntimeFlagsChanges(
+void TestRunner::ReplicateWebTestRuntimeFlagsChanges(
     const base::DictionaryValue& changed_values) {
   if (test_is_running_) {
-    layout_test_runtime_flags_.tracked_dictionary().ApplyUntrackedChanges(
+    web_test_runtime_flags_.tracked_dictionary().ApplyUntrackedChanges(
         changed_values);
 
-    bool allowed = layout_test_runtime_flags_.plugins_allowed();
+    bool allowed = web_test_runtime_flags_.plugins_allowed();
     for (WebViewTestProxyBase* window : test_interfaces_->GetWindowList())
       window->web_view()->GetSettings()->SetPluginsEnabled(allowed);
   }
@@ -1770,17 +1742,17 @@ bool TestRunner::HasCustomTextDump(std::string* custom_text_dump) const {
 
 bool TestRunner::shouldDumpFrameLoadCallbacks() const {
   return test_is_running_ &&
-         layout_test_runtime_flags_.dump_frame_load_callbacks();
+         web_test_runtime_flags_.dump_frame_load_callbacks();
 }
 
 void TestRunner::setShouldDumpFrameLoadCallbacks(bool value) {
-  layout_test_runtime_flags_.set_dump_frame_load_callbacks(value);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_frame_load_callbacks(value);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 bool TestRunner::shouldDumpPingLoaderCallbacks() const {
   return test_is_running_ &&
-         layout_test_runtime_flags_.dump_ping_loader_callbacks();
+         web_test_runtime_flags_.dump_ping_loader_callbacks();
 }
 
 void TestRunner::setShouldEnableViewSource(bool value) {
@@ -1798,33 +1770,33 @@ void TestRunner::setShouldEnableViewSource(bool value) {
 
 bool TestRunner::shouldDumpUserGestureInFrameLoadCallbacks() const {
   return test_is_running_ &&
-         layout_test_runtime_flags_.dump_user_gesture_in_frame_load_callbacks();
+         web_test_runtime_flags_.dump_user_gesture_in_frame_load_callbacks();
 }
 
 bool TestRunner::shouldDumpTitleChanges() const {
-  return layout_test_runtime_flags_.dump_title_changes();
+  return web_test_runtime_flags_.dump_title_changes();
 }
 
 bool TestRunner::shouldDumpIconChanges() const {
-  return layout_test_runtime_flags_.dump_icon_changes();
+  return web_test_runtime_flags_.dump_icon_changes();
 }
 
 bool TestRunner::shouldDumpCreateView() const {
-  return layout_test_runtime_flags_.dump_create_view();
+  return web_test_runtime_flags_.dump_create_view();
 }
 
 bool TestRunner::canOpenWindows() const {
-  return layout_test_runtime_flags_.can_open_windows();
+  return web_test_runtime_flags_.can_open_windows();
 }
 
 bool TestRunner::shouldDumpResourceLoadCallbacks() const {
   return test_is_running_ &&
-         layout_test_runtime_flags_.dump_resource_load_callbacks();
+         web_test_runtime_flags_.dump_resource_load_callbacks();
 }
 
 bool TestRunner::shouldDumpResourceResponseMIMETypes() const {
   return test_is_running_ &&
-         layout_test_runtime_flags_.dump_resource_response_mime_types();
+         web_test_runtime_flags_.dump_resource_response_mime_types();
 }
 
 blink::WebContentSettingsClient* TestRunner::GetWebContentSettings() const {
@@ -1836,7 +1808,7 @@ blink::WebTextCheckClient* TestRunner::GetWebTextCheckClient() const {
 }
 
 bool TestRunner::shouldDumpSpellCheckCallbacks() const {
-  return layout_test_runtime_flags_.dump_spell_check_callbacks();
+  return web_test_runtime_flags_.dump_spell_check_callbacks();
 }
 
 bool TestRunner::ShouldDumpBackForwardList() const {
@@ -1844,11 +1816,11 @@ bool TestRunner::ShouldDumpBackForwardList() const {
 }
 
 bool TestRunner::isPrinting() const {
-  return layout_test_runtime_flags_.is_printing();
+  return web_test_runtime_flags_.is_printing();
 }
 
 bool TestRunner::shouldWaitUntilExternalURLLoad() const {
-  return layout_test_runtime_flags_.wait_until_external_url_load();
+  return web_test_runtime_flags_.wait_until_external_url_load();
 }
 
 const std::set<std::string>* TestRunner::httpHeadersToClear() const {
@@ -1863,12 +1835,12 @@ bool TestRunner::tryToSetTopLoadingFrame(blink::WebFrame* frame) {
   if (!IsFramePartOfMainTestWindow(frame))
     return false;
 
-  if (top_loading_frame_ || layout_test_runtime_flags_.have_top_loading_frame())
+  if (top_loading_frame_ || web_test_runtime_flags_.have_top_loading_frame())
     return false;
 
   top_loading_frame_ = frame;
-  layout_test_runtime_flags_.set_have_top_loading_frame(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_have_top_loading_frame(true);
+  OnWebTestRuntimeFlagsChanged();
   return true;
 }
 
@@ -1880,9 +1852,9 @@ bool TestRunner::tryToClearTopLoadingFrame(blink::WebFrame* frame) {
     return false;
 
   top_loading_frame_ = nullptr;
-  DCHECK(layout_test_runtime_flags_.have_top_loading_frame());
-  layout_test_runtime_flags_.set_have_top_loading_frame(false);
-  OnLayoutTestRuntimeFlagsChanged();
+  DCHECK(web_test_runtime_flags_.have_top_loading_frame());
+  web_test_runtime_flags_.set_have_top_loading_frame(false);
+  OnWebTestRuntimeFlagsChanged();
 
   LocationChangeDone();
   return true;
@@ -1897,22 +1869,22 @@ blink::WebFrame* TestRunner::mainFrame() const {
 }
 
 void TestRunner::policyDelegateDone() {
-  DCHECK(layout_test_runtime_flags_.wait_until_done());
+  DCHECK(web_test_runtime_flags_.wait_until_done());
   delegate_->TestFinished();
-  layout_test_runtime_flags_.set_wait_until_done(false);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_wait_until_done(false);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 bool TestRunner::policyDelegateEnabled() const {
-  return layout_test_runtime_flags_.policy_delegate_enabled();
+  return web_test_runtime_flags_.policy_delegate_enabled();
 }
 
 bool TestRunner::policyDelegateIsPermissive() const {
-  return layout_test_runtime_flags_.policy_delegate_is_permissive();
+  return web_test_runtime_flags_.policy_delegate_is_permissive();
 }
 
 bool TestRunner::policyDelegateShouldNotifyDone() const {
-  return layout_test_runtime_flags_.policy_delegate_should_notify_done();
+  return web_test_runtime_flags_.policy_delegate_should_notify_done();
 }
 
 void TestRunner::setToolTipText(const blink::WebString& text) {
@@ -1920,18 +1892,14 @@ void TestRunner::setToolTipText(const blink::WebString& text) {
 }
 
 void TestRunner::setDragImage(const SkBitmap& drag_image) {
-  if (layout_test_runtime_flags_.dump_drag_image()) {
+  if (web_test_runtime_flags_.dump_drag_image()) {
     if (drag_image_.isNull())
       drag_image_ = drag_image;
   }
 }
 
 bool TestRunner::shouldDumpNavigationPolicy() const {
-  return layout_test_runtime_flags_.dump_navigation_policy();
-}
-
-midi::mojom::Result TestRunner::midiAccessorResult() {
-  return midi_accessor_result_;
+  return web_test_runtime_flags_.dump_navigation_policy();
 }
 
 void TestRunner::SetV8CacheDisabled(bool disabled) {
@@ -1966,8 +1934,8 @@ class WorkItemBackForward : public TestRunner::WorkItem {
 };
 
 void TestRunner::WaitUntilDone() {
-  layout_test_runtime_flags_.set_wait_until_done(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_wait_until_done(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::QueueBackNavigation(int how_far_back) {
@@ -2076,21 +2044,21 @@ void TestRunner::QueueLoad(const std::string& url, const std::string& target) {
 void TestRunner::SetCustomPolicyDelegate(gin::Arguments* args) {
   bool value;
   args->GetNext(&value);
-  layout_test_runtime_flags_.set_policy_delegate_enabled(value);
+  web_test_runtime_flags_.set_policy_delegate_enabled(value);
 
   if (!args->PeekNext().IsEmpty() && args->PeekNext()->IsBoolean()) {
     args->GetNext(&value);
-    layout_test_runtime_flags_.set_policy_delegate_is_permissive(value);
+    web_test_runtime_flags_.set_policy_delegate_is_permissive(value);
   }
 
-  OnLayoutTestRuntimeFlagsChanged();
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::WaitForPolicyDelegate() {
-  layout_test_runtime_flags_.set_policy_delegate_enabled(true);
-  layout_test_runtime_flags_.set_policy_delegate_should_notify_done(true);
-  layout_test_runtime_flags_.set_wait_until_done(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_policy_delegate_enabled(true);
+  web_test_runtime_flags_.set_policy_delegate_should_notify_done(true);
+  web_test_runtime_flags_.set_wait_until_done(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 int TestRunner::WindowCount() {
@@ -2262,15 +2230,15 @@ void TestRunner::OverridePreference(gin::Arguments* args) {
 }
 
 std::string TestRunner::GetAcceptLanguages() const {
-  return layout_test_runtime_flags_.accept_languages();
+  return web_test_runtime_flags_.accept_languages();
 }
 
 void TestRunner::SetAcceptLanguages(const std::string& accept_languages) {
   if (accept_languages == GetAcceptLanguages())
     return;
 
-  layout_test_runtime_flags_.set_accept_languages(accept_languages);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_accept_languages(accept_languages);
+  OnWebTestRuntimeFlagsChanged();
 
   for (WebViewTestProxyBase* window : test_interfaces_->GetWindowList())
     window->web_view()->AcceptLanguagesChanged();
@@ -2282,48 +2250,48 @@ void TestRunner::SetPluginsEnabled(bool enabled) {
 }
 
 void TestRunner::DumpEditingCallbacks() {
-  layout_test_runtime_flags_.set_dump_editting_callbacks(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_editting_callbacks(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpAsMarkup() {
-  layout_test_runtime_flags_.set_dump_as_markup(true);
-  layout_test_runtime_flags_.set_generate_pixel_results(false);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_markup(true);
+  web_test_runtime_flags_.set_generate_pixel_results(false);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpAsText() {
-  layout_test_runtime_flags_.set_dump_as_text(true);
-  layout_test_runtime_flags_.set_generate_pixel_results(false);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_text(true);
+  web_test_runtime_flags_.set_generate_pixel_results(false);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpAsTextWithPixelResults() {
-  layout_test_runtime_flags_.set_dump_as_text(true);
-  layout_test_runtime_flags_.set_generate_pixel_results(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_text(true);
+  web_test_runtime_flags_.set_generate_pixel_results(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpAsLayout() {
-  layout_test_runtime_flags_.set_dump_as_layout(true);
-  layout_test_runtime_flags_.set_generate_pixel_results(false);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_layout(true);
+  web_test_runtime_flags_.set_generate_pixel_results(false);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpAsLayoutWithPixelResults() {
-  layout_test_runtime_flags_.set_dump_as_layout(true);
-  layout_test_runtime_flags_.set_generate_pixel_results(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_layout(true);
+  web_test_runtime_flags_.set_generate_pixel_results(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpChildFrames() {
-  layout_test_runtime_flags_.set_dump_child_frames(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_child_frames(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpIconChanges() {
-  layout_test_runtime_flags_.set_dump_icon_changes(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_icon_changes(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetAudioData(const gin::ArrayBufferView& view) {
@@ -2334,100 +2302,100 @@ void TestRunner::SetAudioData(const gin::ArrayBufferView& view) {
 }
 
 void TestRunner::DumpFrameLoadCallbacks() {
-  layout_test_runtime_flags_.set_dump_frame_load_callbacks(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_frame_load_callbacks(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpPingLoaderCallbacks() {
-  layout_test_runtime_flags_.set_dump_ping_loader_callbacks(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_ping_loader_callbacks(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpUserGestureInFrameLoadCallbacks() {
-  layout_test_runtime_flags_.set_dump_user_gesture_in_frame_load_callbacks(
-      true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_user_gesture_in_frame_load_callbacks(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpTitleChanges() {
-  layout_test_runtime_flags_.set_dump_title_changes(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_title_changes(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpCreateView() {
-  layout_test_runtime_flags_.set_dump_create_view(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_create_view(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetCanOpenWindows() {
-  layout_test_runtime_flags_.set_can_open_windows(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_can_open_windows(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpResourceLoadCallbacks() {
-  layout_test_runtime_flags_.set_dump_resource_load_callbacks(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_resource_load_callbacks(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpResourceResponseMIMETypes() {
-  layout_test_runtime_flags_.set_dump_resource_response_mime_types(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_resource_response_mime_types(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetImagesAllowed(bool allowed) {
-  layout_test_runtime_flags_.set_images_allowed(allowed);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_images_allowed(allowed);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetScriptsAllowed(bool allowed) {
-  layout_test_runtime_flags_.set_scripts_allowed(allowed);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_scripts_allowed(allowed);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetStorageAllowed(bool allowed) {
-  layout_test_runtime_flags_.set_storage_allowed(allowed);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_storage_allowed(allowed);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetPluginsAllowed(bool allowed) {
-  layout_test_runtime_flags_.set_plugins_allowed(allowed);
+  web_test_runtime_flags_.set_plugins_allowed(allowed);
 
   for (WebViewTestProxyBase* window : test_interfaces_->GetWindowList())
     window->web_view()->GetSettings()->SetPluginsEnabled(allowed);
 
-  OnLayoutTestRuntimeFlagsChanged();
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetAllowRunningOfInsecureContent(bool allowed) {
-  layout_test_runtime_flags_.set_running_insecure_content_allowed(allowed);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_running_insecure_content_allowed(allowed);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetAutoplayAllowed(bool allowed) {
-  layout_test_runtime_flags_.set_autoplay_allowed(allowed);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_autoplay_allowed(allowed);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpPermissionClientCallbacks() {
-  layout_test_runtime_flags_.set_dump_web_content_settings_client_callbacks(
-      true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_web_content_settings_client_callbacks(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetDisallowedSubresourcePathSuffixes(
-    const std::vector<std::string>& suffixes) {
+    const std::vector<std::string>& suffixes,
+    bool block_subresources) {
   DCHECK(main_view_);
   if (!main_view_->MainFrame()->IsWebLocalFrame())
     return;
   main_view_->MainFrame()
       ->ToWebLocalFrame()
       ->GetDocumentLoader()
-      ->SetSubresourceFilter(new MockWebDocumentSubresourceFilter(suffixes));
+      ->SetSubresourceFilter(
+          new MockWebDocumentSubresourceFilter(suffixes, block_subresources));
 }
 
 void TestRunner::DumpSpellCheckCallbacks() {
-  layout_test_runtime_flags_.set_dump_spell_check_callbacks(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_spell_check_callbacks(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpBackForwardList() {
@@ -2435,8 +2403,8 @@ void TestRunner::DumpBackForwardList() {
 }
 
 void TestRunner::DumpSelectionRect() {
-  layout_test_runtime_flags_.set_dump_selection_rect(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_selection_rect(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetPrinting() {
@@ -2444,25 +2412,19 @@ void TestRunner::SetPrinting() {
 }
 
 void TestRunner::SetPrintingForFrame(const std::string& frame_name) {
-  layout_test_runtime_flags_.set_printing_frame(frame_name);
-  layout_test_runtime_flags_.set_is_printing(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_printing_frame(frame_name);
+  web_test_runtime_flags_.set_is_printing(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::ClearPrinting() {
-  layout_test_runtime_flags_.set_is_printing(false);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_is_printing(false);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetShouldStayOnPageAfterHandlingBeforeUnload(bool value) {
-  layout_test_runtime_flags_.set_stay_on_page_after_handling_before_unload(
-      value);
-  OnLayoutTestRuntimeFlagsChanged();
-}
-
-void TestRunner::SetShouldUseInnerTextDump(bool value) {
-  layout_test_runtime_flags_.set_should_use_inner_text_dump(value);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_stay_on_page_after_handling_before_unload(value);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetWillSendRequestClearHeader(const std::string& header) {
@@ -2476,30 +2438,30 @@ void TestRunner::SetUseMockTheme(bool use) {
 }
 
 void TestRunner::WaitUntilExternalURLLoad() {
-  layout_test_runtime_flags_.set_wait_until_external_url_load(true);
-  layout_test_runtime_flags_.set_wait_until_done(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_wait_until_external_url_load(true);
+  web_test_runtime_flags_.set_wait_until_done(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpDragImage() {
-  layout_test_runtime_flags_.set_dump_drag_image(true);
+  web_test_runtime_flags_.set_dump_drag_image(true);
   DumpAsTextWithPixelResults();
-  OnLayoutTestRuntimeFlagsChanged();
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::DumpNavigationPolicy() {
-  layout_test_runtime_flags_.set_dump_navigation_policy(true);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_navigation_policy(true);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetDumpConsoleMessages(bool value) {
-  layout_test_runtime_flags_.set_dump_console_messages(value);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_console_messages(value);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetDumpJavaScriptDialogs(bool value) {
-  layout_test_runtime_flags_.set_dump_javascript_dialogs(value);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_javascript_dialogs(value);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::SetEffectiveConnectionType(
@@ -2512,11 +2474,11 @@ void TestRunner::SetMockSpellCheckerEnabled(bool enabled) {
 }
 
 bool TestRunner::ShouldDumpConsoleMessages() const {
-  return layout_test_runtime_flags_.dump_console_messages();
+  return web_test_runtime_flags_.dump_console_messages();
 }
 
 bool TestRunner::ShouldDumpJavaScriptDialogs() const {
-  return layout_test_runtime_flags_.dump_javascript_dialogs();
+  return web_test_runtime_flags_.dump_javascript_dialogs();
 }
 
 bool TestRunner::IsChooserShown() {
@@ -2570,10 +2532,6 @@ void TestRunner::SetPOSIXLocale(const std::string& locale) {
   delegate_->SetLocale(locale);
 }
 
-void TestRunner::SetMIDIAccessorResult(midi::mojom::Result result) {
-  midi_accessor_result_ = result;
-}
-
 void TestRunner::SimulateWebNotificationClick(
     const std::string& title,
     const base::Optional<int>& action_index,
@@ -2590,15 +2548,15 @@ void TestRunner::SetAnimationRequiresRaster(bool do_raster) {
   animation_requires_raster_ = do_raster;
 }
 
-void TestRunner::OnLayoutTestRuntimeFlagsChanged() {
-  if (layout_test_runtime_flags_.tracked_dictionary().changed_values().empty())
+void TestRunner::OnWebTestRuntimeFlagsChanged() {
+  if (web_test_runtime_flags_.tracked_dictionary().changed_values().empty())
     return;
   if (!test_is_running_)
     return;
 
-  delegate_->OnLayoutTestRuntimeFlagsChanged(
-      layout_test_runtime_flags_.tracked_dictionary().changed_values());
-  layout_test_runtime_flags_.tracked_dictionary().ResetChangeTracking();
+  delegate_->OnWebTestRuntimeFlagsChanged(
+      web_test_runtime_flags_.tracked_dictionary().changed_values());
+  web_test_runtime_flags_.tracked_dictionary().ResetChangeTracking();
 }
 
 void TestRunner::LocationChangeDone() {
@@ -2607,7 +2565,7 @@ void TestRunner::LocationChangeDone() {
   // No more new work after the first complete load.
   work_queue_.set_frozen(true);
 
-  if (!layout_test_runtime_flags_.wait_until_done())
+  if (!web_test_runtime_flags_.wait_until_done())
     work_queue_.ProcessWorkSoon();
 }
 
@@ -2615,7 +2573,7 @@ void TestRunner::CheckResponseMimeType() {
   // Text output: the test page can request different types of output which we
   // handle here.
 
-  if (layout_test_runtime_flags_.dump_as_text())
+  if (web_test_runtime_flags_.dump_as_text())
     return;
 
   if (!main_view_)
@@ -2633,17 +2591,17 @@ void TestRunner::CheckResponseMimeType() {
   if (mimeType != "text/plain")
     return;
 
-  layout_test_runtime_flags_.set_dump_as_text(true);
-  layout_test_runtime_flags_.set_generate_pixel_results(false);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_dump_as_text(true);
+  web_test_runtime_flags_.set_generate_pixel_results(false);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 void TestRunner::NotifyDone() {
-  if (layout_test_runtime_flags_.wait_until_done() && !topLoadingFrame() &&
+  if (web_test_runtime_flags_.wait_until_done() && !topLoadingFrame() &&
       work_queue_.is_empty())
     delegate_->TestFinished();
-  layout_test_runtime_flags_.set_wait_until_done(false);
-  OnLayoutTestRuntimeFlagsChanged();
+  web_test_runtime_flags_.set_wait_until_done(false);
+  OnWebTestRuntimeFlagsChanged();
 }
 
 }  // namespace test_runner

@@ -7,12 +7,17 @@
 
 namespace blink {
 
-ScriptValue SerialPort::in(ScriptState* script_state) {
-  return ScriptValue::CreateNull(script_state);
+SerialPort::SerialPort(mojom::blink::SerialPortInfoPtr info)
+    : info_(std::move(info)) {}
+
+SerialPort::~SerialPort() = default;
+
+ReadableStream* SerialPort::in() {
+  return nullptr;
 }
 
-ScriptValue SerialPort::out(ScriptState* script_state) {
-  return ScriptValue::CreateNull(script_state);
+WritableStream* SerialPort::out() {
+  return nullptr;
 }
 
 ScriptPromise SerialPort::open(ScriptState* script_state,
@@ -24,6 +29,10 @@ ScriptPromise SerialPort::open(ScriptState* script_state,
 ScriptPromise SerialPort::close(ScriptState* script_state) {
   return ScriptPromise::RejectWithDOMException(
       script_state, DOMException::Create(DOMExceptionCode::kNotSupportedError));
+}
+
+const base::UnguessableToken& SerialPort::Token() const {
+  return info_->token;
 }
 
 }  // namespace blink

@@ -15,8 +15,8 @@
 #include "components/password_manager/core/browser/password_ui_utils.h"
 #include "components/strings/grit/components_strings.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/ui/settings/passwords_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/reauthentication_module.h"
-#import "ios/chrome/browser/ui/settings/save_passwords_collection_view_controller.h"
 #import "ios/chrome/browser/ui/settings/settings_utils.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_cells_constants.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_detail_text_item.h"
@@ -73,9 +73,6 @@ typedef NS_ENUM(NSInteger, ItemType) {
   BOOL _plainTextPasswordShown;
   // The password form.
   autofill::PasswordForm _passwordForm;
-  // Instance of the parent view controller needed in order to update the
-  // password list when a password is deleted.
-  __weak id<PasswordDetailsTableViewControllerDelegate> _weakDelegate;
   // Module containing the reauthentication mechanism for viewing and copying
   // passwords.
   __weak id<ReauthenticationProtocol> _weakReauthenticationModule;
@@ -86,6 +83,11 @@ typedef NS_ENUM(NSInteger, ItemType) {
 // Alert dialog to confirm deletion of passwords upon pressing the delete
 // button.
 @property(nonatomic, strong) UIAlertController* deleteConfirmation;
+
+// Instance of the parent view controller needed in order to update the
+// password list when a password is deleted.
+@property(nonatomic, weak) id<PasswordDetailsTableViewControllerDelegate>
+    delegate;
 
 @end
 
@@ -101,11 +103,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
                   (id<ReauthenticationProtocol>)reauthenticationModule {
   DCHECK(delegate);
   DCHECK(reauthenticationModule);
-  self =
-      [super initWithTableViewStyle:UITableViewStyleGrouped
-                        appBarStyle:ChromeTableViewControllerStyleWithAppBar];
+  self = [super initWithTableViewStyle:UITableViewStyleGrouped
+                           appBarStyle:ChromeTableViewControllerStyleNoAppBar];
   if (self) {
-    _weakDelegate = delegate;
+    _delegate = delegate;
     _weakReauthenticationModule = reauthenticationModule;
 
     _passwordForm = passwordForm;
@@ -493,13 +494,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
       actionWithTitle:l10n_util::GetNSString(IDS_IOS_CONFIRM_PASSWORD_DELETION)
                 style:UIAlertActionStyleDestructive
               handler:^(UIAlertAction* action) {
-                PasswordDetailsTableViewController* strongSelf = weakSelf;
-                if (!strongSelf) {
-                  return;
-                }
-                strongSelf.deleteConfirmation = nil;
-                [strongSelf->_weakDelegate
-                    passwordDetailsTableViewController:strongSelf
+                weakSelf.deleteConfirmation = nil;
+                [weakSelf.delegate
+                    passwordDetailsTableViewController:weakSelf
                                         deletePassword:_passwordForm];
               }];
   [_deleteConfirmation addAction:deleteAction];

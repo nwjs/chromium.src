@@ -62,7 +62,7 @@ void LayoutObjectChildList::DestroyLeftoverChildren() {
   while (FirstChild()) {
     // List markers are owned by their enclosing list and so don't get destroyed
     // by this container.
-    if (FirstChild()->IsListMarker()) {
+    if (FirstChild()->IsListMarkerIncludingNG()) {
       FirstChild()->Remove();
       continue;
     }
@@ -217,6 +217,8 @@ void LayoutObjectChildList::InsertChildNode(LayoutObject* owner,
       PaintInvalidationReason::kAppeared);
   new_child->AddSubtreePaintPropertyUpdateReason(
       SubtreePaintPropertyUpdateReason::kContainerChainMayChange);
+  new_child->SetNeedsOverflowRecalc();
+
   if (!owner->NormalChildNeedsLayout()) {
     owner->SetChildNeedsLayout();  // We may supply the static position for an
                                    // absolute positioned child.

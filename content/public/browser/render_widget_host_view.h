@@ -138,7 +138,8 @@ class CONTENT_EXPORT RenderWidgetHostView {
   // Retrieve the bounds of the View, in screen coordinates.
   virtual gfx::Rect GetViewBounds() const = 0;
 
-  // Returns the currently selected text.
+  // Returns the currently selected text in both of editable text fields and
+  // non-editable texts.
   virtual base::string16 GetSelectedText() = 0;
 
   // This only returns non-null on platforms that implement touch
@@ -216,7 +217,7 @@ class CONTENT_EXPORT RenderWidgetHostView {
 
   // Ensures that all surfaces are synchronized for the next call to
   // CopyFromSurface. This is used by web tests.
-  virtual void EnsureSurfaceSynchronizedForLayoutTest() = 0;
+  virtual void EnsureSurfaceSynchronizedForWebTest() = 0;
 
   // Creates a video capturer, which will allow the caller to receive a stream
   // of media::VideoFrames captured from this view. The capturer is configured

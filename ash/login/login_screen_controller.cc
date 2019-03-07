@@ -8,7 +8,6 @@
 
 #include "ash/focus_cycler.h"
 #include "ash/login/ui/lock_screen.h"
-#include "ash/login/ui/lock_window.h"
 #include "ash/login/ui/login_data_dispatcher.h"
 #include "ash/public/cpp/ash_pref_names.h"
 #include "ash/root_window_controller.h"
@@ -21,6 +20,7 @@
 #include "ash/system/status_area_widget_delegate.h"
 #include "ash/system/toast/toast_data.h"
 #include "ash/system/toast/toast_manager.h"
+#include "ash/system/tray/system_tray_notifier.h"
 #include "base/bind.h"
 #include "base/debug/alias.h"
 #include "base/strings/string_number_conversions.h"
@@ -59,9 +59,15 @@ void SetSystemTrayVisibility(SystemTrayVisibility visibility) {
 
 }  // namespace
 
-LoginScreenController::LoginScreenController() : weak_factory_(this) {}
+LoginScreenController::LoginScreenController(
+    SystemTrayNotifier* system_tray_notifier)
+    : system_tray_notifier_(system_tray_notifier), weak_factory_(this) {
+  system_tray_notifier_->AddSystemTrayFocusObserver(this);
+}
 
-LoginScreenController::~LoginScreenController() = default;
+LoginScreenController::~LoginScreenController() {
+  system_tray_notifier_->RemoveSystemTrayFocusObserver(this);
+}
 
 // static
 void LoginScreenController::RegisterProfilePrefs(PrefRegistrySimple* registry,
@@ -492,11 +498,18 @@ void LoginScreenController::SetAllowLoginAsGuest(bool allow_guest) {
       ->SetAllowLoginAsGuest(allow_guest);
 }
 
-void LoginScreenController::SetShowGuestButtonForGaiaScreen(bool can_show) {
+void LoginScreenController::SetShowGuestButtonInOobe(bool show) {
   Shelf::ForWindow(Shell::Get()->GetPrimaryRootWindow())
       ->shelf_widget()
       ->login_shelf_view()
-      ->SetShowGuestButtonForGaiaScreen(can_show);
+      ->SetShowGuestButtonInOobe(show);
+}
+
+void LoginScreenController::SetShowParentAccess(bool show) {
+  Shelf::ForWindow(Shell::Get()->GetPrimaryRootWindow())
+      ->shelf_widget()
+      ->login_shelf_view()
+      ->SetShowParentAccess(show);
 }
 
 void LoginScreenController::FocusLoginShelf(bool reverse) {
@@ -521,6 +534,13 @@ void LoginScreenController::SetAddUserButtonEnabled(bool enable) {
       ->shelf_widget()
       ->login_shelf_view()
       ->SetAddUserButtonEnabled(enable);
+}
+
+void LoginScreenController::SetShutdownButtonEnabled(bool enable) {
+  Shelf::ForWindow(Shell::Get()->GetPrimaryRootWindow())
+      ->shelf_widget()
+      ->login_shelf_view()
+      ->SetShutdownButtonEnabled(enable);
 }
 
 void LoginScreenController::LaunchKioskApp(const std::string& app_id) {
@@ -565,6 +585,12 @@ void LoginScreenController::OnShow() {
     LOG(FATAL) << "Unexpected authentication stage "
                << static_cast<int>(authentication_stage_);
   }
+}
+
+void LoginScreenController::OnFocusLeavingSystemTray(bool reverse) {
+  if (!login_screen_client_)
+    return;
+  login_screen_client_->OnFocusLeavingSystemTray(reverse);
 }
 
 }  // namespace ash

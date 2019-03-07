@@ -13,8 +13,9 @@
 #include "base/macros.h"
 #include "base/optional.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/webrtc/api/peerconnectioninterface.h"
-#include "third_party/webrtc/api/stats/rtcstatsreport.h"
+#include "third_party/webrtc/api/dtls_transport_interface.h"
+#include "third_party/webrtc/api/peer_connection_interface.h"
+#include "third_party/webrtc/api/stats/rtc_stats_report.h"
 
 namespace content {
 
@@ -157,6 +158,10 @@ class MockPeerConnectionImpl : public webrtc::PeerConnectionInterface {
   void SetGetStatsResult(bool result) { getstats_result_ = result; }
   // Set the report that |GetStats(RTCStatsCollectorCallback*)| returns.
   void SetGetStatsReport(webrtc::RTCStatsReport* report);
+  rtc::scoped_refptr<webrtc::DtlsTransportInterface> LookupDtlsTransportByMid(
+      const std::string& mid) override {
+    return nullptr;
+  }
 
   SignalingState signaling_state() override {
     NOTIMPLEMENTED();

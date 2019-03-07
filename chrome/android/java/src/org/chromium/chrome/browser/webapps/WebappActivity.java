@@ -34,7 +34,6 @@ import org.chromium.blink_public.platform.WebDisplayMode;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.SingleTabActivity;
-import org.chromium.chrome.browser.TabState;
 import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.appmenu.AppMenuPropertiesDelegate;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
@@ -48,8 +47,9 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tab.TabUma.TabCreationState;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
 import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer;
 import org.chromium.chrome.browser.util.ColorUtils;
@@ -232,7 +232,7 @@ public class WebappActivity extends SingleTabActivity {
         if (tab.getUrl().isEmpty()) {
             loadUrl(mWebappInfo, tab);
         } else {
-            if (getActivityType() != ActivityType.WEBAPK && NetworkChangeNotifier.isOnline()) {
+            if (!mWebappInfo.isForWebApk() && NetworkChangeNotifier.isOnline()) {
                 tab.reloadIgnoringCache();
             }
         }
@@ -306,7 +306,7 @@ public class WebappActivity extends SingleTabActivity {
         getToolbarManager().setShowTitle(true);
         getToolbarManager().setCloseButtonDrawable(null); // Hides close button.
 
-        if (getFullscreenManager() != null) getFullscreenManager().setTab(getActivityTab());
+        getFullscreenManager().setTab(getActivityTab());
         mSplashController.onFinishedNativeInit(getActivityTab(), getCompositorViewHolder());
         super.finishNativeInitialization();
         mIsInitialized = true;
@@ -328,9 +328,7 @@ public class WebappActivity extends SingleTabActivity {
     @Override
     public void onStopWithNative() {
         super.onStopWithNative();
-        if (getFullscreenManager() != null) {
-            getFullscreenManager().exitPersistentFullscreenMode();
-        }
+        getFullscreenManager().exitPersistentFullscreenMode();
     }
 
     /**
@@ -485,7 +483,7 @@ public class WebappActivity extends SingleTabActivity {
     }
 
     protected void onDeferredStartupWithNullStorage() {
-        if (getActivityType() != ActivityType.WEBAPK) return;
+        if (!mWebappInfo.isForWebApk()) return;
 
         // WebappDataStorage objects are cleared if a user clears Chrome's data. Recreate them
         // for WebAPKs since we need to store metadata for updates and disclosure notifications.
@@ -558,7 +556,7 @@ public class WebappActivity extends SingleTabActivity {
                 enterImmersiveMode();
             }
             ViewGroup contentView = (ViewGroup) findViewById(android.R.id.content);
-            mSplashController.showSplashScreen(getActivityType(), contentView, mWebappInfo);
+            mSplashController.showSplashScreen(contentView, mWebappInfo);
         }
     }
 
@@ -703,20 +701,10 @@ public class WebappActivity extends SingleTabActivity {
     }
 
     /**
-     * @return The actual activity type of {@link WebappActivity}, which to be one of the values in
-     * {@link ActivityType}.
-     *
-     * This function is needed because Webapp and WebAPKs both use {@link WebappActivity}.
-     */
-    public @ActivityType int getActivityType() {
-        return ActivityType.WEBAPP;
-    }
-
-    /**
      * @return The package name if this Activity is associated with an APK. Null if there is no
      *         associated Android native client.
      */
-    public @Nullable String getNativeClientPackageName() {
+    public @Nullable String getWebApkPackageName() {
         return null;
     }
 
@@ -781,7 +769,7 @@ public class WebappActivity extends SingleTabActivity {
             taskDescriptionColor = mBrandColor;
             statusBarColor = ColorUtils.getDarkenedColorForStatusBar(mBrandColor);
             if (getToolbarManager() != null) {
-                getToolbarManager().updatePrimaryColor(mBrandColor, false);
+                getToolbarManager().onThemeColorChanged(mBrandColor, false);
             }
         }
 
@@ -876,7 +864,7 @@ public class WebappActivity extends SingleTabActivity {
 
     @Override
     protected TabDelegate createTabDelegate(boolean incognito) {
-        return new WebappTabDelegate(incognito, getActivityType(), getNativeClientPackageName());
+        return new WebappTabDelegate(incognito, mWebappInfo);
     }
 
     // We're temporarily disable CS on webapp since there are some issues. (http://crbug.com/471950)

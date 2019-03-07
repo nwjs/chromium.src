@@ -19,6 +19,7 @@
 <translation id="1591562245178063882">Denne måned</translation>
 <translation id="1637811476055996098">Vælg filer</translation>
 <translation id="1650423536718072820">opmærksomhedsskabende citat</translation>
+<translation id="1727886345390570319">skjul menuen for undertekster</translation>
 <translation id="1729654308190250600">Angiv en mailadresse, der ikke er tom.</translation>
 <translation id="1758486001363313524">Andet...</translation>
 <translation id="1806710327868736751">alert_dialog</translation>
@@ -96,6 +97,7 @@
 <translation id="4413860115965805769">menuknap</translation>
 <translation id="4446524499724042288">reference på ordliste</translation>
 <translation id="4522570452068850558">Detaljer</translation>
+<translation id="4542388879936266156">resterende tid: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">formular</translation>
 <translation id="4661075872484491155">træ</translation>
 <translation id="4664250907885839816">Den del, der kommer efter "<ph name="ATSIGN" />", må ikke indeholde symbolet "<ph name="INVALIDCHARACTER" />".</translation>
@@ -147,6 +149,7 @@
 <translation id="6213469881011901533">ordliste</translation>
 <translation id="6398862346408813489">Vis panel til valg af måned</translation>
 <translation id="6404546809543547843">afspilningsbjælke for lyd</translation>
+<translation id="6443871981718447451">vis menuen for undertekster</translation>
 <translation id="6453774872122745852">tak</translation>
 <translation id="648732519525291180">tidsvælger</translation>
 <translation id="6550675742724504774">Valgmuligheder</translation>
@@ -162,7 +165,6 @@
 <translation id="6820355525329141109">Pluginnet kunne ikke indlæses.</translation>
 <translation id="6820615603175220800">reference i bibliografi</translation>
 <translation id="6843725295806269523">slå lyden fra</translation>
-<translation id="6853785296079745596">skjul undertekster</translation>
 <translation id="6885760532393684712">indeks</translation>
 <translation id="689129560213475294">slutskrift</translation>
 <translation id="6934078000481955284">blockquote</translation>
@@ -171,7 +173,6 @@
 <translation id="6989848892321993519">Forlæng denne tekst til <ph name="MIN_CHARACTERS" /> eller flere tegn (du bruger i øjeblikket ét tegn).</translation>
 <translation id="709897737746224366">Find et match til det anmodede format.</translation>
 <translation id="7139483182332611405">forord</translation>
-<translation id="7223624360433298498">forløbet tid</translation>
 <translation id="7263440858009898357">Vælg et punkt på listen.</translation>
 <translation id="727747134524199931">kolonneoverskrift</translation>
 <translation id="7353453495576941748">anerkendelse</translation>
@@ -186,7 +187,6 @@
 <translation id="7661956066982048809">grafikdokument</translation>
 <translation id="7673697353781729403">Timer</translation>
 <translation id="7681220483256441252">indeks</translation>
-<translation id="7720026100085573005">resterende tid</translation>
 <translation id="7740050170769002709">HTML-indhold</translation>
 <translation id="7750228210027921155">Integreret billede</translation>
 <translation id="7789962463072032349">pause</translation>
@@ -201,6 +201,7 @@
 <translation id="8199524924445686405">åååå</translation>
 <translation id="8284326494547611709">Undertekster</translation>
 <translation id="835897206747267392">Ugyldig værdi.</translation>
+<translation id="8403857369060869934">forløbet tid: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">del</translation>
 <translation id="8433900881053900389">værktøjslinje</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> filer</translation>
@@ -225,12 +226,11 @@
 <translation id="8987927404178983737">Måned</translation>
 <translation id="901493112792887934">aktuel tid i sekunder</translation>
 <translation id="9048119486235211610">navigation</translation>
-<translation id="9050748414552849310">vis undertekster</translation>
 <translation id="9062295712474918030">dokument</translation>
 <translation id="9093215626363556771">afslut integreret billede</translation>
 <translation id="9108370397979208512">matematik</translation>
 <translation id="9132465097189459683">Andet...</translation>
-<translation id="9138385573473225930">notifikation</translation>
+<translation id="9138385573473225930">underretning</translation>
 <translation id="9155987714137265666"><ph name="WEEK" />, med start <ph name="WEEK_START_DATE" /></translation>
 <translation id="916607977885256133">Integreret billede</translation>
 <translation id="9168329111483466115">fodnote</translation>

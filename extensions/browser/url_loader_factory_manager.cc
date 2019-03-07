@@ -6,11 +6,18 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
+#include "base/command_line.h"
 #include "base/containers/flat_set.h"
+#include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
+#include "base/no_destructor.h"
+#include "base/sha1.h"
 #include "base/stl_util.h"
+#include "base/strings/string_split.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -19,8 +26,10 @@
 #include "extensions/browser/process_map.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest_handlers/content_scripts_handler.h"
+#include "extensions/common/switches.h"
 #include "extensions/common/user_script.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/network_context.mojom.h"
@@ -39,13 +48,137 @@ enum class FactoryUser {
   kExtensionProcess,
 };
 
-bool DoContentScriptsDependOnRelaxedCorb(const Extension& extension) {
-  // TODO(lukasza): https://crbug.com/846346: Return false if the
-  // |extension| doesn't need a special URLLoaderFactory based on
-  // Extensions.CrossOriginFetchFromContentScript2 Rappor data.
+// The allowlist contains HashedExtensionId of extensions discovered via
+// Extensions.CrossOriginFetchFromContentScript2 Rappor data.  When the data was
+// gathered, these extensions relied on making cross-origin requests from
+// content scripts (which requires relaxing CORB).  Going forward, these
+// extensions should migrate to making those requests from elsewhere (e.g. from
+// a background page, or in the future from extension service workers) at which
+// point they can be removed from the allowlist.
+//
+// Migration plan for extension developers is described at
+// https://docs.google.com/document/d/1wOFTUmwM4NsDfjY4K6aXAbIyH7WJwLFPPIb5KAa1YZ8
+const char* kHardcodedPartOfCorbAllowlist[] = {
+    "0149C10F1124F1ED6ACAD85C45E87A76A9DDC667",
+    "072D729E856B1F2C9894AEEC3A5DF65E519D6BEE",
+    "16A81AEA09A67B03F7AEA5B957D24A4095E764BE",
+    "177508B365CBF1610CC2B53707749D79272F2F0B",
+    "1AB9CC404876117F49135E67BAD813F935AAE9BA",
+    "260871EABEDE6F2D07D0D9450096093EDAFCBF34",
+    "2AA94E2D3F4DA33F0D3BCF5DD48F69B8BDB26F52",
+    "2FEFB2792E8FF41073E77C8E9B38C159C5A788A8",
+    "3334952C8387B357A41DD8349D39AD9E7C423943",
+    "33A4A3614CD4BF90F4F2C7984220A9D4FF24DFEF",
+    "360D8A88545D0C21CBDE2B55EA9E4E4285282B4C",
+    "3FDD3DB17F3B686F5A05204700ABA13DF20AE957",
+    "4FC718F4549B18E68A45A11FC2B593033C7049D2",
+    "505F2C1E723731B2C8C9182FEAA73D00525B2048",
+    "61E581B10D83C0AEF8366BB64C18C6615884B3D2",
+    "62D18583FC239861A9661C922A5F13A57EE7EDD7",
+    "6AE81EF3B13B15080A2DDB23A205A24C65CCC10B",
+    "6BA5F75FFF75B69507BC4B09B7094926EF93DBD2",
+    "71EE66C0F71CD89BEE340F8568A44101D4C3A9A7",
+    "7BFE588B209A15260DE12777B4BBB738DE98FE6C",
+    "808FA9BB3CD501D7801D1CD6D5A3DBA088FDD46F",
+    "82FDBBF79F3517C3946BD89EAAF90C46DFDA4681",
+    "88C372CE52E21560C17BFD52556E60D694E12CAC",
+    "934B8F5753A3E5A276FC7D0EE5E575B335A0CC76",
+    "973E35633030AD27DABEC99609424A61386C7309",
+    "99E06C364BBB2D1F82A9D20BC1645BF21E478259",
+    "A30E526CF62131BFBFD7CD9B56253A8F3F171777",
+    "A3660FA31A0DBF07C9F80D5342FF215DBC962719",
+    "AEEDAC793F184240CFB800DA73EE6321E5145102",
+    "B4782AE831D849EFCC2AF4BE2012816EDDF8D908",
+    "BF5224FB246A6B67EA986EFF77A43F6C1BCA9672",
+    "C5BCB9E2E47C3F6FD3F7F83ED982872F77852BA7",
+    "CA89BD35059845F2DB4B4398FD339B9F210E9337",
+    "CC74B2408753932B5D49C81EC073E3E4CA766EE6",
+    "D0537B1BADCE856227CE76E31B3772F6B68F653C",
+    "E7036E906DBFB77C46EDDEB003A72C0B5CC9BE7F",
+    "EC24668224116D19FF1A5FFAA61238B88773982C",
+    "F59AB261280AB3AE9826D9359507838B90B07431",
+};
 
-  // All modern extension manifests depend on relaxed CORB.
-  return extension.manifest_version() <= 2;
+constexpr size_t kHashedExtensionIdLength = base::kSHA1Length * 2;
+bool IsValidHashedExtensionId(const std::string& hash) {
+  bool correct_chars = std::all_of(hash.begin(), hash.end(), [](char c) {
+    return ('A' <= c && c <= 'F') || ('0' <= c && c <= '9');
+  });
+  bool correct_length = (kHashedExtensionIdLength == hash.length());
+  return correct_chars && correct_length;
+}
+
+std::vector<std::string> CreateExtensionAllowlist() {
+  std::vector<std::string> allowlist;
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kForceEmptyCorbAllowlist)) {
+    return allowlist;
+  }
+
+  // Make sure kHardcodedPartOfAllowlist will fit, but also leave some room
+  // for field trial params.
+  allowlist.reserve(base::size(kHardcodedPartOfCorbAllowlist) + 10);
+
+  // Append extensions from the hardcoded allowlist.
+  for (const char* hash : kHardcodedPartOfCorbAllowlist) {
+    DCHECK(IsValidHashedExtensionId(hash));  // It also validates the length.
+    allowlist.push_back(std::string(hash, kHashedExtensionIdLength));
+  }
+
+  // Append extensions from the field trial param.
+  std::string field_trial_arg = base::GetFieldTrialParamValueByFeature(
+      extensions_features::kBypassCorbOnlyForExtensionsAllowlist,
+      extensions_features::kBypassCorbAllowlistParamName);
+  field_trial_arg = base::ToUpperASCII(field_trial_arg);
+  std::vector<std::string> field_trial_allowlist = base::SplitString(
+      field_trial_arg, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  base::EraseIf(field_trial_allowlist, [](const std::string& hash) {
+    // Filter out invalid data from |field_trial_allowlist|.
+    if (IsValidHashedExtensionId(hash))
+      return false;  // Don't remove.
+
+    LOG(ERROR) << "Invalid extension hash: " << hash;
+    return true;  // Remove.
+  });
+  std::move(field_trial_allowlist.begin(), field_trial_allowlist.end(),
+            std::back_inserter(allowlist));
+
+  return allowlist;
+}
+
+// Returns a set of HashedExtensionId of extensions that depend on relaxed CORB
+// behavior in their content scripts.
+const base::flat_set<std::string>& GetExtensionsAllowlist() {
+  DCHECK(base::FeatureList::IsEnabled(
+      extensions_features::kBypassCorbOnlyForExtensionsAllowlist));
+  static const base::NoDestructor<base::flat_set<std::string>> s_allowlist([] {
+    base::flat_set<std::string> result(CreateExtensionAllowlist());
+    result.shrink_to_fit();
+    return result;
+  }());
+  return *s_allowlist;
+}
+
+bool DoContentScriptsDependOnRelaxedCorb(const Extension& extension) {
+  // Content scripts injected by Chrome Apps (e.g. into <webview> tag) need to
+  // run with relaxed CORB.
+  if (extension.is_platform_app())
+    return true;
+
+  // Content scripts in the current version of extensions might depend on
+  // relaxed CORB.
+  if (extension.manifest_version() <= 2) {
+    if (!base::FeatureList::IsEnabled(
+            extensions_features::kBypassCorbOnlyForExtensionsAllowlist))
+      return true;
+
+    const std::string& hash = extension.hashed_id().value();
+    DCHECK(IsValidHashedExtensionId(hash));
+    return base::ContainsKey(GetExtensionsAllowlist(), hash);
+  }
+
+  // Safe fallback for future extension manifest versions.
+  return false;
 }
 
 bool DoExtensionPermissionsCoverCorsOrCorbRelatedOrigins(
@@ -82,6 +215,7 @@ network::mojom::URLLoaderFactoryPtrInfo CreateURLLoaderFactory(
   // TODO(lukasza): https://crbug.com/846346: Use more granular CORB enforcement
   // based on the specific |extension|'s permissions.
   params->is_corb_enabled = false;
+  params->request_initiator_site_lock = url::Origin::Create(extension.url());
 
   // Create the URLLoaderFactory.
   network::mojom::URLLoaderFactoryPtrInfo factory_info;

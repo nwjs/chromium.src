@@ -39,7 +39,6 @@ struct WebWindowFeatures;
 }
 
 namespace test_runner {
-
 class AccessibilityController;
 class TestInterfaces;
 class TestRunnerForSpecificView;
@@ -56,11 +55,11 @@ class WebTestInterfaces;
 class TEST_RUNNER_EXPORT ProxyWebWidgetClient : public blink::WebWidgetClient {
  public:
   ProxyWebWidgetClient(blink::WebWidgetClient* base_class_widget_client,
-                       blink::WebWidgetClient* widget_test_client);
+                       blink::WebWidgetClient* widget_test_client,
+                       content::RenderWidget* render_widget);
 
   // blink::WebWidgetClient implementation.
   void DidInvalidateRect(const blink::WebRect&) override;
-  bool AllowsBrokenNullLayerTreeView() const override;
   void ScheduleAnimation() override;
   void IntrinsicSizingInfoChanged(
       const blink::WebIntrinsicSizingInfo&) override;
@@ -103,6 +102,7 @@ class TEST_RUNNER_EXPORT ProxyWebWidgetClient : public blink::WebWidgetClient {
  private:
   blink::WebWidgetClient* base_class_widget_client_;
   blink::WebWidgetClient* widget_test_client_;
+  content::RenderWidget* render_widget_;
 };
 
 // WebViewTestProxyBase is the "brain" of WebViewTestProxy in the sense that
@@ -200,14 +200,14 @@ class TEST_RUNNER_EXPORT WebViewTestProxy : public content::RenderViewImpl,
   blink::WebWidgetClient* WidgetClient() override;
 
   // Exposed for our TestRunner harness.
-  using RenderViewImpl::ApplyPageVisibility;
+  using RenderViewImpl::ApplyPageHidden;
 
  private:
   // RenderViewImpl has no public destructor.
   ~WebViewTestProxy() override;
 
-  std::unique_ptr<ProxyWebWidgetClient> proxy_widget_client_;
   std::unique_ptr<WebViewTestClient> view_test_client_;
+  std::unique_ptr<blink::WebWidgetClient> widget_client_;
 
   DISALLOW_COPY_AND_ASSIGN(WebViewTestProxy);
 };

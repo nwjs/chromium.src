@@ -64,6 +64,7 @@
 #include "services/network/cookie_manager.h"
 #include "services/network/cors/cors_url_loader_factory.h"
 #include "services/network/host_resolver.h"
+#include "services/network/http_auth_cache_copier.h"
 #include "services/network/http_server_properties_pref_delegate.h"
 #include "services/network/ignore_errors_cert_verifier.h"
 #include "services/network/net_log_exporter.h"
@@ -321,6 +322,7 @@ std::string HashesToBase64String(const net::HashValueVector& hashes) {
 
 }  // namespace
 
+constexpr uint32_t NetworkContext::kMaxOutstandingRequestsPerProcess;
 constexpr bool NetworkContext::enable_resource_scheduler_;
 
 NetworkContext::PendingCertVerify::PendingCertVerify() = default;
@@ -736,6 +738,24 @@ void NetworkContext::DestroyURLLoaderFactory(
   url_loader_factories_.erase(it);
 }
 
+void NetworkContext::LoaderCreated(uint32_t process_id) {
+  loader_count_per_process_[process_id] += 1;
+}
+
+void NetworkContext::LoaderDestroyed(uint32_t process_id) {
+  auto it = loader_count_per_process_.find(process_id);
+  DCHECK(it != loader_count_per_process_.end());
+  it->second -= 1;
+  if (it->second == 0)
+    loader_count_per_process_.erase(it);
+}
+
+bool NetworkContext::CanCreateLoader(uint32_t process_id) {
+  auto it = loader_count_per_process_.find(process_id);
+  uint32_t count = (it == loader_count_per_process_.end() ? 0 : it->second);
+  return count < max_loaders_per_process_;
+}
+
 size_t NetworkContext::GetNumOutstandingResolveHostRequestsForTesting() const {
   size_t sum = 0;
   if (internal_host_resolver_)
@@ -743,6 +763,10 @@ size_t NetworkContext::GetNumOutstandingResolveHostRequestsForTesting() const {
   for (const auto& host_resolver : host_resolvers_)
     sum += host_resolver.first->GetNumOutstandingRequestsForTesting();
   return sum;
+}
+
+bool NetworkContext::SkipReportingPermissionCheck() const {
+  return params_ && params_->skip_reporting_send_permission_check;
 }
 
 void NetworkContext::ClearNetworkingHistorySince(
@@ -1335,6 +1359,16 @@ void NetworkContext::VerifyCertForSignedExchange(
     OnCertVerifyForSignedExchangeComplete(cert_verify_id, result);
 }
 
+void NetworkContext::NotifyExternalCacheHit(
+    const GURL& url,
+    const std::string& http_method,
+    const base::Optional<url::Origin>& top_frame_origin) {
+  net::HttpCache* cache =
+      url_request_context_->http_transaction_factory()->GetCache();
+  if (cache)
+    cache->OnExternalCacheHit(url, http_method, top_frame_origin);
+}
+
 void NetworkContext::WriteCacheMetadata(const GURL& url,
                                         net::RequestPriority priority,
                                         base::Time expected_response_time,
@@ -1596,6 +1630,28 @@ void NetworkContext::ForceDomainReliabilityUploadsForTesting(
   std::move(callback).Run();
 }
 
+void NetworkContext::SaveHttpAuthCache(SaveHttpAuthCacheCallback callback) {
+  net::HttpAuthCache* http_auth_cache =
+      url_request_context_->http_transaction_factory()
+          ->GetSession()
+          ->http_auth_cache();
+  base::UnguessableToken cache_key =
+      network_service_->http_auth_cache_copier()->SaveHttpAuthCache(
+          *http_auth_cache);
+  std::move(callback).Run(cache_key);
+}
+
+void NetworkContext::LoadHttpAuthCache(const base::UnguessableToken& cache_key,
+                                       LoadHttpAuthCacheCallback callback) {
+  net::HttpAuthCache* http_auth_cache =
+      url_request_context_->http_transaction_factory()
+          ->GetSession()
+          ->http_auth_cache();
+  network_service_->http_auth_cache_copier()->LoadHttpAuthCache(
+      cache_key, http_auth_cache);
+  std::move(callback).Run();
+}
+
 void NetworkContext::LookupBasicAuthCredentials(
     const GURL& url,
     LookupBasicAuthCredentialsCallback callback) {
@@ -1641,15 +1697,6 @@ URLRequestContextOwner NetworkContext::ApplyContextParamsToBuilder(
             {base::MayBlock(), net::GetCookieStoreBackgroundSequencePriority(),
              base::TaskShutdownBehavior::BLOCK_SHUTDOWN});
 
-    std::unique_ptr<net::ChannelIDService> channel_id_service;
-    if (params_->channel_id_path) {
-      session_cleanup_channel_id_store =
-          base::MakeRefCounted<SessionCleanupChannelIDStore>(
-              params_->channel_id_path.value(), background_task_runner);
-      channel_id_service = std::make_unique<net::ChannelIDService>(
-          new net::DefaultChannelIDStore(
-              session_cleanup_channel_id_store.get()));
-    }
 
     net::CookieCryptoDelegate* crypto_delegate = nullptr;
     if (params_->enable_encrypted_cookies) {
@@ -1671,15 +1718,11 @@ URLRequestContextOwner NetworkContext::ApplyContextParamsToBuilder(
 
     std::unique_ptr<net::CookieMonster> cookie_store =
         std::make_unique<net::CookieMonster>(session_cleanup_cookie_store.get(),
-                                             channel_id_service.get(), net_log);
+                                             nullptr, net_log);
     if (params_->persist_session_cookies)
       cookie_store->SetPersistSessionCookies(true);
 
-    if (channel_id_service) {
-      cookie_store->SetChannelIDServiceID(channel_id_service->GetUniqueID());
-    }
-    builder->SetCookieAndChannelIdStores(std::move(cookie_store),
-                                         std::move(channel_id_service));
+    builder->SetCookieStore(std::move(cookie_store));
   } else {
     DCHECK(!params_->restore_old_session_cookies);
     DCHECK(!params_->persist_session_cookies);
@@ -1712,8 +1755,7 @@ URLRequestContextOwner NetworkContext::ApplyContextParamsToBuilder(
           net::URLRequestContextBuilder::HttpCacheParams::IN_MEMORY;
     } else {
       cache_params.path = *params_->http_cache_path;
-      cache_params.type = network_session_configurator::ChooseCacheType(
-          *base::CommandLine::ForCurrentProcess());
+      cache_params.type = network_session_configurator::ChooseCacheType();
     }
 
 #if defined(OS_ANDROID)
@@ -1789,10 +1831,16 @@ URLRequestContextOwner NetworkContext::ApplyContextParamsToBuilder(
 #endif
 
 #if BUILDFLAG(ENABLE_REPORTING)
-  if (base::FeatureList::IsEnabled(features::kReporting))
-    builder->set_reporting_policy(net::ReportingPolicy::Create());
-  else
+  if (base::FeatureList::IsEnabled(features::kReporting)) {
+    auto reporting_policy = net::ReportingPolicy::Create();
+    if (params_->reporting_delivery_interval) {
+      reporting_policy->delivery_interval =
+          *params_->reporting_delivery_interval;
+    }
+    builder->set_reporting_policy(std::move(reporting_policy));
+  } else {
     builder->set_reporting_policy(nullptr);
+  }
 
   builder->set_network_error_logging_enabled(
       base::FeatureList::IsEnabled(features::kNetworkErrorLogging));

@@ -10,20 +10,15 @@
 #include "base/logging.h"
 #include "content/common/content_export.h"
 #include "content/renderer/media/stream/media_stream_audio_processor_options.h"
+#include "content/renderer/media/stream/media_stream_constraints_util_sets.h"
 #include "content/renderer/media/stream/video_track_adapter.h"
 #include "media/base/video_facing.h"
 #include "media/capture/video_capture_types.h"
-#include "third_party/blink/public/platform/modules/mediastream/media_devices.mojom.h"
+#include "third_party/blink/public/mojom/mediastream/media_devices.mojom.h"
 #include "third_party/blink/public/platform/web_media_constraints.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
 
 namespace content {
-
-namespace media_constraints {
-class ResolutionSet;
-template <typename T>
-class NumericRangeSet;
-}  // namespace media_constraints
 
 extern const double kMinDeviceCaptureFrameRate;
 
@@ -172,6 +167,17 @@ class CONTENT_EXPORT VideoCaptureSettings {
 // constraints that could not be satisfied.
 class CONTENT_EXPORT AudioCaptureSettings {
  public:
+  enum class ProcessingType {
+    // System echo cancellation can be enabled, but all other processing is
+    // disabled.
+    kUnprocessed,
+    // System echo cancellation and audio mirroring can be enabled, but all
+    // other processing is disabled.
+    kNoApmProcessed,
+    // Processing is performed through WebRTC.
+    kApmProcessed
+  };
+
   // Creates an object without value and with an empty failed constraint name.
   AudioCaptureSettings();
 
@@ -278,30 +284,6 @@ CONTENT_EXPORT bool GetConstraintValueAsString(
     const blink::WebMediaConstraints& constraints,
     const blink::StringConstraint blink::WebMediaTrackConstraintSet::*picker,
     std::string* value);
-
-template <typename ConstraintType>
-bool ConstraintHasMax(const ConstraintType& constraint) {
-  return constraint.HasMax() || constraint.HasExact();
-}
-
-template <typename ConstraintType>
-bool ConstraintHasMin(const ConstraintType& constraint) {
-  return constraint.HasMin() || constraint.HasExact();
-}
-
-template <typename ConstraintType>
-auto ConstraintMax(const ConstraintType& constraint)
-    -> decltype(constraint.Max()) {
-  DCHECK(ConstraintHasMax(constraint));
-  return constraint.HasExact() ? constraint.Exact() : constraint.Max();
-}
-
-template <typename ConstraintType>
-auto ConstraintMin(const ConstraintType& constraint)
-    -> decltype(constraint.Min()) {
-  DCHECK(ConstraintHasMin(constraint));
-  return constraint.HasExact() ? constraint.Exact() : constraint.Min();
-}
 
 // If |value| is outside the range of |constraint|, returns the name of the
 // failed constraint. Otherwise, returns nullptr. The return value converts to

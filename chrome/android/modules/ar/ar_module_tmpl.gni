@@ -3,6 +3,8 @@
 # found in the LICENSE file.
 
 import("//build/config/android/rules.gni")
+import("//build/config/locales.gni")
+import("//chrome/android/modules/module_names_to_package_ids.gni")
 import("//device/vr/buildflags/buildflags.gni")
 
 assert(enable_arcore)
@@ -30,30 +32,38 @@ template("ar_module_tmpl") {
                              "base_module_target",
                              "module_name",
                              "version_code",
+                             "version_name",
                            ])
     android_manifest = _manifest
     android_manifest_dep = ":$_manifest_target"
     deps = [
-      "//third_party/arcore-android-sdk:libdynamite_client_java",
+      "//chrome/browser/android/vr:ar_java",
+      "//third_party/android_deps:com_google_ar_core_java",
     ]
 
     # We only want to add the 32 bit arcore shim even for 64 bit monochrome
     # builds. AR is never used in 64 bit mode. We store the arcore shim as a
     # separate .so in the bundle module and only load as needed.
     if (android_64bit_target_cpu && build_apk_secondary_abi) {
-      secondary_abi_loadable_modules = [ "//third_party/arcore-android-sdk/libraries/android_arm/libarcore_sdk_c_minimal.so" ]
+      secondary_abi_loadable_modules = [ "$root_gen_dir/third_party/android_deps/com_google_ar_core_java/jni/armeabi-v7a/libarcore_sdk_c.so" ]
 
       # Disguise 32 bit library as 64 bit. This works around a Play Core bug where only 64 bit
       # libraries are extracted on 64 bit devices.
       # TODO(crbug.com/902859): Remove once bug is fixed.
-      loadable_modules = [ "//third_party/arcore-android-sdk/libraries/android_arm/libarcore_sdk_c_minimal.so" ]
+      loadable_modules = [ "$root_gen_dir/third_party/android_deps/com_google_ar_core_java/jni/armeabi-v7a/libarcore_sdk_c.so" ]
     } else if (android_64bit_target_cpu && !build_apk_secondary_abi) {
-      loadable_modules = [ "//third_party/arcore-android-sdk/libraries/android_arm64/libarcore_sdk_c_minimal.so" ]
+      loadable_modules = [ "$root_gen_dir/third_party/android_deps/com_google_ar_core_java/jni/armeabi-v7a/libarcore_sdk_c.so" ]
     } else {
-      loadable_modules = [ "//third_party/arcore-android-sdk/libraries/android_arm/libarcore_sdk_c_minimal.so" ]
+      loadable_modules = [ "$root_gen_dir/third_party/android_deps/com_google_ar_core_java/jni/armeabi-v7a/libarcore_sdk_c.so" ]
     }
     uncompress_shared_libraries = true
 
+    # Don't embed more localized strings than required (http://crbug.com/932017)
+    aapt_locale_whitelist = locales
+
     proguard_enabled = !is_java_debug
+
+    package_name = "ar"
+    package_name_to_id_mapping = resource_packages_id_mapping
   }
 }

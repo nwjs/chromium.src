@@ -7,12 +7,15 @@
 #include <sstream>
 #include <utility>
 
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
+#include "base/strings/strcat.h"
 #include "base/trace_event/trace_event.h"
 #include "content/browser/service_worker/service_worker_provider_host.h"
 #include "content/browser/service_worker/service_worker_version.h"
 #include "content/browser/url_loader_factory_getter.h"
+#include "content/common/fetch/fetch_request_type_converters.h"
 #include "content/common/service_worker/service_worker_loader_helpers.h"
 #include "content/common/service_worker/service_worker_utils.h"
 #include "content/public/browser/browser_thread.h"
@@ -39,7 +42,7 @@ bool BodyHasNoDataPipeGetters(const network::ResourceRequestBody* body) {
   if (!body)
     return true;
   for (const auto& elem : *body->elements()) {
-    if (elem.type() == network::DataElement::TYPE_DATA_PIPE)
+    if (elem.type() == network::mojom::DataElementType::kDataPipe)
       return false;
   }
   return true;
@@ -205,19 +208,13 @@ void ServiceWorkerNavigationLoader::StartRequest(
     return;
   }
 
-  // ServiceWorkerFetchDispatcher requires a std::unique_ptr<ResourceRequest>
-  // so make one here.
-  // TODO(crbug.com/803125): Try to eliminate unnecessary copying?
-  auto resource_request_to_pass =
-      std::make_unique<network::ResourceRequest>(resource_request_);
-
   // Passing the request body over Mojo moves out the DataPipeGetter elements,
   // which would mean we should clone the body like
   // ServiceWorkerSubresourceLoader does. But we don't expect DataPipeGetters
   // here yet: they are only created by the renderer when converting from a
   // Blob, which doesn't happen for navigations. In interest of speed, just
   // don't clone until proven necessary.
-  DCHECK(BodyHasNoDataPipeGetters(resource_request_to_pass->request_body.get()))
+  DCHECK(BodyHasNoDataPipeGetters(resource_request_.request_body.get()))
       << "We assumed there would be no data pipe getter elements here, but "
          "there are. Add code here to clone the body before proceeding.";
 
@@ -230,9 +227,8 @@ void ServiceWorkerNavigationLoader::StartRequest(
 
   // Dispatch the fetch event.
   fetch_dispatcher_ = std::make_unique<ServiceWorkerFetchDispatcher>(
-      std::move(resource_request_to_pass),
-      std::string() /* request_body_blob_uuid */,
-      0 /* request_body_blob_size */, nullptr /* request_body_blob */,
+      blink::mojom::FetchAPIRequest::From(resource_request_),
+      static_cast<ResourceType>(resource_request_.resource_type),
       provider_host_->client_uuid(), active_worker,
       net::NetLogWithSource() /* TODO(scottmg): net log? */,
       base::BindOnce(&ServiceWorkerNavigationLoader::DidPrepareFetchEvent,
@@ -412,7 +408,10 @@ void ServiceWorkerNavigationLoader::StartResponse(
 
   response_head_.did_service_worker_navigation_preload =
       did_navigation_preload_;
-  response_head_.load_timing.receive_headers_end = base::TimeTicks::Now();
+  response_head_.load_timing.receive_headers_start = base::TimeTicks::Now();
+  response_head_.load_timing.receive_headers_end =
+      response_head_.load_timing.receive_headers_start;
+  response_source_ = response->response_source;
 
   // Make the navigated page inherit the SSLInfo from its controller service
   // worker's script. This affects the HTTPS padlock, etc, shown by the
@@ -491,9 +490,8 @@ void ServiceWorkerNavigationLoader::StartResponse(
 // URLLoader implementation----------------------------------------
 
 void ServiceWorkerNavigationLoader::FollowRedirect(
-    const base::Optional<std::vector<std::string>>&
-        to_be_removed_request_headers,
-    const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
+    const std::vector<std::string>& removed_headers,
+    const net::HttpRequestHeaders& modified_headers,
     const base::Optional<GURL>& new_url) {
   NOTIMPLEMENTED();
 }
@@ -600,9 +598,16 @@ void ServiceWorkerNavigationLoader::RecordTimingMetrics(bool handled) {
             fetch_event_timing_->respond_with_settled_time);
 
     // Time spent reading response body.
-    UMA_HISTOGRAM_TIMES(
+    UMA_HISTOGRAM_MEDIUM_TIMES(
         "ServiceWorker.LoadTiming.MainFrame.MainResource."
-        "ResponseReceivedToCompleted",
+        "ResponseReceivedToCompleted2",
+        completion_time_ - response_head_.load_timing.receive_headers_end);
+    // Same as above, breakdown by response source.
+    base::UmaHistogramMediumTimes(
+        base::StrCat({"ServiceWorker.LoadTiming.MainFrame.MainResource."
+                      "ResponseReceivedToCompleted2",
+                      ServiceWorkerUtils::FetchResponseSourceToSuffix(
+                          response_source_)}),
         completion_time_ - response_head_.load_timing.receive_headers_end);
   } else {
     // Renderer -> Browser IPC delay (network fallback case).

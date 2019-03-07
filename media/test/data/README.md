@@ -217,6 +217,26 @@ video playback looks like a still image. An image of 4 color blocks (.png file)
 is first created by Windows Paint.exe. This image is then used as a basic video
 frame in making this 2-second video from Mac iStopMotion.
 
+#### four-colors-aspect-4x3.mp4
+Actual video frames are the same as four-colors.mp4, except it specifies
+an aspect of 4x3 in mp4 meta data.
+
+#### four-colors-aspect-rot-90.mp4
+Actual video frames are the same as four-colors.mp4, except it specifies
+a rotation of 90 degrees in mp4 meta data.
+
+#### four-colors-aspect-rot-180.mp4
+Actual video frames are the same as four-colors.mp4, except it specifies
+a rotation of 180 degrees in mp4 meta data.
+
+#### four-colors-aspect-rot-270.mp4
+Actual video frames are the same as four-colors.mp4, except it specifies
+a rotation of 270 degrees in mp4 meta data.
+
+#### four-colors-vp9.web
+A 960x540 vp9 video with 4 color blocks (Y,R,G,B) in every frame. This is
+converted from four-colors.mp4 by ffmpeg.
+
 #### bear-320x180-hi10p.mp4
 #### bear-320x240-vp9_profile2.webm
 VP9 encoded video with profile 2 (10-bit, 4:2:0).
@@ -564,6 +584,10 @@ converted to I420 pixel format. Written out by
 video_decode_accelerator_unittest when input file is test-25fps.h264.
 This value must be identical on all platforms.
 
+#### test-25fps.h264.json:
+JSON file that contains metadata of test-25fps.h264.
+This is used by video_decode_accelerator_tests.
+
 #### test-25fps.vp8
 ffmpeg git-2012-07-19-a8d8e86, libvpx ToT 7/19, chromium r147247,
 mkvextract v5.0.1
@@ -581,6 +605,10 @@ MD5s of frame which is decoded with Intel VAAPI and V4L2 decoders and is
 converted to I420 pixel format. Written out by
 video_decode_accelerator_unittest when input file is test-25fps.vp8.
 This value must be identical on all platforms.
+
+#### test-25fps.vp8.json:
+JSON file that contains metadata of test-25fps.vp8.
+This is used by video_decode_accelerator_tests.
 
 #### test-25fps.vp9
 avconv 9.16-6:9.16-0ubuntu0.14.04.1, vpxenc v1.3.0
@@ -605,6 +633,10 @@ converted to I420 pixel format. Written out by
 video_decode_accelerator_unittest when input file is test-25fps.vp9.
 This value must be identical on all platforms.
 
+#### test-25fps.vp9.json:
+JSON file that contains metadata of test-25fps.vp9.
+This is used by video_decode_accelerator_tests.
+
 #### test-25fps.vp9_2
 Similar to test-25fps.vp9, substituting the option `--profile=0` with
 `--profile=2 --bit-depth=10` to vpxenc. (Note that vpxenc must have been
@@ -619,6 +651,10 @@ MD5s of frame which is decoded with Intel VAAPI and V4L2 decoders and is
 converted to I420 pixel format. Written out by
 video_decode_accelerator_unittest when input file is test-25fps.vp9_2.
 This value must be identical on all platforms.
+
+#### test-25fps.vp9_2.json:
+JSON file that contains metadata of test-25fps.vp9_2.
+This is used by video_decode_accelerator_tests.
 
 
 ### VP9 video with show_existing_frame flag
@@ -725,6 +761,17 @@ video_encode_accelerator_unittest.
 #### bear_320x192_40frames.yv12.yuv
 First 40 raw yv12 frames of bear-1280x720.mp4 scaled down to 320x192 for
 video_encode_accelerator_unittest.
+
+### ImageProcessor Test Files
+
+#### bear\_320x192.i420.yuv
+First frame of bear\_320x192\_40frames.yuv for image\_processor_test.
+
+#### bear\_320x192.nv12.yuv
+First frame of bear\_320x192\_40frames.nv12.yuv for image\_processor_test.
+
+#### bear\_320x192.yv21.yuv
+First frame of bear\_320x192\_40frames.yv21.yuv for image\_processor_test.
 
 ###  VP9 parser test files:
 

@@ -41,9 +41,7 @@ class NavigationItem;
     (ios::ChromeBrowserState*)browserState;
 
 // Notifies the receiver that the user submitted a URL via the location bar.
-- (void)locationBarDidSubmitURL:(const GURL&)url
-                     transition:(ui::PageTransition)transition
-                   browserState:(ios::ChromeBrowserState*)browserState;
+- (void)locationBarDidSubmitURL;
 
 // Adds the current device location to |item| if |item| represents an Omnibox
 // query that's eligible for location. Returns |YES| if the current device

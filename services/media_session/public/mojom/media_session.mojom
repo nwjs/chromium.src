@@ -9,7 +9,7 @@ import "mojo/public/mojom/base/time.mojom";
 import "ui/gfx/geometry/mojo/geometry.mojom";
 import "url/mojom/url.mojom";
 
-// Next MinVersion: 2
+// Next MinVersion: 4
 
 [Extensible]
 enum MediaPlaybackState {
@@ -17,7 +17,6 @@ enum MediaPlaybackState {
   kPlaying,
 };
 
-// Spec: https://wicg.github.io/mediasession/
 [Extensible]
 enum MediaSessionAction {
   kPlay,
@@ -26,6 +25,8 @@ enum MediaSessionAction {
   kNextTrack,
   kSeekBackward,
   kSeekForward,
+  kSkipAd,
+  kStop,
 };
 
 // Album art in MediaMetadata
@@ -37,12 +38,17 @@ struct MediaImage {
 };
 
 // MediaMetadata
-// Spec: https://wicg.github.io/mediasession/
 struct MediaMetadata {
+  // These are defined in the spec: https://wicg.github.io/mediasession/
   mojo_base.mojom.String16 title;
   mojo_base.mojom.String16 artist;
   mojo_base.mojom.String16 album;
   array<MediaImage> artwork;
+
+  // The |source_title| is a human readable title for the source of the media
+  // session. This could be the name of the app or the name of the site playing
+  // media.
+  mojo_base.mojom.String16 source_title;
 };
 
 // Contains state information about a MediaSession.
@@ -72,6 +78,13 @@ struct MediaSessionInfo {
   // different from the audio focus state as it is common for a media session
   // to hold audio focus sometimes even though it is not actually playing.
   [MinVersion=1] MediaPlaybackState playback_state;
+
+  // If true then the session should be controllable by the user.
+  [MinVersion=2] bool is_controllable;
+
+  // If true then we will stop this MediaSession instead of suspending when the
+  // session loses focus to a kGain focus type.
+  [MinVersion=4] bool prefer_stop_for_gain_focus_loss;
 };
 
 // Contains debugging information about a MediaSession. This will be displayed
@@ -90,15 +103,24 @@ struct MediaSessionDebugInfo {
 // The observer for observing media session events.
 // Next Method ID: 1
 interface MediaSessionObserver {
-  // The info associated with the session changed.
+  // Call when the info associated with the session changed.
   MediaSessionInfoChanged@0(MediaSessionInfo info);
+
+  // Called when the observed MediaSession has changed metadata. The metadata
+  // can be null to be reset, e.g. the media that was being played has been
+  // stopped.
+  MediaSessionMetadataChanged@1(MediaMetadata? metadata);
+
+  // Called when the media session action list has changed. This tells the
+  // observer which actions can be used to control the session.
+  MediaSessionActionsChanged@2(array<MediaSessionAction> action);
 };
 
 // A MediaSession manages the media session and audio focus for a given
 // WebContents or ARC app.
 // TODO(https://crbug.com/875004): migrate media session from content/public
 // to mojo.
-// Next Method ID: 10
+// Next Method ID: 12
 interface MediaSession {
   [Extensible]
   enum SuspendType {
@@ -148,4 +170,11 @@ interface MediaSession {
   // The |kDefaultSeekTimeSeconds| provides a default value for seeking by a
   // few seconds.
   Seek@9(mojo_base.mojom.TimeDelta seek_time);
+
+  // Stop the media session.
+  // |type| represents the origin of the request.
+  Stop@10(SuspendType suspend_type);
+
+  // Skip ad.
+  SkipAd@11();
 };

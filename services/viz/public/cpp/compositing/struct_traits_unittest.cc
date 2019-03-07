@@ -238,6 +238,8 @@ TEST_F(StructTraitsTest, CopyOutputRequest_BitmapRequest) {
           [](const base::Closure& quit_closure, const gfx::Rect& expected_rect,
              std::unique_ptr<CopyOutputResult> result) {
             EXPECT_EQ(expected_rect, result->rect());
+            // Note: CopyOutputResult plumbing for bitmap requests is tested in
+            // StructTraitsTest.CopyOutputResult_Bitmap.
             quit_closure.Run();
           },
           run_loop.QuitClosure(), result_rect)));
@@ -264,7 +266,8 @@ TEST_F(StructTraitsTest, CopyOutputRequest_BitmapRequest) {
   EXPECT_EQ(result_rect, output->result_selection());
 
   SkBitmap bitmap;
-  bitmap.allocN32Pixels(result_rect.width(), result_rect.height());
+  bitmap.allocPixels(SkImageInfo::MakeN32Premul(
+      result_rect.width(), result_rect.height(), SkColorSpace::MakeSRGB()));
   output->SendResult(
       std::make_unique<CopyOutputSkBitmapResult>(result_rect, bitmap));
   // If the CopyOutputRequest callback is called, this ends. Otherwise, the test
@@ -312,6 +315,8 @@ TEST_F(StructTraitsTest, CopyOutputRequest_TextureRequest) {
           [](const base::Closure& quit_closure, const gfx::Rect& expected_rect,
              std::unique_ptr<CopyOutputResult> result) {
             EXPECT_EQ(expected_rect, result->rect());
+            // Note: CopyOutputResult plumbing for texture requests is tested in
+            // StructTraitsTest.CopyOutputResult_Texture.
             quit_closure.Run();
           },
           run_loop_for_result.QuitClosure(), result_rect)));
@@ -327,7 +332,7 @@ TEST_F(StructTraitsTest, CopyOutputRequest_TextureRequest) {
 
   base::RunLoop run_loop_for_release;
   output->SendResult(std::make_unique<CopyOutputTextureResult>(
-      result_rect, mailbox, sync_token, gfx::ColorSpace(),
+      result_rect, mailbox, sync_token, gfx::ColorSpace::CreateSRGB(),
       SingleReleaseCallback::Create(base::Bind(
           [](const base::Closure& quit_closure,
              const gpu::SyncToken& expected_sync_token,
@@ -501,6 +506,7 @@ TEST_F(StructTraitsTest, CompositorFrame) {
   input.resource_list.push_back(resource);
   input.metadata.content_source_id = content_source_id;
   input.metadata.begin_frame_ack = begin_frame_ack;
+  input.metadata.frame_token = 1;
   input.metadata.local_surface_id_allocation_time =
       local_surface_id_allocation_time;
 
@@ -734,6 +740,7 @@ TEST_F(StructTraitsTest, RenderPass) {
   backdrop_filters.Append(cc::FilterOperation::CreateSaturateFilter(4.f));
   backdrop_filters.Append(cc::FilterOperation::CreateZoomFilter(2.0f, 1));
   backdrop_filters.Append(cc::FilterOperation::CreateSaturateFilter(2.f));
+  gfx::RectF backdrop_filter_bounds = gfx::RectF(10, 20, 130, 140);
   gfx::ColorSpace color_space = gfx::ColorSpace::CreateXYZD50();
   const bool has_transparent_background = true;
   const bool cache_render_pass = true;
@@ -741,7 +748,7 @@ TEST_F(StructTraitsTest, RenderPass) {
   const bool generate_mipmap = true;
   std::unique_ptr<RenderPass> input = RenderPass::Create();
   input->SetAll(render_pass_id, output_rect, damage_rect, transform_to_root,
-                filters, backdrop_filters, color_space,
+                filters, backdrop_filters, backdrop_filter_bounds, color_space,
                 has_transparent_background, cache_render_pass,
                 has_damage_from_contributing_content, generate_mipmap);
   input->copy_requests.push_back(CopyOutputRequest::CreateStubForTesting());
@@ -803,6 +810,8 @@ TEST_F(StructTraitsTest, RenderPass) {
   EXPECT_EQ(has_transparent_background, output->has_transparent_background);
   EXPECT_EQ(filters, output->filters);
   EXPECT_EQ(backdrop_filters, output->backdrop_filters);
+  EXPECT_EQ(gfx::ToNearestRect(backdrop_filter_bounds),
+            gfx::ToNearestRect(output->backdrop_filter_bounds));
   EXPECT_EQ(cache_render_pass, output->cache_render_pass);
   EXPECT_EQ(has_damage_from_contributing_content,
             output->has_damage_from_contributing_content);
@@ -869,7 +878,7 @@ TEST_F(StructTraitsTest, RenderPassWithEmptySharedQuadStateList) {
   const gfx::Transform transform_to_root =
       gfx::Transform(1.0, 0.5, 0.5, -0.5, -1.0, 0.0);
   const gfx::Rect damage_rect(56, 123, 19, 43);
-  SkMatrix44 to_XYZD50;
+  skcms_Matrix3x3 to_XYZD50 = SkNamedGamut::kXYZ;
   SkColorSpaceTransferFn fn = {1, 0, 1, 0, 0, 0, 1};
   gfx::ColorSpace color_space = gfx::ColorSpace::CreateCustom(to_XYZD50, fn);
   const bool has_transparent_background = true;
@@ -878,8 +887,8 @@ TEST_F(StructTraitsTest, RenderPassWithEmptySharedQuadStateList) {
   const bool generate_mipmap = false;
   std::unique_ptr<RenderPass> input = RenderPass::Create();
   input->SetAll(render_pass_id, output_rect, damage_rect, transform_to_root,
-                cc::FilterOperations(), cc::FilterOperations(), color_space,
-                has_transparent_background, cache_render_pass,
+                cc::FilterOperations(), cc::FilterOperations(), gfx::RectF(),
+                color_space, has_transparent_background, cache_render_pass,
                 has_damage_from_contributing_content, generate_mipmap);
 
   // Unlike the previous test, don't add any quads to the list; we need to
@@ -1191,9 +1200,9 @@ TEST_F(StructTraitsTest, CopyOutputResult_Empty) {
 TEST_F(StructTraitsTest, CopyOutputResult_Bitmap) {
   const gfx::Rect result_rect(42, 43, 7, 8);
   SkBitmap bitmap;
-  const sk_sp<SkColorSpace> adobe_rgb = SkColorSpace::MakeRGB(
-      SkColorSpace::kSRGB_RenderTargetGamma, SkColorSpace::kAdobeRGB_Gamut);
-  bitmap.allocN32Pixels(7, 8, adobe_rgb != nullptr);
+  const sk_sp<SkColorSpace> adobe_rgb =
+      SkColorSpace::MakeRGB(SkNamedTransferFn::kSRGB, SkNamedGamut::kAdobeRGB);
+  bitmap.allocPixels(SkImageInfo::MakeN32Premul(7, 8, adobe_rgb));
   bitmap.eraseARGB(123, 213, 77, 33);
   std::unique_ptr<CopyOutputResult> input =
       std::make_unique<CopyOutputSkBitmapResult>(result_rect, bitmap);
@@ -1214,7 +1223,7 @@ TEST_F(StructTraitsTest, CopyOutputResult_Bitmap) {
   // Check that the pixels are the same as the input and the color spaces are
   // equivalent.
   SkBitmap expected_bitmap;
-  expected_bitmap.allocN32Pixels(7, 8, adobe_rgb != nullptr);
+  expected_bitmap.allocPixels(SkImageInfo::MakeN32Premul(7, 8, adobe_rgb));
   expected_bitmap.eraseARGB(123, 213, 77, 33);
   EXPECT_EQ(expected_bitmap.computeByteSize(), out_bitmap.computeByteSize());
   EXPECT_EQ(0, std::memcmp(expected_bitmap.getPixels(), out_bitmap.getPixels(),

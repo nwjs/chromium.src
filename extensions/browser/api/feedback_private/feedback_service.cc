@@ -13,7 +13,6 @@
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/blob_reader.h"
 #include "extensions/browser/extensions_browser_client.h"
-#include "extensions/common/extensions_client.h"
 #include "net/base/network_change_notifier.h"
 
 using content::BrowserThread;
@@ -30,9 +29,10 @@ void FeedbackService::SendFeedback(scoped_refptr<FeedbackData> feedback_data,
                                    const SendFeedbackCallback& callback) {
   feedback_data->set_locale(
       ExtensionsBrowserClient::Get()->GetApplicationLocale());
-  feedback_data->set_user_agent(ExtensionsClient::Get()->GetUserAgent());
+  feedback_data->set_user_agent(ExtensionsBrowserClient::Get()->GetUserAgent());
 
   if (!feedback_data->attached_file_uuid().empty()) {
+    VLOG(1) << "Attaching file to the report.";
     // Self-deleting object.
     BlobReader* attached_file_reader =
         new BlobReader(browser_context_, feedback_data->attached_file_uuid(),
@@ -42,6 +42,7 @@ void FeedbackService::SendFeedback(scoped_refptr<FeedbackData> feedback_data,
   }
 
   if (!feedback_data->screenshot_uuid().empty()) {
+    VLOG(1) << "Attaching screenshot to the report.";
     // Self-deleting object.
     BlobReader* screenshot_reader =
         new BlobReader(browser_context_, feedback_data->screenshot_uuid(),
@@ -92,6 +93,7 @@ void FeedbackService::CompleteSendFeedback(
   const bool screenshot_completed = feedback_data->screenshot_uuid().empty();
 
   if (screenshot_completed && attached_file_completed) {
+    VLOG(1) << "Attachments are ready.";
     // Signal the feedback object that the data from the feedback page has been
     // filled - the object will manage sending of the actual report.
     feedback_data->OnFeedbackPageDataComplete();

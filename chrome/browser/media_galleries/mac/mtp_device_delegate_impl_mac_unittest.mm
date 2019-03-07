@@ -14,7 +14,6 @@
 #include "base/macros.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
-#include "base/test/scoped_task_environment.h"
 #include "chrome/browser/media_galleries/mac/mtp_device_delegate_impl_mac.h"
 #include "components/storage_monitor/image_capture_device_manager.h"
 #include "components/storage_monitor/test_storage_monitor.h"
@@ -117,8 +116,11 @@ const char kTestFileContents[] = "test";
 
 - (id)init:(NSString*)name {
   if ((self = [super init])) {
+    base::scoped_nsobject<NSDateFormatter> iso8601day(
+        [[NSDateFormatter alloc] init]);
+    [iso8601day setDateFormat:@"yyyy-MM-dd"];
     name_.reset([name retain]);
-    date_.reset([[NSDate dateWithNaturalLanguageString:@"12/12/12"] retain]);
+    date_.reset([[iso8601day dateFromString:@"2012-12-12"] retain]);
   }
   return self;
 }
@@ -147,11 +149,7 @@ const char kTestFileContents[] = "test";
 
 class MTPDeviceDelegateImplMacTest : public testing::Test {
  public:
-  MTPDeviceDelegateImplMacTest()
-      : scoped_task_environment_(
-            base::test::ScopedTaskEnvironment::MainThreadType::UI),
-        camera_(NULL),
-        delegate_(NULL) {}
+  MTPDeviceDelegateImplMacTest() : camera_(NULL), delegate_(NULL) {}
 
   void SetUp() override {
     storage_monitor::TestStorageMonitor* monitor =
@@ -233,7 +231,7 @@ class MTPDeviceDelegateImplMacTest : public testing::Test {
       base::Bind(&MTPDeviceDelegateImplMacTest::OnError,
                  base::Unretained(this),
                  &wait));
-    scoped_task_environment_.RunUntilIdle();
+    test_browser_thread_bundle_.RunUntilIdle();
     EXPECT_TRUE(wait.IsSignaled());
     *info = info_;
     return error_;
@@ -248,7 +246,7 @@ class MTPDeviceDelegateImplMacTest : public testing::Test {
                             base::Unretained(this), &wait),
         base::Bind(&MTPDeviceDelegateImplMacTest::OnError,
                    base::Unretained(this), &wait));
-    scoped_task_environment_.RunUntilIdle();
+    test_browser_thread_bundle_.RunUntilIdle();
     wait.Wait();
     return error_;
   }
@@ -266,13 +264,12 @@ class MTPDeviceDelegateImplMacTest : public testing::Test {
         base::Bind(&MTPDeviceDelegateImplMacTest::OnError,
                    base::Unretained(this),
                    &wait));
-    scoped_task_environment_.RunUntilIdle();
+    test_browser_thread_bundle_.RunUntilIdle();
     wait.Wait();
     return error_;
   }
 
  protected:
-  base::test::ScopedTaskEnvironment scoped_task_environment_;
   content::TestBrowserThreadBundle test_browser_thread_bundle_;
 
   base::ScopedTempDir temp_dir_;
@@ -341,7 +338,7 @@ TEST_F(MTPDeviceDelegateImplMacTest, TestOverlappedReadDir) {
   // Signal the delegate that no files are coming.
   delegate_->NoMoreItems();
 
-  scoped_task_environment_.RunUntilIdle();
+  test_browser_thread_bundle_.RunUntilIdle();
   wait.Wait();
 
   EXPECT_EQ(base::File::FILE_OK, error_);

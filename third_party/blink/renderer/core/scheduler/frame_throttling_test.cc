@@ -43,7 +43,7 @@ class FrameThrottlingTest : public PaintTestConfigurations, public SimTest {
  protected:
   void SetUp() override {
     SimTest::SetUp();
-    WebView().Resize(WebSize(640, 480));
+    WebView().MainFrameWidget()->Resize(WebSize(640, 480));
   }
 
   SimCanvas::Commands CompositeFrame() {
@@ -286,13 +286,26 @@ TEST_P(FrameThrottlingTest, ThrottledLifecycleUpdate) {
   // ran.
   frame_element->setAttribute(kWidthAttr, "50");
   CompositeFrame();
-  EXPECT_EQ(DocumentLifecycle::kPaintClean,
-            frame_document->Lifecycle().GetState());
 
-  // A hit test will not force a complete lifecycle update.
-  WebView().HitTestResultAt(gfx::Point());
-  EXPECT_EQ(DocumentLifecycle::kPaintClean,
-            frame_document->Lifecycle().GetState());
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    EXPECT_EQ(DocumentLifecycle::kPaintClean,
+              frame_document->Lifecycle().GetState());
+
+    // A hit test will not force a complete lifecycle update.
+    WebView().HitTestResultAt(gfx::Point());
+    EXPECT_EQ(DocumentLifecycle::kPaintClean,
+              frame_document->Lifecycle().GetState());
+  } else {
+    // TODO(chrishtr): fix this test by manually resetting to
+    // kVisualUpdatePending before call to CompositeFrame.
+    EXPECT_EQ(DocumentLifecycle::kPaintClean,
+              frame_document->Lifecycle().GetState());
+
+    // A hit test will not force a complete lifecycle update.
+    WebView().HitTestResultAt(gfx::Point());
+    EXPECT_EQ(DocumentLifecycle::kPaintClean,
+              frame_document->Lifecycle().GetState());
+  }
 }
 
 TEST_P(FrameThrottlingTest, UnthrottlingFrameSchedulesAnimation) {
@@ -563,8 +576,8 @@ TEST_P(FrameThrottlingTest, ThrottledFrameWithFocus) {
 }
 
 TEST_P(FrameThrottlingTest, ScrollingCoordinatorShouldSkipThrottledFrame) {
-  // TODO(crbug.com/809638): Make this test pass for SPv2.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // TODO(crbug.com/809638): Make this test pass for CAP.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   // Create a hidden frame which is throttled.
@@ -722,9 +735,9 @@ TEST_P(FrameThrottlingTest,
                      // frame.
   EXPECT_EQ(DocumentLifecycle::kPaintClean,
             frame_element->contentDocument()->Lifecycle().GetState());
-  // TODO(szager): Re-enable this check for SPv2 when it properly sets the
+  // TODO(szager): Re-enable this check for CAP when it properly sets the
   // bits for composited scrolling.
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+  if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
     EXPECT_TRUE(frame_element->contentDocument()
                     ->View()
                     ->LayoutViewport()
@@ -759,8 +772,8 @@ TEST_P(FrameThrottlingTest, UnthrottleByTransformingWithoutLayout) {
 }
 
 TEST_P(FrameThrottlingTest, ThrottledTopLevelEventHandlerIgnored) {
-  // TODO(crbug.com/809638): Make this test pass for SPv2.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // TODO(crbug.com/809638): Make this test pass for CAP.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   WebView().GetSettings()->SetJavaScriptEnabled(true);
@@ -819,8 +832,8 @@ TEST_P(FrameThrottlingTest, ThrottledTopLevelEventHandlerIgnored) {
 }
 
 TEST_P(FrameThrottlingTest, ThrottledEventHandlerIgnored) {
-  // TODO(crbug.com/809638): Make this test pass for SPv2.
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // TODO(crbug.com/809638): Make this test pass for CAP.
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   WebView().GetSettings()->SetJavaScriptEnabled(true);
@@ -908,7 +921,7 @@ TEST_P(FrameThrottlingTest, DumpThrottledFrame) {
 }
 
 TEST_P(FrameThrottlingTest, PaintingViaGraphicsLayerIsThrottled) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   WebView().GetSettings()->SetPreferCompositingToLCDTextEnabled(true);
@@ -944,7 +957,7 @@ TEST_P(FrameThrottlingTest, PaintingViaGraphicsLayerIsThrottled) {
 }
 
 TEST_P(FrameThrottlingTest, ThrottleInnerCompositedLayer) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   WebView().GetSettings()->SetPreferCompositingToLCDTextEnabled(true);
@@ -1022,6 +1035,10 @@ TEST_P(FrameThrottlingTest, ThrottleInnerCompositedLayer) {
 }
 
 TEST_P(FrameThrottlingTest, ThrottleSubtreeAtomically) {
+  // TODO(crbug.com/922419): The test is broken for LayoutNG.
+  if (RuntimeEnabledFeatures::LayoutNGEnabled())
+    return;
+
   // Create two nested frames which are throttled.
   SimRequest main_resource("https://example.com/", "text/html");
   SimRequest frame_resource("https://example.com/iframe.html", "text/html");
@@ -1313,7 +1330,7 @@ TEST_P(FrameThrottlingTest, DisplayNoneChildrenRemainThrottled) {
 }
 
 TEST_P(FrameThrottlingTest, RebuildCompositedLayerTreeOnLayerRemoval) {
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   // This test verifies removal of PaintLayer due to style change will force

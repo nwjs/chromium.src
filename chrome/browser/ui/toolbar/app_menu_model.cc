@@ -54,6 +54,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/signin_metrics.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/driver/sync_driver_switches.h"
 #include "components/vector_icons/vector_icons.h"
 #include "components/zoom/zoom_controller.h"
 #include "components/zoom/zoom_event_manager.h"
@@ -73,13 +74,14 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/text_elider.h"
+#include "ui/native_theme/native_theme.h"
 
 #if defined(GOOGLE_CHROME_BUILD)
 #include "base/feature_list.h"
 #endif
 
 #if defined(OS_CHROMEOS)
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #endif
 
 #if defined(OS_WIN)
@@ -228,6 +230,11 @@ void ToolsMenuModel::Build(Browser* browser) {
 
 ////////////////////////////////////////////////////////////////////////////////
 // AppMenuModel
+
+// static
+const int AppMenuModel::kMinRecentTabsCommandId;
+// static
+const int AppMenuModel::kMaxRecentTabsCommandId;
 
 AppMenuModel::AppMenuModel(ui::AcceleratorProvider* provider,
                            Browser* browser,
@@ -757,6 +764,11 @@ void AppMenuModel::Build() {
     AddItemWithStringId(IDC_ROUTE_MEDIA, IDS_MEDIA_ROUTER_MENU_ITEM_TITLE);
 
   AddItemWithStringId(IDC_FIND, IDS_FIND);
+
+  if (base::FeatureList::IsEnabled(switches::kSyncSendTabToSelf)) {
+    AddItemWithStringId(IDC_SEND_TO_MY_DEVICES, IDS_SEND_TO_MY_DEVICES);
+  }
+
   if (extensions::util::IsNewBookmarkAppsEnabled() &&
       banners::AppBannerManager::IsExperimentalAppBannersEnabled()) {
     const extensions::Extension* pwa =
@@ -811,15 +823,20 @@ void AppMenuModel::Build() {
     AddItemWithStringId(IDC_EXIT, IDS_EXIT);
   }
 
+  // On Chrome OS, similar UI is displayed in the system tray menu, instead of
+  // this menu.
+#if !defined(OS_CHROMEOS)
   if (chrome::ShouldDisplayManagedUi(browser_->profile())) {
     AddSeparator(ui::LOWER_SEPARATOR);
-    const int kIconSize = 20;
-    const auto icon = gfx::CreateVectorIcon(gfx::IconDescription(
-        vector_icons::kBusinessIcon, kIconSize, gfx::kChromeIconGrey,
-        base::TimeDelta(), gfx::kNoneIcon));
+    const int kIconSize = 18;
+    SkColor color = ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
+        ui::NativeTheme::kColorId_HighlightedMenuItemForegroundColor);
+    const auto icon =
+        gfx::CreateVectorIcon(vector_icons::kBusinessIcon, kIconSize, color);
     AddHighlightedItemWithStringIdAndIcon(IDC_MANAGED_UI_HELP,
                                           IDS_MANAGED_BY_ORG, icon);
   }
+#endif  // !defined(OS_CHROMEOS)
 
   uma_action_recorded_ = false;
 }

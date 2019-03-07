@@ -51,6 +51,7 @@ struct WebCursorInfo;
 class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
  public:
   static ChromeClientImpl* Create(WebViewImpl*);
+  explicit ChromeClientImpl(WebViewImpl*);
   ~ChromeClientImpl() override;
   void Trace(Visitor* visitor) override;
 
@@ -112,6 +113,7 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   float WindowToViewportScalar(const float) const override;
   WebScreenInfo GetScreenInfo() const override;
   base::Optional<IntRect> VisibleContentRectForPainting() const override;
+  float InputEventsScaleForEmulation() const override;
   void ContentsSizeChanged(LocalFrame*, const IntSize&) const override;
   bool DoubleTapToZoomEnabled() const override;
   void PageScaleFactorChanged() const override;
@@ -148,6 +150,7 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   // appropriate scroll optimizations can be chosen.
   void SetHasScrollEventHandlers(LocalFrame*, bool has_event_handlers) override;
   void SetNeedsLowLatencyInput(LocalFrame*, bool needs_low_latency) override;
+  void SetNeedsUnbufferedInputForDebugger(LocalFrame*, bool immediate) override;
   void RequestUnbufferedInputEvents(LocalFrame*) override;
   void SetTouchAction(LocalFrame*, TouchAction) override;
 
@@ -220,6 +223,8 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
 
   void RegisterViewportLayers() const override;
 
+  TransformationMatrix GetDeviceEmulationTransform() const override;
+
   void OnMouseDown(Node&) override;
   void DidUpdateBrowserControls() const override;
   void SetOverscrollBehavior(const cc::OverscrollBehavior&) override;
@@ -237,8 +242,6 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
                      base::OnceCallback<void(bool)>) override;
 
  private:
-  explicit ChromeClientImpl(WebViewImpl*);
-
   bool IsChromeClientImpl() const override { return true; }
 
   void SetCursor(const WebCursorInfo&, LocalFrame*);

@@ -12,6 +12,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/signin/gaia_auth_extension_loader.h"
 #include "chrome/browser/profiles/profile.h"
@@ -19,7 +20,6 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
-#include "chrome/browser/ui/signin_view_controller_delegate.h"
 #include "chrome/browser/ui/user_manager.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
 #include "chrome/common/chrome_features.h"
@@ -32,6 +32,10 @@
 #include "content/public/browser/web_ui.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
+
+#if !defined(OS_CHROMEOS)
+#include "chrome/browser/ui/signin_view_controller.h"
+#endif
 
 const char kSignInPromoQueryKeyShowAccountManagement[] =
     "showAccountManagement";
@@ -104,9 +108,9 @@ void InlineLoginHandler::ContinueHandleInitializeMessage() {
 
   const GURL& current_url = web_ui()->GetWebContents()->GetURL();
   signin_metrics::AccessPoint access_point =
-      signin::GetAccessPointForPromoURL(current_url);
+      signin::GetAccessPointForEmbeddedPromoURL(current_url);
   signin_metrics::Reason reason =
-      signin::GetSigninReasonForPromoURL(current_url);
+      signin::GetSigninReasonForEmbeddedPromoURL(current_url);
 
   if (reason != signin_metrics::Reason::REASON_REAUTHENTICATION &&
       reason != signin_metrics::Reason::REASON_UNLOCK &&
@@ -231,19 +235,21 @@ void InlineLoginHandler::HandleSwitchToFullTabMessage(
 
 void InlineLoginHandler::HandleNavigationButtonClicked(
     const base::ListValue* args) {
+#if !defined(OS_CHROMEOS)
   Browser* browser = signin::GetDesktopBrowser(web_ui());
   DCHECK(browser);
 
   browser->signin_view_controller()->PerformNavigation();
+#endif
 }
 
 void InlineLoginHandler::HandleDialogClose(const base::ListValue* args) {
+#if !defined(OS_CHROMEOS)
   Browser* browser = signin::GetDesktopBrowser(web_ui());
   // If the dialog was opened in the User Manager browser will be null here.
   if (browser)
     browser->signin_view_controller()->CloseModalSignin();
 
-#if !defined(OS_CHROMEOS)
   // Does nothing if user manager is not showing.
   UserManagerProfileDialog::HideDialog();
 #endif  // !defined(OS_CHROMEOS)

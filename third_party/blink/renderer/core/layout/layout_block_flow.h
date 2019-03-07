@@ -59,6 +59,7 @@ class LayoutMultiColumnFlowThread;
 class LayoutMultiColumnSpannerPlaceholder;
 class LayoutRubyRun;
 class MarginInfo;
+class NGBlockBreakToken;
 class NGBreakToken;
 class NGConstraintSpace;
 class NGLayoutResult;
@@ -111,9 +112,9 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
 
   void UpdateBlockLayout(bool relayout_children) override;
 
-  void ComputeVisualOverflow(const LayoutRect&, bool recompute_floats) override;
+  void ComputeVisualOverflow(bool recompute_floats) override;
   void ComputeLayoutOverflow(LayoutUnit old_client_after_edge,
-                             bool recompute_floats) override;
+                             bool recompute_floats = false) override;
 
   void DeleteLineBoxTree();
 
@@ -424,7 +425,8 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   void SetShouldDoFullPaintInvalidationForFirstLine();
 
   void SimplifiedNormalFlowInlineLayout();
-  bool RecalcInlineChildrenOverflow();
+  bool RecalcInlineChildrenLayoutOverflow();
+  void RecalcInlineChildrenVisualOverflow();
 
   PositionWithAffinity PositionForPoint(const LayoutPoint&) const override;
 
@@ -454,6 +456,7 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   virtual NGInlineNodeData* TakeNGInlineNodeData() { return nullptr; }
   virtual NGInlineNodeData* GetNGInlineNodeData() const { return nullptr; }
   virtual void ResetNGInlineNodeData() {}
+  virtual void ClearNGInlineNodeData() {}
   virtual bool HasNGInlineNodeData() const { return false; }
   virtual NGPaintFragment* PaintFragment() const { return nullptr; }
   virtual scoped_refptr<NGLayoutResult> CachedLayoutResult(
@@ -466,11 +469,11 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   virtual void ClearCachedLayoutResult();
   virtual bool AreCachedLinesValidFor(const NGConstraintSpace&) const;
   virtual void WillCollectInlines() {}
-  virtual void SetPaintFragment(const NGBreakToken*,
+  virtual void SetPaintFragment(const NGBlockBreakToken*,
                                 scoped_refptr<const NGPhysicalFragment>,
                                 NGPhysicalOffset);
   virtual void UpdatePaintFragmentFromCachedLayoutResult(
-      const NGBreakToken*,
+      const NGBlockBreakToken*,
       scoped_refptr<const NGPhysicalFragment>,
       NGPhysicalOffset);
   virtual const NGPhysicalBoxFragment* CurrentFragment() const {

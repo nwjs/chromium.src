@@ -78,7 +78,8 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
   // Ensure that the closed connection is cleaned up asynchronously.
   void OnConnectionClosed(QuicConnectionId connection_id,
                           QuicErrorCode error,
-                          const QuicString& error_details) override;
+                          const QuicString& error_details,
+                          ConnectionCloseSource source) override;
 
   // QuicSession::Visitor interface implementation (via inheritance of
   // QuicTimeWaitListManager::Visitor):
@@ -95,8 +96,9 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
   // time-wait list.
   void OnConnectionAddedToTimeWaitList(QuicConnectionId connection_id) override;
 
-  using SessionMap =
-      QuicUnorderedMap<QuicConnectionId, std::unique_ptr<QuicSession>>;
+  using SessionMap = QuicUnorderedMap<QuicConnectionId,
+                                      std::unique_ptr<QuicSession>,
+                                      QuicConnectionIdHash>;
 
   const SessionMap& session_map() const { return session_map_; }
 
@@ -178,11 +180,6 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
 
   // Return true if there is CHLO buffered.
   virtual bool HasChlosBuffered() const;
-
-  // Used by subclass of QuicDispatcher, to track its per packet context.
-  struct PerPacketContext {
-    virtual ~PerPacketContext() {}
-  };
 
  protected:
   virtual QuicSession* CreateQuicSession(QuicConnectionId connection_id,
@@ -320,11 +317,13 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
   // true, any future packets for the ConnectionId will be black-holed.
   virtual void CleanUpSession(SessionMap::iterator it,
                               QuicConnection* connection,
-                              bool session_closed_statelessly);
+                              bool session_closed_statelessly,
+                              ConnectionCloseSource source);
 
   void StopAcceptingNewConnections();
 
   // Return true if the blocked writer should be added to blocked list.
+  // TODO(wub): Remove when deprecating --quic_check_blocked_writer_for_blockage
   virtual bool ShouldAddToBlockedList();
 
   // Called to terminate a connection statelessly. Depending on |format|, either
@@ -340,23 +339,24 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
       QuicTimeWaitListManager::TimeWaitAction action);
 
   // Save/Restore per packet context. Used by async stateless rejector.
-  virtual std::unique_ptr<PerPacketContext> GetPerPacketContext() const;
+  virtual std::unique_ptr<QuicPerPacketContext> GetPerPacketContext() const;
   virtual void RestorePerPacketContext(
-      std::unique_ptr<PerPacketContext> /*context*/) {}
+      std::unique_ptr<QuicPerPacketContext> /*context*/) {}
 
   // Skip validating that the public flags are set to legal values.
   void DisableFlagValidation();
 
   // Please do not use this method.
   // TODO(fayang): Remove this method when deprecating
-  // quic_reloadable_flag_quic_proxy_use_real_packet_format_when_reject.
+  // quic_proxy_use_real_packet_format_when_reject flag.
   PacketHeaderFormat GetLastPacketFormat() const;
 
  private:
   friend class test::QuicDispatcherPeer;
   friend class StatelessRejectorProcessDoneCallback;
 
-  typedef QuicUnorderedSet<QuicConnectionId> QuicConnectionIdSet;
+  typedef QuicUnorderedSet<QuicConnectionId, QuicConnectionIdHash>
+      QuicConnectionIdSet;
 
   // Attempts to reject the connection statelessly, if stateless rejects are
   // possible and if the current packet contains a CHLO message.  Determines a
@@ -473,6 +473,9 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
 
   // True if this dispatcher is not draining.
   bool accept_new_connections_;
+
+  // Latched value of --quic_check_blocked_writer_for_blockage.
+  const bool check_blocked_writer_for_blockage_;
 };
 
 }  // namespace quic

@@ -10,7 +10,8 @@
 #include "base/feature_list.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
-#include "chrome/browser/metrics/perf/perf_provider_chromeos.h"
+#include "chrome/browser/metrics/perf/profile_provider_chromeos.h"
+#include "components/metrics/metrics_log_uploader.h"
 #include "components/metrics/metrics_provider.h"
 
 namespace device {
@@ -40,7 +41,8 @@ class ChromeOSMetricsProvider : public metrics::MetricsProvider {
     ENROLLMENT_STATUS_MAX,
   };
 
-  ChromeOSMetricsProvider();
+  explicit ChromeOSMetricsProvider(
+      metrics::MetricsLogUploader::MetricServiceType service_type);
   ~ChromeOSMetricsProvider() override;
 
   static void RegisterPrefs(PrefRegistrySimple* registry);
@@ -97,8 +99,8 @@ class ChromeOSMetricsProvider : public metrics::MetricsProvider {
   // Record whether ARC is enabled or not for ARC capable devices.
   void RecordArcState();
 
-  // For collecting systemwide perf data.
-  metrics::PerfProvider perf_provider_;
+  // For collecting systemwide performance data via the UMA channel.
+  std::unique_ptr<metrics::ProfileProvider> profile_provider_;
 
   // Bluetooth Adapter instance for collecting information about paired devices.
   scoped_refptr<device::BluetoothAdapter> adapter_;

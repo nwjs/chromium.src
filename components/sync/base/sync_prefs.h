@@ -32,8 +32,12 @@ namespace syncer {
 
 class SyncPrefObserver {
  public:
-  // Called whenever the pref that controls whether sync is managed changes.
   virtual void OnSyncManagedPrefChange(bool is_sync_managed) = 0;
+  virtual void OnFirstSetupCompletePrefChange(bool is_first_setup_complete) = 0;
+  virtual void OnSyncRequestedPrefChange(bool is_sync_requested) = 0;
+  virtual void OnPreferredDataTypesPrefChange(
+      bool sync_everything,
+      syncer::ModelTypeSet preferred_types) = 0;
 
  protected:
   virtual ~SyncPrefObserver();
@@ -111,21 +115,28 @@ class SyncPrefs : public CryptoSyncPrefs,
   void SetLongPollInterval(base::TimeDelta interval);
 
   bool HasKeepEverythingSynced() const;
-  void SetKeepEverythingSynced(bool keep_everything_synced);
 
-  // The returned set is guaranteed to be a subset of
-  // |registered_types|.  Returns |registered_types| directly if
-  // HasKeepEverythingSynced() is true.
+  // The returned set is guaranteed to be a subset of |registered_types|.
+  // Returns |registered_types| directly if HasKeepEverythingSynced() is true.
   ModelTypeSet GetPreferredDataTypes(ModelTypeSet registered_types) const;
 
-  // |preferred_types| should be a subset of |registered_types|.  All
-  // types in |preferred_types| are marked preferred, and all types in
+  // Sets the desired configuration for all data types, including the "keep
+  // everything synced" flag and the "preferred" state for each individual data
+  // type.
+  // |keep_everything_synced| indicates that all current and future data types
+  // should be synced. If this is set to true, then GetPreferredDataTypes() will
+  // always return all available data types, even if not all of them are
+  // individually marked as preferred.
+  // The |chosen_types| should be a subset of the |registered_types|. The
+  // |preferred_types| are derived from |chosen_types| by resolving pref groups.
+  // Then all types in |preferred_types| are marked preferred, and all types in
   // |registered_types| \ |preferred_types| are marked not preferred.
-  // Changes are still made to the prefs even if
-  // HasKeepEverythingSynced() is true, but won't be visible until
-  // SetKeepEverythingSynced(false) is called.
-  void SetPreferredDataTypes(ModelTypeSet registered_types,
-                             ModelTypeSet preferred_types);
+  // Changes are still made to the individual data type prefs even if
+  // |keep_everything_synced| is true, but won't be visible until it's set to
+  // false.
+  void SetDataTypesConfiguration(bool keep_everything_synced,
+                                 ModelTypeSet registered_types,
+                                 ModelTypeSet chosen_types);
 
   // Whether Sync is forced off by enterprise policy. Note that this only covers
   // one out of two types of policy, "browser" policy. The second kind, "cloud"
@@ -150,6 +161,16 @@ class SyncPrefs : public CryptoSyncPrefs,
   std::string GetSpareBootstrapToken() const;
   void SetSpareBootstrapToken(const std::string& token);
 #endif
+
+  // Copy of various fields historically owned and persisted by the Directory.
+  // This is a future-proof approach to ultimately replace the Directory once
+  // most users have populated prefs and the Directory is about to be removed.
+  // TODO(crbug.com/923287): Figure out if this is an appropriate place.
+  void SetCacheGuid(const std::string& cache_guid);
+  void SetBirthday(const std::string& birthday);
+  void SetBagOfChips(const std::string& bag_of_chips);
+
+  std::string GetCacheGuidForTesting() const;
 
   // Get/set/clear first sync time of current user. Used to roll back browsing
   // data later when user signs out.
@@ -217,6 +238,8 @@ class SyncPrefs : public CryptoSyncPrefs,
   void SetDataTypePreferred(ModelType type, bool is_preferred);
 
   void OnSyncManagedPrefChanged();
+  void OnFirstSetupCompletePrefChange();
+  void OnSyncSuppressedPrefChange();
 
   // Never null.
   PrefService* const pref_service_;
@@ -226,6 +249,10 @@ class SyncPrefs : public CryptoSyncPrefs,
   // The preference that controls whether sync is under control by
   // configuration management.
   BooleanPrefMember pref_sync_managed_;
+
+  BooleanPrefMember pref_first_setup_complete_;
+
+  BooleanPrefMember pref_sync_suppressed_;
 
   bool local_sync_enabled_;
 

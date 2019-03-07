@@ -35,6 +35,7 @@
 #include "content/browser/cache_storage/cache_storage_manager.h"
 #include "content/browser/cache_storage/cache_storage_quota_client.h"
 #include "content/browser/cache_storage/cache_storage_scheduler.h"
+#include "content/common/background_fetch/background_fetch_types.h"
 #include "content/public/browser/browser_thread.h"
 #include "crypto/symmetric_key.h"
 #include "net/base/directory_lister.h"
@@ -603,6 +604,25 @@ CacheStorage::CacheStorage(
 CacheStorage::~CacheStorage() {
 }
 
+CacheStorageHandle CacheStorage::CreateHandle() {
+  return CacheStorageHandle(weak_factory_.GetWeakPtr());
+}
+
+void CacheStorage::AddHandleRef() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  handle_ref_count_ += 1;
+}
+
+void CacheStorage::DropHandleRef() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DCHECK(handle_ref_count_ > 0);
+  handle_ref_count_ -= 1;
+  if (!handle_ref_count_ && cache_storage_manager_) {
+    ReleaseUnreferencedCaches();
+    cache_storage_manager_->CacheStorageUnreferenced(this, origin_, owner_);
+  }
+}
+
 void CacheStorage::OpenCache(const std::string& cache_name,
                              CacheAndErrorCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
@@ -614,6 +634,10 @@ void CacheStorage::OpenCache(const std::string& cache_name,
       CacheStorageQuotaClient::GetIDFromOwner(owner_), origin_,
       StorageType::kTemporary);
 
+  // TODO: Hold a handle to this CacheStorage instance while executing
+  //       operations to better support use by internal code that may
+  //       start a single operation without explicitly maintaining a
+  //       handle.
   scheduler_->ScheduleOperation(
       CacheStorageSchedulerOp::kOpen,
       base::BindOnce(&CacheStorage::OpenCacheImpl, weak_factory_.GetWeakPtr(),
@@ -674,11 +698,10 @@ void CacheStorage::EnumerateCaches(IndexCallback callback) {
                      scheduler_->WrapCallbackToRunNext(std::move(callback))));
 }
 
-void CacheStorage::MatchCache(
-    const std::string& cache_name,
-    std::unique_ptr<ServiceWorkerFetchRequest> request,
-    blink::mojom::QueryParamsPtr match_params,
-    CacheStorageCache::ResponseCallback callback) {
+void CacheStorage::MatchCache(const std::string& cache_name,
+                              blink::mojom::FetchAPIRequestPtr request,
+                              blink::mojom::QueryParamsPtr match_params,
+                              CacheStorageCache::ResponseCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   if (!initialized_)
@@ -696,7 +719,7 @@ void CacheStorage::MatchCache(
 }
 
 void CacheStorage::MatchAllCaches(
-    std::unique_ptr<ServiceWorkerFetchRequest> request,
+    blink::mojom::FetchAPIRequestPtr request,
     blink::mojom::QueryParamsPtr match_params,
     CacheStorageCache::ResponseCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
@@ -716,11 +739,10 @@ void CacheStorage::MatchAllCaches(
                      scheduler_->WrapCallbackToRunNext(std::move(callback))));
 }
 
-void CacheStorage::WriteToCache(
-    const std::string& cache_name,
-    std::unique_ptr<ServiceWorkerFetchRequest> request,
-    blink::mojom::FetchAPIResponsePtr response,
-    CacheStorage::ErrorCallback callback) {
+void CacheStorage::WriteToCache(const std::string& cache_name,
+                                blink::mojom::FetchAPIRequestPtr request,
+                                blink::mojom::FetchAPIResponsePtr response,
+                                CacheStorage::ErrorCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   if (!initialized_)
@@ -813,9 +835,12 @@ void CacheStorage::CacheSizeUpdated(const CacheStorageCache* cache) {
   DCHECK(!base::ContainsKey(doomed_caches_,
                             const_cast<CacheStorageCache*>(cache)));
   DCHECK_NE(cache->cache_padding(), kSizeUnknown);
-  cache_index_->SetCacheSize(cache->cache_name(), cache->cache_size());
-  cache_index_->SetCachePadding(cache->cache_name(), cache->cache_padding());
-  ScheduleWriteIndex();
+  bool size_changed =
+      cache_index_->SetCacheSize(cache->cache_name(), cache->cache_size());
+  bool padding_changed = cache_index_->SetCachePadding(cache->cache_name(),
+                                                       cache->cache_padding());
+  if (size_changed || padding_changed)
+    ScheduleWriteIndex();
 }
 
 void CacheStorage::StartAsyncOperationForTesting() {
@@ -1024,7 +1049,7 @@ void CacheStorage::EnumerateCachesImpl(IndexCallback callback) {
 
 void CacheStorage::MatchCacheImpl(
     const std::string& cache_name,
-    std::unique_ptr<ServiceWorkerFetchRequest> request,
+    blink::mojom::FetchAPIRequestPtr request,
     blink::mojom::QueryParamsPtr match_params,
     CacheStorageCache::ResponseCallback callback) {
   CacheStorageCacheHandle cache_handle = GetLoadedCache(cache_name);
@@ -1054,7 +1079,7 @@ void CacheStorage::MatchCacheDidMatch(
 }
 
 void CacheStorage::MatchAllCachesImpl(
-    std::unique_ptr<ServiceWorkerFetchRequest> request,
+    blink::mojom::FetchAPIRequestPtr request,
     blink::mojom::QueryParamsPtr match_params,
     CacheStorageCache::ResponseCallback callback) {
   std::vector<CacheMatchResponse>* match_responses =
@@ -1073,7 +1098,7 @@ void CacheStorage::MatchAllCachesImpl(
 
     CacheStorageCache* cache_ptr = cache_handle.value();
     cache_ptr->Match(
-        std::make_unique<ServiceWorkerFetchRequest>(*request),
+        BackgroundFetchSettledFetch::CloneRequest(request),
         match_params ? match_params->Clone() : nullptr,
         base::BindOnce(&CacheStorage::MatchAllCachesDidMatch,
                        weak_factory_.GetWeakPtr(), std::move(cache_handle),
@@ -1106,11 +1131,10 @@ void CacheStorage::MatchAllCachesDidMatchAll(
   std::move(callback).Run(CacheStorageError::kErrorNotFound, nullptr);
 }
 
-void CacheStorage::WriteToCacheImpl(
-    const std::string& cache_name,
-    std::unique_ptr<ServiceWorkerFetchRequest> request,
-    blink::mojom::FetchAPIResponsePtr response,
-    CacheStorage::ErrorCallback callback) {
+void CacheStorage::WriteToCacheImpl(const std::string& cache_name,
+                                    blink::mojom::FetchAPIRequestPtr request,
+                                    blink::mojom::FetchAPIResponsePtr response,
+                                    CacheStorage::ErrorCallback callback) {
   CacheStorageCacheHandle cache_handle = GetLoadedCache(cache_name);
 
   if (!cache_handle.value()) {
@@ -1224,7 +1248,7 @@ void CacheStorage::SizeImpl(SizeCallback callback) {
 
 void CacheStorage::CacheUnreferenced(CacheStorageCache* cache) {
   DCHECK(cache);
-  cache->AssertUnreferenced();
+  DCHECK(cache->IsUnreferenced());
   auto doomed_caches_it = doomed_caches_.find(cache);
   if (doomed_caches_it != doomed_caches_.end()) {
     // The last reference to a doomed cache is gone, perform clean up.
@@ -1232,10 +1256,28 @@ void CacheStorage::CacheUnreferenced(CacheStorageCache* cache) {
     return;
   }
 
+  // Opportunistically keep warmed caches open when the CacheStorage is
+  // still actively referenced.  Repeatedly opening and closing simple
+  // disk_cache backends can be quite slow.  This is easy to trigger when
+  // a site uses caches.match() frequently because the a Cache object is
+  // never exposed to script to explicitly hold the backend open.
+  if (handle_ref_count_)
+    return;
+
+  // The CacheStorage is not actively being referenced.  Close the cache
+  // immediately.
   auto cache_map_it = cache_map_.find(cache->cache_name());
   DCHECK(cache_map_it != cache_map_.end());
 
   cache_map_it->second.reset();
+}
+
+void CacheStorage::ReleaseUnreferencedCaches() {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  for (auto& entry : cache_map_) {
+    if (entry.second && entry.second->IsUnreferenced())
+      entry.second.reset();
+  }
 }
 
 }  // namespace content

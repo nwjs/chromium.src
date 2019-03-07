@@ -20,16 +20,13 @@ AgentRegistry::AgentEntry::AgentEntry(size_t id,
                                       mojom::AgentPtr agent,
                                       const std::string& label,
                                       mojom::TraceDataType type,
-                                      bool supports_explicit_clock_sync,
                                       base::ProcessId pid)
     : id_(id),
       agent_registry_(agent_registry),
       agent_(std::move(agent)),
       label_(label),
       type_(type),
-      supports_explicit_clock_sync_(supports_explicit_clock_sync),
-      pid_(pid),
-      is_tracing_(false) {
+      pid_(pid) {
   DCHECK(!label.empty());
   agent_.set_connection_error_handler(base::BindRepeating(
       &AgentRegistry::AgentEntry::OnConnectionError, AsWeakPtr()));
@@ -77,35 +74,38 @@ AgentRegistry::~AgentRegistry() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
+void AgentRegistry::DisconnectAllAgents() {
+  bindings_.CloseAllBindings();
+}
+
 void AgentRegistry::BindAgentRegistryRequest(
     scoped_refptr<base::SequencedTaskRunner> task_runner,
-    mojom::AgentRegistryRequest request,
-    const service_manager::BindSourceInfo& source_info) {
+    mojom::AgentRegistryRequest request) {
   task_runner->PostTask(
       FROM_HERE,
       base::BindOnce(&AgentRegistry::BindAgentRegistryRequestOnSequence,
-                     base::Unretained(this), std::move(request), source_info));
+                     base::Unretained(this), std::move(request)));
 }
 
 void AgentRegistry::BindAgentRegistryRequestOnSequence(
-    mojom::AgentRegistryRequest request,
-    const service_manager::BindSourceInfo& source_info) {
+    mojom::AgentRegistryRequest request) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  bindings_.AddBinding(this, std::move(request), source_info.identity);
+  bindings_.AddBinding(this, std::move(request));
 }
 
-void AgentRegistry::SetAgentInitializationCallback(
-    const AgentInitializationCallback& callback) {
+size_t AgentRegistry::SetAgentInitializationCallback(
+    const AgentInitializationCallback& callback,
+    bool call_on_new_agents_only) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   agent_initialization_callback_ = callback;
-  ForAllAgents([this](AgentEntry* agent_entry) {
-    agent_initialization_callback_.Run(agent_entry);
-  });
-}
-
-void AgentRegistry::RemoveAgentInitializationCallback() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  agent_initialization_callback_.Reset();
+  size_t num_initialized_agents = 0;
+  if (!call_on_new_agents_only) {
+    ForAllAgents([this, &num_initialized_agents](AgentEntry* agent_entry) {
+      agent_initialization_callback_.Run(agent_entry);
+      num_initialized_agents++;
+    });
+  }
+  return num_initialized_agents;
 }
 
 bool AgentRegistry::HasDisconnectClosure(const void* closure_name) {
@@ -120,13 +120,11 @@ bool AgentRegistry::HasDisconnectClosure(const void* closure_name) {
 void AgentRegistry::RegisterAgent(mojom::AgentPtr agent,
                                   const std::string& label,
                                   mojom::TraceDataType type,
-                                  bool supports_explicit_clock_sync,
                                   base::ProcessId pid) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto id = next_agent_id_++;
-  auto entry =
-      std::make_unique<AgentEntry>(id, this, std::move(agent), label, type,
-                                   supports_explicit_clock_sync, pid);
+  auto entry = std::make_unique<AgentEntry>(id, this, std::move(agent), label,
+                                            type, pid);
   if (!agent_initialization_callback_.is_null())
     agent_initialization_callback_.Run(entry.get());
   auto result = agents_.insert(std::make_pair(id, std::move(entry)));

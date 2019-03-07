@@ -99,14 +99,14 @@ bool TransferCacheTestHelper::LockEntryInternal(const EntryKey& key) {
   return true;
 }
 
-size_t TransferCacheTestHelper::CreateEntryInternal(
+uint32_t TransferCacheTestHelper::CreateEntryInternal(
     const ClientTransferCacheEntry& client_entry,
     char* memory) {
   auto key = std::make_pair(client_entry.Type(), client_entry.Id());
   DCHECK(entries_.find(key) == entries_.end());
 
   // Serialize data.
-  size_t size = client_entry.SerializedSize();
+  uint32_t size = client_entry.SerializedSize();
   std::unique_ptr<uint8_t[]> data(new uint8_t[size]);
   auto span = base::make_span(data.get(), size);
   bool success = client_entry.Serialize(span);

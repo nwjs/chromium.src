@@ -56,7 +56,7 @@
 #include "net/spdy/spdy_session_pool.h"
 #include "net/ssl/channel_id_service.h"
 #include "net/ssl/ssl_cert_request_info.h"
-#include "net/third_party/spdy/core/spdy_protocol.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_protocol.h"
 #include "url/url_constants.h"
 
 namespace net {
@@ -135,8 +135,8 @@ std::unique_ptr<base::Value> NetLogHttpStreamJobCallback(
     source.AddToEventParameters(dict.get());
   dict->SetString("original_url", original_url->GetOrigin().spec());
   dict->SetString("url", url->GetOrigin().spec());
-  dict->SetString("expect_spdy", expect_spdy ? "true" : "false");
-  dict->SetString("using_quic", using_quic ? "true" : "false");
+  dict->SetBoolean("expect_spdy", expect_spdy);
+  dict->SetBoolean("using_quic", using_quic);
   dict->SetString("priority", RequestPriorityToString(priority));
   return std::move(dict);
 }
@@ -195,7 +195,8 @@ HttpStreamFactory::Job::Job(Delegate* delegate,
                  origin_url_.SchemeIs(url::kWssScheme)),
       using_quic_(
           alternative_protocol == kProtoQUIC ||
-          ShouldForceQuic(session, destination, origin_url, proxy_info)),
+          (ShouldForceQuic(session, destination, origin_url, proxy_info) &&
+           !(proxy_info.is_quic() && using_ssl_))),
       quic_version_(quic_version),
       expect_spdy_(alternative_protocol == kProtoHTTP2 && !using_quic_),
       using_spdy_(false),
@@ -220,6 +221,10 @@ HttpStreamFactory::Job::Job(Delegate* delegate,
       stream_type_(HttpStreamRequest::BIDIRECTIONAL_STREAM),
       init_connection_already_resumed_(false),
       ptr_factory_(this) {
+  // QUIC can only be spoken to servers, never to proxies.
+  if (alternative_protocol == kProtoQUIC)
+    DCHECK(proxy_info_.is_direct());
+
   // The Job is forced to use QUIC without a designated version, try the
   // preferred QUIC version that is supported by default.
   if (quic_version_ == quic::QUIC_VERSION_UNSUPPORTED &&
@@ -412,15 +417,16 @@ SpdySessionKey HttpStreamFactory::Job::GetSpdySessionKey(
     const GURL& origin_url,
     PrivacyMode privacy_mode,
     const SocketTag& socket_tag) {
-  // In the case that we're using an HTTPS proxy for an HTTP url,
-  // we look for a SPDY session *to* the proxy, instead of to the
-  // origin server.
+  // In the case that we're using an HTTPS proxy for an HTTP url, look for a
+  // HTTP/2 proxy session *to* the proxy, instead of to the  origin server.
   if (!spdy_session_direct) {
     return SpdySessionKey(proxy_server.host_port_pair(), ProxyServer::Direct(),
-                          PRIVACY_MODE_DISABLED, socket_tag);
+                          PRIVACY_MODE_DISABLED,
+                          SpdySessionKey::IsProxySession::kTrue, socket_tag);
   }
   return SpdySessionKey(HostPortPair::FromURL(origin_url), proxy_server,
-                        privacy_mode, socket_tag);
+                        privacy_mode, SpdySessionKey::IsProxySession::kFalse,
+                        socket_tag);
 }
 
 bool HttpStreamFactory::Job::CanUseExistingSpdySession() const {
@@ -431,10 +437,10 @@ bool HttpStreamFactory::Job::CanUseExistingSpdySession() const {
     return false;
   }
 
-  // We need to make sure that if a spdy session was created for
+  // We need to make sure that if a HTTP/2 session was created for
   // https://somehost/ then we do not use that session for http://somehost:443/.
   // The only time we can use an existing session is if the request URL is
-  // https (the normal case) or if we are connecting to a SPDY proxy.
+  // https (the normal case) or if we are connecting to a HTTP/2 proxy.
   // https://crbug.com/133176
   return origin_url_.SchemeIs(url::kHttpsScheme) || try_websocket_over_http2_ ||
          proxy_info_.proxy_server().is_https();
@@ -526,13 +532,13 @@ void HttpStreamFactory::Job::OnNeedsClientAuthCallback(
   // |this| may be deleted after this call.
 }
 
-void HttpStreamFactory::Job::OnHttpsProxyTunnelResponseCallback(
+void HttpStreamFactory::Job::OnHttpsProxyTunnelResponseRedirectCallback(
     const HttpResponseInfo& response_info,
     std::unique_ptr<HttpStream> stream) {
   DCHECK_NE(job_type_, PRECONNECT);
 
-  delegate_->OnHttpsProxyTunnelResponse(this, response_info, server_ssl_config_,
-                                        proxy_info_, std::move(stream));
+  delegate_->OnHttpsProxyTunnelResponseRedirect(
+      this, response_info, server_ssl_config_, proxy_info_, std::move(stream));
   // |this| may be deleted after this call.
 }
 
@@ -632,7 +638,7 @@ void HttpStreamFactory::Job::RunLoop(int result) {
                   connection_->ssl_error_response_info().cert_request_info)));
       return;
 
-    case ERR_HTTPS_PROXY_TUNNEL_RESPONSE: {
+    case ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT: {
       DCHECK(connection_.get());
       DCHECK(connection_->socket());
       DCHECK(establishing_tunnel_);
@@ -641,8 +647,8 @@ void HttpStreamFactory::Job::RunLoop(int result) {
           static_cast<ProxyClientSocket*>(connection_->socket());
       base::ThreadTaskRunnerHandle::Get()->PostTask(
           FROM_HERE,
-          base::Bind(
-              &Job::OnHttpsProxyTunnelResponseCallback,
+          base::BindOnce(
+              &Job::OnHttpsProxyTunnelResponseRedirectCallback,
               ptr_factory_.GetWeakPtr(),
               *proxy_socket->GetConnectResponseInfo(),
               base::Passed(proxy_socket->CreateConnectResponseStream())));
@@ -768,6 +774,11 @@ int HttpStreamFactory::Job::DoStart() {
     return ERR_UNSAFE_PORT;
   }
 
+  if (!session_->params().enable_quic_proxies_for_https_urls &&
+      proxy_info_.is_quic() && !request_info_.url.SchemeIs(url::kHttpScheme)) {
+    return ERR_NOT_IMPLEMENTED;
+  }
+
   next_state_ = STATE_WAIT;
   return OK;
 }
@@ -796,7 +807,7 @@ int HttpStreamFactory::Job::DoEvaluateThrottle() {
     return OK;
   if (using_quic_)
     return OK;
-  // Ask |delegate_delegate_| to update the spdy session key for the request
+  // Ask |delegate_delegate_| to update the HTTP/2 session key for the request
   // that launched this job.
   delegate_->SetSpdySessionKey(this, spdy_session_key_);
 
@@ -871,12 +882,6 @@ int HttpStreamFactory::Job::DoInitConnectionImpl() {
   }
 
   if (using_quic_) {
-    if (proxy_info_.is_quic() &&
-        !request_info_.url.SchemeIs(url::kHttpScheme)) {
-      NOTREACHED();
-      // TODO(rch): support QUIC proxies for HTTPS urls.
-      return ERR_NOT_IMPLEMENTED;
-    }
     HostPortPair destination;
     SSLConfig* ssl_config;
     GURL url(request_info_.url);
@@ -950,7 +955,7 @@ int HttpStreamFactory::Job::DoInitConnectionImpl() {
     }
   }
 
-  if (proxy_info_.is_http() || proxy_info_.is_https())
+  if (proxy_info_.is_http() || proxy_info_.is_https() || proxy_info_.is_quic())
     establishing_tunnel_ = using_ssl_;
 
   HttpServerProperties* http_server_properties =
@@ -973,7 +978,7 @@ int HttpStreamFactory::Job::DoInitConnectionImpl() {
         net_log_, num_streams_);
   }
 
-  // If we can't use a SPDY session, don't bother checking for one after
+  // If we can't use a HTTP/2 session, don't bother checking for one after
   // the hostname is resolved.
   OnHostResolutionCallback resolution_callback =
       CanUseExistingSpdySession()
@@ -1023,7 +1028,7 @@ int HttpStreamFactory::Job::DoInitConnectionComplete(int result) {
   }
 
   if (result == ERR_SPDY_SESSION_ALREADY_EXISTS) {
-    // We found a SPDY connection after resolving the host. This is
+    // We found a HTTP/2 connection after resolving the host. This is
     // probably an IP pooled connection.
     existing_spdy_session_ =
         session_->spdy_session_pool()->FindAvailableSession(
@@ -1033,7 +1038,7 @@ int HttpStreamFactory::Job::DoInitConnectionComplete(int result) {
       using_spdy_ = true;
       next_state_ = STATE_CREATE_STREAM;
     } else {
-      // It is possible that the spdy session no longer exists.
+      // It is possible that the HTTP/2 session no longer exists.
       ReturnToStateInitConnection(true /* close connection */);
     }
     return OK;
@@ -1085,7 +1090,7 @@ int HttpStreamFactory::Job::DoInitConnectionComplete(int result) {
   }
 
   if (result == ERR_PROXY_AUTH_REQUESTED ||
-      result == ERR_HTTPS_PROXY_TUNNEL_RESPONSE) {
+      result == ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT) {
     DCHECK(!ssl_started);
     // Other state (i.e. |using_ssl_|) suggests that |connection_| will have an
     // SSL socket, but there was an error before that could happen.  This
@@ -1142,10 +1147,6 @@ int HttpStreamFactory::Job::DoInitConnectionComplete(int result) {
     DCHECK(ssl_started);
     if (IsCertificateError(result)) {
       result = HandleCertificateError(result);
-      if (result == OK && !connection_->socket()->IsConnectedAndIdle()) {
-        ReturnToStateInitConnection(true /* close connection */);
-        return result;
-      }
     }
     if (result < 0)
       return result;
@@ -1211,7 +1212,8 @@ int HttpStreamFactory::Job::DoCreateStream() {
   if (!using_spdy_) {
     DCHECK(!expect_spdy_);
     // We may get ftp scheme when fetching ftp resources through proxy.
-    bool using_proxy = (proxy_info_.is_http() || proxy_info_.is_https()) &&
+    bool using_proxy = (proxy_info_.is_http() || proxy_info_.is_https() ||
+                        proxy_info_.is_quic()) &&
                        (request_info_.url.SchemeIs(url::kHttpScheme) ||
                         request_info_.url.SchemeIs(url::kFtpScheme));
     if (is_websocket_) {
@@ -1323,13 +1325,16 @@ int HttpStreamFactory::Job::DoRestartTunnelAuthComplete(int result) {
   if (result == ERR_PROXY_AUTH_REQUESTED)
     return result;
 
-  if (result == OK) {
+  if (result == OK || result == ERR_SPDY_SESSION_ALREADY_EXISTS) {
     // Now that we've got the HttpProxyClientSocket connected.  We have
     // to release it as an idle socket into the pool and start the connection
     // process from the beginning.  Trying to pass it in with the
     // SSLSocketParams might cause a deadlock since params are dispatched
     // interchangeably.  This request won't necessarily get this http proxy
     // socket, but there will be forward progress.
+    //
+    // Alernatively, if there's an existing H2 session that can be reused,
+    // also go back to the init connection state to reuse it.
     establishing_tunnel_ = false;
     ReturnToStateInitConnection(false /* do not close connection */);
     return OK;
@@ -1420,10 +1425,6 @@ int HttpStreamFactory::Job::HandleCertificateError(int error) {
   server_ssl_config_.allowed_bad_certs.emplace_back(ssl_info.cert,
                                                     ssl_info.cert_status);
 
-  if (session_->params().ignore_certificate_errors &&
-      IsCertificateError(error)) {
-    return OK;
-  }
   return error;
 }
 

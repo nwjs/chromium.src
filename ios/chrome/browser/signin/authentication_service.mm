@@ -12,13 +12,14 @@
 #include "base/single_thread_task_runner.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/core/browser/account_info.h"
 #include "components/signin/core/browser/account_tracker_service.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/ios/browser/profile_oauth2_token_service_ios_delegate.h"
 #include "components/sync/driver/sync_service.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "ios/chrome/browser/crash_report/breakpad_helper.h"
 #include "ios/chrome/browser/experimental_flags.h"
@@ -71,7 +72,7 @@ AuthenticationService::AuthenticationService(
     SyncSetupService* sync_setup_service,
     AccountTrackerService* account_tracker,
     identity::IdentityManager* identity_manager,
-    browser_sync::ProfileSyncService* sync_service)
+    syncer::SyncService* sync_service)
     : pref_service_(pref_service),
       token_service_(token_service),
       sync_setup_service_(sync_setup_service),
@@ -365,7 +366,7 @@ void AuthenticationService::SignIn(ChromeIdentity* identity,
   // TODO(msarda): Remove this code once the authentication error UI checks
   // SigninGlobalError instead of the sync auth error state.
   // crbug.com/289493
-  sync_service_->RequestStart();
+  sync_service_->GetUserSettings()->SetSyncRequested(true);
   breakpad_helper::SetCurrentlySignedIn(true);
 }
 
@@ -380,9 +381,14 @@ void AuthenticationService::SignOut(
 
   bool is_managed = IsAuthenticatedIdentityManaged();
 
-  sync_service_->RequestStop(syncer::SyncService::CLEAR_DATA);
-  identity_manager_->ClearPrimaryAccount(
-      identity::IdentityManager::ClearAccountTokensAction::kDefault,
+  sync_service_->StopAndClear();
+
+  auto* account_mutator = identity_manager_->GetPrimaryAccountMutator();
+
+  // GetPrimaryAccountMutator() returns nullptr on ChromeOS only.
+  DCHECK(account_mutator);
+  account_mutator->ClearPrimaryAccount(
+      identity::PrimaryAccountMutator::ClearAccountsAction::kDefault,
       signout_source, signin_metrics::SignoutDelete::IGNORE_METRIC);
   breakpad_helper::SetCurrentlySignedIn(false);
   cached_mdm_infos_.clear();
@@ -598,6 +604,5 @@ NSString* AuthenticationService::GetAuthenticatedUserEmail() {
 bool AuthenticationService::IsAuthenticatedIdentityManaged() {
   std::string hosted_domain =
       identity_manager_->GetPrimaryAccountInfo().hosted_domain;
-  return !hosted_domain.empty() &&
-         hosted_domain != AccountTrackerService::kNoHostedDomainFound;
+  return !hosted_domain.empty() && hosted_domain != kNoHostedDomainFound;
 }

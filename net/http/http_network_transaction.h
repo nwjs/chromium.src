@@ -50,6 +50,16 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
     : public HttpTransaction,
       public HttpStreamRequest::Delegate {
  public:
+  // Enumeration used by Net.Proxy.RedirectDuringConnect. Exposed here for
+  // sharing by unit-tests.
+  enum TunnelRedirectHistogramValue {
+    kSubresourceByExplicitProxy = 0,
+    kMainFrameByExplicitProxy = 1,
+    kSubresourceByAutoDetectedProxy = 2,
+    kMainFrameByAutoDetectedProxy = 3,
+    kMaxValue = kMainFrameByAutoDetectedProxy
+  };
+
   HttpNetworkTransaction(RequestPriority priority,
                          HttpNetworkSession* session);
 
@@ -117,10 +127,11 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
                         HttpAuthController* auth_controller) override;
   void OnNeedsClientAuth(const SSLConfig& used_ssl_config,
                          SSLCertRequestInfo* cert_info) override;
-  void OnHttpsProxyTunnelResponse(const HttpResponseInfo& response_info,
-                                  const SSLConfig& used_ssl_config,
-                                  const ProxyInfo& used_proxy_info,
-                                  std::unique_ptr<HttpStream> stream) override;
+  void OnHttpsProxyTunnelResponseRedirect(
+      const HttpResponseInfo& response_info,
+      const SSLConfig& used_ssl_config,
+      const ProxyInfo& used_proxy_info,
+      std::unique_ptr<HttpStream> stream) override;
 
   void OnQuicBroken() override;
   void GetConnectionAttempts(ConnectionAttempts* out) const override;
@@ -214,6 +225,10 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
   // Reporting API.
   void ProcessNetworkErrorLoggingHeader();
 
+  // Calls GenerateNetworkErrorLoggingReport() if |rv| represents a NET_ERROR
+  // other than ERR_IO_PENDING.
+  void GenerateNetworkErrorLoggingReportIfError(int rv);
+
   // Generates a NEL report about this request.  The NetworkErrorLoggingService
   // will discard the report if there is no NEL policy registered for this
   // origin.
@@ -305,6 +320,10 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
   // "Accept-Encoding".
   bool ContentEncodingsValid() const;
 
+  // Logic for handling ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT seen during
+  // DoCreateStreamCompletedTunnel().
+  int DoCreateStreamCompletedTunnelResponseRedirect();
+
   scoped_refptr<HttpAuthController>
       auth_controllers_[HttpAuth::AUTH_NUM_TARGETS];
 
@@ -356,6 +375,8 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
 
   HttpRequestHeaders request_headers_;
 #if BUILDFLAG(ENABLE_REPORTING)
+  // Whether a NEL report has already been generated. Reset when restarting.
+  bool network_error_logging_report_generated_;
   // Cache some fields from |request_| that we'll need to construct a NEL
   // report about the request.  (NEL report construction happens after we've
   // cleared the |request_| pointer.)
@@ -363,6 +384,7 @@ class NET_EXPORT_PRIVATE HttpNetworkTransaction
   std::string request_referrer_;
   std::string request_user_agent_;
   int request_reporting_upload_depth_;
+  base::TimeTicks start_timeticks_;
 #endif
 
   // The size in bytes of the buffer we use to drain the response body that

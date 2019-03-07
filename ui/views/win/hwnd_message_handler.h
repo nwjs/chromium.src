@@ -644,6 +644,9 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   // activation, etc.)
   bool ignore_window_pos_changes_;
 
+  // Keeps track of the last size type param received from a WM_SIZE message.
+  UINT last_size_param_ = SIZE_RESTORED;
+
   // The last-seen monitor containing us, and its rect and work area.  These are
   // used to catch updates to the rect and work area and react accordingly.
   HMONITOR last_monitor_;
@@ -662,9 +665,6 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   ui::SequentialIDGenerator id_generator_;
 
   PenEventProcessor pen_processor_;
-
-  // Set to true if we are in the context of a sizing operation.
-  bool in_size_loop_;
 
   // Stores a pointer to the WindowEventTarget interface implemented by this
   // class. Allows callers to retrieve the interface pointer.

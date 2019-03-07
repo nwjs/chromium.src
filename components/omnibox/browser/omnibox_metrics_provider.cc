@@ -11,6 +11,7 @@
 #include "base/strings/string16.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
+#include "build/build_config.h"
 #include "components/metrics/metrics_log.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
@@ -62,14 +63,18 @@ OmniboxEventProto::Suggestion::ResultType AsOmniboxEventResultType(
       return OmniboxEventProto::Suggestion::BOOKMARK_TITLE;
     case AutocompleteMatchType::NAVSUGGEST_PERSONALIZED:
       return OmniboxEventProto::Suggestion::NAVSUGGEST_PERSONALIZED;
-    case AutocompleteMatchType::CLIPBOARD:
-      return OmniboxEventProto::Suggestion::CLIPBOARD;
+    case AutocompleteMatchType::CLIPBOARD_URL:
+      return OmniboxEventProto::Suggestion::CLIPBOARD_URL;
     case AutocompleteMatchType::DOCUMENT_SUGGESTION:
       return OmniboxEventProto::Suggestion::DOCUMENT;
     case AutocompleteMatchType::PEDAL:
       // TODO(orinj): Add a new OmniboxEventProto type for Pedals.
       // return OmniboxEventProto::Suggestion::PEDAL;
       return OmniboxEventProto::Suggestion::NAVSUGGEST;
+    case AutocompleteMatchType::CLIPBOARD_TEXT:
+      return OmniboxEventProto::Suggestion::CLIPBOARD_TEXT;
+    case AutocompleteMatchType::CLIPBOARD_IMAGE:
+      return OmniboxEventProto::Suggestion::CLIPBOARD_IMAGE;
     case AutocompleteMatchType::VOICE_SUGGEST:
       // VOICE_SUGGEST matches are only used in Java and are not logged,
       // so we should never reach this case.

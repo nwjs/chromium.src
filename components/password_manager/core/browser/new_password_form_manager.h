@@ -62,6 +62,12 @@ class NewPasswordFormManager : public PasswordFormManagerInterface,
   bool DoesManage(const autofill::FormData& form,
                   const PasswordManagerDriver* driver) const;
 
+  // Returns whether the form identified by |form_renderer_id| and |driver|
+  // is managed by this password form manager. Don't call this on iOS.
+  bool DoesManageAccordingToRendererId(
+      uint32_t form_renderer_id,
+      const PasswordManagerDriver* driver) const;
+
   // Check that |submitted_form_| is equal to |form| from the user point of
   // view. It is used for detecting that a form is reappeared after navigation
   // for success detection.
@@ -71,8 +77,8 @@ class NewPasswordFormManager : public PasswordFormManagerInterface,
   // |submitted_form| and |driver|) then saves |submitted_form| to
   // |submitted_form_| field, sets |is_submitted| = true and returns true.
   // Otherwise returns false.
-  bool ProvisionallySaveIfIsManaged(const autofill::FormData& submitted_form,
-                                    const PasswordManagerDriver* driver);
+  bool ProvisionallySave(const autofill::FormData& submitted_form,
+                         const PasswordManagerDriver* driver);
   bool is_submitted() { return is_submitted_; }
   void set_not_submitted() { is_submitted_ = false; }
 
@@ -201,9 +207,6 @@ class NewPasswordFormManager : public PasswordFormManagerInterface,
   const autofill::PasswordForm* FindBestSavedMatch(
       const autofill::PasswordForm* form) const;
 
-  // Sets |user_action_| and records some metrics.
-  void SetUserAction(UserAction user_action);
-
   void SetPasswordOverridden(bool password_overridden) {
     password_overridden_ = password_overridden;
     votes_uploader_.set_password_overridden(password_overridden);
@@ -225,6 +228,11 @@ class NewPasswordFormManager : public PasswordFormManagerInterface,
   std::unique_ptr<autofill::PasswordForm> ParseFormAndMakeLogging(
       const autofill::FormData& form,
       FormDataParser::Mode mode);
+
+  // Calculates FillingAssistance metric for |submitted_form|. The metric is
+  // recorded in case when the successful submission is detected.
+  void CalculateFillingAssistanceMetric(
+      const autofill::FormData& submitted_form);
 
   // The client which implements embedder-specific PasswordManager operations.
   PasswordManagerClient* client_;
@@ -308,10 +316,6 @@ class NewPasswordFormManager : public PasswordFormManagerInterface,
   // a password that is not part of any password form stored for this origin
   // and it was entered on a retry password form.
   bool retry_password_form_password_update_ = false;
-
-  // Records the action the user has taken while interacting with the password
-  // form.
-  UserAction user_action_ = UserAction::kNone;
 
   // If Chrome has already autofilled a few times, it is probable that autofill
   // is triggered by programmatic changes in the page. We set a maximum number

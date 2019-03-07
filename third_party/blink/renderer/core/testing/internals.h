@@ -108,6 +108,8 @@ class Internals final : public ScriptWrappable {
   int getResourcePriority(const String& url, Document*);
   String getResourceHeader(const String& url, const String& header, Document*);
 
+  bool doesWindowHaveUrlFragment(DOMWindow*);
+
   CSSStyleDeclaration* computedStyleIncludingVisitedInfo(Node*) const;
 
   void setBrowserControlsState(float top_height,
@@ -493,6 +495,8 @@ class Internals final : public ScriptWrappable {
 
   bool ignoreLayoutWithPendingStylesheets(Document*);
 
+  Element* interestedElement();
+
   void setNetworkConnectionInfoOverride(bool,
                                         const String&,
                                         const String&,
@@ -546,9 +550,6 @@ class Internals final : public ScriptWrappable {
   String unscopableAttribute();
   String unscopableMethod();
 
-  DOMRectList* focusRingRects(Element*);
-  DOMRectList* outlineRects(Element*);
-
   void setCapsLockState(bool enabled);
 
   bool setScrollbarVisibilityInScrollableArea(Node*, bool visible);
@@ -556,6 +557,9 @@ class Internals final : public ScriptWrappable {
   // Translate given platform monotonic time in seconds to high resolution
   // document time in seconds
   double monotonicTimeToZeroBasedDocumentTime(double, ExceptionState&);
+
+  // Returns the current time ticks (in microseconds).
+  int64_t currentTimeTicks();
 
   // Returns the run state of the node's scroll animator (see
   // ScrollAnimatorCompositorCoordinater::RunState), or -1 if the node does not

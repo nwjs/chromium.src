@@ -23,6 +23,14 @@ class ImageSkia;
 
 namespace extensions {
 
+// Returns true if |page_url| is in the scope of the app for |app_url|. If the
+// app has no scope defined (as in a bookmark app), we fall back to checking
+// |page_url| has the same origin as |app_url|.
+bool IsSameScope(const GURL& app_url,
+                 const GURL& page_url,
+                 content::BrowserContext* profile);
+
+// TODO(loyso): Erase this histogram. crbug.com/918089.
 extern const char kPwaWindowEngagementTypeHistogram[];
 
 class Extension;
@@ -88,12 +96,19 @@ class HostedAppBrowserController : public SiteEngagementObserver,
   // example.com.au).
   base::string16 GetFormattedUrlOrigin() const;
 
+  // Gets the launch url for the app.
+  GURL GetAppLaunchURL() const;
+
   // Gets the extension for this controller.
   const Extension* GetExtensionForTesting() const;
 
   bool CanUninstall() const;
 
   void Uninstall(UninstallReason reason, UninstallSource source);
+
+  // Returns whether the app is installed (uninstallation may complete within
+  // the lifetime of HostedAppBrowserController).
+  bool IsInstalled() const;
 
   // SiteEngagementObserver overrides.
   void OnEngagementEvent(content::WebContents* web_contents,
@@ -112,6 +127,7 @@ class HostedAppBrowserController : public SiteEngagementObserver,
   void OnTabInserted(content::WebContents* contents);
   void OnTabRemoved(content::WebContents* contents);
 
+  // Will return nullptr if the extension has been uninstalled.
   const Extension* GetExtension() const;
 
   Browser* const browser_;

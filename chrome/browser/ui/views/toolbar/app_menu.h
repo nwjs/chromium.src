@@ -59,6 +59,9 @@ class AppMenu : public views::MenuDelegate,
 
   views::MenuItemView* root_menu_item() { return root_; }
 
+  // Highlight menu items for reopen tab in-product help.
+  void ShowReopenTabPromo();
+
   void AddObserver(AppMenuObserver* observer);
   void RemoveObserver(AppMenuObserver* observer);
 
@@ -68,10 +71,9 @@ class AppMenu : public views::MenuDelegate,
                                 const gfx::Point& p) const override;
   bool IsTriggerableEvent(views::MenuItemView* menu,
                           const ui::Event& e) override;
-  bool GetDropFormats(
-      views::MenuItemView* menu,
-      int* formats,
-      std::set<ui::Clipboard::FormatType>* format_types) override;
+  bool GetDropFormats(views::MenuItemView* menu,
+                      int* formats,
+                      std::set<ui::ClipboardFormatType>* format_types) override;
   bool AreDropTypesRequired(views::MenuItemView* menu) override;
   bool CanDrop(views::MenuItemView* menu,
                const ui::OSExchangeData& data) override;
@@ -199,6 +201,10 @@ class AppMenu : public views::MenuDelegate,
 
   // Records the time from when menu opens to when the user selects a menu item.
   base::ElapsedTimer menu_opened_timer_;
+
+  // Whether we are showing reopen tab in-product help. If true, the MenuRunner
+  // is told to highlight the appropriate menu items.
+  bool showing_reopen_tab_promo_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(AppMenu);
 };

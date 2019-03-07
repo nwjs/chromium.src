@@ -91,14 +91,15 @@ Polymer({
    * triggering updateTetherNetworkState_ and rendering this callback
    * redundant. As a result, we return early if the active network is not
    * changed.
-   * @param {{detail: Array<string>}} event stores an array of the GUIDs of all
-   *     networks that changed in its detail property.
+   * @param {!CustomEvent<!Array<string>>} event stores an array of the GUIDs of
+   *     all networks that changed in its detail property.
    * @private
    */
   onNetworksChanged_: function(event) {
     const id = this.activeNetworkState_.GUID;
-    if (!event.detail.includes(id))
+    if (!event.detail.includes(id)) {
       return;
+    }
     this.networkingPrivate_.getState(id, newNetworkState => {
       if (chrome.runtime.lastError) {
         const message = chrome.runtime.lastError.message;

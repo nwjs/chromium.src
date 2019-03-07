@@ -10,7 +10,6 @@
 
 #include "ash/login/login_screen_controller.h"
 #include "ash/login/ui/arrow_button_view.h"
-#include "ash/login/ui/login_bubble.h"
 #include "ash/login/ui/login_button.h"
 #include "ash/login/ui/login_user_view.h"
 #include "ash/login/ui/public_account_warning_dialog.h"
@@ -87,6 +86,36 @@ views::Label* CreateLabel(const base::string16& text, SkColor color) {
   label->SetEnabledColor(color);
   return label;
 }
+
+class LoginExpandedPublicAccountEventHandler : public ui::EventHandler {
+ public:
+  explicit LoginExpandedPublicAccountEventHandler(
+      LoginExpandedPublicAccountView* view)
+      : view_(view) {
+    Shell::Get()->AddPreTargetHandler(this);
+  }
+  ~LoginExpandedPublicAccountEventHandler() override {
+    Shell::Get()->RemovePreTargetHandler(this);
+  }
+
+ private:
+  // ui::EventHandler:
+  void OnMouseEvent(ui::MouseEvent* event) override {
+    if (event->type() == ui::ET_MOUSE_PRESSED)
+      view_->ProcessPressedEvent(event->AsLocatedEvent());
+  }
+  void OnGestureEvent(ui::GestureEvent* event) override {
+    if ((event->type() == ui::ET_GESTURE_TAP ||
+         event->type() == ui::ET_GESTURE_TAP_DOWN)) {
+      view_->ProcessPressedEvent(event->AsLocatedEvent());
+    }
+  }
+  void OnKeyEvent(ui::KeyEvent* event) override { view_->OnKeyEvent(event); }
+
+  LoginExpandedPublicAccountView* view_;
+
+  DISALLOW_COPY_AND_ASSIGN(LoginExpandedPublicAccountEventHandler);
+};
 
 }  // namespace
 
@@ -194,6 +223,7 @@ class MonitoringWarningView : public NonAccessibleView {
         vector_icons::kWarningIcon, kMonitoringWarningIconSizeDp, SK_ColorRED));
     image_->SetPreferredSize(
         gfx::Size(kMonitoringWarningIconSizeDp, kMonitoringWarningIconSizeDp));
+    image_->SetVisible(false);
     AddChildView(image_);
 
     const base::string16 label_text = l10n_util::GetStringUTF16(
@@ -210,11 +240,11 @@ class MonitoringWarningView : public NonAccessibleView {
     base::string16 label_text;
     if (warning_type == WarningType::kFullWarning) {
       label_text = l10n_util::GetStringUTF16(
-          IDS_ASH_LOGIN_MANAGED_SESSION_MONITORING_WARNING);
+          IDS_ASH_LOGIN_MANAGED_SESSION_MONITORING_FULL_WARNING);
       image_->SetVisible(true);
     } else if (warning_type == WarningType::kSoftWarning) {
       label_text = l10n_util::GetStringUTF16(
-          IDS_ASH_LOGIN_PUBLIC_ACCOUNT_MONITORING_WARNING);
+          IDS_ASH_LOGIN_MANAGED_SESSION_MONITORING_SOFT_WARNING);
       image_->SetVisible(false);
     }
     label_->SetText(label_text);
@@ -223,6 +253,8 @@ class MonitoringWarningView : public NonAccessibleView {
   ~MonitoringWarningView() override = default;
 
  private:
+  friend class LoginExpandedPublicAccountView::TestApi;
+
   views::ImageView* image_;
   views::Label* label_;
 
@@ -235,9 +267,7 @@ class RightPaneView : public NonAccessibleView,
                       public views::StyledLabelListener {
  public:
   explicit RightPaneView(const base::RepeatingClosure& on_learn_more_tapped)
-      : language_menu_(std::make_unique<LoginBubble>()),
-        keyboard_menu_(std::make_unique<LoginBubble>()),
-        on_learn_more_tapped_(on_learn_more_tapped) {
+      : on_learn_more_tapped_(on_learn_more_tapped) {
     SetPreferredSize(
         gfx::Size(kExpandedViewWidthDp / 2, kExpandedViewHeightDp));
     SetBorder(views::CreateEmptyBorder(gfx::Insets(kRightPaneMarginDp)));
@@ -383,26 +413,47 @@ class RightPaneView : public NonAccessibleView,
           current_user_->basic_user_info->account_id,
           selected_language_item_.value, selected_keyboard_item_.value);
     } else if (sender == language_selection_) {
-      if (!language_menu_->IsVisible() && !language_items_.empty()) {
-        LoginMenuView* view = new LoginMenuView(
+      if (language_menu_view_ && language_menu_view_->IsVisible()) {
+        language_menu_view_->Hide();
+      } else {
+        if (language_menu_view_) {
+          language_menu_view_->GetWidget()->Close();
+          language_menu_view_ = nullptr;
+        }
+
+        language_menu_view_ = new LoginMenuView(
             language_items_, language_selection_ /*anchor_view*/,
             language_selection_ /*bubble_opener*/,
             base::BindRepeating(&RightPaneView::OnLanguageSelected,
                                 weak_factory_.GetWeakPtr()));
-        language_menu_->ShowSelectionMenu(view);
-      } else {
-        language_menu_->Close();
+
+        bool opener_had_focus = language_selection_->HasFocus();
+
+        language_menu_view_->Show();
+
+        if (opener_had_focus)
+          language_menu_view_->RequestFocus();
       }
     } else if (sender == keyboard_selection_) {
-      if (!keyboard_menu_->IsVisible() && !keyboard_items_.empty()) {
-        LoginMenuView* view = new LoginMenuView(
+      if (keyboard_menu_view_ && keyboard_menu_view_->IsVisible()) {
+        keyboard_menu_view_->Hide();
+      } else {
+        if (keyboard_menu_view_) {
+          keyboard_menu_view_->GetWidget()->Close();
+          keyboard_menu_view_ = nullptr;
+        }
+
+        keyboard_menu_view_ = new LoginMenuView(
             keyboard_items_, keyboard_selection_ /*anchor_view*/,
             keyboard_selection_ /*bubble_opener*/,
             base::BindRepeating(&RightPaneView::OnKeyboardSelected,
                                 weak_factory_.GetWeakPtr()));
-        keyboard_menu_->ShowSelectionMenu(view);
-      } else {
-        keyboard_menu_->Close();
+        bool opener_had_focus = keyboard_selection_->HasFocus();
+
+        keyboard_menu_view_->Show();
+
+        if (opener_had_focus)
+          keyboard_menu_view_->RequestFocus();
       }
     }
   }
@@ -443,6 +494,7 @@ class RightPaneView : public NonAccessibleView,
   }
 
   void OnLanguageSelected(LoginMenuView::Item item) {
+    language_menu_view_ = nullptr;
     language_changed_by_user_ = true;
     selected_language_item_ = item;
     language_selection_->SetText(base::UTF8ToUTF16(item.title));
@@ -457,6 +509,7 @@ class RightPaneView : public NonAccessibleView,
   }
 
   void OnKeyboardSelected(LoginMenuView::Item item) {
+    keyboard_menu_view_ = nullptr;
     selected_keyboard_item_ = item;
     keyboard_selection_->SetText(base::UTF8ToUTF16(item.title));
   }
@@ -497,24 +550,22 @@ class RightPaneView : public NonAccessibleView,
     }
   }
 
-  LoginBaseBubbleView* GetLanguageMenuView() {
-    if (language_menu_ && language_menu_->bubble_view())
-      return language_menu_->bubble_view();
-    return nullptr;
-  }
+  LoginBaseBubbleView* GetLanguageMenuView() { return language_menu_view_; }
 
-  LoginBaseBubbleView* GetKeyboardMenuView() {
-    if (keyboard_menu_ && keyboard_menu_->bubble_view())
-      return keyboard_menu_->bubble_view();
-    return nullptr;
-  }
+  LoginBaseBubbleView* GetKeyboardMenuView() { return keyboard_menu_view_; }
 
   // Close language and keyboard menus and reset local states.
   void Reset() {
-    if (language_menu_ && language_menu_->IsVisible())
-      language_menu_->CloseImmediately();
-    if (keyboard_menu_ && keyboard_menu_->IsVisible())
-      keyboard_menu_->CloseImmediately();
+    if (language_menu_view_) {
+      language_menu_view_->GetWidget()->Close();
+      language_menu_view_ = nullptr;
+    }
+
+    if (keyboard_menu_view_) {
+      keyboard_menu_view_->GetWidget()->Close();
+      keyboard_menu_view_ = nullptr;
+    }
+
     show_advanced_changed_by_user_ = false;
     language_changed_by_user_ = false;
   }
@@ -534,8 +585,14 @@ class RightPaneView : public NonAccessibleView,
   views::StyledLabel* learn_more_label_ = nullptr;
   MonitoringWarningView* monitoring_warning_view_ = nullptr;
 
-  std::unique_ptr<LoginBubble> language_menu_;
-  std::unique_ptr<LoginBubble> keyboard_menu_;
+  // |language_menu_view_| and |keyboard_menu_view_| are owned by their
+  // respective bubble widgets, which are always initialized with a Show() call
+  // after construction. menu_view_->GetWidget()->Close() is called on Reset()
+  // and before creating a new instance to avoid memory leaks. The views
+  // themselves should never be deleted directly.
+  LoginMenuView* language_menu_view_ = nullptr;
+  LoginMenuView* keyboard_menu_view_ = nullptr;
+
   LoginMenuView::Item selected_language_item_;
   LoginMenuView::Item selected_keyboard_item_;
   std::vector<LoginMenuView::Item> language_items_;
@@ -595,12 +652,12 @@ LoginExpandedPublicAccountView::TestApi::keyboard_selection_button() {
   return view_->right_pane_->keyboard_selection_;
 }
 
-LoginBubble* LoginExpandedPublicAccountView::TestApi::language_menu() {
-  return view_->right_pane_->language_menu_.get();
+LoginMenuView* LoginExpandedPublicAccountView::TestApi::language_menu_view() {
+  return view_->right_pane_->language_menu_view_;
 }
 
-LoginBubble* LoginExpandedPublicAccountView::TestApi::keyboard_menu() {
-  return view_->right_pane_->keyboard_menu_.get();
+LoginMenuView* LoginExpandedPublicAccountView::TestApi::keyboard_menu_view() {
+  return view_->right_pane_->keyboard_menu_view_;
 }
 
 LoginMenuView::Item
@@ -613,11 +670,17 @@ LoginExpandedPublicAccountView::TestApi::selected_keyboard_item() {
   return view_->right_pane_->selected_keyboard_item_;
 }
 
+views::ImageView*
+LoginExpandedPublicAccountView::TestApi::monitoring_warning_icon() {
+  return view_->right_pane_->monitoring_warning_view_->image_;
+}
+
 LoginExpandedPublicAccountView::LoginExpandedPublicAccountView(
     const OnPublicSessionViewDismissed& on_dismissed)
     : NonAccessibleView(kLoginExpandedPublicAccountViewClassName),
-      on_dismissed_(on_dismissed) {
-  Shell::Get()->AddPreTargetHandler(this);
+      on_dismissed_(on_dismissed),
+      event_handler_(
+          std::make_unique<LoginExpandedPublicAccountEventHandler>(this)) {
   SetLayoutManager(
       std::make_unique<views::BoxLayout>(views::BoxLayout::kHorizontal));
   SetPreferredSize(gfx::Size(kExpandedViewWidthDp, kExpandedViewHeightDp));
@@ -649,9 +712,7 @@ LoginExpandedPublicAccountView::LoginExpandedPublicAccountView(
   AddChildView(right_pane_);
 }
 
-LoginExpandedPublicAccountView::~LoginExpandedPublicAccountView() {
-  Shell::Get()->RemovePreTargetHandler(this);
-}
+LoginExpandedPublicAccountView::~LoginExpandedPublicAccountView() = default;
 
 void LoginExpandedPublicAccountView::ProcessPressedEvent(
     const ui::LocatedEvent* event) {
@@ -725,18 +786,6 @@ void LoginExpandedPublicAccountView::OnPaint(gfx::Canvas* canvas) {
   flags.setColor(kPublicSessionBackgroundColor);
   flags.setAntiAlias(true);
   canvas->DrawRoundRect(GetContentsBounds(), kRoundRectCornerRadiusDp, flags);
-}
-
-void LoginExpandedPublicAccountView::OnMouseEvent(ui::MouseEvent* event) {
-  if (event->type() == ui::ET_MOUSE_PRESSED)
-    ProcessPressedEvent(event->AsLocatedEvent());
-}
-
-void LoginExpandedPublicAccountView::OnGestureEvent(ui::GestureEvent* event) {
-  if ((event->type() == ui::ET_GESTURE_TAP ||
-       event->type() == ui::ET_GESTURE_TAP_DOWN)) {
-    ProcessPressedEvent(event->AsLocatedEvent());
-  }
 }
 
 void LoginExpandedPublicAccountView::OnKeyEvent(ui::KeyEvent* event) {

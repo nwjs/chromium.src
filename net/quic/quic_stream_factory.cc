@@ -53,6 +53,7 @@
 #include "net/third_party/quic/core/crypto/quic_random.h"
 #include "net/third_party/quic/core/http/quic_client_promised_info.h"
 #include "net/third_party/quic/core/quic_connection.h"
+#include "net/third_party/quic/core/quic_utils.h"
 #include "net/third_party/quic/core/tls_client_handshaker.h"
 #include "net/third_party/quic/platform/api/quic_clock.h"
 #include "net/third_party/quic/platform/api/quic_flags.h"
@@ -113,24 +114,19 @@ std::unique_ptr<base::Value> NetLogQuicStreamFactoryJobCallback(
   return std::move(dict);
 }
 
-std::unique_ptr<base::Value> NetLogQuicConnectionMigrationTriggerCallback(
-    std::string trigger,
-    NetLogCaptureMode capture_mode) {
-  std::unique_ptr<base::DictionaryValue> dict(new base::DictionaryValue());
-  dict->SetString("trigger", trigger);
-  return std::move(dict);
+NetLogParametersCallback NetLogQuicConnectionMigrationTriggerCallback(
+    const char* trigger) {
+  return NetLog::StringCallback("trigger", trigger);
 }
-
 // Helper class that is used to log a connection migration event.
 class ScopedConnectionMigrationEventLog {
  public:
-  ScopedConnectionMigrationEventLog(NetLog* net_log, std::string trigger)
+  ScopedConnectionMigrationEventLog(NetLog* net_log, const char* trigger)
       : net_log_(NetLogWithSource::Make(
             net_log,
             NetLogSourceType::QUIC_CONNECTION_MIGRATION)) {
-    net_log_.BeginEvent(
-        NetLogEventType::QUIC_CONNECTION_MIGRATION_TRIGGERED,
-        base::Bind(&NetLogQuicConnectionMigrationTriggerCallback, trigger));
+    net_log_.BeginEvent(NetLogEventType::QUIC_CONNECTION_MIGRATION_TRIGGERED,
+                        NetLogQuicConnectionMigrationTriggerCallback(trigger));
   }
 
   ~ScopedConnectionMigrationEventLog() {
@@ -160,6 +156,10 @@ void LogStaleHostRacing(bool used) {
 
 void LogStaleAndFreshHostMatched(bool matched) {
   UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.StaleAndFreshHostMatched", matched);
+}
+
+void LogConnectionIpPooling(bool pooled) {
+  UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.ConnectionIpPooled", pooled);
 }
 
 void SetInitialRttEstimate(base::TimeDelta estimate,
@@ -567,6 +567,7 @@ void QuicStreamFactory::Job::OnResolveHostComplete(int rv) {
     } else if (factory_->HasMatchingIpSession(key_, address_list_)) {
       // Session with resolved IP has already existed, so close racing
       // connection, run callback, and return.
+      LogConnectionIpPooling(true);
       CloseStaleHostConnection();
       if (!callback_.is_null())
         base::ResetAndReturn(&callback_).Run(OK);
@@ -665,8 +666,10 @@ int QuicStreamFactory::Job::DoResolveHostComplete(int rv) {
 
   // Inform the factory of this resolution, which will set up
   // a session alias, if possible.
-  if (factory_->HasMatchingIpSession(key_, address_list_))
+  if (factory_->HasMatchingIpSession(key_, address_list_)) {
+    LogConnectionIpPooling(true);
     return OK;
+  }
 
   io_state_ = STATE_CONNECT;
   return OK;
@@ -847,6 +850,7 @@ int QuicStreamFactory::Job::DoConfirmConnection(int rv) {
   AddressList address(
       session_->connection()->peer_address().impl().socket_address());
   if (factory_->HasMatchingIpSession(key_, address)) {
+    LogConnectionIpPooling(true);
     session_->connection()->CloseConnection(
         quic::QUIC_CONNECTION_IP_POOLED,
         "An active session exists for the given IP.",
@@ -854,6 +858,7 @@ int QuicStreamFactory::Job::DoConfirmConnection(int rv) {
     session_ = nullptr;
     return OK;
   }
+  LogConnectionIpPooling(false);
 
   factory_->ActivateSession(key_, session_);
 
@@ -1749,7 +1754,8 @@ int QuicStreamFactory::CreateSession(
         base::ThreadTaskRunnerHandle::Get().get(), clock_));
   }
 
-  quic::QuicConnectionId connection_id = random_generator_->RandUint64();
+  quic::QuicConnectionId connection_id =
+      quic::QuicUtils::CreateRandomConnectionId(random_generator_);
   std::unique_ptr<QuicServerInfo> server_info;
   if (store_server_configs_in_properties_) {
     server_info = std::make_unique<PropertiesBasedQuicServerInfo>(

@@ -233,13 +233,12 @@ void FetchRespondWithObserver::OnResponseFulfilled(
     const char* interface_name,
     const char* property_name) {
   DCHECK(GetExecutionContext());
-  if (!V8Response::HasInstance(value.V8Value(),
-                               ToIsolate(GetExecutionContext()))) {
+  if (!V8Response::HasInstance(value.V8Value(), value.GetIsolate())) {
     OnResponseRejected(ServiceWorkerResponseError::kNoV8Instance);
     return;
   }
-  Response* response = V8Response::ToImplWithTypeCheck(
-      ToIsolate(GetExecutionContext()), value.V8Value());
+  Response* response =
+      V8Response::ToImplWithTypeCheck(value.GetIsolate(), value.V8Value());
   // "If one of the following conditions is true, return a network error:
   //   - |response|'s type is |error|.
   //   - |request|'s mode is |same-origin| and |response|'s type is |cors|.
@@ -335,7 +334,8 @@ void FetchRespondWithObserver::OnResponseFulfilled(
 
     // Load the Response as a mojo::DataPipe.  The resulting pipe consumer
     // handle will be passed to the FetchLoaderClient on start.
-    FetchLoaderClient* fetch_loader_client = new FetchLoaderClient();
+    FetchLoaderClient* fetch_loader_client =
+        MakeGarbageCollected<FetchLoaderClient>();
     buffer->StartLoading(FetchDataLoader::CreateLoaderAsDataPipe(task_runner_),
                          fetch_loader_client, exception_state);
     if (exception_state.HadException()) {

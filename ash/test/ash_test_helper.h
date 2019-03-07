@@ -42,6 +42,10 @@ namespace ui {
 class ScopedAnimationDurationScaleMode;
 }
 
+namespace views {
+class MusClient;
+}
+
 namespace wm {
 class WMState;
 }
@@ -49,7 +53,6 @@ class WMState;
 namespace ash {
 
 class AppListTestHelper;
-class AshTestEnvironment;
 class AshTestViewsDelegate;
 class TestKeyboardControllerObserver;
 class TestShellDelegate;
@@ -58,7 +61,7 @@ class TestShellDelegate;
 // root window and an ash::Shell instance with a test delegate.
 class AshTestHelper {
  public:
-  explicit AshTestHelper(AshTestEnvironment* ash_test_environment);
+  AshTestHelper();
   ~AshTestHelper();
 
   // Creates the ash::Shell and performs associated initialization.  Set
@@ -91,8 +94,6 @@ class AshTestHelper {
     return test_views_delegate_.get();
   }
 
-  AshTestEnvironment* ash_test_environment() { return ash_test_environment_; }
-
   display::Display GetSecondaryDisplay();
 
   TestSessionControllerClient* test_session_controller_client() {
@@ -113,6 +114,10 @@ class AshTestHelper {
 
   void reset_commandline() { command_line_.reset(); }
 
+  // Creates a MusClient. aura::Env's *must* be set to Mode::MUS. Easiest way
+  // to ensure that is by subclassing SingleProcessMashTestBase.
+  void CreateMusClient();
+
   // Gets a Connector that talks directly to the WindowService.
   service_manager::Connector* GetWindowServiceConnector();
 
@@ -127,9 +132,6 @@ class AshTestHelper {
   std::unique_ptr<chromeos::system::ScopedFakeStatisticsProvider>
       statistics_provider_;
 
-  std::unique_ptr<aura::test::EnvWindowTreeClientSetter>
-      env_window_tree_client_setter_;
-  AshTestEnvironment* ash_test_environment_;  // Not owned.
   TestShellDelegate* test_shell_delegate_ = nullptr;  // Owned by ash::Shell.
   std::unique_ptr<ui::ScopedAnimationDurationScaleMode> zero_duration_mode_;
 
@@ -154,6 +156,12 @@ class AshTestHelper {
 
   service_manager::TestConnectorFactory test_connector_factory_;
   std::unique_ptr<service_manager::Connector> window_service_connector_;
+
+  // |window_tree_client_setter_| and |mus_client_| are created by
+  // CreateMusClient(). See it for details.
+  std::unique_ptr<aura::test::EnvWindowTreeClientSetter>
+      window_tree_client_setter_;
+  std::unique_ptr<views::MusClient> mus_client_;
 
   DISALLOW_COPY_AND_ASSIGN(AshTestHelper);
 };

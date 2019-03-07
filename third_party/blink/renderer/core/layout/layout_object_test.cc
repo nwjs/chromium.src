@@ -278,8 +278,13 @@ TEST_F(LayoutObjectTest, InlineFloatMismatch) {
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("float_obj"));
   LayoutObject* span =
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("span"));
-  // 10px for margin, -40px because float is to the left of the span.
-  EXPECT_EQ(LayoutSize(-30, 0), float_obj->OffsetFromAncestor(span));
+  if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
+    // 10px for margin.
+    EXPECT_EQ(LayoutSize(10, 0), float_obj->OffsetFromAncestor(span));
+  } else {
+    // 10px for margin, -40px because float is to the left of the span.
+    EXPECT_EQ(LayoutSize(-30, 0), float_obj->OffsetFromAncestor(span));
+  }
 }
 
 TEST_F(LayoutObjectTest, FloatUnderInline) {
@@ -303,17 +308,30 @@ TEST_F(LayoutObjectTest, FloatUnderInline) {
 
   EXPECT_EQ(layered_div->Layer(), layered_div->PaintingLayer());
   EXPECT_EQ(layered_span->Layer(), layered_span->PaintingLayer());
-  EXPECT_EQ(layered_div->Layer(), floating->PaintingLayer());
-  EXPECT_EQ(container, floating->Container());
+  if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
+    // LayoutNG inline-level floats are children of their inline-level
+    // containers. As such LayoutNG paints these within the correct
+    // inline-level layer.
+    EXPECT_EQ(layered_span->Layer(), floating->PaintingLayer());
+    EXPECT_EQ(layered_span, floating->Container());
+  } else {
+    EXPECT_EQ(layered_div->Layer(), floating->PaintingLayer());
+    EXPECT_EQ(container, floating->Container());
+  }
   EXPECT_EQ(container, floating->ContainingBlock());
 
   LayoutObject::AncestorSkipInfo skip_info(layered_span);
-  EXPECT_EQ(container, floating->Container(&skip_info));
-  EXPECT_TRUE(skip_info.AncestorSkipped());
+  if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
+    EXPECT_EQ(layered_span, floating->Container(&skip_info));
+    EXPECT_FALSE(skip_info.AncestorSkipped());
+  } else {
+    EXPECT_EQ(container, floating->Container(&skip_info));
+    EXPECT_TRUE(skip_info.AncestorSkipped());
 
-  skip_info = LayoutObject::AncestorSkipInfo(container);
-  EXPECT_EQ(container, floating->Container(&skip_info));
-  EXPECT_FALSE(skip_info.AncestorSkipped());
+    skip_info = LayoutObject::AncestorSkipInfo(container);
+    EXPECT_EQ(container, floating->Container(&skip_info));
+    EXPECT_FALSE(skip_info.AncestorSkipped());
+  }
 }
 
 TEST_F(LayoutObjectTest, MutableForPaintingClearPaintFlags) {
@@ -809,6 +827,30 @@ TEST_F(LayoutObjectTest, DistortingVisualEffectsUnaliases) {
   EXPECT_TRUE(object->HasNonZeroEffectiveOpacity());
 }
 
+TEST_F(LayoutObjectTest, UpdateVisualRectAfterAncestorLayout) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #target {
+        width: 50px;
+        height: 0;
+        position: relative;
+      }
+    </style>
+    <div id=ancestor style="width: 100px; height: 100px; position: relative">
+      <div>
+        <div id=target></div>
+      </div>
+    </div>
+  )HTML");
+
+  auto* target = GetDocument().getElementById("target");
+  target->setAttribute(html_names::kStyleAttr, "height: 300px");
+  UpdateAllLifecyclePhasesForTest();
+  const auto* container = GetLayoutObjectByElementId("ancestor");
+  EXPECT_EQ(LayoutRect(0, 0, 100, 300),
+            ToLayoutBox(container)->VisualOverflowRect());
+}
+
 class LayoutObjectSimTest : public SimTest {
  public:
   bool DocumentHasTouchActionRegion(const EventHandlerRegistry& registry) {
@@ -903,6 +945,104 @@ TEST_F(LayoutObjectSimTest, HitTestForOcclusionInIframe) {
       DocumentLifecycle::LifecycleUpdateReason::kTest);
   result = target->GetLayoutObject()->HitTestForOcclusion();
   EXPECT_EQ(result.InnerNode(), occluder);
+}
+
+TEST_F(LayoutObjectSimTest, FirstLineBackgroundImage) {
+  SimRequest main_resource("https://example.com/test.html", "text/html");
+
+  LoadURL("https://example.com/test.html");
+  main_resource.Complete(R"HTML(
+    <style>
+      div::first-line {
+        background-image: url(data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==);
+      }
+      span { background: rgba(0, 255, 0, 0.3); }
+    </style>
+    <div id="target">
+      <span id="first-line1">Text</span><span id="first-line2">Text</span><br>
+      <span id="second-line">Text</span>
+    </div>
+    <div>To keep the image alive when target is set display: none</div>
+  )HTML");
+
+  GetDocument().View()->UpdateAllLifecyclePhases(
+      DocumentLifecycle::LifecycleUpdateReason::kTest);
+
+  auto* target = GetDocument().getElementById("target");
+  auto* target_object = target->GetLayoutObject();
+  auto* image_resource_content = target_object->FirstLineStyleRef()
+                                     .BackgroundLayers()
+                                     .GetImage()
+                                     ->CachedImage();
+
+  // Simulate an image change notification, and we should invalidate the objects
+  // in the first line.
+  static_cast<ImageObserver*>(image_resource_content)
+      ->Changed(image_resource_content->GetImage());
+
+  if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
+    // The block itself doesn't paint the first line, so we don't need to
+    // invalidate it for the image change in the first line style.
+    EXPECT_FALSE(target_object->ShouldDoFullPaintInvalidation());
+  } else {
+    // In legacy layout mode, the block is the layout object of the first line's
+    // root line box, so we invalidate it.
+    EXPECT_TRUE(target_object->ShouldDoFullPaintInvalidation());
+  }
+  auto* first_line1 =
+      GetDocument().getElementById("first-line1")->GetLayoutObject();
+  EXPECT_TRUE(first_line1->ShouldDoFullPaintInvalidation());
+  EXPECT_TRUE(first_line1->SlowFirstChild()->ShouldDoFullPaintInvalidation());
+  auto* first_line2 =
+      GetDocument().getElementById("first-line2")->GetLayoutObject();
+  EXPECT_TRUE(first_line2->ShouldDoFullPaintInvalidation());
+  EXPECT_TRUE(first_line2->SlowFirstChild()->ShouldDoFullPaintInvalidation());
+  auto* second_line =
+      GetDocument().getElementById("second-line")->GetLayoutObject();
+  EXPECT_FALSE(second_line->ShouldDoFullPaintInvalidation());
+  EXPECT_FALSE(second_line->SlowFirstChild()->ShouldDoFullPaintInvalidation());
+
+  target->setAttribute(html_names::kStyleAttr, "display: none");
+  GetDocument().View()->UpdateAllLifecyclePhases(
+      DocumentLifecycle::LifecycleUpdateReason::kTest);
+  target_object = target->GetLayoutObject();
+  EXPECT_EQ(nullptr, target_object);
+  // The image is still alive because the other div's first line style still
+  // reference it. The following statement should not crash.
+  static_cast<ImageObserver*>(image_resource_content)
+      ->Changed(image_resource_content->GetImage());
+}
+
+TEST_F(LayoutObjectTest, FirstLineBackgroundImageNestedCrash) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      *::first-line { background-image: linear-gradient(red, blue); }
+    </style>
+    <div><span><div>ABCDE</div></span></div>
+  )HTML");
+
+  // The following code should not crash due to incorrectly paired
+  // StyleImage::AddClient() and RemoveClient().
+  GetDocument().documentElement()->setAttribute(html_names::kStyleAttr,
+                                                "display: none");
+  UpdateAllLifecyclePhasesForTest();
+}
+
+TEST_F(LayoutObjectTest, FirstLineBackgroundImageAddBlockBackgroundImageCrash) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #target::first-line { background-image: linear-gradient(red, blue); }
+    </style>
+    <div id="target"></div>
+  )HTML");
+
+  // The following code should not crash due to incorrectly paired
+  // StyleImage::AddClient() and RemoveClient().
+  GetDocument().getElementById("target")->setAttribute(
+      html_names::kStyleAttr,
+      "background-image: url(data:image/gif;base64,"
+      "R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==)");
+  UpdateAllLifecyclePhasesForTest();
 }
 
 }  // namespace blink

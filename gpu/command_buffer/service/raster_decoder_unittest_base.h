@@ -59,7 +59,6 @@ class RasterDecoderTestBase : public ::testing::TestWithParam<bool>,
   void OnConsoleMessage(int32_t id, const std::string& message) override;
   void CacheShader(const std::string& key, const std::string& shader) override;
   void OnFenceSyncRelease(uint64_t release) override;
-  bool OnWaitSyncToken(const gpu::SyncToken&) override;
   void OnDescheduleUntilFinished() override;
   void OnRescheduleAfterFinished() override;
   void OnSwapBuffers(uint64_t swap_id, uint32_t flags) override;
@@ -181,12 +180,11 @@ class RasterDecoderTestBase : public ::testing::TestWithParam<bool>,
   void SetupInitStateManualExpectationsForDoLineWidth(GLfloat width);
   void ExpectEnableDisable(GLenum cap, bool enable);
 
-  void CreateFakeTexture(GLuint client_id,
-                         GLuint service_id,
-                         viz::ResourceFormat resource_format,
-                         GLsizei width,
-                         GLsizei height,
-                         bool cleared);
+  gpu::Mailbox CreateFakeTexture(GLuint service_id,
+                                 viz::ResourceFormat resource_format,
+                                 GLsizei width,
+                                 GLsizei height,
+                                 bool cleared);
 
   // Note that the error is returned as GLint instead of GLenum.
   // This is because there is a mismatch in the types of GLenum and
@@ -197,7 +195,6 @@ class RasterDecoderTestBase : public ::testing::TestWithParam<bool>,
   GLint GetGLError();
 
   void DoBindTexture(GLenum target, GLuint client_id, GLuint service_id);
-  void DoDeleteTexture(GLuint client_id, GLuint service_id);
   void SetScopedTextureBinderExpectations(GLenum target);
 
   void SetupClearTextureExpectations(GLuint service_id,
@@ -213,9 +210,7 @@ class RasterDecoderTestBase : public ::testing::TestWithParam<bool>,
                                      GLsizei height,
                                      GLuint bound_pixel_unpack_buffer);
 
-  GLvoid* BufferOffset(unsigned i) {
-    return static_cast<int8_t*>(nullptr) + (i);
-  }
+  GLvoid* BufferOffset(unsigned i) { return reinterpret_cast<GLvoid*>(i); }
 
  protected:
   static const GLint kMaxTextureSize = 2048;
@@ -250,9 +245,11 @@ class RasterDecoderTestBase : public ::testing::TestWithParam<bool>,
   std::unique_ptr<FakeCommandBufferServiceBase> command_buffer_service_;
   gles2::TraceOutputter outputter_;
   std::unique_ptr<MockRasterDecoder> mock_decoder_;
+  std::unique_ptr<FakeCommandBufferServiceBase>
+      command_buffer_service_for_mock_decoder_;
   std::unique_ptr<RasterDecoder> decoder_;
 
-  GLuint client_texture_id_;
+  gpu::Mailbox client_texture_mailbox_;
 
   int32_t shared_memory_id_;
   uint32_t shared_memory_offset_;
@@ -262,6 +259,7 @@ class RasterDecoderTestBase : public ::testing::TestWithParam<bool>,
   uint32_t immediate_buffer_[64];
 
   const bool ignore_cached_state_for_test_;
+  scoped_refptr<SharedContextState> shared_context_state_;
 
  private:
   GpuPreferences gpu_preferences_;
@@ -274,6 +272,7 @@ class RasterDecoderTestBase : public ::testing::TestWithParam<bool>,
   scoped_refptr<gles2::ContextGroup> group_;
   base::MessageLoop message_loop_;
   gles2::MockCopyTextureResourceManager* copy_texture_manager_;  // not owned
+  GLuint next_fake_texture_client_id_ = 271828;
 };
 
 class RasterDecoderManualInitTest : public RasterDecoderTestBase {

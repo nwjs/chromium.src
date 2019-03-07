@@ -9,15 +9,16 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind_helpers.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "base/stl_util.h"
 #include "base/test/test_simple_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/renderer/p2p/empty_network_manager.h"
 #include "media/base/media_permission.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/webrtc/rtc_base/ipaddress.h"
+#include "third_party/webrtc/rtc_base/ip_address.h"
 
 using NetworkList = rtc::NetworkManager::NetworkList;
 
@@ -137,7 +138,8 @@ class FilteringNetworkManagerTest : public testing::Test,
     if (multiple_routes_requested) {
       FilteringNetworkManager* filtering_network_manager =
           new FilteringNetworkManager(mock_network_manager_.get(), GURL(),
-                                      media_permission_.get());
+                                      media_permission_.get(),
+                                      base::DoNothing());
       filtering_network_manager->Initialize();
       network_manager_.reset(filtering_network_manager);
     } else {
@@ -233,7 +235,7 @@ TEST_F(FilteringNetworkManagerTest, MultipleRoutesNotRequested) {
       {MOCK_NETWORKS_CHANGED, NO_SIGNAL},
   };
 
-  RunTests(tests, arraysize(tests));
+  RunTests(tests, base::size(tests));
 }
 
 // Test that multiple routes request is blocked and signaled right after
@@ -259,7 +261,7 @@ TEST_F(FilteringNetworkManagerTest, BlockMultipleRoutesByStartUpdating) {
       {MOCK_NETWORKS_CHANGED, NO_SIGNAL},
   };
 
-  RunTests(tests, arraysize(tests));
+  RunTests(tests, base::size(tests));
 }
 
 // Test that multiple routes request is blocked and signaled right after
@@ -281,7 +283,7 @@ TEST_F(FilteringNetworkManagerTest, BlockMultipleRoutesByPermissionsDenied) {
       {MOCK_NETWORKS_CHANGED, NO_SIGNAL},
   };
 
-  RunTests(tests, arraysize(tests));
+  RunTests(tests, base::size(tests));
 }
 
 // Test that after permissions have been denied, a network change signal from
@@ -302,7 +304,7 @@ TEST_F(FilteringNetworkManagerTest, BlockMultipleRoutesByNetworksChanged) {
       {MOCK_NETWORKS_CHANGED, NO_SIGNAL},
   };
 
-  RunTests(tests, arraysize(tests));
+  RunTests(tests, base::size(tests));
 }
 
 // Test that multiple routes request is granted and signaled right after
@@ -329,7 +331,7 @@ TEST_F(FilteringNetworkManagerTest, AllowMultipleRoutesByPermissionsGranted) {
       {MOCK_NETWORKS_CHANGED, NO_SIGNAL},
   };
 
-  RunTests(tests, arraysize(tests));
+  RunTests(tests, base::size(tests));
 }
 
 // Test that multiple routes request is granted and signaled right after
@@ -352,7 +354,7 @@ TEST_F(FilteringNetworkManagerTest, AllowMultipleRoutesByStartUpdating) {
       {MOCK_NETWORKS_CHANGED, NO_SIGNAL},
   };
 
-  RunTests(tests, arraysize(tests));
+  RunTests(tests, base::size(tests));
 }
 
 // Test that multiple routes request is granted and signaled right after
@@ -376,7 +378,7 @@ TEST_F(FilteringNetworkManagerTest, AllowMultipleRoutesByNetworksChanged) {
       {MOCK_NETWORKS_CHANGED, NO_SIGNAL},
   };
 
-  RunTests(tests, arraysize(tests));
+  RunTests(tests, base::size(tests));
 }
 
 }  // namespace content

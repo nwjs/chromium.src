@@ -100,8 +100,9 @@ ContentMetadataProvider.prototype.__proto__ = MetadataProvider.prototype;
  * @override
  */
 ContentMetadataProvider.prototype.get = function(requests) {
-  if (!requests.length)
+  if (!requests.length) {
     return Promise.resolve([]);
+  }
 
   var promises = [];
   for (var i = 0; i < requests.length; i++) {
@@ -284,6 +285,7 @@ ContentMetadataProvider.prototype.convertMediaMetadataToMetadataItem_ =
     var item = new MetadataItem();
     var mimeType = metadata['mimeType'];
     item.contentMimeType = mimeType;
+    item.mediaMimeType = mimeType;
     var trans = {scaleX: 1, scaleY: 1, rotate90: 0};
     if (metadata.rotation) {
       switch (metadata.rotation) {

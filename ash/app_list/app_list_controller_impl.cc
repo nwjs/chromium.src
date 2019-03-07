@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "ash/app_list/app_list_controller_observer.h"
 #include "ash/app_list/app_list_presenter_delegate_impl.h"
 #include "ash/app_list/home_launcher_gesture_handler.h"
 #include "ash/app_list/model/app_list_folder_item.h"
@@ -25,7 +26,7 @@
 #include "ash/voice_interaction/voice_interaction_controller.h"
 #include "ash/wallpaper/wallpaper_controller.h"
 #include "ash/wm/mru_window_tracker.h"
-#include "ash/wm/overview/window_selector_controller.h"
+#include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_state.h"
@@ -463,7 +464,7 @@ void AppListControllerImpl::ProcessMouseWheelEvent(
   presenter_.ProcessMouseWheelOffset(event.offset());
 }
 
-void AppListControllerImpl::ToggleAppList(
+ash::ShelfAction AppListControllerImpl::ToggleAppList(
     int64_t display_id,
     app_list::AppListShowSource show_source,
     base::TimeTicks event_time_stamp) {
@@ -471,7 +472,7 @@ void AppListControllerImpl::ToggleAppList(
     UMA_HISTOGRAM_ENUMERATION(app_list::kAppListToggleMethodHistogram,
                               show_source, app_list::kMaxAppListToggleMethod);
   }
-  presenter_.ToggleAppList(display_id, event_time_stamp);
+  return presenter_.ToggleAppList(display_id, event_time_stamp);
 }
 
 app_list::AppListViewState AppListControllerImpl::GetAppListViewState() {
@@ -502,27 +503,25 @@ void AppListControllerImpl::OnOverviewModeStarting() {
   presenter_.ScheduleOverviewModeAnimation(
       /*start=*/true,
       Shell::Get()
-              ->window_selector_controller()
-              ->window_selector()
+              ->overview_controller()
+              ->overview_session()
               ->enter_exit_overview_type() ==
-          WindowSelector::EnterExitOverviewType::kWindowsMinimized);
+          OverviewSession::EnterExitOverviewType::kWindowsMinimized);
 }
 
-void AppListControllerImpl::OnOverviewModeEnding() {
+void AppListControllerImpl::OnOverviewModeEnding(
+    OverviewSession* overview_session) {
   if (!IsTabletMode())
     return;
 
   // Animate the launcher if overview mode is sliding out. Let
   // OnOverviewModeEndingAnimationComplete handle showing the launcher after
-  // overview mode finishes animating. WindowSelector however is nullptr by the
+  // overview mode finishes animating. Overview however is nullptr by the
   // time the animations are finished, so we need to check the animation type
   // here.
-  use_slide_to_exit_overview_mode_ =
-      Shell::Get()
-          ->window_selector_controller()
-          ->window_selector()
-          ->enter_exit_overview_type() ==
-      WindowSelector::EnterExitOverviewType::kWindowsMinimized;
+  use_slide_to_exit_overview_ =
+      overview_session->enter_exit_overview_type() ==
+      OverviewSession::EnterExitOverviewType::kWindowsMinimized;
 }
 
 void AppListControllerImpl::OnOverviewModeEndingAnimationComplete(
@@ -531,7 +530,7 @@ void AppListControllerImpl::OnOverviewModeEndingAnimationComplete(
     return;
 
   presenter_.ScheduleOverviewModeAnimation(/*start=*/false,
-                                           use_slide_to_exit_overview_mode_);
+                                           use_slide_to_exit_overview_);
 }
 
 void AppListControllerImpl::OnTabletModeStarted() {
@@ -601,22 +600,18 @@ void AppListControllerImpl::OnDisplayConfigurationChanged() {
 
   if (should_be_shown)
     ShowHomeLauncher();
-  else
-    DismissAppList();
 }
 
 void AppListControllerImpl::Back() {
   presenter_.GetView()->Back();
 }
 
-void AppListControllerImpl::OnAppListButtonPressed(
+ash::ShelfAction AppListControllerImpl::OnAppListButtonPressed(
     int64_t display_id,
     app_list::AppListShowSource show_source,
     base::TimeTicks event_time_stamp) {
-  if (!IsTabletMode()) {
-    ToggleAppList(display_id, show_source, event_time_stamp);
-    return;
-  }
+  if (!IsTabletMode())
+    return ToggleAppList(display_id, show_source, event_time_stamp);
 
   // Whether the this action is handled.
   bool handled = false;
@@ -627,10 +622,10 @@ void AppListControllerImpl::OnAppListButtonPressed(
   }
 
   if (!handled) {
-    if (Shell::Get()->window_selector_controller()->IsSelecting()) {
+    if (Shell::Get()->overview_controller()->IsSelecting()) {
       // End overview mode.
-      Shell::Get()->window_selector_controller()->ToggleOverview(
-          WindowSelector::EnterExitOverviewType::kWindowsMinimized);
+      Shell::Get()->overview_controller()->ToggleOverview(
+          OverviewSession::EnterExitOverviewType::kWindowsMinimized);
       handled = true;
     }
     if (Shell::Get()->split_view_controller()->IsSplitViewModeActive()) {
@@ -662,6 +657,8 @@ void AppListControllerImpl::OnAppListButtonPressed(
   // Perform the "back" action for the app list.
   if (!handled)
     Back();
+
+  return ash::SHELF_ACTION_APP_LIST_SHOWN;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -818,10 +815,9 @@ bool AppListControllerImpl::ProcessHomeLauncherGesture(
 bool AppListControllerImpl::CanProcessEventsOnApplistViews() {
   // Do not allow processing events during overview or while overview is
   // finished but still animating out.
-  WindowSelectorController* window_selector_controller =
-      Shell::Get()->window_selector_controller();
-  if (window_selector_controller->IsSelecting() ||
-      window_selector_controller->IsCompletingShutdownAnimations()) {
+  OverviewController* overview_controller = Shell::Get()->overview_controller();
+  if (overview_controller->IsSelecting() ||
+      overview_controller->IsCompletingShutdownAnimations()) {
     return false;
   }
 
@@ -838,24 +834,43 @@ void AppListControllerImpl::GetNavigableContentsFactory(
     client_->GetNavigableContentsFactory(std::move(request));
 }
 
-void AppListControllerImpl::OnVisibilityChanged(bool visible) {
-  if (client_)
-    client_->OnAppListVisibilityChanged(visible);
+void AppListControllerImpl::AddObserver(AppListControllerObserver* observer) {
+  observers_.AddObserver(observer);
 }
 
-void AppListControllerImpl::OnTargetVisibilityChanged(bool visible) {
+void AppListControllerImpl::RemoveObserver(
+    AppListControllerObserver* observer) {
+  observers_.RemoveObserver(observer);
+}
+
+void AppListControllerImpl::NotifyAppListVisibilityChanged(bool visible,
+                                                           int64_t display_id) {
+  // Notify chrome of visibility changes.
+  if (client_)
+    client_->OnAppListVisibilityChanged(visible);
+
+  for (auto& observer : observers_)
+    observer.OnAppListVisibilityChanged(visible, display_id);
+}
+
+void AppListControllerImpl::NotifyAppListTargetVisibilityChanged(bool visible) {
+  // Notify chrome of target visibility changes.
   if (client_)
     client_->OnAppListTargetVisibilityChanged(visible);
 }
 
-void AppListControllerImpl::StartVoiceInteractionSession() {
-  if (client_)
-    client_->StartVoiceInteractionSession();
+void AppListControllerImpl::NotifyHomeLauncherTargetPositionChanged(
+    bool showing,
+    int64_t display_id) {
+  for (auto& observer : observers_)
+    observer.OnHomeLauncherTargetPositionChanged(showing, display_id);
 }
 
-void AppListControllerImpl::ToggleVoiceInteractionSession() {
-  if (client_)
-    client_->ToggleVoiceInteractionSession();
+void AppListControllerImpl::NotifyHomeLauncherAnimationComplete(
+    bool shown,
+    int64_t display_id) {
+  for (auto& observer : observers_)
+    observer.OnHomeLauncherAnimationComplete(shown, display_id);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -924,8 +939,7 @@ void AppListControllerImpl::UpdateHomeLauncherVisibility() {
   if (!IsTabletMode() || !presenter_.GetWindow())
     return;
 
-  const bool in_overview =
-      Shell::Get()->window_selector_controller()->IsSelecting();
+  const bool in_overview = Shell::Get()->overview_controller()->IsSelecting();
   if (in_wallpaper_preview_ || in_overview || in_window_dragging_)
     presenter_.GetWindow()->Hide();
   else

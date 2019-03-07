@@ -453,7 +453,9 @@ ControllerModel VrTestContext::UpdateController(const RenderInfo& render_info,
   controller_model.laser_origin = laser_origin + local_offset;
   controller_model.handedness = handedness_;
 
-  ui_->OnControllerUpdated(controller_model, reticle_model);
+  std::vector<ControllerModel> controllers;
+  controllers.push_back(controller_model);
+  ui_->OnControllersUpdated(controllers, reticle_model);
 
   return controller_model;
 }
@@ -480,7 +482,7 @@ unsigned int VrTestContext::CreateTexture(SkColor color) {
 }
 
 void VrTestContext::CreateFakeVoiceSearchResult() {
-  if (!model_->voice_search_enabled())
+  if (!model_->voice_search_active())
     return;
   auto browser_ui = ui_->GetBrowserUiWeakPtr();
   browser_ui->SetRecognitionResult(
@@ -759,6 +761,9 @@ void VrTestContext::CycleOrigin() {
        security_state::SecurityLevel::HTTP_SHOW_WARNING, &omnibox::kHttpIcon,
        true, false},
       {GURL("http://subdomain.domain.com/"),
+       security_state::SecurityLevel::HTTP_SHOW_WARNING, &omnibox::kHttpIcon,
+       true, false},
+      {GURL("http://中央大学.ಠ_ಠ.tw/"),
        security_state::SecurityLevel::HTTP_SHOW_WARNING, &omnibox::kHttpIcon,
        true, false},
   };

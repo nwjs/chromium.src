@@ -132,6 +132,22 @@ void DiskCacheTestWithCache::SetMaxSize(int64_t size, bool should_succeed) {
     EXPECT_EQ(should_succeed, mem_cache_->SetMaxSize(size));
 }
 
+int DiskCacheTestWithCache::OpenOrCreateEntry(
+    const std::string& key,
+    disk_cache::EntryWithOpened* entry_struct) {
+  return OpenOrCreateEntryWithPriority(key, net::HIGHEST, entry_struct);
+}
+
+int DiskCacheTestWithCache::OpenOrCreateEntryWithPriority(
+    const std::string& key,
+    net::RequestPriority request_priority,
+    disk_cache::EntryWithOpened* entry_struct) {
+  net::TestCompletionCallback cb;
+  int rv = cache_->OpenOrCreateEntry(key, request_priority, entry_struct,
+                                     cb.callback());
+  return cb.GetResult(rv);
+}
+
 int DiskCacheTestWithCache::OpenEntry(const std::string& key,
                                       disk_cache::Entry** entry) {
   return OpenEntryWithPriority(key, net::HIGHEST, entry);

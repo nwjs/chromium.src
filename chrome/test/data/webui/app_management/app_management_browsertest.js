@@ -40,3 +40,31 @@ AppManagementAppTest.prototype = {
 TEST_F('AppManagementAppTest', 'All', function() {
   mocha.run();
 });
+
+function AppManagementMainViewTest() {}
+
+AppManagementMainViewTest.prototype = {
+  __proto__: AppManagementBrowserTest.prototype,
+
+  extraLibraries: AppManagementBrowserTest.prototype.extraLibraries.concat([
+    'main_view_test.js',
+  ]),
+};
+
+TEST_F('AppManagementMainViewTest', 'All', function() {
+  mocha.run();
+});
+
+function AppManagementReducersTest() {}
+
+AppManagementReducersTest.prototype = {
+  __proto__: AppManagementBrowserTest.prototype,
+
+  extraLibraries: AppManagementBrowserTest.prototype.extraLibraries.concat([
+    'reducers_test.js',
+  ]),
+};
+
+TEST_F('AppManagementReducersTest', 'All', function() {
+  mocha.run();
+});

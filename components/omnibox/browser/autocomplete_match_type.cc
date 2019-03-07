@@ -5,13 +5,19 @@
 #include "components/omnibox/browser/autocomplete_match_type.h"
 
 #include "base/logging.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/omnibox/browser/autocomplete_match.h"
+#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/suggestion_answer.h"
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
+
+const char AutocompleteMatchType::kAlternateTabSwitchButtonMessage[] =
+    "Navigation button, press Enter to navigate in this tab";
+const char AutocompleteMatchType::kAlternateTabSwitchMessage[] =
+    "Switch to this tab,";
 
 // static
 std::string AutocompleteMatchType::ToString(AutocompleteMatchType::Type type) {
@@ -43,9 +49,11 @@ std::string AutocompleteMatchType::ToString(AutocompleteMatchType::Type type) {
     "tab-search",
     "document",
     "pedal",
+    "text-from-clipboard",
+    "image-from-clipboard",
   };
   // clang-format on
-  static_assert(arraysize(strings) == AutocompleteMatchType::NUM_TYPES,
+  static_assert(base::size(strings) == AutocompleteMatchType::NUM_TYPES,
                 "strings array must have NUM_TYPES elements");
   return strings[type];
 }
@@ -70,15 +78,25 @@ base::string16 AddTabSwitchLabelTextIfNecessary(
     return base_message;
   }
 
-  if (is_tab_switch_button_focused) {
-    const int kButtonMessage = IDS_ACC_TAB_SWITCH_BUTTON_FOCUSED_PREFIX;
-    if (label_prefix_length) {
-      const base::string16 sentinal =
-          base::WideToUTF16(kAccessibilityLabelPrefixEndSentinal);
-      *label_prefix_length += AccessibilityLabelPrefixLength(
-          l10n_util::GetStringFUTF16(kButtonMessage, sentinal));
+  if (is_tab_switch_button_focused !=
+      OmniboxFieldTrial::IsTabSwitchLogicReversed()) {
+    if (is_tab_switch_button_focused) {
+      const int button_message_id = IDS_ACC_TAB_SWITCH_BUTTON_FOCUSED_PREFIX;
+      if (label_prefix_length) {
+        const base::string16 sentinal =
+            base::WideToUTF16(kAccessibilityLabelPrefixEndSentinal);
+        *label_prefix_length += AccessibilityLabelPrefixLength(
+            l10n_util::GetStringFUTF16(button_message_id, sentinal));
+      }
+      return l10n_util::GetStringFUTF16(button_message_id, base_message);
+    } else {
+      return base::ASCIIToUTF16(
+                 AutocompleteMatchType::kAlternateTabSwitchMessage) +
+             base_message;
     }
-    return l10n_util::GetStringFUTF16(kButtonMessage, base_message);
+  } else if (is_tab_switch_button_focused) {
+    return base::ASCIIToUTF16(
+        AutocompleteMatchType::kAlternateTabSwitchButtonMessage);
   }
 
   return l10n_util::GetStringFUTF16(IDS_ACC_TAB_SWITCH_SUFFIX, base_message);
@@ -120,7 +138,7 @@ base::string16 AutocompleteMatchType::ToAccessibilityLabel(
       // URL instead of a search query.
       IDS_ACC_AUTOCOMPLETE_HISTORY,    // NAVSUGGEST_PERSONALIZED
       0,                               // CALCULATOR
-      IDS_ACC_AUTOCOMPLETE_CLIPBOARD,  // CLIPBOARD
+      IDS_ACC_AUTOCOMPLETE_CLIPBOARD,  // CLIPBOARD_URL
       0,                               // VOICE_SUGGEST
       0,                               // PHYSICAL_WEB_DEPRECATED
       0,                               // PHYSICAL_WEB_OVERFLOW_DEPRECATED
@@ -129,8 +147,11 @@ base::string16 AutocompleteMatchType::ToAccessibilityLabel(
 
       // TODO(orinj): Determine appropriate accessibility labels for Pedals
       0,  // PEDAL
+      // TODO(rgibson): Determine appropriate accessibility labels for clipboard
+      0,  // CLIPBOARD_TEXT
+      0,  // CLIPBOARD_IMAGE
   };
-  static_assert(arraysize(message_ids) == AutocompleteMatchType::NUM_TYPES,
+  static_assert(base::size(message_ids) == AutocompleteMatchType::NUM_TYPES,
                 "message_ids must have NUM_TYPES elements");
 
   if (label_prefix_length)

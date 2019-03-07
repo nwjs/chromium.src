@@ -15,6 +15,7 @@
 #include "base/compiler_specific.h"
 #include "base/containers/adapters.h"
 #include "base/containers/flat_map.h"
+#include "base/feature_list.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -23,6 +24,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "cc/paint/paint_flags.h"
+#include "chrome/browser/browser_features.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -33,6 +35,7 @@
 #include "chrome/browser/ui/views/tabs/stacked_tab_strip_layout.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_drag_controller.h"
+#include "chrome/browser/ui/views/tabs/tab_hover_card_bubble_view.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_layout.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_observer.h"
@@ -41,20 +44,19 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "third_party/skia/include/core/SkColorFilter.h"
+#include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/effects/SkLayerDrawLooper.h"
 #include "third_party/skia/include/pathops/SkPathOps.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/base/clipboard/clipboard.h"
 #include "ui/base/default_theme_provider.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/models/list_selection_model.h"
 #include "ui/base/resource/resource_bundle.h"
-#include "ui/compositor/compositing_recorder.h"
-#include "ui/compositor/paint_recorder.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
-#include "ui/gfx/animation/animation_container.h"
 #include "ui/gfx/animation/throb_animation.h"
 #include "ui/gfx/animation/tween.h"
 #include "ui/gfx/canvas.h"
@@ -62,7 +64,6 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_operations.h"
-#include "ui/gfx/path.h"
 #include "ui/gfx/scoped_canvas.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/controls/image_view.h"
@@ -70,6 +71,7 @@
 #include "ui/views/mouse_watcher_view_host.h"
 #include "ui/views/rect_based_targeting_utils.h"
 #include "ui/views/view_model_utils.h"
+#include "ui/views/view_observer.h"
 #include "ui/views/view_targeter.h"
 #include "ui/views/widget/root_view.h"
 #include "ui/views/widget/widget.h"
@@ -390,14 +392,6 @@ void TabStrip::UpdateLoadingAnimations(const base::TimeDelta& elapsed_time) {
     tab_at(i)->StepLoadingAnimation(elapsed_time);
 }
 
-bool TabStrip::IsAnyIconAnimating() const {
-  for (int i = 0; i < tab_count(); i++) {
-    if (tab_at(i)->ShowingLoadingAnimation())
-      return true;
-  }
-  return false;
-}
-
 void TabStrip::SetStackedLayout(bool stacked_layout) {
   if (stacked_layout == stacked_layout_)
     return;
@@ -417,15 +411,6 @@ void TabStrip::SetStackedLayout(bool stacked_layout) {
     tab_at(i)->Layout();
 }
 
-void TabStrip::StartHighlight(int model_index) {
-  tab_at(model_index)->StartPulse();
-}
-
-void TabStrip::StopAllHighlighting() {
-  for (int i = 0; i < tab_count(); ++i)
-    tab_at(i)->StopPulse();
-}
-
 void TabStrip::AddTabAt(int model_index, TabRendererData data, bool is_active) {
   const bool was_single_tab_mode = SingleTabMode();
 
@@ -435,13 +420,17 @@ void TabStrip::AddTabAt(int model_index, TabRendererData data, bool is_active) {
     view_index = GetIndexOf(tab_at(model_index - 1)) + 1;
   }
 
-  Tab* tab = new Tab(this, animation_container_.get());
+  Tab* tab = new Tab(this);
   AddChildViewAt(tab, view_index);
   const bool pinned = data.pinned;
-  tab->SetData(std::move(data));
   UpdateTabsClosingMap(model_index, 1);
   tabs_.Add(tab, model_index);
   selected_tabs_.IncrementFrom(model_index);
+
+  // Setting data must come after all state from the model has been updated
+  // above for the tab. Accessibility, in particular, reacts to data changed
+  // callbacks.
+  tab->SetData(std::move(data));
 
   // If the new tab button is visually after the tabs, make sure it is logically
   // afterwards as well so that the focus traversal order is correct.
@@ -597,9 +586,8 @@ void TabStrip::RemoveTabAt(content::WebContents* contents,
   tab_bounds.set_width(tab_overlap);
 
   // Animate the tab closed.
-  bounds_animator_.AnimateViewTo(tab, tab_bounds);
-  bounds_animator_.SetAnimationDelegate(
-      tab, std::make_unique<RemoveTabDelegate>(this, tab));
+  bounds_animator_.AnimateViewTo(
+      tab, tab_bounds, std::make_unique<RemoveTabDelegate>(this, tab));
 
   // TODO(pkasting): The first part of this conditional doesn't really make
   // sense to me.  Why is each condition justified?
@@ -899,23 +887,6 @@ bool TabStrip::IsActiveDropTarget() const {
   return false;
 }
 
-SkAlpha TabStrip::GetInactiveAlpha(bool for_new_tab_button) const {
-#if defined(OS_CHROMEOS)
-  static const SkAlpha kInactiveTabAlphaAsh = 230;
-  const SkAlpha base_alpha = kInactiveTabAlphaAsh;
-#else
-  static const SkAlpha kInactiveTabAlphaGlass = 200;
-  static const SkAlpha kInactiveTabAlphaOpaque = 255;
-  const SkAlpha base_alpha = TitlebarBackgroundIsTransparent()
-                                 ? kInactiveTabAlphaGlass
-                                 : kInactiveTabAlphaOpaque;
-#endif  // OS_CHROMEOS
-  static const double kMultiSelectionMultiplier = 0.6;
-  return (for_new_tab_button || (GetSelectionModel().size() <= 1))
-             ? base_alpha
-             : static_cast<SkAlpha>(kMultiSelectionMultiplier * base_alpha);
-}
-
 bool TabStrip::IsAnimating() const {
   return bounds_animator_.IsAnimating();
 }
@@ -951,10 +922,6 @@ bool TabStrip::ShouldHideCloseButtonForTab(Tab* tab) const {
            controller_->GetNewTabButtonPosition() != AFTER_TABS;
   }
   return !!touch_layout_;
-}
-
-bool TabStrip::ShouldShowCloseButtonOnHover() {
-  return !touch_layout_;
 }
 
 bool TabStrip::MaySetClip() {
@@ -996,6 +963,11 @@ void TabStrip::CloseTab(Tab* tab, CloseTabSource source) {
   }
 
   if (!IsValidModelIndex(model_index))
+    return;
+
+  // If we're not allowed to close this tab for whatever reason, we should not
+  // proceed.
+  if (!controller_->BeforeCloseTab(model_index, source))
     return;
 
   if (!in_tab_close_ && IsAnimating()) {
@@ -1162,7 +1134,29 @@ void TabStrip::OnMouseEventInTab(views::View* source,
   UpdateStackedLayoutFromMouseEvent(source, event);
 }
 
-bool TabStrip::ShouldPaintTab(const Tab* tab, float scale, gfx::Path* clip) {
+void TabStrip::UpdateHoverCard(Tab* tab, bool should_show) {
+  if (!base::FeatureList::IsEnabled(features::kTabHoverCards))
+    return;
+
+  if (!hover_card_) {
+    // There is nothing to be done if the hover card doesn't exist and we are
+    // not trying to show it.
+    if (!should_show)
+      return;
+    hover_card_ = new TabHoverCardBubbleView(tab, tab->data());
+    hover_card_->views::View::AddObserver(this);
+  }
+
+  if (should_show) {
+    hover_card_->UpdateCardContent(tab->data());
+    hover_card_->UpdateCardAnchor(tab);
+    hover_card_->Show();
+  } else {
+    hover_card_->Hide();
+  }
+}
+
+bool TabStrip::ShouldPaintTab(const Tab* tab, float scale, SkPath* clip) {
   if (!MaySetClip())
     return true;
 
@@ -1270,13 +1264,13 @@ SkColor TabStrip::GetTabBackgroundColor(
   return color_utils::GetResultingPaintColor(background, frame);
 }
 
-SkColor TabStrip::GetTabForegroundColor(TabState tab_state) const {
+SkColor TabStrip::GetTabForegroundColor(TabState tab_state,
+                                        SkColor background_color) const {
   const ui::ThemeProvider* tp = GetThemeProvider();
   if (!tp)
     return SK_ColorBLACK;
 
   const bool is_active_frame = ShouldPaintAsActiveFrame();
-  const SkColor background_color = GetTabBackgroundColor(tab_state);
 
   // This color varies based on the tab and frame active states.
   SkColor default_color;
@@ -1292,20 +1286,16 @@ SkColor TabStrip::GetTabForegroundColor(TabState tab_state) const {
     }
 
     const int color_id = ThemeProperties::COLOR_BACKGROUND_TAB_TEXT;
-    if (tp->HasCustomColor(color_id)) {
-      default_color = tp->GetColor(color_id);
-    } else {
-      default_color = color_utils::IsDark(background_color)
-                          ? gfx::kGoogleGrey400
-                          : gfx::kGoogleGrey800;
-    }
+    default_color =
+        tp->HasCustomColor(color_id)
+            ? tp->GetColor(color_id)
+            : color_utils::PickContrastingColor(
+                  gfx::kGoogleGrey400, gfx::kGoogleGrey800, background_color);
   }
 
-  if (!ShouldPaintAsActiveFrame()) {
-    // For inactive frames, we draw text at 75%.
-    constexpr SkAlpha inactive_alpha = 0.75 * SK_AlphaOPAQUE;
-    default_color = color_utils::AlphaBlend(default_color, background_color,
-                                            inactive_alpha);
+  if (!is_active_frame) {
+    default_color =
+        color_utils::AlphaBlend(default_color, background_color, 0.75f);
   }
 
   return color_utils::GetColorWithMinimumContrast(default_color,
@@ -1314,10 +1304,9 @@ SkColor TabStrip::GetTabForegroundColor(TabState tab_state) const {
 
 // Returns the accessible tab name for the tab.
 base::string16 TabStrip::GetAccessibleTabName(const Tab* tab) const {
-  int model_index = GetModelIndexOfTab(tab);
-  if (IsValidModelIndex(model_index))
-    return controller_->GetAccessibleTabName(tab);
-  return base::string16();
+  const int model_index = GetModelIndexOfTab(tab);
+  return IsValidModelIndex(model_index) ? controller_->GetAccessibleTabName(tab)
+                                        : base::string16();
 }
 
 int TabStrip::GetBackgroundResourceId(
@@ -1376,70 +1365,59 @@ void TabStrip::PaintChildren(const views::PaintInfo& paint_info) {
   Tabs tabs_dragging;
   Tabs selected_and_hovered_tabs;
 
-  {
-    // Using transparency here normally disables LCD AA on title text in favor
-    // of greyscale AA.  In most cases, the tabs will be rendered opaquely on an
-    // opaque background before compositing, so it's safe to pass false for
-    // |lcd_text_requires_opaque_layer| to allow LCD AA.  If the theme does not
-    // fill a background color, however, it must fall back to greyscale AA.
-    bool has_background_color = GetThemeProvider()->GetDisplayProperty(
-        ThemeProperties::SHOULD_FILL_BACKGROUND_TAB_COLOR);
-    ui::CompositingRecorder opacity_recorder(
-        paint_info.context(), GetInactiveAlpha(false), !has_background_color);
+  // When background tab shapes are visible, as for hovered or selected tabs,
+  // the paint order must be handled carefully to avoid Z-order errors, so
+  // this code defers drawing such tabs until later.
+  const auto paint_or_add_to_tabs = [&paint_info,
+                                     &selected_and_hovered_tabs](Tab* tab) {
+    if (tab->IsSelected() ||
+        (tab->mouse_hovered() ||
+         (tab->hover_controller() && tab->hover_controller()->ShouldDraw()))) {
+      selected_and_hovered_tabs.push_back(tab);
+    } else {
+      tab->Paint(paint_info);
+    }
+  };
 
-    // When background tab shapes are visible, as for hovered or selected tabs,
-    // the paint order must be handled carefully to avoid Z-order errors, so
-    // this code defers drawing such tabs until later.
-    const auto paint_or_add_to_tabs = [&paint_info,
-                                       &selected_and_hovered_tabs](Tab* tab) {
-      if (tab->IsSelected() ||
-          (tab->mouse_hovered() || tab->hover_controller()->ShouldDraw())) {
-        selected_and_hovered_tabs.push_back(tab);
-      } else {
-        tab->Paint(paint_info);
-      }
-    };
+  const auto paint_closing_tabs = [=](int index) {
+    if (tabs_closing_map_.find(index) == tabs_closing_map_.end())
+      return;
+    for (Tab* tab : base::Reversed(tabs_closing_map_[index]))
+      paint_or_add_to_tabs(tab);
+  };
 
-    const auto paint_closing_tabs = [=](int index) {
-      if (tabs_closing_map_.find(index) == tabs_closing_map_.end())
-        return;
-      for (Tab* tab : base::Reversed(tabs_closing_map_[index]))
-        paint_or_add_to_tabs(tab);
-    };
+  paint_closing_tabs(tab_count());
 
-    paint_closing_tabs(tab_count());
-
-    int active_tab_index = -1;
-    for (int i = tab_count() - 1; i >= 0; --i) {
-      Tab* tab = tab_at(i);
-      if (tab->dragging() && !stacked_layout_) {
-        is_dragging = true;
-        if (tab->IsActive()) {
-          active_tab = tab;
-          active_tab_index = i;
-        } else {
-          tabs_dragging.push_back(tab);
-        }
-      } else if (tab->IsActive()) {
+  int active_tab_index = -1;
+  for (int i = tab_count() - 1; i >= 0; --i) {
+    Tab* tab = tab_at(i);
+    if (tab->dragging() && !stacked_layout_) {
+      is_dragging = true;
+      if (tab->IsActive()) {
         active_tab = tab;
         active_tab_index = i;
-      } else if (!stacked_layout_) {
-        paint_or_add_to_tabs(tab);
+      } else {
+        tabs_dragging.push_back(tab);
       }
-      paint_closing_tabs(i);
+    } else if (tab->IsActive()) {
+      active_tab = tab;
+      active_tab_index = i;
+    } else if (!stacked_layout_) {
+      paint_or_add_to_tabs(tab);
+    }
+    paint_closing_tabs(i);
+  }
+
+  // Draw from the left and then the right if we're in touch mode.
+  if (stacked_layout_ && active_tab_index >= 0) {
+    for (int i = 0; i < active_tab_index; ++i) {
+      Tab* tab = tab_at(i);
+      tab->Paint(paint_info);
     }
 
-    // Draw from the left and then the right if we're in touch mode.
-    if (stacked_layout_ && active_tab_index >= 0) {
-      for (int i = 0; i < active_tab_index; ++i) {
-        Tab* tab = tab_at(i);
-        tab->Paint(paint_info);
-      }
-
-      for (int i = tab_count() - 1; i > active_tab_index; --i) {
-        Tab* tab = tab_at(i);
-        tab->Paint(paint_info);
-      }
+    for (int i = tab_count() - 1; i > active_tab_index; --i) {
+      Tab* tab = tab_at(i);
+      tab->Paint(paint_info);
     }
   }
 
@@ -1462,7 +1440,9 @@ void TabStrip::PaintChildren(const views::PaintInfo& paint_info) {
   // 6.0 <= sort_value <= 7.0  Selected/mouse hovered tab.
   //
   auto tab_sort_value = [](Tab* tab) {
-    float sort_value = tab->hover_controller()->GetAnimationValue();
+    float sort_value = tab->hover_controller()
+                           ? tab->hover_controller()->GetAnimationValue()
+                           : 0;
     if (tab->IsSelected())
       sort_value += 4.f;
     if (tab->mouse_hovered())
@@ -1483,17 +1463,7 @@ void TabStrip::PaintChildren(const views::PaintInfo& paint_info) {
     active_tab->Paint(paint_info);
 
   // Paint the New Tab button.
-  if (new_tab_button_->state() == views::Button::STATE_PRESSED) {
-    new_tab_button_->Paint(paint_info);
-  } else {
-    // Match the inactive tab opacity for non-pressed states.  See comments in
-    // NewTabButton::PaintFill() for why we don't do this for the pressed state.
-    // This call doesn't need to set |lcd_text_requires_opaque_layer| to false
-    // because no text will be drawn.
-    ui::CompositingRecorder opacity_recorder(paint_info.context(),
-                                             GetInactiveAlpha(true), true);
-    new_tab_button_->Paint(paint_info);
-  }
+  new_tab_button_->Paint(paint_info);
 
   // And the dragged tabs.
   for (size_t i = 0; i < tabs_dragging.size(); ++i)
@@ -1674,6 +1644,9 @@ void TabStrip::Init() {
   }
 
   UpdateContrastRatioValues();
+
+  if (!gfx::Animation::ShouldRenderRichAnimation())
+    bounds_animator_.SetAnimationDuration(0);
 }
 
 void TabStrip::StartInsertTabAnimation(int model_index) {
@@ -1722,8 +1695,6 @@ void TabStrip::AnimateToIdealBounds() {
     if (bounds_animator_.GetTargetBounds(tab) == target_bounds)
       continue;
 
-    bounds_animator_.AnimateViewTo(tab, target_bounds);
-
     // Set an animation delegate for the tab so it will clip appropriately.
     // Don't do this if dragging() is true.  In this case the tab was
     // previously being dragged and is now animating back to its ideal
@@ -1731,10 +1702,10 @@ void TabStrip::AnimateToIdealBounds() {
     // will reset this dragging state. Replacing this delegate would mean
     // this code would also need to reset the dragging state immediately,
     // and that could allow the new tab button to be drawn atop this tab.
-    if (!tab->dragging()) {
-      bounds_animator_.SetAnimationDelegate(
-          tab, std::make_unique<TabAnimationDelegate>(this, tab));
-    }
+    bounds_animator_.AnimateViewTo(
+        tab, target_bounds,
+        tab->dragging() ? nullptr
+                        : std::make_unique<TabAnimationDelegate>(this, tab));
   }
 
   if (bounds_animator_.GetTargetBounds(new_tab_button_) !=
@@ -2150,11 +2121,12 @@ void TabStrip::StoppedDraggingTab(Tab* tab, bool* is_first_tab) {
     GenerateIdealBounds();
     AnimateToIdealBounds();
   }
-  bounds_animator_.AnimateViewTo(tab, ideal_bounds(tab_data_index));
+
   // Install a delegate to reset the dragging state when done. We have to leave
   // dragging true for the tab otherwise it'll draw beneath the new tab button.
-  bounds_animator_.SetAnimationDelegate(
-      tab, std::make_unique<ResetDraggingStateDelegate>(this, tab));
+  bounds_animator_.AnimateViewTo(
+      tab, ideal_bounds(tab_data_index),
+      std::make_unique<ResetDraggingStateDelegate>(this, tab));
 }
 
 void TabStrip::OwnDragController(TabDragController* controller) {
@@ -2276,46 +2248,40 @@ void TabStrip::UpdateContrastRatioValues() {
   if (!controller_)
     return;
 
-  const SkColor active_tab_bg_color = GetTabBackgroundColor(TAB_ACTIVE);
-  const SkColor inactive_tab_bg_color = GetTabBackgroundColor(TAB_INACTIVE);
+  const SkColor inactive_bg = GetTabBackgroundColor(TAB_INACTIVE);
+  const auto get_alpha = [inactive_bg](SkColor target, float contrast) {
+    return color_utils::GetBlendValueWithMinimumContrast(inactive_bg, target,
+                                                         inactive_bg, contrast);
+  };
+
+  const SkColor active_bg = GetTabBackgroundColor(TAB_ACTIVE);
+  const auto get_hover_opacity = [active_bg, &get_alpha](float contrast) {
+    return get_alpha(active_bg, contrast) / 255.0f;
+  };
 
   // The contrast ratio for the hover effect on standard-width tabs.
   // In the default color scheme, this corresponds to a hover opacity of 0.4.
-  constexpr float kDesiredContrastHoveredStandardWidthTab = 1.11f;
-  const SkAlpha hover_base_alpha_wide =
-      color_utils::GetBlendValueWithMinimumContrast(
-          inactive_tab_bg_color, active_tab_bg_color, inactive_tab_bg_color,
-          kDesiredContrastHoveredStandardWidthTab);
-  hover_opacity_min_ = hover_base_alpha_wide / 255.0f;
+  constexpr float kStandardWidthContrast = 1.11f;
+  hover_opacity_min_ = get_hover_opacity(kStandardWidthContrast);
 
   // The contrast ratio for the hover effect on min-width tabs.
   // In the default color scheme, this corresponds to a hover opacity of 0.65.
-  constexpr float kDesiredContrastHoveredMinWidthTab = 1.19f;
-  const SkAlpha hover_base_alpha_narrow =
-      color_utils::GetBlendValueWithMinimumContrast(
-          inactive_tab_bg_color, active_tab_bg_color, inactive_tab_bg_color,
-          kDesiredContrastHoveredMinWidthTab);
-  hover_opacity_max_ = hover_base_alpha_narrow / 255.0f;
+  constexpr float kMinWidthContrast = 1.19f;
+  hover_opacity_max_ = get_hover_opacity(kMinWidthContrast);
 
   // The contrast ratio for the radial gradient effect on hovered tabs.
   // In the default color scheme, this corresponds to a hover opacity of 0.45.
-  constexpr float kDesiredContrastRadialGradient = 1.13728f;
-  const SkAlpha radial_highlight_alpha =
-      color_utils::GetBlendValueWithMinimumContrast(
-          inactive_tab_bg_color, active_tab_bg_color, inactive_tab_bg_color,
-          kDesiredContrastRadialGradient);
-  radial_highlight_opacity_ = radial_highlight_alpha / 255.0f;
+  constexpr float kRadialGradientContrast = 1.13728f;
+  radial_highlight_opacity_ = get_hover_opacity(kRadialGradientContrast);
 
+  const SkColor inactive_fg = GetTabForegroundColor(TAB_INACTIVE, inactive_bg);
   // The contrast ratio for the separator between inactive tabs.
   // In the default color scheme, this corresponds to a separator opacity of
   // 0.46.
-  const SkColor text_color = GetTabForegroundColor(TAB_INACTIVE);
-  constexpr float kTabSeparatorRatio = 1.84f;
-  const SkAlpha separator_alpha = color_utils::GetBlendValueWithMinimumContrast(
-      inactive_tab_bg_color, text_color, inactive_tab_bg_color,
-      kTabSeparatorRatio);
-  separator_color_ = color_utils::AlphaBlend(text_color, inactive_tab_bg_color,
-                                             separator_alpha);
+  constexpr float kTabSeparatorContrast = 1.84f;
+  const SkAlpha separator_alpha = get_alpha(inactive_fg, kTabSeparatorContrast);
+  separator_color_ =
+      color_utils::AlphaBlend(inactive_fg, inactive_bg, separator_alpha);
 }
 
 void TabStrip::ResizeLayoutTabs() {
@@ -2617,6 +2583,17 @@ Tab* TabStrip::FindTabHitByPoint(const gfx::Point& point) {
     return tab;
   }
 
+  // Also check closing tabs.  Mouse events need to reach closing tabs for users
+  // to be able to rapidly middle-click close several tabs. Since closing tabs
+  // are never selected or active, the check here can be simpler than the one
+  // above.
+  for (const auto& index_and_tabs : tabs_closing_map_) {
+    for (Tab* tab : index_and_tabs.second) {
+      if (IsPointInTab(tab, point))
+        return tab;
+    }
+  }
+
   return nullptr;
 }
 
@@ -2784,6 +2761,10 @@ void TabStrip::OnMouseEntered(const ui::MouseEvent& event) {
   SetResetToShrinkOnExit(true);
 }
 
+void TabStrip::OnMouseExited(const ui::MouseEvent& event) {
+  UpdateHoverCard(nullptr, false);
+}
+
 void TabStrip::OnGestureEvent(ui::GestureEvent* event) {
   SetResetToShrinkOnExit(false);
   switch (event->type()) {
@@ -2868,6 +2849,13 @@ views::View* TabStrip::TargetForRect(views::View* root, const gfx::Rect& rect) {
       return ConvertPointToViewAndGetEventHandler(this, tab, point);
   }
   return this;
+}
+
+void TabStrip::OnViewIsDeleting(views::View* observed_view) {
+  if (observed_view == hover_card_) {
+    hover_card_->views::View::RemoveObserver(this);
+    hover_card_ = nullptr;
+  }
 }
 
 void TabStrip::OnTouchUiChanged() {

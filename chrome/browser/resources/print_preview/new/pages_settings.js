@@ -28,8 +28,9 @@ const PagesValue = {
  * @private
  */
 function parseIntStrict(value) {
-  if (/^\d+$/.test(value.trim()))
+  if (/^\d+$/.test(value.trim())) {
     return Number(value);
+  }
   return NaN;
 }
 
@@ -39,8 +40,7 @@ Polymer({
   behaviors: [SettingsBehavior, print_preview_new.InputBehavior],
 
   properties: {
-    /** @type {!print_preview.DocumentInfo} */
-    documentInfo: Object,
+    pageCount: Number,
 
     /** @private {string} */
     inputString_: {
@@ -51,7 +51,7 @@ Polymer({
     /** @private {!Array<number>} */
     allPagesArray_: {
       type: Array,
-      computed: 'computeAllPagesArray_(documentInfo.pageCount)',
+      computed: 'computeAllPagesArray_(pageCount)',
     },
 
     /** @private {string} */
@@ -126,11 +126,11 @@ Polymer({
   },
 
   /**
-   * @param {!CustomEvent} e Contains the new input value.
+   * @param {!CustomEvent<string>} e Contains the new input value.
    * @private
    */
   onInputChange_: function(e) {
-    this.inputString_ = /** @type {string} */ (e.detail);
+    this.inputString_ = e.detail;
   },
 
   /**
@@ -147,18 +147,10 @@ Polymer({
    * @private
    */
   computeAllPagesArray_: function() {
-    // This computed function will unnecessarily get triggered if
-    // this.documentInfo is set to a new object, which happens whenever the
-    // preview refreshes, but the page count is the same as before. We do not
-    // want to trigger all observers unnecessarily.
-    if (!!this.allPagesArray_ &&
-        this.allPagesArray_.length == this.documentInfo.pageCount) {
-      return this.allPagesArray_;
-    }
-
-    const array = new Array(this.documentInfo.pageCount);
-    for (let i = 0; i < array.length; i++)
+    const array = new Array(this.pageCount);
+    for (let i = 0; i < array.length; i++) {
       array[i] = i + 1;
+    }
     return array;
   },
 
@@ -173,8 +165,9 @@ Polymer({
       this.errorState_ = PagesInputErrorState.NO_ERROR;
       return this.allPagesArray_;
     } else if (this.inputString_ === '') {
-      if (this.errorState_ !== PagesInputErrorState.NO_ERROR)
+      if (this.errorState_ !== PagesInputErrorState.NO_ERROR) {
         this.errorState_ = PagesInputErrorState.EMPTY;
+      }
       return this.pagesToPrint_;
     }
 
@@ -182,7 +175,7 @@ Polymer({
     const added = {};
     const ranges = this.inputString_.split(/,|\u3001/);
     const maxPage = this.allPagesArray_.length;
-    for (let range of ranges) {
+    for (const range of ranges) {
       if (range == '') {
         this.errorState_ = PagesInputErrorState.INVALID_SYNTAX;
         this.onRangeChange_();
@@ -222,10 +215,12 @@ Polymer({
         return this.pagesToPrint_;
       }
 
-      if (Number.isNaN(min))
+      if (Number.isNaN(min)) {
         min = 1;
-      if (Number.isNaN(max))
+      }
+      if (Number.isNaN(max)) {
         max = maxPage;
+      }
       if (min > max) {
         this.errorState_ = PagesInputErrorState.INVALID_SYNTAX;
         this.onRangeChange_();
@@ -253,7 +248,6 @@ Polymer({
    * @private
    */
   computeRangesToPrint_: function() {
-    let lastPage = 0;
     if (this.pagesToPrint_.length == 0 || this.pagesToPrint_[0] == -1 ||
         this.pagesToPrint_ == this.allPagesArray_) {
       return [];
@@ -261,8 +255,8 @@ Polymer({
 
     let from = this.pagesToPrint_[0];
     let to = this.pagesToPrint_[0];
-    let ranges = [];
-    for (let page of this.pagesToPrint_.slice(1)) {
+    const ranges = [];
+    for (const page of this.pagesToPrint_.slice(1)) {
       if (page == to + 1) {
         to = page;
         continue;
@@ -284,13 +278,15 @@ Polymer({
   getNupPages_: function() {
     const pagesPerSheet =
         /** @type {number} */ (this.getSettingValue('pagesPerSheet'));
-    if (pagesPerSheet <= 1 || this.pagesToPrint_.length == 0)
+    if (pagesPerSheet <= 1 || this.pagesToPrint_.length == 0) {
       return this.pagesToPrint_;
+    }
 
     const numPages = Math.ceil(this.pagesToPrint_.length / pagesPerSheet);
     const nupPages = new Array(numPages);
-    for (let i = 0; i < nupPages.length; i++)
+    for (let i = 0; i < nupPages.length; i++) {
       nupPages[i] = i + 1;
+    }
     return nupPages;
   },
 
@@ -300,8 +296,9 @@ Polymer({
    * @private
    */
   onRangeChange_: function() {
-    if (this.settings === undefined || this.pagesToPrint_ === undefined)
+    if (this.settings === undefined || this.pagesToPrint_ === undefined) {
       return;
+    }
 
     if (this.errorState_ === PagesInputErrorState.EMPTY) {
       this.setSettingValid('pages', true);
@@ -323,8 +320,9 @@ Polymer({
         nupPages.length != this.getSettingValue('pages').length) {
       this.setSetting('pages', nupPages);
     }
-    if (rangesChanged)
+    if (rangesChanged) {
       this.setSetting('ranges', this.rangesToPrint_);
+    }
     this.setSettingValid('pages', true);
     this.hasError_ = false;
   },
@@ -341,8 +339,9 @@ Polymer({
 
   /** @private */
   resetIfEmpty_: function() {
-    if (this.inputString_ !== '')
+    if (this.inputString_ !== '') {
       return;
+    }
 
     this.optionSelected_ = PagesValue.ALL;
 
@@ -355,8 +354,9 @@ Polymer({
    * @param {!KeyboardEvent} e The keyboard event
    */
   onKeydown_: function(e) {
-    if (e.key === 'Escape')
+    if (e.key === 'Escape') {
       return;
+    }
 
     if (e.key === 'Enter') {
       this.resetAndUpdate();
@@ -398,8 +398,9 @@ Polymer({
 
   /** @private */
   onCustomInputFocus_: function() {
-    if (this.optionSelected_ !== PagesValue.CUSTOM)
+    if (this.optionSelected_ !== PagesValue.CUSTOM) {
       this.optionSelected_ = PagesValue.CUSTOM;
+    }
   },
 
   /**
@@ -441,11 +442,10 @@ Polymer({
           'pageRangeSyntaxInstruction',
           loadTimeData.getString('examplePageRangeText'));
     } else {
-      formattedMessage = (this.documentInfo === undefined) ?
+      formattedMessage = (this.pageCount === 0) ?
           '' :
           loadTimeData.getStringF(
-              'pageRangeLimitInstructionWithValue',
-              this.documentInfo.pageCount);
+              'pageRangeLimitInstructionWithValue', this.pageCount);
     }
     return formattedMessage.replace(/<\/b>|<b>/g, '');
   },

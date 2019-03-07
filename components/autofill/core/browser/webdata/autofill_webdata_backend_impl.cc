@@ -15,6 +15,7 @@
 #include "components/autofill/core/browser/webdata/autofill_change.h"
 #include "components/autofill/core/browser/webdata/autofill_entry.h"
 #include "components/autofill/core/browser/webdata/autofill_table.h"
+#include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_observer.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/webdata/common/web_database_backend.h"
@@ -53,6 +54,11 @@ AutofillWebDataBackendImpl::~AutofillWebDataBackendImpl() {
   DCHECK(!user_data_);  // Forgot to call ResetUserData?
 }
 
+void AutofillWebDataBackendImpl::SetAutofillProfileChangedCallback(
+    base::RepeatingCallback<void(const AutofillProfileDeepChange&)> change_cb) {
+  on_autofill_profile_changed_cb_ = std::move(change_cb);
+}
+
 WebDatabase* AutofillWebDataBackendImpl::GetDatabase() {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
   return web_database_backend_->database();
@@ -60,8 +66,26 @@ WebDatabase* AutofillWebDataBackendImpl::GetDatabase() {
 
 void AutofillWebDataBackendImpl::RemoveExpiredFormElements() {
   web_database_backend_->ExecuteWriteTask(
-      Bind(&AutofillWebDataBackendImpl::RemoveExpiredFormElementsImpl,
-           this));
+      Bind(&AutofillWebDataBackendImpl::RemoveExpiredFormElementsImpl, this));
+}
+
+std::unique_ptr<WDTypedResult>
+AutofillWebDataBackendImpl::RemoveExpiredAutocompleteEntries(WebDatabase* db) {
+  DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
+  AutofillChangeList changes;
+
+  if (AutofillTable::FromWebDatabase(db)->RemoveExpiredFormElements(&changes)) {
+    if (!changes.empty()) {
+      // Post the notifications including the list of affected keys.
+      // This is sent here so that work resulting from this notification
+      // will be done on the DB sequence, and not the UI sequence.
+      for (auto& db_observer : db_observer_list_)
+        db_observer.AutofillEntriesChanged(changes);
+    }
+  }
+
+  return std::make_unique<WDResult<size_t>>(AUTOFILL_CLEANUP_RESULT,
+                                            changes.size());
 }
 
 void AutofillWebDataBackendImpl::NotifyOfAutofillProfileChanged(
@@ -142,11 +166,11 @@ AutofillWebDataBackendImpl::GetFormValuesForElementName(
     int limit,
     WebDatabase* db) {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
-  std::vector<base::string16> values;
+  std::vector<AutofillEntry> entries;
   AutofillTable::FromWebDatabase(db)->GetFormValuesForElementName(
-      name, prefix, &values, limit);
-  return std::unique_ptr<WDTypedResult>(
-      new WDResult<std::vector<base::string16>>(AUTOFILL_VALUE_RESULT, values));
+      name, prefix, &entries, limit);
+  return std::make_unique<WDResult<std::vector<AutofillEntry>>>(
+      AUTOFILL_VALUE_RESULT, entries);
 }
 
 WebDatabase::State AutofillWebDataBackendImpl::RemoveFormElementsAddedBetween(
@@ -202,6 +226,13 @@ WebDatabase::State AutofillWebDataBackendImpl::AddAutofillProfile(
   for (auto& db_observer : db_observer_list_)
     db_observer.AutofillProfileChanged(change);
 
+  if (!on_autofill_profile_changed_cb_.is_null()) {
+    ui_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(on_autofill_profile_changed_cb_,
+                                  AutofillProfileDeepChange(
+                                      AutofillProfileChange::ADD, profile)));
+  }
+
   return WebDatabase::COMMIT_NEEDED;
 }
 
@@ -227,6 +258,13 @@ WebDatabase::State AutofillWebDataBackendImpl::UpdateAutofillProfile(
   for (auto& db_observer : db_observer_list_)
     db_observer.AutofillProfileChanged(change);
 
+  if (!on_autofill_profile_changed_cb_.is_null()) {
+    ui_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(on_autofill_profile_changed_cb_,
+                                  AutofillProfileDeepChange(
+                                      AutofillProfileChange::UPDATE, profile)));
+  }
+
   return WebDatabase::COMMIT_NEEDED;
 }
 
@@ -249,6 +287,13 @@ WebDatabase::State AutofillWebDataBackendImpl::RemoveAutofillProfile(
   AutofillProfileChange change(AutofillProfileChange::REMOVE, guid, nullptr);
   for (auto& db_observer : db_observer_list_)
     db_observer.AutofillProfileChanged(change);
+
+  if (!on_autofill_profile_changed_cb_.is_null()) {
+    ui_task_runner_->PostTask(
+        FROM_HERE, base::BindOnce(on_autofill_profile_changed_cb_,
+                                  AutofillProfileDeepChange(
+                                      AutofillProfileChange::REMOVE, guid)));
+  }
 
   return WebDatabase::COMMIT_NEEDED;
 }
@@ -410,12 +455,13 @@ WebDatabase::State AutofillWebDataBackendImpl::UpdateServerCardMetadata(
     const CreditCard& card,
     WebDatabase* db) {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK_NE(CreditCard::LOCAL_CARD, card.record_type());
   if (!AutofillTable::FromWebDatabase(db)->UpdateServerCardMetadata(card))
     return WebDatabase::COMMIT_NOT_NEEDED;
 
   for (auto& db_observer : db_observer_list_) {
     db_observer.CreditCardChanged(
-        CreditCardChange(CreditCardChange::UPDATE, card.guid(), &card));
+        CreditCardChange(CreditCardChange::UPDATE, card.server_id(), &card));
   }
 
   return WebDatabase::COMMIT_NEEDED;
@@ -425,6 +471,7 @@ WebDatabase::State AutofillWebDataBackendImpl::UpdateServerAddressMetadata(
     const AutofillProfile& profile,
     WebDatabase* db) {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
+  DCHECK_EQ(AutofillProfile::SERVER_PROFILE, profile.record_type());
   if (!AutofillTable::FromWebDatabase(db)->UpdateServerAddressMetadata(
           profile)) {
     return WebDatabase::COMMIT_NOT_NEEDED;
@@ -432,7 +479,7 @@ WebDatabase::State AutofillWebDataBackendImpl::UpdateServerAddressMetadata(
 
   for (auto& db_observer : db_observer_list_) {
     db_observer.AutofillProfileChanged(AutofillProfileChange(
-        AutofillProfileChange::UPDATE, profile.guid(), &profile));
+        AutofillProfileChange::UPDATE, profile.server_id(), &profile));
   }
 
   return WebDatabase::COMMIT_NEEDED;

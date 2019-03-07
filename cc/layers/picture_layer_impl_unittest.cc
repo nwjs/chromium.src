@@ -13,6 +13,7 @@
 
 #include "base/location.h"
 #include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "cc/animation/animation_host.h"
 #include "cc/base/math_util.h"
@@ -3242,7 +3243,7 @@ TEST_F(PictureLayerImplTest, TilingSetEvictionQueue) {
     while (std::abs(tile->contents_scale_key() - expected_scales[scale_index]) >
            std::numeric_limits<float>::epsilon()) {
       ++scale_index;
-      ASSERT_LT(scale_index, arraysize(expected_scales));
+      ASSERT_LT(scale_index, base::size(expected_scales));
     }
 
     EXPECT_FLOAT_EQ(tile->contents_scale_key(), expected_scales[scale_index]);
@@ -3290,7 +3291,7 @@ TEST_F(PictureLayerImplTest, TilingSetEvictionQueue) {
     while (std::abs(tile->contents_scale_key() - expected_scales[scale_index]) >
            std::numeric_limits<float>::epsilon()) {
       ++scale_index;
-      ASSERT_LT(scale_index, arraysize(expected_scales));
+      ASSERT_LT(scale_index, base::size(expected_scales));
     }
 
     EXPECT_FLOAT_EQ(tile->contents_scale_key(), expected_scales[scale_index]);
@@ -4051,7 +4052,7 @@ TEST_F(OcclusionTrackingPictureLayerImplTest,
   layer1->SetBounds(layer_bounds);
   layer1->SetDrawsContent(true);
   layer1->SetContentsOpaque(true);
-  layer1->SetPosition(occluding_layer_position);
+  layer1->test_properties()->position = occluding_layer_position;
 
   RebuildPropertyTreesOnPendingTree();
   host_impl()->AdvanceToNextFrame(base::TimeDelta::FromMilliseconds(200));
@@ -4075,7 +4076,7 @@ TEST_F(OcclusionTrackingPictureLayerImplTest,
   EXPECT_EQ(20, unoccluded_tile_count);
 
   // Full occlusion.
-  layer1->SetPosition(gfx::PointF());
+  layer1->test_properties()->position = gfx::PointF();
   layer1->NoteLayerPropertyChanged();
 
   RebuildPropertyTreesOnPendingTree();
@@ -4146,7 +4147,7 @@ TEST_F(OcclusionTrackingPictureLayerImplTest,
   layer1->SetBounds(layer_bounds);
   layer1->SetDrawsContent(true);
   layer1->SetContentsOpaque(true);
-  layer1->SetPosition(occluding_layer_position);
+  layer1->test_properties()->position = occluding_layer_position;
 
   RebuildPropertyTreesOnPendingTree();
   host_impl()->AdvanceToNextFrame(base::TimeDelta::FromMilliseconds(200));
@@ -4183,7 +4184,7 @@ TEST_F(OcclusionTrackingPictureLayerImplTest,
   }
 
   // Full occlusion.
-  layer1->SetPosition(gfx::PointF());
+  layer1->test_properties()->position = gfx::PointF();
   layer1->NoteLayerPropertyChanged();
 
   RebuildPropertyTreesOnPendingTree();
@@ -4243,7 +4244,7 @@ TEST_F(OcclusionTrackingPictureLayerImplTest, OcclusionForDifferentScales) {
   layer1->SetBounds(layer_bounds);
   layer1->SetDrawsContent(true);
   layer1->SetContentsOpaque(true);
-  layer1->SetPosition(occluding_layer_position);
+  layer1->test_properties()->position = occluding_layer_position;
 
   pending_layer()->tilings()->RemoveAllTilings();
   float low_res_factor = host_impl()->settings().low_res_contents_scale_factor;
@@ -4328,7 +4329,7 @@ TEST_F(OcclusionTrackingPictureLayerImplTest, DifferentOcclusionOnTrees) {
   layer1->SetBounds(layer_bounds);
   layer1->SetDrawsContent(true);
   layer1->SetContentsOpaque(true);
-  layer1->SetPosition(occluding_layer_position);
+  layer1->test_properties()->position = occluding_layer_position;
 
   ActivateTree();
 
@@ -4424,7 +4425,8 @@ TEST_F(OcclusionTrackingPictureLayerImplTest,
   active_occluding_layer->SetBounds(layer_bounds);
   active_occluding_layer->SetDrawsContent(true);
   active_occluding_layer->SetContentsOpaque(true);
-  active_occluding_layer->SetPosition(active_occluding_layer_position);
+  active_occluding_layer->test_properties()->position =
+      active_occluding_layer_position;
   ActivateTree();
 
   // Partially invalidate the pending layer. Tiles inside the invalidation rect
@@ -4440,7 +4442,8 @@ TEST_F(OcclusionTrackingPictureLayerImplTest,
   pending_occluding_layer->SetBounds(layer_bounds);
   pending_occluding_layer->SetDrawsContent(true);
   pending_occluding_layer->SetContentsOpaque(true);
-  pending_occluding_layer->SetPosition(pending_occluding_layer_position);
+  pending_occluding_layer->test_properties()->position =
+      pending_occluding_layer_position;
 
   EXPECT_EQ(1u, pending_layer()->num_tilings());
   EXPECT_EQ(2u, active_layer()->num_tilings());

@@ -23,6 +23,7 @@
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/passwords/ios_chrome_password_store_factory.h"
 #import "ios/chrome/browser/ui/settings/password_details_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/passwords_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/reauthentication_module.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_cells_constants.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
@@ -61,7 +62,7 @@ using chrome_test_util::SettingsDoneButton;
 using chrome_test_util::SettingsMenuBackButton;
 using chrome_test_util::SetUpAndReturnMockReauthenticationModule;
 using chrome_test_util::SetUpAndReturnMockReauthenticationModuleForExport;
-using chrome_test_util::TurnLegacySettingsSwitchOn;
+using chrome_test_util::TurnSettingsSwitchOn;
 using web::test::ElementSelector;
 
 namespace {
@@ -79,8 +80,7 @@ GREYElementInteraction* GetInteractionForListItem(id<GREYMatcher> matcher,
   return [[EarlGrey
       selectElementWithMatcher:grey_allOf(matcher, grey_interactable(), nil)]
          usingSearchAction:grey_scrollInDirection(direction, kScrollAmount)
-      onElementWithMatcher:grey_accessibilityID(
-                               @"SavePasswordsCollectionViewController")];
+      onElementWithMatcher:grey_accessibilityID(kPasswordsTableViewId)];
 }
 
 // Returns the GREYElementInteraction* for the cell on the password list with
@@ -112,9 +112,18 @@ GREYElementInteraction* GetInteractionForPasswordDetailDeletionAlert(
       inRoot:grey_accessibilityID(kPasswordDetailsDeletionAlertViewId)];
 }
 
+// Returns the GREYElementInteraction* for the item on the deletion alert
+// identified with the given |matcher|.
+GREYElementInteraction* GetInteractionForPasswordsExportConfirmAlert(
+    id<GREYMatcher> matcher) {
+  return [[EarlGrey
+      selectElementWithMatcher:grey_allOf(matcher, grey_interactable(), nil)]
+      inRoot:grey_accessibilityID(kPasswordsExportConfirmViewId)];
+}
+
 // Matcher for a UITextField inside a SettingsSearchCell.
 id<GREYMatcher> SearchTextField() {
-  return grey_accessibilityID(@"SettingsSearchCellTextField");
+  return grey_accessibilityID(kPasswordsSearchBarId);
 }
 
 id<GREYMatcher> SiteHeader() {
@@ -207,22 +216,14 @@ id<GREYMatcher> DeleteButton() {
 // Matcher for the Delete button in the list view, located at the bottom of the
 // screen.
 id<GREYMatcher> DeleteButtonAtBottom() {
-  // Selecting the "Delete" button is tricky, because its text is defined in the
-  // private part of MD components library. But it is the unique
-  // almost-completely visible element which is aligned with the bottom edge of
-  // the screen.
-  GREYLayoutConstraint* equalBottom = [GREYLayoutConstraint
-      layoutConstraintWithAttribute:kGREYLayoutAttributeBottom
-                          relatedBy:kGREYLayoutRelationEqual
-               toReferenceAttribute:kGREYLayoutAttributeBottom
-                         multiplier:1.0
-                           constant:0.0];
-  id<GREYMatcher> wholeScreen =
-      grey_accessibilityID(@"SavePasswordsCollectionViewController");
-  return grey_allOf(grey_layout(@[ equalBottom ], wholeScreen),
-                    grey_accessibilityTrait(UIAccessibilityTraitButton),
-                    grey_accessibilityElement(),
-                    grey_minimumVisiblePercent(0.98), nil);
+  return grey_accessibilityID(kSettingsToolbarDeleteButtonId);
+}
+
+// Return the edit button from the navigation bar.
+id<GREYMatcher> NavigationBarEditButton() {
+  return grey_allOf(chrome_test_util::ButtonWithAccessibilityLabelId(
+                        IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON),
+                    grey_userInteractionEnabled(), nil);
 }
 
 // This is similar to grey_ancestor, but only limited to the immediate parent.
@@ -294,7 +295,7 @@ class TestStoreConsumer : public password_manager::PasswordStoreConsumer {
     GREYAssert(responded, @"Obtaining fillable items took too long.");
     AppendObtainedToResults();
     GetPasswordStore()->GetBlacklistLogins(this);
-    responded = base::test::ios::WaitUntilConditionOrTimeout(1.0, ^bool {
+    responded = base::test::ios::WaitUntilConditionOrTimeout(2.0, ^bool {
       return !AreObtainedReset();
     });
     GREYAssert(responded, @"Obtaining blacklisted items took too long.");
@@ -407,9 +408,7 @@ void OpenPasswordSettings() {
 
 // Tap Edit in any settings view.
 void TapEdit() {
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
-                                   IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON)]
+  [[EarlGrey selectElementWithMatcher:NavigationBarEditButton()]
       performAction:grey_tap()];
 }
 
@@ -418,10 +417,10 @@ void TapEdit() {
 PasswordForm CreateSampleFormWithIndex(int index) {
   PasswordForm form;
   form.username_value =
-      base::ASCIIToUTF16(base::StringPrintf("concrete username %03d", index));
+      base::ASCIIToUTF16(base::StringPrintf("concrete username %02d", index));
   form.password_value =
-      base::ASCIIToUTF16(base::StringPrintf("concrete password %03d", index));
-  form.origin = GURL(base::StringPrintf("https://www%03d.example.com", index));
+      base::ASCIIToUTF16(base::StringPrintf("concrete password %02d", index));
+  form.origin = GURL(base::StringPrintf("https://www%02d.example.com", index));
   form.signon_realm = form.origin.spec();
   return form;
 }
@@ -676,9 +675,7 @@ PasswordForm CreateSampleFormWithIndex(int index) {
 
   // Finally, verify that the Edit button is visible and disabled, because there
   // are no other password entries left for deletion via the "Edit" mode.
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
-                                   IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON)]
+  [[EarlGrey selectElementWithMatcher:NavigationBarEditButton()]
       assertWithMatcher:grey_allOf(grey_sufficientlyVisible(),
                                    grey_not(grey_enabled()), nil)];
 
@@ -738,9 +735,7 @@ PasswordForm CreateSampleFormWithIndex(int index) {
 
   // Finally, verify that the Edit button is visible and disabled, because there
   // are no other password entries left for deletion via the "Edit" mode.
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
-                                   IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON)]
+  [[EarlGrey selectElementWithMatcher:NavigationBarEditButton()]
       assertWithMatcher:grey_allOf(grey_sufficientlyVisible(),
                                    grey_not(grey_enabled()), nil)];
 
@@ -793,9 +788,7 @@ PasswordForm CreateSampleFormWithIndex(int index) {
 
   // Finally, verify that the Edit button is visible and disabled, because there
   // are no other password entries left for deletion via the "Edit" mode.
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
-                                   IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON)]
+  [[EarlGrey selectElementWithMatcher:NavigationBarEditButton()]
       assertWithMatcher:grey_allOf(grey_sufficientlyVisible(),
                                    grey_not(grey_enabled()), nil)];
 
@@ -862,9 +855,8 @@ PasswordForm CreateSampleFormWithIndex(int index) {
   TapEdit();
 
   // Check that the "Save Passwords" switch is disabled.
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::LegacySettingsSwitchCell(
-                                   @"savePasswordsItem_switch", YES, NO)]
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::SettingsSwitchCell(
+                                          @"savePasswordsItem_switch", YES, NO)]
       assertWithMatcher:grey_notNil()];
 
   [GetInteractionForPasswordEntry(@"example.com, concrete username")
@@ -1257,10 +1249,10 @@ PasswordForm CreateSampleFormWithIndex(int index) {
   for (BOOL expected_state : kExpectedState) {
     // Toggle the switch. It is located near the top, so if not interactable,
     // try scrolling up.
-    [GetInteractionForListItem(chrome_test_util::LegacySettingsSwitchCell(
+    [GetInteractionForListItem(chrome_test_util::SettingsSwitchCell(
                                    @"savePasswordsItem_switch", expected_state),
                                kGREYDirectionUp)
-        performAction:TurnLegacySettingsSwitchOn(!expected_state)];
+        performAction:TurnSettingsSwitchOn(!expected_state)];
     // Check the stored items. Scroll down if needed.
     [GetInteractionForPasswordEntry(@"example.com, concrete username")
         assertWithMatcher:grey_notNil()];
@@ -1283,11 +1275,10 @@ PasswordForm CreateSampleFormWithIndex(int index) {
   // preferences.
   constexpr BOOL kExpectedState[] = {YES, NO};
   for (BOOL expected_initial_state : kExpectedState) {
-    [[EarlGrey
-        selectElementWithMatcher:chrome_test_util::LegacySettingsSwitchCell(
-                                     @"savePasswordsItem_switch",
-                                     expected_initial_state)]
-        performAction:TurnLegacySettingsSwitchOn(!expected_initial_state)];
+    [[EarlGrey selectElementWithMatcher:chrome_test_util::SettingsSwitchCell(
+                                            @"savePasswordsItem_switch",
+                                            expected_initial_state)]
+        performAction:TurnSettingsSwitchOn(!expected_initial_state)];
     ios::ChromeBrowserState* browserState =
         chrome_test_util::GetOriginalBrowserState();
     const bool expected_final_state = !expected_initial_state;
@@ -1443,16 +1434,15 @@ PasswordForm CreateSampleFormWithIndex(int index) {
   // aiming 3 entries before |kRemoteIndex|.
   constexpr int kJump = (kRemoteIndex - 3) * 30;
   [[EarlGrey
-      selectElementWithMatcher:grey_accessibilityID(
-                                   @"SavePasswordsCollectionViewController")]
+      selectElementWithMatcher:grey_accessibilityID(kPasswordsTableViewId)]
       performAction:grey_scrollInDirection(kGREYDirectionDown, kJump)];
   [GetInteractionForPasswordEntry([NSString
-      stringWithFormat:@"www%03d.example.com, concrete username %03d",
+      stringWithFormat:@"www%02d.example.com, concrete username %02d",
                        kRemoteIndex, kRemoteIndex]) performAction:grey_tap()];
 
   // Check that the detail view loaded correctly by verifying the site content.
   id<GREYMatcher> siteCell = grey_accessibilityLabel([NSString
-      stringWithFormat:@"https://www%03d.example.com/", kRemoteIndex]);
+      stringWithFormat:@"https://www%02d.example.com/", kRemoteIndex]);
   [GetInteractionForPasswordDetailItem(siteCell)
       assertWithMatcher:grey_notNil()];
 
@@ -1482,9 +1472,7 @@ PasswordForm CreateSampleFormWithIndex(int index) {
       performAction:grey_tap()];
 
   // Verify that the Edit button is visible and disabled.
-  [[EarlGrey
-      selectElementWithMatcher:chrome_test_util::ButtonWithAccessibilityLabelId(
-                                   IDS_IOS_NAVIGATION_BAR_EDIT_BUTTON)]
+  [[EarlGrey selectElementWithMatcher:NavigationBarEditButton()]
       assertWithMatcher:grey_allOf(grey_sufficientlyVisible(),
                                    grey_not(grey_enabled()), nil)];
 
@@ -1553,17 +1541,9 @@ PasswordForm CreateSampleFormWithIndex(int index) {
                                    IDS_IOS_EXPORT_PASSWORDS)]
       performAction:grey_tap()];
 
-  // Tap the alert's Export passwords... button to confirm. Check
-  // accessibilityTrait to differentiate against the above matching element,
-  // which has UIAccessibilityTraitSelected.
-  // TODO(crbug.com/751311): Revisit and check if there is a better solution to
-  // match the button.
-  id<GREYMatcher> exportConfirmationButton = grey_allOf(
-      ButtonWithAccessibilityLabel(
-          l10n_util::GetNSString(IDS_IOS_EXPORT_PASSWORDS)),
-      grey_not(grey_accessibilityTrait(UIAccessibilityTraitSelected)), nil);
-  [[EarlGrey selectElementWithMatcher:exportConfirmationButton]
-      performAction:grey_tap()];
+  [GetInteractionForPasswordsExportConfirmAlert(
+      chrome_test_util::ButtonWithAccessibilityLabelId(
+          IDS_IOS_EXPORT_PASSWORDS)) performAction:grey_tap()];
 
   // Wait until the alerts are dismissed.
   [[GREYUIThreadExecutor sharedInstance] drainUntilIdle];
@@ -1618,6 +1598,9 @@ PasswordForm CreateSampleFormWithIndex(int index) {
   [GetInteractionForPasswordEntry(@"exclude2.com")
       assertWithMatcher:grey_notNil()];
 
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(kPasswordsTableViewId)]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeTop)];
   [[EarlGrey selectElementWithMatcher:SearchTextField()]
       performAction:grey_typeText(@"2")];
 
@@ -1638,8 +1621,11 @@ PasswordForm CreateSampleFormWithIndex(int index) {
 
   OpenPasswordSettings();
 
-  [[EarlGrey selectElementWithMatcher:SearchTextField()]
-      performAction:grey_typeText(@"u\n")];
+  // TODO(crbug.com/922511): Comment out because currently activating the search
+  // bar will hide the "Edit" button in the top toolbar. Recover this when the
+  // "Edit" button is moved to the bottom toolbar in the new Settings UI.
+  //  [[EarlGrey selectElementWithMatcher:SearchTextField()]
+  //      performAction:grey_typeText(@"u\n")];
 
   TapEdit();
 
@@ -1675,7 +1661,7 @@ PasswordForm CreateSampleFormWithIndex(int index) {
 
   // Verify search bar is disabled.
   [[EarlGrey selectElementWithMatcher:SearchTextField()]
-      assertWithMatcher:grey_not(grey_enabled())];
+      assertWithMatcher:grey_not(grey_userInteractionEnabled())];
 }
 
 // Test that the user can edit a password that is part of search results.
@@ -1683,8 +1669,11 @@ PasswordForm CreateSampleFormWithIndex(int index) {
   SaveExamplePasswordForms();
   OpenPasswordSettings();
 
-  [[EarlGrey selectElementWithMatcher:SearchTextField()]
-      performAction:grey_typeText(@"2")];
+  // TODO(crbug.com/922511): Comment out because currently activating the search
+  // bar will hide the "Edit" button in the top toolbar. Recover this when the
+  // "Edit" button is moved to the bottom toolbar in the new Settings UI.
+  //  [[EarlGrey selectElementWithMatcher:SearchTextField()]
+  //      performAction:grey_typeText(@"2")];
 
   TapEdit();
 
@@ -1697,10 +1686,13 @@ PasswordForm CreateSampleFormWithIndex(int index) {
       performAction:grey_tap()];
 
   // Filter results in nothing.
-  [GetInteractionForPasswordEntry(@"example11.com, user1")
-      assertWithMatcher:grey_nil()];
-  [GetInteractionForPasswordEntry(@"example12.com, user2")
-      assertWithMatcher:grey_nil()];
+  // TODO(crbug.com/922511): Comment out because currently activating the search
+  // bar will hide the "Edit" button in the top toolbar. Recover this when the
+  // "Edit" button is moved to the bottom toolbar in the new Settings UI.
+  //  [GetInteractionForPasswordEntry(@"example11.com, user1")
+  //      assertWithMatcher:grey_nil()];
+  //  [GetInteractionForPasswordEntry(@"example12.com, user2")
+  //      assertWithMatcher:grey_nil()];
 
   // Get out of edit mode.
   [[EarlGrey selectElementWithMatcher:NavigationBarDoneButton()]

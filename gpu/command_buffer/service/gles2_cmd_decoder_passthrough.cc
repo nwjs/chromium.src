@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/callback.h"
+#include "base/stl_util.h"
 #include "base/strings/string_split.h"
 #include "gpu/command_buffer/service/command_buffer_service.h"
 #include "gpu/command_buffer/service/decoder_client.h"
@@ -15,6 +16,7 @@
 #include "gpu/command_buffer/service/gl_utils.h"
 #include "gpu/command_buffer/service/gpu_fence_manager.h"
 #include "gpu/command_buffer/service/gpu_tracer.h"
+#include "gpu/command_buffer/service/multi_draw_manager.h"
 #include "gpu/command_buffer/service/passthrough_discardable_manager.h"
 #include "gpu/command_buffer/service/program_cache.h"
 #include "gpu/command_buffer/service/shared_image_representation.h"
@@ -216,15 +218,28 @@ void PassthroughResources::Destroy(gl::GLApi* api) {
   DestroyPendingTextures(have_context);
 }
 
-ScopedFramebufferBindingReset::ScopedFramebufferBindingReset(gl::GLApi* api)
-    : api_(api), draw_framebuffer_(0), read_framebuffer_(0) {
-  api_->glGetIntegervFn(GL_DRAW_FRAMEBUFFER_BINDING, &draw_framebuffer_);
-  api_->glGetIntegervFn(GL_READ_FRAMEBUFFER_BINDING, &read_framebuffer_);
+ScopedFramebufferBindingReset::ScopedFramebufferBindingReset(
+    gl::GLApi* api,
+    bool supports_separate_fbo_bindings)
+    : api_(api),
+      supports_separate_fbo_bindings_(supports_separate_fbo_bindings),
+      draw_framebuffer_(0),
+      read_framebuffer_(0) {
+  if (supports_separate_fbo_bindings_) {
+    api_->glGetIntegervFn(GL_DRAW_FRAMEBUFFER_BINDING, &draw_framebuffer_);
+    api_->glGetIntegervFn(GL_READ_FRAMEBUFFER_BINDING, &read_framebuffer_);
+  } else {
+    api_->glGetIntegervFn(GL_FRAMEBUFFER_BINDING, &draw_framebuffer_);
+  }
 }
 
 ScopedFramebufferBindingReset::~ScopedFramebufferBindingReset() {
-  api_->glBindFramebufferEXTFn(GL_DRAW_FRAMEBUFFER, draw_framebuffer_);
-  api_->glBindFramebufferEXTFn(GL_READ_FRAMEBUFFER, read_framebuffer_);
+  if (supports_separate_fbo_bindings_) {
+    api_->glBindFramebufferEXTFn(GL_DRAW_FRAMEBUFFER, draw_framebuffer_);
+    api_->glBindFramebufferEXTFn(GL_READ_FRAMEBUFFER, read_framebuffer_);
+  } else {
+    api_->glBindFramebufferEXTFn(GL_FRAMEBUFFER, draw_framebuffer_);
+  }
 }
 
 ScopedRenderbufferBindingReset::ScopedRenderbufferBindingReset(gl::GLApi* api)
@@ -342,9 +357,13 @@ GLES2DecoderPassthroughImpl::EmulatedDefaultFramebuffer::
     EmulatedDefaultFramebuffer(
         gl::GLApi* api,
         const EmulatedDefaultFramebufferFormat& format_in,
-        const FeatureInfo* feature_info)
-    : api(api), format(format_in) {
-  ScopedFramebufferBindingReset scoped_fbo_reset(api);
+        const FeatureInfo* feature_info,
+        bool supports_separate_fbo_bindings_in)
+    : api(api),
+      supports_separate_fbo_bindings(supports_separate_fbo_bindings_in),
+      format(format_in) {
+  ScopedFramebufferBindingReset scoped_fbo_reset(
+      api, supports_separate_fbo_bindings);
   ScopedRenderbufferBindingReset scoped_renderbuffer_reset(api);
 
   api->glGenFramebuffersEXTFn(1, &framebuffer_service_id);
@@ -413,7 +432,8 @@ GLES2DecoderPassthroughImpl::EmulatedDefaultFramebuffer::SetColorBuffer(
   color_texture = std::move(new_color_buffer);
 
   // Bind the new texture to this FBO
-  ScopedFramebufferBindingReset scoped_fbo_reset(api);
+  ScopedFramebufferBindingReset scoped_fbo_reset(
+      api, supports_separate_fbo_bindings);
   api->glBindFramebufferEXTFn(GL_FRAMEBUFFER, framebuffer_service_id);
   api->glFramebufferTexture2DEXTFn(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                    GL_TEXTURE_2D,
@@ -427,7 +447,8 @@ void GLES2DecoderPassthroughImpl::EmulatedDefaultFramebuffer::Blit(
   DCHECK(target != nullptr);
   DCHECK(target->size == size);
 
-  ScopedFramebufferBindingReset scoped_fbo_reset(api);
+  ScopedFramebufferBindingReset scoped_fbo_reset(
+      api, supports_separate_fbo_bindings);
 
   api->glBindFramebufferEXTFn(GL_READ_FRAMEBUFFER, framebuffer_service_id);
 
@@ -476,7 +497,8 @@ bool GLES2DecoderPassthroughImpl::EmulatedDefaultFramebuffer::Resize(
 
   // Check that the framebuffer is complete
   {
-    ScopedFramebufferBindingReset scoped_fbo_reset(api);
+    ScopedFramebufferBindingReset scoped_fbo_reset(
+        api, supports_separate_fbo_bindings);
     api->glBindFramebufferEXTFn(GL_FRAMEBUFFER, framebuffer_service_id);
     if (api->glCheckFramebufferStatusEXTFn(GL_FRAMEBUFFER) !=
         GL_FRAMEBUFFER_COMPLETE) {
@@ -527,7 +549,8 @@ GLES2DecoderPassthroughImpl::GLES2DecoderPassthroughImpl(
       logger_(&debug_marker_manager_,
               base::BindRepeating(&DecoderClient::OnConsoleMessage,
                                   base::Unretained(client_),
-                                  0)),
+                                  0),
+              group->gpu_preferences().disable_gl_error_limit),
       surface_(),
       context_(),
       offscreen_(false),
@@ -607,7 +630,7 @@ GLES2Decoder::Error GLES2DecoderPassthroughImpl::DoCommandsImpl(
 
     const unsigned int arg_count = size - 1;
     unsigned int command_index = command - kFirstGLES2Command;
-    if (command_index < arraysize(command_info)) {
+    if (command_index < base::size(command_info)) {
       const CommandInfo& info = command_info[command_index];
       unsigned int info_arg_count = static_cast<unsigned int>(info.arg_count);
       if ((info.arg_flags == cmd::kFixed && arg_count == info_arg_count) ||
@@ -678,10 +701,20 @@ gpu::ContextResult GLES2DecoderPassthroughImpl::Initialize(
   surface_ = surface;
   offscreen_ = offscreen;
 
+  // For WebGL contexts, log GL errors so they appear in devtools. Otherwise
+  // only enable debug logging if requested.
+  bool log_non_errors =
+      group_->gpu_preferences().enable_gpu_driver_debug_logging;
+  InitializeGLDebugLogging(log_non_errors, PassthroughGLDebugMessageCallback,
+                           this);
+
   // Create GPU Tracer for timing values.
   gpu_tracer_.reset(new GPUTracer(this));
 
   gpu_fence_manager_.reset(new GpuFenceManager());
+
+  multi_draw_manager_.reset(
+      new MultiDrawManager(MultiDrawManager::IndexStorageType::Pointer));
 
   auto result =
       group_->Initialize(this, attrib_helper.context_type, disallowed_features);
@@ -706,7 +739,7 @@ gpu::ContextResult GLES2DecoderPassthroughImpl::Initialize(
     };
     RequestExtensions(api(), requestable_extensions,
                       kRequiredFunctionalityExtensions,
-                      arraysize(kRequiredFunctionalityExtensions));
+                      base::size(kRequiredFunctionalityExtensions));
 
     if (request_optional_extensions_) {
       static constexpr const char* kOptionalFunctionalityExtensions[] = {
@@ -753,7 +786,7 @@ gpu::ContextResult GLES2DecoderPassthroughImpl::Initialize(
       };
       RequestExtensions(api(), requestable_extensions,
                         kOptionalFunctionalityExtensions,
-                        arraysize(kOptionalFunctionalityExtensions));
+                        base::size(kOptionalFunctionalityExtensions));
     }
 
     context->ReinitializeDynamicBindings();
@@ -846,13 +879,6 @@ gpu::ContextResult GLES2DecoderPassthroughImpl::Initialize(
     bound_buffers_[GL_DISPATCH_INDIRECT_BUFFER] = 0;
   }
 
-  // For WebGL contexts, log GL errors so they appear in devtools. Otherwise
-  // only enable debug logging if requested.
-  bool log_non_errors =
-      group_->gpu_preferences().enable_gpu_driver_debug_logging;
-  InitializeGLDebugLogging(log_non_errors, PassthroughGLDebugMessageCallback,
-                           this);
-
   if (feature_info_->feature_flags().chromium_texture_filtering_hint &&
       feature_info_->feature_flags().is_swiftshader) {
     api()->glHintFn(GL_TEXTURE_FILTERING_HINT_CHROMIUM, GL_NICEST);
@@ -920,7 +946,8 @@ gpu::ContextResult GLES2DecoderPassthroughImpl::Initialize(
 
     CheckErrorCallbackState();
     emulated_back_buffer_ = std::make_unique<EmulatedDefaultFramebuffer>(
-        api(), emulated_default_framebuffer_format_, feature_info_.get());
+        api(), emulated_default_framebuffer_format_, feature_info_.get(),
+        supports_separate_fbo_bindings_);
     // Make sure to use a non-empty offscreen surface so that the framebuffer is
     // complete.
     gfx::Size initial_size(
@@ -1051,6 +1078,10 @@ void GLES2DecoderPassthroughImpl::Destroy(bool have_context) {
     gpu_tracer_.reset();
   }
 
+  if (multi_draw_manager_.get()) {
+    multi_draw_manager_.reset();
+  }
+
   if (!have_context) {
     for (auto& fence : deschedule_until_finished_fences_) {
       fence->Invalidate();
@@ -1063,10 +1094,6 @@ void GLES2DecoderPassthroughImpl::Destroy(bool have_context) {
   surface_ = nullptr;
 
   if (group_) {
-    if (group_->has_program_cache()) {
-      group_->get_program_cache()->ResetCacheProgramCallback();
-    }
-
     group_->Destroy(this, have_context);
     group_ = nullptr;
   }
@@ -1231,13 +1258,6 @@ bool GLES2DecoderPassthroughImpl::MakeCurrent() {
     return false;
   }
 
-  // Establish the program binary caching callback.
-  if (group_->has_program_cache()) {
-    auto program_callback = base::BindRepeating(&DecoderClient::CacheShader,
-                                                base::Unretained(client_));
-    group_->get_program_cache()->SetCacheProgramCallback(program_callback);
-  }
-
   ProcessReadPixels(false);
   ProcessQueries(false);
 
@@ -1380,8 +1400,7 @@ void GLES2DecoderPassthroughImpl::RestoreGlobalState() const {}
 
 void GLES2DecoderPassthroughImpl::RestoreProgramBindings() const {}
 
-void GLES2DecoderPassthroughImpl::RestoreTextureState(
-    unsigned service_id) const {}
+void GLES2DecoderPassthroughImpl::RestoreTextureState(unsigned service_id) {}
 
 void GLES2DecoderPassthroughImpl::RestoreTextureUnitBindings(
     unsigned unit) const {}
@@ -1944,9 +1963,11 @@ GLES2DecoderPassthroughImpl::PatchGetFramebufferAttachmentParameter(
 }
 
 void GLES2DecoderPassthroughImpl::InsertError(GLenum error,
-                                              const std::string&) {
-  // Message ignored for now
+                                              const std::string& message) {
   errors_.insert(error);
+  LogGLDebugMessage(GL_DEBUG_SOURCE_API, GL_DEBUG_TYPE_ERROR, error,
+                    GL_DEBUG_SEVERITY_HIGH, message.length(), message.c_str(),
+                    GetLogger());
 }
 
 GLenum GLES2DecoderPassthroughImpl::PopError() {

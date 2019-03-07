@@ -61,7 +61,7 @@ class BASE_EXPORT MessagePumpUVNSRunLoop : public MessagePumpCFRunLoopBase {
   ~MessagePumpUVNSRunLoop() override;
 
   void DoRun(Delegate* delegate) override;
-  void Quit() override;
+  bool DoQuit() override;
 
  protected:
   bool RunWork() override;

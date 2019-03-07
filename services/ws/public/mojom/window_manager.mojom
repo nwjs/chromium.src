@@ -39,12 +39,9 @@ interface WindowManager {
   const string kDisplayId_InitProperty = "init:display_id";
 
   // Specifies that the system default caption and icon should not be rendered,
-  // and the client area should be equivalent to the window area. Type: bool
-  const string kRemoveStandardFrame_InitProperty = "init:remove-standard-frame";
-
-  // A flag controlling the window's presence on the mash shelf. Type: bool
-  const string kWindowIgnoredByShelf_InitProperty =
-      "init:window-ignored-by-shelf";
+  // and the client area should be equivalent to the window area. This is used
+  // for frameless Chrome app windows and all Chrome browser windows. Type: bool
+  const string kClientProvidesFrame_InitProperty = "init:client-provides-frame";
 
   // The window type. This maps to aura::client::kWindowTypeKey as well as
   // Window::type(). This mapping is only done for top-level windows that are
@@ -72,6 +69,9 @@ interface WindowManager {
   // The Android Java-style package name for an ARC++ window, such as
   // "com.google.Photos". Type: mojom::String.
   const string kArcPackageName_Property = "prop:arc-package-name";
+
+  // The aspect ratio to be kept. Type: gfx::SizeF.
+  const string kAspectRatio_Property = "prop:aspect-ratio";
 
   // The accessibility ui::AXTreeID for a views::Widget.
   // TODO(dmazzoni): Convert to base::UnguessableToken. https://crbug.com/881986
@@ -102,6 +102,10 @@ interface WindowManager {
   const string kFrameActiveColor_Property = "prop:frame-active-color";
   const string kFrameInactiveColor_Property = "prop:frame-inactive-color";
 
+  // The window's maximum size as defined by its content. Maps to
+  // aura::client::kMaximumSize_Property. Type: gfx::Size.
+  const string kMaximumSize_Property = "prop:maximum-size";
+
   // The window's minimum size as defined by its content. Maps to
   // aura::client::kMinimumSize_Property. Type: gfx::Size.
   const string kMinimumSize_Property = "prop:minimum-size";
@@ -109,9 +113,6 @@ interface WindowManager {
   // Internal window name. Useful for debugging. Maps to aura::client::kNameKey.
   // Type: mojom::String
   const string kName_Property = "prop:name";
-
-  // If true (and the window is a panel), it's attached to its shelf item.
-  const string kPanelAttached_Property = "prop:panel-attached";
 
   // The window's preferred size as defined by its content. Maps to
   // aura::client::kPreferredSize_Property. Type: gfx::Size.

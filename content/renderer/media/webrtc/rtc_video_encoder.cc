@@ -14,10 +14,10 @@
 #include "base/containers/circular_deque.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread_checker.h"
@@ -37,7 +37,7 @@
 #include "third_party/libyuv/include/libyuv.h"
 #include "third_party/webrtc/modules/video_coding/codecs/h264/include/h264.h"
 #include "third_party/webrtc/modules/video_coding/include/video_error_codes.h"
-#include "third_party/webrtc/rtc_base/timeutils.h"
+#include "third_party/webrtc/rtc_base/time_utils.h"
 
 namespace content {
 
@@ -611,7 +611,7 @@ void RTCVideoEncoder::Impl::LogAndNotifyError(
   static const char* const kErrorNames[] = {
       "kIllegalStateError", "kInvalidArgumentError", "kPlatformFailureError"};
   static_assert(
-      arraysize(kErrorNames) == media::VideoEncodeAccelerator::kErrorMax + 1,
+      base::size(kErrorNames) == media::VideoEncodeAccelerator::kErrorMax + 1,
       "Different number of errors and textual descriptions");
   DLOG(ERROR) << location.ToString() << kErrorNames[error] << " - " << str;
   NotifyError(error);
@@ -776,13 +776,12 @@ void RTCVideoEncoder::Impl::ReturnEncodedImage(
       // Generate a header describing a single fragment.
       header.VerifyAndAllocateFragmentationHeader(1);
       header.fragmentationOffset[0] = 0;
-      header.fragmentationLength[0] = image._length;
+      header.fragmentationLength[0] = image.size();
       header.fragmentationPlType[0] = 0;
       header.fragmentationTimeDiff[0] = 0;
       break;
     case webrtc::kVideoCodecH264:
-      if (!GetRTPFragmentationHeaderH264(&header, image._buffer,
-                                         image._length)) {
+      if (!GetRTPFragmentationHeaderH264(&header, image.data(), image.size())) {
         DLOG(ERROR) << "Failed to get RTP fragmentation header for H264";
         NotifyError(
             (media::VideoEncodeAccelerator::Error)WEBRTC_VIDEO_CODEC_ERROR);
@@ -965,6 +964,8 @@ webrtc::VideoEncoder::EncoderInfo RTCVideoEncoder::GetEncoderInfo() const {
   EncoderInfo info;
   info.implementation_name = RTCVideoEncoder::Impl::ImplementationName();
   info.supports_native_handle = true;
+  info.is_hardware_accelerated = true;
+  info.has_internal_source = false;
   return info;
 }
 

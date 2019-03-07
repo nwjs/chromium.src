@@ -12,18 +12,22 @@
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_samples.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "content/browser/media/session/audio_focus_delegate.h"
-#include "content/browser/media/session/media_session_service_impl.h"
 #include "content/browser/media/session/mock_media_session_observer.h"
 #include "content/browser/media/session/mock_media_session_player_observer.h"
+#include "content/browser/media/session/mock_media_session_service_impl.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/content_browser_test.h"
+#include "content/public/test/content_browser_test_utils.h"
 #include "content/shell/browser/shell.h"
 #include "media/base/media_content_type.h"
+#include "net/dns/mock_host_resolver.h"
+#include "services/media_session/public/cpp/test/mock_media_session.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
@@ -48,6 +52,9 @@ namespace {
 const double kDefaultVolumeMultiplier = 1.0;
 const double kDuckingVolumeMultiplier = 0.2;
 const double kDifferentDuckingVolumeMultiplier = 0.018;
+
+const base::string16 kExpectedSourceTitlePrefix =
+    base::ASCIIToUTF16("http://example.com:");
 
 class MockAudioFocusDelegate : public AudioFocusDelegate {
  public:
@@ -95,13 +102,6 @@ class MockAudioFocusDelegate : public AudioFocusDelegate {
   base::Optional<AudioFocusType> audio_focus_type_;
 };
 
-class MockMediaSessionServiceImpl : public content::MediaSessionServiceImpl {
- public:
-  explicit MockMediaSessionServiceImpl(content::RenderFrameHost* rfh)
-      : MediaSessionServiceImpl(rfh) {}
-  ~MockMediaSessionServiceImpl() override = default;
-};
-
 }  // namespace
 
 class MediaSessionImplBrowserTest : public content::ContentBrowserTest {
@@ -110,6 +110,12 @@ class MediaSessionImplBrowserTest : public content::ContentBrowserTest {
 
   void SetUpOnMainThread() override {
     ContentBrowserTest::SetUpOnMainThread();
+
+    // Navigate to a test page with a a real origin.
+    ASSERT_TRUE(embedded_test_server()->Start());
+    host_resolver()->AddRule("*", "127.0.0.1");
+    NavigateToURL(
+        shell(), embedded_test_server()->GetURL("example.com", "/title1.html"));
 
     media_session_ = MediaSessionImpl::Get(shell()->web_contents());
     mock_media_session_observer_.reset(
@@ -196,8 +202,9 @@ class MediaSessionImplBrowserTest : public content::ContentBrowserTest {
   void SystemStopDucking() { media_session_->StopDucking(); }
 
   void EnsureMediaSessionService() {
-    mock_media_session_service_.reset(new NiceMock<MockMediaSessionServiceImpl>(
-        shell()->web_contents()->GetMainFrame()));
+    mock_media_session_service_.reset(
+        new NiceMock<content::MockMediaSessionServiceImpl>(
+            shell()->web_contents()->GetMainFrame()));
   }
 
   void SetPlaybackState(blink::mojom::MediaSessionPlaybackState state) {
@@ -240,12 +247,19 @@ class MediaSessionImplBrowserTest : public content::ContentBrowserTest {
 
   bool IsDucking() const { return media_session_->is_ducking_; }
 
+  base::string16 GetExpectedSourceTitle() {
+    return base::StrCat(
+        {kExpectedSourceTitlePrefix,
+         base::NumberToString16(embedded_test_server()->port())});
+  }
+
  protected:
   MediaSessionImpl* media_session_;
   std::unique_ptr<content::MockMediaSessionObserver>
       mock_media_session_observer_;
   MockAudioFocusDelegate* mock_audio_focus_delegate_;
-  std::unique_ptr<MockMediaSessionServiceImpl> mock_media_session_service_;
+  std::unique_ptr<content::MockMediaSessionServiceImpl>
+      mock_media_session_service_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaSessionImplBrowserTest);
 };
@@ -754,6 +768,112 @@ IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
   EXPECT_FALSE(IsControllable());
   EXPECT_TRUE(IsActive());
 }
+
+// This behaviour is specific to desktop.
+#if !defined(OS_ANDROID)
+
+IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
+                       ControlsNoShowForTransientAndRoutedService) {
+  EnsureMediaSessionService();
+  auto player_observer = std::make_unique<MockMediaSessionPlayerObserver>(
+      shell()->web_contents()->GetMainFrame());
+
+  EXPECT_CALL(*mock_media_session_observer(),
+              MediaSessionStateChanged(false, false));
+
+  // Starting a player with a transient type should not show the media controls.
+  StartNewPlayer(player_observer.get(), media::MediaContentType::Transient);
+  ResolveAudioFocusSuccess();
+
+  EXPECT_FALSE(IsControllable());
+  EXPECT_TRUE(IsActive());
+}
+
+IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
+                       ControlsNoShowForTransientAndPlaybackStateNone) {
+  EnsureMediaSessionService();
+  auto player_observer = std::make_unique<MockMediaSessionPlayerObserver>(
+      shell()->web_contents()->GetMainFrame());
+
+  ::testing::Sequence s;
+  EXPECT_CALL(*mock_media_session_observer(),
+              MediaSessionStateChanged(false, false))
+      .InSequence(s);
+  EXPECT_CALL(*mock_media_session_observer(),
+              MediaSessionStateChanged(false, _))
+      .InSequence(s);
+
+  // Starting a player with a transient type should not show the media controls.
+  StartNewPlayer(player_observer.get(), media::MediaContentType::Transient);
+  ResolveAudioFocusSuccess();
+
+  SetPlaybackState(blink::mojom::MediaSessionPlaybackState::NONE);
+
+  EXPECT_FALSE(IsControllable());
+  EXPECT_TRUE(IsActive());
+
+  // Verify before test exists. Otherwise the sequence will expire and cause
+  // weird problems.
+  ::testing::Mock::VerifyAndClear(mock_media_session_observer());
+}
+
+IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
+                       ControlsShowForTransientAndPlaybackStatePaused) {
+  EnsureMediaSessionService();
+  auto player_observer = std::make_unique<MockMediaSessionPlayerObserver>(
+      shell()->web_contents()->GetMainFrame());
+
+  ::testing::Sequence s;
+  EXPECT_CALL(*mock_media_session_observer(),
+              MediaSessionStateChanged(false, false))
+      .InSequence(s);
+  EXPECT_CALL(*mock_media_session_observer(), MediaSessionStateChanged(true, _))
+      .InSequence(s);
+
+  // Starting a player with a transient type should show the media controls if
+  // we have a playback state from the service.
+  StartNewPlayer(player_observer.get(), media::MediaContentType::Transient);
+  ResolveAudioFocusSuccess();
+
+  SetPlaybackState(blink::mojom::MediaSessionPlaybackState::PAUSED);
+
+  EXPECT_TRUE(IsControllable());
+  EXPECT_TRUE(IsActive());
+
+  // Verify before test exists. Otherwise the sequence will expire and cause
+  // weird problems.
+  ::testing::Mock::VerifyAndClear(mock_media_session_observer());
+}
+
+IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
+                       ControlsShowForTransientAndPlaybackStatePlaying) {
+  EnsureMediaSessionService();
+  auto player_observer = std::make_unique<MockMediaSessionPlayerObserver>(
+      shell()->web_contents()->GetMainFrame());
+
+  ::testing::Sequence s;
+  EXPECT_CALL(*mock_media_session_observer(),
+              MediaSessionStateChanged(false, false))
+      .InSequence(s);
+  EXPECT_CALL(*mock_media_session_observer(), MediaSessionStateChanged(true, _))
+      .InSequence(s);
+
+  // Starting a player with a transient type should show the media controls if
+  // we have a playback state from the service.
+  StartNewPlayer(player_observer.get(), media::MediaContentType::Transient);
+  ResolveAudioFocusSuccess();
+
+  SetPlaybackState(blink::mojom::MediaSessionPlaybackState::PLAYING);
+
+  EXPECT_TRUE(IsControllable());
+  EXPECT_TRUE(IsActive());
+
+  // Verify before test exists. Otherwise the sequence will expire and cause
+  // weird problems.
+  ::testing::Mock::VerifyAndClear(mock_media_session_observer());
+}
+
+#endif  // !defined(OS_ANDROID)
 
 IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
                        ControlsHideWhenStopped) {
@@ -1714,16 +1834,22 @@ IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
   // Set up the service and information.
   EnsureMediaSessionService();
 
-  content::MediaMetadata metadata;
+  media_session::MediaMetadata metadata;
   metadata.title = base::ASCIIToUTF16("title");
   metadata.artist = base::ASCIIToUTF16("artist");
   metadata.album = base::ASCIIToUTF16("album");
   mock_media_session_service_->SetMetadata(metadata);
 
   mock_media_session_service_->EnableAction(
-      media_session::mojom::MediaSessionAction::kPlay);
+      media_session::mojom::MediaSessionAction::kSeekForward);
   std::set<media_session::mojom::MediaSessionAction> expectedActions =
       mock_media_session_service_->actions();
+
+  // These actions are provided by media session automatically if we are
+  // controllable.
+  expectedActions.insert(media_session::mojom::MediaSessionAction::kPlay);
+  expectedActions.insert(media_session::mojom::MediaSessionAction::kPause);
+  expectedActions.insert(media_session::mojom::MediaSessionAction::kStop);
 
   // Make sure the service is routed,
   auto player_observer = std::make_unique<MockMediaSessionPlayerObserver>(
@@ -1740,6 +1866,40 @@ IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
   EXPECT_CALL(*mock_media_session_observer(),
               MediaSessionActionsChanged(Eq(expectedActions)));
   media_session_->AddObserver(mock_media_session_observer());
+}
+
+IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
+                       AddingMojoObserverNotifiesCurrentInformation_EmptyInfo) {
+  media_session::test::MockMediaSessionMojoObserver observer(*media_session_);
+
+  media_session::MediaMetadata expected_metadata;
+  expected_metadata.source_title = GetExpectedSourceTitle();
+  EXPECT_EQ(expected_metadata, observer.WaitForMetadata());
+}
+
+IN_PROC_BROWSER_TEST_P(MediaSessionImplParamBrowserTest,
+                       AddingMojoObserverNotifiesCurrentInformation_WithInfo) {
+  // Set up the service and information.
+  EnsureMediaSessionService();
+
+  media_session::MediaMetadata metadata;
+  metadata.title = base::ASCIIToUTF16("title");
+  metadata.artist = base::ASCIIToUTF16("artist");
+  metadata.album = base::ASCIIToUTF16("album");
+  mock_media_session_service_->SetMetadata(metadata);
+
+  // Make sure the service is routed,
+  auto player_observer = std::make_unique<MockMediaSessionPlayerObserver>(
+      shell()->web_contents()->GetMainFrame());
+
+  {
+    media_session::test::MockMediaSessionMojoObserver observer(*media_session_);
+    StartNewPlayer(player_observer.get(), media::MediaContentType::Persistent);
+    ResolveAudioFocusSuccess();
+
+    metadata.source_title = GetExpectedSourceTitle();
+    EXPECT_EQ(metadata, observer.WaitForNonEmptyMetadata());
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(MediaSessionImplBrowserTest, Async_RequestFailure_Gain) {

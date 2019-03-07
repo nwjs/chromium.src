@@ -17,20 +17,19 @@
 #include "third_party/blink/renderer/modules/modules_export.h"
 
 namespace blink {
-class IndexedDBCallbacksImpl;
-class WebBlobInfo;
 class WebIDBCallbacks;
 
-class MODULES_EXPORT WebIDBDatabaseImpl : public blink::WebIDBDatabase {
+class MODULES_EXPORT WebIDBDatabaseImpl : public WebIDBDatabase {
  public:
-  WebIDBDatabaseImpl(mojom::blink::IDBDatabaseAssociatedPtrInfo database);
+  WebIDBDatabaseImpl(mojom::blink::IDBDatabaseAssociatedPtrInfo database,
+                     scoped_refptr<base::SingleThreadTaskRunner> task_runner);
   ~WebIDBDatabaseImpl() override;
 
-  // blink::WebIDBDatabase
+  // WebIDBDatabase
   void CreateObjectStore(long long transaction_id,
                          long long objectstore_id,
                          const String& name,
-                         const blink::WebIDBKeyPath&,
+                         const IDBKeyPath&,
                          bool auto_increment) override;
   void DeleteObjectStore(long long transaction_id,
                          long long object_store_id) override;
@@ -50,66 +49,65 @@ class MODULES_EXPORT WebIDBDatabaseImpl : public blink::WebIDBDatabase {
       bool include_transaction,
       bool no_records,
       bool values,
-      std::bitset<blink::kIDBOperationTypeCount> operation_types) override;
+      std::bitset<kIDBOperationTypeCount> operation_types) override;
   void RemoveObservers(const Vector<int32_t>& observer_ids) override;
 
   void Get(long long transaction_id,
            long long object_store_id,
            long long index_id,
-           const blink::WebIDBKeyRange&,
+           const IDBKeyRange*,
            bool key_only,
-           blink::WebIDBCallbacks*) override;
+           WebIDBCallbacks*) override;
   void GetAll(long long transaction_id,
               long long object_store_id,
               long long index_id,
-              const blink::WebIDBKeyRange&,
+              const IDBKeyRange*,
               long long max_count,
               bool key_only,
-              blink::WebIDBCallbacks*) override;
+              WebIDBCallbacks*) override;
   void Put(long long transaction_id,
            long long object_store_id,
-           const blink::WebData& value,
-           const Vector<blink::WebBlobInfo>&,
-           blink::WebIDBKeyView primary_key,
+           std::unique_ptr<IDBValue> value,
+           std::unique_ptr<IDBKey> primary_key,
            mojom::IDBPutMode,
-           blink::WebIDBCallbacks*,
-           const Vector<blink::WebIDBIndexKeys>&) override;
+           WebIDBCallbacks*,
+           Vector<IDBIndexKeys>) override;
   void SetIndexKeys(long long transaction_id,
                     long long object_store_id,
-                    blink::WebIDBKeyView primary_key,
-                    const Vector<blink::WebIDBIndexKeys>&) override;
+                    std::unique_ptr<IDBKey> primary_key,
+                    Vector<IDBIndexKeys>) override;
   void SetIndexesReady(long long transaction_id,
                        long long object_store_id,
                        const Vector<int64_t>& index_ids) override;
   void OpenCursor(long long transaction_id,
                   long long object_store_id,
                   long long index_id,
-                  const blink::WebIDBKeyRange&,
+                  const IDBKeyRange*,
                   mojom::IDBCursorDirection direction,
                   bool key_only,
                   mojom::IDBTaskType,
-                  blink::WebIDBCallbacks*) override;
+                  WebIDBCallbacks*) override;
   void Count(long long transaction_id,
              long long object_store_id,
              long long index_id,
-             const blink::WebIDBKeyRange&,
-             blink::WebIDBCallbacks*) override;
+             const IDBKeyRange*,
+             WebIDBCallbacks*) override;
   void Delete(long long transaction_id,
               long long object_store_id,
-              blink::WebIDBKeyView primary_key,
-              blink::WebIDBCallbacks*) override;
+              const IDBKey* primary_key,
+              WebIDBCallbacks*) override;
   void DeleteRange(long long transaction_id,
                    long long object_store_id,
-                   const blink::WebIDBKeyRange&,
-                   blink::WebIDBCallbacks*) override;
+                   const IDBKeyRange*,
+                   WebIDBCallbacks*) override;
   void Clear(long long transaction_id,
              long long object_store_id,
-             blink::WebIDBCallbacks*) override;
+             WebIDBCallbacks*) override;
   void CreateIndex(long long transaction_id,
                    long long object_store_id,
                    long long index_id,
                    const String& name,
-                   const blink::WebIDBKeyPath&,
+                   const IDBKeyPath&,
                    bool unique,
                    bool multi_entry) override;
   void DeleteIndex(long long transaction_id,
@@ -120,11 +118,11 @@ class MODULES_EXPORT WebIDBDatabaseImpl : public blink::WebIDBDatabase {
                    long long index_id,
                    const String& new_name) override;
   void Abort(long long transaction_id) override;
-  void Commit(long long transaction_id) override;
+  void Commit(long long transaction_id, long long num_errors_handled) override;
 
  private:
   mojom::blink::IDBCallbacksAssociatedPtrInfo GetCallbacksProxy(
-      std::unique_ptr<IndexedDBCallbacksImpl> callbacks);
+      std::unique_ptr<WebIDBCallbacks> callbacks);
 
   FRIEND_TEST_ALL_PREFIXES(WebIDBDatabaseImplTest, ValueSizeTest);
   FRIEND_TEST_ALL_PREFIXES(WebIDBDatabaseImplTest, KeyAndValueSizeTest);
@@ -138,6 +136,7 @@ class MODULES_EXPORT WebIDBDatabaseImpl : public blink::WebIDBDatabase {
 
   std::set<int32_t> observer_ids_;
   mojom::blink::IDBDatabaseAssociatedPtr database_;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 };
 
 }  // namespace blink

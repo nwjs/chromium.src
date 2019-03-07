@@ -98,20 +98,25 @@ cr.define('extensions', function() {
     getCurrentPage() {
       const search = new URLSearchParams(location.search);
       let id = search.get('id');
-      if (id)
+      if (id) {
         return {page: Page.DETAILS, extensionId: id};
+      }
       id = search.get('activity');
-      if (id)
+      if (id) {
         return {page: Page.ACTIVITY_LOG, extensionId: id};
+      }
       id = search.get('options');
-      if (id)
+      if (id) {
         return {page: Page.DETAILS, extensionId: id, subpage: Dialog.OPTIONS};
+      }
       id = search.get('errors');
-      if (id)
+      if (id) {
         return {page: Page.ERRORS, extensionId: id};
+      }
 
-      if (this.currentPath_ == '/shortcuts')
+      if (this.currentPath_ == '/shortcuts') {
         return {page: Page.SHORTCUTS};
+      }
 
       return {page: Page.LIST};
     }
@@ -151,7 +156,7 @@ cr.define('extensions', function() {
      * @param {!PageState} newPage the page to navigate to.
      */
     navigateTo(newPage) {
-      let currentPage = this.getCurrentPage();
+      const currentPage = this.getCurrentPage();
       if (currentPage && isPageStateEqual(currentPage, newPage)) {
         return;
       }

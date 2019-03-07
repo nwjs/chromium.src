@@ -28,6 +28,7 @@
 #include "net/http/http_response_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/network_switches.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/network_service_test.mojom.h"
@@ -300,6 +301,60 @@ IN_PROC_BROWSER_TEST_F(NetworkServiceBrowserTest,
   EXPECT_GT(base::ComputeDirectorySize(GetCacheIndexDirectory()),
             directory_size);
 }
+
+class NetworkConnectionObserver
+    : public network::NetworkConnectionTracker::NetworkConnectionObserver {
+ public:
+  NetworkConnectionObserver() {
+    content::GetNetworkConnectionTracker()->AddNetworkConnectionObserver(this);
+    content::GetNetworkConnectionTracker()->GetConnectionType(
+        &last_connection_type_,
+        base::BindOnce(&NetworkConnectionObserver::OnConnectionChanged,
+                       base::Unretained(this)));
+  }
+
+  ~NetworkConnectionObserver() override {
+    content::GetNetworkConnectionTracker()->RemoveNetworkConnectionObserver(
+        this);
+  }
+
+  void WaitForConnectionType(network::mojom::ConnectionType type) {
+    type_to_wait_for_ = type;
+    if (last_connection_type_ == type_to_wait_for_)
+      return;
+
+    run_loop_ = std::make_unique<base::RunLoop>();
+    run_loop_->Run();
+  }
+
+  // network::NetworkConnectionTracker::NetworkConnectionObserver:
+  void OnConnectionChanged(network::mojom::ConnectionType type) override {
+    last_connection_type_ = type;
+    if (run_loop_ && type_to_wait_for_ == type)
+      run_loop_->Quit();
+  }
+
+ private:
+  network::mojom::ConnectionType type_to_wait_for_ =
+      network::mojom::ConnectionType::CONNECTION_UNKNOWN;
+  network::mojom::ConnectionType last_connection_type_ =
+      network::mojom::ConnectionType::CONNECTION_UNKNOWN;
+  std::unique_ptr<base::RunLoop> run_loop_;
+};
+
+IN_PROC_BROWSER_TEST_F(NetworkServiceBrowserTest,
+                       ConnectionTypeChangeSyncedToNetworkProcess) {
+  NetworkConnectionObserver observer;
+  net::NetworkChangeNotifier::NotifyObserversOfConnectionTypeChangeForTests(
+      net::NetworkChangeNotifier::CONNECTION_WIFI);
+  observer.WaitForConnectionType(
+      network::mojom::ConnectionType::CONNECTION_WIFI);
+
+  net::NetworkChangeNotifier::NotifyObserversOfConnectionTypeChangeForTests(
+      net::NetworkChangeNotifier::CONNECTION_ETHERNET);
+  observer.WaitForConnectionType(
+      network::mojom::ConnectionType::CONNECTION_ETHERNET);
+}
 #endif
 
 IN_PROC_BROWSER_TEST_F(NetworkServiceBrowserTest,
@@ -354,6 +409,39 @@ class NetworkServiceInProcessBrowserTest : public ContentBrowserTest {
 
 // Verifies that in-process network service works.
 IN_PROC_BROWSER_TEST_F(NetworkServiceInProcessBrowserTest, Basic) {
+  GURL test_url = embedded_test_server()->GetURL("foo.com", "/echo");
+  StoragePartitionImpl* partition = static_cast<StoragePartitionImpl*>(
+      BrowserContext::GetDefaultStoragePartition(
+          shell()->web_contents()->GetBrowserContext()));
+  NavigateToURL(shell(), test_url);
+  ASSERT_EQ(net::OK,
+            LoadBasicRequest(partition->GetNetworkContext(), test_url));
+}
+
+class NetworkServiceInvalidLogBrowserTest : public ContentBrowserTest {
+ public:
+  NetworkServiceInvalidLogBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        network::features::kNetworkService);
+  }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitchASCII(network::switches::kLogNetLog, "/abc/def");
+  }
+
+  void SetUpOnMainThread() override {
+    host_resolver()->AddRule("*", "127.0.0.1");
+    EXPECT_TRUE(embedded_test_server()->Start());
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
+  DISALLOW_COPY_AND_ASSIGN(NetworkServiceInvalidLogBrowserTest);
+};
+
+// Verifies that an invalid --log-net-log flag won't crash the browser.
+IN_PROC_BROWSER_TEST_F(NetworkServiceInvalidLogBrowserTest, Basic) {
   GURL test_url = embedded_test_server()->GetURL("foo.com", "/echo");
   StoragePartitionImpl* partition = static_cast<StoragePartitionImpl*>(
       BrowserContext::GetDefaultStoragePartition(

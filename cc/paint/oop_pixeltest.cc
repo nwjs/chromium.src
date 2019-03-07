@@ -130,7 +130,6 @@ class OopPixelTest : public testing::Test,
     SkColor background_color = SK_ColorBLACK;
     int msaa_sample_count = 0;
     bool use_lcd_text = false;
-    SkColorType color_type = kRGBA_8888_SkColorType;
     gfx::Size resource_size;
     gfx::Size content_size;
     gfx::Rect full_raster_rect;
@@ -184,7 +183,7 @@ class OopPixelTest : public testing::Test,
     if (options.preclear) {
       raster_implementation->BeginRasterCHROMIUM(
           options.preclear_color, options.msaa_sample_count,
-          options.use_lcd_text, options.color_type, color_space, mailbox.name);
+          options.use_lcd_text, color_space, mailbox.name);
       raster_implementation->EndRasterCHROMIUM();
     }
 
@@ -192,7 +191,7 @@ class OopPixelTest : public testing::Test,
 
     raster_implementation->BeginRasterCHROMIUM(
         options.background_color, options.msaa_sample_count,
-        options.use_lcd_text, options.color_type, color_space, mailbox.name);
+        options.use_lcd_text, color_space, mailbox.name);
     raster_implementation->RasterCHROMIUM(
         display_item_list.get(), &image_provider, options.content_size,
         options.full_raster_rect, options.playback_rect, options.post_translate,
@@ -1616,8 +1615,8 @@ class OopPathPixelTest : public OopPixelTest,
   void RunTest() {
     auto* ri = static_cast<gpu::raster::RasterImplementation*>(
         raster_context_provider_->RasterInterface());
-    size_t max_inlined_entry_size =
-        AllowInlining() ? std::numeric_limits<size_t>::max() : 0u;
+    uint32_t max_inlined_entry_size =
+        AllowInlining() ? std::numeric_limits<uint32_t>::max() : 0u;
     ri->set_max_inlined_entry_size_for_testing(max_inlined_entry_size);
 
     RasterOptions options;

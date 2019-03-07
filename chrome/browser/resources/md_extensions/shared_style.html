@@ -1,8 +1,14 @@
 <link rel="import" href="chrome://resources/cr_elements/shared_vars_css.html">
+<link rel="import" href="shared_vars.html">
 
 <dom-module id="shared-style">
   <template>
     <style include="cr-shared-style">
+      a[href] {
+        color: var(--cr-link-color);
+        text-decoration: none;
+      }
+
       .page-container {
         height: 100%;
         overflow: overlay;
@@ -10,7 +16,7 @@
 
       .page-content {
         @apply --cr-card-elevation;
-        background-color: white;
+        background-color: var(--cr-card-background-color);
         box-sizing: border-box;
         margin: auto;
         min-height: 100%;
@@ -24,6 +30,30 @@
         height: 40px;
         margin-bottom: 12px;
         padding: 8px 12px 0;
+      }
+
+      .link-icon-button {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+      }
+
+      .separator {
+        border-inline-start: var(--cr-separator-line);
+        flex-shrink: 0;
+
+        /* Section height - gap. */
+        height: calc(var(--cr-section-min-height) - var(--separator-gap));
+        margin-inline-end: var(--cr-section-padding);
+
+        /* Makes the tappable area fill its parent.
+         * TODO(scottchen): This is an explicit reminder to override once
+         * .separator styling is extracted from settings. */
+        margin-inline-start: 0;
+      }
+
+      .separator + paper-icon-button-light {
+        margin-inline-start: var(--cr-icon-ripple-margin);
       }
     </style>
   </template>

@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/modules/peerconnection/adapters/quic_stream_proxy.h"
 #include "third_party/blink/renderer/modules/peerconnection/byte_buffer_queue.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_quic_stream_read_result.h"
+#include "third_party/blink/renderer/modules/peerconnection/rtc_quic_stream_write_parameters.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_quic_transport.h"
 
 namespace blink {
@@ -20,6 +21,35 @@ namespace blink {
 class ScriptPromise;
 
 enum class RTCQuicStreamState { kNew, kOpening, kOpen, kClosing, kClosed };
+
+// This enum is used to track how the readInto() API is used in
+// the origin trial. This tracks what the result type is when reading.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class ReadIntoResult {
+  // Reading data with the FIN bit (finish).
+  kSomeDataWithFin = 0,
+  // Reading data without a FIN bit (finish).
+  kSomeDataNoFin = 1,
+  // Reading just the FIN bit (finished reading).
+  kNoDataWithFin = 2,
+  // Nothing read.
+  kNoDataNoFin = 3,
+  kMaxValue = kNoDataNoFin,
+};
+
+// This enum is used to track how the write() API is used in the origin trial.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class WriteUsage {
+  // Writing data with the FIN bit (finish).
+  kSomeDataWithFin = 0,
+  // Writing data without the FIN bit (finish).
+  kSomeDataNoFin = 1,
+  // Writing only the FIN bit (finished writing).
+  kNoDataWithFin = 2,
+  kMaxValue = kNoDataWithFin,
+};
 
 // The RTCQuicStream does not need to be ActiveScriptWrappable since the
 // RTCQuicTransport that it is associated with holds a strong reference to it
@@ -65,8 +95,8 @@ class MODULES_EXPORT RTCQuicStream final : public EventTargetWithInlineData,
   uint32_t maxWriteBufferedAmount() const;
   RTCQuicStreamReadResult* readInto(NotShared<DOMUint8Array> data,
                                     ExceptionState& exception_state);
-  void write(NotShared<DOMUint8Array> data, ExceptionState& exception_state);
-  void finish();
+  void write(const RTCQuicStreamWriteParameters* data,
+             ExceptionState& exception_state);
   void reset();
   ScriptPromise waitForWriteBufferedAmountBelow(
       ScriptState* script_state,

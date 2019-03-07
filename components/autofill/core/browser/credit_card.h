@@ -48,8 +48,8 @@ class CreditCard : public AutofillDataModel {
     // convert to a FULL_SERVER_CARD.
     MASKED_SERVER_CARD,
 
-    // A card from the Wallet server with full information. This card is not
-    // locally editable.
+    // A card from the Wallet server with full information store locally. This
+    // card is not locally editable.
     FULL_SERVER_CARD,
   };
 
@@ -111,6 +111,9 @@ class CreditCard : public AutofillDataModel {
   // AutofillDataModel:
   AutofillMetadata GetMetadata() const override;
   bool SetMetadata(const AutofillMetadata metadata) override;
+  // Returns whether the card is deletable: if it is expired and has not been
+  // used for longer than |kDisusedCreditCardDeletionTimeDelta|.
+  bool IsDeletable() const override;
 
   // FormGroup:
   void GetMatchingTypes(const base::string16& text,
@@ -154,7 +157,8 @@ class CreditCard : public AutofillDataModel {
   // duplicates.  The ordering is based on collation order of the textual
   // contents of the fields.
   // GUIDs, origins, labels, and unique IDs are not compared, only the values of
-  // the cards themselves.
+  // the cards themselves. A full card is equivalent to its corresponding masked
+  // card.
   int Compare(const CreditCard& credit_card) const;
 
   // Determines if |this| is a local version of the server card |other|.

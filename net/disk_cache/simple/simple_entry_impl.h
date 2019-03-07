@@ -84,6 +84,12 @@ class NET_EXPORT_PRIVATE SimpleEntryImpl : public Entry,
   // Creates this entry, if possible. Returns |this| to |entry|.
   net::Error CreateEntry(Entry** entry, CompletionOnceCallback callback);
 
+  // Opens an existing entry or creates a new one. Returns |this| to
+  // |entry_struct->entry|, and sets |entry_struct->opened| based on what op was
+  // actually performed.
+  net::Error OpenOrCreateEntry(EntryWithOpened* entry_struct,
+                               CompletionOnceCallback callback);
+
   // Identical to Backend::Doom() except that it accepts a
   // CompletionOnceCallback.
   net::Error DoomEntry(CompletionOnceCallback callback);
@@ -228,6 +234,10 @@ class NET_EXPORT_PRIVATE SimpleEntryImpl : public Entry,
                            CompletionOnceCallback callback,
                            Entry** out_entry);
 
+  void OpenOrCreateEntryInternal(OpenEntryIndexEnum index_state,
+                                 CompletionOnceCallback callback,
+                                 EntryWithOpened* entry_struct);
+
   void CloseInternal();
 
   int ReadDataInternal(bool sync_possible,
@@ -268,14 +278,17 @@ class NET_EXPORT_PRIVATE SimpleEntryImpl : public Entry,
   void CreationOperationComplete(
       CompletionOnceCallback completion_callback,
       const base::TimeTicks& start_time,
+      const base::Time index_last_used_time,
       std::unique_ptr<SimpleEntryCreationResults> in_results,
       Entry** out_entry,
+      bool* out_opened,
       net::NetLogEventType end_event_type);
 
   // Called after we've closed and written the EOF record to our entry. Until
   // this point it hasn't been safe to OpenEntry() the same entry, but from this
   // point it is.
-  void CloseOperationComplete();
+  void CloseOperationComplete(
+      std::unique_ptr<SimpleEntryCloseResults> in_results);
 
   // Internal utility method used by other completion methods. Calls
   // |completion_callback| after updating state and dooming on errors.

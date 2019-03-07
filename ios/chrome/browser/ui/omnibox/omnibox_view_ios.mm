@@ -26,6 +26,7 @@
 #include "ios/chrome/browser/ui/omnibox/omnibox_text_field_paste_delegate.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_util.h"
 #include "ios/chrome/browser/ui/omnibox/web_omnibox_edit_controller.h"
+#import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
@@ -134,13 +135,9 @@ UIColor* IncognitoSecureTextColor() {
   editView_->OnDidBeginEditing();
 }
 
-// On phone, the omnibox may still be editing when the popup is open, so end
-// editing is called directly in OnDidEndEditing.
-- (void)textFieldDidEndEditing:(UITextField*)textField {
-  if (!IsIPadIdiom() && editView_->IsPopupOpen())
-    return;
-
-  editView_->OnDidEndEditing();
+- (BOOL)textFieldShouldEndEditing:(UITextField*)textField {
+  editView_->OnWillEndEditing();
+  return YES;
 }
 
 // When editing, forward the message on to |editView_|.
@@ -203,7 +200,8 @@ UIColor* IncognitoSecureTextColor() {
 OmniboxViewIOS::OmniboxViewIOS(OmniboxTextFieldIOS* field,
                                WebOmniboxEditController* controller,
                                id<OmniboxLeftImageConsumer> left_image_consumer,
-                               ios::ChromeBrowserState* browser_state)
+                               ios::ChromeBrowserState* browser_state,
+                               id<OmniboxFocuser> omnibox_focuser)
     : OmniboxView(
           controller,
           std::make_unique<ChromeOmniboxClientIOS>(controller, browser_state)),
@@ -211,6 +209,7 @@ OmniboxViewIOS::OmniboxViewIOS(OmniboxTextFieldIOS* field,
       field_(field),
       controller_(controller),
       left_image_consumer_(left_image_consumer),
+      omnibox_focuser_(omnibox_focuser),
       ignore_popup_updates_(false),
       attributing_display_string_(nil),
       popup_provider_(nullptr) {
@@ -450,26 +449,16 @@ void OmniboxViewIOS::OnDidBeginEditing() {
   }
 }
 
-void OmniboxViewIOS::OnDidEndEditing() {
-  CloseOmniboxPopup();
-  model()->OnWillKillFocus();
-  model()->OnKillFocus();
-  if ([field_ isPreEditing])
-    [field_ exitPreEditState];
-
-  UpdateRightDecorations();
-
-  // The controller looks at the current pre-edit state, so the call to
-  // OnKillFocus() must come after exiting pre-edit.
-  controller_->OnKillFocus();
-
-  // Blow away any in-progress edits.
-  RevertAll();
-  DCHECK(![field_ hasAutocompleteText]);
-
-  if (!omnibox_interacted_while_focused_) {
-    RecordAction(
-        UserMetricsAction("Mobile_FocusedDefocusedOmnibox_WithNoAction"));
+void OmniboxViewIOS::OnWillEndEditing() {
+  // On iPad, this will be called when the "hide keyboard" button is pressed
+  // on the software keyboard. This should be equivalent to tapping the typing
+  // shield and should defocus the omnibox, transition the location bar to
+  // steady view, and close the popup.
+  // This will also be called if -resignFirstResponder is called
+  // programmatically. On phone, the omnibox may still be editing when
+  // the popup is open, so the Cancel button calls OnWillEndEditing.
+  if (IsIPadIdiom()) {
+    [omnibox_focuser_ cancelOmniboxEdit];
   }
 }
 
@@ -485,18 +474,16 @@ bool OmniboxViewIOS::OnWillChange(NSRange range, NSString* new_text) {
     [field_ setClearingPreEditText:YES];
 
     // Exit the pre-editing state in OnWillChange() instead of OnDidChange(), as
-    // that allows IME to continue working.  The following code clears the text
-    // field but continues the normal text editing flow, so UIKit behaves as
-    // though the user had typed into an empty field.
+    // that allows IME to continue working.  The following code selects the text
+    // as if the pre-edit fake selection was real.
     [field_ exitPreEditState];
 
-    // Clearing the text field will trigger a call to OnDidChange().  This is
-    // ok, because the autocomplete system will process it as if the user had
-    // deleted all the omnibox text.
-    [field_ setText:@""];
+    field_.selectedTextRange =
+        [field_ textRangeFromPosition:field_.beginningOfDocument
+                           toPosition:field_.endOfDocument];
 
-    // Reset |range| to be of zero-length at location zero, as the field is now
-    // cleared.
+    // Reset |range| to be of zero-length at location zero, as the field will be
+    // now cleared.
     range = NSMakeRange(0, 0);
   }
 
@@ -559,7 +546,7 @@ bool OmniboxViewIOS::OnWillChange(NSRange range, NSString* new_text) {
 
 void OmniboxViewIOS::OnDidChange(bool processing_user_event) {
   omnibox_interacted_while_focused_ = YES;
-  DCHECK(processing_user_event);
+
   // Sanitize pasted text.
   if (model()->is_pasting()) {
     base::string16 pastedText = base::SysNSStringToUTF16([field_ text]);
@@ -911,15 +898,29 @@ bool OmniboxViewIOS::ShouldIgnoreUserInputDueToPendingVoiceSearch() {
   return [[field_ text] rangeOfString:objectReplacementChar].length > 0;
 }
 
-void OmniboxViewIOS::HideKeyboardAndEndEditing() {
-  [field_ resignFirstResponder];
-
-  // Handle the case where a phone-format ombniox has already resigned first
-  // responder because the popup was scrolled.  If the model still has focus,
-  // dismiss again. This should only happen on iPhone.
+void OmniboxViewIOS::EndEditing() {
   if (model()->has_focus()) {
-    DCHECK(!IsIPadIdiom());
-    this->OnDidEndEditing();
+    CloseOmniboxPopup();
+
+    model()->OnWillKillFocus();
+    model()->OnKillFocus();
+    if ([field_ isPreEditing])
+      [field_ exitPreEditState];
+
+    UpdateRightDecorations();
+
+    // The controller looks at the current pre-edit state, so the call to
+    // OnKillFocus() must come after exiting pre-edit.
+    controller_->OnKillFocus();
+
+    // Blow away any in-progress edits.
+    RevertAll();
+    DCHECK(![field_ hasAutocompleteText]);
+
+    if (!omnibox_interacted_while_focused_) {
+      RecordAction(
+          UserMetricsAction("Mobile_FocusedDefocusedOmnibox_WithNoAction"));
+    }
   }
 }
 

@@ -70,6 +70,8 @@ const char* ToString(ax::mojom::Event event) {
       return "menuListValueChanged";
     case ax::mojom::Event::kMenuPopupEnd:
       return "menuPopupEnd";
+    case ax::mojom::Event::kMenuPopupHide:
+      return "menuPopupHide";
     case ax::mojom::Event::kMenuPopupStart:
       return "menuPopupStart";
     case ax::mojom::Event::kMenuStart:
@@ -184,6 +186,8 @@ ax::mojom::Event ParseEvent(const char* event) {
     return ax::mojom::Event::kMenuListValueChanged;
   if (0 == strcmp(event, "menuPopupEnd"))
     return ax::mojom::Event::kMenuPopupEnd;
+  if (0 == strcmp(event, "menuPopupHide"))
+    return ax::mojom::Event::kMenuPopupHide;
   if (0 == strcmp(event, "menuPopupStart"))
     return ax::mojom::Event::kMenuPopupStart;
   if (0 == strcmp(event, "menuStart"))
@@ -449,16 +453,18 @@ const char* ToString(ax::mojom::Role role) {
       return "lineBreak";
     case ax::mojom::Role::kLink:
       return "link";
+    case ax::mojom::Role::kList:
+      return "list";
     case ax::mojom::Role::kListBoxOption:
       return "listBoxOption";
     case ax::mojom::Role::kListBox:
       return "listBox";
+    case ax::mojom::Role::kListGrid:
+      return "listGrid";
     case ax::mojom::Role::kListItem:
       return "listItem";
     case ax::mojom::Role::kListMarker:
       return "listMarker";
-    case ax::mojom::Role::kList:
-      return "list";
     case ax::mojom::Role::kLog:
       return "log";
     case ax::mojom::Role::kMain:
@@ -547,10 +553,10 @@ const char* ToString(ax::mojom::Role role) {
       return "tabPanel";
     case ax::mojom::Role::kTab:
       return "tab";
-    case ax::mojom::Role::kTableHeaderContainer:
-      return "tableHeaderContainer";
     case ax::mojom::Role::kTable:
       return "table";
+    case ax::mojom::Role::kTableHeaderContainer:
+      return "tableHeaderContainer";
     case ax::mojom::Role::kTerm:
       return "term";
     case ax::mojom::Role::kTextField:

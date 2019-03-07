@@ -364,6 +364,9 @@ struct AutocompleteMatch {
   // is taking precedence.
   bool ShouldShowTabMatch() const;
 
+  // Returns true if the suggestion should show a tab match button or pedal.
+  bool ShouldShowButton() const;
+
   // The provider of this match, used to remember which provider the user had
   // selected when the input changes. This may be NULL, in which case there is
   // no provider (or memory of the user's selection).
@@ -482,6 +485,9 @@ struct AutocompleteMatch {
   // accesses it must perform any necessary sanity checks before blindly using
   // it!
   base::string16 keyword;
+
+  // Set in matches originating from keyword results.
+  bool from_keyword;
 
   // Set to a matching pedal if appropriate.  The pedal is not owned, and the
   // owning OmniboxPedalProvider must outlive this.

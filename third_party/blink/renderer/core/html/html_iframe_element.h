@@ -32,7 +32,7 @@
 #include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
-class Policy;
+class DOMFeaturePolicy;
 
 class CORE_EXPORT HTMLIFrameElement final
     : public HTMLFrameElementBase,
@@ -42,14 +42,17 @@ class CORE_EXPORT HTMLIFrameElement final
 
  public:
   DECLARE_NODE_FACTORY(HTMLIFrameElement);
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
+
+  explicit HTMLIFrameElement(Document&);
   ~HTMLIFrameElement() override;
+
   DOMTokenList* sandbox() const;
   // Support JS introspection of frame policy (e.g. feature policy)
-  Policy* policy();
+  DOMFeaturePolicy* featurePolicy();
 
   // Returns attributes that should be checked against Trusted Types
-  const HashSet<AtomicString>& GetCheckedAttributeNames() const override;
+  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
 
   ParsedFeaturePolicy ConstructContainerPolicy(
       Vector<String>* /* messages */) const override;
@@ -59,8 +62,6 @@ class CORE_EXPORT HTMLIFrameElement final
   }
 
  private:
-  explicit HTMLIFrameElement(Document&);
-
   void SetCollapsed(bool) override;
 
   void ParseAttribute(const AttributeModificationParams&) override;
@@ -95,8 +96,8 @@ class CORE_EXPORT HTMLIFrameElement final
   bool nwfaketop_;
   bool allow_payment_request_;
   bool collapsed_by_client_;
-  Member<HTMLIFrameElementSandbox> sandbox_;
-  Member<Policy> policy_;
+  TraceWrapperMember<HTMLIFrameElementSandbox> sandbox_;
+  Member<DOMFeaturePolicy> policy_;
 
   network::mojom::ReferrerPolicy referrer_policy_;
 };

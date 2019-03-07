@@ -51,12 +51,12 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/installer/util/google_update_settings.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
+#include "chromeos/constants/devicetype.h"
 #include "chromeos/dbus/util/version_loader.h"
 #include "chromeos/login/auth/authpolicy_login_helper.h"
 #include "chromeos/login/auth/user_context.h"
 #include "chromeos/settings/cros_settings_names.h"
-#include "chromeos/system/devicetype.h"
 #include "components/login/localized_values_builder.h"
 #include "components/policy/proto/chrome_device_policy.pb.h"
 #include "components/prefs/pref_service.h"
@@ -181,8 +181,6 @@ void UpdateAuthParams(base::DictionaryValue* params,
   CrosSettings* cros_settings = CrosSettings::Get();
   bool allow_new_user = true;
   cros_settings->GetBoolean(kAccountsPrefAllowNewUser, &allow_new_user);
-  params->SetBoolean("guestSignin",
-                     user_manager::UserManager::Get()->IsGuestSessionAllowed());
 
   // nosignup flow if new users are not allowed.
   if (!allow_new_user || is_restrictive_proxy)
@@ -193,7 +191,6 @@ void UpdateAuthParams(base::DictionaryValue* params,
   // Now check whether we're in multi-profiles user adding scenario and
   // disable GAIA right panel features if that's the case.
   if (UserAddingScreen::Get()->IsRunning()) {
-    params->SetBoolean("guestSignin", false);
     params->SetBoolean("supervisedUsersCanCreate", false);
   }
 }
@@ -317,9 +314,7 @@ void GaiaScreenHandler::MaybePreloadAuthExtension() {
   VLOG(1) << "MaybePreloadAuthExtension";
 
   if (!network_portal_detector_) {
-    NetworkPortalDetectorImpl* detector = new NetworkPortalDetectorImpl(
-        g_browser_process->system_network_context_manager()
-            ->GetURLLoaderFactory());
+    NetworkPortalDetectorImpl* detector = new NetworkPortalDetectorImpl();
     detector->set_portal_test_url(GURL(kRestrictiveProxyURL));
     network_portal_detector_.reset(detector);
     network_portal_detector_->AddObserver(this);
@@ -496,7 +491,7 @@ void GaiaScreenHandler::LoadGaiaWithPartitionAndVersionAndConsent(
   params.SetString("webviewPartitionName", partition_name);
 
   frame_state_ = FRAME_STATE_LOADING;
-  CallJSWithPrefix("loadAuthExtension", params);
+  CallJS("login.GaiaSigninScreen.loadAuthExtension", params);
 }
 
 void GaiaScreenHandler::ReloadGaia(bool force_reload) {
@@ -519,7 +514,7 @@ void GaiaScreenHandler::ReloadGaia(bool force_reload) {
 }
 
 void GaiaScreenHandler::MonitorOfflineIdle(bool is_online) {
-  CallJSWithPrefix("monitorOfflineIdle", is_online);
+  CallJS("login.GaiaSigninScreen.monitorOfflineIdle", is_online);
 }
 
 void GaiaScreenHandler::DeclareLocalizedValues(
@@ -619,8 +614,7 @@ void GaiaScreenHandler::RegisterMessages() {
   AddCallback("hideOobeDialog", &GaiaScreenHandler::HandleHideOobeDialog);
   AddCallback("updateSigninUIState",
               &GaiaScreenHandler::HandleUpdateSigninUIState);
-  AddCallback("showGuestForGaia",
-              &GaiaScreenHandler::HandleShowGuestForGaiaScreen);
+  AddCallback("showGuestInOobe", &GaiaScreenHandler::HandleShowGuestInOobe);
 
   // Allow UMA metrics collection from JS.
   web_ui()->AddMessageHandler(std::make_unique<MetricsHandler>());
@@ -741,18 +735,16 @@ void GaiaScreenHandler::DoAdAuth(
       break;
     case authpolicy::ERROR_PARSE_UPN_FAILED:
     case authpolicy::ERROR_BAD_USER_NAME:
-      CallJSWithPrefix(
-          "invalidateAd", username,
-          static_cast<int>(ActiveDirectoryErrorState::BAD_USERNAME));
+      CallJS("login.GaiaSigninScreen.invalidateAd", username,
+             static_cast<int>(ActiveDirectoryErrorState::BAD_USERNAME));
       break;
     case authpolicy::ERROR_BAD_PASSWORD:
-      CallJSWithPrefix(
-          "invalidateAd", username,
-          static_cast<int>(ActiveDirectoryErrorState::BAD_AUTH_PASSWORD));
+      CallJS("login.GaiaSigninScreen.invalidateAd", username,
+             static_cast<int>(ActiveDirectoryErrorState::BAD_AUTH_PASSWORD));
       break;
     default:
-      CallJSWithPrefix("invalidateAd", username,
-                       static_cast<int>(ActiveDirectoryErrorState::NONE));
+      CallJS("login.GaiaSigninScreen.invalidateAd", username,
+             static_cast<int>(ActiveDirectoryErrorState::NONE));
       core_oobe_view_->ShowSignInError(
           0, GetAdErrorMessage(error), std::string(),
           HelpAppLauncher::HELP_CANT_ACCESS_ACCOUNT);
@@ -893,8 +885,12 @@ void GaiaScreenHandler::HandleGaiaUIReady() {
   if (test_expects_complete_login_)
     SubmitLoginFormForTest();
 
-  if (LoginDisplayHost::default_host())
+  if (LoginDisplayHost::default_host()) {
     LoginDisplayHost::default_host()->OnGaiaScreenReady();
+  } else {
+    // Used to debug crbug.com/902315. Feel free to remove after that is fixed.
+    LOG(ERROR) << "HandleGaiaUIReady: There is no LoginDisplayHost";
+  }
 }
 
 void GaiaScreenHandler::HandleUpdateOobeDialogSize(int width, int height) {
@@ -943,12 +939,8 @@ void GaiaScreenHandler::HandleUpdateSigninUIState(int state) {
   }
 }
 
-void GaiaScreenHandler::HandleShowGuestForGaiaScreen(bool allow_guest_login,
-                                                     bool can_show_for_gaia) {
-  LoginScreenClient::Get()->login_screen()->SetAllowLoginAsGuest(
-      allow_guest_login);
-  LoginScreenClient::Get()->login_screen()->SetShowGuestButtonForGaiaScreen(
-      can_show_for_gaia);
+void GaiaScreenHandler::HandleShowGuestInOobe(bool show) {
+  LoginScreenClient::Get()->login_screen()->SetShowGuestButtonInOobe(show);
 }
 
 void GaiaScreenHandler::OnShowAddUser() {
@@ -1237,7 +1229,7 @@ void GaiaScreenHandler::ShowWhitelistCheckFailedError() {
                     g_browser_process->platform_part()
                         ->browser_policy_connector_chromeos()
                         ->IsEnterpriseManaged());
-  CallJSWithPrefix("showWhitelistCheckFailedError", true, params);
+  CallJS("login.GaiaSigninScreen.showWhitelistCheckFailedError", true, params);
 }
 
 void GaiaScreenHandler::LoadAuthExtension(bool force,

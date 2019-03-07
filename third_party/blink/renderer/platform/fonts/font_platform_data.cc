@@ -51,7 +51,7 @@ FontPlatformData::FontPlatformData(WTF::HashTableDeletedValueType)
       is_hash_table_deleted_value_(true)
 #if defined(OS_WIN)
       ,
-      paint_text_flags_(0)
+      font_flags_(0)
 #endif
 {
 }
@@ -65,7 +65,7 @@ FontPlatformData::FontPlatformData()
       is_hash_table_deleted_value_(false)
 #if defined(OS_WIN)
       ,
-      paint_text_flags_(0)
+      font_flags_(0)
 #endif
 {
 }
@@ -82,7 +82,7 @@ FontPlatformData::FontPlatformData(float size,
       is_hash_table_deleted_value_(false)
 #if defined(OS_WIN)
       ,
-      paint_text_flags_(0)
+      font_flags_(0)
 #endif
 {
 }
@@ -104,7 +104,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& source)
       is_hash_table_deleted_value_(false)
 #if defined(OS_WIN)
       ,
-      paint_text_flags_(source.paint_text_flags_)
+      font_flags_(source.font_flags_)
 #endif
 {
 }
@@ -140,7 +140,7 @@ FontPlatformData::FontPlatformData(sk_sp<SkTypeface> typeface,
       is_hash_table_deleted_value_(false)
 #if defined(OS_WIN)
       ,
-      paint_text_flags_(0)
+      font_flags_(0)
 #endif
 {
 #if !defined(OS_WIN) && !defined(OS_MACOSX)
@@ -200,7 +200,7 @@ const FontPlatformData& FontPlatformData::operator=(
 #endif
 
 #if defined(OS_WIN)
-  paint_text_flags_ = 0;
+  font_flags_ = 0;
 #endif
 
   return *this;
@@ -309,20 +309,6 @@ WebFontRenderStyle FontPlatformData::QuerySystemRenderStyle(
 #endif
 
   return result;
-}
-
-void FontPlatformData::SetupSkPaint(SkPaint* font,
-                                    float device_scale_factor,
-                                    const Font*) const {
-  style_.ApplyToSkPaint(*font, device_scale_factor);
-
-  const float ts = text_size_ >= 0 ? text_size_ : 12;
-  font->setTextSize(SkFloatToScalar(ts));
-  font->setTypeface(typeface_);
-  font->setFakeBoldText(synthetic_bold_);
-  font->setTextSkewX(synthetic_italic_ ? -SK_Scalar1 / 4 : 0);
-
-  font->setEmbeddedBitmapText(!avoid_embedded_bitmaps_);
 }
 
 void FontPlatformData::SetupSkFont(SkFont* font,

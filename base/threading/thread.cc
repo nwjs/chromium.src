@@ -143,7 +143,8 @@ bool Thread::WaitUntilThreadStarted() const {
   DCHECK(owning_sequence_checker_.CalledOnValidSequence());
   if (!message_loop_)
     return false;
-  base::ThreadRestrictions::ScopedAllowWait allow_wait;
+  // https://crbug.com/918039
+  base::ScopedAllowBaseSyncPrimitivesOutsideBlockingScope allow_wait;
   start_event_.Wait();
   return true;
 }
@@ -220,7 +221,7 @@ void Thread::DetachFromSequence() {
 
 PlatformThreadId Thread::GetThreadId() const {
   // If the thread is created but not started yet, wait for |id_| being ready.
-  base::ThreadRestrictions::ScopedAllowWait allow_wait;
+  base::ScopedAllowBaseSyncPrimitivesOutsideBlockingScope allow_wait;
   id_event_.Wait();
   return id_;
 }

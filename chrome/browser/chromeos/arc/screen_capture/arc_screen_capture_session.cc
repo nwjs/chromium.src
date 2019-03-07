@@ -17,7 +17,6 @@
 #include "components/viz/common/gpu/context_provider.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/desktop_media_id.h"
-#include "content/public/common/media_stream_request.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/context_support.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
@@ -25,6 +24,7 @@
 #include "gpu/ipc/common/gpu_memory_buffer_impl_native_pixmap.h"
 #include "mojo/public/cpp/bindings/interface_request.h"
 #include "mojo/public/cpp/system/platform_handle.h"
+#include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "ui/aura/env.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
@@ -138,8 +138,9 @@ mojom::ScreenCaptureSessionPtr ArcScreenCaptureSession::Initialize(
                                    base::UTF8ToUTF16(display_name));
     notification_ui_ = ScreenCaptureNotificationUI::Create(notification_text);
     notification_ui_->OnStarted(
-        base::BindRepeating(&ArcScreenCaptureSession::NotificationStop,
-                            weak_ptr_factory_.GetWeakPtr()));
+        base::BindOnce(&ArcScreenCaptureSession::NotificationStop,
+                       weak_ptr_factory_.GetWeakPtr()),
+        base::RepeatingClosure());
   }
 
   ash::Shell::Get()->display_manager()->inc_screen_capture_active_counter();

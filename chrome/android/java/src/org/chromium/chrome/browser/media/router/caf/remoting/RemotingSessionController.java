@@ -4,24 +4,34 @@
 
 package org.chromium.chrome.browser.media.router.caf.remoting;
 
-import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.framework.CastSession;
 
 import org.chromium.base.Log;
 import org.chromium.chrome.browser.media.router.CastSessionUtil;
-import org.chromium.chrome.browser.media.router.FlingingController;
+import org.chromium.chrome.browser.media.router.caf.BaseNotificationController;
 import org.chromium.chrome.browser.media.router.caf.BaseSessionController;
 import org.chromium.chrome.browser.media.router.caf.CafBaseMediaRouteProvider;
 import org.chromium.chrome.browser.media.router.cast.remoting.RemotingMediaSource;
+
+import java.lang.ref.WeakReference;
 
 /** Wrapper for {@link CastSession} for remoting. */
 public class RemotingSessionController extends BaseSessionController {
     private static final String TAG = "RmtSessionCtrl";
 
+    private static WeakReference<RemotingSessionController> sInstance;
+
+    public static RemotingSessionController getInstance() {
+        return sInstance != null ? sInstance.get() : null;
+    }
+
     private FlingingControllerAdapter mFlingingControllerAdapter;
+    private RemotingNotificationController mNotificationController;
+
     RemotingSessionController(CafBaseMediaRouteProvider provider) {
         super(provider);
-        mFlingingControllerAdapter = new FlingingControllerAdapter(this);
+        mNotificationController = new RemotingNotificationController(this);
+        sInstance = new WeakReference<>(this);
     }
 
     @Override
@@ -39,18 +49,24 @@ public class RemotingSessionController extends BaseSessionController {
 
     @Override
     public void onSessionStarted() {
-        getRemoteMediaClient().load(
-                new MediaInfo.Builder(((RemotingMediaSource) getSource()).getMediaUrl()).build());
+        super.onSessionStarted();
+        RemotingMediaSource source = (RemotingMediaSource) getSource();
+        mFlingingControllerAdapter = new FlingingControllerAdapter(this, source.getMediaUrl());
     }
 
     @Override
     protected void onStatusUpdated() {
-        super.onStatusUpdated();
         mFlingingControllerAdapter.onStatusUpdated();
+        super.onStatusUpdated();
     }
 
     @Override
-    public FlingingController getFlingingController() {
+    public FlingingControllerAdapter getFlingingController() {
         return mFlingingControllerAdapter;
+    }
+
+    @Override
+    public BaseNotificationController getNotificationController() {
+        return mNotificationController;
     }
 }

@@ -12,7 +12,8 @@ namespace chromeos {
 
 // FakeCiceroneClient is a fake implementation of CiceroneClient used for
 // testing.
-class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
+class COMPONENT_EXPORT(CHROMEOS_DBUS) FakeCiceroneClient
+    : public CiceroneClient {
  public:
   FakeCiceroneClient();
   ~FakeCiceroneClient() override;
@@ -32,6 +33,9 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
   // This should be true prior to calling InstallLinuxPackage.
   bool IsInstallLinuxPackageProgressSignalConnected() override;
 
+  // This should be true prior to calling UninstallPackageOwningFile.
+  bool IsUninstallPackageProgressSignalConnected() override;
+
   // This should be true prior to calling CreateLxdContainer or
   // StartLxdContainer.
   bool IsLxdContainerCreatedSignalConnected() override;
@@ -43,6 +47,9 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
   // This should be true prior to calling CreateLxdContainer or
   // StartLxdContainer.
   bool IsTremplinStartedSignalConnected() override;
+
+  // This should be true prior to calling StartLxdContainer in async mode
+  bool IsLxdContainerStartingSignalConnected() override;
 
   // Fake version of the method that launches an application inside a running
   // Container. |callback| is called after the method call finishes.
@@ -73,6 +80,14 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
       DBusMethodCallback<vm_tools::cicerone::InstallLinuxPackageResponse>
           callback) override;
 
+  // Fake version of the method that uninstalls an application inside a running
+  // Container. |callback| is called after the method call finishes. This does
+  // not cause progress events to be fired.
+  void UninstallPackageOwningFile(
+      const vm_tools::cicerone::UninstallPackageOwningFileRequest& request,
+      DBusMethodCallback<vm_tools::cicerone::UninstallPackageOwningFileResponse>
+          callback) override;
+
   // Fake version of the method that creates a new Container.
   // |callback| is called to indicate creation status.
   void CreateLxdContainer(
@@ -101,6 +116,12 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
       DBusMethodCallback<vm_tools::cicerone::SetUpLxdContainerUserResponse>
           callback) override;
 
+  // Fake version of the method that searches for not installed apps.
+  // |callback| is called when the method completes.
+  void SearchApp(const vm_tools::cicerone::AppSearchRequest& request,
+                 DBusMethodCallback<vm_tools::cicerone::AppSearchResponse>
+                     callback) override;
+
   // Fake version of the method that waits for the Cicerone service to be
   // availble.  |callback| is called after the method call finishes.
   void WaitForServiceToBeAvailable(
@@ -121,6 +142,11 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
     is_install_linux_package_progress_signal_connected_ = connected;
   }
 
+  // Set IsUninstallPackageProgressSignalConnected state
+  void set_uninstall_package_progress_signal_connected(bool connected) {
+    is_uninstall_package_progress_signal_connected_ = connected;
+  }
+
   // Set LxdContainerCreatedSignalConnected state
   void set_lxd_container_created_signal_connected(bool connected) {
     is_lxd_container_created_signal_connected_ = connected;
@@ -131,13 +157,20 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
       vm_tools::cicerone::LxdContainerCreatedSignal_Status status) {
     lxd_container_created_signal_status_ = status;
   }
+
   // Set LxdContainerDownloadingSignalConnected state
   void set_lxd_container_downloading_signal_connected(bool connected) {
     is_lxd_container_downloading_signal_connected_ = connected;
   }
+
   // Set TremplinStartedSignalConnected state
   void set_tremplin_started_signal_connected(bool connected) {
     is_tremplin_started_signal_connected_ = connected;
+  }
+
+  // Set LxdContainerStartingSignalConnected state
+  void set_lxd_container_starting_signal_connected(bool connected) {
+    is_lxd_container_starting_signal_connected_ = connected;
   }
 
   void set_launch_container_application_response(
@@ -163,6 +196,13 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
       const vm_tools::cicerone::InstallLinuxPackageResponse&
           install_linux_package_response) {
     install_linux_package_response_ = install_linux_package_response;
+  }
+
+  void set_uninstall_package_owning_file_response(
+      const vm_tools::cicerone::UninstallPackageOwningFileResponse&
+          uninstall_package_owning_file_response) {
+    uninstall_package_owning_file_response_ =
+        uninstall_package_owning_file_response;
   }
 
   void set_create_lxd_container_response(
@@ -196,6 +236,8 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
       const vm_tools::cicerone::ContainerStartedSignal& signal);
   void NotifyTremplinStarted(
       const vm_tools::cicerone::TremplinStartedSignal& signal);
+  void NotifyLxdContainerStarting(
+      const vm_tools::cicerone::LxdContainerStartingSignal& signal);
 
  protected:
   void Init(dbus::Bus* bus) override {}
@@ -204,13 +246,18 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
   bool is_container_started_signal_connected_ = true;
   bool is_container_shutdown_signal_connected_ = true;
   bool is_install_linux_package_progress_signal_connected_ = true;
+  bool is_uninstall_package_progress_signal_connected_ = true;
   bool is_lxd_container_created_signal_connected_ = true;
   bool is_lxd_container_downloading_signal_connected_ = true;
   bool is_tremplin_started_signal_connected_ = true;
+  bool is_lxd_container_starting_signal_connected_ = true;
 
   vm_tools::cicerone::LxdContainerCreatedSignal_Status
       lxd_container_created_signal_status_ =
           vm_tools::cicerone::LxdContainerCreatedSignal::CREATED;
+  vm_tools::cicerone::LxdContainerStartingSignal_Status
+      lxd_container_starting_signal_status_ =
+          vm_tools::cicerone::LxdContainerStartingSignal::STARTED;
 
   vm_tools::cicerone::LaunchContainerApplicationResponse
       launch_container_application_response_;
@@ -218,12 +265,15 @@ class CHROMEOS_EXPORT FakeCiceroneClient : public CiceroneClient {
   vm_tools::cicerone::LinuxPackageInfoResponse get_linux_package_info_response_;
   vm_tools::cicerone::InstallLinuxPackageResponse
       install_linux_package_response_;
+  vm_tools::cicerone::UninstallPackageOwningFileResponse
+      uninstall_package_owning_file_response_;
   vm_tools::cicerone::CreateLxdContainerResponse create_lxd_container_response_;
   vm_tools::cicerone::StartLxdContainerResponse start_lxd_container_response_;
   vm_tools::cicerone::GetLxdContainerUsernameResponse
       get_lxd_container_username_response_;
   vm_tools::cicerone::SetUpLxdContainerUserResponse
       setup_lxd_container_user_response_;
+  vm_tools::cicerone::AppSearchResponse search_app_response_;
 
   base::ObserverList<Observer>::Unchecked observer_list_;
 

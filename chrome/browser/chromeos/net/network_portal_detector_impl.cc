@@ -15,17 +15,20 @@
 #include "base/single_thread_task_runner.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chromeos/chromeos_switches.h"
+#include "chrome/browser/net/system_network_context_manager.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/shill_profile_client.h"
-#include "chromeos/login/login_state.h"
+#include "chromeos/login/login_state/login_state.h"
 #include "chromeos/network/network_state.h"
 #include "chromeos/network/network_state_handler.h"
 #include "components/device_event_log/device_event_log.h"
 #include "content/public/browser/notification_service.h"
 #include "net/http/http_status_code.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
 using base::StringPrintf;
@@ -210,12 +213,21 @@ constexpr base::TimeDelta
     NetworkPortalDetectorImpl::kDelaySinceShillPortalForUMA;
 
 NetworkPortalDetectorImpl::NetworkPortalDetectorImpl(
-    network::mojom::URLLoaderFactory* loader_factory)
+    network::mojom::URLLoaderFactory* loader_factory_for_testing)
     : strategy_(PortalDetectorStrategy::CreateById(
           PortalDetectorStrategy::STRATEGY_ID_LOGIN_SCREEN,
           this)),
       weak_factory_(this) {
   NET_LOG(EVENT) << "NetworkPortalDetectorImpl::NetworkPortalDetectorImpl()";
+  network::mojom::URLLoaderFactory* loader_factory;
+  if (loader_factory_for_testing) {
+    loader_factory = loader_factory_for_testing;
+  } else {
+    shared_url_loader_factory_ =
+        g_browser_process->system_network_context_manager()
+            ->GetSharedURLLoaderFactory();
+    loader_factory = shared_url_loader_factory_.get();
+  }
   captive_portal_detector_.reset(new CaptivePortalDetector(loader_factory));
 
   // Captive portal randomization can cause problems in some environemnts.

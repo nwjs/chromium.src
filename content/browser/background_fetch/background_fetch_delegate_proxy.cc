@@ -12,8 +12,10 @@
 #include "content/browser/background_fetch/background_fetch_job_controller.h"
 #include "content/public/browser/background_fetch_description.h"
 #include "content/public/browser/background_fetch_response.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/download_manager.h"
+#include "third_party/blink/public/mojom/blob/serialized_blob.mojom.h"
 #include "ui/gfx/geometry/size.h"
 
 class SkBitmap;
@@ -26,14 +28,12 @@ class BackgroundFetchDelegateProxy::Core
     : public BackgroundFetchDelegate::Client {
  public:
   Core(const base::WeakPtr<BackgroundFetchDelegateProxy>& io_parent,
-       BackgroundFetchDelegate* delegate)
-      : io_parent_(io_parent), delegate_(delegate), weak_ptr_factory_(this) {
+       BrowserContext* browser_context)
+      : io_parent_(io_parent),
+        browser_context_(browser_context),
+        weak_ptr_factory_(this) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-    // Some BrowserContext implementations return nullptr for their delegate
-    // implementation and the feature should be disabled in that case.
-    if (delegate_)
-      delegate_->SetDelegateClient(GetWeakPtrOnUI());
+    DCHECK(browser_context_);
   }
 
   ~Core() override { DCHECK_CURRENTLY_ON(BrowserThread::UI); }
@@ -55,8 +55,10 @@ class BackgroundFetchDelegateProxy::Core
       const url::Origin& origin,
       const ResourceRequestInfo::WebContentsGetter& wc_getter,
       BackgroundFetchDelegate::GetPermissionForOriginCallback callback) {
-    if (delegate_) {
-      delegate_->GetPermissionForOrigin(
+    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+    if (auto* delegate = browser_context_->GetBackgroundFetchDelegate()) {
+      delegate->GetPermissionForOrigin(
           origin, wc_getter,
           base::BindOnce(&Core::ForwardGetPermissionForOriginCallbackToIO,
                          weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
@@ -77,8 +79,8 @@ class BackgroundFetchDelegateProxy::Core
       BackgroundFetchDelegate::GetIconDisplaySizeCallback callback) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-    if (delegate_) {
-      delegate_->GetIconDisplaySize(
+    if (auto* delegate = browser_context_->GetBackgroundFetchDelegate()) {
+      delegate->GetIconDisplaySize(
           base::BindOnce(&Core::ForwardGetIconDisplaySizeCallbackToIO,
                          weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
     } else {
@@ -92,15 +94,10 @@ class BackgroundFetchDelegateProxy::Core
       std::unique_ptr<BackgroundFetchDescription> fetch_description) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-    // If there are multiple clients created we might have registered the wrong
-    // one with the delegate by overwriting it. This check makes sure that we
-    // register the correct client until multiple clients are supported.
-    // TODO(crbug.com/907075): Support multiple clients.
-    if (delegate_ && delegate_->client().get() != this)
-      delegate_->SetDelegateClient(GetWeakPtrOnUI());
-
-    if (delegate_)
-      delegate_->CreateDownloadJob(std::move(fetch_description));
+    auto* delegate = browser_context_->GetBackgroundFetchDelegate();
+    if (delegate)
+      delegate->CreateDownloadJob(GetWeakPtrOnUI(),
+                                  std::move(fetch_description));
   }
 
   void StartRequest(const std::string& job_unique_id,
@@ -112,10 +109,11 @@ class BackgroundFetchDelegateProxy::Core
     // TODO(crbug/757760): This can be nullptr, if the delegate has shut down,
     // in which case we need to make sure this is retried when the browser
     // restarts.
-    if (!delegate_)
+    auto* delegate = browser_context_->GetBackgroundFetchDelegate();
+    if (!delegate)
       return;
 
-    const blink::mojom::FetchAPIRequest& fetch_request =
+    const blink::mojom::FetchAPIRequestPtr& fetch_request =
         request->fetch_request();
 
     const net::NetworkTrafficAnnotationTag traffic_annotation(
@@ -150,39 +148,37 @@ class BackgroundFetchDelegateProxy::Core
     // TODO(peter): The |headers| should be populated with all the properties
     // set in the |fetch_request| structure.
     net::HttpRequestHeaders headers;
-    for (const auto& pair : fetch_request.headers)
+    for (const auto& pair : fetch_request->headers)
       headers.SetHeader(pair.first, pair.second);
 
     // Append the Origin header for requests whose CORS flag is set, or whose
     // request method is not GET or HEAD. See section 3.1 of the standard:
     // https://fetch.spec.whatwg.org/#origin-header
-    if (fetch_request.mode == network::mojom::FetchRequestMode::kCors ||
-        fetch_request.mode ==
+    if (fetch_request->mode == network::mojom::FetchRequestMode::kCors ||
+        fetch_request->mode ==
             network::mojom::FetchRequestMode::kCorsWithForcedPreflight ||
-        (fetch_request.method != "GET" && fetch_request.method != "HEAD")) {
+        (fetch_request->method != "GET" && fetch_request->method != "HEAD")) {
       headers.SetHeader("Origin", origin.Serialize());
     }
 
-    // TODO(crbug.com/774054): Update |has_request_body| after the cache storage
-    // supports request bodies.
-    delegate_->DownloadUrl(job_unique_id, request->download_guid(),
-                           fetch_request.method, fetch_request.url,
-                           traffic_annotation, headers,
-                           /* has_request_body= */ false);
+    delegate->DownloadUrl(
+        job_unique_id, request->download_guid(), fetch_request->method,
+        fetch_request->url, traffic_annotation, headers,
+        /* has_request_body= */ request->request_body_size() > 0u);
   }
 
   void Abort(const std::string& job_unique_id) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-    if (delegate_)
-      delegate_->Abort(job_unique_id);
+    if (auto* delegate = browser_context_->GetBackgroundFetchDelegate())
+      delegate->Abort(job_unique_id);
   }
 
   void MarkJobComplete(const std::string& job_unique_id) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-    if (delegate_)
-      delegate_->MarkJobComplete(job_unique_id);
+    if (auto* delegate = browser_context_->GetBackgroundFetchDelegate())
+      delegate->MarkJobComplete(job_unique_id);
   }
 
   void UpdateUI(const std::string& job_unique_id,
@@ -190,8 +186,8 @@ class BackgroundFetchDelegateProxy::Core
                 const base::Optional<SkBitmap>& icon) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-    if (delegate_)
-      delegate_->UpdateUI(job_unique_id, title, icon);
+    if (auto* delegate = browser_context_->GetBackgroundFetchDelegate())
+      delegate->UpdateUI(job_unique_id, title, icon);
   }
 
   // BackgroundFetchDelegate::Client implementation:
@@ -200,6 +196,7 @@ class BackgroundFetchDelegateProxy::Core
       blink::mojom::BackgroundFetchFailureReason reason_to_abort) override;
   void OnDownloadUpdated(const std::string& job_unique_id,
                          const std::string& guid,
+                         uint64_t bytes_uploaded,
                          uint64_t bytes_downloaded) override;
   void OnDownloadComplete(
       const std::string& job_unique_id,
@@ -210,7 +207,6 @@ class BackgroundFetchDelegateProxy::Core
       const std::string& guid,
       std::unique_ptr<content::BackgroundFetchResponse> response) override;
   void OnUIActivated(const std::string& unique_id) override;
-  void OnDelegateShutdown() override;
   void OnUIUpdated(const std::string& unique_id) override;
   void GetUploadData(
       const std::string& job_unique_id,
@@ -221,9 +217,7 @@ class BackgroundFetchDelegateProxy::Core
   // Weak reference to the IO thread outer class that owns us.
   base::WeakPtr<BackgroundFetchDelegateProxy> io_parent_;
 
-  // Delegate is owned elsewhere and is valid from construction until
-  // OnDelegateShutDown (if not initially nullptr).
-  BackgroundFetchDelegate* delegate_;
+  BrowserContext* browser_context_;
 
   base::WeakPtrFactory<Core> weak_ptr_factory_;
 
@@ -243,12 +237,14 @@ void BackgroundFetchDelegateProxy::Core::OnJobCancelled(
 void BackgroundFetchDelegateProxy::Core::OnDownloadUpdated(
     const std::string& job_unique_id,
     const std::string& guid,
+    uint64_t bytes_uploaded,
     uint64_t bytes_downloaded) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   base::PostTaskWithTraits(
       FROM_HERE, {BrowserThread::IO},
       base::BindOnce(&BackgroundFetchDelegateProxy::OnDownloadUpdated,
-                     io_parent_, job_unique_id, guid, bytes_downloaded));
+                     io_parent_, job_unique_id, guid, bytes_uploaded,
+                     bytes_downloaded));
 }
 
 void BackgroundFetchDelegateProxy::Core::OnDownloadComplete(
@@ -284,10 +280,6 @@ void BackgroundFetchDelegateProxy::Core::OnUIActivated(
                      job_unique_id));
 }
 
-void BackgroundFetchDelegateProxy::Core::OnDelegateShutdown() {
-  delegate_ = nullptr;
-}
-
 void BackgroundFetchDelegateProxy::Core::OnUIUpdated(
     const std::string& job_unique_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -309,10 +301,10 @@ void BackgroundFetchDelegateProxy::Core::GetUploadData(
   BackgroundFetchDelegate::GetUploadDataCallback wrapped_callback =
       base::BindOnce(
           [](BackgroundFetchDelegate::GetUploadDataCallback callback,
-             scoped_refptr<network::ResourceRequestBody> body) {
+             blink::mojom::SerializedBlobPtr blob) {
             base::PostTaskWithTraits(
                 FROM_HERE, {BrowserThread::UI},
-                base::BindOnce(std::move(callback), std::move(body)));
+                base::BindOnce(std::move(callback), std::move(blob)));
           },
           std::move(callback));
 
@@ -341,14 +333,14 @@ BackgroundFetchDelegateProxy::JobDetails::JobDetails(JobDetails&& details) =
 BackgroundFetchDelegateProxy::JobDetails::~JobDetails() = default;
 
 BackgroundFetchDelegateProxy::BackgroundFetchDelegateProxy(
-    BackgroundFetchDelegate* delegate)
+    BrowserContext* browser_context)
     : weak_ptr_factory_(this) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   // Normally it would be unsafe to obtain a weak pointer on the UI thread from
   // a factory that lives on the IO thread, but it's ok in the constructor as
   // |this| can't be destroyed before the constructor finishes.
-  ui_core_.reset(new Core(weak_ptr_factory_.GetWeakPtr(), delegate));
+  ui_core_.reset(new Core(weak_ptr_factory_.GetWeakPtr(), browser_context));
 
   // Since this constructor runs on the UI thread, a WeakPtr can be safely
   // obtained from the Core.
@@ -463,10 +455,11 @@ void BackgroundFetchDelegateProxy::OnJobCancelled(
     const std::string& job_unique_id,
     blink::mojom::BackgroundFetchFailureReason reason_to_abort) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  DCHECK(reason_to_abort ==
-             blink::mojom::BackgroundFetchFailureReason::CANCELLED_FROM_UI ||
-         reason_to_abort == blink::mojom::BackgroundFetchFailureReason::
-                                TOTAL_DOWNLOAD_SIZE_EXCEEDED);
+  DCHECK(
+      reason_to_abort ==
+          blink::mojom::BackgroundFetchFailureReason::CANCELLED_FROM_UI ||
+      reason_to_abort ==
+          blink::mojom::BackgroundFetchFailureReason::DOWNLOAD_TOTAL_EXCEEDED);
 
   // TODO(delphick): The controller may not exist as persistence is not yet
   // implemented.
@@ -498,6 +491,8 @@ void BackgroundFetchDelegateProxy::DidStartRequest(
   DCHECK(request_info);
   DCHECK_EQ(guid, request_info->download_guid());
 
+  request_info->PopulateWithResponse(std::move(response));
+
   if (job_details.controller)
     job_details.controller->DidStartRequest(request_info);
 }
@@ -524,6 +519,7 @@ void BackgroundFetchDelegateProxy::DidUpdateUI(
 void BackgroundFetchDelegateProxy::OnDownloadUpdated(
     const std::string& job_unique_id,
     const std::string& guid,
+    uint64_t bytes_uploaded,
     uint64_t bytes_downloaded) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -541,7 +537,8 @@ void BackgroundFetchDelegateProxy::OnDownloadUpdated(
         job_details.current_request_map[guid];
     DCHECK(request_info);
     DCHECK_EQ(guid, request_info->download_guid());
-    job_details.controller->DidUpdateRequest(request_info, bytes_downloaded);
+    job_details.controller->DidUpdateRequest(request_info, bytes_uploaded,
+                                             bytes_downloaded);
   }
 }
 
@@ -576,10 +573,8 @@ void BackgroundFetchDelegateProxy::GetUploadData(
   auto& job_details = job_details_map_.find(job_unique_id)->second;
   DCHECK(job_details.controller);
 
-  const auto& request =
-      job_details.current_request_map[download_guid]->fetch_request_ptr();
-  job_details.controller->GetUploadData(
-      BackgroundFetchSettledFetch::CloneRequest(request), std::move(callback));
+  const auto& request = job_details.current_request_map[download_guid];
+  job_details.controller->GetUploadData(request, std::move(callback));
 }
 
 }  // namespace content

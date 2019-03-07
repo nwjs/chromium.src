@@ -56,6 +56,8 @@ class CC_EXPORT SingleThreadProxy : public Proxy,
   void Start() override;
   void Stop() override;
   void SetMutator(std::unique_ptr<LayerTreeMutator> mutator) override;
+  void SetPaintWorkletLayerPainter(
+      std::unique_ptr<PaintWorkletLayerPainter> painter) override;
   bool SupportsImplScrolling() const override;
   bool MainFrameWillHappenForTesting() override;
   void SetURLForUkm(const GURL& url) override {
@@ -111,7 +113,7 @@ class CC_EXPORT SingleThreadProxy : public Proxy,
       std::unique_ptr<MutatorEvents> events) override;
   bool IsInsideDraw() override;
   void RenewTreePriority() override {}
-  void PostDelayedAnimationTaskOnImplThread(const base::Closure& task,
+  void PostDelayedAnimationTaskOnImplThread(base::OnceClosure task,
                                             base::TimeDelta delay) override {}
   void DidActivateSyncTree() override;
   void WillPrepareTiles() override;
@@ -126,6 +128,8 @@ class CC_EXPORT SingleThreadProxy : public Proxy,
       uint32_t frame_token,
       std::vector<LayerTreeHost::PresentationTimeCallback> callbacks,
       const gfx::PresentationFeedback& feedback) override;
+  void DidGenerateLocalSurfaceIdAllocationOnImplThread(
+      const viz::LocalSurfaceIdAllocation& allocation) override;
 
   void RequestNewLayerTreeFrameSink();
 
@@ -188,7 +192,7 @@ class CC_EXPORT SingleThreadProxy : public Proxy,
   bool layer_tree_frame_sink_lost_;
 
   // This is the callback for the scheduled RequestNewLayerTreeFrameSink.
-  base::CancelableClosure layer_tree_frame_sink_creation_callback_;
+  base::CancelableOnceClosure layer_tree_frame_sink_creation_callback_;
 
   base::WeakPtr<SingleThreadProxy> frame_sink_bound_weak_ptr_;
 

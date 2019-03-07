@@ -51,7 +51,7 @@ PageActionIconView::PageActionIconView(CommandUpdater* command_updater,
       active_(false),
       suppress_mouse_released_action_(false) {
   set_ink_drop_visible_opacity(
-      GetOmniboxStateAlpha(OmniboxPartState::SELECTED));
+      GetOmniboxStateOpacity(OmniboxPartState::SELECTED));
 }
 
 PageActionIconView::~PageActionIconView() {}
@@ -193,7 +193,7 @@ PageActionIconView::CreateInkDropHighlight() const {
           gfx::RectF(GetMirroredRect(GetContentsBounds())).CenterPoint(),
           size());
   highlight->set_visible_opacity(
-      GetOmniboxStateAlpha(OmniboxPartState::HOVERED));
+      GetOmniboxStateOpacity(OmniboxPartState::HOVERED));
   return highlight;
 }
 
@@ -219,6 +219,10 @@ void PageActionIconView::ExecuteCommand(ExecuteSource source) {
   OnExecuting(source);
   if (command_updater_)
     command_updater_->ExecuteCommand(command_id_);
+}
+
+const gfx::VectorIcon& PageActionIconView::GetVectorIconBadge() const {
+  return gfx::kNoneIcon;
 }
 
 void PageActionIconView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
@@ -250,7 +254,8 @@ void PageActionIconView::UpdateIconImage() {
                            ? theme->GetSystemColor(
                                  ui::NativeTheme::kColorId_ProminentButtonColor)
                            : icon_color_;
-  SetImage(gfx::CreateVectorIcon(GetVectorIcon(), icon_size_, icon_color));
+  SetImage(gfx::CreateVectorIconWithBadge(GetVectorIcon(), icon_size_,
+                                          icon_color, GetVectorIconBadge()));
 }
 
 void PageActionIconView::SetActiveInternal(bool active) {

@@ -320,7 +320,7 @@ size_t QuicChromiumClientStream::Handle::NumBytesConsumed() const {
 bool QuicChromiumClientStream::Handle::HasBytesToRead() const {
   if (!stream_)
     return false;
-  return stream_->sequencer()->HasBytesToRead();
+  return stream_->HasBytesToRead();
 }
 
 bool QuicChromiumClientStream::Handle::IsDoneReading() const {
@@ -416,6 +416,24 @@ QuicChromiumClientStream::QuicChromiumClientStream(
       trailing_headers_frame_len_(0),
       weak_factory_(this) {}
 
+QuicChromiumClientStream::QuicChromiumClientStream(
+    quic::PendingStream pending,
+    quic::QuicSpdyClientSessionBase* session,
+    quic::StreamType type,
+    const NetLogWithSource& net_log,
+    const NetworkTrafficAnnotationTag& traffic_annotation)
+    : quic::QuicSpdyStream(std::move(pending), session, type),
+      net_log_(net_log),
+      handle_(nullptr),
+      headers_delivered_(false),
+      initial_headers_sent_(false),
+      session_(session),
+      quic_version_(session->connection()->transport_version()),
+      can_migrate_to_cellular_network_(true),
+      initial_headers_frame_len_(0),
+      trailing_headers_frame_len_(0),
+      weak_factory_(this) {}
+
 QuicChromiumClientStream::~QuicChromiumClientStream() {
   if (handle_)
     handle_->OnClose();
@@ -486,7 +504,7 @@ void QuicChromiumClientStream::OnBodyAvailable() {
     return;
   }
 
-  if (!sequencer()->HasBytesToRead() && !FinishedReadingTrailers()) {
+  if (!HasBytesToRead() && !FinishedReadingTrailers()) {
     // If there is no data to read, wait until either FIN is received or
     // trailers are delivered.
     return;
@@ -537,7 +555,7 @@ bool QuicChromiumClientStream::WriteStreamData(quic::QuicStringPiece data,
   // Must not be called when data is buffered.
   DCHECK(!HasBufferedData());
   // Writes the data, or buffers it.
-  WriteOrBufferData(data, fin, nullptr);
+  WriteOrBufferBody(data, fin, nullptr);
   return !HasBufferedData();  // Was all data written?
 }
 
@@ -551,7 +569,7 @@ bool QuicChromiumClientStream::WritevStreamData(
   for (size_t i = 0; i < buffers.size(); ++i) {
     bool is_fin = fin && (i == buffers.size() - 1);
     quic::QuicStringPiece string_data(buffers[i]->data(), lengths[i]);
-    WriteOrBufferData(string_data, is_fin, nullptr);
+    WriteOrBufferBody(string_data, is_fin, nullptr);
   }
   return !HasBufferedData();  // Was all data written?
 }
@@ -684,7 +702,8 @@ void QuicChromiumClientStream::DisableConnectionMigrationToCellularNetwork() {
 }
 
 bool QuicChromiumClientStream::IsFirstStream() {
-  return id() == quic::QuicUtils::GetHeadersStreamId(quic_version_) + 2;
+  return id() == quic::QuicUtils::GetHeadersStreamId(quic_version_) +
+                     quic::QuicUtils::StreamIdDelta(quic_version_);
 }
 
 }  // namespace net

@@ -54,7 +54,7 @@ class ArcWindowDelegateImpl : public ArcImeService::ArcWindowDelegate {
   ~ArcWindowDelegateImpl() override = default;
 
   bool IsInArcAppWindow(const aura::Window* window) const override {
-    if (!exo::WMHelper::GetInstance())
+    if (!exo::WMHelper::HasInstance())
       return false;
     aura::Window* active = exo::WMHelper::GetInstance()->GetActiveWindow();
     for (; window; window = window->parent()) {
@@ -205,7 +205,7 @@ void ArcImeService::ReattachInputMethod(aura::Window* old_window,
 void ArcImeService::OnWindowInitialized(aura::Window* new_window) {
   // TODO(mash): Support virtual keyboard under MASH. There is no
   // KeyboardController in the browser process under MASH.
-  if (!features::IsUsingWindowService() &&
+  if (!features::IsMultiProcessMash() &&
       keyboard::KeyboardController::HasInstance()) {
     auto* keyboard_controller = keyboard::KeyboardController::Get();
     if (keyboard_controller->IsEnabled() &&
@@ -328,7 +328,7 @@ void ArcImeService::RequestHideIme() {
 
   // TODO(mash): Support virtual keyboard under MASH. There is no
   // KeyboardController in the browser process under MASH.
-  if (!features::IsUsingWindowService() &&
+  if (!features::IsMultiProcessMash() &&
       keyboard::KeyboardController::HasInstance()) {
     auto* keyboard_controller = keyboard::KeyboardController::Get();
     if (keyboard_controller->IsEnabled())
@@ -442,7 +442,7 @@ bool ArcImeService::GetTextRange(gfx::Range* range) const {
   return true;
 }
 
-bool ArcImeService::GetSelectionRange(gfx::Range* range) const {
+bool ArcImeService::GetEditableSelectionRange(gfx::Range* range) const {
   if (!selection_range_.IsValid())
     return false;
   *range = selection_range_;
@@ -502,7 +502,7 @@ bool ArcImeService::GetCompositionTextRange(gfx::Range* range) const {
   return false;
 }
 
-bool ArcImeService::SetSelectionRange(const gfx::Range& range) {
+bool ArcImeService::SetEditableSelectionRange(const gfx::Range& range) {
   return false;
 }
 

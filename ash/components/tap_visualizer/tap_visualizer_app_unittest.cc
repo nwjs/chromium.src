@@ -26,7 +26,7 @@ class TapVisualizerAppTestApi {
   explicit TapVisualizerAppTestApi(TapVisualizerApp* app) : app_(app) {}
   ~TapVisualizerAppTestApi() = default;
 
-  void Start() { app_->Start(); }
+  void Show() { app_->Show(); }
 
   bool HasRendererForDisplay(int64_t display_id) {
     return base::ContainsKey(app_->display_id_to_renderer_, display_id);
@@ -81,9 +81,9 @@ class TapVisualizerAppTest : public aura::test::AuraTestBase {
 
 TEST_F(TapVisualizerAppTest, Basics) {
   // Simulate the service starting.
-  TapVisualizerApp app;
+  TapVisualizerApp app(nullptr);
   TapVisualizerAppTestApi test_api(&app);
-  test_api.Start();
+  test_api.Show();
 
   // A fullscreen widget is created.
   views::Widget* widget = test_api.GetWidgetForDisplay(kFirstDisplayId);
@@ -111,9 +111,9 @@ TEST_F(TapVisualizerAppTest, MultiDisplay) {
       display::DisplayList::Type::NOT_PRIMARY);
 
   // Simulate the service starting.
-  TapVisualizerApp app;
+  TapVisualizerApp app(nullptr);
   TapVisualizerAppTestApi test_api(&app);
-  test_api.Start();
+  test_api.Show();
 
   // Two renderers are created.
   EXPECT_TRUE(test_api.HasRendererForDisplay(kFirstDisplayId));

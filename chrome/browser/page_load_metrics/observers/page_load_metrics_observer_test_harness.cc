@@ -50,7 +50,13 @@ void PageLoadMetricsObserverTestHarness::StartNavigation(const GURL& gurl) {
 
 void PageLoadMetricsObserverTestHarness::SimulateTimingUpdate(
     const mojom::PageLoadTiming& timing) {
-  tester_->SimulateTimingAndMetadataUpdate(timing, mojom::PageLoadMetadata());
+  tester_->SimulateTimingUpdate(timing);
+}
+
+void PageLoadMetricsObserverTestHarness::SimulateTimingUpdate(
+    const mojom::PageLoadTiming& timing,
+    content::RenderFrameHost* rfh) {
+  tester_->SimulateTimingUpdate(timing, rfh);
 }
 
 void PageLoadMetricsObserverTestHarness::SimulateTimingAndMetadataUpdate(
@@ -62,6 +68,12 @@ void PageLoadMetricsObserverTestHarness::SimulateTimingAndMetadataUpdate(
 void PageLoadMetricsObserverTestHarness::SimulateResourceDataUseUpdate(
     const std::vector<mojom::ResourceDataUpdatePtr>& resources) {
   tester_->SimulateResourceDataUseUpdate(resources);
+}
+
+void PageLoadMetricsObserverTestHarness::SimulateResourceDataUseUpdate(
+    const std::vector<mojom::ResourceDataUpdatePtr>& resources,
+    content::RenderFrameHost* render_frame_host) {
+  tester_->SimulateResourceDataUseUpdate(resources, render_frame_host);
 }
 
 void PageLoadMetricsObserverTestHarness::SimulateFeaturesUpdate(

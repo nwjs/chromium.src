@@ -7,10 +7,10 @@
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/trace_event/trace_event.h"
+#include "ui/gl/buildflags.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_context_cgl.h"
 #include "ui/gl/gl_context_stub.h"
-#include "ui/gl/gl_features.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_share_group.h"
 #include "ui/gl/gl_surface.h"
@@ -63,12 +63,12 @@ class NoOpGLSurface : public GLSurface {
 std::vector<GLImplementation> GetAllowedGLImplementations() {
   std::vector<GLImplementation> impls;
   impls.push_back(kGLImplementationDesktopGLCoreProfile);
+  impls.push_back(kGLImplementationDesktopGL);
+  impls.push_back(kGLImplementationAppleGL);
 #if BUILDFLAG(USE_EGL_ON_MAC)
   impls.push_back(kGLImplementationEGLGLES2);
   impls.push_back(kGLImplementationSwiftShaderGL);
 #endif  // BUILDFLAG(USE_EGL_ON_MAC)
-  impls.push_back(kGLImplementationDesktopGL);
-  impls.push_back(kGLImplementationAppleGL);
   return impls;
 }
 

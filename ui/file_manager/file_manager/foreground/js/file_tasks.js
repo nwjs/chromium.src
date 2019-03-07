@@ -378,10 +378,11 @@ FileTasks.isOffline_ = function(volumeManager) {
 FileTasks.recordEnumWithOnlineAndOffline_ = function(
     volumeManager, name, value, values) {
   metrics.recordEnum(name, value, values);
-  if (FileTasks.isOffline_(volumeManager))
+  if (FileTasks.isOffline_(volumeManager)) {
     metrics.recordEnum(name + '.Offline', value, values);
-  else
+  } else {
     metrics.recordEnum(name + '.Online', value, values);
+  }
 };
 
 /**
@@ -523,10 +524,11 @@ FileTasks.annotateTasks_ = function(tasks, entries) {
         task.iconType = 'archive';
         task.title = loadTimeData.getString('MOUNT_ARCHIVE');
       } else if (taskParts[2] === 'open-hosted-generic') {
-        if (entries.length > 1)
+        if (entries.length > 1) {
           task.iconType = 'generic';
-        else // Use specific icon.
+        } else {  // Use specific icon.
           task.iconType = FileType.getIcon(entries[0]);
+        }
         task.title = loadTimeData.getString('TASK_OPEN');
       } else if (taskParts[2] === 'open-hosted-gdoc') {
         task.iconType = 'gdoc';
@@ -542,14 +544,16 @@ FileTasks.annotateTasks_ = function(tasks, entries) {
         task.title = loadTimeData.getString('TASK_INSTALL_LINUX_PACKAGE');
       } else if (taskParts[2] === 'view-swf') {
         // Do not render this task if disabled.
-        if (!loadTimeData.getBoolean('SWF_VIEW_ENABLED'))
+        if (!loadTimeData.getBoolean('SWF_VIEW_ENABLED')) {
           continue;
+        }
         task.iconType = 'generic';
         task.title = loadTimeData.getString('TASK_VIEW');
       } else if (taskParts[2] === 'view-pdf') {
         // Do not render this task if disabled.
-        if (!loadTimeData.getBoolean('PDF_VIEW_ENABLED'))
+        if (!loadTimeData.getBoolean('PDF_VIEW_ENABLED')) {
           continue;
+        }
         task.iconType = 'pdf';
         task.title = loadTimeData.getString('TASK_VIEW');
       } else if (taskParts[2] === 'view-in-browser') {
@@ -587,8 +591,9 @@ FileTasks.annotateTasks_ = function(tasks, entries) {
         default:
           console.error('Invalid task verb: ' + task.verb + '.');
       }
-      if (verbButtonLabel)
+      if (verbButtonLabel) {
         task.label = loadTimeData.getStringF(verbButtonLabel, task.title);
+      }
     }
 
     result.push(task);
@@ -631,8 +636,9 @@ FileTasks.taskRequiresCrostiniSharing = function(task) {
 FileTasks.prototype.maybeShareWithCrostiniOrShowDialog_ = function(
     task, callback) {
   // Check if this is a crostini task.
-  if (!FileTasks.taskRequiresCrostiniSharing(task))
+  if (!FileTasks.taskRequiresCrostiniSharing(task)) {
     return callback();
+  }
 
   let showUnableToOpen = false;
   const entriesToShare = [];
@@ -734,8 +740,9 @@ FileTasks.prototype.executeDefaultInternal_ = function(opt_callback) {
 
   // We don't have tasks, so try to show a file in a browser tab.
   // We only do that for single selection to avoid confusion.
-  if (this.entries_.length !== 1)
+  if (this.entries_.length !== 1) {
     return;
+  }
 
   var filename = this.entries_[0].name;
   var extension = util.splitExtension(filename)[1] || null;
@@ -806,8 +813,9 @@ FileTasks.prototype.executeDefaultInternal_ = function(opt_callback) {
         break;
       case 'message_sent':
         util.isTeleported(window).then(function(teleported) {
-          if (teleported)
+          if (teleported) {
             this.ui_.showOpenInOtherDesktopAlert(this.entries_);
+          }
         }.bind(this));
         callback(true, this.entries_);
         break;
@@ -815,6 +823,10 @@ FileTasks.prototype.executeDefaultInternal_ = function(opt_callback) {
         callback(true, this.entries_);
         break;
       case 'failed':
+        // Suppress the Unchecked runtime.lastError console message
+        if (chrome.runtime.lastError) {
+          console.debug(chrome.runtime.lastError.message);
+        }
         onViewFilesFailure();
         break;
     }
@@ -861,11 +873,13 @@ FileTasks.prototype.executeInternal_ = function(task) {
         FileTasks.recordZipHandlerUMA_(task.taskId);
         chrome.fileManagerPrivate.executeTask(
             task.taskId, this.entries_, (result) => {
-              if (result !== 'message_sent')
+              if (result !== 'message_sent') {
                 return;
+              }
               util.isTeleported(window).then((teleported) => {
-                if (teleported)
+                if (teleported) {
                   this.ui_.showOpenInOtherDesktopAlert(this.entries_);
+                }
               });
             });
       }
@@ -888,8 +902,9 @@ FileTasks.prototype.checkAvailability_ = function(callback) {
     var okEntriesNum = 0;
     for (var i = 0; i < entries.length; i++) {
       // If got no properties, we safely assume that item is available.
-      if (props[i] && (props[i][name] || entries[i].isDirectory))
+      if (props[i] && (props[i][name] || entries[i].isDirectory)) {
         okEntriesNum++;
+      }
     }
     return okEntriesNum === props.length;
   };
@@ -950,8 +965,9 @@ FileTasks.prototype.checkAvailability_ = function(callback) {
 
           var sizeToDownload = 0;
           for (var i = 0; i !== this.entries_.length; i++) {
-            if (!props[i].availableWhenMetered)
+            if (!props[i].availableWhenMetered) {
               sizeToDownload += props[i].size;
+            }
           }
           this.ui_.confirmDialog.show(
               loadTimeData.getStringF(
@@ -1048,7 +1064,7 @@ FileTasks.prototype.mountArchivesInternal_ = function() {
  * options menu.
  *
  * @param {!cr.ui.ComboButton} openCombobutton The open task picker combobutton.
- * @param {!cr.ui.MenuButton} shareMenuButton The menu button for share options.
+ * @param {!cr.ui.MultiMenuButton} shareMenuButton Button for share options.
  * @public
  */
 FileTasks.prototype.display = function(openCombobutton, shareMenuButton) {
@@ -1056,10 +1072,11 @@ FileTasks.prototype.display = function(openCombobutton, shareMenuButton) {
   var otherTasks = [];
   for (var i = 0; i < this.tasks_.length; i++) {
     var task = this.tasks_[i];
-    if (FileTasks.isOpenTask(task))
+    if (FileTasks.isOpenTask(task)) {
       openTasks.push(task);
-    else
+    } else {
       otherTasks.push(task);
+    }
   }
   this.updateOpenComboButton_(openCombobutton, openTasks);
   this.updateShareMenuButton_(shareMenuButton, otherTasks);
@@ -1072,8 +1089,9 @@ FileTasks.prototype.display = function(openCombobutton, shareMenuButton) {
  */
 FileTasks.prototype.updateOpenComboButton_ = function(combobutton, tasks) {
   combobutton.hidden = tasks.length == 0;
-  if (tasks.length == 0)
+  if (tasks.length == 0) {
     return;
+  }
 
   combobutton.clear();
 
@@ -1111,24 +1129,50 @@ FileTasks.prototype.updateOpenComboButton_ = function(combobutton, tasks) {
 };
 
 /**
+ * The number of menu-item entries in the top level menu
+ * before we split and show the 'More actions' option
+ * @const {number}
+ */
+const NUM_TOP_LEVEL_ENTRIES = 6;
+/**
+ * Don't split the menu if the number of entries is smaller
+ * than this. e.g. with 7 entries it'd be poor to show a
+ * sub-menu with a single entry.
+ * @const {number}
+ */
+const MAX_NON_SPLIT_ENTRIES = 10;
+
+/**
  * Setup a menu button for sharing options based on the given tasks.
- * @param {!cr.ui.MenuButton} shareMenuButton
+ * @param {!cr.ui.MultiMenuButton} shareMenuButton
  * @param {!Array<!chrome.fileManagerPrivate.FileTask>} tasks
  */
 FileTasks.prototype.updateShareMenuButton_ = function(shareMenuButton, tasks) {
-  var driveShareCommand =
+  let driveShareCommand =
       shareMenuButton.menu.querySelector('cr-menu-item[command="#share"]');
-  var driveShareCommandSeparator =
+  let driveShareCommandSeparator =
       shareMenuButton.menu.querySelector('#drive-share-separator');
+  let moreActionsSeparator =
+      shareMenuButton.menu.querySelector('#more-actions-separator');
 
   // Hide share icon for New Folder creation.  See https://crbug.com/571355.
   shareMenuButton.hidden = (driveShareCommand.disabled && tasks.length == 0) ||
       this.namingController_.isRenamingInProgress();
+  moreActionsSeparator.hidden = true;
 
   // Show the separator if Drive share command is enabled and there is at least
   // one other share actions.
   driveShareCommandSeparator.hidden =
       driveShareCommand.disabled || tasks.length == 0;
+
+  // Temporarily remove the more actions item while the rest of the menu
+  // items are being cleared out so we don't lose it and make it hidden for now
+  let moreActions = shareMenuButton.menu.querySelector(
+      'cr-menu-item[command="#show-submenu"]');
+  moreActions.remove();
+  moreActions.setAttribute('hidden', '');
+  // Remove the separator as well
+  moreActionsSeparator.remove();
 
   // Clear menu items except for drive share menu and a separator for it.
   // As querySelectorAll() returns live NodeList, we need to copy elements to
@@ -1139,11 +1183,25 @@ FileTasks.prototype.updateShareMenuButton_ = function(shareMenuButton, tasks) {
     var item = itemsToRemove[i];
     item.parentNode.removeChild(item);
   }
+  // Clear menu items in the overflow sub-menu since we'll repopulate it
+  // with any relevant items below.
+  if (shareMenuButton.overflow !== null) {
+    while (shareMenuButton.overflow.firstChild !== null) {
+      shareMenuButton.overflow.removeChild(shareMenuButton.overflow.firstChild);
+    }
+  }
 
   // Add menu items for the new tasks.
   var items = this.createItems_(tasks);
+  let menu = shareMenuButton.menu;
   for (var i = 0; i < items.length; i++) {
-    var menuitem = shareMenuButton.menu.addMenuItem(items[i]);
+    // If we have at least 10 entries, split off into a sub-menu
+    if (i == NUM_TOP_LEVEL_ENTRIES && MAX_NON_SPLIT_ENTRIES <= items.length) {
+      moreActions.removeAttribute('hidden');
+      moreActionsSeparator.hidden = false;
+      menu = shareMenuButton.overflow;
+    }
+    var menuitem = menu.addMenuItem(items[i]);
     cr.ui.decorate(menuitem, cr.ui.FilesMenuItem);
     menuitem.data = items[i];
     if (items[i].iconType) {
@@ -1151,6 +1209,9 @@ FileTasks.prototype.updateShareMenuButton_ = function(shareMenuButton, tasks) {
       menuitem.setAttribute('file-type-icon', items[i].iconType);
     }
   }
+  // Replace the more actions menu item and separator
+  shareMenuButton.menu.appendChild(moreActionsSeparator);
+  shareMenuButton.menu.appendChild(moreActions);
 };
 
 /**
@@ -1181,14 +1242,16 @@ FileTasks.prototype.createItems_ = function(tasks) {
   items.sort(function(a, b) {
     // Sort by isDefaultTask.
     var isDefault = (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0);
-    if (isDefault !== 0)
+    if (isDefault !== 0) {
       return isDefault;
+    }
 
     // Sort by last-executed time.
     var aTime = this.taskHistory_.getLastExecutedTime(a.task.taskId);
     var bTime = this.taskHistory_.getLastExecutedTime(b.task.taskId);
-    if (aTime != bTime)
+    if (aTime != bTime) {
       return bTime - aTime;
+    }
 
     // Sort by label.
     return a.label.localeCompare(b.label);
@@ -1253,13 +1316,16 @@ FileTasks.prototype.showTaskPicker = function(
       this.getNonOpenTaskItems() :
       this.getOpenTaskItems();
   var items = this.createItems_(tasks);
-  if (pickerType == FileTasks.TaskPickerType.ChangeDefault)
+  if (pickerType == FileTasks.TaskPickerType.ChangeDefault) {
     items = items.filter(item => !item.isGenericFileHandler);
+  }
 
   var defaultIdx = 0;
   for (var j = 0; j < items.length; j++) {
-    if (this.defaultTask_ && items[j].task.taskId === this.defaultTask_.taskId)
+    if (this.defaultTask_ &&
+        items[j].task.taskId === this.defaultTask_.taskId) {
       defaultIdx = j;
+    }
   }
 
   taskDialog.showDefaultTaskDialog(

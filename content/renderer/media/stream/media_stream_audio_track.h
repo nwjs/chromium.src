@@ -13,8 +13,9 @@
 #include "base/memory/weak_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/thread_checker.h"
+#include "content/common/content_export.h"
 #include "content/renderer/media/stream/media_stream_audio_deliverer.h"
-#include "content/renderer/media/stream/media_stream_track.h"
+#include "third_party/blink/public/platform/modules/mediastream/web_platform_media_stream_track.h"
 
 namespace content {
 
@@ -25,7 +26,8 @@ class MediaStreamAudioSource;
 // MediaStreamAudioSource to one or more MediaStreamAudioSinks. An instance of
 // this class is owned by blink::WebMediaStreamTrack, and clients should use
 // From() to gain access to a MediaStreamAudioTrack.
-class CONTENT_EXPORT MediaStreamAudioTrack : public MediaStreamTrack {
+class CONTENT_EXPORT MediaStreamAudioTrack
+    : public blink::WebPlatformMediaStreamTrack {
  public:
   explicit MediaStreamAudioTrack(bool is_local_track);
 
@@ -56,7 +58,7 @@ class CONTENT_EXPORT MediaStreamAudioTrack : public MediaStreamTrack {
   // TODO(tommi): This method appears to only be used by Pepper and in fact
   // does not appear to be necessary there.  We should remove it since it adds
   // to the complexity of all types of audio tracks+source implementations.
-  // http://crbug.com/577874
+  // https://crbug.com/577874
   media::AudioParameters GetOutputFormat() const;
 
   // Halts the flow of audio data from the source (and to the sinks), and then
@@ -95,7 +97,7 @@ class CONTENT_EXPORT MediaStreamAudioTrack : public MediaStreamTrack {
  private:
   // In debug builds, check that all methods that could cause object graph
   // or data flow changes are being called on the main thread.
-  base::ThreadChecker thread_checker_;
+  THREAD_CHECKER(thread_checker_);
 
   // Callback provided to Start() which is run when the audio flow must halt.
   base::Closure stop_callback_;

@@ -35,6 +35,7 @@ class ArcPictureInPictureWindowControllerImpl
   // PictureInPictureWindowController:
   gfx::Size Show() override;
   void Close(bool should_pause_video, bool should_reset_pip_player) override;
+  void CloseAndFocusInitiator() override;
   void OnWindowDestroyed() override;
   void SetPictureInPictureCustomControls(
       const std::vector<blink::PictureInPictureControlInfo>& info) override;
@@ -49,6 +50,7 @@ class ArcPictureInPictureWindowControllerImpl
   void UpdatePlaybackState(bool is_playing,
                            bool reached_end_of_stream) override;
   void SetAlwaysHidePlayPauseButton(bool is_visible) override;
+  void SkipAd() override;
 
  private:
   arc::ArcPipBridge* const arc_pip_bridge_;

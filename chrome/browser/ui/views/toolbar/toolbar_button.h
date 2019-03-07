@@ -31,8 +31,8 @@ class MenuRunner;
 
 // This class provides basic drawing and mouse-over behavior for buttons
 // appearing in the toolbar.
-// TODO: Consider making ToolbarButton and AppMenuButton share a common base
-// class https://crbug.com/819854.
+// TODO(cyan): Consider making ToolbarButton and AppMenuButton share a common
+// base class https://crbug.com/819854.
 class ToolbarButton : public views::LabelButton,
                       public views::ContextMenuController {
  public:
@@ -77,7 +77,6 @@ class ToolbarButton : public views::LabelButton,
   void OnMouseExited(const ui::MouseEvent& event) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
-  std::unique_ptr<views::InkDrop> CreateInkDrop() override;
   std::unique_ptr<views::InkDropHighlight> CreateInkDropHighlight()
       const override;
   SkColor GetInkDropBaseColor() const override;
@@ -130,10 +129,6 @@ class ToolbarButton : public views::LabelButton,
 
   // Menu runner to display drop down menu.
   std::unique_ptr<views::MenuRunner> menu_runner_;
-
-  // Leading margin to be applied. Used when the browser is in a maximized state
-  // to extend to the full window width.
-  int leading_margin_ = 0;
 
   // Delta from regular toolbar-button insets. This is necessary for buttons
   // that use smaller or larger icons than regular ToolbarButton instances.

@@ -49,11 +49,15 @@ class TestStream : public QuicStream {
   TestStream(QuicStreamId id, QuicSession* session, StreamType type)
       : QuicStream(id, session, /*is_static=*/false, type) {}
 
+  TestStream(PendingStream pending, StreamType type)
+      : QuicStream(std::move(pending), type) {}
+
   void OnDataAvailable() override {}
 
   MOCK_METHOD0(OnCanWriteNewData, void());
 
   using QuicStream::CanWriteNewData;
+  using QuicStream::CanWriteNewDataAfterData;
   using QuicStream::CloseWriteSide;
   using QuicStream::fin_buffered;
   using QuicStream::OnClose;
@@ -134,7 +138,8 @@ class QuicStreamTestBase : public QuicTestWithParam<ParsedQuicVersion> {
   QuicTime::Delta zero_;
   ParsedQuicVersionVector supported_versions_;
   const QuicStreamId kTestStreamId =
-      QuicUtils::GetHeadersStreamId(GetParam().transport_version) + 2;
+      QuicUtils::GetHeadersStreamId(GetParam().transport_version) +
+      QuicUtils::StreamIdDelta(GetParam().transport_version);
 };
 
 // Non parameterized QuicStreamTest used for tests that do not
@@ -154,6 +159,98 @@ class QuicParameterizedStreamTest : public QuicStreamTestBase {};
 INSTANTIATE_TEST_CASE_P(QuicParameterizedStreamTests,
                         QuicParameterizedStreamTest,
                         ::testing::ValuesIn(AllSupportedVersions()));
+
+TEST_P(QuicStreamTest, PendingStreamTooMuchData) {
+  Initialize();
+
+  PendingStream pending(kTestStreamId + 2, session_.get());
+  // Receive a stream frame that violates flow control: the byte offset is
+  // higher than the receive window offset.
+  QuicStreamFrame frame(kTestStreamId + 2, false,
+                        kInitialSessionFlowControlWindowForTest + 1,
+                        QuicStringPiece("."));
+
+  // Stream should not accept the frame, and the connection should be closed.
+  EXPECT_CALL(*connection_,
+              CloseConnection(QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA, _, _));
+  pending.OnStreamFrame(frame);
+}
+
+TEST_P(QuicStreamTest, PendingStreamTooMuchDataInRstStream) {
+  Initialize();
+
+  PendingStream pending(kTestStreamId + 2, session_.get());
+  // Receive a rst stream frame that violates flow control: the byte offset is
+  // higher than the receive window offset.
+  QuicRstStreamFrame frame(kInvalidControlFrameId, kTestStreamId + 2,
+                           QUIC_STREAM_CANCELLED,
+                           kInitialSessionFlowControlWindowForTest + 1);
+
+  // Pending stream should not accept the frame, and the connection should be
+  // closed.
+  EXPECT_CALL(*connection_,
+              CloseConnection(QUIC_FLOW_CONTROL_RECEIVED_TOO_MUCH_DATA, _, _));
+  pending.OnRstStreamFrame(frame);
+}
+
+TEST_P(QuicStreamTest, PendingStreamRstStream) {
+  Initialize();
+
+  PendingStream pending(kTestStreamId + 2, session_.get());
+  QuicStreamOffset final_byte_offset = 7;
+  QuicRstStreamFrame frame(kInvalidControlFrameId, kTestStreamId + 2,
+                           QUIC_STREAM_CANCELLED, final_byte_offset);
+
+  // Pending stream should accept the frame and not close the connection.
+  EXPECT_CALL(*connection_, CloseConnection(_, _, _)).Times(0);
+  pending.OnRstStreamFrame(frame);
+}
+
+TEST_P(QuicStreamTest, FromPendingStream) {
+  Initialize();
+
+  PendingStream pending(kTestStreamId + 2, session_.get());
+
+  QuicStreamFrame frame(kTestStreamId + 2, false, 2, QuicStringPiece("."));
+  pending.OnStreamFrame(frame);
+  pending.OnStreamFrame(frame);
+  QuicStreamFrame frame2(kTestStreamId + 2, true, 3, QuicStringPiece("."));
+  pending.OnStreamFrame(frame2);
+
+  TestStream stream(std::move(pending), StreamType::READ_UNIDIRECTIONAL);
+  EXPECT_EQ(3, stream.num_frames_received());
+  EXPECT_EQ(3u, stream.stream_bytes_read());
+  EXPECT_EQ(1, stream.num_duplicate_frames_received());
+  EXPECT_EQ(true, stream.fin_received());
+  EXPECT_EQ(frame2.offset + 1,
+            stream.flow_controller()->highest_received_byte_offset());
+  EXPECT_EQ(frame2.offset + 1,
+            session_->flow_controller()->highest_received_byte_offset());
+}
+
+TEST_P(QuicStreamTest, FromPendingStreamThenData) {
+  Initialize();
+
+  PendingStream pending(kTestStreamId + 2, session_.get());
+
+  QuicStreamFrame frame(kTestStreamId + 2, false, 2, QuicStringPiece("."));
+  pending.OnStreamFrame(frame);
+
+  auto stream =
+      new TestStream(std::move(pending), StreamType::READ_UNIDIRECTIONAL);
+  session_->ActivateStream(QuicWrapUnique(stream));
+
+  QuicStreamFrame frame2(kTestStreamId + 2, true, 3, QuicStringPiece("."));
+  stream->OnStreamFrame(frame2);
+
+  EXPECT_EQ(2, stream->num_frames_received());
+  EXPECT_EQ(2u, stream->stream_bytes_read());
+  EXPECT_EQ(true, stream->fin_received());
+  EXPECT_EQ(frame2.offset + 1,
+            stream->flow_controller()->highest_received_byte_offset());
+  EXPECT_EQ(frame2.offset + 1,
+            session_->flow_controller()->highest_received_byte_offset());
+}
 
 TEST_P(QuicStreamTest, WriteAllData) {
   Initialize();
@@ -590,7 +687,8 @@ TEST_P(QuicStreamTest, StreamTooLong) {
   QuicStreamFrame stream_frame(stream_->id(), false, kMaxStreamLength,
                                QuicStringPiece("."));
   EXPECT_QUIC_PEER_BUG(stream_->OnStreamFrame(stream_frame),
-                       "Receive stream frame reaches max stream length");
+                       QuicStrCat("Receive stream frame on stream ",
+                                  stream_->id(), " reaches max stream length"));
 }
 
 TEST_P(QuicParameterizedStreamTest, SetDrainingIncomingOutgoing) {
@@ -838,6 +936,13 @@ TEST_P(QuicStreamTest, ConnectionClosed) {
   EXPECT_EQ(1u, QuicStreamPeer::SendBuffer(stream_).size());
   // Stream stops waiting for acks as connection is going to close.
   EXPECT_FALSE(stream_->IsWaitingForAcks());
+}
+
+TEST_P(QuicStreamTest, CanWriteNewDataAfterData) {
+  SetQuicFlag(&FLAGS_quic_buffered_data_threshold, 100);
+  Initialize();
+  EXPECT_TRUE(stream_->CanWriteNewDataAfterData(99));
+  EXPECT_FALSE(stream_->CanWriteNewDataAfterData(100));
 }
 
 TEST_P(QuicStreamTest, WriteBufferedData) {

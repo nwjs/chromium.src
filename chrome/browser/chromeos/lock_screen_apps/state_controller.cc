@@ -26,7 +26,7 @@
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_paths.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -69,14 +69,8 @@ std::string GenerateCryptoKey() {
 }  // namespace
 
 // static
-bool StateController::IsEnabled() {
-  return !base::CommandLine::ForCurrentProcess()->HasSwitch(
-      chromeos::switches::kDisableLockScreenApps);
-}
-
-// static
 StateController* StateController::Get() {
-  DCHECK(g_state_controller_instance || !IsEnabled());
+  DCHECK(g_state_controller_instance);
   return g_state_controller_instance;
 }
 
@@ -94,7 +88,6 @@ StateController::StateController()
       power_manager_client_observer_(this),
       weak_ptr_factory_(this) {
   DCHECK(!g_state_controller_instance);
-  DCHECK(IsEnabled());
 
   g_state_controller_instance = this;
 }
@@ -378,6 +371,13 @@ void StateController::OnWindowVisibilityChanged(aura::Window* window,
   }
 }
 
+void StateController::OnWindowDestroying(aura::Window* window) {
+  if (window != note_app_window_->GetNativeWindow())
+    return;
+  ResetNoteTakingWindowAndMoveToNextState(
+      false /*close_window*/, CloseLockScreenNoteReason::kAppWindowClosed);
+}
+
 void StateController::OnAppWindowAdded(extensions::AppWindow* app_window) {
   if (note_app_window_ != app_window)
     return;
@@ -393,9 +393,12 @@ void StateController::OnAppWindowRemoved(extensions::AppWindow* app_window) {
       false /*close_window*/, CloseLockScreenNoteReason::kAppWindowClosed);
 }
 
-void StateController::OnTouchscreenDeviceConfigurationChanged() {
-  if (stylus_input_missing_ && ash::stylus_utils::HasStylusInput())
+void StateController::OnInputDeviceConfigurationChanged(
+    uint8_t input_device_types) {
+  if ((input_device_types & ui::InputDeviceEventObserver::kTouchscreen) &&
+      stylus_input_missing_ && ash::stylus_utils::HasStylusInput()) {
     InitializeWithStylusInputPresent();
+  }
 }
 
 void StateController::SuspendImminent(

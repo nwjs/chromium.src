@@ -16,6 +16,7 @@
 #include "content/browser/gpu/gpu_process_host.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
+#include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_switches.h"
@@ -56,6 +57,8 @@ bool ShouldEnableAndroidSurfaceControl(const base::CommandLine& cmd_line) {
 #else
   if (!base::FeatureList::IsEnabled(features::kVizDisplayCompositor))
     return false;
+  if (!base::FeatureList::IsEnabled(features::kAImageReaderMediaPlayer))
+    return false;
 
   return base::FeatureList::IsEnabled(features::kAndroidSurfaceControl);
 #endif
@@ -95,6 +98,10 @@ const gpu::GpuPreferences GetGpuPreferencesFromCommandLine() {
       command_line->HasSwitch(switches::kDisableSoftwareRasterizer);
   gpu_preferences.log_gpu_control_list_decisions =
       command_line->HasSwitch(switches::kLogGpuControlListDecisions);
+#if defined(OS_WIN)
+  gpu_preferences.enable_trace_export_events_to_etw =
+      command_line->HasSwitch(switches::kTraceExportEventsToETW);
+#endif
   GetUintFromSwitch(command_line, switches::kMaxActiveWebGLContexts,
                     &gpu_preferences.max_active_webgl_contexts);
   gpu_preferences.gpu_startup_dialog =
@@ -112,6 +119,8 @@ const gpu::GpuPreferences GetGpuPreferencesFromCommandLine() {
 
   gpu_preferences.enable_oop_rasterization_ddl =
       command_line->HasSwitch(switches::kEnableOopRasterizationDDL);
+  gpu_preferences.enable_passthrough_raster_decoder =
+      command_line->HasSwitch(switches::kEnablePassthroughRasterDecoder);
 
   gpu_preferences.enable_vulkan =
       command_line->HasSwitch(switches::kEnableVulkan);

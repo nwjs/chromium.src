@@ -26,7 +26,7 @@
 
 #include "third_party/blink/renderer/core/css/css_color_value.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
-#include "third_party/blink/renderer/core/dom/events/event_listener.h"
+#include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/dom/raw_data_document_parser.h"
 #include "third_party/blink/renderer/core/events/before_unload_event.h"
 #include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
@@ -49,26 +49,22 @@ namespace blink {
 
 using namespace html_names;
 
-class PluginDocument::BeforeUnloadEventListener : public EventListener {
+class PluginDocument::BeforeUnloadEventListener : public NativeEventListener {
  public:
   static BeforeUnloadEventListener* Create(PluginDocument* document) {
     return MakeGarbageCollected<BeforeUnloadEventListener>(document);
   }
 
   explicit BeforeUnloadEventListener(PluginDocument* document)
-      : EventListener(kCPPEventListenerType), doc_(document) {}
-
-  bool operator==(const EventListener& listener) const override {
-    return this == &listener;
-  }
+      : doc_(document) {}
 
   void SetShowBeforeUnloadDialog(bool show_dialog) {
     show_dialog_ = show_dialog;
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(doc_);
-    EventListener::Trace(visitor);
+    NativeEventListener::Trace(visitor);
   }
 
  private:
@@ -96,15 +92,15 @@ class PluginDocumentParser : public RawDataDocumentParser {
         embed_element_(nullptr),
         background_color_(background_color) {}
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(embed_element_);
     RawDataDocumentParser::Trace(visitor);
   }
 
  private:
   void AppendBytes(const char*, size_t) override;
-
   void Finish() override;
+  void StopParsing() override;
 
   void CreateDocumentStructure();
 
@@ -115,6 +111,9 @@ class PluginDocumentParser : public RawDataDocumentParser {
 };
 
 void PluginDocumentParser::CreateDocumentStructure() {
+  if (embed_element_)
+    return;
+
   // FIXME: Assert we have a loader to figure out why the original null checks
   // and assert were added for the security bug in
   // http://trac.webkit.org/changeset/87566
@@ -187,12 +186,9 @@ void PluginDocumentParser::CreateDocumentStructure() {
 }
 
 void PluginDocumentParser::AppendBytes(const char* data, size_t length) {
-  if (!embed_element_) {
-    CreateDocumentStructure();
-    if (IsStopped())
-      return;
-  }
-
+  CreateDocumentStructure();
+  if (IsStopped())
+    return;
   if (!length)
     return;
   if (WebPluginContainerImpl* view = GetPluginView())
@@ -200,8 +196,14 @@ void PluginDocumentParser::AppendBytes(const char* data, size_t length) {
 }
 
 void PluginDocumentParser::Finish() {
+  CreateDocumentStructure();
   embed_element_ = nullptr;
   RawDataDocumentParser::Finish();
+}
+
+void PluginDocumentParser::StopParsing() {
+  CreateDocumentStructure();
+  RawDataDocumentParser::StopParsing();
 }
 
 WebPluginContainerImpl* PluginDocumentParser::GetPluginView() const {
@@ -243,7 +245,7 @@ void PluginDocument::Shutdown() {
   HTMLDocument::Shutdown();
 }
 
-void PluginDocument::Trace(blink::Visitor* visitor) {
+void PluginDocument::Trace(Visitor* visitor) {
   visitor->Trace(plugin_node_);
   visitor->Trace(before_unload_event_listener_);
   HTMLDocument::Trace(visitor);

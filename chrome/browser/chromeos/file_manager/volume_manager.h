@@ -18,6 +18,7 @@
 #include "base/observer_list.h"
 #include "chrome/browser/chromeos/arc/arc_session_manager.h"
 #include "chrome/browser/chromeos/drive/drive_integration_service.h"
+#include "chrome/browser/chromeos/file_manager/documents_provider_root_manager.h"
 #include "chrome/browser/chromeos/file_system_provider/icon_set.h"
 #include "chrome/browser/chromeos/file_system_provider/observer.h"
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_info.h"
@@ -61,8 +62,9 @@ enum VolumeType {
   VOLUME_TYPE_MEDIA_VIEW,
   VOLUME_TYPE_CROSTINI,
   VOLUME_TYPE_ANDROID_FILES,
+  VOLUME_TYPE_DOCUMENTS_PROVIDER,
   // The enum values must be kept in sync with FileManagerVolumeType in
-  // tools/metrics/histograms/histograms.xml. Since enums for histograms are
+  // tools/metrics/histograms/enums.xml. Since enums for histograms are
   // append-only (for keeping the number consistent across versions), new values
   // for this enum also has to be always appended at the end (i.e., here).
   NUM_VOLUME_TYPE,
@@ -108,11 +110,20 @@ class Volume : public base::SupportsWeakPtr<Volume> {
       const base::FilePath& crostini_path);
   static std::unique_ptr<Volume> CreateForAndroidFiles(
       const base::FilePath& mount_path);
+  static std::unique_ptr<Volume> CreateForDocumentsProvider(
+      const std::string& authority,
+      const std::string& root_id,
+      const std::string& document_id,
+      const std::string& title,
+      const std::string& summary,
+      const GURL& icon_url);
   static std::unique_ptr<Volume> CreateForTesting(
       const base::FilePath& path,
       VolumeType volume_type,
       chromeos::DeviceType device_type,
-      bool read_only);
+      bool read_only,
+      const base::FilePath& device_path,
+      const std::string& drive_label);
   static std::unique_ptr<Volume> CreateForTesting(
       const base::FilePath& device_path,
       const base::FilePath& mount_path);
@@ -153,6 +164,7 @@ class Volume : public base::SupportsWeakPtr<Volume> {
   bool configurable() const { return configurable_; }
   bool watchable() const { return watchable_; }
   const std::string& file_system_type() const { return file_system_type_; }
+  const std::string& drive_label() const { return drive_label_; }
   const chromeos::file_system_provider::IconSet& icon_set() const {
     return icon_set_;
   }
@@ -233,6 +245,10 @@ class Volume : public base::SupportsWeakPtr<Volume> {
   // Volume icon set.
   chromeos::file_system_provider::IconSet icon_set_;
 
+  // Device label of a physical removable device. Removable partitions
+  // belonging to the same device share the same device label.
+  std::string drive_label_;
+
   DISALLOW_COPY_AND_ASSIGN(Volume);
 };
 
@@ -250,7 +266,8 @@ class VolumeManager : public KeyedService,
                       public drive::DriveIntegrationServiceObserver,
                       public chromeos::disks::DiskMountManager::Observer,
                       public chromeos::file_system_provider::Observer,
-                      public storage_monitor::RemovableStorageObserver {
+                      public storage_monitor::RemovableStorageObserver,
+                      public DocumentsProviderRootManager::Observer {
  public:
   // An alternate to device::mojom::MtpManager::GetStorageInfo.
   // Used for injecting fake MTP manager for testing in VolumeManagerTest.
@@ -321,7 +338,9 @@ class VolumeManager : public KeyedService,
   void AddVolumeForTesting(const base::FilePath& path,
                            VolumeType volume_type,
                            chromeos::DeviceType device_type,
-                           bool read_only);
+                           bool read_only,
+                           const base::FilePath& device_path = base::FilePath(),
+                           const std::string& drive_label = "");
 
   // For testing purpose, adds the volume info to the volume manager.
   void AddVolumeForTesting(std::unique_ptr<Volume> volume);
@@ -373,6 +392,17 @@ class VolumeManager : public KeyedService,
   void OnRemovableStorageDetached(
       const storage_monitor::StorageInfo& info) override;
 
+  // file_manager::DocumentsProviderRootManager::Observer overrides.
+  void OnDocumentsProviderRootAdded(const std::string& authority,
+                                    const std::string& root_id,
+                                    const std::string& document_id,
+                                    const std::string& title,
+                                    const std::string& summary,
+                                    const GURL& icon_url) override;
+  void OnDocumentsProviderRootRemoved(const std::string& authority,
+                                      const std::string& root_id,
+                                      const std::string& document_id) override;
+
   SnapshotManager* snapshot_manager() { return snapshot_manager_.get(); }
 
  private:
@@ -399,6 +429,8 @@ class VolumeManager : public KeyedService,
   GetMtpStorageInfoCallback get_mtp_storage_info_callback_;
   std::map<std::string, std::unique_ptr<Volume>> mounted_volumes_;
   std::unique_ptr<SnapshotManager> snapshot_manager_;
+  std::unique_ptr<DocumentsProviderRootManager>
+      documents_provider_root_manager_;
   bool arc_volumes_mounted_ = false;
 
   // Note: This should remain the last member so it'll be destroyed and

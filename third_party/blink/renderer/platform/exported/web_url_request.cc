@@ -101,6 +101,16 @@ void WebURLRequest::SetSiteForCookies(const WebURL& site_for_cookies) {
   resource_request_->SetSiteForCookies(site_for_cookies);
 }
 
+base::Optional<WebSecurityOrigin> WebURLRequest::TopFrameOrigin() const {
+  const SecurityOrigin* origin = resource_request_->TopFrameOrigin();
+  return origin ? base::Optional<WebSecurityOrigin>(origin)
+                : base::Optional<WebSecurityOrigin>();
+}
+
+void WebURLRequest::SetTopFrameOrigin(const WebSecurityOrigin& origin) {
+  resource_request_->SetTopFrameOrigin(origin);
+}
+
 WebSecurityOrigin WebURLRequest::RequestorOrigin() const {
   return resource_request_->RequestorOrigin();
 }
@@ -383,11 +393,6 @@ network::mojom::CorsPreflightPolicy WebURLRequest::GetCorsPreflightPolicy()
   return resource_request_->CorsPreflightPolicy();
 }
 
-void WebURLRequest::SetNavigationStartTime(
-    base::TimeTicks navigation_start_seconds) {
-  resource_request_->SetNavigationStartTime(navigation_start_seconds);
-}
-
 base::Optional<WebString> WebURLRequest::GetSuggestedFilename() const {
   if (!resource_request_->GetSuggestedFilename().has_value())
     return base::Optional<WebString>();
@@ -397,10 +402,6 @@ base::Optional<WebString> WebURLRequest::GetSuggestedFilename() const {
 
 bool WebURLRequest::IsAdResource() const {
   return resource_request_->IsAdResource();
-}
-
-const WebContentSecurityPolicyList& WebURLRequest::GetInitiatorCSP() const {
-  return resource_request_->GetInitiatorCSP();
 }
 
 void WebURLRequest::SetUpgradeIfInsecure(bool upgrade_if_insecure) {

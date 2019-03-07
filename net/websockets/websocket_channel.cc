@@ -15,11 +15,11 @@
 #include "base/bind.h"
 #include "base/containers/circular_deque.h"
 #include "base/location.h"
-#include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/single_thread_task_runner.h"
+#include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
@@ -34,7 +34,6 @@
 #include "net/websockets/websocket_frame.h"
 #include "net/websockets/websocket_handshake_request_info.h"
 #include "net/websockets/websocket_handshake_response_info.h"
-#include "net/websockets/websocket_handshake_stream_create_helper.h"
 #include "net/websockets/websocket_stream.h"
 #include "url/origin.h"
 
@@ -81,7 +80,7 @@ bool IsStrictlyValidCloseStatusCode(int code) {
       5000, 65536,  // Codes above 5000 are invalid.
   };
   const int* const kInvalidRangesEnd =
-      kInvalidRanges + arraysize(kInvalidRanges);
+      kInvalidRanges + base::size(kInvalidRanges);
 
   DCHECK_GE(code, 0);
   DCHECK_LT(code, 65536);
@@ -544,10 +543,8 @@ void WebSocketChannel::SendAddChannelRequestWithSuppliedCallback(
   }
   socket_url_ = socket_url;
   auto connect_delegate = std::make_unique<ConnectDelegate>(this);
-  auto create_helper = std::make_unique<WebSocketHandshakeStreamCreateHelper>(
-      connect_delegate.get(), requested_subprotocols);
   stream_request_ =
-      callback.Run(socket_url_, std::move(create_helper), origin,
+      callback.Run(socket_url_, requested_subprotocols, origin,
                    site_for_cookies, additional_headers, url_request_context_,
                    NetLogWithSource(), std::move(connect_delegate));
   SetState(CONNECTING);

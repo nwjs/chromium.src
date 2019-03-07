@@ -32,6 +32,7 @@ import android.widget.FrameLayout;
 
 import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
+import org.chromium.base.compat.ApiHelperForO;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.InsetObserverView;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardExtensionSizeManager;
@@ -88,6 +89,7 @@ public class CompositorViewHolder extends FrameLayout
     private CompositorView mCompositorView;
 
     private boolean mContentOverlayVisiblity = true;
+    private boolean mCanBeFocusable;
 
     private int mPendingFrameCount;
 
@@ -101,7 +103,7 @@ public class CompositorViewHolder extends FrameLayout
     private Runnable mPostHideKeyboardTask;
 
     private TabModelSelector mTabModelSelector;
-    private ChromeFullscreenManager mFullscreenManager;
+    private @Nullable ChromeFullscreenManager mFullscreenManager;
     private View mAccessibilityView;
     private CompositorAccessibilityProvider mNodeProvider;
 
@@ -269,6 +271,10 @@ public class CompositorViewHolder extends FrameLayout
             }
         });
         handleSystemUiVisibilityChange();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ApiHelperForO.setDefaultFocusHighlightEnabled(this, false);
+        }
     }
 
     private Point getViewportSize() {
@@ -669,12 +675,12 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void onContentOffsetChanged(float offset) {
+    public void onContentOffsetChanged(int offset) {
         onViewportChanged();
     }
 
     @Override
-    public void onControlsOffsetChanged(float topOffset, float bottomOffset, boolean needsAnimate) {
+    public void onControlsOffsetChanged(int topOffset, int bottomOffset, boolean needsAnimate) {
         onViewportChanged();
         if (needsAnimate) requestRender();
     }
@@ -683,6 +689,15 @@ public class CompositorViewHolder extends FrameLayout
     public void onBottomControlsHeightChanged(int bottomControlsHeight) {
         if (mTabVisible == null) return;
         mTabVisible.setBottomControlsHeight(bottomControlsHeight);
+        Point viewportSize = getViewportSize();
+        setSize(mTabVisible.getWebContents(), mTabVisible.getContentView(), viewportSize.x,
+                viewportSize.y);
+    }
+
+    @Override
+    public void onTopControlsHeightChanged(int topControlsHeight, boolean controlsResizeView) {
+        if (mTabVisible == null) return;
+        mTabVisible.setTopControlsHeight(topControlsHeight, controlsResizeView);
         Point viewportSize = getViewportSize();
         setSize(mTabVisible.getWebContents(), mTabVisible.getContentView(), viewportSize.x,
                 viewportSize.y);
@@ -803,9 +818,10 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     @Override
-    public void setContentOverlayVisibility(boolean show) {
-        if (show != mContentOverlayVisiblity) {
+    public void setContentOverlayVisibility(boolean show, boolean canBeFocusable) {
+        if (show != mContentOverlayVisiblity || canBeFocusable != mCanBeFocusable) {
             mContentOverlayVisiblity = show;
+            mCanBeFocusable = canBeFocusable;
             updateContentOverlayVisibility(mContentOverlayVisiblity);
         }
     }
@@ -860,9 +876,7 @@ public class CompositorViewHolder extends FrameLayout
      */
     public void setFullscreenHandler(ChromeFullscreenManager fullscreen) {
         mFullscreenManager = fullscreen;
-        if (mFullscreenManager != null) {
-            mFullscreenManager.addListener(this);
-        }
+        mFullscreenManager.addListener(this);
         onViewportChanged();
     }
 
@@ -1005,8 +1019,8 @@ public class CompositorViewHolder extends FrameLayout
             }
         } else {
             if (mView.getParent() == this) {
-                setFocusable(true);
-                setFocusableInTouchMode(true);
+                setFocusable(mCanBeFocusable);
+                setFocusableInTouchMode(mCanBeFocusable);
 
                 if (webContents != null && !webContents.isDestroyed()) {
                     getContentView().setVisibility(View.INVISIBLE);

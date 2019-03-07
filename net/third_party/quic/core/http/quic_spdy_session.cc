@@ -19,7 +19,7 @@
 #include "net/third_party/quic/platform/api/quic_str_cat.h"
 #include "net/third_party/quic/platform/api/quic_string.h"
 #include "net/third_party/quic/platform/api/quic_text_utils.h"
-#include "net/third_party/spdy/core/http2_frame_decoder_adapter.h"
+#include "net/third_party/quiche/src/spdy/core/http2_frame_decoder_adapter.h"
 
 using http2::Http2DecoderAdapter;
 using spdy::HpackEntry;
@@ -342,7 +342,7 @@ void QuicSpdySession::Initialize() {
     set_largest_peer_created_stream_id(
         QuicUtils::GetHeadersStreamId(connection()->transport_version()));
   } else {
-    QuicStreamId headers_stream_id = GetNextOutgoingStreamId();
+    QuicStreamId headers_stream_id = GetNextOutgoingBidirectionalStreamId();
     DCHECK_EQ(headers_stream_id,
               QuicUtils::GetHeadersStreamId(connection()->transport_version()));
   }
@@ -512,6 +512,11 @@ void QuicSpdySession::OnCryptoHandshakeEvent(CryptoHandshakeEvent event) {
   if (event == HANDSHAKE_CONFIRMED && config()->SupportMaxHeaderListSize()) {
     SendMaxHeaderListSize(max_inbound_header_list_size_);
   }
+}
+
+bool QuicSpdySession::ShouldBufferIncomingStream(QuicStreamId id) const {
+  DCHECK_EQ(QUIC_VERSION_99, connection()->transport_version());
+  return !QuicUtils::IsBidirectionalStreamId(id);
 }
 
 void QuicSpdySession::OnPromiseHeaderList(QuicStreamId stream_id,

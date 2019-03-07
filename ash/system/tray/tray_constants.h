@@ -7,7 +7,7 @@
 
 #include "ash/ash_export.h"
 #include "base/macros.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/size.h"
@@ -96,6 +96,7 @@ extern const SkColor kMenuSeparatorColor;
 // system tray.
 constexpr int kTrayIconSize = 16;
 extern const SkColor kTrayIconColor;
+extern const SkColor kTrayIconBackgroundColor;
 extern const SkColor kOobeTrayIconColor;
 
 // The padding around network tray icon in dip.

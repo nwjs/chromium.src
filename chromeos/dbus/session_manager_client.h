@@ -10,10 +10,10 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "base/component_export.h"
 #include "base/macros.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
-#include "chromeos/chromeos_export.h"
 #include "chromeos/dbus/dbus_client.h"
 #include "chromeos/dbus/dbus_client_implementation_type.h"
 #include "chromeos/dbus/dbus_method_call_status.h"
@@ -32,7 +32,7 @@ class UpgradeArcContainerRequest;
 namespace chromeos {
 
 // SessionManagerClient is used to communicate with the session manager.
-class CHROMEOS_EXPORT SessionManagerClient : public DBusClient {
+class COMPONENT_EXPORT(CHROMEOS_DBUS) SessionManagerClient : public DBusClient {
  public:
   // The result type received from session manager on request to retrieve the
   // policy. Used to define the buckets for an enumerated UMA histogram.
@@ -101,6 +101,10 @@ class CHROMEOS_EXPORT SessionManagerClient : public DBusClient {
   virtual void RemoveObserver(Observer* observer) = 0;
   virtual bool HasObserver(const Observer* observer) const = 0;
 
+  // Runs the callback as soon as the service becomes available.
+  virtual void WaitForServiceToBeAvailable(
+      WaitForServiceToBeAvailableCallback callback) = 0;
+
   // Returns the most recent screen-lock state received from session_manager.
   // This method should only be called by low-level code that is unable to
   // depend on UI code and get the lock state from it instead.
@@ -135,6 +139,9 @@ class CHROMEOS_EXPORT SessionManagerClient : public DBusClient {
 
   // Starts the factory reset.
   virtual void StartDeviceWipe() = 0;
+
+  // Set the block_demode and check_enrollment flags to 0 in the VPD.
+  virtual void ClearForcedReEnrollmentVpd(VoidDBusMethodCallback callback) = 0;
 
   // Triggers a TPM firmware update.
   virtual void StartTPMFirmwareUpdate(const std::string& update_mode) = 0;

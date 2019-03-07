@@ -9,10 +9,11 @@
 #include "content/browser/background_fetch/background_fetch_data_manager.h"
 #include "content/browser/background_fetch/background_fetch_delegate_proxy.h"
 #include "content/browser/background_fetch/background_fetch_job_controller.h"
-#include "content/browser/background_fetch/background_fetch_metrics.h"
 #include "content/browser/background_fetch/background_fetch_registration_notifier.h"
 #include "content/browser/service_worker/service_worker_context_core_observer.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_response.mojom.h"
 
 namespace content {
 
@@ -124,7 +125,8 @@ void BackgroundFetchScheduler::DidMarkForDeletion(
   auto it = completed_fetches_.find(registration_id.unique_id());
   DCHECK(it != completed_fetches_.end());
 
-  BackgroundFetchRegistration* registration = it->second.second.get();
+  blink::mojom::BackgroundFetchRegistrationPtr& registration =
+      it->second.second;
   // Include any other failure reasons the marking for deletion may have found.
   if (registration->failure_reason == BackgroundFetchFailureReason::NONE)
     registration->failure_reason = failure_reason;
@@ -137,8 +139,7 @@ void BackgroundFetchScheduler::DidMarkForDeletion(
   registration_notifier_->Notify(*registration);
 
   event_dispatcher_.DispatchBackgroundFetchCompletionEvent(
-      registration_id,
-      std::make_unique<BackgroundFetchRegistration>(*registration),
+      registration_id, registration.Clone(),
       base::BindOnce(&BackgroundFetchScheduler::CleanupRegistration,
                      weak_ptr_factory_.GetWeakPtr(), registration_id));
 
@@ -193,8 +194,8 @@ void BackgroundFetchScheduler::DispatchClickEvent(
 std::unique_ptr<BackgroundFetchJobController>
 BackgroundFetchScheduler::CreateInitializedController(
     const BackgroundFetchRegistrationId& registration_id,
-    const BackgroundFetchRegistration& registration,
-    const BackgroundFetchOptions& options,
+    const blink::mojom::BackgroundFetchRegistration& registration,
+    blink::mojom::BackgroundFetchOptionsPtr options,
     const SkBitmap& icon,
     int num_completed_requests,
     int num_requests,
@@ -203,8 +204,8 @@ BackgroundFetchScheduler::CreateInitializedController(
     bool start_paused) {
   // TODO(rayankans): Only create a controller when the fetch starts.
   auto controller = std::make_unique<BackgroundFetchJobController>(
-      data_manager_, delegate_proxy_, registration_id, options, icon,
-      registration.downloaded,
+      data_manager_, delegate_proxy_, registration_id, std::move(options), icon,
+      registration.downloaded, registration.uploaded, registration.upload_total,
       // Safe because JobControllers are destroyed before RegistrationNotifier.
       base::BindRepeating(&BackgroundFetchRegistrationNotifier::Notify,
                           base::Unretained(registration_notifier_)),
@@ -220,15 +221,20 @@ BackgroundFetchScheduler::CreateInitializedController(
 
 void BackgroundFetchScheduler::OnRegistrationCreated(
     const BackgroundFetchRegistrationId& registration_id,
-    const BackgroundFetchRegistration& registration,
-    const BackgroundFetchOptions& options,
+    const blink::mojom::BackgroundFetchRegistration& registration,
+    blink::mojom::BackgroundFetchOptionsPtr options,
     const SkBitmap& icon,
     int num_requests,
     bool start_paused) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
+
+  registration_notifier_->NoteTotalRequests(registration_id.unique_id(),
+                                            num_requests);
+
   auto controller = CreateInitializedController(
-      registration_id, registration, options, icon, 0 /* completed_requests */,
-      num_requests, {} /* active_fetch_requests */, start_paused);
+      registration_id, registration, std::move(options), icon,
+      /* completed_requests= */ 0, num_requests,
+      /* active_fetch_requests= */ {}, start_paused);
 
   DCHECK_EQ(job_controllers_.count(registration_id.unique_id()), 0u);
   job_controllers_[registration_id.unique_id()] = std::move(controller);
@@ -239,8 +245,8 @@ void BackgroundFetchScheduler::OnRegistrationCreated(
 
 void BackgroundFetchScheduler::OnRegistrationLoadedAtStartup(
     const BackgroundFetchRegistrationId& registration_id,
-    const BackgroundFetchRegistration& registration,
-    const BackgroundFetchOptions& options,
+    const blink::mojom::BackgroundFetchRegistration& registration,
+    blink::mojom::BackgroundFetchOptionsPtr options,
     const SkBitmap& icon,
     int num_completed_requests,
     int num_requests,
@@ -249,8 +255,9 @@ void BackgroundFetchScheduler::OnRegistrationLoadedAtStartup(
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   auto controller = CreateInitializedController(
-      registration_id, registration, options, icon, num_completed_requests,
-      num_requests, active_fetch_requests, /* start_paused= */ false);
+      registration_id, registration, std::move(options), icon,
+      num_completed_requests, num_requests, active_fetch_requests,
+      /* start_paused= */ false);
 
   // The current assumption is that there can be only one active job with one
   // active fetch.
@@ -276,6 +283,14 @@ void BackgroundFetchScheduler::OnRegistrationLoadedAtStartup(
         base::BindOnce(&BackgroundFetchJobController::MarkRequestAsComplete,
                        active_controller_->GetWeakPtr()));
   }
+}
+
+void BackgroundFetchScheduler::OnRequestCompleted(
+    const std::string& unique_id,
+    blink::mojom::FetchAPIRequestPtr request,
+    blink::mojom::FetchAPIResponsePtr response) {
+  registration_notifier_->NotifyRequestCompleted(unique_id, std::move(request),
+                                                 std::move(response));
 }
 
 void BackgroundFetchScheduler::AbortFetches(
@@ -304,17 +319,19 @@ void BackgroundFetchScheduler::AbortFetches(
 }
 
 void BackgroundFetchScheduler::OnRegistrationQueried(
-    BackgroundFetchRegistration* registration) {
+    blink::mojom::BackgroundFetchRegistration* registration) {
   DCHECK(registration);
   if (!active_controller_)
     return;
 
   // The data manager only has the number of bytes from completed downloads, so
-  // augment this with the number of downloaded bytes from in-progress jobs.
+  // augment this with the number of downloaded/uploaded bytes from in-progress
+  // jobs.
   if (active_controller_->registration_id().unique_id() ==
       registration->unique_id) {
     registration->downloaded +=
         active_controller_->GetInProgressDownloadedBytes();
+    registration->uploaded += active_controller_->GetInProgressUploadedBytes();
   }
 }
 

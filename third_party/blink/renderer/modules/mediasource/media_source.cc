@@ -128,7 +128,6 @@ MediaSource::MediaSource(ExecutionContext* context)
 
 MediaSource::~MediaSource() {
   BLINK_MSLOG << __func__ << " this=" << this;
-  DCHECK(IsClosed());
 }
 
 void MediaSource::LogAndThrowDOMException(ExceptionState& exception_state,
@@ -432,6 +431,9 @@ TimeRanges* MediaSource::Buffered() const {
 }
 
 TimeRanges* MediaSource::Seekable() const {
+  DCHECK(attached_element_)
+      << "Seekable should only be used when attached to HTMLMediaElement";
+
   // Implements MediaSource algorithm for HTMLMediaElement.seekable.
   // http://w3c.github.io/media-source/#htmlmediaelement-extensions
 
@@ -442,7 +444,7 @@ TimeRanges* MediaSource::Seekable() const {
 
   // If duration equals positive Infinity:
   if (source_duration == std::numeric_limits<double>::infinity()) {
-    TimeRanges* buffered = attached_element_->buffered();
+    TimeRanges* buffered = Buffered();
 
     // 1. If live seekable range is not empty:
     if (live_seekable_range_->length() != 0) {
@@ -503,6 +505,8 @@ void MediaSource::OnTrackChanged(TrackBase* track) {
 
 void MediaSource::setDuration(double duration,
                               ExceptionState& exception_state) {
+  BLINK_MSLOG << __func__ << " this=" << this << " : duration=" << duration;
+
   // 2.1 https://www.w3.org/TR/media-source/#widl-MediaSource-duration
   // 1. If the value being set is negative or NaN then throw a TypeError
   // exception and abort these steps.
@@ -624,6 +628,8 @@ void MediaSource::endOfStream(const AtomicString& error,
   DEFINE_STATIC_LOCAL(const AtomicString, network, ("network"));
   DEFINE_STATIC_LOCAL(const AtomicString, decode, ("decode"));
 
+  BLINK_MSLOG << __func__ << " this=" << this << " : error=" << error;
+
   // https://www.w3.org/TR/media-source/#dom-mediasource-endofstream
   // 1. If the readyState attribute is not in the "open" state then throw an
   //    InvalidStateError exception and abort these steps.
@@ -649,6 +655,9 @@ void MediaSource::endOfStream(ExceptionState& exception_state) {
 void MediaSource::setLiveSeekableRange(double start,
                                        double end,
                                        ExceptionState& exception_state) {
+  BLINK_MSLOG << __func__ << " this=" << this << " : start=" << start
+              << ", end=" << end;
+
   // http://w3c.github.io/media-source/#widl-MediaSource-setLiveSeekableRange-void-double-start-double-end
   // 1. If the readyState attribute is not "open" then throw an
   //    InvalidStateError exception and abort these steps.
@@ -678,6 +687,8 @@ void MediaSource::setLiveSeekableRange(double start,
 }
 
 void MediaSource::clearLiveSeekableRange(ExceptionState& exception_state) {
+  BLINK_MSLOG << __func__ << " this=" << this;
+
   // http://w3c.github.io/media-source/#widl-MediaSource-clearLiveSeekableRange-void
   // 1. If the readyState attribute is not "open" then throw an
   //    InvalidStateError exception and abort these steps.
@@ -795,8 +806,15 @@ void MediaSource::OpenIfInEndedState() {
 }
 
 bool MediaSource::HasPendingActivity() const {
-  return attached_element_ || web_media_source_ ||
-         async_event_queue_->HasPendingEvents() ||
+  // Note that an unrevoked MediaSource objectUrl for an otherwise inactive,
+  // unreferenced HTMLME with MSE still attached will prevent GC of the whole
+  // group of objects. This is unfortunate, because it's conceivable that the
+  // app may actually still have a "reference" to the underlying MediaSource if
+  // it has the objectUrl in a string somewhere, for example. This is yet
+  // further motivation for apps to properly revokeObjectUrl and for the MSE
+  // spec, implementations and API users to transition to using HTMLME srcObject
+  // for MSE attachment instead of objectUrl.
+  return async_event_queue_->HasPendingEvents() ||
          added_to_registry_counter_ > 0;
 }
 

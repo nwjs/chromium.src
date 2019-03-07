@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/core/frame/web_view_frame_widget.h"
 
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-blink.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 
@@ -12,13 +11,18 @@ namespace blink {
 
 WebViewFrameWidget::WebViewFrameWidget(WebWidgetClient& client,
                                        WebViewImpl& web_view)
-    : WebFrameWidgetBase(client),
-      web_view_(&web_view),
-      self_keep_alive_(this) {}
+    : WebFrameWidgetBase(client), web_view_(&web_view), self_keep_alive_(this) {
+  // TODO(danakj): SetLayerTreeView() here as well, then we can Close() the
+  // WebViewImpl's widget bits in Close().
+  web_view_->SetWebWidgetClient(&client);
+}
 
 WebViewFrameWidget::~WebViewFrameWidget() = default;
 
 void WebViewFrameWidget::Close() {
+  // TODO(danakj): Close() the WebViewImpl here, when we reset the LayerTreeView
+  // in the constructor.
+  web_view_->SetWebWidgetClient(nullptr);
   web_view_ = nullptr;
   WebFrameWidgetBase::Close();
 
@@ -71,10 +75,6 @@ void WebViewFrameWidget::PaintContent(cc::PaintCanvas* canvas,
   web_view_->PaintContent(canvas, view_port);
 }
 
-void WebViewFrameWidget::LayoutAndPaintAsync(base::OnceClosure callback) {
-  web_view_->LayoutAndPaintAsync(std::move(callback));
-}
-
 void WebViewFrameWidget::CompositeAndReadbackAsync(
     base::OnceCallback<void(const SkBitmap&)> callback) {
   web_view_->CompositeAndReadbackAsync(std::move(callback));
@@ -108,6 +108,16 @@ void WebViewFrameWidget::RecordWheelAndTouchScrollingCount(
   web_view_->RecordWheelAndTouchScrollingCount(has_scrolled_by_wheel,
                                                has_scrolled_by_touch);
 }
+void WebViewFrameWidget::SendOverscrollEventFromImplSide(
+    const gfx::Vector2dF& overscroll_delta,
+    cc::ElementId scroll_latched_element_id) {
+  web_view_->SendOverscrollEventFromImplSide(overscroll_delta,
+                                             scroll_latched_element_id);
+}
+void WebViewFrameWidget::SendScrollEndEventFromImplSide(
+    cc::ElementId scroll_latched_element_id) {
+  web_view_->SendScrollEndEventFromImplSide(scroll_latched_element_id);
+}
 
 void WebViewFrameWidget::MouseCaptureLost() {
   web_view_->MouseCaptureLost();
@@ -130,36 +140,8 @@ void WebViewFrameWidget::WillCloseLayerTreeView() {
   web_view_->WillCloseLayerTreeView();
 }
 
-SkColor WebViewFrameWidget::BackgroundColor() const {
-  return web_view_->BackgroundColor();
-}
-
-WebPagePopup* WebViewFrameWidget::GetPagePopup() const {
-  return web_view_->GetPagePopup();
-}
-
 WebURL WebViewFrameWidget::GetURLForDebugTrace() {
   return web_view_->GetURLForDebugTrace();
-}
-
-void WebViewFrameWidget::SetBackgroundColorOverride(SkColor color) {
-  web_view_->SetBackgroundColorOverride(color);
-}
-
-void WebViewFrameWidget::ClearBackgroundColorOverride() {
-  web_view_->ClearBackgroundColorOverride();
-}
-
-void WebViewFrameWidget::SetBaseBackgroundColorOverride(SkColor color) {
-  web_view_->SetBaseBackgroundColorOverride(color);
-}
-
-void WebViewFrameWidget::ClearBaseBackgroundColorOverride() {
-  web_view_->ClearBaseBackgroundColorOverride();
-}
-
-void WebViewFrameWidget::SetBaseBackgroundColor(SkColor color) {
-  web_view_->SetBaseBackgroundColor(color);
 }
 
 WebInputMethodController*
@@ -177,10 +159,6 @@ void WebViewFrameWidget::SetLayerTreeView(WebLayerTreeView*) {
   // The WebViewImpl already has its LayerTreeView, the WebWidgetClient
   // thus does not initialize and set another one here.
   NOTREACHED();
-}
-
-void WebViewFrameWidget::ScheduleAnimation() {
-  web_view_->ScheduleAnimationForWidget();
 }
 
 base::WeakPtr<AnimationWorkletMutatorDispatcherImpl>
@@ -215,6 +193,11 @@ WebHitTestResult WebViewFrameWidget::HitTestResultAt(const gfx::Point& point) {
 
 HitTestResult WebViewFrameWidget::CoreHitTestResultAt(const gfx::Point& point) {
   return web_view_->CoreHitTestResultAt(point);
+}
+
+void WebViewFrameWidget::ZoomToFindInPageRect(
+    const WebRect& rect_in_root_frame) {
+  web_view_->ZoomToFindInPageRect(rect_in_root_frame);
 }
 
 void WebViewFrameWidget::Trace(blink::Visitor* visitor) {

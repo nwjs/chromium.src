@@ -10,14 +10,15 @@
 
 #include "base/command_line.h"
 #include "base/files/file_util.h"
-#include "base/macros.h"
 #include "base/run_loop.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/test/power_monitor_test_base.h"
 #include "base/test/test_file_util.h"
 #include "base/test/values_test_util.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "chrome/browser/extensions/chrome_content_verifier_delegate.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
@@ -183,14 +184,15 @@ class GetResult {
 // This test lives in src/chrome instead of src/extensions because it tests
 // functionality delegated back to Chrome via ChromeExtensionsBrowserClient.
 // See chrome/browser/extensions/chrome_url_request_util.cc.
-class ExtensionProtocolsTest
+class ExtensionProtocolsTestBase
     : public testing::Test,
       public testing::WithParamInterface<RequestHandlerType> {
  public:
-  ExtensionProtocolsTest()
+  explicit ExtensionProtocolsTestBase(bool force_incognito)
       : thread_bundle_(content::TestBrowserThreadBundle::IO_MAINLOOP),
         rvh_test_enabler_(new content::RenderViewHostTestEnabler()),
-        old_factory_(NULL) {}
+        old_factory_(NULL),
+        force_incognito_(force_incognito) {}
 
   void SetUp() override {
     testing::Test::SetUp();
@@ -228,7 +230,6 @@ class ExtensionProtocolsTest
         test_url_request_context_.set_job_factory(&job_factory_);
         break;
     }
-    testing_profile_->ForceIncognito(is_incognito);
   }
 
   GetResult RequestOrLoad(const GURL& url, ResourceType resource_type) {
@@ -286,7 +287,10 @@ class ExtensionProtocolsTest
     return ExtensionSystem::Get(browser_context())->info_map();
   }
 
-  content::BrowserContext* browser_context() { return testing_profile_.get(); }
+  content::BrowserContext* browser_context() {
+    return force_incognito_ ? testing_profile_->GetOffTheRecordProfile()
+                            : testing_profile_.get();
+  }
 
   void SimulateSystemSuspendForRequests() {
     power_monitor_source_ = new base::PowerMonitorTestSource();
@@ -375,6 +379,7 @@ class ExtensionProtocolsTest
   std::unique_ptr<TestingProfile> testing_profile_;
   net::TestDelegate test_delegate_;
   std::unique_ptr<content::WebContents> contents_;
+  const bool force_incognito_;
 
   std::unique_ptr<base::PowerMonitor> power_monitor_;
 
@@ -382,11 +387,23 @@ class ExtensionProtocolsTest
   base::PowerMonitorTestSource* power_monitor_source_ = nullptr;
 };
 
+class ExtensionProtocolsTest : public ExtensionProtocolsTestBase {
+ public:
+  ExtensionProtocolsTest()
+      : ExtensionProtocolsTestBase(false /*force_incognito*/) {}
+};
+
+class ExtensionProtocolsIncognitoTest : public ExtensionProtocolsTestBase {
+ public:
+  ExtensionProtocolsIncognitoTest()
+      : ExtensionProtocolsTestBase(true /*force_incognito*/) {}
+};
+
 // Tests that making a chrome-extension request in an incognito context is
 // only allowed under the right circumstances (if the extension is allowed
 // in incognito, and it's either a non-main-frame request or a split-mode
 // extension).
-TEST_P(ExtensionProtocolsTest, IncognitoRequest) {
+TEST_P(ExtensionProtocolsIncognitoTest, IncognitoRequest) {
   // Register an incognito extension protocol handler.
   SetProtocolHandler(true);
 
@@ -406,7 +423,7 @@ TEST_P(ExtensionProtocolsTest, IncognitoRequest) {
     {"split enabled", true, true, true, false},
   };
 
-  for (size_t i = 0; i < arraysize(cases); ++i) {
+  for (size_t i = 0; i < base::size(cases); ++i) {
     scoped_refptr<Extension> extension =
         CreateTestExtension(cases[i].name, cases[i].incognito_split_mode);
     AddExtension(extension, cases[i].incognito_enabled, false);
@@ -787,9 +804,17 @@ TEST_P(ExtensionProtocolsTest, MimeTypesForKnownFiles) {
   }
 }
 
+#if defined(OS_WIN)
+#define MAYBE_ExtensionRequestsNotAborted DISABLED_ExtensionRequestsNotAborted
+#else
+#define MAYBE_ExtensionRequestsNotAborted ExtensionRequestsNotAborted
+#endif
 // Tests that requests for extension resources (including the generated
 // background page) are not aborted on system suspend.
-TEST_P(ExtensionProtocolsTest, ExtensionRequestsNotAborted) {
+//
+// Flaky on Windows.
+// TODO(https://crbug.com/921687): Investigate and fix.
+TEST_P(ExtensionProtocolsTest, MAYBE_ExtensionRequestsNotAborted) {
   // Register a non-incognito extension protocol handler.
   SetProtocolHandler(false);
 
@@ -814,6 +839,10 @@ TEST_P(ExtensionProtocolsTest, ExtensionRequestsNotAborted) {
 
 INSTANTIATE_TEST_CASE_P(Extensions,
                         ExtensionProtocolsTest,
+                        ::testing::ValuesIn(kTestModes));
+
+INSTANTIATE_TEST_CASE_P(Extensions,
+                        ExtensionProtocolsIncognitoTest,
                         ::testing::ValuesIn(kTestModes));
 
 }  // namespace extensions

@@ -49,15 +49,15 @@ class BackgroundFetchTestBase : public ::testing::Test {
   // succeeded.
   void UnregisterServiceWorker(int64_t service_worker_registration_id);
 
-  // Creates a ServiceWorkerFetchRequest instance for the given details and
+  // Creates a FetchAPIRequestPtr instance for the given details and
   // provides a faked |response|.
   blink::mojom::FetchAPIRequestPtr CreateRequestWithProvidedResponse(
       const std::string& method,
       const GURL& url,
       std::unique_ptr<TestResponse> response);
 
-  // Creates a BackgroundFetchRegistration object.
-  std::unique_ptr<BackgroundFetchRegistration>
+  // Creates a blink::mojom::BackgroundFetchRegistrationPtr object.
+  blink::mojom::BackgroundFetchRegistrationPtr
   CreateBackgroundFetchRegistration(
       const std::string& developer_id,
       const std::string& unique_id,

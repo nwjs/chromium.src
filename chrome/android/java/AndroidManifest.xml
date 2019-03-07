@@ -165,15 +165,25 @@ by a child template that "extends" this file.
         <meta-data android:name="android.content.APP_RESTRICTIONS"
             android:resource="@xml/app_restrictions"/>
 
-        {% if enable_arcore %}
+        {% if include_arcore_manifest_flag == 'true' %}
         <!-- ARCore APK integration -->
         <!-- This tag indicates that this application optionally uses ARCore. -->
         <meta-data android:name="com.google.ar.core" android:value="optional" />
-        <!-- This value referes to ARCore 1.1.
-             This value should be updated when ARCore features require
-             a newer version of the ARCore SDK. -->
+        <!-- This value must match value present in ARCore SDK's .aar -->
+        <!-- TODO(https://crbug.com/917406): modify build scripts to
+             automatically pull this value in - the problem exists because in
+             bundle mode, the ARCore SDK is packaged into AR module and
+             the module installation will not automatically bring in DFM's
+             manifest entries. -->
         <meta-data android:name="com.google.ar.core.min_apk_version"
-            android:value="180226000"/>
+            android:value="181012000"/>
+        <activity
+            android:name="com.google.ar.core.InstallActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@android:style/Theme.Material.Light.Dialog.Alert" />
         {% endif %}
 
         <!-- Cast support -->
@@ -320,6 +330,8 @@ by a child template that "extends" this file.
                 <data android:mimeType="audio/*" />
                 <data android:mimeType="image/*" />
                 <data android:mimeType="video/*" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
             </intent-filter>
         </activity>
 
@@ -519,15 +531,7 @@ by a child template that "extends" this file.
             {{ self.chrome_activity_common() }}>
             {{ self.extra_web_rendering_activity_definitions() }}
         </activity>
-        <activity android:name="org.chromium.chrome.browser.FullscreenActivity"
-            android:theme="@style/MainTheme"
-            android:exported="false"
-            android:noHistory="true"
-            {{ self.chrome_activity_common() }}
-            {{ self.supports_video_persistence() }} >
-            {{ self.extra_web_rendering_activity_definitions() }}
-        </activity>
-        <activity android:name="org.chromium.chrome.browser.NoTouchActivity"
+        <activity android:name="org.chromium.chrome.browser.touchless.NoTouchActivity"
             android:theme="@style/MainTheme"
             android:exported="false"
             android:launchMode="singleTask"
@@ -704,10 +708,9 @@ by a child template that "extends" this file.
         </activity-alias>
         {% endfor %}
         <!-- Activities for WebAPKs. -->
-        <activity android:name="org.chromium.chrome.browser.webapps.TransparentSplashWebApkActivity"
+        <activity android:name="org.chromium.chrome.browser.webapps.SameTaskWebApkActivity"
             android:theme="@style/WebappTheme"
             android:label="@string/webapp_activity_title"
-            android:launchMode="singleTop"
             android:exported="false"
             android:persistableMode="persistNever"
             {{ self.supports_video_persistence() }}
@@ -756,6 +759,16 @@ by a child template that "extends" this file.
             android:excludeFromRecents="true">
         </activity>
 
+        <activity android:name="org.chromium.chrome.browser.media.router.caf.remoting.CafExpandedControllerActivity"
+            android:theme="@style/MainTheme"
+            android:label="Chrome.CafExpandedControllerActivity"
+            android:hardwareAccelerated="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
+            android:excludeFromRecents="true">
+        </activity>
+
         <!-- This activity is used to restart the main Chrome process.  Should never be exported. -->
         <activity android:name="org.chromium.chrome.browser.BrowserRestartActivity"
             android:launchMode="singleInstance"
@@ -781,7 +794,24 @@ by a child template that "extends" this file.
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
-        </activity>
+          </activity>
+
+         <activity
+            android:name="org.chromium.chrome.browser.send_tab_to_self.SendTabToSelfShareActivity"
+            android:icon="@drawable/ic_launcher"
+            android:label="@string/send_tab_to_self_share_activity_title"
+            android:enabled="false"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize" >
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+          </activity>
 
         <!-- Activity for dispatching intents to Instant Apps. -->
         <activity
@@ -1138,6 +1168,11 @@ android:value="true" />
         <receiver android:name="org.chromium.chrome.browser.offlinepages.prefetch.PrefetchedPagesNotifier$ClickReceiver"
             android:exported="false"/>
         <receiver android:name="org.chromium.chrome.browser.offlinepages.prefetch.PrefetchedPagesNotifier$SettingsReceiver"
+            android:exported="false"/>
+
+        <receiver android:name="org.chromium.chrome.browser.offlinepages.AutoFetchNotifier$CompleteNotificationReceiver"
+            android:exported="false"/>
+        <receiver android:name="org.chromium.chrome.browser.offlinepages.AutoFetchNotifier$InProgressCancelReceiver"
             android:exported="false"/>
 
         <service android:name="org.chromium.chrome.browser.media.MediaCaptureNotificationService"

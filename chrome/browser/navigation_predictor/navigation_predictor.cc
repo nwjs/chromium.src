@@ -25,17 +25,29 @@
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "third_party/blink/public/common/features.h"
 #include "url/gurl.h"
+#include "url/url_canon.h"
 
 namespace {
 
-content::RenderFrameHost* GetMainFrame(content::RenderFrameHost* rfh) {
+bool IsMainFrame(content::RenderFrameHost* rfh) {
   // Don't use rfh->GetRenderViewHost()->GetMainFrame() here because
   // RenderViewHost is being deprecated and because in OOPIF,
   // RenderViewHost::GetMainFrame() returns nullptr for child frames hosted in a
   // different process from the main frame.
-  while (rfh->GetParent() != nullptr)
-    rfh = rfh->GetParent();
-  return rfh;
+  return rfh->GetParent() == nullptr;
+}
+
+std::string GetURLWithoutRefParams(const GURL& gurl) {
+  url::Replacements<char> replacements;
+  replacements.ClearRef();
+  return gurl.ReplaceComponents(replacements).spec();
+}
+
+// Returns true if |a| and |b| are both valid HTTP/HTTPS URLs and have the
+// same scheme, host, path and query params. This method does not take into
+// account the ref params of the two URLs.
+bool AreGURLsEqualExcludingRefParams(const GURL& a, const GURL& b) {
+  return GetURLWithoutRefParams(a) == GetURLWithoutRefParams(b);
 }
 
 }  // namespace
@@ -74,35 +86,35 @@ NavigationPredictor::NavigationPredictor(
     : browser_context_(
           render_frame_host->GetSiteInstance()->GetBrowserContext()),
       ratio_area_scale_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "ratio_area_scale",
           100)),
       is_in_iframe_scale_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "is_in_iframe_scale",
           0)),
       is_same_host_scale_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "is_same_host_scale",
           100)),
       contains_image_scale_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "contains_image_scale",
           50)),
       is_url_incremented_scale_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "is_url_incremented_scale",
           100)),
       source_engagement_score_scale_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "source_engagement_score_scale",
           100)),
       target_engagement_score_scale_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "target_engagement_score_scale",
           100)),
       area_rank_scale_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "area_rank_scale",
           100)),
       sum_scales_(ratio_area_scale_ + is_in_iframe_scale_ +
@@ -111,16 +123,16 @@ NavigationPredictor::NavigationPredictor(
                   target_engagement_score_scale_ + area_rank_scale_),
       is_low_end_device_(base::SysInfo::IsLowEndDevice()),
       prefetch_url_score_threshold_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "prefetch_url_score_threshold",
           0)),
       preconnect_origin_score_threshold_(base::GetFieldTrialParamByFeatureAsInt(
-          blink::features::kRecordAnchorMetricsVisible,
+          blink::features::kNavigationPredictor,
           "preconnect_origin_score_threshold",
           0)),
       same_origin_preconnecting_allowed_(
           base::GetFieldTrialParamByFeatureAsBool(
-              blink::features::kRecordAnchorMetricsVisible,
+              blink::features::kNavigationPredictor,
               "same_origin_preconnecting_allowed",
               false))
 #ifdef OS_ANDROID
@@ -140,7 +152,7 @@ NavigationPredictor::NavigationPredictor(
   DCHECK_LE(0, preconnect_origin_score_threshold_);
   DCHECK_LE(0, prefetch_url_score_threshold_);
 
-  if (render_frame_host != GetMainFrame(render_frame_host))
+  if (!IsMainFrame(render_frame_host))
     return;
 
   content::WebContents* web_contents =
@@ -157,10 +169,7 @@ NavigationPredictor::~NavigationPredictor() {
 void NavigationPredictor::Create(
     blink::mojom::AnchorElementMetricsHostRequest request,
     content::RenderFrameHost* render_frame_host) {
-  DCHECK(base::FeatureList::IsEnabled(
-      blink::features::kRecordAnchorMetricsClicked));
-  DCHECK(base::FeatureList::IsEnabled(
-      blink::features::kRecordAnchorMetricsVisible));
+  DCHECK(base::FeatureList::IsEnabled(blink::features::kNavigationPredictor));
 
   // Only valid for the main frame.
   if (render_frame_host->GetParent())
@@ -334,8 +343,7 @@ TemplateURLService* NavigationPredictor::GetTemplateURLService() const {
 void NavigationPredictor::ReportAnchorElementMetricsOnClick(
     blink::mojom::AnchorElementMetricsPtr metrics) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(base::FeatureList::IsEnabled(
-      blink::features::kRecordAnchorMetricsClicked));
+  DCHECK(base::FeatureList::IsEnabled(blink::features::kNavigationPredictor));
 
   if (browser_context_->IsOffTheRecord())
     return;
@@ -459,9 +467,13 @@ void NavigationPredictor::MergeMetricsSameTargetUrl(
 
   for (auto& metric : *metrics) {
     // Do not include anchor elements that point to the same URL as the URL of
-    // the current navigation since these are unlikely to be clicked.
-    if (metric->target_url == metric->source_url)
+    // the current navigation since these are unlikely to be clicked. Also,
+    // exclude the anchor elements that differ from the URL of the current
+    // navigation by only the ref param.
+    if (AreGURLsEqualExcludingRefParams(metric->target_url,
+                                        metric->source_url)) {
       continue;
+    }
 
     if (!metric->target_url.SchemeIsCryptographic())
       continue;
@@ -472,7 +484,10 @@ void NavigationPredictor::MergeMetricsSameTargetUrl(
     if (metric->is_in_iframe)
       continue;
 
-    const std::string& key = metric->target_url.spec();
+    // Skip ref params when merging the anchor elements. This ensures that two
+    // anchor elements which differ only in the ref params are combined
+    // together.
+    const std::string& key = GetURLWithoutRefParams(metric->target_url);
     auto iter = metrics_map.find(key);
     if (iter == metrics_map.end()) {
       metrics_map[key] = std::move(metric);
@@ -537,8 +552,7 @@ void NavigationPredictor::MergeMetricsSameTargetUrl(
 void NavigationPredictor::ReportAnchorElementMetricsOnLoad(
     std::vector<blink::mojom::AnchorElementMetricsPtr> metrics) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(base::FeatureList::IsEnabled(
-      blink::features::kRecordAnchorMetricsVisible));
+  DCHECK(base::FeatureList::IsEnabled(blink::features::kNavigationPredictor));
 
   // Each document should only report metrics once when page is loaded.
   DCHECK(navigation_scores_map_.empty());

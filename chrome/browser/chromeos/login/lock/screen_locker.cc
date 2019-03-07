@@ -42,7 +42,6 @@
 #include "chrome/browser/chromeos/login/users/supervised_user_manager.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/ui/ash/login_screen_client.h"
 #include "chrome/browser/ui/ash/session_controller_client.h"
 #include "chrome/browser/ui/webui/chromeos/login/screenlock_icon_provider.h"
@@ -60,7 +59,6 @@
 #include "components/password_manager/core/browser/hash_password_manager.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/session_manager/core/session_manager_observer.h"
-#include "components/signin/core/browser/signin_manager.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_type.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -623,6 +621,10 @@ void ScreenLocker::SaveSyncPasswordHash(const UserContext& user_context) {
     login::SaveSyncPasswordDataToProfile(user_context, profile);
 }
 
+bool ScreenLocker::IsAuthEnabledForUser(const AccountId& account_id) {
+  return !base::ContainsKey(users_with_disabled_auth_, account_id);
+}
+
 void ScreenLocker::SetAuthenticatorsForTesting(
     scoped_refptr<Authenticator> authenticator,
     scoped_refptr<ExtendedAuthenticator> extended_authenticator) {
@@ -707,8 +709,14 @@ bool ScreenLocker::IsUserLoggedIn(const AccountId& account_id) const {
   return false;
 }
 
+void ScreenLocker::OnRestarted() {}
+
+void ScreenLocker::OnEnrollScanDone(device::mojom::ScanResult scan_result,
+                                    bool enroll_session_complete,
+                                    int percent_complete) {}
+
 void ScreenLocker::OnAuthScanDone(
-    uint32_t scan_result,
+    device::mojom::ScanResult scan_result,
     const base::flat_map<std::string, std::vector<std::string>>& matches) {
   RefreshPinAndFingerprintTimeout();
 
@@ -729,7 +737,7 @@ void ScreenLocker::OnAuthScanDone(
   LoginScreenClient::Get()->auth_recorder()->RecordAuthMethod(
       LoginAuthRecorder::AuthMethod::kFingerprint);
 
-  if (scan_result != biod::ScanResult::SCAN_RESULT_SUCCESS) {
+  if (scan_result != device::mojom::ScanResult::SUCCESS) {
     LOG(ERROR) << "Fingerprint unlock failed because scan_result="
                << scan_result;
     OnFingerprintAuthFailure(*active_user);

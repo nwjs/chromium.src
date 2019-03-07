@@ -29,11 +29,14 @@
  */
 
 #include <algorithm>
+#include <atomic>
 #include <memory>
 #include <utility>
 
+#include "base/atomic_ref_count.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/synchronization/waitable_event.h"
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -61,11 +64,15 @@ namespace {
 
 class IntWrapper : public GarbageCollectedFinalized<IntWrapper> {
  public:
-  static IntWrapper* Create(int x) { return new IntWrapper(x); }
+  static IntWrapper* Create(int x) {
+    return MakeGarbageCollected<IntWrapper>(x);
+  }
 
-  virtual ~IntWrapper() { AtomicIncrement(&destructor_calls_); }
+  virtual ~IntWrapper() {
+    destructor_calls_.fetch_add(1, std::memory_order_relaxed);
+  }
 
-  static int destructor_calls_;
+  static std::atomic_int destructor_calls_;
   void Trace(blink::Visitor* visitor) {}
 
   int Value() const { return x_; }
@@ -82,6 +89,8 @@ class IntWrapper : public GarbageCollectedFinalized<IntWrapper> {
   IntWrapper() = delete;
   int x_;
 };
+
+std::atomic_int IntWrapper::destructor_calls_{0};
 
 struct IntWrapperHash {
   static unsigned GetHash(const IntWrapper& key) {
@@ -381,7 +390,8 @@ class TestGCScope : public TestGCCollectGarbageScope {
 
 class SimpleObject : public GarbageCollected<SimpleObject> {
  public:
-  static SimpleObject* Create() { return new SimpleObject(); }
+  static SimpleObject* Create() { return MakeGarbageCollected<SimpleObject>(); }
+  SimpleObject() = default;
   void Trace(blink::Visitor* visitor) {}
   char GetPayload(int i) { return payload[i]; }
   // This virtual method is unused but it is here to make sure
@@ -393,22 +403,21 @@ class SimpleObject : public GarbageCollected<SimpleObject> {
   virtual void VirtualMethod() {}
 
  protected:
-  SimpleObject() = default;
   char payload[64];
 };
 
 class HeapTestSuperClass
     : public GarbageCollectedFinalized<HeapTestSuperClass> {
  public:
-  static HeapTestSuperClass* Create() { return new HeapTestSuperClass(); }
+  static HeapTestSuperClass* Create() {
+    return MakeGarbageCollected<HeapTestSuperClass>();
+  }
 
+  HeapTestSuperClass() = default;
   virtual ~HeapTestSuperClass() { ++destructor_calls_; }
 
   static int destructor_calls_;
   void Trace(blink::Visitor* visitor) {}
-
- protected:
-  HeapTestSuperClass() = default;
 };
 
 int HeapTestSuperClass::destructor_calls_ = 0;
@@ -423,8 +432,11 @@ static const size_t kClassMagic = 0xABCDDBCA;
 class HeapTestSubClass : public HeapTestOtherSuperClass,
                          public HeapTestSuperClass {
  public:
-  static HeapTestSubClass* Create() { return new HeapTestSubClass(); }
+  static HeapTestSubClass* Create() {
+    return MakeGarbageCollected<HeapTestSubClass>();
+  }
 
+  HeapTestSubClass() : magic_(kClassMagic) {}
   ~HeapTestSubClass() override {
     EXPECT_EQ(kClassMagic, magic_);
     ++destructor_calls_;
@@ -433,8 +445,6 @@ class HeapTestSubClass : public HeapTestOtherSuperClass,
   static int destructor_calls_;
 
  private:
-  HeapTestSubClass() : magic_(kClassMagic) {}
-
   const size_t magic_;
 };
 
@@ -483,24 +493,21 @@ class OffHeapInt : public RefCounted<OffHeapInt> {
   int x_;
 };
 
-int IntWrapper::destructor_calls_ = 0;
 int OffHeapInt::destructor_calls_ = 0;
 
 class ThreadedTesterBase {
  protected:
   static void Test(ThreadedTesterBase* tester) {
-    Vector<std::unique_ptr<Thread>, kNumberOfThreads> threads;
-    for (int i = 0; i < kNumberOfThreads; i++) {
-      threads.push_back(Platform::Current()->CreateThread(
+    std::unique_ptr<Thread> threads[kNumberOfThreads];
+    for (auto& thread : threads) {
+      thread = Platform::Current()->CreateThread(
           ThreadCreationParams(WebThreadType::kTestThread)
-              .SetThreadNameForTest("blink gc testing thread")));
+              .SetThreadNameForTest("blink gc testing thread"));
       PostCrossThreadTask(
-          *threads.back()->GetTaskRunner(), FROM_HERE,
+          *thread->GetTaskRunner(), FROM_HERE,
           CrossThreadBind(ThreadFunc, CrossThreadUnretained(tester)));
     }
-    while (AcquireLoad(&tester->threads_to_finish_)) {
-      test::YieldCurrentThread();
-    }
+    tester->done_.Wait();
     delete tester;
   }
 
@@ -511,21 +518,26 @@ class ThreadedTesterBase {
   static const int kGcPerThread = 5;
   static const int kNumberOfAllocations = 50;
 
-  ThreadedTesterBase() : gc_count_(0), threads_to_finish_(kNumberOfThreads) {}
-
   virtual ~ThreadedTesterBase() = default;
 
   inline bool Done() const {
-    return AcquireLoad(&gc_count_) >= kNumberOfThreads * kGcPerThread;
+    return gc_count_.load(std::memory_order_acquire) >=
+           kNumberOfThreads * kGcPerThread;
   }
 
-  volatile int gc_count_;
-  volatile int threads_to_finish_;
+  std::atomic_int gc_count_{0};
 
  private:
-  static void ThreadFunc(void* data) {
-    reinterpret_cast<ThreadedTesterBase*>(data)->RunThread();
+  static void ThreadFunc(ThreadedTesterBase* tester) {
+    ThreadState::AttachCurrentThread();
+    tester->RunThread();
+    ThreadState::DetachCurrentThread();
+    if (!tester->threads_to_finish_.Decrement())
+      tester->done_.Signal();
   }
+
+  base::AtomicRefCount threads_to_finish_{kNumberOfThreads};
+  base::WaitableEvent done_;
 };
 
 // Needed to give this variable a definition (the initializer above is only a
@@ -563,8 +575,6 @@ class ThreadedHeapTester : public ThreadedTesterBase {
   }
 
   void RunThread() override {
-    ThreadState::AttachCurrentThread();
-
     // Add a cross-thread persistent from this thread; the test object
     // verifies that it will have been cleared out after the threads
     // have all detached, running their termination GCs while doing so.
@@ -589,7 +599,7 @@ class ThreadedHeapTester : public ThreadedTesterBase {
         if (gc_count < kGcPerThread) {
           PreciselyCollectGarbage();
           gc_count++;
-          AtomicIncrement(&gc_count_);
+          gc_count_.fetch_add(1, std::memory_order_release);
         }
 
         // Taking snapshot shouldn't have any bad side effect.
@@ -603,9 +613,6 @@ class ThreadedHeapTester : public ThreadedTesterBase {
       }
       test::YieldCurrentThread();
     }
-
-    ThreadState::DetachCurrentThread();
-    AtomicDecrement(&threads_to_finish_);
   }
 };
 
@@ -615,8 +622,6 @@ class ThreadedWeaknessTester : public ThreadedTesterBase {
 
  private:
   void RunThread() override {
-    ThreadState::AttachCurrentThread();
-
     int gc_count = 0;
     while (!Done()) {
       {
@@ -632,7 +637,7 @@ class ThreadedWeaknessTester : public ThreadedTesterBase {
         if (gc_count < kGcPerThread) {
           PreciselyCollectGarbage();
           gc_count++;
-          AtomicIncrement(&gc_count_);
+          gc_count_.fetch_add(1, std::memory_order_release);
         }
 
         // Taking snapshot shouldn't have any bad side effect.
@@ -645,8 +650,6 @@ class ThreadedWeaknessTester : public ThreadedTesterBase {
       }
       test::YieldCurrentThread();
     }
-    ThreadState::DetachCurrentThread();
-    AtomicDecrement(&threads_to_finish_);
   }
 };
 
@@ -686,30 +689,26 @@ class ThreadPersistentHeapTester : public ThreadedTesterBase {
   class PersistentChain : public GarbageCollectedFinalized<PersistentChain> {
    public:
     static PersistentChain* Create(int count) {
-      return new PersistentChain(count);
+      return MakeGarbageCollected<PersistentChain>(count);
+    }
+
+    explicit PersistentChain(int count) {
+      ref_counted_chain_ = base::AdoptRef(RefCountedChain::Create(count));
     }
 
     void Trace(blink::Visitor* visitor) {}
 
    private:
-    explicit PersistentChain(int count) {
-      ref_counted_chain_ = base::AdoptRef(RefCountedChain::Create(count));
-    }
-
     scoped_refptr<RefCountedChain> ref_counted_chain_;
   };
 
   void RunThread() override {
-    ThreadState::AttachCurrentThread();
-
     PersistentChain::Create(100);
 
     // Upon thread detach, GCs will run until all persistents have been
     // released. We verify that the draining of persistents proceeds
     // as expected by dropping one Persistent<> per GC until there
     // are none left.
-    ThreadState::DetachCurrentThread();
-    AtomicDecrement(&threads_to_finish_);
   }
 };
 
@@ -724,14 +723,14 @@ void CheckWithSlack(T expected, T actual, int slack) {
 
 class TraceCounter : public GarbageCollectedFinalized<TraceCounter> {
  public:
-  static TraceCounter* Create() { return new TraceCounter(); }
+  static TraceCounter* Create() { return MakeGarbageCollected<TraceCounter>(); }
+
+  TraceCounter() : trace_count_(0) {}
 
   void Trace(blink::Visitor* visitor) { trace_count_++; }
   int TraceCount() const { return trace_count_; }
 
  private:
-  TraceCounter() : trace_count_(0) {}
-
   int trace_count_;
 };
 
@@ -747,7 +746,11 @@ TEST(HeapTest, IsHeapObjectAliveForConstPointer) {
 
 class ClassWithMember : public GarbageCollected<ClassWithMember> {
  public:
-  static ClassWithMember* Create() { return new ClassWithMember(); }
+  static ClassWithMember* Create() {
+    return MakeGarbageCollected<ClassWithMember>();
+  }
+
+  ClassWithMember() : trace_counter_(TraceCounter::Create()) {}
 
   void Trace(blink::Visitor* visitor) {
     visitor->Trace(trace_counter_);
@@ -755,24 +758,22 @@ class ClassWithMember : public GarbageCollected<ClassWithMember> {
   int TraceCount() const { return trace_counter_->TraceCount(); }
 
  private:
-  ClassWithMember() : trace_counter_(TraceCounter::Create()) {}
-
   Member<TraceCounter> trace_counter_;
 };
 
 class SimpleFinalizedObject
     : public GarbageCollectedFinalized<SimpleFinalizedObject> {
  public:
-  static SimpleFinalizedObject* Create() { return new SimpleFinalizedObject(); }
+  static SimpleFinalizedObject* Create() {
+    return MakeGarbageCollected<SimpleFinalizedObject>();
+  }
 
+  SimpleFinalizedObject() = default;
   ~SimpleFinalizedObject() { ++destructor_calls_; }
 
   static int destructor_calls_;
 
   void Trace(blink::Visitor* visitor) {}
-
- private:
-  SimpleFinalizedObject() = default;
 };
 
 int SimpleFinalizedObject::destructor_calls_ = 0;
@@ -809,7 +810,9 @@ class IntNode : public GarbageCollected<IntNode> {
 
 class Bar : public GarbageCollectedFinalized<Bar> {
  public:
-  static Bar* Create() { return new Bar(); }
+  static Bar* Create() { return MakeGarbageCollected<Bar>(); }
+
+  Bar() : magic_(kMagic) { live_++; }
 
   void FinalizeGarbageCollectedObject() {
     EXPECT_TRUE(magic_ == kMagic);
@@ -824,8 +827,6 @@ class Bar : public GarbageCollectedFinalized<Bar> {
  protected:
   static const int kMagic = 1337;
   int magic_;
-
-  Bar() : magic_(kMagic) { live_++; }
 };
 
 WILL_NOT_BE_EAGERLY_TRACED_CLASS(Bar);
@@ -834,7 +835,9 @@ unsigned Bar::live_ = 0;
 
 class Baz : public GarbageCollected<Baz> {
  public:
-  static Baz* Create(Bar* bar) { return new Baz(bar); }
+  static Baz* Create(Bar* bar) { return MakeGarbageCollected<Baz>(bar); }
+
+  explicit Baz(Bar* bar) : bar_(bar) {}
 
   void Trace(blink::Visitor* visitor) { visitor->Trace(bar_); }
 
@@ -844,16 +847,18 @@ class Baz : public GarbageCollected<Baz> {
   void WillFinalize() { EXPECT_TRUE(!bar_->HasBeenFinalized()); }
 
  private:
-  explicit Baz(Bar* bar) : bar_(bar) {}
-
   Member<Bar> bar_;
 };
 
 class Foo : public Bar {
  public:
-  static Foo* Create(Bar* bar) { return new Foo(bar); }
+  static Foo* Create(Bar* bar) { return MakeGarbageCollected<Foo>(bar); }
 
-  static Foo* Create(Foo* foo) { return new Foo(foo); }
+  static Foo* Create(Foo* foo) { return MakeGarbageCollected<Foo>(foo); }
+
+  Foo(Bar* bar) : Bar(), bar_(bar), points_to_foo_(false) {}
+
+  Foo(Foo* foo) : Bar(), bar_(foo), points_to_foo_(true) {}
 
   void Trace(blink::Visitor* visitor) override {
     if (points_to_foo_)
@@ -863,10 +868,6 @@ class Foo : public Bar {
   }
 
  private:
-  Foo(Bar* bar) : Bar(), bar_(bar), points_to_foo_(false) {}
-
-  Foo(Foo* foo) : Bar(), bar_(foo), points_to_foo_(true) {}
-
   Bar* bar_;
   bool points_to_foo_;
 };
@@ -875,7 +876,14 @@ WILL_NOT_BE_EAGERLY_TRACED_CLASS(Foo);
 
 class Bars : public Bar {
  public:
-  static Bars* Create() { return new Bars(); }
+  static Bars* Create() { return MakeGarbageCollected<Bars>(); }
+
+  Bars() : width_(0) {
+    for (unsigned i = 0; i < kWidth; i++) {
+      bars_[i] = Bar::Create();
+      width_++;
+    }
+  }
 
   void Trace(blink::Visitor* visitor) override {
     for (unsigned i = 0; i < width_; i++)
@@ -887,13 +895,6 @@ class Bars : public Bar {
   static const unsigned kWidth = 7500;
 
  private:
-  Bars() : width_(0) {
-    for (unsigned i = 0; i < kWidth; i++) {
-      bars_[i] = Bar::Create();
-      width_++;
-    }
-  }
-
   unsigned width_;
   Member<Bar> bars_[kWidth];
 };
@@ -902,20 +903,25 @@ WILL_NOT_BE_EAGERLY_TRACED_CLASS(Bars);
 
 class ConstructorAllocation : public GarbageCollected<ConstructorAllocation> {
  public:
-  static ConstructorAllocation* Create() { return new ConstructorAllocation(); }
+  static ConstructorAllocation* Create() {
+    return MakeGarbageCollected<ConstructorAllocation>();
+  }
+
+  ConstructorAllocation() { int_wrapper_ = IntWrapper::Create(42); }
 
   void Trace(blink::Visitor* visitor) { visitor->Trace(int_wrapper_); }
 
  private:
-  ConstructorAllocation() { int_wrapper_ = IntWrapper::Create(42); }
-
   Member<IntWrapper> int_wrapper_;
 };
 
 class LargeHeapObject : public GarbageCollectedFinalized<LargeHeapObject> {
  public:
+  LargeHeapObject() { int_wrapper_ = IntWrapper::Create(23); }
   ~LargeHeapObject() { destructor_calls_++; }
-  static LargeHeapObject* Create() { return new LargeHeapObject(); }
+  static LargeHeapObject* Create() {
+    return MakeGarbageCollected<LargeHeapObject>();
+  }
   char Get(size_t i) { return data_[i]; }
   void Set(size_t i, char c) { data_[i] = c; }
   size_t length() { return kLength; }
@@ -924,7 +930,6 @@ class LargeHeapObject : public GarbageCollectedFinalized<LargeHeapObject> {
 
  private:
   static const size_t kLength = 1024 * 1024;
-  LargeHeapObject() { int_wrapper_ = IntWrapper::Create(23); }
   Member<IntWrapper> int_wrapper_;
   char data_[kLength];
 };
@@ -946,9 +951,10 @@ class RefCountedAndGarbageCollected
     : public GarbageCollectedFinalized<RefCountedAndGarbageCollected> {
  public:
   static RefCountedAndGarbageCollected* Create() {
-    return new RefCountedAndGarbageCollected;
+    return MakeGarbageCollected<RefCountedAndGarbageCollected>();
   }
 
+  RefCountedAndGarbageCollected() : ref_count_(0) {}
   ~RefCountedAndGarbageCollected() { ++destructor_calls_; }
 
   void AddRef() {
@@ -973,8 +979,6 @@ class RefCountedAndGarbageCollected
   static int destructor_calls_;
 
  private:
-  RefCountedAndGarbageCollected() : ref_count_(0) {}
-
   int ref_count_;
   SelfKeepAlive<RefCountedAndGarbageCollected> keep_alive_;
 };
@@ -986,9 +990,10 @@ class RefCountedAndGarbageCollected2
       public GarbageCollectedFinalized<RefCountedAndGarbageCollected2> {
  public:
   static RefCountedAndGarbageCollected2* Create() {
-    return new RefCountedAndGarbageCollected2;
+    return MakeGarbageCollected<RefCountedAndGarbageCollected2>();
   }
 
+  RefCountedAndGarbageCollected2() : ref_count_(0) {}
   ~RefCountedAndGarbageCollected2() { ++destructor_calls_; }
 
   void Ref() {
@@ -1013,8 +1018,6 @@ class RefCountedAndGarbageCollected2
   static int destructor_calls_;
 
  private:
-  RefCountedAndGarbageCollected2() : ref_count_(0) {}
-
   int ref_count_;
   SelfKeepAlive<RefCountedAndGarbageCollected2> keep_alive_;
 };
@@ -1023,7 +1026,12 @@ int RefCountedAndGarbageCollected2::destructor_calls_ = 0;
 
 class Weak : public Bar {
  public:
-  static Weak* Create(Bar* strong, Bar* weak) { return new Weak(strong, weak); }
+  static Weak* Create(Bar* strong, Bar* weak) {
+    return MakeGarbageCollected<Weak>(strong, weak);
+  }
+
+  Weak(Bar* strong_bar, Bar* weak_bar)
+      : Bar(), strong_bar_(strong_bar), weak_bar_(weak_bar) {}
 
   void Trace(blink::Visitor* visitor) override {
     visitor->Trace(strong_bar_);
@@ -1039,9 +1047,6 @@ class Weak : public Bar {
   bool WeakIsThere() { return !!weak_bar_; }
 
  private:
-  Weak(Bar* strong_bar, Bar* weak_bar)
-      : Bar(), strong_bar_(strong_bar), weak_bar_(weak_bar) {}
-
   Member<Bar> strong_bar_;
   Bar* weak_bar_;
 };
@@ -1051,8 +1056,11 @@ WILL_NOT_BE_EAGERLY_TRACED_CLASS(Weak);
 class WithWeakMember : public Bar {
  public:
   static WithWeakMember* Create(Bar* strong, Bar* weak) {
-    return new WithWeakMember(strong, weak);
+    return MakeGarbageCollected<WithWeakMember>(strong, weak);
   }
+
+  WithWeakMember(Bar* strong_bar, Bar* weak_bar)
+      : Bar(), strong_bar_(strong_bar), weak_bar_(weak_bar) {}
 
   void Trace(blink::Visitor* visitor) override {
     visitor->Trace(strong_bar_);
@@ -1063,9 +1071,6 @@ class WithWeakMember : public Bar {
   bool WeakIsThere() { return !!weak_bar_; }
 
  private:
-  WithWeakMember(Bar* strong_bar, Bar* weak_bar)
-      : Bar(), strong_bar_(strong_bar), weak_bar_(weak_bar) {}
-
   Member<Bar> strong_bar_;
   WeakMember<Bar> weak_bar_;
 };
@@ -1076,7 +1081,10 @@ class Observable : public GarbageCollectedFinalized<Observable> {
   USING_PRE_FINALIZER(Observable, WillFinalize);
 
  public:
-  static Observable* Create(Bar* bar) { return new Observable(bar); }
+  static Observable* Create(Bar* bar) {
+    return MakeGarbageCollected<Observable>(bar);
+  }
+  explicit Observable(Bar* bar) : bar_(bar), was_destructed_(false) {}
   ~Observable() { was_destructed_ = true; }
   void Trace(blink::Visitor* visitor) { visitor->Trace(bar_); }
 
@@ -1090,8 +1098,6 @@ class Observable : public GarbageCollectedFinalized<Observable> {
   static bool will_finalize_was_called_;
 
  private:
-  explicit Observable(Bar* bar) : bar_(bar), was_destructed_(false) {}
-
   Member<Bar> bar_;
   bool was_destructed_;
 };
@@ -1104,8 +1110,9 @@ class ObservableWithPreFinalizer
 
  public:
   static ObservableWithPreFinalizer* Create() {
-    return new ObservableWithPreFinalizer();
+    return MakeGarbageCollected<ObservableWithPreFinalizer>();
   }
+  ObservableWithPreFinalizer() : was_destructed_(false) {}
   ~ObservableWithPreFinalizer() { was_destructed_ = true; }
   void Trace(blink::Visitor* visitor) {}
   void Dispose() {
@@ -1115,8 +1122,6 @@ class ObservableWithPreFinalizer
   static bool dispose_was_called_;
 
  protected:
-  ObservableWithPreFinalizer() : was_destructed_(false) {}
-
   bool was_destructed_;
 };
 
@@ -1130,7 +1135,10 @@ class PreFinalizerBase : public GarbageCollectedFinalized<PreFinalizerBase> {
   USING_PRE_FINALIZER(PreFinalizerBase, Dispose);
 
  public:
-  static PreFinalizerBase* Create() { return new PreFinalizerBase(); }
+  static PreFinalizerBase* Create() {
+    return MakeGarbageCollected<PreFinalizerBase>();
+  }
+  PreFinalizerBase() : was_destructed_(false) {}
   virtual ~PreFinalizerBase() { was_destructed_ = true; }
   virtual void Trace(blink::Visitor* visitor) {}
   void Dispose() {
@@ -1142,7 +1150,6 @@ class PreFinalizerBase : public GarbageCollectedFinalized<PreFinalizerBase> {
   }
 
  protected:
-  PreFinalizerBase() : was_destructed_(false) {}
   bool was_destructed_;
 };
 
@@ -1170,7 +1177,10 @@ class PreFinalizerSubClass : public PreFinalizerBase, public PreFinalizerMixin {
   USING_PRE_FINALIZER(PreFinalizerSubClass, Dispose);
 
  public:
-  static PreFinalizerSubClass* Create() { return new PreFinalizerSubClass(); }
+  static PreFinalizerSubClass* Create() {
+    return MakeGarbageCollected<PreFinalizerSubClass>();
+  }
+  PreFinalizerSubClass() : was_destructed_(false) {}
   ~PreFinalizerSubClass() override { was_destructed_ = true; }
   void Trace(blink::Visitor* visitor) override {}
   void Dispose() {
@@ -1182,7 +1192,6 @@ class PreFinalizerSubClass : public PreFinalizerBase, public PreFinalizerMixin {
   }
 
  protected:
-  PreFinalizerSubClass() : was_destructed_(false) {}
   bool was_destructed_;
 };
 
@@ -1190,8 +1199,11 @@ template <typename T>
 class FinalizationObserver : public GarbageCollected<FinalizationObserver<T>> {
  public:
   static FinalizationObserver* Create(T* data) {
-    return new FinalizationObserver(data);
+    return MakeGarbageCollected<FinalizationObserver>(data);
   }
+
+  FinalizationObserver(T* data) : data_(data), did_call_will_finalize_(false) {}
+
   bool DidCallWillFinalize() const { return did_call_will_finalize_; }
 
   void Trace(blink::Visitor* visitor) {
@@ -1209,8 +1221,6 @@ class FinalizationObserver : public GarbageCollected<FinalizationObserver<T>> {
   }
 
  private:
-  FinalizationObserver(T* data) : data_(data), did_call_will_finalize_(false) {}
-
   WeakMember<T> data_;
   bool did_call_will_finalize_;
 };
@@ -1268,8 +1278,9 @@ class SuperClass;
 
 class PointsBack : public GarbageCollectedFinalized<PointsBack> {
  public:
-  static PointsBack* Create() { return new PointsBack; }
+  static PointsBack* Create() { return MakeGarbageCollected<PointsBack>(); }
 
+  PointsBack() : back_pointer_(nullptr) { ++alive_count_; }
   ~PointsBack() { --alive_count_; }
 
   void SetBackPointer(SuperClass* back_pointer) {
@@ -1283,8 +1294,6 @@ class PointsBack : public GarbageCollectedFinalized<PointsBack> {
   static int alive_count_;
 
  private:
-  PointsBack() : back_pointer_(nullptr) { ++alive_count_; }
-
   WeakMember<SuperClass> back_pointer_;
 };
 
@@ -1293,9 +1302,13 @@ int PointsBack::alive_count_ = 0;
 class SuperClass : public GarbageCollectedFinalized<SuperClass> {
  public:
   static SuperClass* Create(PointsBack* points_back) {
-    return new SuperClass(points_back);
+    return MakeGarbageCollected<SuperClass>(points_back);
   }
 
+  explicit SuperClass(PointsBack* points_back) : points_back_(points_back) {
+    points_back_->SetBackPointer(this);
+    ++alive_count_;
+  }
   virtual ~SuperClass() { --alive_count_; }
 
   void DoStuff(SuperClass* target,
@@ -1311,12 +1324,6 @@ class SuperClass : public GarbageCollectedFinalized<SuperClass> {
   PointsBack* GetPointsBack() const { return points_back_.Get(); }
 
   static int alive_count_;
-
- protected:
-  explicit SuperClass(PointsBack* points_back) : points_back_(points_back) {
-    points_back_->SetBackPointer(this);
-    ++alive_count_;
-  }
 
  private:
   Member<PointsBack> points_back_;
@@ -1338,9 +1345,13 @@ int SubData::alive_count_ = 0;
 class SubClass : public SuperClass {
  public:
   static SubClass* Create(PointsBack* points_back) {
-    return new SubClass(points_back);
+    return MakeGarbageCollected<SubClass>(points_back);
   }
 
+  explicit SubClass(PointsBack* points_back)
+      : SuperClass(points_back), data_(MakeGarbageCollected<SubData>()) {
+    ++alive_count_;
+  }
   ~SubClass() override { --alive_count_; }
 
   void Trace(blink::Visitor* visitor) override {
@@ -1349,12 +1360,6 @@ class SubClass : public SuperClass {
   }
 
   static int alive_count_;
-
- private:
-  explicit SubClass(PointsBack* points_back)
-      : SuperClass(points_back), data_(new SubData) {
-    ++alive_count_;
-  }
 
  private:
   Member<SubData> data_;
@@ -1375,21 +1380,20 @@ class Mixin : public GarbageCollectedMixin {
 class UseMixin : public SimpleObject, public Mixin {
   USING_GARBAGE_COLLECTED_MIXIN(UseMixin)
  public:
-  static UseMixin* Create() { return new UseMixin(); }
+  static UseMixin* Create() { return MakeGarbageCollected<UseMixin>(); }
+
+  UseMixin() {
+    // Verify that WTF::IsGarbageCollectedType<> works as expected for mixins.
+    static_assert(WTF::IsGarbageCollectedType<UseMixin>::value,
+                  "IsGarbageCollectedType<> sanity check failed for GC mixin.");
+    trace_count_ = 0;
+  }
 
   static int trace_count_;
   void Trace(blink::Visitor* visitor) override {
     SimpleObject::Trace(visitor);
     Mixin::Trace(visitor);
     ++trace_count_;
-  }
-
- private:
-  UseMixin() {
-    // Verify that WTF::IsGarbageCollectedType<> works as expected for mixins.
-    static_assert(WTF::IsGarbageCollectedType<UseMixin>::value,
-                  "IsGarbageCollectedType<> sanity check failed for GC mixin.");
-    trace_count_ = 0;
   }
 };
 
@@ -1488,7 +1492,7 @@ class FinalizationAllocator
     for (int i = 0; i < 10; ++i)
       *wrapper_ = IntWrapper::Create(42);
     for (int i = 0; i < 512; ++i)
-      new OneKiloByteObject();
+      MakeGarbageCollected<OneKiloByteObject>();
     for (int i = 0; i < 32; ++i)
       LargeHeapObject::Create();
   }
@@ -1511,7 +1515,7 @@ class PreFinalizationAllocator
     for (int i = 0; i < 10; ++i)
       *wrapper_ = IntWrapper::Create(42);
     for (int i = 0; i < 512; ++i)
-      new OneKiloByteObject();
+      MakeGarbageCollected<OneKiloByteObject>();
     for (int i = 0; i < 32; ++i)
       LargeHeapObject::Create();
   }
@@ -1529,12 +1533,12 @@ class PreFinalizerBackingShrinkForbidden
  public:
   PreFinalizerBackingShrinkForbidden() {
     for (int i = 0; i < 32; ++i) {
-      vector_.push_back(new IntWrapper(i));
+      vector_.push_back(MakeGarbageCollected<IntWrapper>(i));
     }
     EXPECT_LT(31ul, vector_.capacity());
 
     for (int i = 0; i < 32; ++i) {
-      map_.insert(i + 1, new IntWrapper(i + 1));
+      map_.insert(i + 1, MakeGarbageCollected<IntWrapper>(i + 1));
     }
     EXPECT_LT(31ul, map_.Capacity());
   }
@@ -1572,7 +1576,7 @@ class PreFinalizerBackingShrinkForbidden
 };
 
 TEST(HeapTest, PreFinalizerBackingShrinkForbidden) {
-  new PreFinalizerBackingShrinkForbidden();
+  MakeGarbageCollected<PreFinalizerBackingShrinkForbidden>();
   PreciselyCollectGarbage();
 }
 
@@ -1583,7 +1587,7 @@ class PreFinalizerVectorBackingExpandForbidden
 
  public:
   PreFinalizerVectorBackingExpandForbidden() {
-    vector_.push_back(new IntWrapper(1));
+    vector_.push_back(MakeGarbageCollected<IntWrapper>(1));
   }
 
   void Dispose() { EXPECT_DEATH(Test(), ""); }
@@ -1602,7 +1606,7 @@ class PreFinalizerVectorBackingExpandForbidden
 };
 
 TEST(HeapDeathTest, PreFinalizerVectorBackingExpandForbidden) {
-  new PreFinalizerVectorBackingExpandForbidden();
+  MakeGarbageCollected<PreFinalizerVectorBackingExpandForbidden>();
   PreciselyCollectGarbage();
 }
 
@@ -1613,7 +1617,7 @@ class PreFinalizerHashTableBackingExpandForbidden
 
  public:
   PreFinalizerHashTableBackingExpandForbidden() {
-    map_.insert(123, new IntWrapper(123));
+    map_.insert(123, MakeGarbageCollected<IntWrapper>(123));
   }
 
   void Dispose() { EXPECT_DEATH(Test(), ""); }
@@ -1632,7 +1636,7 @@ class PreFinalizerHashTableBackingExpandForbidden
 };
 
 TEST(HeapDeathTest, PreFinalizerHashTableBackingExpandForbidden) {
-  new PreFinalizerHashTableBackingExpandForbidden();
+  MakeGarbageCollected<PreFinalizerHashTableBackingExpandForbidden>();
   PreciselyCollectGarbage();
 }
 
@@ -1644,7 +1648,7 @@ class LargeMixin : public GarbageCollected<LargeMixin>, public Mixin {
 };
 
 TEST(HeapDeathTest, LargeGarbageCollectedMixin) {
-  EXPECT_DEATH(new LargeMixin(), "");
+  EXPECT_DEATH(MakeGarbageCollected<LargeMixin>(), "");
 }
 
 TEST(HeapTest, Transition) {
@@ -1874,7 +1878,7 @@ TEST(HeapTest, SimpleAllocation) {
   EXPECT_EQ(0ul, heap.ObjectPayloadSizeForTesting());
 
   // Allocate an object in the heap.
-  HeapAllocatedArray* array = new HeapAllocatedArray();
+  HeapAllocatedArray* array = MakeGarbageCollected<HeapAllocatedArray>();
   EXPECT_TRUE(heap.ObjectPayloadSizeForTesting() >= sizeof(HeapAllocatedArray));
 
   // Sanity check of the contents in the heap.
@@ -1918,13 +1922,13 @@ TEST(HeapTest, FreelistReuse) {
   ClearOutOldGarbage();
 
   for (int i = 0; i < 100; i++)
-    new IntWrapper(i);
-  IntWrapper* p1 = new IntWrapper(100);
+    MakeGarbageCollected<IntWrapper>(i);
+  IntWrapper* p1 = MakeGarbageCollected<IntWrapper>(100);
   PreciselyCollectGarbage();
   // In non-production builds, we delay reusing freed memory for at least
   // one GC cycle.
   for (int i = 0; i < 100; i++) {
-    IntWrapper* p2 = new IntWrapper(i);
+    IntWrapper* p2 = MakeGarbageCollected<IntWrapper>(i);
     EXPECT_NE(p1, p2);
   }
 
@@ -1933,7 +1937,7 @@ TEST(HeapTest, FreelistReuse) {
   // Now the freed memory in the first GC should be reused.
   bool reused_memory_found = false;
   for (int i = 0; i < 10000; i++) {
-    IntWrapper* p2 = new IntWrapper(i);
+    IntWrapper* p2 = MakeGarbageCollected<IntWrapper>(i);
     if (p1 == p2) {
       reused_memory_found = true;
       break;
@@ -1966,11 +1970,11 @@ TEST(HeapTest, LazySweepingLargeObjectPages) {
 
   // Create free lists that can be reused for IntWrappers created in
   // LargeHeapObject::create().
-  Persistent<IntWrapper> p1 = new IntWrapper(1);
+  Persistent<IntWrapper> p1 = MakeGarbageCollected<IntWrapper>(1);
   for (int i = 0; i < 100; i++) {
-    new IntWrapper(i);
+    MakeGarbageCollected<IntWrapper>(i);
   }
-  Persistent<IntWrapper> p2 = new IntWrapper(2);
+  Persistent<IntWrapper> p2 = MakeGarbageCollected<IntWrapper>(2);
   PreciselyCollectGarbage();
   PreciselyCollectGarbage();
 
@@ -2012,15 +2016,13 @@ class SimpleFinalizedEagerObjectBase
 class SimpleFinalizedEagerObject : public SimpleFinalizedEagerObjectBase {
  public:
   static SimpleFinalizedEagerObject* Create() {
-    return new SimpleFinalizedEagerObject();
+    return MakeGarbageCollected<SimpleFinalizedEagerObject>();
   }
 
+  SimpleFinalizedEagerObject() = default;
   ~SimpleFinalizedEagerObject() override { ++destructor_calls_; }
 
   static int destructor_calls_;
-
- private:
-  SimpleFinalizedEagerObject() = default;
 };
 
 template <typename T>
@@ -2034,16 +2036,15 @@ class SimpleFinalizedObjectInstanceOfTemplate final
       public ParameterizedButEmpty<SimpleFinalizedObjectInstanceOfTemplate> {
  public:
   static SimpleFinalizedObjectInstanceOfTemplate* Create() {
-    return new SimpleFinalizedObjectInstanceOfTemplate();
+    return MakeGarbageCollected<SimpleFinalizedObjectInstanceOfTemplate>();
   }
+
+  SimpleFinalizedObjectInstanceOfTemplate() = default;
   ~SimpleFinalizedObjectInstanceOfTemplate() { ++destructor_calls_; }
 
   void Trace(blink::Visitor* visitor) {}
 
   static int destructor_calls_;
-
- private:
-  SimpleFinalizedObjectInstanceOfTemplate() = default;
 };
 
 int SimpleFinalizedEagerObject::destructor_calls_ = 0;
@@ -2423,7 +2424,7 @@ typedef std::pair<int, WeakMember<IntWrapper>> PairUnwrappedWeak;
 
 class Container : public GarbageCollected<Container> {
  public:
-  static Container* Create() { return new Container(); }
+  static Container* Create() { return MakeGarbageCollected<Container>(); }
   HeapHashMap<Member<IntWrapper>, Member<IntWrapper>> map;
   HeapHashSet<Member<IntWrapper>> set;
   HeapHashSet<Member<IntWrapper>> set2;
@@ -3848,9 +3849,9 @@ TEST(HeapTest, HeapWeakCollectionTypes) {
 TEST(HeapTest, HeapHashCountedSetToVector) {
   HeapHashCountedSet<Member<IntWrapper>> set;
   HeapVector<Member<IntWrapper>> vector;
-  set.insert(new IntWrapper(1));
-  set.insert(new IntWrapper(1));
-  set.insert(new IntWrapper(2));
+  set.insert(MakeGarbageCollected<IntWrapper>(1));
+  set.insert(MakeGarbageCollected<IntWrapper>(1));
+  set.insert(MakeGarbageCollected<IntWrapper>(2));
 
   CopyToVector(set, vector);
   EXPECT_EQ(3u, vector.size());
@@ -3868,9 +3869,9 @@ TEST(HeapTest, HeapHashCountedSetToVector) {
 TEST(HeapTest, WeakHeapHashCountedSetToVector) {
   HeapHashCountedSet<WeakMember<IntWrapper>> set;
   HeapVector<Member<IntWrapper>> vector;
-  set.insert(new IntWrapper(1));
-  set.insert(new IntWrapper(1));
-  set.insert(new IntWrapper(2));
+  set.insert(MakeGarbageCollected<IntWrapper>(1));
+  set.insert(MakeGarbageCollected<IntWrapper>(1));
+  set.insert(MakeGarbageCollected<IntWrapper>(2));
 
   CopyToVector(set, vector);
   EXPECT_LE(3u, vector.size());
@@ -4014,104 +4015,96 @@ TEST(HeapTest, Comparisons) {
   EXPECT_TRUE(bar_persistent == foo_persistent);
 }
 
-#if DCHECK_IS_ON()
 namespace {
 
-static size_t g_check_mark_count = 0;
+void ExpectObjectMarkedAndUnmark(MarkingWorklist* worklist, void* expected) {
+  MarkingItem item;
+  CHECK(worklist->Pop(0, &item));
+  CHECK_EQ(expected, item.object);
+  HeapObjectHeader* header = HeapObjectHeader::FromPayload(item.object);
+  CHECK(header->IsMarked());
+  header->Unmark();
+  CHECK(worklist->IsGlobalEmpty());
+}
 
-bool ReportMarkedPointer(HeapObjectHeader*) {
-  g_check_mark_count++;
-  // Do not try to mark the located heap object.
-  return true;
-}
-}
-#endif
+}  // namespace
 
 TEST(HeapTest, CheckAndMarkPointer) {
-#if DCHECK_IS_ON()
+  // This test ensures that conservative marking primitives can use any address
+  // contained within an object to mark the corresponding object.
+
   ThreadHeap& heap = ThreadState::Current()->Heap();
   ClearOutOldGarbage();
 
   Vector<Address> object_addresses;
   Vector<Address> end_addresses;
-  Address large_object_address;
-  Address large_object_end_address;
   for (int i = 0; i < 10; i++) {
     SimpleObject* object = SimpleObject::Create();
     Address object_address = reinterpret_cast<Address>(object);
     object_addresses.push_back(object_address);
     end_addresses.push_back(object_address + sizeof(SimpleObject) - 1);
   }
-  LargeHeapObject* large_object = LargeHeapObject::Create();
-  large_object_address = reinterpret_cast<Address>(large_object);
-  large_object_end_address = large_object_address + sizeof(LargeHeapObject) - 1;
+  Address large_object_address =
+      reinterpret_cast<Address>(LargeHeapObject::Create());
+  Address large_object_end_address =
+      large_object_address + sizeof(LargeHeapObject) - 1;
 
-  // This is a low-level test where we call checkAndMarkPointer. This method
-  // causes the object start bitmap to be computed which requires the heap
-  // to be in a consistent state (e.g. the free allocation area must be put
-  // into a free list header). However when we call makeConsistentForGC it
-  // also clears out the freelists so we have to rebuild those before trying
-  // to allocate anything again. We do this by forcing a GC after doing the
-  // checkAndMarkPointer tests.
   {
     TestGCScope scope(BlinkGC::kHeapPointersOnStack);
     MarkingVisitor visitor(ThreadState::Current(),
                            MarkingVisitor::kGlobalMarking);
     heap.address_cache()->EnableLookup();
     heap.address_cache()->Flush();
+
+    // Conservative marker should find the interesting objects by using anything
+    // between object start and end.
+    MarkingWorklist* worklist = heap.GetMarkingWorklist();
+    CHECK(worklist->IsGlobalEmpty());
     for (wtf_size_t i = 0; i < object_addresses.size(); i++) {
-      EXPECT_TRUE(heap.CheckAndMarkPointer(&visitor, object_addresses[i],
-                                           ReportMarkedPointer));
-      EXPECT_TRUE(heap.CheckAndMarkPointer(&visitor, end_addresses[i],
-                                           ReportMarkedPointer));
+      heap.CheckAndMarkPointer(&visitor, object_addresses[i]);
+      ExpectObjectMarkedAndUnmark(worklist, object_addresses[i]);
+      heap.CheckAndMarkPointer(&visitor, end_addresses[i]);
+      ExpectObjectMarkedAndUnmark(worklist, object_addresses[i]);
     }
-    EXPECT_EQ(object_addresses.size() * 2, g_check_mark_count);
-    g_check_mark_count = 0;
-    EXPECT_TRUE(heap.CheckAndMarkPointer(&visitor, large_object_address,
-                                         ReportMarkedPointer));
-    EXPECT_TRUE(heap.CheckAndMarkPointer(&visitor, large_object_end_address,
-                                         ReportMarkedPointer));
-    EXPECT_EQ(2ul, g_check_mark_count);
-    g_check_mark_count = 0ul;
+    heap.CheckAndMarkPointer(&visitor, large_object_address);
+    ExpectObjectMarkedAndUnmark(worklist, large_object_address);
+    heap.CheckAndMarkPointer(&visitor, large_object_end_address);
+    ExpectObjectMarkedAndUnmark(worklist, large_object_address);
   }
+
   // This forces a GC without stack scanning which results in the objects
   // being collected. This will also rebuild the above mentioned freelists,
   // however we don't rely on that below since we don't have any allocations.
   ClearOutOldGarbage();
+
   {
     TestGCScope scope(BlinkGC::kHeapPointersOnStack);
     MarkingVisitor visitor(ThreadState::Current(),
                            MarkingVisitor::kGlobalMarking);
     heap.address_cache()->EnableLookup();
     heap.address_cache()->Flush();
+
+    // After collecting all interesting objects the conservative marker should
+    // not find them anymore.
+    MarkingWorklist* worklist = heap.GetMarkingWorklist();
+    CHECK(worklist->IsGlobalEmpty());
     for (wtf_size_t i = 0; i < object_addresses.size(); i++) {
-      // We would like to assert that checkAndMarkPointer returned false
-      // here because the pointers no longer point into a valid object
-      // (it's been freed by the GCs. But checkAndMarkPointer will return
-      // true for any pointer that points into a heap page, regardless of
-      // whether it points at a valid object (this ensures the
-      // correctness of the page-based on-heap address caches), so we
-      // can't make that assert.
-      heap.CheckAndMarkPointer(&visitor, object_addresses[i],
-                               ReportMarkedPointer);
-      heap.CheckAndMarkPointer(&visitor, end_addresses[i], ReportMarkedPointer);
+      heap.CheckAndMarkPointer(&visitor, object_addresses[i]);
+      CHECK(worklist->IsGlobalEmpty());
+      heap.CheckAndMarkPointer(&visitor, end_addresses[i]);
+      CHECK(worklist->IsGlobalEmpty());
     }
-    EXPECT_EQ(0ul, g_check_mark_count);
-    heap.CheckAndMarkPointer(&visitor, large_object_address,
-                             ReportMarkedPointer);
-    heap.CheckAndMarkPointer(&visitor, large_object_end_address,
-                             ReportMarkedPointer);
-    EXPECT_EQ(0ul, g_check_mark_count);
+    heap.CheckAndMarkPointer(&visitor, large_object_address);
+    CHECK(worklist->IsGlobalEmpty());
+    heap.CheckAndMarkPointer(&visitor, large_object_end_address);
+    CHECK(worklist->IsGlobalEmpty());
   }
-  // This round of GC is important to make sure that the object start
-  // bitmap are cleared out and that the free lists are rebuild.
-  ClearOutOldGarbage();
-#endif
 }
 
 TEST(HeapTest, CollectionNesting) {
   ClearOutOldGarbage();
-  int* key = &IntWrapper::destructor_calls_;
+  int k;
+  int* key = &k;
   IntWrapper::destructor_calls_ = 0;
   typedef HeapVector<Member<IntWrapper>> IntVector;
   typedef HeapDeque<Member<IntWrapper>> IntDeque;
@@ -4409,7 +4402,7 @@ TEST(HeapTest, VectorDestructors) {
   InlinedVectorObject::destructor_calls_ = 0;
   {
     Persistent<InlinedVectorObjectWrapper> vector_wrapper =
-        new InlinedVectorObjectWrapper();
+        MakeGarbageCollected<InlinedVectorObjectWrapper>();
     ConservativelyCollectGarbage();
     EXPECT_EQ(2, InlinedVectorObject::destructor_calls_);
   }
@@ -4455,7 +4448,7 @@ TEST(HeapTest, VectorDestructorsWithVtable) {
   InlinedVectorObjectWithVtable::destructor_calls_ = 0;
   {
     Persistent<InlinedVectorObjectWithVtableWrapper> vector_wrapper =
-        new InlinedVectorObjectWithVtableWrapper();
+        MakeGarbageCollected<InlinedVectorObjectWithVtableWrapper>();
     ConservativelyCollectGarbage();
     EXPECT_EQ(3, InlinedVectorObjectWithVtable::destructor_calls_);
   }
@@ -4481,7 +4474,7 @@ TEST(HeapTest, HeapLinkedStack) {
   IntWrapper::destructor_calls_ = 0;
 
   HeapLinkedStack<TerminatedArrayItem>* stack =
-      new HeapLinkedStack<TerminatedArrayItem>();
+      MakeGarbageCollected<HeapLinkedStack<TerminatedArrayItem>>();
 
   const wtf_size_t kStackSize = 10;
 
@@ -4511,7 +4504,7 @@ TEST(HeapTest, AllocationDuringFinalization) {
   LargeHeapObject::destructor_calls_ = 0;
 
   Persistent<IntWrapper> wrapper;
-  new FinalizationAllocator(&wrapper);
+  MakeGarbageCollected<FinalizationAllocator>(&wrapper);
 
   PreciselyCollectGarbage();
   EXPECT_EQ(0, IntWrapper::destructor_calls_);
@@ -4537,7 +4530,7 @@ TEST(HeapTest, AllocationDuringPrefinalizer) {
   LargeHeapObject::destructor_calls_ = 0;
 
   Persistent<IntWrapper> wrapper;
-  new PreFinalizationAllocator(&wrapper);
+  MakeGarbageCollected<PreFinalizationAllocator>(&wrapper);
 
   PreciselyCollectGarbage();
   EXPECT_EQ(0, IntWrapper::destructor_calls_);
@@ -4694,7 +4687,7 @@ TEST(HeapTest, MultipleMixins) {
 
   ClearOutOldGarbage();
   IntWrapper::destructor_calls_ = 0;
-  MultipleMixins* obj = new MultipleMixins();
+  MultipleMixins* obj = MakeGarbageCollected<MultipleMixins>();
   {
     Persistent<MixinA> a = obj;
     PreciselyCollectGarbage();
@@ -4714,7 +4707,7 @@ TEST(HeapTest, DerivedMultipleMixins) {
   IntWrapper::destructor_calls_ = 0;
   DerivedMultipleMixins::trace_called_ = 0;
 
-  DerivedMultipleMixins* obj = new DerivedMultipleMixins();
+  DerivedMultipleMixins* obj = MakeGarbageCollected<DerivedMultipleMixins>();
   {
     Persistent<MixinA> a = obj;
     PreciselyCollectGarbage();
@@ -4745,7 +4738,8 @@ TEST(HeapTest, MixinInstanceWithoutTrace) {
   // references inherits the mixin's trace implementation.
   ClearOutOldGarbage();
   MixinA::trace_count_ = 0;
-  MixinInstanceWithoutTrace* obj = new MixinInstanceWithoutTrace();
+  MixinInstanceWithoutTrace* obj =
+      MakeGarbageCollected<MixinInstanceWithoutTrace>();
   int saved_trace_count = 0;
   {
     Persistent<MixinA> a = obj;
@@ -5216,12 +5210,13 @@ TEST(HeapTest, EphemeronsPointToEphemerons) {
   Persistent<EphemeronWrapper> chain;
   for (int i = 0; i < 100; i++) {
     EphemeronWrapper* old_head = chain;
-    chain = new EphemeronWrapper();
+    chain = MakeGarbageCollected<EphemeronWrapper>();
     if (i == 50)
       chain->GetMap().insert(key2, old_head);
     else
       chain->GetMap().insert(key, old_head);
-    chain->GetMap().insert(IntWrapper::Create(103), new EphemeronWrapper());
+    chain->GetMap().insert(IntWrapper::Create(103),
+                           MakeGarbageCollected<EphemeronWrapper>());
   }
 
   PreciselyCollectGarbage();
@@ -5351,8 +5346,8 @@ TEST(HeapTest, IndirectStrongToWeak) {
   Persistent<IntWrapper> dead_object =
       IntWrapper::Create(100);  // Named for "Drowning by Numbers" (1988).
   Persistent<IntWrapper> life_object = IntWrapper::Create(42);
-  map->insert(dead_object, new Link1(dead_object));
-  map->insert(life_object, new Link1(life_object));
+  map->insert(dead_object, MakeGarbageCollected<Link1>(dead_object));
+  map->insert(life_object, MakeGarbageCollected<Link1>(life_object));
   EXPECT_EQ(2u, map->size());
   PreciselyCollectGarbage();
   EXPECT_EQ(2u, map->size());
@@ -5367,369 +5362,10 @@ TEST(HeapTest, IndirectStrongToWeak) {
   EXPECT_EQ(0u, map->size());
 }
 
-static Mutex& MainThreadMutex() {
-  DEFINE_THREAD_SAFE_STATIC_LOCAL(Mutex, main_mutex, ());
-  return main_mutex;
-}
-
-static ThreadCondition& MainThreadCondition() {
-  DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadCondition, main_condition,
-                                  (MainThreadMutex()));
-  return main_condition;
-}
-
-static void ParkMainThread() {
-  MainThreadCondition().Wait();
-}
-
-static void WakeMainThread() {
-  MutexLocker locker(MainThreadMutex());
-  MainThreadCondition().Signal();
-}
-
-static Mutex& WorkerThreadMutex() {
-  DEFINE_THREAD_SAFE_STATIC_LOCAL(Mutex, worker_mutex, ());
-  return worker_mutex;
-}
-
-static ThreadCondition& WorkerThreadCondition() {
-  DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadCondition, worker_condition,
-                                  (WorkerThreadMutex()));
-  return worker_condition;
-}
-
-static void ParkWorkerThread() {
-  WorkerThreadCondition().Wait();
-}
-
-static void WakeWorkerThread() {
-  MutexLocker locker(WorkerThreadMutex());
-  WorkerThreadCondition().Signal();
-}
-
-class ThreadedStrongificationTester {
- public:
-  static void Test() {
-    IntWrapper::destructor_calls_ = 0;
-
-    MutexLocker locker(MainThreadMutex());
-    std::unique_ptr<Thread> worker_thread = Platform::Current()->CreateThread(
-        ThreadCreationParams(WebThreadType::kTestThread)
-            .SetThreadNameForTest("Test Worker Thread"));
-    PostCrossThreadTask(*worker_thread->GetTaskRunner(), FROM_HERE,
-                        CrossThreadBind(WorkerThreadMain));
-
-    // Wait for the worker thread initialization. The worker
-    // allocates a weak collection where both collection and
-    // contents are kept alive via persistent pointers.
-    ParkMainThread();
-
-    // Perform two garbage collections where the worker thread does
-    // not wake up in between. This will cause us to remove marks
-    // and mark unmarked objects dead. The collection on the worker
-    // heap is found through the persistent and the backing should
-    // be marked.
-    PreciselyCollectGarbage();
-    PreciselyCollectGarbage();
-
-    // Wake up the worker thread so it can continue. It will sweep
-    // and perform another GC where the backing store of its
-    // collection should be strongified.
-    WakeWorkerThread();
-
-    // Wait for the worker thread to sweep its heaps before checking.
-    ParkMainThread();
-  }
-
- private:
-  using WeakCollectionType =
-      HeapHashMap<WeakMember<IntWrapper>, Member<IntWrapper>>;
-
-  static WeakCollectionType* AllocateCollection() {
-    // Create a weak collection that is kept alive by a persistent
-    // and keep the contents alive with a persistents as
-    // well.
-    Persistent<IntWrapper> wrapper1 = IntWrapper::Create(32);
-    Persistent<IntWrapper> wrapper2 = IntWrapper::Create(32);
-    Persistent<IntWrapper> wrapper3 = IntWrapper::Create(32);
-    Persistent<IntWrapper> wrapper4 = IntWrapper::Create(32);
-    Persistent<IntWrapper> wrapper5 = IntWrapper::Create(32);
-    Persistent<IntWrapper> wrapper6 = IntWrapper::Create(32);
-    Persistent<WeakCollectionType> weak_collection =
-        MakeGarbageCollected<WeakCollectionType>();
-    weak_collection->insert(wrapper1, wrapper1);
-    weak_collection->insert(wrapper2, wrapper2);
-    weak_collection->insert(wrapper3, wrapper3);
-    weak_collection->insert(wrapper4, wrapper4);
-    weak_collection->insert(wrapper5, wrapper5);
-    weak_collection->insert(wrapper6, wrapper6);
-
-    // Signal the main thread that the worker is done with its allocation.
-    WakeMainThread();
-
-    // Wait for the main thread to do two GCs without sweeping
-    // this thread heap.
-    ParkWorkerThread();
-
-    return weak_collection;
-  }
-
-  static void WorkerThreadMain() {
-    MutexLocker locker(WorkerThreadMutex());
-
-    ThreadState::AttachCurrentThread();
-
-    {
-      Persistent<WeakCollectionType> collection = AllocateCollection();
-      {
-        // Prevent weak processing with an iterator and GC.
-        WeakCollectionType::iterator it = collection->begin();
-        ConservativelyCollectGarbage();
-
-        // The backing should be strongified because of the iterator.
-        EXPECT_EQ(6u, collection->size());
-        EXPECT_EQ(32, it->value->Value());
-      }
-
-      // Disregarding the iterator but keeping the collection alive
-      // with a persistent should lead to weak processing.
-      PreciselyCollectGarbage();
-      EXPECT_EQ(0u, collection->size());
-    }
-
-    WakeMainThread();
-    ThreadState::DetachCurrentThread();
-  }
-
-  static volatile uintptr_t worker_object_pointer_;
-};
-
-TEST(HeapTest, ThreadedStrongification) {
-  ThreadedStrongificationTester::Test();
-}
-
-class MemberSameThreadCheckTester {
- public:
-  void Test() {
-    IntWrapper::destructor_calls_ = 0;
-
-    MutexLocker locker(MainThreadMutex());
-    std::unique_ptr<Thread> worker_thread = Platform::Current()->CreateThread(
-        ThreadCreationParams(WebThreadType::kTestThread)
-            .SetThreadNameForTest("Test Worker Thread"));
-    PostCrossThreadTask(
-        *worker_thread->GetTaskRunner(), FROM_HERE,
-        CrossThreadBind(&MemberSameThreadCheckTester::WorkerThreadMain,
-                        CrossThreadUnretained(this)));
-
-    ParkMainThread();
-  }
-
- private:
-  Member<IntWrapper> wrapper_;
-
-  void WorkerThreadMain() {
-    MutexLocker locker(WorkerThreadMutex());
-
-    ThreadState::AttachCurrentThread();
-
-    // Setting an object created on the worker thread to a Member allocated on
-    // the main thread is not allowed.
-    wrapper_ = IntWrapper::Create(42);
-
-    WakeMainThread();
-    ThreadState::DetachCurrentThread();
-  }
-};
-
-#if DCHECK_IS_ON()
-// TODO(keishi) This test is flaky on mac_chromium_rel_ng bot.
-// crbug.com/709069
-#if !defined(OS_MACOSX)
-TEST(HeapDeathTest, MemberSameThreadCheck) {
-  EXPECT_DEATH(MemberSameThreadCheckTester().Test(), "");
-}
-#endif
-#endif
-
-class PersistentSameThreadCheckTester {
- public:
-  void Test() {
-    IntWrapper::destructor_calls_ = 0;
-
-    MutexLocker locker(MainThreadMutex());
-    std::unique_ptr<Thread> worker_thread = Platform::Current()->CreateThread(
-        ThreadCreationParams(WebThreadType::kTestThread)
-            .SetThreadNameForTest("Test Worker Thread"));
-    PostCrossThreadTask(
-        *worker_thread->GetTaskRunner(), FROM_HERE,
-        CrossThreadBind(&PersistentSameThreadCheckTester::WorkerThreadMain,
-                        CrossThreadUnretained(this)));
-
-    ParkMainThread();
-  }
-
- private:
-  Persistent<IntWrapper> wrapper_;
-
-  void WorkerThreadMain() {
-    MutexLocker locker(WorkerThreadMutex());
-
-    ThreadState::AttachCurrentThread();
-
-    // Setting an object created on the worker thread to a Persistent allocated
-    // on the main thread is not allowed.
-    wrapper_ = IntWrapper::Create(42);
-
-    WakeMainThread();
-    ThreadState::DetachCurrentThread();
-  }
-};
-
-#if DCHECK_IS_ON()
-// TODO(keishi) This test is flaky on mac_chromium_rel_ng bot.
-// crbug.com/709069
-#if !defined(OS_MACOSX)
-TEST(HeapDeathTest, PersistentSameThreadCheck) {
-  EXPECT_DEATH(PersistentSameThreadCheckTester().Test(), "");
-}
-#endif
-#endif
-
-class MarkingSameThreadCheckTester {
- public:
-  void Test() {
-    IntWrapper::destructor_calls_ = 0;
-
-    MutexLocker locker(MainThreadMutex());
-    std::unique_ptr<Thread> worker_thread = Platform::Current()->CreateThread(
-        ThreadCreationParams(WebThreadType::kTestThread)
-            .SetThreadNameForTest("Test Worker Thread"));
-    Persistent<MainThreadObject> main_thread_object = new MainThreadObject();
-    PostCrossThreadTask(
-        *worker_thread->GetTaskRunner(), FROM_HERE,
-        CrossThreadBind(&MarkingSameThreadCheckTester::WorkerThreadMain,
-                        CrossThreadUnretained(this),
-                        WrapCrossThreadPersistent(main_thread_object.Get())));
-    ParkMainThread();
-    // This will try to mark MainThreadObject when it tries to mark IntWrapper
-    // it should crash.
-    PreciselyCollectGarbage();
-  }
-
- private:
-  class MainThreadObject : public GarbageCollectedFinalized<MainThreadObject> {
-   public:
-    void Trace(blink::Visitor* visitor) { visitor->Trace(wrapper_set_); }
-    void AddToSet(IntWrapper* wrapper) { wrapper_set_.insert(42, wrapper); }
-
-   private:
-    HeapHashMap<int, Member<IntWrapper>> wrapper_set_;
-  };
-
-  void WorkerThreadMain(MainThreadObject* main_thread_object) {
-    MutexLocker locker(WorkerThreadMutex());
-
-    ThreadState::AttachCurrentThread();
-
-    // Adding a reference to an object created on the worker thread to a
-    // HeapHashMap created on the main thread is not allowed.
-    main_thread_object->AddToSet(IntWrapper::Create(42));
-
-    WakeMainThread();
-    ThreadState::DetachCurrentThread();
-  }
-};
-
-#if DCHECK_IS_ON()
-// TODO(keishi) This test is flaky on mac_chromium_rel_ng bot.
-// crbug.com/709069
-#if !defined(OS_MACOSX)
-TEST(HeapDeathTest, MarkingSameThreadCheck) {
-  // This will crash during marking, at the DCHECK in Visitor::markHeader() or
-  // earlier.
-  EXPECT_DEATH(MarkingSameThreadCheckTester().Test(), "");
-}
-#endif
-#endif
-
 static bool AllocateAndReturnBool() {
   ConservativelyCollectGarbage();
   return true;
 }
-
-static bool CheckGCForbidden() {
-  DCHECK(ThreadState::Current()->IsGCForbidden());
-  return true;
-}
-
-class MixinClass : public GarbageCollectedMixin {
- public:
-  MixinClass() : dummy_(CheckGCForbidden()) {}
-
- private:
-  bool dummy_;
-};
-
-class ClassWithGarbageCollectingMixinConstructor
-    : public GarbageCollected<ClassWithGarbageCollectingMixinConstructor>,
-      public MixinClass {
-  USING_GARBAGE_COLLECTED_MIXIN(ClassWithGarbageCollectingMixinConstructor);
-
- public:
-  static int trace_called_;
-
-  ClassWithGarbageCollectingMixinConstructor()
-      : trace_counter_(TraceCounter::Create()),
-        wrapper_(IntWrapper::Create(32)) {}
-
-  void Trace(blink::Visitor* visitor) override {
-    trace_called_++;
-    visitor->Trace(trace_counter_);
-    visitor->Trace(wrapper_);
-  }
-
-  void Verify() {
-    EXPECT_EQ(32, wrapper_->Value());
-    EXPECT_EQ(0, trace_counter_->TraceCount());
-    EXPECT_EQ(0, trace_called_);
-  }
-
- private:
-  Member<TraceCounter> trace_counter_;
-  Member<IntWrapper> wrapper_;
-};
-
-int ClassWithGarbageCollectingMixinConstructor::trace_called_ = 0;
-
-// Regression test for out of bounds call through vtable.
-// Passes if it doesn't crash.
-TEST(HeapTest, GarbageCollectionDuringMixinConstruction) {
-  ClassWithGarbageCollectingMixinConstructor::trace_called_ = 0;
-  ClassWithGarbageCollectingMixinConstructor* a =
-      new ClassWithGarbageCollectingMixinConstructor();
-  a->Verify();
-}
-
-class DestructorLockingObject
-    : public GarbageCollectedFinalized<DestructorLockingObject> {
- public:
-  static DestructorLockingObject* Create() {
-    return new DestructorLockingObject();
-  }
-
-  virtual ~DestructorLockingObject() {
-    ++destructor_calls_;
-  }
-
-  static int destructor_calls_;
-  void Trace(blink::Visitor* visitor) {}
-
- private:
-  DestructorLockingObject() = default;
-};
-
-int DestructorLockingObject::destructor_calls_ = 0;
 
 template <typename T>
 class TraceIfNeededTester
@@ -5767,7 +5403,7 @@ class PartObject {
 class AllocatesOnAssignment {
  public:
   AllocatesOnAssignment(std::nullptr_t) : value_(nullptr) {}
-  AllocatesOnAssignment(int x) : value_(new IntWrapper(x)) {}
+  AllocatesOnAssignment(int x) : value_(MakeGarbageCollected<IntWrapper>(x)) {}
   AllocatesOnAssignment(IntWrapper* x) : value_(x) {}
 
   AllocatesOnAssignment& operator=(const AllocatesOnAssignment x) {
@@ -5780,7 +5416,7 @@ class AllocatesOnAssignment {
   AllocatesOnAssignment(const AllocatesOnAssignment& other) {
     if (!ThreadState::Current()->IsGCForbidden())
       ConservativelyCollectGarbage();
-    value_ = new IntWrapper(other.value_->Value());
+    value_ = MakeGarbageCollected<IntWrapper>(other.value_->Value());
   }
 
   AllocatesOnAssignment(DeletedMarker) : value_(WTF::kHashTableDeletedValue) {}
@@ -5852,7 +5488,7 @@ namespace blink {
 TEST(HeapTest, GCInHashMapOperations) {
   typedef HeapHashMap<AllocatesOnAssignment, AllocatesOnAssignment> Map;
   Map* map = MakeGarbageCollected<Map>();
-  IntWrapper* key = new IntWrapper(42);
+  IntWrapper* key = MakeGarbageCollected<IntWrapper>(42);
   map->insert(key, AllocatesOnAssignment(103));
   map->erase(key);
   for (int i = 0; i < 10; i++)
@@ -5878,7 +5514,8 @@ class ObjectWithVirtualPartObject
 };
 
 TEST(HeapTest, PartObjectWithVirtualMethod) {
-  ObjectWithVirtualPartObject* object = new ObjectWithVirtualPartObject();
+  ObjectWithVirtualPartObject* object =
+      MakeGarbageCollected<ObjectWithVirtualPartObject>();
   EXPECT_TRUE(object);
 }
 
@@ -5905,7 +5542,7 @@ class AllocInSuperConstructorArgument
 // an object with an uninitialized vtable.
 TEST(HeapTest, AllocationInSuperConstructorArgument) {
   AllocInSuperConstructorArgument* object =
-      new AllocInSuperConstructorArgument();
+      MakeGarbageCollected<AllocInSuperConstructorArgument>();
   EXPECT_TRUE(object);
   ThreadState::Current()->CollectAllGarbage();
 }
@@ -5925,7 +5562,7 @@ class NonNodeAllocatingNodeInDestructor
 Persistent<IntNode>* NonNodeAllocatingNodeInDestructor::node_ = nullptr;
 
 TEST(HeapTest, NonNodeAllocatingNodeInDestructor) {
-  new NonNodeAllocatingNodeInDestructor();
+  MakeGarbageCollected<NonNodeAllocatingNodeInDestructor>();
   PreciselyCollectGarbage();
   EXPECT_EQ(10, (*NonNodeAllocatingNodeInDestructor::node_)->Value());
   delete NonNodeAllocatingNodeInDestructor::node_;
@@ -5999,7 +5636,7 @@ TEST(HeapTest, TraceDeepEagerly) {
 #if !DCHECK_IS_ON() && !defined(OS_ANDROID)
   DeepEagerly* obj = nullptr;
   for (int i = 0; i < 10000000; i++)
-    obj = new DeepEagerly(obj);
+    obj = MakeGarbageCollected<DeepEagerly>(obj);
 
   Persistent<DeepEagerly> persistent(obj);
   PreciselyCollectGarbage();
@@ -6238,11 +5875,7 @@ class TestMixinAllocationA : public GarbageCollected<TestMixinAllocationA>,
   USING_GARBAGE_COLLECTED_MIXIN(TestMixinAllocationA);
 
  public:
-  TestMixinAllocationA() {
-    // Completely wrong in general, but test only
-    // runs this constructor while constructing another mixin.
-    DCHECK(ThreadState::Current()->IsGCForbidden());
-  }
+  TestMixinAllocationA() = default;
 
   void Trace(blink::Visitor* visitor) override {}
 };
@@ -6252,13 +5885,8 @@ class TestMixinAllocationB : public TestMixinAllocationA {
 
  public:
   TestMixinAllocationB()
-      : a_(new TestMixinAllocationA())  // Construct object during a mixin
-                                        // construction.
-  {
-    // Completely wrong in general, but test only
-    // runs this constructor while constructing another mixin.
-    DCHECK(ThreadState::Current()->IsGCForbidden());
-  }
+      // Construct object during a mixin construction.
+      : a_(MakeGarbageCollected<TestMixinAllocationA>()) {}
 
   void Trace(blink::Visitor* visitor) override {
     visitor->Trace(a_);
@@ -6281,7 +5909,7 @@ class TestMixinAllocationC final : public TestMixinAllocationB {
 };
 
 TEST(HeapTest, NestedMixinConstruction) {
-  TestMixinAllocationC* object = new TestMixinAllocationC();
+  TestMixinAllocationC* object = MakeGarbageCollected<TestMixinAllocationC>();
   EXPECT_TRUE(object);
 }
 
@@ -6303,47 +5931,6 @@ class ObjectWithLargeAmountsOfAllocationInConstructor {
   }
 };
 
-class TestMixinAllocatingObject final
-    : public TestMixinAllocationB,
-      public ObjectWithLargeAmountsOfAllocationInConstructor {
-  USING_GARBAGE_COLLECTED_MIXIN(TestMixinAllocatingObject);
-
- public:
-  static TestMixinAllocatingObject* Create(ClassWithMember* member) {
-    return new TestMixinAllocatingObject(member);
-  }
-
-  void Trace(blink::Visitor* visitor) override {
-    visitor->Trace(trace_counter_);
-    TestMixinAllocationB::Trace(visitor);
-  }
-
-  int TraceCount() const { return trace_counter_->TraceCount(); }
-
- private:
-  TestMixinAllocatingObject(ClassWithMember* member)
-      : ObjectWithLargeAmountsOfAllocationInConstructor(600, member),
-        trace_counter_(TraceCounter::Create()) {
-    DCHECK(!ThreadState::Current()->IsGCForbidden());
-    ConservativelyCollectGarbage();
-    EXPECT_GT(member->TraceCount(), 0);
-    EXPECT_GT(TraceCount(), 0);
-  }
-
-  Member<TraceCounter> trace_counter_;
-};
-
-TEST(HeapTest, MixinConstructionNoGC) {
-  ClearOutOldGarbage();
-  Persistent<ClassWithMember> object = ClassWithMember::Create();
-  EXPECT_EQ(0, object->TraceCount());
-  TestMixinAllocatingObject* mixin =
-      TestMixinAllocatingObject::Create(object.Get());
-  EXPECT_TRUE(mixin);
-  EXPECT_GT(object->TraceCount(), 0);
-  EXPECT_GT(mixin->TraceCount(), 0);
-}
-
 class WeakPersistentHolder final {
  public:
   explicit WeakPersistentHolder(IntWrapper* object) : object_(object) {}
@@ -6354,7 +5941,7 @@ class WeakPersistentHolder final {
 };
 
 TEST(HeapTest, WeakPersistent) {
-  Persistent<IntWrapper> object = new IntWrapper(20);
+  Persistent<IntWrapper> object = MakeGarbageCollected<IntWrapper>(20);
   std::unique_ptr<WeakPersistentHolder> holder =
       std::make_unique<WeakPersistentHolder>(object);
   PreciselyCollectGarbage();
@@ -6362,71 +5949,6 @@ TEST(HeapTest, WeakPersistent) {
   object = nullptr;
   PreciselyCollectGarbage();
   EXPECT_FALSE(holder->Object());
-}
-
-namespace {
-
-void WorkerThreadMainForCrossThreadWeakPersistentTest(
-    DestructorLockingObject** object) {
-  // Step 2: Create an object and store the pointer.
-  MutexLocker locker(WorkerThreadMutex());
-  ThreadState::AttachCurrentThread();
-  *object = DestructorLockingObject::Create();
-  WakeMainThread();
-  ParkWorkerThread();
-
-  // Step 4: Run a GC.
-  ThreadState::Current()->CollectGarbage(
-      BlinkGC::kNoHeapPointersOnStack, BlinkGC::kAtomicMarking,
-      BlinkGC::kEagerSweeping, BlinkGC::GCReason::kForcedGC);
-  WakeMainThread();
-  ParkWorkerThread();
-
-  // Step 6: Finish.
-  ThreadState::DetachCurrentThread();
-  WakeMainThread();
-}
-
-}  // anonymous namespace
-
-TEST(HeapTest, CrossThreadWeakPersistent) {
-  // Create an object in the worker thread, have a CrossThreadWeakPersistent
-  // pointing to it on the main thread, clear the reference in the worker
-  // thread, run a GC in the worker thread, and see if the
-  // CrossThreadWeakPersistent is cleared.
-
-  DestructorLockingObject::destructor_calls_ = 0;
-
-  // Step 1: Initiate a worker thread, and wait for |object| to get allocated on
-  // the worker thread.
-  MutexLocker main_thread_mutex_locker(MainThreadMutex());
-  std::unique_ptr<Thread> worker_thread = Platform::Current()->CreateThread(
-      ThreadCreationParams(WebThreadType::kTestThread)
-          .SetThreadNameForTest("Test Worker Thread"));
-  DestructorLockingObject* object = nullptr;
-  PostCrossThreadTask(
-      *worker_thread->GetTaskRunner(), FROM_HERE,
-      CrossThreadBind(WorkerThreadMainForCrossThreadWeakPersistentTest,
-                      CrossThreadUnretained(&object)));
-  ParkMainThread();
-
-  // Step 3: Set up a CrossThreadWeakPersistent.
-  ASSERT_TRUE(object);
-  CrossThreadWeakPersistent<DestructorLockingObject>
-      cross_thread_weak_persistent(object);
-  object = nullptr;
-  EXPECT_EQ(0, DestructorLockingObject::destructor_calls_);
-
-  // Pretend we have no pointers on stack during the step 4.
-  WakeWorkerThread();
-  ParkMainThread();
-
-  // Step 5: Make sure the weak persistent is cleared.
-  EXPECT_FALSE(cross_thread_weak_persistent.Get());
-  EXPECT_EQ(1, DestructorLockingObject::destructor_calls_);
-
-  WakeWorkerThread();
-  ParkMainThread();
 }
 
 namespace {
@@ -6443,11 +5965,8 @@ class ThreadedClearOnShutdownTester : public ThreadedTesterBase {
   void RunWhileAttached();
 
   void RunThread() override {
-    ThreadState::AttachCurrentThread();
     EXPECT_EQ(42, ThreadSpecificIntWrapper().Value());
     RunWhileAttached();
-    ThreadState::DetachCurrentThread();
-    AtomicDecrement(&threads_to_finish_);
   }
 
   class HeapObject;
@@ -6465,7 +5984,7 @@ class ThreadedClearOnShutdownTester : public ThreadedTesterBase {
                                     int_wrapper, ());
     Persistent<IntWrapper>& handle = *int_wrapper;
     if (!handle) {
-      handle = new IntWrapper(42);
+      handle = MakeGarbageCollected<IntWrapper>(42);
       handle.RegisterAsStaticReference();
     }
     return *handle;
@@ -6477,9 +5996,11 @@ class ThreadedClearOnShutdownTester::HeapObject final
           ThreadedClearOnShutdownTester::HeapObject> {
  public:
   static HeapObject* Create(bool test_destructor) {
-    return new HeapObject(test_destructor);
+    return MakeGarbageCollected<HeapObject>(test_destructor);
   }
 
+  explicit HeapObject(bool test_destructor)
+      : test_destructor_(test_destructor) {}
   ~HeapObject() {
     if (!test_destructor_)
       return;
@@ -6498,9 +6019,6 @@ class ThreadedClearOnShutdownTester::HeapObject final
   void Trace(blink::Visitor* visitor) {}
 
  private:
-  explicit HeapObject(bool test_destructor)
-      : test_destructor_(test_destructor) {}
-
   bool test_destructor_;
 };
 
@@ -6544,16 +6062,16 @@ TEST(HeapTest, TestClearOnShutdown) {
 class WithWeakConstObject final : public GarbageCollected<WithWeakConstObject> {
  public:
   static WithWeakConstObject* Create(const IntWrapper* int_wrapper) {
-    return new WithWeakConstObject(int_wrapper);
+    return MakeGarbageCollected<WithWeakConstObject>(int_wrapper);
   }
+
+  WithWeakConstObject(const IntWrapper* int_wrapper) : wrapper_(int_wrapper) {}
 
   void Trace(blink::Visitor* visitor) { visitor->Trace(wrapper_); }
 
   const IntWrapper* Value() const { return wrapper_; }
 
  private:
-  WithWeakConstObject(const IntWrapper* int_wrapper) : wrapper_(int_wrapper) {}
-
   WeakMember<const IntWrapper> wrapper_;
 };
 
@@ -6649,7 +6167,7 @@ class DoublyLinkedListNodeImpl
  public:
   DoublyLinkedListNodeImpl() = default;
   static DoublyLinkedListNodeImpl* Create() {
-    return new DoublyLinkedListNodeImpl();
+    return MakeGarbageCollected<DoublyLinkedListNodeImpl>();
   }
 
   static int destructor_calls_;
@@ -6673,7 +6191,7 @@ class HeapDoublyLinkedListContainer
     : public GarbageCollected<HeapDoublyLinkedListContainer<T>> {
  public:
   static HeapDoublyLinkedListContainer<T>* Create() {
-    return new HeapDoublyLinkedListContainer<T>();
+    return MakeGarbageCollected<HeapDoublyLinkedListContainer<T>>();
   }
   HeapDoublyLinkedListContainer<T>() = default;
   HeapDoublyLinkedList<T> list_;
@@ -6706,7 +6224,7 @@ TEST(HeapTest, PromptlyFreeStackAllocatedHeapVector) {
   Address before;
   {
     HeapVector<Member<IntWrapper>> vector;
-    vector.push_back(new IntWrapper(0));
+    vector.push_back(MakeGarbageCollected<IntWrapper>(0));
     NormalPage* normal_page =
         static_cast<NormalPage*>(PageFromObject(vector.data()));
     normal_arena = normal_page->ArenaForNormalPage();
@@ -6723,7 +6241,7 @@ TEST(HeapTest, PromptlyFreeStackAllocatedHeapDeque) {
   Address before;
   {
     HeapDeque<Member<IntWrapper>> deque;
-    deque.push_back(new IntWrapper(0));
+    deque.push_back(MakeGarbageCollected<IntWrapper>(0));
     NormalPage* normal_page =
         static_cast<NormalPage*>(PageFromObject(&deque.front()));
     normal_arena = normal_page->ArenaForNormalPage();
@@ -6742,7 +6260,7 @@ TEST(HeapTest, PromptlyFreeStackAllocatedHeapHashSet) {
   Address before;
   {
     HeapHashSet<Member<IntWrapper>> hash_set;
-    hash_set.insert(new IntWrapper(0));
+    hash_set.insert(MakeGarbageCollected<IntWrapper>(0));
     before = normal_arena->CurrentAllocationPoint();
   }
   Address after = normal_arena->CurrentAllocationPoint();
@@ -6758,7 +6276,7 @@ TEST(HeapTest, PromptlyFreeStackAllocatedHeapListHashSet) {
   Address before;
   {
     HeapListHashSet<Member<IntWrapper>> list_hash_set;
-    list_hash_set.insert(new IntWrapper(0));
+    list_hash_set.insert(MakeGarbageCollected<IntWrapper>(0));
     before = normal_arena->CurrentAllocationPoint();
   }
   Address after = normal_arena->CurrentAllocationPoint();
@@ -6773,7 +6291,7 @@ TEST(HeapTest, PromptlyFreeStackAllocatedHeapLinkedHashSet) {
   Address before;
   {
     HeapLinkedHashSet<Member<IntWrapper>> linked_hash_set;
-    linked_hash_set.insert(new IntWrapper(0));
+    linked_hash_set.insert(MakeGarbageCollected<IntWrapper>(0));
     before = normal_arena->CurrentAllocationPoint();
   }
   Address after = normal_arena->CurrentAllocationPoint();
@@ -6787,7 +6305,7 @@ TEST(HeapTest, ShrinkVector) {
   HeapVector<Member<IntWrapper>> vector;
   vector.ReserveCapacity(32);
   for (int i = 0; i < 4; i++) {
-    vector.push_back(new IntWrapper(i));
+    vector.push_back(MakeGarbageCollected<IntWrapper>(i));
   }
 
   ConservativelyCollectGarbage(BlinkGC::kLazySweeping);
@@ -6798,85 +6316,30 @@ TEST(HeapTest, ShrinkVector) {
   vector.ShrinkToFit();
 }
 
-namespace {
-
-class MixinCheckingConstructionScope : public GarbageCollectedMixin {
- public:
-  MixinCheckingConstructionScope() {
-    // Oilpan treats mixin construction as forbidden scopes for garbage
-    // collection.
-    CHECK(ThreadState::Current()->IsMixinInConstruction());
-  }
-};
-
-class UsingMixinCheckingConstructionScope
-    : public GarbageCollected<UsingMixinCheckingConstructionScope>,
-      public MixinCheckingConstructionScope {
-  USING_GARBAGE_COLLECTED_MIXIN(UsingMixinCheckingConstructionScope);
-};
-
-}  // namespace
-
-TEST(HeapTest, NoConservativeGCDuringMixinConstruction) {
-  // Regression test: https://crbug.com/904546
-  MakeGarbageCollected<UsingMixinCheckingConstructionScope>();
-}
-
-namespace {
-
-class ObjectCheckingForInConstruction
-    : public GarbageCollected<ObjectCheckingForInConstruction> {
- public:
-  ObjectCheckingForInConstruction() {
-    CHECK(HeapObjectHeader::FromPayload(this)->IsInConstruction());
-  }
-
-  virtual void Trace(Visitor* v) { v->Trace(foo_); }
-
- private:
-  Member<IntWrapper> foo_;
-};
-
-class MixinCheckingInConstruction : public GarbageCollectedMixin {
- public:
-  MixinCheckingInConstruction() {
-    BasePage* const page = PageFromObject(reinterpret_cast<Address>(this));
-    HeapObjectHeader* const header =
-        static_cast<NormalPage*>(page)->FindHeaderFromAddress(
-            reinterpret_cast<Address>(
-                const_cast<MixinCheckingInConstruction*>(this)));
-    CHECK(header->IsInConstruction());
-  }
-
-  void Trace(Visitor* v) override { v->Trace(bar_); }
-
- private:
-  Member<IntWrapper> bar_;
-};
-
-class MixinAppCheckingInConstruction
-    : public GarbageCollected<MixinAppCheckingInConstruction>,
-      public MixinCheckingInConstruction {
-  USING_GARBAGE_COLLECTED_MIXIN(MixinAppCheckingInConstruction)
- public:
-  MixinAppCheckingInConstruction() {
-    CHECK(HeapObjectHeader::FromPayload(this)->IsInConstruction());
-  }
-
-  void Trace(Visitor* v) override { v->Trace(foo_); }
-
- private:
-  Member<IntWrapper> foo_;
-};
-
-}  // namespace
-
 TEST(HeapTest, GarbageCollectedInConstruction) {
-  MakeGarbageCollected<ObjectCheckingForInConstruction>();
+  using O = ObjectWithCallbackBeforeInitializer<IntWrapper>;
+  MakeGarbageCollected<O>(base::BindOnce([](O* thiz) {
+    CHECK(HeapObjectHeader::FromPayload(thiz)->IsInConstruction());
+  }));
 }
 
 TEST(HeapTest, GarbageCollectedMixinInConstruction) {
-  MakeGarbageCollected<MixinAppCheckingInConstruction>();
+  using O = ObjectWithMixinWithCallbackBeforeInitializer<IntWrapper>;
+  MakeGarbageCollected<O>(base::BindOnce([](O::Mixin* thiz) {
+    BasePage* const page = PageFromObject(thiz);
+    HeapObjectHeader* const header =
+        page->IsLargeObjectPage()
+            ? static_cast<LargeObjectPage*>(page)->ObjectHeader()
+            : static_cast<NormalPage*>(page)->FindHeaderFromAddress(
+                  reinterpret_cast<Address>(thiz));
+    CHECK(header->IsInConstruction());
+  }));
+}
+
+TEST(HeapTest, GarbageCollectedMixinIsAliveDuringConstruction) {
+  using O = ObjectWithMixinWithCallbackBeforeInitializer<IntWrapper>;
+  MakeGarbageCollected<O>(base::BindOnce(
+      [](O::Mixin* thiz) { CHECK(ThreadHeap::IsHeapObjectAlive(thiz)); }));
 }
 
 }  // namespace blink

@@ -22,6 +22,7 @@
 #include "net/quic/quic_test_packet_maker.h"
 #include "net/socket/socket_tag.h"
 #include "net/socket/socket_test_util.h"
+#include "net/socket/transport_connect_job.h"
 #include "net/ssl/channel_id_service.h"
 #include "net/ssl/default_channel_id_store.h"
 #include "net/test/cert_test_util.h"
@@ -85,20 +86,23 @@ class HttpProxyClientSocketWrapperTest
         random_generator_(0),
         quic_version_(std::get<0>(GetParam())),
         client_data_stream_id1_(
-            quic::QuicUtils::GetHeadersStreamId(quic_version_) + 2),
+            quic::QuicUtils::GetHeadersStreamId(quic_version_) +
+            quic::QuicUtils::StreamIdDelta(quic_version_)),
         client_headers_include_h2_stream_dependency_(std::get<1>(GetParam())),
-        client_maker_(quic_version_,
-                      0,
-                      &clock_,
-                      kProxyHost,
-                      quic::Perspective::IS_CLIENT,
-                      client_headers_include_h2_stream_dependency_),
-        server_maker_(quic_version_,
-                      0,
-                      &clock_,
-                      kProxyHost,
-                      quic::Perspective::IS_SERVER,
-                      false),
+        client_maker_(
+            quic_version_,
+            quic::QuicUtils::CreateRandomConnectionId(&random_generator_),
+            &clock_,
+            kProxyHost,
+            quic::Perspective::IS_CLIENT,
+            client_headers_include_h2_stream_dependency_),
+        server_maker_(
+            quic_version_,
+            quic::QuicUtils::CreateRandomConnectionId(&random_generator_),
+            &clock_,
+            kProxyHost,
+            quic::Perspective::IS_SERVER,
+            false),
         header_stream_offset_(0),
         response_offset_(0),
         store_server_configs_in_properties_(false),
@@ -273,13 +277,12 @@ TEST_P(HttpProxyClientSocketWrapperTest, QuicProxy) {
   mock_quic_data_.AddSocketDataToFactory(&socket_factory_);
 
   scoped_refptr<TransportSocketParams> transport_params =
-      new TransportSocketParams(
-          proxy_host_port_, false, OnHostResolutionCallback(),
-          TransportSocketParams::COMBINE_CONNECT_AND_WRITE_DEFAULT);
+      new TransportSocketParams(proxy_host_port_, false,
+                                OnHostResolutionCallback());
 
-  scoped_refptr<SSLSocketParams> ssl_params = new SSLSocketParams(
-      transport_params, nullptr, nullptr, proxy_host_port_, SSLConfig(),
-      privacy_mode_, false /* ignore_certificate_errors */);
+  scoped_refptr<SSLSocketParams> ssl_params =
+      new SSLSocketParams(transport_params, nullptr, nullptr, proxy_host_port_,
+                          SSLConfig(), privacy_mode_);
   transport_params = nullptr;
 
   client_socket_wrapper_.reset(new HttpProxyClientSocketWrapper(
@@ -292,8 +295,8 @@ TEST_P(HttpProxyClientSocketWrapperTest, QuicProxy) {
       /*transport_params=*/nullptr, ssl_params, quic_version_, kUserAgent,
       endpoint_host_port_, &http_auth_cache_, http_auth_handler_factory_.get(),
       /*spdy_session_pool=*/nullptr, quic_stream_factory_.get(),
-      /*is_trusted_proxy=*/false, /*tunnel=*/true, TRAFFIC_ANNOTATION_FOR_TESTS,
-      net_log_));
+      /*is_trusted_proxy=*/false, /*tunnel=*/true, /*proxy_delegate=*/nullptr,
+      TRAFFIC_ANNOTATION_FOR_TESTS, net_log_));
 
   TestCompletionCallback callback;
   client_socket_wrapper_->Connect(callback.callback());
@@ -331,13 +334,12 @@ TEST_P(HttpProxyClientSocketWrapperTest, QuicProxySocketTag) {
   mock_quic_data_.AddSocketDataToFactory(&socket_factory_);
 
   scoped_refptr<TransportSocketParams> transport_params =
-      new TransportSocketParams(
-          proxy_host_port_, false, OnHostResolutionCallback(),
-          TransportSocketParams::COMBINE_CONNECT_AND_WRITE_DEFAULT);
+      new TransportSocketParams(proxy_host_port_, false,
+                                OnHostResolutionCallback());
 
-  scoped_refptr<SSLSocketParams> ssl_params = new SSLSocketParams(
-      transport_params, nullptr, nullptr, proxy_host_port_, SSLConfig(),
-      privacy_mode_, false /* ignore_certificate_errors */);
+  scoped_refptr<SSLSocketParams> ssl_params =
+      new SSLSocketParams(transport_params, nullptr, nullptr, proxy_host_port_,
+                          SSLConfig(), privacy_mode_);
   transport_params = nullptr;
   SocketTag tag(getuid(), 0x87654321);
 
@@ -351,8 +353,8 @@ TEST_P(HttpProxyClientSocketWrapperTest, QuicProxySocketTag) {
       /*transport_params=*/nullptr, ssl_params, quic_version_, kUserAgent,
       endpoint_host_port_, &http_auth_cache_, http_auth_handler_factory_.get(),
       /*spdy_session_pool=*/nullptr, quic_stream_factory_.get(),
-      /*is_trusted_proxy=*/false, /*tunnel=*/true, TRAFFIC_ANNOTATION_FOR_TESTS,
-      net_log_));
+      /*is_trusted_proxy=*/false, /*tunnel=*/true, /*proxy_delegate=*/nullptr,
+      TRAFFIC_ANNOTATION_FOR_TESTS, net_log_));
 
   TestCompletionCallback callback;
   client_socket_wrapper_->Connect(callback.callback());

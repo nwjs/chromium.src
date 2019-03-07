@@ -6,56 +6,41 @@
 
 #include "base/ios/block_types.h"
 #include "base/logging.h"
-#import "ios/chrome/browser/ui/infobars/infobar_positioner.h"
+#import "ios/chrome/browser/ui/util/rtl_geometry.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
 
-namespace {
-// Duration for the alpha change animation.
-const CGFloat kAlphaChangeAnimationDuration = 0.35;
-}  // namespace
-
-@interface InfobarContainerViewController ()
-
-// Whether the controller's view is currently available.
-// YES from viewDidAppear to viewDidDisappear.
-@property(nonatomic, assign, getter=isVisible) BOOL visible;
-
-@end
-
+// TODO(crbug.com/1372916): PLACEHOLDER Work in Progress class for the new
+// InfobarUI.
 @implementation InfobarContainerViewController
 
-// Whenever the container or contained views are re-drawn update the layout to
-// match their new size or position.
-- (void)viewDidLayoutSubviews {
-  [super viewDidLayoutSubviews];
-  [self updateLayoutAnimated:YES];
-}
-
-- (void)viewDidAppear:(BOOL)animated {
-  [super viewDidAppear:animated];
-  self.visible = YES;
-}
-
-- (void)viewDidDisappear:(BOOL)animated {
-  self.visible = NO;
-  [super viewDidDisappear:animated];
+- (void)viewDidLoad {
+  self.view = [[UIView alloc] initWithFrame:CGRectMake(20, 100, 360, 75)];
 }
 
 #pragma mark - InfobarConsumer
 
-- (void)addInfoBarView:(UIView*)infoBarView position:(NSInteger)position {
-  DCHECK_LE(static_cast<NSUInteger>(position), [[self.view subviews] count]);
-  [self.view insertSubview:infoBarView atIndex:position];
-  infoBarView.translatesAutoresizingMaskIntoConstraints = NO;
+- (void)addInfoBarWithDelegate:(id<InfobarUIDelegate>)infoBarDelegate
+                      position:(NSInteger)position {
+  UIViewController* infoBarViewController =
+      static_cast<UIViewController*>(infoBarDelegate);
+
+  [self addChildViewController:infoBarViewController];
+  [self.view addSubview:infoBarViewController.view];
+  infoBarViewController.view.translatesAutoresizingMaskIntoConstraints = NO;
+  [infoBarViewController didMoveToParentViewController:self];
+
   [NSLayoutConstraint activateConstraints:@[
-    [infoBarView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-    [infoBarView.trailingAnchor
+    [infoBarViewController.view.leadingAnchor
+        constraintEqualToAnchor:self.view.leadingAnchor],
+    [infoBarViewController.view.trailingAnchor
         constraintEqualToAnchor:self.view.trailingAnchor],
-    [infoBarView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
-    [infoBarView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]
+    [infoBarViewController.view.topAnchor
+        constraintEqualToAnchor:self.view.topAnchor],
+    [infoBarViewController.view.bottomAnchor
+        constraintEqualToAnchor:self.view.bottomAnchor]
   ]];
 }
 
@@ -64,61 +49,8 @@ const CGFloat kAlphaChangeAnimationDuration = 0.35;
 }
 
 - (void)updateLayoutAnimated:(BOOL)animated {
-  // Update the infobarContainer height.
-  CGRect containerFrame = self.view.frame;
-  CGFloat height = [self topmostVisibleInfoBarHeight];
-  containerFrame.origin.y =
-      CGRectGetMaxY([self.positioner parentView].frame) - height;
-  containerFrame.size.height = height;
-
-  auto completion = ^(BOOL finished) {
-    if (!self.visible)
-      return;
-    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,
-                                    self.view);
-  };
-
-  ProceduralBlock frameUpdates = ^{
-    [self.view setFrame:containerFrame];
-  };
-  if (animated) {
-    [UIView animateWithDuration:0.1
-                     animations:frameUpdates
-                     completion:completion];
-  } else {
-    frameUpdates();
-    completion(YES);
-  }
-}
-
-#pragma mark - Private Methods
-
-// Animates |self.view| alpha to |alpha|.
-- (void)animateInfoBarContainerToAlpha:(CGFloat)alpha {
-  CGFloat oldAlpha = self.view.alpha;
-  if (oldAlpha > 0 && alpha == 0) {
-    [self.view setUserInteractionEnabled:NO];
-  }
-
-  [UIView transitionWithView:self.view
-      duration:kAlphaChangeAnimationDuration
-      options:UIViewAnimationOptionCurveEaseInOut
-      animations:^{
-        [self.view setAlpha:alpha];
-      }
-      completion:^(BOOL) {
-        if (oldAlpha == 0 && alpha > 0) {
-          [self.view setUserInteractionEnabled:YES];
-        };
-      }];
-}
-
-// Height of the frontmost infobar contained in |self.view| that is not hidden.
-- (CGFloat)topmostVisibleInfoBarHeight {
-  for (UIView* view in [self.view.subviews reverseObjectEnumerator]) {
-    return [view sizeThatFits:self.view.frame.size].height;
-  }
-  return 0;
+  // NO-OP - This shouldn't be need in the new UI since we use autolayout for
+  // the contained Infobars.
 }
 
 @end

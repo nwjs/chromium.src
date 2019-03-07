@@ -11,7 +11,7 @@
 #include "base/callback.h"
 #include "base/json/string_escape.h"
 #include "base/logging.h"
-#include "base/macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_tokenizer.h"
@@ -25,6 +25,7 @@
 #include "chrome/test/chromedriver/chrome/status.h"
 #include "chrome/test/chromedriver/logging.h"
 #include "chrome/test/chromedriver/session.h"
+#include "chrome/test/chromedriver/util.h"
 
 namespace {
 
@@ -222,22 +223,24 @@ Status ParseTimeouts(const base::Value& option, Capabilities* capabilities) {
   const base::DictionaryValue* timeouts;
   if (!option.GetAsDictionary(&timeouts))
     return Status(kInvalidArgument, "'timeouts' must be a JSON object");
-
-  std::map<std::string, Parser> parser_map;
-  parser_map["script"] =
-      base::BindRepeating(&ParseTimeDelta, &capabilities->script_timeout);
-  parser_map["pageLoad"] =
-      base::BindRepeating(&ParseTimeDelta, &capabilities->page_load_timeout);
-  parser_map["implicit"] = base::BindRepeating(
-      &ParseTimeDelta, &capabilities->implicit_wait_timeout);
-
   for (const auto& it : timeouts->DictItems()) {
-    if (parser_map.find(it.first) == parser_map.end())
+    int64_t timeout_ms_int64 = -1;
+    if (!GetOptionalSafeInt(timeouts, it.first, &timeout_ms_int64)
+        || timeout_ms_int64 < 0)
+      return Status(kInvalidArgument, "value must be a non-negative integer");
+    base::TimeDelta timeout =
+                          base::TimeDelta::FromMilliseconds(timeout_ms_int64);
+    const std::string& type = it.first;
+    if (type == "script") {
+      capabilities->script_timeout = timeout;
+    } else if (type == "pageLoad") {
+      capabilities->page_load_timeout = timeout;
+    } else if (type == "implicit") {
+      capabilities->implicit_wait_timeout = timeout;
+    } else {
       return Status(kInvalidArgument,
-                    "unrecognized 'timeouts' option: " + it.first);
-    Status status = parser_map[it.first].Run(it.second, capabilities);
-    if (status.IsError())
-      return Status(kInvalidArgument, "cannot parse " + it.first, status);
+                    "unrecognized 'timeouts' option: " + type);
+    }
   }
   return Status(kOk);
 }
@@ -314,7 +317,7 @@ Status ParseProxy(bool w3c_compliant,
     const std::string kSocksProxy = "socksProxy";
     const base::Value* option_value = NULL;
     std::string proxy_servers;
-    for (size_t i = 0; i < arraysize(proxy_servers_options); ++i) {
+    for (size_t i = 0; i < base::size(proxy_servers_options); ++i) {
       if (!proxy_dict->Get(proxy_servers_options[i][0], &option_value) ||
           option_value->is_none()) {
         continue;
@@ -714,6 +717,7 @@ PerfLoggingPrefs::~PerfLoggingPrefs() {}
 Capabilities::Capabilities()
     : accept_insecure_certs(false),
       page_load_strategy(PageLoadStrategy::kNormal),
+      strict_file_interactability(false),
       android_use_running_app(false),
       detach(false),
       extension_load_timeout(base::TimeDelta::FromSeconds(10)),
@@ -746,6 +750,8 @@ Status Capabilities::Parse(const base::DictionaryValue& desired_caps,
   parser_map["pageLoadStrategy"] = base::BindRepeating(&ParsePageLoadStrategy);
   parser_map["proxy"] = base::BindRepeating(&ParseProxy, w3c_compliant);
   parser_map["timeouts"] = base::BindRepeating(&ParseTimeouts);
+  parser_map["strictFileInteractability"] =
+      base::BindRepeating(&ParseBoolean, &strict_file_interactability);
   if (!w3c_compliant) {
     // TODO(https://crbug.com/chromedriver/2596): "unexpectedAlertBehaviour" is
     // legacy name of "unhandledPromptBehavior", remove when we stop supporting

@@ -133,13 +133,6 @@ class URLRequestChromeJob : public net::URLRequestJob {
   // (This pattern is shared by most net::URLRequestJob implementations.)
   void StartAsync();
 
-  // Due to a race condition, DevTools relies on a legacy thread hop to the UI
-  // thread before calling StartAsync.
-  // TODO(caseq): Fix the race condition and remove this thread hop in
-  // https://crbug.com/616641.
-  static void DelayStartForDevTools(
-      const base::WeakPtr<URLRequestChromeJob>& job);
-
   // Post a task to copy |data_| to |buf_| on a worker thread, to avoid browser
   // jank. (|data_| might be mem-mapped, so a memcpy can trigger file ops).
   int PostReadTask(scoped_refptr<net::IOBuffer> buf, int buf_size);
@@ -197,18 +190,6 @@ URLRequestChromeJob::~URLRequestChromeJob() {
 
 void URLRequestChromeJob::Start() {
   const GURL url = request_->url();
-
-  // Due to a race condition, DevTools relies on a legacy thread hop to the UI
-  // thread before calling StartAsync.
-  // TODO(caseq): Fix the race condition and remove this thread hop in
-  // https://crbug.com/616641.
-  if (url.SchemeIs(kChromeDevToolsScheme)) {
-    base::PostTaskWithTraits(
-        FROM_HERE, {BrowserThread::UI},
-        base::BindOnce(&URLRequestChromeJob::DelayStartForDevTools,
-                       weak_factory_.GetWeakPtr()));
-    return;
-  }
 
   // Start reading asynchronously so that all error reporting and data
   // callbacks happen as they would for network requests.
@@ -278,6 +259,12 @@ void URLRequestChromeJob::DataAvailable(base::RefCountedMemory* bytes) {
   TRACE_EVENT_ASYNC_END0("browser", "DataManager:Request", this);
   DCHECK(!data_);
 
+  if (!bytes) {
+    NotifyStartError(
+        net::URLRequestStatus(net::URLRequestStatus::FAILED, net::ERR_FAILED));
+    return;
+  }
+
   if (bytes)
     set_expected_content_size(bytes->size());
 
@@ -342,13 +329,6 @@ int URLRequestChromeJob::PostReadTask(scoped_refptr<net::IOBuffer> buf,
   data_offset_ += buf_size;
 
   return net::ERR_IO_PENDING;
-}
-
-void URLRequestChromeJob::DelayStartForDevTools(
-    const base::WeakPtr<URLRequestChromeJob>& job) {
-  base::PostTaskWithTraits(
-      FROM_HERE, {BrowserThread::IO},
-      base::BindOnce(&URLRequestChromeJob::StartAsync, job));
 }
 
 void URLRequestChromeJob::StartAsync() {

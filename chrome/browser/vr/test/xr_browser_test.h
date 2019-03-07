@@ -7,6 +7,7 @@
 
 #include "base/callback.h"
 #include "base/environment.h"
+#include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/browser.h"
@@ -15,9 +16,8 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
+#include "net/test/embedded_test_server/embedded_test_server.h"
 #include "url/gurl.h"
-
-#define REQUIRES_GPU(x) DISABLED_##x
 
 namespace vr {
 
@@ -46,6 +46,8 @@ class XrBrowserTestBase : public InProcessBrowserTest {
   static constexpr char kVrConfigPathVal[] = "./";
   static constexpr char kVrLogPathEnvVar[] = "VR_LOG_PATH";
   static constexpr char kVrLogPathVal[] = "./";
+  static constexpr char kTestFileDir[] =
+      "chrome/test/data/xr/e2e_test_files/html/";
   enum class TestStatus {
     STATUS_RUNNING = 0,
     STATUS_PASSED = 1,
@@ -60,7 +62,15 @@ class XrBrowserTestBase : public InProcessBrowserTest {
   // Returns a GURL to the XR test HTML file of the given name, e.g.
   // GetHtmlTestFile("foo") returns a GURL for the foo.html file in the XR
   // test HTML directory.
-  GURL GetHtmlTestFile(const std::string& test_name);
+  GURL GetFileUrlForHtmlTestFile(const std::string& test_name);
+
+  // Returns a GURL to the XR test HTML file of the given name served through
+  // the local server.
+  GURL GetEmbeddedServerUrlForHtmlTestFile(const std::string& test_name);
+
+  // Returns a pointer to the embedded test server capable of serving test
+  // HTML files, initializing and starting the server if necessary.
+  net::EmbeddedTestServer* GetEmbeddedServer();
 
   // Convenience function for accessing the WebContents belonging to the first
   // tab open in the browser.
@@ -102,15 +112,14 @@ class XrBrowserTestBase : public InProcessBrowserTest {
                                    content::WebContents* web_contents);
 
   // Blocks until the given callback returns true or the timeout is reached.
-  // Returns true if the condition successfully resolved or false on timeout.
-  // This is unsafe because it relies on the provided callback checking a result
-  // from a different thread. This isn't an issue when blocking on some
-  // JavaScript condition to be true, but could be problematic if forced into
-  // use elsewhere.
-  bool BlockOnConditionUnsafe(
-      base::RepeatingCallback<bool()> condition,
-      const base::TimeDelta& timeout = kPollTimeoutLong,
-      const base::TimeDelta& period = kPollCheckIntervalLong);
+  // Fills the given bool with true if the condition successfully resolved or
+  // false on timeout.
+  void BlockOnCondition(base::RepeatingCallback<bool()> condition,
+                        bool* result,
+                        base::RunLoop* wait_loop,
+                        const base::Time& start_time,
+                        const base::TimeDelta& timeout = kPollTimeoutLong,
+                        const base::TimeDelta& period = kPollCheckIntervalLong);
 
   // Blocks until the JavaScript in the given WebContents signals that it is
   // finished.
@@ -182,6 +191,7 @@ class XrBrowserTestBase : public InProcessBrowserTest {
   std::vector<std::string> append_switches_;
 
  private:
+  std::unique_ptr<net::EmbeddedTestServer> server_;
   base::test::ScopedFeatureList scoped_feature_list_;
   DISALLOW_COPY_AND_ASSIGN(XrBrowserTestBase);
 };

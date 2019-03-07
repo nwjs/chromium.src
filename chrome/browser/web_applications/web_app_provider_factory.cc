@@ -37,11 +37,20 @@ WebAppProviderFactory::~WebAppProviderFactory() = default;
 KeyedService* WebAppProviderFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
   Profile* profile = Profile::FromBrowserContext(context);
-  return new WebAppProvider(profile);
+  WebAppProvider* provider = new WebAppProvider(profile);
+  provider->CreateSubsystems();
+  provider->Init();
+  return provider;
 }
 
 bool WebAppProviderFactory::ServiceIsCreatedWithBrowserContext() const {
   return true;
+}
+
+content::BrowserContext* WebAppProviderFactory::GetBrowserContextToUse(
+    content::BrowserContext* context) const {
+  Profile* profile = Profile::FromBrowserContext(context);
+  return profile ? profile->GetOriginalProfile() : nullptr;
 }
 
 }  //  namespace web_app

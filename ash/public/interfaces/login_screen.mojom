@@ -24,7 +24,7 @@ enum OobeDialogState {
   // Showing gaia signin screen.
   GAIA_SIGNIN = 1,
 
-  // AccountPicker = 2, not currently used
+  // 2 is unused to keep in sync with display_manager.js
 
   // Showing wrong hardware identification screen.
   WRONG_HWID_WARNING = 3,
@@ -208,13 +208,18 @@ interface LoginScreen {
   // Sets whether users can be added from the login screen.
   SetAddUserButtonEnabled(bool enable);
 
+  // Sets whether shutdown button is enabled in the login screen.
+  SetShutdownButtonEnabled(bool enable);
+
   // Sets if the guest button on the login shelf can be shown. Even if set to
   // true the button may still not be visible.
   SetAllowLoginAsGuest(bool allow_guest);
 
-  // Sets if the guest button on the login shelf can be shown during gaia
-  // signin screen.
-  SetShowGuestButtonForGaiaScreen(bool can_show);
+  // Sets if the guest button on the login shelf can be shown during OOBE.
+  SetShowGuestButtonInOobe(bool show);
+
+  // Sets whether parent access button can be shown on the login shelf.
+  SetShowParentAccess(bool show);
 
   // Transitions focus to the shelf area. If |reverse|, focuses the status area.
   FocusLoginShelf(bool reverse);
@@ -336,4 +341,9 @@ interface LoginScreenClient {
 
   // Show the help app for when users have trouble signing in to their account.
   ShowAccountAccessHelpApp();
+
+  // Called when the keyboard focus is about to leave from the sytem tray in
+  // the login screen / OOBE. |reverse| is true when the focus moves in the
+  // reversed direction.
+  OnFocusLeavingSystemTray(bool reverse);
 };

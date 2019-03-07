@@ -21,7 +21,6 @@
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
-#include "ui/gfx/path.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/layout/box_layout.h"
@@ -216,6 +215,7 @@ TrayBubbleView::TrayBubbleView(const InitParams& init_params)
   bubble_border_->set_use_theme_background_color(!init_params.bg_color);
   if (init_params.corner_radius)
     bubble_border_->SetCornerRadius(init_params.corner_radius.value());
+  bubble_border_->set_avoid_shadow_overlap(true);
   set_parent_window(params_.parent_window);
   set_can_activate(false);
   set_notify_enter_exit_on_child(true);
@@ -379,7 +379,7 @@ bool TrayBubbleView::WidgetHasHitTestMask() const {
   return true;
 }
 
-void TrayBubbleView::GetWidgetHitTestMask(gfx::Path* mask) const {
+void TrayBubbleView::GetWidgetHitTestMask(SkPath* mask) const {
   DCHECK(mask);
   mask->addRect(gfx::RectToSkRect(GetBubbleFrameView()->GetContentsBounds()));
 }

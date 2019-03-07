@@ -4,7 +4,7 @@
 
 #include "services/ws/window_tree_test_helper.h"
 
-#include "services/ws/server_window.h"
+#include "services/ws/proxy_window.h"
 #include "services/ws/window_tree_binding.h"
 
 namespace ws {
@@ -101,6 +101,12 @@ void WindowTreeTestHelper::SetHitTestInsets(aura::Window* window,
   window_tree_->SetHitTestInsets(TransportIdForWindow(window), mouse, touch);
 }
 
+bool WindowTreeTestHelper::SetWindowVisibility(aura::Window* window,
+                                               bool visible) {
+  return window_tree_->SetWindowVisibilityImpl(ClientWindowIdForWindow(window),
+                                               visible);
+}
+
 void WindowTreeTestHelper::SetWindowProperty(aura::Window* window,
                                              const std::string& name,
                                              const std::vector<uint8_t>& value,
@@ -117,7 +123,7 @@ Embedding* WindowTreeTestHelper::Embed(aura::Window* window,
                                std::move(client_ptr), client, embed_flags)) {
     return nullptr;
   }
-  return ServerWindow::GetMayBeNull(window)->embedding();
+  return ProxyWindow::GetMayBeNull(window)->embedding();
 }
 
 void WindowTreeTestHelper::SetEventTargetingPolicy(
@@ -155,8 +161,7 @@ void WindowTreeTestHelper::SetCanFocus(aura::Window* window, bool can_focus) {
                             can_focus);
 }
 
-void WindowTreeTestHelper::SetCursor(aura::Window* window,
-                                     ui::CursorData cursor) {
+void WindowTreeTestHelper::SetCursor(aura::Window* window, ui::Cursor cursor) {
   window_tree_->SetCursorImpl(ClientWindowIdForWindow(window), cursor);
 }
 

@@ -5,6 +5,7 @@
 <translation id="1127811143501539442">{DAYS,plural, =1{לפני יום אחד}two{לפני יומיים}many{לפני # ימים}other{לפני # ימים}}</translation>
 <translation id="1156623771253174079">{SECONDS,plural, =1{לפני דקה אחת}two{לפני # דקות}many{לפני # דקות}other{לפני # דקות}}</translation>
 <translation id="1169783199079129864">{MINUTES,plural, =1{דקה}two{# דק}many{# דק}other{# דק}}</translation>
+<translation id="1181037720776840403">הסרה</translation>
 <translation id="1243314992276662751">העלה</translation>
 <translation id="1269641567813814718">Win</translation>
 <translation id="1293699935367580298">Esc</translation>
@@ -63,8 +64,10 @@
 <translation id="3234408098842461169">חץ למטה</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{יום אחד}two{יומיים}many{# ימים}other{# ימים}}</translation>
 <translation id="335581015389089642">דיבור</translation>
+<translation id="3462241349431650993">הסתרת ההצעה הזו תגרום לכך שלא תופיע שוב בחשבון בכל המכשירים שברשותך.</translation>
 <translation id="3479552764303398839">לא עכשיו</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{נותר יום אחד}two{נותרו יומיים}many{נותרו # ימים}other{נותרו # ימים}}</translation>
+<translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">חפש “<ph name="LOOKUP_STRING" />”</translation>
 <translation id="364720409959344976">בחירת תיקיה להעלאה</translation>
 <translation id="3660179305079774227">חץ למעלה</translation>
@@ -125,6 +128,7 @@
 <translation id="6483402905448010557">{SECONDS,plural, =1{לפני שנייה אחת}two{לפני # שניות}many{לפני # שניות}other{לפני # שניות}}</translation>
 <translation id="654149438358937226">חסימת כל ההודעות</translation>
 <translation id="6567071839949112727">לחיצה על אב</translation>
+<translation id="6578407462441924264">ללא שם</translation>
 <translation id="6612467943526193239">‏הקש על Esc כדי לצאת מהכיול.</translation>
 <translation id="6620110761915583480">שמור קובץ</translation>
 <translation id="6699343763173986273">הרצועה הבאה במדיה</translation>
@@ -159,6 +163,7 @@
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{לפני שעה אחת}two{לפני שעתיים}many{לפני # שעות}other{לפני # שעות}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{נותרה שנ‘ אחת}two{נותרו # שנ‘}many{נותרו # שנ‘}other{נותרו # שנ‘}}</translation>
+<translation id="8152264887680882389"><ph name="TEXT" />, השלמה אוטומטית</translation>
 <translation id="815598010540052116">גלול למטה</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">דף למטה</translation>
@@ -170,6 +175,7 @@
 <translation id="838869780401515933">סמן</translation>
 <translation id="8393700583063109961">שלח הודעה</translation>
 <translation id="8394908167088220973">הפעלה/השהיה של המדיה</translation>
+<translation id="8420205633584771378">להסיר את ההצעה הזו?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{שנה}two{# שנ}many{# שנ}other{# שנ}}</translation>
 <translation id="8602707065186045623">קובץ <ph name="SAVEAS_EXTENSION_TYPE" />  (<ph name="SAVEAS_EXTENSION_NAME" />.)</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> KB/s‎</translation>
@@ -182,7 +188,6 @@
 <translation id="8841375032071747811">לחצן 'הקודם'</translation>
 <translation id="8901569739625249689">‏<ph name="QUANTITY" /> KB‏</translation>
 <translation id="9002566407876343676">פתח</translation>
-<translation id="9038489124413477075">תיקייה ללא שם</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{שנ‘ אחת}two{# שנ‘}many{# שנ‘}other{# שנ‘}}</translation>
 <translation id="9059834730836941392">כיווץ ההודעה</translation>
 <translation id="9150735707954472829">כרטיסייה</translation>

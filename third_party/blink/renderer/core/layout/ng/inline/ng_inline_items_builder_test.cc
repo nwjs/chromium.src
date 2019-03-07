@@ -14,6 +14,11 @@ namespace blink {
 
 namespace {
 
+// The spec turned into a discussion that may change. Put this logic on hold
+// until CSSWG resolves the issue.
+// https://github.com/w3c/csswg-drafts/issues/337
+#define SEGMENT_BREAK_TRANSFORMATION_FOR_EAST_ASIAN_WIDTH 0
+
 #define EXPECT_ITEM_OFFSET(item, type, start, end) \
   EXPECT_EQ(type, (item).Type());                  \
   EXPECT_EQ(start, (item).StartOffset());          \
@@ -248,7 +253,7 @@ TEST_F(NGInlineItemsBuilderTest, CollapseZeroWidthSpaces) {
 
   EXPECT_EQ(String(u"text\u200Btext"), TestAppend(u"text \n", u"\u200Btext"))
       << "Collapsible space before newline does not affect the result.";
-  EXPECT_EQ(String(u"text\u200Btext"), TestAppend(u"text\u200B\n", u" text"))
+  EXPECT_EQ(String(u"text\u200B text"), TestAppend(u"text\u200B\n", u" text"))
       << "Collapsible space after newline is removed even when the "
          "newline was removed.";
   EXPECT_EQ(String(u"text\u200Btext"), TestAppend(u"text\u200B ", u"\ntext"))
@@ -256,6 +261,12 @@ TEST_F(NGInlineItemsBuilderTest, CollapseZeroWidthSpaces) {
          "a zero width space is collapsed to a zero width space.";
 }
 
+TEST_F(NGInlineItemsBuilderTest, CollapseZeroWidthSpaceAndNewLineAtEnd) {
+  EXPECT_EQ(String(u"\u200B"), TestAppend(u"\u200B\n"));
+  EXPECT_EQ(NGInlineItem::kNotCollapsible, items_[0].EndCollapseType());
+}
+
+#if SEGMENT_BREAK_TRANSFORMATION_FOR_EAST_ASIAN_WIDTH
 TEST_F(NGInlineItemsBuilderTest, CollapseEastAsianWidth) {
   EXPECT_EQ(String(u"\u4E00\u4E00"), TestAppend(u"\u4E00\n\u4E00"))
       << "Newline is removed when both sides are Wide.";
@@ -271,6 +282,7 @@ TEST_F(NGInlineItemsBuilderTest, CollapseEastAsianWidth) {
       << "Newline at the beginning of elements is removed "
          "when both sides are Wide.";
 }
+#endif
 
 TEST_F(NGInlineItemsBuilderTest, OpaqueToSpaceCollapsing) {
   NGInlineItemsBuilder builder(&items_);

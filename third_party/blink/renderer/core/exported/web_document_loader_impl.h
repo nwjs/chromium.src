@@ -50,11 +50,6 @@ class CORE_EXPORT WebDocumentLoaderImpl final : public DocumentLoader,
                                                 public WebDocumentLoader {
  public:
   WebDocumentLoaderImpl(LocalFrame*,
-                        const ResourceRequest&,
-                        const SubstituteData&,
-                        ClientRedirectPolicy,
-                        const base::UnguessableToken& devtools_navigation_token,
-                        WebFrameLoadType load_type,
                         WebNavigationType navigation_type,
                         std::unique_ptr<WebNavigationParams> navigation_params);
 
@@ -63,7 +58,13 @@ class CORE_EXPORT WebDocumentLoaderImpl final : public DocumentLoader,
   }
 
   // WebDocumentLoader methods:
-  const WebURLRequest& OriginalRequest() const override;
+  WebURL OriginalUrl() const override;
+  WebString OriginalReferrer() const override;
+  WebURL GetUrl() const override;
+  WebString HttpMethod() const override;
+  mojom::FetchCacheMode GetCacheMode() const override;
+  WebString Referrer() const override;
+  network::mojom::ReferrerPolicy GetReferrerPolicy() const override;
   const WebURLRequest& GetRequest() const override;
   const WebURLResponse& GetResponse() const override;
   bool HasUnreachableURL() const override;
@@ -79,12 +80,12 @@ class CORE_EXPORT WebDocumentLoaderImpl final : public DocumentLoader,
   void SetServiceWorkerNetworkProvider(
       std::unique_ptr<WebServiceWorkerNetworkProvider>) override;
   WebServiceWorkerNetworkProvider* GetServiceWorkerNetworkProvider() override;
-  void ResetSourceLocation() override;
   void BlockParser() override;
   void ResumeParser() override;
   bool IsArchive() const override;
   WebArchiveInfo GetArchiveInfo() const override;
   bool HadUserGesture() const override;
+  bool IsListingFtpDirectory() const override;
 
   void Trace(blink::Visitor*) override;
 
@@ -95,7 +96,6 @@ class CORE_EXPORT WebDocumentLoaderImpl final : public DocumentLoader,
 
   // Mutable because the const getters will magically sync these to the
   // latest version from WebKit.
-  mutable WrappedResourceRequest original_request_wrapper_;
   mutable WrappedResourceRequest request_wrapper_;
   mutable WrappedResourceResponse response_wrapper_;
 

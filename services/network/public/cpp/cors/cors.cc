@@ -113,6 +113,14 @@ bool IsCorsSafelistedLowerCaseContentType(const std::string& value) {
          mime_type == "multipart/form-data" || mime_type == "text/plain";
 }
 
+bool IsNoCorsSafelistedHeaderNameLowerCase(const std::string& lower_name) {
+  if (lower_name != "accept" && lower_name != "accept-language" &&
+      lower_name != "content-language" && lower_name != "content-type") {
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 namespace network {
@@ -318,32 +326,6 @@ bool IsCorsEnabledRequestMode(mojom::FetchRequestMode mode) {
          mode == mojom::FetchRequestMode::kCorsWithForcedPreflight;
 }
 
-mojom::FetchResponseType CalculateResponseTainting(
-    const GURL& url,
-    mojom::FetchRequestMode request_mode,
-    const base::Optional<url::Origin>& origin,
-    bool cors_flag) {
-  if (url.SchemeIs(url::kDataScheme))
-    return mojom::FetchResponseType::kBasic;
-
-  if (cors_flag) {
-    DCHECK(IsCorsEnabledRequestMode(request_mode));
-    return mojom::FetchResponseType::kCors;
-  }
-
-  if (!origin) {
-    // This is actually not defined in the fetch spec, but in this case CORS
-    // is disabled so no one should care this value.
-    return mojom::FetchResponseType::kBasic;
-  }
-
-  if (request_mode == mojom::FetchRequestMode::kNoCors &&
-      !origin->IsSameOriginWith(url::Origin::Create(url))) {
-    return mojom::FetchResponseType::kOpaque;
-  }
-  return mojom::FetchResponseType::kBasic;
-}
-
 bool IsCorsSafelistedMethod(const std::string& method) {
   // https://fetch.spec.whatwg.org/#cors-safelisted-method
   // "A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`."
@@ -421,15 +403,20 @@ bool IsCorsSafelistedHeader(const std::string& name, const std::string& value) {
   return true;
 }
 
+bool IsNoCorsSafelistedHeaderName(const std::string& name) {
+  return IsNoCorsSafelistedHeaderNameLowerCase(base::ToLowerASCII(name));
+}
+
+bool IsPrivilegedNoCorsHeaderName(const std::string& name) {
+  return base::ToLowerASCII(name) == "range";
+}
+
 bool IsNoCorsSafelistedHeader(const std::string& name,
                               const std::string& value) {
   const std::string lower_name = base::ToLowerASCII(name);
 
-  if (lower_name != "accept" && lower_name != "accept-language" &&
-      lower_name != "content-language" && lower_name != "content-type") {
+  if (!IsNoCorsSafelistedHeaderNameLowerCase(lower_name))
     return false;
-  }
-
   return IsCorsSafelistedHeader(lower_name, value);
 }
 

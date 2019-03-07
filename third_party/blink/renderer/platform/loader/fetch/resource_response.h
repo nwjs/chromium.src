@@ -138,24 +138,27 @@ class PLATFORM_EXPORT ResourceResponse final {
     SignedCertificateTimestampList sct_list;
   };
 
-  class ExtraData : public RefCounted<ExtraData> {
-   public:
-    virtual ~ExtraData() = default;
-  };
-
   ResourceResponse();
-  explicit ResourceResponse(const KURL&);
+  explicit ResourceResponse(const KURL& current_request_url);
   ResourceResponse(const ResourceResponse&);
   ResourceResponse& operator=(const ResourceResponse&);
 
   bool IsNull() const { return is_null_; }
   bool IsHTTP() const;
 
-  // The URL of the resource. Note that if a service worker responded to the
-  // request for this resource, it may have fetched an entirely different URL
-  // and responded with that resource. wasFetchedViaServiceWorker() and
-  // originalURLViaServiceWorker() can be used to determine whether and how a
-  // service worker responded to the request. Example service worker code:
+  // The current request URL for this resource (the URL after redirects).
+  // Corresponds to:
+  // https://fetch.spec.whatwg.org/#concept-request-current-url
+  //
+  // Beware that this might not be the same the response URL, so it is usually
+  // incorrect to use this in security checks. Use GetType() to determine origin
+  // sameness.
+  //
+  // Specifically, if a service worker responded to the request for this
+  // resource, it may have fetched an entirely different URL and responded with
+  // that resource. WasFetchedViaServiceWorker() and ResponseUrl() can be used
+  // to determine whether and how a service worker responded to the request.
+  // Example service worker code:
   //
   // onfetch = (event => {
   //   if (event.request.url == 'https://abc.com')
@@ -163,11 +166,24 @@ class PLATFORM_EXPORT ResourceResponse final {
   // });
   //
   // If this service worker responds to an "https://abc.com" request, then for
-  // the resulting ResourceResponse, url() is "https://abc.com",
-  // wasFetchedViaServiceWorker() is true, and originalURLViaServiceWorker() is
+  // the resulting ResourceResponse, CurrentRequestUrl() is "https://abc.com",
+  // WasFetchedViaServiceWorker() is true, and ResponseUrl() is
   // "https://def.com".
-  const KURL& Url() const;
-  void SetURL(const KURL&);
+  const KURL& CurrentRequestUrl() const;
+  void SetCurrentRequestUrl(const KURL&);
+
+  // The response URL of this resource. Corresponds to:
+  // https://fetch.spec.whatwg.org/#concept-response-url
+  //
+  // This returns the same URL as CurrentRequestUrl() unless a service worker
+  // responded to the request. See the comments for that function.
+  KURL ResponseUrl() const;
+
+  // Returns true if this response is the result of a service worker
+  // effectively calling `evt.respondWith(fetch(evt.request))`.  Specifically,
+  // it returns false for synthetic constructed responses, responses fetched
+  // from different URLs, and responses produced by cache_storage.
+  bool IsServiceWorkerPassThrough() const;
 
   const AtomicString& MimeType() const;
   void SetMimeType(const AtomicString&);
@@ -189,8 +205,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   void AddHTTPHeaderField(const AtomicString& name, const AtomicString& value);
   void ClearHTTPHeaderField(const AtomicString& name);
   const HTTPHeaderMap& HttpHeaderFields() const;
-
-  bool IsMultipart() const { return MimeType() == "multipart/x-mixed-replace"; }
 
   bool IsAttachment() const;
 
@@ -303,7 +317,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   void SetType(network::mojom::FetchResponseType value) {
     response_type_ = value;
   }
-  bool IsOpaqueResponseFromServiceWorker() const;
   // https://html.spec.whatwg.org/#cors-same-origin
   bool IsCorsSameOrigin() const {
     return network::cors::IsCorsSameOriginResponseType(response_type_);
@@ -319,16 +332,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   }
   void SetURLListViaServiceWorker(const Vector<KURL>& url_list) {
     url_list_via_service_worker_ = url_list;
-  }
-
-  // Returns the last URL of urlListViaServiceWorker if exists. Otherwise
-  // returns an empty URL.
-  KURL OriginalURLViaServiceWorker() const;
-
-  const Vector<char>& MultipartBoundary() const { return multipart_boundary_; }
-  void SetMultipartBoundary(const char* bytes, uint32_t size) {
-    multipart_boundary_.clear();
-    multipart_boundary_.Append(bytes, size);
   }
 
   const String& CacheStorageCacheName() const {
@@ -388,24 +391,10 @@ class PLATFORM_EXPORT ResourceResponse final {
   int64_t DecodedBodyLength() const { return decoded_body_length_; }
   void SetDecodedBodyLength(int64_t value);
 
-  // Extra data associated with this response.
-  ExtraData* GetExtraData() const { return extra_data_.get(); }
-  void SetExtraData(scoped_refptr<ExtraData> extra_data) {
-    extra_data_ = std::move(extra_data);
-  }
-
   unsigned MemoryUsage() const {
     // average size, mostly due to URL and Header Map strings
     return 1280;
   }
-
-  // PlzNavigate: Even if there is redirections, only one
-  // ResourceResponse is built: the final response.
-  // The redirect response chain can be accessed by this function.
-  const Vector<ResourceResponse>& RedirectResponses() const {
-    return redirect_responses_;
-  }
-  void AppendRedirectResponse(const ResourceResponse&);
 
   bool AsyncRevalidationRequested() const {
     return async_revalidation_requested_;
@@ -430,13 +419,10 @@ class PLATFORM_EXPORT ResourceResponse final {
     is_signed_exchange_inner_response_ = is_signed_exchange_inner_response;
   }
 
-  // This method doesn't compare the all members.
-  static bool Compare(const ResourceResponse&, const ResourceResponse&);
-
  private:
   void UpdateHeaderParsedState(const AtomicString& name);
 
-  KURL url_;
+  KURL current_request_url_;
   AtomicString mime_type_;
   long long expected_content_length_ = 0;
   AtomicString text_encoding_name_;
@@ -542,9 +528,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   // Note: only valid for main resource responses.
   KURL app_cache_manifest_url_;
 
-  // The multipart boundary of this response.
-  Vector<char> multipart_boundary_;
-
   // The URL list of the response which was fetched by the ServiceWorker.
   // This is empty if the response was created inside the ServiceWorker.
   Vector<KURL> url_list_via_service_worker_;
@@ -577,21 +560,7 @@ class PLATFORM_EXPORT ResourceResponse final {
   // Sizes of the response body in bytes after any content-encoding is
   // removed.
   int64_t decoded_body_length_ = 0;
-
-  // ExtraData associated with the response.
-  scoped_refptr<ExtraData> extra_data_;
-
-  // PlzNavigate: the redirect responses are transmitted
-  // inside the final response.
-  Vector<ResourceResponse> redirect_responses_;
 };
-
-inline bool operator==(const ResourceResponse& a, const ResourceResponse& b) {
-  return ResourceResponse::Compare(a, b);
-}
-inline bool operator!=(const ResourceResponse& a, const ResourceResponse& b) {
-  return !(a == b);
-}
 
 }  // namespace blink
 

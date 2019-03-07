@@ -96,6 +96,10 @@
       status: "experimental",
     },
     {
+      name: "AsyncClipboardImages",
+      status: "experimental",
+    },
+    {
       name: "AudioOutputDevices",
       status: "stable",
     },
@@ -108,6 +112,12 @@
       settable_from_internals: true,
     },
     {
+      name: "AutoPictureInPicture",
+      depends_on: ["PictureInPictureAPI"],
+      origin_trial_feature_name: "AutoPictureInPicture",
+      status: "experimental",
+    },
+    {
       // Flag set by the media::kAutoplayIgnoreWebAudio feature flag.
       name: "AutoplayIgnoresWebAudio",
       settable_from_internals: true,
@@ -118,23 +128,20 @@
       status: "experimental",
     },
     {
-      name: "BackgroundFetchAccessActiveFetches",
-      status: "experimental",
-    },
-    {
-      name: "BackgroundFetchUploads",
-      status: "experimental",
-    },
-    {
       name: "BackgroundVideoTrackOptimization",
       status: "stable",
     },
     {
       name: "Badging",
-      status: "test",
+      origin_trial_feature_name: "Badging",
+      status: "experimental",
+    },
+    {
+      name: "BidiCaretAffinity",
     },
     {
       name: "BlinkGenPropertyTrees",
+      status: "experimental",
     },
     {
       name: "BlinkRuntimeCallStats",
@@ -153,7 +160,7 @@
       status: "stable",
     },
     {
-      name: "BlockingDownloadsInSandbox",
+      name: "BlockingDownloadsInSandboxWithoutUserActivation",
     },
     {
       name: "BlockMetaSetCookie",
@@ -165,10 +172,6 @@
     {
       name: "CacheStorageAddAllRejectsDuplicates",
       status: "stable",
-    },
-    {
-      name: "CacheStyleSheetWithMediaQueries",
-      status: "experimental",
     },
     {
       name: "CallCaptureListenersAtCapturePhaseAtShadowHosts",
@@ -209,12 +212,10 @@
       name: "ClientPlaceholdersForServerLoFi",
     },
     {
-      name: "CompositedSelectionUpdate",
+      name: "CompositeAfterPaint",
     },
     {
-      name: "CompositeOpaqueFixedPosition",
-      settable_from_internals: true,
-      status: "experimental",
+      name: "CompositedSelectionUpdate",
     },
     {
       name: "CompositorTouchAction",
@@ -225,11 +226,8 @@
       status: "experimental",
     },
     {
-      name: "ConstructableStylesheets",
-      status: "experimental",
-    },
-    {
       name: "ContactsManager",
+      origin_trial_feature_name: "ContactsManager",
       status: "experimental",
     },
     {
@@ -246,6 +244,10 @@
     },
     {
       name: "CSS3Text",
+      status: "experimental",
+    },
+    {
+      name: "CSS3TextBreakSpaces",
       status: "experimental",
     },
     {
@@ -318,7 +320,7 @@
     },
     {
       name: "CSSPartPseudoElement",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "CSSPseudoIs",
@@ -361,6 +363,7 @@
     // without native Custom Elements v0 support.
     {
       name: "CustomElementsV0",
+      origin_trial_feature_name: "WebComponentsV0",
       status: "stable",
     },
     {
@@ -411,11 +414,8 @@
     {
       // https://crbug.com/879270
       name: "ElementTiming",
-      status: "test",
-    },
-    {
-      name: "EncodingStreams",
-      status: "stable",
+      origin_trial_feature_name: "ElementTimingImages",
+      status: "experimental",
     },
     {
       name: "EncryptedMediaEncryptionSchemeQuery",
@@ -423,8 +423,7 @@
     },
     {
       name: "EncryptedMediaHdcpPolicyCheck",
-      origin_trial_feature_name: "EncryptedMediaHdcpPolicyCheck",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "EncryptedMediaPersistentUsageRecordSession",
@@ -469,15 +468,14 @@
       status: "experimental"
     },
     {
-      name: "ExperimentalV8Extras",
-      status: "experimental",
-    },
-    {
       name: "ExtendedTextMetrics",
       status: "experimental",
     },
     {
       name: "ExtraWebGLVideoTextureMetadata",
+    },
+    {
+      name: "FastFlatTreeTraversal",
     },
     {
       name: "FastMobileScrolling",
@@ -491,6 +489,7 @@
     {
       name: "FeaturePolicyReporting",
       implied_by: ["ExperimentalProductivityFeatures"],
+      origin_trial_feature_name: "FeaturePolicyReporting",
       status: "experimental"
     },
     {
@@ -507,6 +506,10 @@
       name: "FirstContentfulPaintPlusPlus",
     },
     {
+      name: "FocuslessSpatialNavigation",
+      settable_from_internals: true,
+    },
+    {
       name: "FontCacheScaling",
       status: "test",
     },
@@ -515,7 +518,11 @@
       // No status, as the web platform runtime enabled feature is controlled by
       // a Chromium level feature.
     },
-    // For simulating Android's overlay fullscreen video in layout tests on Linux.
+    // For simulating Android's overlay fullscreen video in web tests on Linux.
+    {
+      name: "ForbidSyncXHRInPageDismissal",
+      status: "test",
+    },
     {
       name: "ForceOverlayFullscreenVideo",
     },
@@ -524,7 +531,7 @@
     },
     {
       name: "FormAssociatedCustomElements",
-      status: "test",
+      status: "experimental",
     },
     {
       name: "FormDataEvent",
@@ -559,11 +566,6 @@
       status: "experimental",
     },
     {
-      name: "GamepadExtensions",
-      origin_trial_feature_name: "WebVR1.1M62",
-      status: "experimental",
-    },
-    {
       name: "GamepadVibration",
       status: "experimental",
     },
@@ -594,6 +596,7 @@
     // https://crbug.com/766694 for testing disabling the feature.
     {
       name: "HTMLImports",
+      origin_trial_feature_name: "WebComponentsV0",
       status: "stable",
     },
     // https://crbug.com/523952 for testing disabling the feature.
@@ -603,6 +606,14 @@
     },
     {
       name: "IDBObserver",
+      status: "experimental",
+    },
+    {
+      name: "IDBTransactionCommit",
+      status: "experimental",
+    },
+    {
+      name: "IdleDetection",
       status: "experimental",
     },
     {
@@ -633,6 +644,7 @@
     },
     {
       name: "IntersectionObserverV2",
+      status: "experimental",
     },
     {
       name: "InvisibleDOM",
@@ -643,16 +655,23 @@
       status: "experimental",
     },
     {
+      // If enabled, CSP checks use the isolated world CSP when in an isolated
+      // world. See crbug.com/896041.
+      name: "IsolatedWorldCSP"
+    },
+    {
       // Tracks "jank" from layout objects changing their visual location
       // between animation frames (see crbug.com/581518).
       name: "JankTracking",
       implied_by: ["LayoutJankAPI", "JankTrackingSweepLine"],
+      origin_trial_feature_name: "LayoutJankAPI",
       status: "experimental",
     },
     {
       // Modifies JankTracking to use O(n log n) sweep line algorithm for
       // computing the area of the jank region.
       name: "JankTrackingSweepLine",
+      status: "experimental",
     },
     {
       name: "KeyboardFocusableScrollers",
@@ -669,7 +688,8 @@
       // Exposes layout jank fractions to Javascript. See explainer:
       // http://bit.ly/lsm-explainer.
       name: "LayoutJankAPI",
-      status: "test",
+      origin_trial_feature_name: "LayoutJankAPI",
+      status: "experimental",
     },
     {
       name: "LayoutNG",
@@ -689,10 +709,6 @@
       implied_by: ["LayoutNG"],
     },
     {
-      name: "LayoutViewIsolationNodes",
-      status: "stable",
-    },
-    {
       name: "LazyFrameLoading",
     },
     {
@@ -707,6 +723,10 @@
     {
       name: "LazyInitializeMediaControls",
       // This is enabled by features::kLazyInitializeMediaControls.
+    },
+    {
+      name: "LegacyPerformanceMemoryCounters",
+      origin_trial_feature_name: "LegacyPerformanceMemoryCounters",
     },
     {
       name: "LongTaskV2",
@@ -758,14 +778,18 @@
       name: "MediaEngagementBypassAutoplayPolicies",
     },
     {
+      name: "MediaQueryPrefersColorScheme",
+    },
+    {
+      name: "MediaQueryPrefersReducedMotion",
+    },
+    {
       name: "MediaQueryShape",
       status: "experimental",
     },
-    // MediaSession is enabled by default on Android only.
-    // TODO(rbyers): Add parameter to specify platform.
     {
       name: "MediaSession",
-      status: "test",
+      status: "stable",
     },
     {
       name: "MediaSourceExperimental",
@@ -842,7 +866,7 @@
       settable_from_internals: true,
     },
     {
-      name: "NoIdleEncodingForLayoutTests",
+      name: "NoIdleEncodingForWebTests",
       status: "test",
     },
     {
@@ -892,7 +916,7 @@
       status: "stable",
     },
     // Define a sample API for testing integration with the Origin Trials
-    // Framework. The sample API is used in both unit and layout tests for the
+    // Framework. The sample API is used in both unit and web tests for the
     // Origin Trials Framework. Do not change this flag to stable, as it exists
     // solely to generate code used by the sample API implementation.
     {
@@ -900,7 +924,7 @@
       origin_trial_feature_name: "Frobulate",
     },
     // Define a sample API for testing integration with the Origin Trials
-    // Framework. The sample API is used in both unit and layout tests for the
+    // Framework. The sample API is used in both unit and web tests for the
     // Origin Trials Framework. Do not change this flag to stable, as it exists
     // solely to generate code used by the sample API implementation.
     {
@@ -919,8 +943,27 @@
       settable_from_internals: true,
     },
     {
+      name: "OverscrollCustomization",
+      settable_from_internals: true,
+    },
+    // This feature refers to the API that delivers notifications to pages on
+    // lifecycle state changes.
+    {
       name: "PageLifecycle",
       status: "stable",
+    },
+    // The following are developer opt-outs and opt-ins for PageLifecycle state
+    // transitions. If neither is specified then heuristics will be applied to
+    // determine whether the page is eligible.
+    {
+      name: "PageLifecycleTransitionsOptIn",
+      origin_trial_feature_name: "PageLifecycleTransitionsOptIn",
+      status: "experimental",
+    },
+    {
+      name: "PageLifecycleTransitionsOptOut",
+      origin_trial_feature_name: "PageLifecycleTransitionsOptOut",
+      status: "experimental",
     },
     {
       name: "PagePopup",
@@ -941,6 +984,7 @@
     },
     {
       name: "PassiveDocumentWheelEventListeners",
+      status: "stable",
     },
     {
       name: "PassPaintVisualRectToCompositor",
@@ -957,6 +1001,9 @@
     {
       name: "PaymentRequest",
       status: "experimental",
+    },
+    {
+      name: "PaymentRequestHasEnrolledInstrument",
     },
     {
       name: "PaymentRetry",
@@ -1010,7 +1057,7 @@
     },
     {
       name: "PreloadImageSrcSet",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "Presentation",
@@ -1021,6 +1068,7 @@
     },
     {
       name: "PriorityHints",
+      origin_trial_feature_name: "PriorityHints",
       status: "experimental",
     },
     {
@@ -1068,6 +1116,11 @@
       origin_trial_feature_name: "RtcAudioJitterBufferMaxPackets",
       status: "experimental",
     },
+    {
+      name: "RtcAudioJitterBufferRtxHandling",
+      origin_trial_feature_name: "RtcAudioJitterBufferRtxHandling",
+      status: "experimental",
+    },
     // Enables the use of the RTCDtlsTransport object.
     {
       name: "RTCDtlsTransport",
@@ -1076,7 +1129,8 @@
     // Enables the use of the RTCIceTransport with extensions.
     {
       name: "RTCIceTransportExtension",
-      status: "test",
+      origin_trial_feature_name: "RTCQuicTransport",
+      status: "experimental",
     },
     {
       name: "RtcPeerConnectionId",
@@ -1086,7 +1140,8 @@
     // Enables the use of the RTCQuicTransport object.
     {
       name: "RTCQuicTransport",
-      status: "test",
+      origin_trial_feature_name: "RTCQuicTransport",
+      status: "experimental",
     },
     {
       name: "RTCRtpSenderParameters",
@@ -1166,6 +1221,7 @@
     // without native Shadow DOM v0 support
     {
       name: "ShadowDOMV0",
+      origin_trial_feature_name: "WebComponentsV0",
       status: "stable",
     },
     {
@@ -1174,7 +1230,6 @@
     },
     {
       name: "ShapeDetection",
-      origin_trial_feature_name: "ShapeDetection",
       status: "experimental",
     },
     {
@@ -1191,10 +1246,10 @@
       status: "experimental",
     },
     {
-      name: "SignedHTTPExchange",
-    },
-    {
-      name: "SlimmingPaintV2",
+      name: "SkipAd",
+      depends_on: ["MediaSession"],
+      origin_trial_feature_name: "SkipAd",
+      status: "experimental",
     },
     {
       name: "SmoothScrollJSIntervention",
@@ -1254,6 +1309,7 @@
     },
     {
       name: "TransferableStreams",
+      status: "experimental",
     },
     // This is conditionally set if the platform supports translation.
     {
@@ -1261,6 +1317,7 @@
     },
     {
       name: "TrustedDOMTypes",
+      origin_trial_feature_name: "TrustedDOMTypes",
       status: "experimental",
     },
     {
@@ -1284,10 +1341,6 @@
     },
     {
       name: "UserActivationV2",
-    },
-    {
-      name: "V8ContextSnapshot",
-      status: "test",
     },
     {
       name: "V8IdleTasks",
@@ -1344,8 +1397,8 @@
       status: "experimental",
     },
     {
-      name: "WebFontsCacheAwareTimeoutAdaptation",
-      status: "experimental",
+      name: "WebBluetoothScanning",
+      status: "test",
     },
     {
       name: "WebGL2ComputeContext",
@@ -1377,6 +1430,11 @@
       status: "experimental",
     },
     {
+      name: "WebShareV2",
+      status: "experimental",
+      depends_on: ["WebShare"],
+    },
+    {
       name: "WebUSB",
       status: "stable",
     },
@@ -1390,22 +1448,32 @@
       origin_trial_feature_name: "WebVR1.1M62",
       status: "experimental",
     },
+    // Extensions to the Gamepad API for WebVR. Formerly GamepadExtensions.
+    // Although not separately controllable, it is still a separate feature
+    // for clarity in the IDL.
+    // TODO(https://crbug.com/920025): Consider merging with "WebVR".
+    {
+      name: "WebVRGamepadSupport",
+      implied_by: ["WebVR"],
+      status: "experimental",
+    },
     {
       name: "WebVTTRegions",
       status: "experimental",
     },
     {
       name: "WebXR",
-      origin_trial_feature_name: "WebXRDeviceM69",
+      origin_trial_feature_name: "WebXRDeviceM73",
       status: "experimental",
     },
-    // Subset of the GamepadExtensions wanted for WebXR, which expose VR controller
-    // functionality as Gamepads.
+    // Subset of the Gamepad extensions used for early WebXR implementations
+    // that exposed VR controller functionality as Gamepads.
+    // TODO(https://crbug.com/920025): Remove this.
     {
       name: "WebXRGamepadSupport",
       origin_trial_feature_name: "WebXRGamepadSupport",
-      // This feature is a strict subset of GamepadExtensions.
-      implied_by: ["GamepadExtensions"],
+      // This feature is a strict subset of the WebVR Gamepad extensions.
+      implied_by: ["WebVRGamepadSupport"],
       status: "experimental",
     },
     {
@@ -1424,10 +1492,6 @@
     {
       name: "WorkerTaskQueue",
       status: "experimental"
-    },
-    {
-      name: "WorkStealingInScriptRunner",
-      status: "experimental",
     },
     {
       name: "WritableFiles",

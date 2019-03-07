@@ -115,11 +115,6 @@
         display: block;
       }
 
-      :host([showing-promo]) #promo-header {
-        padding-bottom: 10px;
-        padding-top: 10px;
-      }
-
       :host([showing-promo]) #promo-title {
         @apply --promo-title;
       }
@@ -133,17 +128,15 @@
       }
     </style>
     <div id="banner" hidden="[[syncStatus.signedIn]]"></div>
-    <div class="settings-box first two-line" id="promo-header"
-        hidden="[[syncStatus.signedIn]]">
-      <div class="start">
+    <div class$="settings-box first
+                 [[getPromoHeaderClass_(subLabel_)]]"
+        id="promo-header" hidden="[[syncStatus.signedIn]]">
+      <div class="start settings-box-text">
         <div id="promo-title">
           [[getLabel_(promoLabelWithAccount,
               promoLabelWithNoAccount, shownAccount_)]]
         </div>
-        <div class="secondary">
-          [[getLabel_(promoSecondaryLabelWithAccount,
-              promoSecondaryLabelWithNoAccount, shownAccount_)]]
-        </div>
+        <div class="secondary">[[subLabel_]]</div>
       </div>
       <div id="promo-separator" class="separator"
           hidden="[[shouldShowAvatarRow_]]"></div>
@@ -168,7 +161,7 @@
           </div>
         </div>
         <div class="middle two-line no-min-width">
-          <div class="flex text-elide" id="user-info">
+          <div class="flex text-elide settings-box-text" id="user-info">
             <span>
               [[getAvatarRowTitle_(shownAccount_.fullName,
                   '$i18nPolymer{syncNotWorking}', '$i18nPolymer{syncPaused}',
@@ -179,7 +172,8 @@
               [[getAccountLabel_(
                   '$i18nPolymer{syncingTo}', shownAccount_.email,
                   syncStatus.hasError, syncStatus.signedIn,
-                  syncStatus.disabled)]]
+                  syncStatus.disabled, syncStatus.setupInProgress,
+                  unifiedConsentEnabled)]]
             </div>
           </div>
         </div>
@@ -196,34 +190,44 @@
           $i18n{peopleSignIn}
         </paper-button>
         <paper-button id="turn-off" class="secondary-button"
-            hidden="[[!shouldShowTurnOffButton_(syncStatus.signedIn)]]"
+            hidden="[[!shouldShowTurnOffButton_(syncStatus.signedIn,
+                showSetupButtons_)]]"
             on-click="onTurnOffButtonTap_"
             disabled="[[syncStatus.setupInProgress]]">
           $i18n{turnOffSync}
         </paper-button>
         <paper-button id="sync-error-button" class="action-button"
-            hidden="[[!shouldShowErrorActionButton_(syncStatus)]]"
+            hidden="[[!shouldShowErrorActionButton_(syncStatus,
+                showSetupButtons_)]]"
             on-click="onErrorButtonTap_"
             disabled="[[syncStatus.setupInProgress]]">
           [[syncStatus.statusActionText]]
         </paper-button>
+        <div id="setup-buttons" hidden="[[!showSetupButtons_]]">
+          <paper-button class="secondary-button" on-click="onSetupCancel_">
+            $i18n{cancel}
+          </paper-button>
+          <paper-button class="action-button" on-click="onSetupConfirm_">
+            $i18n{confirm}
+          </paper-button>
+        </div>
       </div>
       <template is="dom-if" if="[[!syncStatus.signedIn]]" restamp>
         <cr-action-menu id="menu" auto-reposition>
           <template is="dom-repeat" items="[[storedAccounts_]]">
-            <button class="dropdown-item" on-click="onAccountTap_" slot="item">
+            <button class="dropdown-item" on-click="onAccountTap_">
               <img class="account-icon small" alt=""
                   src="[[getAccountImageSrc_(item.avatarImage)]]">
               <span>[[item.email]]</span>
             </button>
           </template>
-          <button class="dropdown-item" on-click="onSigninTap_" slot="item"
+          <button class="dropdown-item" on-click="onSigninTap_"
               disabled="[[syncStatus.setupInProgress]]" id="sign-in-item">
             <img class="account-icon small" alt=""
                 src="chrome://theme/IDR_PROFILE_AVATAR_PLACEHOLDER_LARGE">
             <span>$i18n{useAnotherAccount}</span>
           </button>
-          <button class="dropdown-item" on-click="onSignoutTap_" slot="item"
+          <button class="dropdown-item" on-click="onSignoutTap_"
               disabled="[[syncStatus.setupInProgress]]" id="sign-out-item">
             <iron-icon icon="settings:exit-to-app"></iron-icon>
             <span>$i18n{peopleSignOut}</span>

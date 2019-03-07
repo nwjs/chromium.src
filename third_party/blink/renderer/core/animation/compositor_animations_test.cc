@@ -287,8 +287,17 @@ class AnimationCompositorAnimationsTest : public RenderingTest {
   class AnimatableMockStringKeyframe : public StringKeyframe {
    public:
     static StringKeyframe* Create(double offset) {
-      return new AnimatableMockStringKeyframe(offset);
+      return MakeGarbageCollected<AnimatableMockStringKeyframe>(offset);
     }
+
+    AnimatableMockStringKeyframe(double offset)
+        : StringKeyframe(),
+          property_specific_(
+              MakeGarbageCollected<
+                  AnimatableMockPropertySpecificStringKeyframe>(offset)) {
+      SetOffset(offset);
+    }
+
     Keyframe::PropertySpecificKeyframe* CreatePropertySpecificKeyframe(
         const PropertyHandle&,
         EffectModel::CompositeOperation,
@@ -347,12 +356,6 @@ class AnimationCompositorAnimationsTest : public RenderingTest {
     };
 
     Member<PropertySpecificKeyframe> property_specific_;
-    AnimatableMockStringKeyframe(double offset)
-        : StringKeyframe(),
-          property_specific_(
-              new AnimatableMockPropertySpecificStringKeyframe(offset)) {
-      SetOffset(offset);
-    }
   };
 
   StringKeyframe* CreateAnimatableReplaceKeyframe(CSSPropertyID id,
@@ -461,7 +464,8 @@ class AnimationCompositorAnimationsTest : public RenderingTest {
   LocalFrame* GetFrame() const { return helper_.LocalMainFrame()->GetFrame(); }
 
   void BeginFrame() {
-    helper_.GetWebView()->BeginFrame(WTF::CurrentTimeTicks());
+    helper_.GetWebView()->MainFrameWidget()->BeginFrame(
+        WTF::CurrentTimeTicks());
   }
 
   void ForceFullCompositingUpdate() {
@@ -1756,13 +1760,13 @@ void UpdateDummyEffectNode(ObjectPaintProperties& properties,
 }  // namespace
 
 TEST_F(AnimationCompositorAnimationsTest,
-       CanStartElementOnCompositorTransformSPv2) {
+       CanStartElementOnCompositorTransformCAP) {
   Persistent<Element> element = GetDocument().CreateElementForBinding("shared");
   LayoutObjectProxy* layout_object = LayoutObjectProxy::Create(element.Get());
   layout_object->EnsureIdForTestingProxy();
   element->SetLayoutObject(layout_object);
 
-  ScopedSlimmingPaintV2ForTest enable_s_pv2(true);
+  ScopedCompositeAfterPaintForTest enable_cap(true);
   auto& properties = layout_object->GetMutableForPainting()
                          .FirstFragment()
                          .EnsurePaintProperties();
@@ -1789,13 +1793,13 @@ TEST_F(AnimationCompositorAnimationsTest,
 }
 
 TEST_F(AnimationCompositorAnimationsTest,
-       CanStartElementOnCompositorEffectSPv2) {
+       CanStartElementOnCompositorEffectCAP) {
   Persistent<Element> element = GetDocument().CreateElementForBinding("shared");
   LayoutObjectProxy* layout_object = LayoutObjectProxy::Create(element.Get());
   layout_object->EnsureIdForTestingProxy();
   element->SetLayoutObject(layout_object);
 
-  ScopedSlimmingPaintV2ForTest enable_s_pv2(true);
+  ScopedCompositeAfterPaintForTest enable_cap(true);
   auto& properties = layout_object->GetMutableForPainting()
                          .FirstFragment()
                          .EnsurePaintProperties();
@@ -1891,7 +1895,7 @@ TEST_F(AnimationCompositorAnimationsTest, CanStartElementOnCompositorEffect) {
   Element* target = document->getElementById("target");
   const ObjectPaintProperties* properties =
       target->GetLayoutObject()->FirstFragment().PaintProperties();
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     EXPECT_TRUE(properties->Transform()->HasDirectCompositingReasons());
   CompositorAnimations::FailureCode code =
       CompositorAnimations::CheckCanStartElementOnCompositor(*target);

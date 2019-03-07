@@ -16,12 +16,11 @@
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/arc/input_method_manager/arc_input_method_manager_bridge_impl.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/ash/chrome_keyboard_controller_client.h"
+#include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/ash/tablet_mode_client.h"
 #include "chrome/browser/ui/ash/tablet_mode_client_observer.h"
 #include "chrome/common/pref_names.h"
 #include "components/arc/arc_browser_context_keyed_service_factory_base.h"
-#include "components/arc/arc_features.h"
 #include "components/arc/common/ime_struct_traits.h"
 #include "components/crx_file/id_util.h"
 #include "components/prefs/pref_service.h"
@@ -135,8 +134,7 @@ class ArcInputMethodManagerService::InputMethodEngineObserver
     owner_->OnArcImeDeactivated();
   }
   void OnCompositionBoundsChanged(
-      const std::vector<gfx::Rect>& bounds) override {
-  }
+      const std::vector<gfx::Rect>& bounds) override {}
   bool IsInterestedInKeyEvent() const override { return true; }
   void OnSurroundingTextChanged(const std::string& engine_id,
                                 const std::string& text,
@@ -155,6 +153,7 @@ class ArcInputMethodManagerService::InputMethodEngineObserver
       input_method::InputMethodEngineBase::MouseButtonEvent button) override {}
   void OnMenuItemActivated(const std::string& component_id,
                            const std::string& menu_id) override {}
+  void OnScreenProjectionChanged(bool is_projected) override {}
 
  private:
   ArcInputMethodManagerService* const owner_;
@@ -218,6 +217,11 @@ ArcInputMethodManagerService::GetForBrowserContextForTesting(
       context);
 }
 
+// static
+BrowserContextKeyedServiceFactory* ArcInputMethodManagerService::GetFactory() {
+  return ArcInputMethodManagerServiceFactory::GetInstance();
+}
+
 ArcInputMethodManagerService::ArcInputMethodManagerService(
     content::BrowserContext* context,
     ArcBridgeService* bridge_service)
@@ -258,7 +262,22 @@ ArcInputMethodManagerService::ArcInputMethodManagerService(
   }
 }
 
-ArcInputMethodManagerService::~ArcInputMethodManagerService() {
+ArcInputMethodManagerService::~ArcInputMethodManagerService() = default;
+
+void ArcInputMethodManagerService::SetInputMethodManagerBridgeForTesting(
+    std::unique_ptr<ArcInputMethodManagerBridge> test_bridge) {
+  imm_bridge_ = std::move(test_bridge);
+}
+
+void ArcInputMethodManagerService::AddObserver(Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void ArcInputMethodManagerService::RemoveObserver(Observer* observer) {
+  observers_.RemoveObserver(observer);
+}
+
+void ArcInputMethodManagerService::Shutdown() {
   // Remove any Arc IME entry from preferences before shutting down.
   // IME states (installed/enabled/disabled) are stored in Android's settings,
   // that will be restored after Arc container starts next time.
@@ -271,11 +290,6 @@ ArcInputMethodManagerService::~ArcInputMethodManagerService() {
   auto* imm = chromeos::input_method::InputMethodManager::Get();
   imm->RemoveImeMenuObserver(this);
   imm->RemoveObserver(this);
-}
-
-void ArcInputMethodManagerService::SetInputMethodManagerBridgeForTesting(
-    std::unique_ptr<ArcInputMethodManagerBridge> test_bridge) {
-  imm_bridge_ = std::move(test_bridge);
 }
 
 void ArcInputMethodManagerService::OnActiveImeChanged(
@@ -301,8 +315,6 @@ void ArcInputMethodManagerService::OnActiveImeChanged(
 }
 
 void ArcInputMethodManagerService::OnImeDisabled(const std::string& ime_id) {
-  if (!base::FeatureList::IsEnabled(kEnableInputMethodFeature))
-    return;
 
   const std::string component_id =
       chromeos::extension_ime_util::GetArcInputMethodID(proxy_ime_extension_id_,
@@ -325,9 +337,6 @@ void ArcInputMethodManagerService::OnImeInfoChanged(
   using chromeos::input_method::InputMethodDescriptor;
   using chromeos::input_method::InputMethodDescriptors;
   using chromeos::input_method::InputMethodManager;
-
-  if (!base::FeatureList::IsEnabled(kEnableInputMethodFeature))
-    return;
 
   is_removing_imm_entry_ = true;
   scoped_refptr<InputMethodManager::State> state =
@@ -706,12 +715,22 @@ void ArcInputMethodManagerService::SendShowVirtualKeyboard() {
   imm_bridge_->SendShowVirtualKeyboard();
   // TODO(yhanada): Should observe IME window size changes.
   is_virtual_keyboard_shown_ = true;
+
+  NotifyVirtualKeyboardVisibilityChange(true);
 }
 
 void ArcInputMethodManagerService::SendHideVirtualKeyboard() {
   imm_bridge_->SendHideVirtualKeyboard();
   // TODO(yhanada): Should observe IME window size changes.
   is_virtual_keyboard_shown_ = false;
+
+  NotifyVirtualKeyboardVisibilityChange(false);
+}
+
+void ArcInputMethodManagerService::NotifyVirtualKeyboardVisibilityChange(
+    bool visible) {
+  for (auto& observer : observers_)
+    observer.OnAndroidVirtualKeyboardVisibilityChanged(visible);
 }
 
 }  // namespace arc

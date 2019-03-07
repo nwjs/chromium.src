@@ -19,7 +19,7 @@
 #include "content/public/test/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 
 using ::testing::ElementsAre;
 
@@ -32,14 +32,17 @@ class FakeController : public BackgroundFetchJobController {
                  const BackgroundFetchRegistrationId& registration_id,
                  std::vector<std::string>* controller_sequence_list,
                  FinishedCallback finished_callback)
-      : BackgroundFetchJobController(data_manager,
-                                     delegate_proxy,
-                                     registration_id,
-                                     BackgroundFetchOptions(),
-                                     SkBitmap(),
-                                     0ul,
-                                     base::DoNothing(),
-                                     std::move(finished_callback)),
+      : BackgroundFetchJobController(
+            data_manager,
+            delegate_proxy,
+            registration_id,
+            blink::mojom::BackgroundFetchOptions::New(),
+            SkBitmap(),
+            /* bytes_downloaded= */ 0u,
+            /* bytes_uploaded= */ 0u,
+            /* upload_total= */ 0u,
+            base::DoNothing(),
+            std::move(finished_callback)),
         controller_sequence_list_(controller_sequence_list) {
     DCHECK(controller_sequence_list_);
   }
@@ -51,7 +54,7 @@ class FakeController : public BackgroundFetchJobController {
     // Record the completed request. Store everything after the origin and the
     // slash, to be able to directly compare with the provided requests.
     controller_sequence_list_->push_back(
-        request->fetch_request().url.path().substr(1));
+        request->fetch_request()->url.path().substr(1));
 
     // Continue normally.
     BackgroundFetchJobController::DidCompleteRequest(request);
@@ -72,8 +75,8 @@ class BackgroundFetchSchedulerTest : public BackgroundFetchTestBase {
         embedded_worker_test_helper()->context_wrapper());
     data_manager_->InitializeOnIOThread();
 
-    delegate_proxy_ = std::make_unique<BackgroundFetchDelegateProxy>(
-        browser_context()->GetBackgroundFetchDelegate());
+    delegate_proxy_ =
+        std::make_unique<BackgroundFetchDelegateProxy>(browser_context());
 
     scheduler_ = std::make_unique<BackgroundFetchScheduler>(
         data_manager_.get(), nullptr, delegate_proxy_.get(),
@@ -106,8 +109,8 @@ class BackgroundFetchSchedulerTest : public BackgroundFetchTestBase {
     BackgroundFetchRegistrationId registration_id(
         sw_id, origin(), base::GenerateGUID(), base::GenerateGUID());
     data_manager_->CreateRegistration(
-        registration_id, std::move(fetch_requests), BackgroundFetchOptions(),
-        SkBitmap(),
+        registration_id, std::move(fetch_requests),
+        blink::mojom::BackgroundFetchOptions::New(), SkBitmap(),
         /* start_paused= */ false, base::DoNothing());
     thread_bundle_.RunUntilIdle();
 
@@ -116,9 +119,9 @@ class BackgroundFetchSchedulerTest : public BackgroundFetchTestBase {
         &controller_sequence_list_,
         base::BindOnce(&BackgroundFetchSchedulerTest::DidJobFinish,
                        base::Unretained(this)));
-    controller->InitializeRequestStatus(0 /* completed_downloads */,
+    controller->InitializeRequestStatus(/* completed_downloads= */ 0,
                                         requests.size(),
-                                        {} /* active_fetch_requests */,
+                                        /* active_fetch_requests= */ {},
                                         /* start_paused= */ false);
     scheduler_->job_controllers_[registration_id.unique_id()] =
         std::move(controller);

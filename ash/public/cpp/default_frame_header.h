@@ -35,12 +35,13 @@ class ASH_PUBLIC_EXPORT DefaultFrameHeader : public FrameHeader {
 
   void SetWidthInPixels(int width_in_pixels);
 
+  // FrameHeader:
+  void UpdateFrameColors() override;
+
  protected:
   // FrameHeader:
   void DoPaintHeader(gfx::Canvas* canvas) override;
-  void DoSetFrameColors(SkColor active_frame_color,
-                        SkColor inactive_frame_color) override;
-  AshLayoutSize GetButtonLayoutSize() const override;
+  views::CaptionButtonLayoutSize GetButtonLayoutSize() const override;
   SkColor GetTitleColor() const override;
   SkColor GetCurrentFrameColor() const override;
 

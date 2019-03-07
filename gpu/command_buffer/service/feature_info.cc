@@ -11,6 +11,7 @@
 
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "build/build_config.h"
@@ -31,16 +32,6 @@
 
 namespace gpu {
 namespace gles2 {
-
-namespace {
-
-struct FormatInfo {
-  GLenum format;
-  const GLenum* types;
-  size_t count;
-};
-
-}  // anonymous namespace.
 
 namespace {
 
@@ -258,7 +249,16 @@ void FeatureInfo::InitializeBasicState(const base::CommandLine* command_line) {
 
 void FeatureInfo::Initialize(ContextType context_type,
                              bool is_passthrough_cmd_decoder,
-                             const DisallowedFeatures& disallowed_features) {
+                             const DisallowedFeatures& disallowed_features,
+                             bool force_reinitialize) {
+  if (initialized_) {
+    DCHECK_EQ(context_type, context_type_);
+    DCHECK_EQ(is_passthrough_cmd_decoder, is_passthrough_cmd_decoder_);
+    DCHECK(disallowed_features == disallowed_features_);
+    if (!force_reinitialize)
+      return;
+  }
+
   disallowed_features_ = disallowed_features;
   context_type_ = context_type;
   is_passthrough_cmd_decoder_ = is_passthrough_cmd_decoder;
@@ -272,20 +272,24 @@ void FeatureInfo::Initialize(ContextType context_type,
       break;
   }
   InitializeFeatures();
+  initialized_ = true;
 }
 
 void FeatureInfo::InitializeForTesting(
     const DisallowedFeatures& disallowed_features) {
+  initialized_ = false;
   Initialize(CONTEXT_TYPE_OPENGLES2, false /* is_passthrough_cmd_decoder */,
              disallowed_features);
 }
 
 void FeatureInfo::InitializeForTesting() {
+  initialized_ = false;
   Initialize(CONTEXT_TYPE_OPENGLES2, false /* is_passthrough_cmd_decoder */,
              DisallowedFeatures());
 }
 
 void FeatureInfo::InitializeForTesting(ContextType context_type) {
+  initialized_ = false;
   Initialize(context_type, false /* is_passthrough_cmd_decoder */,
              DisallowedFeatures());
 }
@@ -1493,7 +1497,10 @@ void FeatureInfo::InitializeFeatures() {
   feature_flags_.ext_robustness =
       gfx::HasExtension(extensions, "GL_EXT_robustness");
   feature_flags_.ext_pixel_buffer_object =
+      gfx::HasExtension(extensions, "GL_ARB_pixel_buffer_object") ||
       gfx::HasExtension(extensions, "GL_NV_pixel_buffer_object");
+  feature_flags_.ext_unpack_subimage =
+      gfx::HasExtension(extensions, "GL_EXT_unpack_subimage");
   feature_flags_.oes_rgb8_rgba8 =
       gfx::HasExtension(extensions, "GL_OES_rgb8_rgba8");
   feature_flags_.angle_robust_resource_initialization =
@@ -1541,6 +1548,19 @@ void FeatureInfo::InitializeFeatures() {
   if (gfx::HasExtension(extensions, "GL_KHR_robust_buffer_access_behavior")) {
     AddExtensionString("GL_KHR_robust_buffer_access_behavior");
     feature_flags_.khr_robust_buffer_access_behavior = true;
+  }
+
+  if (!is_passthrough_cmd_decoder_ ||
+      gfx::HasExtension(extensions, "GL_ANGLE_multi_draw")) {
+    feature_flags_.webgl_multi_draw = true;
+    AddExtensionString("GL_WEBGL_multi_draw");
+
+    if (gfx::HasExtension(extensions, "GL_ANGLE_instanced_arrays") ||
+        feature_flags_.angle_instanced_arrays || gl_version_info_->is_es3 ||
+        gl_version_info_->is_desktop_core_profile) {
+      feature_flags_.webgl_multi_draw_instanced = true;
+      AddExtensionString("GL_WEBGL_multi_draw_instanced");
+    }
   }
 }
 
@@ -1692,8 +1712,8 @@ void FeatureInfo::InitializeFloatAndHalfFloatFeatures(
       GLenum formats[] = {
           GL_RED, GL_RG, GL_RGBA, GL_RED, GL_RG, GL_RGB,
       };
-      DCHECK_EQ(arraysize(internal_formats), arraysize(formats));
-      for (size_t i = 0; i < arraysize(formats); ++i) {
+      DCHECK_EQ(base::size(internal_formats), base::size(formats));
+      for (size_t i = 0; i < base::size(formats); ++i) {
         glTexImage2D(GL_TEXTURE_2D, 0, internal_formats[i], width, width, 0,
                      formats[i], GL_FLOAT, nullptr);
         full_float_support &= glCheckFramebufferStatusEXT(GL_FRAMEBUFFER) ==

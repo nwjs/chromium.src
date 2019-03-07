@@ -183,10 +183,6 @@ RenderViewHostTestEnabler::~RenderViewHostTestEnabler() {
 
 // RenderViewHostTestHarness --------------------------------------------------
 
-RenderViewHostTestHarness::RenderViewHostTestHarness(int thread_bundle_options)
-    : thread_bundle_(
-          std::make_unique<TestBrowserThreadBundle>(thread_bundle_options)) {}
-
 RenderViewHostTestHarness::~RenderViewHostTestHarness() {
 }
 
@@ -297,15 +293,11 @@ void RenderViewHostTestHarness::SetUp() {
   browser_context_.reset(CreateBrowserContext());
 
   SetContents(CreateTestWebContents());
-
-  if (IsBrowserSideNavigationEnabled())
-    BrowserSideNavigationSetUp();
+  BrowserSideNavigationSetUp();
 }
 
 void RenderViewHostTestHarness::TearDown() {
-  if (IsBrowserSideNavigationEnabled())
-    BrowserSideNavigationTearDown();
-
+  BrowserSideNavigationTearDown();
   DeleteContents();
 #if defined(USE_AURA)
   aura_test_helper_->TearDown();
@@ -358,5 +350,9 @@ void RenderViewHostTestHarness::SetRenderProcessHostFactory(
   else
     factory_ = factory;
 }
+
+RenderViewHostTestHarness::RenderViewHostTestHarness(
+    std::unique_ptr<TestBrowserThreadBundle> thread_bundle)
+    : thread_bundle_(std::move(thread_bundle)) {}
 
 }  // namespace content

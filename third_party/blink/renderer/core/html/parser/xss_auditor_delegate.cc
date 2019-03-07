@@ -72,7 +72,7 @@ XSSAuditorDelegate::XSSAuditorDelegate(Document* document)
   DCHECK(document_);
 }
 
-void XSSAuditorDelegate::Trace(blink::Visitor* visitor) {
+void XSSAuditorDelegate::Trace(Visitor* visitor) {
   visitor->Trace(document_);
 }
 
@@ -84,7 +84,7 @@ scoped_refptr<EncodedFormData> XSSAuditorDelegate::GenerateViolationReport(
   String http_body;
   if (frame_loader.GetDocumentLoader()) {
     if (EncodedFormData* form_data =
-            frame_loader.GetDocumentLoader()->OriginalRequest().HttpBody())
+            frame_loader.GetDocumentLoader()->HttpBody())
       http_body = form_data->FlattenToString();
   }
 

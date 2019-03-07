@@ -15,6 +15,7 @@
 #include "device/gamepad/gamepad_consumer.h"
 #include "device/gamepad/gamepad_data_fetcher.h"
 #include "device/gamepad/gamepad_provider.h"
+#include "services/service_manager/public/cpp/connector.h"
 
 namespace device {
 
@@ -54,6 +55,15 @@ GamepadService* GamepadService::GetInstance() {
   if (!g_gamepad_service)
     g_gamepad_service = new GamepadService;
   return g_gamepad_service;
+}
+
+void GamepadService::StartUp(
+    std::unique_ptr<service_manager::Connector> service_manager_connector) {
+  service_manager_connector_ = std::move(service_manager_connector);
+}
+
+service_manager::Connector* GamepadService::GetConnector() {
+  return service_manager_connector_.get();
 }
 
 void GamepadService::ConsumerBecameActive(device::GamepadConsumer* consumer) {
@@ -172,8 +182,6 @@ void GamepadService::PlayVibrationEffectOnce(
     mojom::GamepadHapticEffectType type,
     mojom::GamepadEffectParametersPtr params,
     mojom::GamepadHapticsManager::PlayVibrationEffectOnceCallback callback) {
-  DCHECK(main_thread_task_runner_->BelongsToCurrentThread());
-
   if (!provider_) {
     std::move(callback).Run(
         mojom::GamepadHapticsResult::GamepadHapticsResultError);
@@ -187,8 +195,6 @@ void GamepadService::PlayVibrationEffectOnce(
 void GamepadService::ResetVibrationActuator(
     uint32_t pad_index,
     mojom::GamepadHapticsManager::ResetVibrationActuatorCallback callback) {
-  DCHECK(main_thread_task_runner_->BelongsToCurrentThread());
-
   if (!provider_) {
     std::move(callback).Run(
         mojom::GamepadHapticsResult::GamepadHapticsResultError);

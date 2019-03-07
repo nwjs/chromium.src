@@ -17,6 +17,7 @@
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/services/leveldb/public/cpp/util.h"
+#include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/dom_storage/session_storage_database.h"
 #include "content/browser/dom_storage/test/fake_leveldb_database_error_on_write.h"
 #include "content/browser/dom_storage/test/fake_leveldb_service.h"
@@ -27,10 +28,7 @@
 #include "content/public/test/test_utils.h"
 #include "mojo/core/embedder/embedder.h"
 #include "mojo/public/cpp/bindings/strong_associated_binding.h"
-#include "services/file/file_service.h"
 #include "services/file/public/mojom/constants.mojom.h"
-#include "services/service_manager/public/cpp/service_context.h"
-#include "services/service_manager/public/cpp/test/test_service_decorator.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 
@@ -65,9 +63,13 @@ class SessionStorageContextMojoTest : public test::MojoTestWithFileService {
     features_.InitAndEnableFeature(blink::features::kOnionSoupDOMStorage);
     mojo::core::SetDefaultProcessErrorCallback(base::BindRepeating(
         &SessionStorageContextMojoTest::OnBadMessage, base::Unretained(this)));
+
+    ChildProcessSecurityPolicyImpl::GetInstance()->Add(kTestProcessId);
   }
 
   void TearDown() override {
+    ChildProcessSecurityPolicyImpl::GetInstance()->Remove(kTestProcessId);
+
     mojo::core::SetDefaultProcessErrorCallback(
         mojo::core::ProcessErrorCallback());
   }
@@ -623,11 +625,10 @@ TEST_F(SessionStorageContextMojoTest, RecreateOnCommitFailure) {
   url::Origin origin3 = url::Origin::Create(GURL("http://example.com"));
 
   test::FakeLevelDBService fake_leveldb_service;
-  ResetFileServiceAndConnector(
-      service_manager::TestServiceDecorator::CreateServiceWithUniqueOverride(
-          file::CreateFileService(), leveldb::mojom::LevelDBService::Name_,
-          base::BindRepeating(&test::FakeLevelDBService::Bind,
-                              base::Unretained(&fake_leveldb_service))));
+  file_service()->GetBinderRegistryForTesting()->AddInterface(
+      leveldb::mojom::LevelDBService::Name_,
+      base::BindRepeating(&test::FakeLevelDBService::Bind,
+                          base::Unretained(&fake_leveldb_service)));
 
   // Open three connections to the database.
   blink::mojom::StorageAreaAssociatedPtr area1;
@@ -760,11 +761,10 @@ TEST_F(SessionStorageContextMojoTest, DontRecreateOnRepeatedCommitFailure) {
   url::Origin origin1 = url::Origin::Create(GURL("http://foobar.com"));
 
   test::FakeLevelDBService fake_leveldb_service;
-  ResetFileServiceAndConnector(
-      service_manager::TestServiceDecorator::CreateServiceWithUniqueOverride(
-          file::CreateFileService(), leveldb::mojom::LevelDBService::Name_,
-          base::BindRepeating(&test::FakeLevelDBService::Bind,
-                              base::Unretained(&fake_leveldb_service))));
+  file_service()->GetBinderRegistryForTesting()->AddInterface(
+      leveldb::mojom::LevelDBService::Name_,
+      base::BindRepeating(&test::FakeLevelDBService::Bind,
+                          base::Unretained(&fake_leveldb_service)));
 
   std::map<std::vector<uint8_t>, std::vector<uint8_t>> test_data;
 

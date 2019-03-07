@@ -21,20 +21,27 @@ uint8_t ExtractBits(uint8_t flags, uint8_t num_bits, uint8_t offset) {
   return (flags >> offset) & GetMaskFromNumBits(num_bits);
 }
 
+// Length of the type field of HTTP/3 frames.
+static const size_t kFrameTypeLength = 1;
+
 }  // namespace
 
 HttpDecoder::HttpDecoder()
     : visitor_(nullptr),
       state_(STATE_READING_FRAME_LENGTH),
       current_frame_type_(0),
+      current_length_field_size_(0),
+      remaining_length_field_length_(0),
       current_frame_length_(0),
       remaining_frame_length_(0),
       error_(QUIC_NO_ERROR),
-      error_detail_("") {}
+      error_detail_(""),
+      has_payload_(false) {}
 
 HttpDecoder::~HttpDecoder() {}
 
 size_t HttpDecoder::ProcessInput(const char* data, size_t len) {
+  has_payload_ = false;
   QuicDataReader reader(data, len, NETWORK_BYTE_ORDER);
   while (error_ == QUIC_NO_ERROR && reader.BytesRemaining() != 0) {
     switch (state_) {
@@ -63,9 +70,15 @@ size_t HttpDecoder::ProcessInput(const char* data, size_t len) {
 
 void HttpDecoder::ReadFrameLength(QuicDataReader* reader) {
   DCHECK_NE(0u, reader->BytesRemaining());
-  if (!reader->ReadVarInt62(&current_frame_length_)) {
-    // TODO(rch): Handle partial delivery.
+  BufferFrameLength(reader);
+  if (remaining_length_field_length_ != 0) {
+    return;
+  }
+  QuicDataReader length_reader(length_buffer_.data(),
+                               current_length_field_size_, NETWORK_BYTE_ORDER);
+  if (!length_reader.ReadVarInt62(&current_frame_length_)) {
     RaiseError(QUIC_INTERNAL_ERROR, "Unable to read frame length");
+    visitor_->OnError(this);
     return;
   }
 
@@ -80,6 +93,8 @@ void HttpDecoder::ReadFrameType(QuicDataReader* reader) {
     return;
   }
 
+  QUIC_DVLOG(1) << "CURRENT FRAME TYPE IS " << current_frame_type_;
+
   state_ = STATE_READING_FRAME_PAYLOAD;
 }
 
@@ -88,7 +103,9 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
   switch (current_frame_type_) {
     case 0x0: {  // DATA
       if (current_frame_length_ == remaining_frame_length_) {
-        visitor_->OnDataFrameStart();
+        visitor_->OnDataFrameStart(
+            Http3FrameLengths(current_length_field_size_ + kFrameTypeLength,
+                              current_frame_length_));
       }
       size_t bytes_to_read =
           std::min<size_t>(remaining_frame_length_, reader->BytesRemaining());
@@ -97,10 +114,12 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
         RaiseError(QUIC_INTERNAL_ERROR, "Unable to read data");
         return;
       }
+      has_payload_ = true;
       visitor_->OnDataFramePayload(payload);
       remaining_frame_length_ -= payload.length();
       if (remaining_frame_length_ == 0) {
         state_ = STATE_READING_FRAME_LENGTH;
+        current_length_field_size_ = 0;
         visitor_->OnDataFrameEnd();
       }
       return;
@@ -120,6 +139,7 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
       remaining_frame_length_ -= payload.length();
       if (remaining_frame_length_ == 0) {
         state_ = STATE_READING_FRAME_LENGTH;
+        current_length_field_size_ = 0;
         visitor_->OnHeadersFrameEnd();
       }
       return;
@@ -137,6 +157,7 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
         }
         visitor_->OnPriorityFrame(frame);
         state_ = STATE_READING_FRAME_LENGTH;
+        current_length_field_size_ = 0;
       }
       return;
     }
@@ -153,6 +174,7 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
         }
         visitor_->OnCancelPushFrame(frame);
         state_ = STATE_READING_FRAME_LENGTH;
+        current_length_field_size_ = 0;
       }
       return;
     }
@@ -171,6 +193,7 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
         }
         visitor_->OnSettingsFrame(frame);
         state_ = STATE_READING_FRAME_LENGTH;
+        current_length_field_size_ = 0;
       }
       return;
     }
@@ -200,6 +223,7 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
       remaining_frame_length_ -= payload.length();
       if (remaining_frame_length_ == 0) {
         state_ = STATE_READING_FRAME_LENGTH;
+        current_length_field_size_ = 0;
         visitor_->OnPushPromiseFrameEnd();
       }
       return;
@@ -218,6 +242,7 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
         frame.stream_id = stream_id;
         visitor_->OnGoAwayFrame(frame);
         state_ = STATE_READING_FRAME_LENGTH;
+        current_length_field_size_ = 0;
       }
       return;
     }
@@ -235,7 +260,26 @@ void HttpDecoder::ReadFramePayload(QuicDataReader* reader) {
         }
         visitor_->OnMaxPushIdFrame(frame);
         state_ = STATE_READING_FRAME_LENGTH;
+        current_length_field_size_ = 0;
       }
+      return;
+    }
+
+    case 0xE: {  // DUPLICATE_PUSH
+      BufferFramePayload(reader);
+      if (remaining_frame_length_ != 0) {
+        return;
+      }
+      QuicDataReader reader(buffer_.data(), current_frame_length_,
+                            NETWORK_BYTE_ORDER);
+      DuplicatePushFrame frame;
+      if (!reader.ReadVarInt62(&frame.push_id)) {
+        RaiseError(QUIC_INTERNAL_ERROR, "Unable to read push_id");
+        return;
+      }
+      visitor_->OnDuplicatePushFrame(frame);
+      state_ = STATE_READING_FRAME_LENGTH;
+      current_length_field_size_ = 0;
       return;
     }
     // Reserved frame types.
@@ -273,6 +317,7 @@ void HttpDecoder::DiscardFramePayload(QuicDataReader* reader) {
   remaining_frame_length_ -= payload.length();
   if (remaining_frame_length_ == 0) {
     state_ = STATE_READING_FRAME_LENGTH;
+    current_length_field_size_ = 0;
   }
 }
 
@@ -290,6 +335,32 @@ void HttpDecoder::BufferFramePayload(QuicDataReader* reader) {
     return;
   }
   remaining_frame_length_ -= bytes_to_read;
+}
+
+void HttpDecoder::BufferFrameLength(QuicDataReader* reader) {
+  if (current_length_field_size_ == 0) {
+    current_length_field_size_ = reader->PeekVarInt62Length();
+    if (current_length_field_size_ == 0) {
+      RaiseError(QUIC_INTERNAL_ERROR, "Unable to read frame length");
+      visitor_->OnError(this);
+      return;
+    }
+    remaining_length_field_length_ = current_length_field_size_;
+  }
+  if (current_length_field_size_ == remaining_length_field_length_) {
+    length_buffer_.erase(length_buffer_.size());
+    length_buffer_.reserve(current_length_field_size_);
+  }
+  size_t bytes_to_read = std::min<size_t>(remaining_length_field_length_,
+                                          reader->BytesRemaining());
+  if (!reader->ReadBytes(&(length_buffer_[0]) + current_length_field_size_ -
+                             remaining_length_field_length_,
+                         bytes_to_read)) {
+    RaiseError(QUIC_INTERNAL_ERROR, "Unable to read frame length");
+    visitor_->OnError(this);
+    return;
+  }
+  remaining_length_field_length_ -= bytes_to_read;
 }
 
 void HttpDecoder::RaiseError(QuicErrorCode error, QuicString error_detail) {

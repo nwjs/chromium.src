@@ -71,15 +71,12 @@ MediaRouterAction::~MediaRouterAction() {
 SkColor MediaRouterAction::GetIconColor(const gfx::VectorIcon& icon_id) {
   if (&icon_id == &vector_icons::kMediaRouterIdleIcon)
     return gfx::kChromeIconGrey;
-  else if (&icon_id == &vector_icons::kMediaRouterActiveIcon)
+  if (&icon_id == &vector_icons::kMediaRouterActiveIcon)
     return gfx::kGoogleBlue500;
-  else if (&icon_id == &vector_icons::kMediaRouterWarningIcon)
+  if (&icon_id == &vector_icons::kMediaRouterWarningIcon)
     return gfx::kGoogleYellow700;
-  else if (&icon_id == &vector_icons::kMediaRouterErrorIcon)
-    return gfx::kGoogleRed700;
-
-  NOTREACHED();
-  return gfx::kPlaceholderColor;
+  DCHECK_EQ(&vector_icons::kMediaRouterErrorIcon, &icon_id);
+  return gfx::kGoogleRed700;
 }
 
 std::string MediaRouterAction::GetId() const {
@@ -131,6 +128,11 @@ bool MediaRouterAction::HasPopup(
   return true;
 }
 
+bool MediaRouterAction::IsShowingPopup() const {
+  auto* controller = GetMediaRouterDialogController();
+  return controller && controller->IsShowingMediaRouterDialog();
+}
+
 void MediaRouterAction::HidePopup() {
   GetMediaRouterDialogController()->HideMediaRouterDialog();
 }
@@ -157,10 +159,9 @@ ui::MenuModel* MediaRouterAction::GetContextMenu() {
 }
 
 void MediaRouterAction::OnContextMenuClosed() {
-  if (toolbar_actions_bar_->popped_out_action() == this &&
-      !GetMediaRouterDialogController()->IsShowingMediaRouterDialog()) {
+  if (toolbar_actions_bar_->popped_out_action() == this && !IsShowingPopup())
     toolbar_actions_bar_->UndoPopOut();
-  }
+
   // We must destroy the context menu asynchronously to prevent it from being
   // destroyed before the command execution.
   // TODO(takumif): Using task sequence to order operations is fragile. Consider
@@ -174,8 +175,8 @@ void MediaRouterAction::OnContextMenuClosed() {
 bool MediaRouterAction::ExecuteAction(bool by_user) {
   base::RecordAction(base::UserMetricsAction("MediaRouter_Icon_Click"));
 
-  if (GetMediaRouterDialogController()->IsShowingMediaRouterDialog()) {
-    GetMediaRouterDialogController()->HideMediaRouterDialog();
+  if (IsShowingPopup()) {
+    HidePopup();
     return false;
   }
 
@@ -273,7 +274,7 @@ void MediaRouterAction::UpdateDialogState() {
   if (!delegate_->GetCurrentWebContents())
     return;
 
-  if (GetMediaRouterDialogController()->IsShowingMediaRouterDialog())
+  if (IsShowingPopup())
     OnDialogShown();
   else
     OnDialogHidden();
@@ -286,6 +287,14 @@ MediaRouterAction::GetMediaRouterDialogController() {
   DCHECK(web_contents);
   return MediaRouterDialogControllerImplBase::GetOrCreateForWebContents(
       web_contents);
+}
+
+const MediaRouterDialogControllerImplBase*
+MediaRouterAction::GetMediaRouterDialogController() const {
+  DCHECK(delegate_);
+  content::WebContents* web_contents = delegate_->GetCurrentWebContents();
+  DCHECK(web_contents);
+  return MediaRouterDialogControllerImplBase::FromWebContents(web_contents);
 }
 
 void MediaRouterAction::MaybeUpdateIcon() {

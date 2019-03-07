@@ -20,12 +20,14 @@ import org.chromium.chrome.browser.compositor.bottombar.OverlayPanel.StateChange
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
+import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
+import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.infobar.ReaderModeInfoBar;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.TabHidingType;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
+import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.components.dom_distiller.content.DistillablePageUtils;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
@@ -313,7 +315,7 @@ public class ReaderModeManager extends TabModelSelectorTabObserver {
 
             @Override
             public void didStartNavigation(String url, boolean isInMainFrame,
-                    boolean isSameDocument, boolean isErrorPage) {
+                    boolean isSameDocument, long navigationHandleProxy) {
                 if (!isInMainFrame || isSameDocument) return;
 
                 // Reader Mode should not pollute the navigation stack. To avoid this, watch for
@@ -453,8 +455,23 @@ public class ReaderModeManager extends TabModelSelectorTabObserver {
         if (info != null) info.onStartedReaderMode();
 
         // Make sure to exit fullscreen mode before navigating.
-        mTabModelSelector.getCurrentTab().exitFullscreenMode();
+        Tab currentTab = mTabModelSelector.getCurrentTab();
+        currentTab.exitFullscreenMode();
+
+        // RenderWidgetHostViewAndroid hides the controls after transitioning to reader mode.
+        // See the long history of the issue in https://crbug.com/825765, https://crbug.com/853686,
+        // https://crbug.com/861618, https://crbug.com/922388.
+        // TODO(pshmakov): find a proper solution instead of this workaround.
+        showControlsTransient(currentTab);
+
         DomDistillerTabUtils.distillCurrentPageAndView(getBasePageWebContents());
+    }
+
+    private void showControlsTransient(Tab tab) {
+        FullscreenManager fullscreenManager = tab.getFullscreenManager();
+        if (!(fullscreenManager instanceof ChromeFullscreenManager)) return;
+        ((ChromeFullscreenManager) fullscreenManager).getBrowserVisibilityDelegate()
+                .showControlsTransient();
     }
 
     private void distillInCustomTab() {

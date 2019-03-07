@@ -16,6 +16,7 @@
 #include "ui/accessibility/ax_node_data.h"
 
 #if defined(TOOLKIT_VIEWS)
+#include "ui/views/focus/focus_manager.h"  // nogncheck
 #include "ui/views/layout/fill_layout.h"  // nogncheck
 #include "ui/views/view.h"                // nogncheck
 
@@ -83,7 +84,7 @@ class LocalWindowLayoutManager : public aura::LayoutManager {
  private:
   void ResizeChildren() {
     for (auto* child : owner_->children())
-      SetChildBoundsDirect(child, owner_->bounds());
+      SetChildBoundsDirect(child, gfx::Rect(owner_->bounds().size()));
   }
 
   aura::Window* const owner_;
@@ -142,6 +143,14 @@ void NavigableContentsView::SetClientRunningInServiceProcess() {
 // static
 bool NavigableContentsView::IsClientRunningInServiceProcess() {
   return GetInServiceProcessFlag().IsSet();
+}
+
+void NavigableContentsView::ClearNativeFocus() {
+#if defined(TOOLKIT_VIEWS) && defined(USE_AURA)
+  auto* focus_manager = view_->GetFocusManager();
+  if (focus_manager)
+    focus_manager->ClearNativeFocus();
+#endif  // defined(TOOLKIT_VIEWS) && defined(USE_AURA)
 }
 
 void NavigableContentsView::NotifyAccessibilityTreeChange() {

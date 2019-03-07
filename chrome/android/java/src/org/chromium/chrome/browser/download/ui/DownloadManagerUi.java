@@ -236,8 +236,7 @@ public class DownloadManagerUi implements OnMenuItemClickListener, SearchDelegat
 
         mToolbar = (DownloadManagerToolbar) mSelectableListLayout.initializeToolbar(
                 R.layout.download_manager_toolbar, mBackendProvider.getSelectionDelegate(), 0, null,
-                normalGroupId, R.id.selection_mode_menu_group, R.color.modern_primary_color, this,
-                true, isSeparateActivity);
+                normalGroupId, R.id.selection_mode_menu_group, this, true, isSeparateActivity);
         mToolbar.getMenu().setGroupVisible(normalGroupId, true);
         mToolbar.setManager(this);
         mToolbar.initialize(mFilterAdapter);
@@ -246,7 +245,9 @@ public class DownloadManagerUi implements OnMenuItemClickListener, SearchDelegat
 
         mToolbar.setInfoMenuItem(mInfoMenuId);
 
-        if (isLocationEnabled) ToolbarUtils.setupTrackerForDownloadSettingsIPH(mToolbar);
+        if (isLocationEnabled) {
+            ToolbarUtils.setupTrackerForDownloadSettingsIPH(mToolbar, Profile.getLastUsedProfile());
+        }
 
         mSelectableListLayout.configureWideDisplayStyle();
         mHistoryAdapter.initialize(mBackendProvider, mSelectableListLayout.getUiConfig());
@@ -471,7 +472,8 @@ public class DownloadManagerUi implements OnMenuItemClickListener, SearchDelegat
         String snackbarText = singleItemDeleted
                 ? items.get(0).getDisplayFileName()
                 : String.format(Locale.getDefault(), "%d", items.size());
-        int snackbarTemplateId = singleItemDeleted ? R.string.undo_bar_delete_message
+        int snackbarTemplateId = singleItemDeleted
+                ? R.string.delete_message
                 : R.string.undo_bar_multiple_downloads_delete_message;
 
         Snackbar snackbar = Snackbar.make(snackbarText, mUndoDeletionSnackbarController,

@@ -43,18 +43,6 @@ extern const char kNullVideoHash[];
 // Empty hash string.  Used to verify empty audio tracks.
 extern const char kNullAudioHash[];
 
-// Dummy tick clock which advances extremely quickly (1 minute every time
-// NowTicks() is called).
-class DummyTickClock : public base::TickClock {
- public:
-  DummyTickClock() : now_() {}
-  ~DummyTickClock() override {}
-  base::TimeTicks NowTicks() const override;
-
- private:
-  mutable base::TimeTicks now_;
-};
-
 class PipelineTestRendererFactory {
  public:
   virtual ~PipelineTestRendererFactory() {}
@@ -89,6 +77,7 @@ class PipelineIntegrationTestBase : public Pipeline::Client {
     kUnreliableDuration = 8,
     kWebAudio = 16,
     kMonoOutput = 32,
+    kFuzzing = 64,
   };
 
   // Setup method to intialize various state according to flags.
@@ -168,6 +157,7 @@ class PipelineIntegrationTestBase : public Pipeline::Client {
   bool clockless_playback_;
   bool webaudio_attached_;
   bool mono_output_;
+  bool fuzzing_;
   std::unique_ptr<Demuxer> demuxer_;
   std::unique_ptr<DataSource> data_source_;
   std::unique_ptr<PipelineImpl> pipeline_;
@@ -179,7 +169,6 @@ class PipelineIntegrationTestBase : public Pipeline::Client {
   Demuxer::EncryptedMediaInitDataCB encrypted_media_init_data_cb_;
   VideoPixelFormat last_video_frame_format_;
   gfx::ColorSpace last_video_frame_color_space_;
-  DummyTickClock dummy_clock_;
   PipelineMetadata metadata_;
   scoped_refptr<VideoFrame> last_frame_;
   base::TimeDelta current_duration_;
@@ -242,7 +231,7 @@ class PipelineIntegrationTestBase : public Pipeline::Client {
   MOCK_METHOD2(OnAddTextTrack,
                void(const TextTrackConfig& config,
                     const AddTextTrackDoneCB& done_cb));
-  MOCK_METHOD0(OnWaitingForDecryptionKey, void(void));
+  MOCK_METHOD1(OnWaiting, void(WaitingReason));
   MOCK_METHOD1(OnVideoNaturalSizeChange, void(const gfx::Size&));
   MOCK_METHOD1(OnVideoConfigChange, void(const VideoDecoderConfig&));
   MOCK_METHOD1(OnAudioConfigChange, void(const AudioDecoderConfig&));
@@ -250,6 +239,7 @@ class PipelineIntegrationTestBase : public Pipeline::Client {
   MOCK_METHOD0(OnVideoAverageKeyframeDistanceUpdate, void());
   MOCK_METHOD1(OnAudioDecoderChange, void(const std::string&));
   MOCK_METHOD1(OnVideoDecoderChange, void(const std::string&));
+  MOCK_METHOD1(OnRemotePlayStateChange, void(MediaStatus::State state));
 
  private:
   // Runs |run_loop| until it is explicitly Quit() by some part of the calling

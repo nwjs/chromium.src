@@ -25,6 +25,7 @@
 #include "net/socket/socket_test_util.h"
 #include "net/socket/ssl_client_socket_pool.h"
 #include "net/socket/transport_client_socket_pool.h"
+#include "net/socket/transport_connect_job.h"
 #include "net/socket/websocket_endpoint_lock_manager.h"
 #include "net/spdy/spdy_session.h"
 #include "net/spdy/spdy_session_key.h"
@@ -69,19 +70,19 @@ class WebSocketClientSocketHandleAdapterTest
             "test_shard",
             nullptr,
             &websocket_endpoint_lock_manager_,
+            nullptr,
             HttpNetworkSession::NORMAL_SOCKET_POOL)),
         transport_params_(base::MakeRefCounted<TransportSocketParams>(
             host_port_pair_,
             false,
-            OnHostResolutionCallback(),
-            TransportSocketParams::COMBINE_CONNECT_AND_WRITE_DEFAULT)),
-        ssl_params_(base::MakeRefCounted<SSLSocketParams>(transport_params_,
-                                                          nullptr,
-                                                          nullptr,
-                                                          host_port_pair_,
-                                                          SSLConfig(),
-                                                          PRIVACY_MODE_DISABLED,
-                                                          0)) {}
+            OnHostResolutionCallback())),
+        ssl_params_(
+            base::MakeRefCounted<SSLSocketParams>(transport_params_,
+                                                  nullptr,
+                                                  nullptr,
+                                                  host_port_pair_,
+                                                  SSLConfig(),
+                                                  PRIVACY_MODE_DISABLED)) {}
 
   ~WebSocketClientSocketHandleAdapterTest() override = default;
 
@@ -302,6 +303,7 @@ class WebSocketSpdyStreamAdapterTest : public TestWithScopedTaskEnvironment {
         key_(HostPortPair::FromURL(url_),
              ProxyServer::Direct(),
              PRIVACY_MODE_DISABLED,
+             SpdySessionKey::IsProxySession::kFalse,
              SocketTag()),
         session_(SpdySessionDependencies::SpdyCreateSession(&session_deps_)),
         ssl_(SYNCHRONOUS, OK) {}

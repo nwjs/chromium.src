@@ -114,6 +114,7 @@ function MockChromeStorageAPI() {
   /** @type {Object<?>} */
   this.state = {};
 
+  /** @suppress {const} */
   window.chrome = window.chrome || {};
   /** @suppress {const} */
   window.chrome.runtime = window.chrome.runtime || {};  // For lastError.
@@ -135,8 +136,9 @@ MockChromeStorageAPI.prototype.get_ = function(keys, callback) {
   var keys = keys instanceof Array ? keys : [keys];
   var result = {};
   keys.forEach((key) => {
-    if (key in this.state)
+    if (key in this.state) {
       result[key] = this.state[key];
+    }
   });
   callback(result);
 };
@@ -150,6 +152,7 @@ MockChromeStorageAPI.prototype.set_ = function(values, opt_callback) {
   for (var key in values) {
     this.state[key] = values[key];
   }
-  if (opt_callback)
+  if (opt_callback) {
     opt_callback();
+  }
 };

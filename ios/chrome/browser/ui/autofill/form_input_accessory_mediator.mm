@@ -31,7 +31,7 @@
 #import "ios/web/public/web_state/js/crw_js_injection_receiver.h"
 #include "ios/web/public/web_state/web_frame.h"
 #include "ios/web/public/web_state/web_frames_manager.h"
-#include "ios/web/public/web_state/web_state.h"
+#import "ios/web/public/web_state/web_state.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -180,8 +180,6 @@
         [[PasswordFetcher alloc] initWithPasswordStore:passwordStore
                                               delegate:self];
   }
-  // There is no personal data manager in OTR (incognito).
-  // TODO:(crbug.com/905720) Support Incognito.
   if (personalDataManager) {
     _personalDataManager = personalDataManager;
     _personalDataManagerObserver.reset(
@@ -289,9 +287,9 @@
   NSString* frameID;
   if (frame) {
     frameID = base::SysUTF8ToNSString(frame->GetFrameId());
-  } else {
-    frameID = base::SysUTF8ToNSString(params.frame_id);
   }
+  DCHECK(frameID.length ||
+         !autofill::switches::IsAutofillIFrameMessagingEnabled());
 
   [self.formInputAccessoryHandler setLastFocusFormActivityWebFrameID:frameID];
   [self synchronizeNavigationControls];
@@ -341,6 +339,7 @@
   // element gets the focus. On iPad the keyboard stays dismissed.
   if (IsIPadIdiom()) {
     [self reset];
+    [self.consumer restoreOriginalKeyboardViewAndClearReferences];
   } else {
     [self pauseCustomKeyboardView];
   }

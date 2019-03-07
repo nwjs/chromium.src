@@ -182,6 +182,11 @@
 #   policy itself, but also the content of the JSON strings inside the policy.
 #   Do not use this field when adding new policies.
 #
+#   In order to hide sensitive policy values from the user, you can use
+#   'sensitiveValue': True (default 'False') in the associated schema. Those
+#   values will be masked with '********' in the chrome://policy UI and policy
+#   exports. 'sensitiveValue' can be applied to all schema types.
+#
 # IDs:
 #   Since a Protocol Buffer definition is generated from this file, unique and
 #   persistent IDs for all fields (but not for groups!) are needed. These are
@@ -408,6 +413,7 @@
         'ExtensionInstallForcelist',
         'ExtensionInstallSources',
         'ExtensionAllowedTypes',
+        'ExtensionAllowInsecureUpdates',
         'ExtensionSettings',
       ],
     },
@@ -704,6 +710,8 @@
       'policies': [
         'AlternativeBrowserPath',
         'AlternativeBrowserParameters',
+        'BrowserSwitcherEnabled',
+        'BrowserSwitcherExternalSitelistUrl',
         'BrowserSwitcherUrlList',
         'BrowserSwitcherUrlGreylist',
         'BrowserSwitcherUseIeSitelist',
@@ -715,9 +723,234 @@
       'caption': '''PluginVm''',
       'policies': [
         'PluginVmAllowed',
+        'PluginVmLicenseKey',
         'PluginVmImage',
       ],
       'desc': '''Configure <ph name="PLUGIN_VM_NAME">PluginVm</ph> related policies.''',
+    },
+    {
+      'name': 'Signin',
+      'type': 'group',
+      'caption': '''Sign-in settings''',
+      'desc': '''Controls the behavior of the sign-in screen, where users log into their accounts. Settings include who can log in, what type of accounts are allowed, what authentication methods should be used, as well as general accessibility, input method and locale settings.''',
+      'policies': [
+        'DeviceGuestModeEnabled',
+        'DeviceUserWhitelist',
+        'DeviceAllowNewUsers',
+        'DeviceLoginScreenDomainAutoComplete',
+        'DeviceShowUserNamesOnSignin',
+        'DeviceWallpaperImage',
+        'DeviceEphemeralUsersEnabled',
+        'LoginAuthenticationBehavior',
+        'DeviceSamlLoginAuthenticationType',
+        'DeviceTransferSAMLCookies',
+        'LoginVideoCaptureAllowedUrls',
+        'DeviceStartUpFlags',
+        'DeviceLoginScreenAppInstallList',
+        'DeviceLoginScreenLocales',
+        'DeviceLoginScreenInputMethods',
+        'DeviceSecondFactorAuthentication',
+        'DeviceLoginScreenIsolateOrigins',
+        'DeviceLoginScreenSitePerProcess',
+        'DeviceLoginScreenAutoSelectCertificateForUrls',
+      ],
+    },
+    {
+      'name': 'UserAndDeviceReporting',
+      'type': 'group',
+      'caption': '''User and device reporting''',
+      'desc': '''Controls what kind of user and device information is reported.''',
+      'policies': [
+        'ReportDeviceVersionInfo',
+        'ReportDeviceBootMode',
+        'ReportDeviceUsers',
+        'ReportDeviceActivityTimes',
+        'ReportDeviceLocation',
+        'ReportDeviceNetworkInterfaces',
+        'ReportDeviceHardwareStatus',
+        'ReportDeviceSessionStatus',
+        'ReportDeviceBoardStatus',
+        'ReportDevicePowerStatus',
+        'ReportDeviceStorageStatus',
+        'ReportUploadFrequency',
+        'ReportArcStatusEnabled',
+        'HeartbeatEnabled',
+        'HeartbeatFrequency',
+        'LogUploadEnabled',
+        'DeviceMetricsReportingEnabled',
+      ],
+    },
+    {
+      'name': 'Network',
+      'type': 'group',
+      'caption': '''Network settings''',
+      'desc': '''Controls device-wide network configuration.''',
+      'policies': [
+        'DeviceOpenNetworkConfiguration',
+        'DeviceDataRoamingEnabled',
+        'NetworkThrottlingEnabled',
+        'DeviceHostnameTemplate',
+        'DeviceWiFiFastTransitionEnabled'
+      ],
+    },
+    {
+      'name': 'DeviceUpdate',
+      'type': 'group',
+      'caption': '''Device update settings''',
+      'desc': '''Controls how and when Chrome OS updates are applied.''',
+      'policies': [
+        'ChromeOsReleaseChannel',
+        'ChromeOsReleaseChannelDelegated',
+        'DeviceAutoUpdateDisabled',
+        'DeviceAutoUpdateP2PEnabled',
+        'DeviceAutoUpdateTimeRestrictions',
+        'DeviceTargetVersionPrefix',
+        'DeviceUpdateStagingSchedule',
+        'DeviceUpdateScatterFactor',
+        'DeviceUpdateAllowedConnectionTypes',
+        'DeviceUpdateHttpDownloadsEnabled',
+        'RebootAfterUpdate',
+        'MinimumRequiredChromeVersion',
+        'DeviceRollbackToTargetVersion',
+        'DeviceRollbackAllowedMilestones',
+      ],
+    },
+    {
+      'name': 'PowerAndShutdown',
+      'type': 'group',
+      'caption': '''Power and shutdown''',
+      'desc': '''Controls settings related to power management and rebooting.''',
+      'policies': [
+        'DeviceLoginScreenPowerManagement',
+        'UptimeLimit',
+        'DeviceRebootOnShutdown',
+      ],
+    },
+    {
+      'name': 'Kiosk',
+      'type': 'group',
+      'caption': '''Kiosk settings''',
+      'desc': '''Controls public session and kiosk account types.''',
+      'policies': [
+        'DeviceLocalAccounts',
+        'DeviceLocalAccountAutoLoginId',
+        'DeviceLocalAccountAutoLoginDelay',
+        'DeviceLocalAccountAutoLoginBailoutEnabled',
+        'DeviceLocalAccountPromptForNetworkWhenOffline',
+        'AllowKioskAppControlChromeVersion',
+      ],
+    },
+    {
+      'name': 'Other',
+      'type': 'group',
+      'caption': '''Other''',
+      'desc': '''Controls miscellaneous settings including USB, bluetooth, policy refresh, developer mode and others.''',
+      'policies': [
+        'UsbDetachableWhitelist',
+        'DeviceAllowBluetooth',
+        'TPMFirmwareUpdateSettings',
+        'DeviceEcryptfsMigrationStrategy',
+        'DevicePolicyRefreshRate',
+        'DeviceBlockDevmode',
+        'DeviceAllowRedeemChromeOsRegistrationOffers',
+        'DeviceQuirksDownloadEnabled',
+        'ExtensionCacheSize',
+        'DeviceOffHours'
+      ],
+    },
+    {
+      'name': 'DateAndTime',
+      'type': 'group',
+      'caption': '''Date and time''',
+      'desc': '''Controls clock and time zone settings.''',
+      'policies': [
+        'SystemTimezone',
+        'SystemTimezoneAutomaticDetection',
+        'SystemUse24HourClock',
+      ]
+    },
+    {
+      'name': 'Display',
+      'type': 'group',
+      'caption': '''Display''',
+      'desc': '''Controls display settings.''',
+      'policies': [
+        'DeviceDisplayResolution',
+        'DisplayRotationDefault',
+      ]
+    },
+    {
+      'name': 'Printing',
+      'type': 'group',
+      'caption': '''Printing''',
+      'desc': '''Controls printing settings.''',
+      'policies': [
+        'PrintingEnabled',
+        'CloudPrintProxyEnabled',
+        'PrintingAllowedColorModes',
+        'PrintingAllowedDuplexModes',
+        'PrintingAllowedPageSizes',
+        'PrintingColorDefault',
+        'PrintingDuplexDefault',
+        'PrintingSizeDefault',
+        'PrintingSendUsernameAndFilenameEnabled',
+        'CloudPrintSubmitEnabled',
+        'DisablePrintPreview',
+        'PrintHeaderFooter',
+        'DefaultPrinterSelection',
+        'NativePrinters',
+        'NativePrintersBulkConfiguration',
+        'NativePrintersBulkAccessMode',
+        'NativePrintersBulkBlacklist',
+        'NativePrintersBulkWhitelist',
+        'DeviceNativePrinters',
+        'DeviceNativePrintersAccessMode',
+        'DeviceNativePrintersBlacklist',
+        'DeviceNativePrintersWhitelist',
+        'PrintPreviewUseSystemDefaultPrinter',
+        'UserNativePrintersAllowed',
+      ]
+    },
+    {
+      'name': 'ActiveDirectoryManagement',
+      'type': 'group',
+      'caption': '''<ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> management settings''',
+      'desc': '''Controls settings specific to <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> managed <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> devices.''',
+      'policies': [
+        'DeviceMachinePasswordChangeRate',
+        'DeviceUserPolicyLoopbackProcessingMode',
+        'DeviceKerberosEncryptionTypes',
+        'DeviceGpoCacheLifetime',
+        'DeviceAuthDataCacheLifetime',
+      ]
+    },
+    {
+      'name': 'Arc',
+      'type': 'group',
+      'caption': '''Android settings''',
+      'desc': '''Controls settings for the Android container (ARC) and Android apps.''',
+      'policies': [
+        'ArcEnabled',
+        'UnaffiliatedArcAllowed',
+        'ArcPolicy',
+        'ArcAppInstallEventLoggingEnabled',
+        'ArcBackupRestoreServiceEnabled',
+        'ArcGoogleLocationServicesEnabled',
+        'ArcCertificatesSyncMode',
+        'ArcBackupRestoreEnabled',
+        'ArcLocationServiceEnabled'
+      ]
+    },
+    {
+      'name': 'Crostini',
+      'type': 'group',
+      'caption': '''Linux container''',
+      'desc': '''Controls settings for the Linux container (Crostini).''',
+      'policies': [
+        'VirtualMachinesAllowed',
+        'CrostiniAllowed',
+        'DeviceUnaffiliatedCrostiniAllowed',
+      ]
     },
     {
       'name': 'HomepageLocation',
@@ -743,8 +976,7 @@
 
           Leaving this policy not set will allow the user to choose their home page on their own if HomepageIsNewTabPage is not set too.
 
-          This policy is not available on Windows instances that are not joined
-          to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+          This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
       'label': '''Home page URL''',
     },
     {
@@ -771,8 +1003,7 @@
 
           Leaving this policy not set will allow the user to choose whether the new tab page is their home page on their own.
 
-          This policy is not available on Windows instances that are not joined
-          to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+          This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'NewTabPageLocation',
@@ -796,7 +1027,7 @@
 
           If the policy is not set or left empty the default new tab page is used.
 
-          This policy is not available on Windows instances that are not joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+          This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
       'label': '''New Tab page URL''',
     },
     {
@@ -1826,6 +2057,23 @@
       'desc': '''Overrides default printing page size. If the page size is unavailable this policy is ignored.''',
     },
     {
+      'name': 'PrintingSendUsernameAndFilenameEnabled',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:72-'],
+      'future': True,
+      'features': {
+        'can_be_recommended': False,
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': True,
+      'id': 506,
+      'caption': '''Send username and filename to native printers''',
+      'tags': [],
+      'desc': '''Send username and filename to native printers server with every print job. The default is not to send.''',
+    },
+    {
       'name': 'ForceSafeSearch',
       'type': 'main',
       'schema': { 'type': 'boolean' },
@@ -1963,7 +2211,7 @@
 
       See https://developers.google.com/safe-browsing for more info on Safe Browsing.
 
-      This policy is not available on Windows instances that are not joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'MetricsReportingEnabled',
@@ -1987,9 +2235,8 @@
       If this policy is left not set, the setting will be what the user chose
       upon installation / first run.
 
-      This policy is not available on Windows instances that are not joined to
-      a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.  (For Chrome OS, see
-      DeviceMetricsReportingEnabled.)''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.
+      (For Chrome OS, see DeviceMetricsReportingEnabled.)''',
     },
     {
       'name': 'PasswordManagerEnabled',
@@ -2540,8 +2787,7 @@
 
       Note that these restrictions apply to downloads triggered from web page content, as well as the 'download link...' context menu option. These restrictions do not apply to the save / download of the currently displayed page, nor does it apply to saving as PDF from the printing options.
 
-      This policy is not available on Windows instances that are not joined
-      to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
       'label': '''Safe Browsing enable state for trusted sources''',
     },
     {
@@ -3128,6 +3374,26 @@
       'label': '''URL patterns to allow extension, app, and user script installs from''',
     },
     {
+      'name': 'ExtensionAllowInsecureUpdates',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:73-', 'chrome_os:73-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': False,
+      'id': 516,
+      'caption': '''Allow insecure algorithms in integrity checks on extension updates and installs''',
+      'tags': ['system-security'],
+      'desc': '''<ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> provides for the secure update and installation of extensions. However, the content of some extensions hosted outside of the Chrome Web Store may only be protected by insecure signing or hashing algorithms such as SHA1. When this policy is disabled, fresh installation of and updates to such extensions will not be permitted by Chrome (until the extension developers rebuild the extension with stronger algorithms). When this policy is enabled, installation and updates for such extensions will be permitted.
+
+          This will default to the enabled behavior when unset.
+          Starting in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> 75, this will default to the disabled behavior when unset.
+
+          Starting in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> 77, this policy will be ignored and treated as disabled.''',
+    },
+    {
       'name': 'ExtensionAllowedTypes',
       'type': 'list',
       'schema': {
@@ -3440,8 +3706,7 @@
 
           Disabling this setting is equivalent to leaving it not configured. The user will still be able to change it in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
 
-          This policy is not available on Windows instances that are not joined
-          to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+          This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'RestoreOnStartupURLs',
@@ -3464,8 +3729,7 @@
 
           This policy only works if the 'RestoreOnStartup' policy is set to 'RestoreOnStartupIsURLs'.
 
-          This policy is not available on Windows instances that are not joined
-          to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+          This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'BlockThirdPartyCookies',
@@ -3516,8 +3780,7 @@
 
           If this policy is left not set, the default search provider is enabled, and the user will be able to set the search provider list.
 
-          This policy is not available on Windows instances that are not joined
-          to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+          This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'DefaultSearchProviderName',
@@ -4328,9 +4591,16 @@
               'properties': {
                 'ISSUER': {
                   'type': 'object',
+                  'id': 'CertPrincipalFields',
                   'properties': {
                     'CN': { 'type': 'string'},
+                    'L': { 'type': 'string'},
+                    'O': { 'type': 'string'},
+                    'OU': { 'type': 'string'},
                   }
+                },
+                'SUBJECT': {
+                  '$ref': 'CertPrincipalFields',
                 }
               }
             }
@@ -4342,13 +4612,13 @@
         'dynamic_refresh': True,
         'per_profile': True,
       },
-      'example_value': ['{"pattern":"https://www.example.com","filter":{"ISSUER":{"CN":"certificate issuer name"}}}'],
+      'example_value': ['{"pattern":"https://www.example.com","filter":{"ISSUER":{"CN":"certificate issuer name", "L": "certificate issuer location", "O": "certificate issuer org", "OU": "certificate issuer org unit"}, "SUBJECT":{"CN":"certificate subject name", "L": "certificate subject location", "O": "certificate subject org", "OU": "certificate subject org unit"}}}'],
       'id': 102,
       'caption': '''Automatically select client certificates for these sites''',
       'tags': ['website-sharing'],
       'desc': '''Allows you to specify a list of url patterns that specify sites for which <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> should automatically select a client certificate, if the site requests a certificate.
 
-          The value must be an array of stringified JSON dictionaries. Each dictionary must have the form { "pattern": "$URL_PATTERN", "filter" : $FILTER }, where $URL_PATTERN is a content setting pattern. $FILTER restricts from which client certificates the browser will automatically select. Independent of the filter, only certificates will be selected that match the server's certificate request. If $FILTER has the form { "ISSUER": { "CN": "$ISSUER_CN" } }, additionally only client certificates are selected that are issued by a certificate with the CommonName $ISSUER_CN. If $FILTER is the empty dictionary {}, the selection of client certificates is not additionally restricted.
+          The value must be an array of stringified JSON dictionaries. Each dictionary must have the form { "pattern": "$URL_PATTERN", "filter" : $FILTER }, where $URL_PATTERN is a content setting pattern. $FILTER restricts from which client certificates the browser will automatically select. Independent of the filter, only certificates will be selected that match the server's certificate request. For example, if $FILTER has the form { "ISSUER": { "CN": "$ISSUER_CN" } }, additionally only client certificates are selected that are issued by a certificate with the CommonName $ISSUER_CN. If $FILTER contains an "ISSUER" and a "SUBJECT" section, a client certificate must satisfy both conditions to be selected. If $FILTER specifies an organization ("O"), a certificate must have at least one organization which matches the specified value to be selected. If $FILTER specifies an organization unit ("OU"), a certificate must have at least one organization unit which matches the specified value to be selected. If $FILTER is the empty dictionary {}, the selection of client certificates is not additionally restricted.
 
           If this policy is left not set, no auto-selection will be done for any site.''',
     },
@@ -5574,6 +5844,8 @@
 
       Note that it is not recommended to block internal 'chrome://*' URLs since this may lead to unexpected errors.
 
+      Note that this policy does not prevent the page updating dynamically through JavaScript. For example, if you block 'example.com/abc', users might still be able to visit 'example.com' and click on a link to visit 'example.com/abc', as long as the page does not refresh.
+
       If this policy is not set no URL will be blacklisted in the browser.''',
       'arc_support': 'Android apps may voluntarily choose to honor this list. You cannot force them to honor it.',
     },
@@ -5752,6 +6024,48 @@
       If the policy is set to 0, machine account password change is disabled.
 
       Note that passwords might get older than the specified number of days if the client has been offline for a longer period of time.''',
+    },
+    {
+      'name': 'DeviceGpoCacheLifetime',
+      'type': 'int',
+      'schema': { 'type': 'integer', 'minimum': 0, 'maximum': 9999 },
+      'supported_on': ['chrome_os:73-'],
+      'supported_chrome_os_management': ['active_directory'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': 0,
+      'id': 508,
+      'caption': '''GPO cache lifetime''',
+      'tags': [],
+      'desc': '''Specifies the lifetime (in hours) of the Group Policy Object (GPO) cache. Instead of re-downloading GPOs on every policy fetch, the system may reuse cached GPOs as long as their version does not change. This policy specifies the maximum duration for which cached GPOs may be reused before they are re-downloaded. Rebooting and logging out clears the cache.
+
+      If the policy is unset, cached GPOs may be reused for up to 25 hours.
+
+      If the policy is set to 0, GPO caching is turned off. Note that this increases server load since GPOs are re-downloaded on every policy fetch, even if they did not change.''',
+    },
+    {
+      'name': 'DeviceAuthDataCacheLifetime',
+      'type': 'int',
+      'schema': { 'type': 'integer', 'minimum': 0, 'maximum': 9999 },
+      'supported_on': ['chrome_os:73-'],
+      'supported_chrome_os_management': ['active_directory'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': 0,
+      'id': 509,
+      'caption': '''Authentication data cache lifetime''',
+      'tags': ['admin-sharing'],
+      'desc': '''Specifies the lifetime (in hours) of the authentication data cache. The cache is used to speed up sign-in. It contains general data (workgroup name etc.) about affiliated realms, i.e. realms trusted by the machine realm. No user-specific data and no data for unaffiliated realms is cached. Rebooting the device clears the cache.
+
+      If the policy is unset, cached authentication data may be reused for up to 73 hours.
+
+      If the policy is set to 0, authentication data caching is turned off. This can significantly slow down sign-in of affiliated users since realm-specific data has to be fetched on every sign-in.
+
+      Note that realm data is cached even for ephemeral users. The cache should be turned off if tracing the realm of ephemeral users should be prevented.''',
     },
     {
       'name': 'CloudPrintSubmitEnabled',
@@ -6302,6 +6616,66 @@
       If the policy is set to false, the kiosk session information will not be
       reported. If set to true or left unset, kiosk session information will be
       reported.''',
+      'arc_support': 'This policy has no effect on the logging done by Android.',
+    },
+    {
+      'name': 'ReportDevicePowerStatus',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:73-'],
+      'supported_chrome_os_management': ['google_cloud'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': False,
+      'id': 512,
+      'caption': '''Report power status''',
+      'tags': ['admin-sharing'],
+      'desc': '''Report hardware statistics and identifiers related to power.
+
+      If the policy is set to false, the statistics will not be reported.
+      If set to true or left unset, statistics will be reported.''',
+      'arc_support': 'This policy has no effect on the logging done by Android.',
+    },
+    {
+      'name': 'ReportDeviceStorageStatus',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:73-'],
+      'supported_chrome_os_management': ['google_cloud'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': False,
+      'id': 513,
+      'caption': '''Report storage status''',
+      'tags': ['admin-sharing'],
+      'desc': '''Report hardware statistics and identifiers for storage devices.
+
+      If the policy is set to false, the statistics will not be reported.
+      If set to true or left unset, statistics will be reported.''',
+      'arc_support': 'This policy has no effect on the logging done by Android.',
+    },
+    {
+      'name': 'ReportDeviceBoardStatus',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:73-'],
+      'supported_chrome_os_management': ['google_cloud'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': False,
+      'id': 514,
+      'caption': '''Report board status''',
+      'tags': ['admin-sharing'],
+      'desc': '''Report hardware statistics for SoC components.
+
+      If the policy is set to false, the statistics will not be reported.
+      If set to true or left unset, statistics will be reported.''',
       'arc_support': 'This policy has no effect on the logging done by Android.',
     },
     {
@@ -7039,6 +7413,7 @@
       'type': 'main',
       'schema': { 'type': 'boolean' },
       'supported_on': ['chrome_os:37-'],
+      'supported_chrome_os_management': ['google_cloud'],
       'device_only': True,
       'features': {
         'dynamic_refresh': True,
@@ -7393,9 +7768,9 @@
       'id': 158,
       'caption': '''Timezone''',
       'tags': [],
-      'desc': '''Specifies the timezone to be used for the device. Users can override the specified timezone for the current session. However, on logout it is set back to the specified timezone. If an invalid value is provided, the policy is still activated using "GMT" instead. If an empty string is provided, the policy is ignored.
+      'desc': '''Specifies the enforced timezone to be used for the device. When this policy is set, users on the device cannot override the specified timezone. If an invalid value is provided, the policy is still activated using "GMT" instead. If an empty string is provided, the policy is ignored.
 
-      If this policy is not used, the currently active timezone will remain in use however users can change the timezone and the change is persistent. Thus a change by one user affects the login-screen and all other users.
+      If this policy is not used, the currently active timezone will remain in use however users can change the timezone.
 
       New devices start out with the timezone set to "US/Pacific".
 
@@ -7483,7 +7858,7 @@
 
       If this policy is set to false, the built-in DNS client will never be used.
 
-      If this policy is left not set, the users will be able to change whether the built-in DNS client is used by editing chrome://flags or specifying a command-line flag.''',
+      If this policy is left not set, the built-in DNS client will be enabled by default on MacOS, Android (when neither Private DNS nor VPN are enabled) and ChromeOS, and the users will be able to change whether the built-in DNS client is used by editing chrome://flags or specifying a command-line flag.''',
     },
     {
       'name': 'ShelfAutoHideBehavior',
@@ -11754,8 +12129,7 @@
       If the policy is set to false or not configured, machine policy takes precedence if it conflicts with cloud policy.
       For more details about policy priority, please visit: https://support.google.com/chrome?p=set_chrome_policies_for_devices
 
-      This policy is not available on Windows instances that are not joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.
-      '''
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'PromptForDownloadLocation',
@@ -12379,7 +12753,7 @@
 
       If this setting is enabled, then Safe Browsing will trust these domains.
       If this setting is disabled or not set, then default Safe Browsing protection is applied to all resources.
-      This policy is not available on Windows instances that are not joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'PasswordProtectionLoginURLs',
@@ -12402,7 +12776,7 @@
 
       If this setting is enabled, then password protection service will capture fingerprint of password on these URLs for password reuse detection purpose.
       If this setting is disabled or not set, then password protection service will only capture password fingerprint on https://accounts.google.com.
-      This policy is not available on Windows instances that are not joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'PasswordProtectionChangePasswordURL',
@@ -12422,7 +12796,7 @@
 
       If this setting is enabled, then password protection service will send users to this URL to change their password after seeing a warning in the browser.
       If this setting is disabled or not set, then password protection service will send users to https://myaccounts.google.com to change their password.
-      This policy is not available on Windows instances that are not joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'SafeBrowsingExtendedReportingEnabled',
@@ -12464,6 +12838,24 @@
       'id': 428,
       'caption': '''The enrollment token of cloud policy on desktop''',
       'tags': [],
+      'deprecated': True,
+      'desc': '''
+        This policy is deprecated in M72. Please use CloudManagementEnrollmentToken instead.
+        ''',
+    },
+    {
+      'name': 'CloudManagementEnrollmentToken',
+      'type': 'string',
+      'schema': { 'type': 'string' },
+      'supported_on': ['chrome.*:72-'],
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': False,
+      },
+      'example_value': '37185d02-e055-11e7-80c1-9a214cf093ae',
+      'id': 510,
+      'caption': '''The enrollment token of cloud policy on desktop''',
+      'tags': [],
       'desc': '''
         If this policy is set, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will try to register itself and apply associated cloud policy for all profiles.
 
@@ -12485,7 +12877,9 @@
       'desc': '''
         If this policy is set to True, cloud management enrollment is mandatory and blocks Chrome launch process if failed.
 
-        If this policy is left unset or set to False, cloud management enrollment is optional and does not blocks Chrome launch process if failed.''',
+        If this policy is left unset or set to False, cloud management enrollment is optional and does not blocks Chrome launch process if failed.
+
+        This policy is used by machine scope cloud policy enrollment on desktop and can be set by Registry or GPO on Windows, plist on Mac and JSON policy file on Linux.''',
     },
     {
       'name': 'AutoplayAllowed',
@@ -12632,7 +13026,7 @@
 
       If enabled or unset, Chrome Cleanup periodically scans the system for unwanted software and should any be found, will ask the user if they wish to remove it. Manually triggering Chrome Cleanup from chrome://settings is enabled.
 
-      This policy is not available on Windows instances that are not joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'ChromeCleanupReportingEnabled',
@@ -12653,7 +13047,7 @@
 
       If enabled, should Chrome Cleanup detect unwanted software, it may report metadata about the scan to Google in accordance with policy set by SafeBrowsingExtendedReportingEnabled. Chrome Cleanup will ask the user if they wish to clean up the unwanted software.  Results of the cleanup will be reported to Google and the user will not have the option to prevent it.
 
-      This policy is not available on Windows instances that are not joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain.''',
+      This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
     },
     {
       'name': 'AllowedLanguages',
@@ -13087,7 +13481,7 @@
       When this policy is set to a non-empty list of time intervals:
       Devices will not be able to check for updates automatically during the specified time intervals. Devices that require a rollback or are below the minimum <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> version will not be affected by this policy due to potential security issues. Furthermore, this policy will not block update checks requested by users or administrators.
       When this policy is unset or contains no time intervals:
-      No automatic update checks will be blocked by this policy, but they may be blocked by other policies.''',
+      No automatic update checks will be blocked by this policy, but they may be blocked by other policies. This feature is only enabled on Chrome devices configured as auto-launch kiosks. Other devices will not be restricted by this policy.''',
     },
     {
       'id': 454,
@@ -13639,7 +14033,7 @@
             'mode': {
               'type': 'string',
               'enum': [
-                'drop_down',
+                'drop_down', 'pre_mount',
               ]
             }
           },
@@ -13663,7 +14057,7 @@
       'tags': [],
       'desc': '''Specifies a list of preconfigued network file shares.
 
-      Each list item of the policy is an object with two members: "share_url" and "mode". "share_url" should be the URL of the share and "mode" should be "drop_down" which indicates that "share_url" will be added to the share discovery drop down.''',
+      Each list item of the policy is an object with two members: "share_url" and "mode". "share_url" should be the URL of the share and "mode" should be either "drop_down" or "pre_mount". "drop_down" mode indicates that "share_url" will be added to the share discovery drop down. "pre_mount" mode indicates that "share_url" will be mounted.''',
     },
     {
       'name': 'ScreenBrightnessPercent',
@@ -13786,7 +14180,7 @@
       'tags': [],
       'desc': '''This policy controls the list of websites to open in an alternative browser.
 
-      Note that elements can also be added to this list through the <ph name="USE_IE_SITELIST_POLICY_NAME">BrowserSwitcherUseIeSitelist</ph> policy.
+      Note that elements can also be added to this list through the <ph name="USE_IE_SITELIST_POLICY_NAME">BrowserSwitcherUseIeSitelist</ph> and <ph name="EXTERNAL_SITELIST_URL_POLICY_NAME">BrowserSwitcherExternalSitelistUrl</ph> policies.
 
       When this policy is left unset, no websites are added to the list.
 
@@ -13819,7 +14213,7 @@
       'tags': [],
       'desc': '''This policy controls the list of websites that will never cause a browser switch.
 
-      Note that elements can also be added to this list through the <ph name="USE_IE_SITELIST_POLICY_NAME">BrowserSwitcherUseIeSitelist</ph> policy.
+      Note that elements can also be added to this list through the <ph name="USE_IE_SITELIST_POLICY_NAME">BrowserSwitcherUseIeSitelist</ph> and <ph name="EXTERNAL_SITELIST_URL_POLICY_NAME">BrowserSwitcherExternalSitelistUrl</ph> policies.
 
       When this policy is left unset, no websites are added to the list.
 
@@ -13848,6 +14242,50 @@
       When this policy is set to true, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> reads Internet Explorer's <ph name="IEEM_SITELIST_POLICY">SiteList</ph> to obtain the site list's URL. <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> then downloads the site list from that URL, and applies the rules as if they had been configured with the <ph name="SITELIST_POLICY_NAME">BrowserSwitcherUrlList</ph> policy.
 
       For more information on Internet Explorer's <ph name="IEEM_SITELIST_POLICY">SiteList</ph> policy: https://docs.microsoft.com/internet-explorer/ie11-deploy-guide/what-is-enterprise-mode''',
+    },
+    {
+      'id': 511,
+      'name': 'BrowserSwitcherExternalSitelistUrl',
+      'future': True,
+      'type': 'string',
+      'schema': { 'type': 'string' },
+      'example_value': 'http://example.com/sitelist.xml',
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': True,
+      },
+      'supported_on': ['chrome.*:72-'],
+      'caption': '''URL of an XML file that contains URLs to load in an alternative browser.''',
+      'tags': [],
+      'desc': '''This policy is a URL, that points to an XML file in the same format as Internet Explorer's <ph name="IEEM_SITELIST_POLICY">SiteList</ph> policy. This loads rules from an XML file, without sharing those rules with Internet Explorer.
+
+      When this policy is left unset, or not set to a valid URL, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> does not use it as a source of rules for switching browsers.
+
+      When this policy is set to a valid URL, <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> downloads the site list from that URL, and applies the rules as if they had been configured with the <ph name="SITELIST_POLICY_NAME">BrowserSwitcherUrlList</ph> policy.
+
+      For more information on Internet Explorer's <ph name="IEEM_SITELIST_POLICY">SiteList</ph> policy: https://docs.microsoft.com/internet-explorer/ie11-deploy-guide/what-is-enterprise-mode''',
+    },
+    {
+      'id': 517,
+      'name': 'BrowserSwitcherEnabled',
+      'future': True,
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'example_value': True,
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'supported_on': ['chrome.*:73-'],
+      'caption': '''Enable the Legacy Browser Support feature.''',
+      'tags': [],
+      'desc': '''This policy controls whether to enable Legacy Browser Support.
+
+      When this policy is left unset, or is set to false, Chrome will not attempt to launch designated URLs in an alternate browser.
+
+      When this policy is set to true, Chrome will attempt to launch some URLs in an alternate browser (such as Internet Explorer). This feature is configured using the policies in the <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP">Legacy Browser support</ph> group.
+
+      This feature is a replacement for the <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME">'Legacy Browser Support'</ph> extension. Configuration from the extension will carry over to this feature, but it is strongly advised to use the Chrome policies instead. This ensures better compatibility in the future.''',
     },
     {
       'name': 'DeviceDisplayResolution',
@@ -13916,11 +14354,26 @@
       },
       'example_value': True,
       'id': 503,
-      'caption': '''Allow devices to use a <ph name="PLUGIN_VM_NAME">PluginVm</ph> on <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph>.''',
+      'caption': '''Allow devices to use a <ph name="PLUGIN_VM_NAME">PluginVm</ph> on <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph>''',
       'tags': [],
       'desc': '''Enable this device to run PluginVm.
 
-      If the policy is set to false or left unset, <ph name="PLUGIN_VM_NAME">PluginVm</ph> is not enabled for the device. If set to true, <ph name="PLUGIN_VM_NAME">PluginVm</ph> is enabled for the device as long as other settings also allow it. <ph name="PLUGIN_VM_ALLOWED_POLICY_NAME">PluginVmAllowed</ph> needs to be true and <ph name="PLUGIN_VM_IMAGE_POLICY_NAME">PluginVmImage</ph> needs to be set for <ph name="PLUGIN_VM_NAME">PluginVm</ph> to be allowed to run.''',
+      If the policy is set to false or left unset, <ph name="PLUGIN_VM_NAME">PluginVm</ph> is not enabled for the device. If set to true, <ph name="PLUGIN_VM_NAME">PluginVm</ph> is enabled for the device as long as other settings also allow it. <ph name="PLUGIN_VM_ALLOWED_POLICY_NAME">PluginVmAllowed</ph> needs to be true, <ph name="PLUGIN_VM_LICENSE_KEY_POLICY_NAME">PluginVmLicenseKey</ph> and <ph name="PLUGIN_VM_IMAGE_POLICY_NAME">PluginVmImage</ph> need to be set for <ph name="PLUGIN_VM_NAME">PluginVm</ph> to be allowed to run.''',
+    },
+    {
+      'name': 'PluginVmLicenseKey',
+      'type': 'string',
+      'schema': { 'type': 'string' },
+      'supported_on': ['chrome_os:73-'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+      },
+      'example_value': "LICENSE_KEY",
+      'id': 515,
+      'caption': '''<ph name="PLUGIN_VM_NAME">PluginVm</ph> license key''',
+      'tags': [],
+      'desc': '''This policy specifies <ph name="PLUGIN_VM_NAME">PluginVm</ph> license key for this device.''',
     },
     {
       'name': 'PluginVmImage',
@@ -13948,11 +14401,88 @@
         "hash": "842841a4c75a55ad050d686f4ea5f77e83ae059877fe9b6946aa63d3d057ed32"
       },
       'id': 504,
-      'caption': '''PluginVm image''',
+      'caption': '''<ph name="PLUGIN_VM_NAME">PluginVm</ph> image''',
       'tags': [],
       'desc': '''This policy specifies the <ph name="PLUGIN_VM_NAME">PluginVm</ph> image for a user. The policy is set by specifying the URL from which the device can download the image and a SHA-256 hash used to verify the integrity of the download.
 
       The policy should be specified as a string that expresses the URL and hash in the JSON format.''',
+    },
+    {
+      'name': 'ParentAccessCodeConfig',
+      'type': 'dict',
+      'schema': {
+        'sensitiveValue': True,
+        'type': 'object',
+        'properties': {
+          'current_config': {
+            'id': 'Config',
+            'type': 'object',
+            'description': 'Configuration used to generate and verify Parent Access Code.',
+            'properties': {
+              'shared_secret': {
+                'type': 'string',
+                'description': 'Secret shared between child and parent devices.'
+              },
+              'access_code_ttl': {
+                'type': 'integer',
+                'minimum': 30,
+                'maximum': 3600,
+                'description': 'Time that access code is valid for (in seconds).'
+              },
+              'clock_drift_tolerance': {
+                'type': 'integer',
+                'minimum': 0,
+                'maximum': 1800,
+                'description': 'The allowed difference between the clock on child and parent devices (in seconds).'
+              }
+            }
+          },
+          'future_config': {
+            '$ref': 'Config',
+          },
+          'old_configs': {
+            'type': 'array',
+            'items': { '$ref': 'Config'},
+          }
+        },
+      },
+      'supported_on': ['chrome_os:73-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True
+      },
+      'example_value': {
+        'current_config': {
+          'shared_secret': 'oOA9nX02LdhYdOzwMsGof+QA3wUKP4YMNlk9S/W3o+w=',
+          'access_code_ttl': 600,
+          'clock_drift_tolerance': 300
+        },
+        'future_config': {
+          'shared_secret': 'KMsoIjnpvcWmiU1GHchp2blR96mNyJwS',
+          'access_code_ttl': 600,
+          'clock_drift_tolerance': 300
+        },
+        'old_configs': [{
+          'shared_secret': 'sTr6jqMTJGCbLhWI5plFTQb/VsqxwX2Q',
+          'access_code_ttl': 600,
+          'clock_drift_tolerance': 300
+        }],
+      },
+      'id': 507,
+      'caption': '''Parent Access Code Configuration''',
+      'tags': [],
+      'desc': '''This policy specifies configuration that is used to generate and verify Parent Access Code.
+
+      |current_config| is always used for generating access code and should be used for validating access code only when it cannot be validated with |future_config|.
+      |future_config| is the primary config used for validating access code.
+      |old_configs| should be used for validating access code only when it cannot be validated with |future_config| nor |current_config|.
+
+      The expected way of using this policy is to gradually rotate access code configuration. New configuration is always put into |future_config| and at the same
+      time the existing value is moved into |current_config|. |current_config|'s previous values are moved into |old_configs| and removed after rotation cycle is finished.
+
+      This policy applies only to child user.
+      When this policy is set Parent Access Code can be verified on child user's device.
+      When this policy is unset it is not possible to verify Parent Access Code on child user's device.'''
     },
     {
       'name': 'ForceNetworkInProcess',
@@ -14112,6 +14642,30 @@ The recommended way to configure policy on Windows is via GPO, although provisio
     'doc_legacy_single_line_label': {
       'desc': '''A label for the legacy single-line textbox for a policy also has a more user-friendly multi-line textbox. See http://crbug/829328''',
       'text': '''<ph name="POLICY_NAME">$6<ex>Wallpaper Image</ex></ph> (The single-line field is deprecated and will be removed in the future. Please start using the multi-line textbox below.)''',
+    },
+    'doc_policy_restriction': {
+      'desc': '''Caption text of the field 'restrictions' in the summary chart of a policy in the generated documentation''',
+      'text': '''Restrictions:'''
+    },
+    'doc_range_minimum': {
+      'desc': '''Caption text of the field 'minimum' in the summary chart of a policy in the generated documentation. Present only if policy has a minimum range restriction.''',
+      'text': '''Minimum:'''
+    },
+    'doc_range_maximum': {
+      'desc': '''Caption text of the field 'maximum' in the summary chart of a policy in the generated documentation. Present only if policy has a maximum range restriction.''',
+      'text': '''Maximum:'''
+    },
+    'deprecated_policy_group_caption': {
+      'desc': '''Localized name for the deprecated policies folder, for Microsoft's Group Policy Editor.''',
+      'text': '''Deprecated policies''',
+    },
+    'deprecated_policy_group_desc': {
+      'desc': '''Localized description for the deprecated policies folder, for Microsoft's Group Policy Editor.''',
+      'text': '''These policies are included here to make them easy to remove.''',
+    },
+    'deprecated_policy_desc': {
+      'desc': '''Description shared by all deprecated policies, in Microsoft Windows' Group Policy Editor.''',
+      'text': '''This policy is deprecated. Its usage is discouraged. Read more at https://support.google.com/chrome/a/answer/7643500'''
     },
   },
   'placeholders': [],

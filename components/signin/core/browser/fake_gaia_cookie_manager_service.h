@@ -10,50 +10,61 @@
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "components/signin/core/browser/gaia_cookie_manager_service.h"
+#include "components/signin/core/browser/list_accounts_test_utils.h"
+#include "services/network/test/test_url_loader_factory.h"
 
 namespace network {
-class TestURLLoaderFactory;
 class WeakWrapperSharedURLLoaderFactory;
 }
 
 class FakeGaiaCookieManagerService : public GaiaCookieManagerService {
  public:
-  // Parameters for the fake ListAccounts response.
-  struct CookieParams {
-    std::string email;
-    std::string gaia_id;
-    bool valid;
-    bool signed_out;
-    bool verified;
-  };
-
+  // Convenience constructor overload which uses the SharedURLLoaderFactory from
+  // SigninClient.
   FakeGaiaCookieManagerService(OAuth2TokenService* token_service,
-                               SigninClient* client,
-                               bool use_fake_url_fetcher = true);
+                               SigninClient* client);
+
+  // Constructor overload for tests that want to use a TestURLLoaderFactory for
+  // cookie related requests.
+  FakeGaiaCookieManagerService(
+      OAuth2TokenService* token_service,
+      SigninClient* client,
+      network::TestURLLoaderFactory* test_url_loader_factory);
+
   ~FakeGaiaCookieManagerService() override;
 
   void SetListAccountsResponseHttpNotFound();
   void SetListAccountsResponseWebLoginRequired();
   void SetListAccountsResponseWithParams(
-      const std::vector<CookieParams>& params);
+      const std::vector<signin::CookieParams>& params);
 
   // Helper methods, equivalent to calling SetListAccountsResponseWithParams().
   void SetListAccountsResponseNoAccounts();
   void SetListAccountsResponseOneAccount(const std::string& email,
                                          const std::string& gaia_id);
-  void SetListAccountsResponseOneAccountWithParams(const CookieParams& params);
+  void SetListAccountsResponseOneAccountWithParams(
+      const signin::CookieParams& params);
   void SetListAccountsResponseTwoAccounts(const std::string& email1,
                                           const std::string& gaia_id1,
                                           const std::string& email2,
                                           const std::string& gaia_id2);
 
  private:
-  scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory() override;
+  // Internal constructor which does the actual construction.
+  FakeGaiaCookieManagerService(
+      OAuth2TokenService* token_service,
+      SigninClient* client,
+      network::TestURLLoaderFactory* test_url_loader_factory,
+      scoped_refptr<network::WeakWrapperSharedURLLoaderFactory>
+          shared_url_loader_factory);
 
-  // Provide a fake response for calls to /ListAccounts.
-  std::unique_ptr<network::TestURLLoaderFactory> test_url_loader_factory_;
+  // Provides a fake response for calls to /ListAccounts.
+  // Owned by the client if passed in via the constructor that takes in this
+  // pointer; null otherwise.
+  network::TestURLLoaderFactory* test_url_loader_factory_ = nullptr;
+
   scoped_refptr<network::WeakWrapperSharedURLLoaderFactory>
-      shared_loader_factory_;
+      shared_url_loader_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(FakeGaiaCookieManagerService);
 };

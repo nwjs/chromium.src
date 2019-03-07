@@ -175,9 +175,12 @@ jumbo_component("browser") {
     "quota/client_usage_tracker.cc",
     "quota/client_usage_tracker.h",
     "quota/quota_callbacks.h",
+    "quota/quota_client.cc",
     "quota/quota_client.h",
     "quota/quota_database.cc",
     "quota/quota_database.h",
+    "quota/quota_features.cc",
+    "quota/quota_features.h",
     "quota/quota_macros.h",
     "quota/quota_manager.cc",
     "quota/quota_manager.h",
@@ -197,15 +200,11 @@ jumbo_component("browser") {
     "quota/storage_observer.h",
     "quota/usage_tracker.cc",
     "quota/usage_tracker.h",
-    "storage_browser_export.h",
   ]
 
-  defines = [ "STORAGE_BROWSER_IMPLEMENTATION" ]
+  defines = [ "IS_STORAGE_BROWSER_IMPL" ]
   configs += [
     "//build/config:precompiled_headers",
-
-    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
-    "//build/config/compiler:no_size_t_to_int_warning",
     "//build/config/compiler:wexit_time_destructors",
   ]
 

@@ -134,12 +134,27 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
     ANIMATE_NONE = 0x4,
   };
 
+  // Represents the reason a Widget was closed, if it is known.
+  //
+  // For backwards compatibility, we default to kUnspecified when
+  // Widget::Close() is called. Note that we do not currently handle close
+  // reason for menu or for the main Chrome browser, as we have no reason to
+  // specifically differentiate those yet.
+  //
+  // Add additional values as needed.
+  enum class ClosedReason {
+    kUnspecified = 0,      // No reason was given for the widget closing.
+    kEscKeyPressed,        // The ESC key was pressed to cancel the widget.
+    kCloseButtonClicked,   // The [X] button was explicitly clicked.
+    kLostFocus,            // The widget destroyed itself when it lost focus.
+    kCancelButtonClicked,  // The widget's cancel button was clicked.
+    kAcceptButtonClicked   // The widget's done/accept button was clicked.
+  };
+
   struct VIEWS_EXPORT InitParams {
     enum Type {
       TYPE_WINDOW,      // A decorated Window, like a frame window.
                         // Widgets of TYPE_WINDOW will have a NonClientView.
-      TYPE_PANEL,       // Always on top window managed by PanelManager.
-                        // Widgets of TYPE_PANEL will have a NonClientView.
       TYPE_WINDOW_FRAMELESS,
                         // An undecorated Window.
       TYPE_CONTROL,     // A control, like a button.
@@ -468,8 +483,15 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // be rectangular.
   void SetShape(std::unique_ptr<ShapeRects> shape);
 
-  // Hides the widget then closes it after a return to the message loop.
-  virtual void Close(bool force = false);
+  // Equivalent to CloseWithReason(ClosedReason::kUnspecified).
+  // DEPRECATED: Please use CloseWithReason() instead.
+  void Close(bool force = false);
+
+  // Hides the widget, then closes it after a return to the message loop,
+  // specifying the reason for it having been closed.
+  // Note that while you can pass ClosedReason::kUnspecified, it is highly
+  // discouraged and only supported for backwards-compatibility with Close().
+  void CloseWithReason(ClosedReason closed_reason, bool force = false);
 
   // TODO(beng): Move off public API.
   // Closes the widget immediately. Compare to |Close|. This will destroy the
@@ -480,6 +502,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Whether the widget has been asked to close itself. In particular this is
   // set to true after Close() has been invoked on the NativeWidget.
   bool IsClosed() const;
+
+  // Returns the reason the widget was closed, if it was specified.
+  ClosedReason closed_reason() const { return closed_reason_; }
 
   // Shows the widget. The widget is activated if during initialization the
   // can_activate flag in the InitParams structure is set to true.
@@ -621,6 +646,9 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Tell the window to update its icon from the delegate.
   void UpdateWindowIcon();
+
+  // Shows the platform specific emoji picker for this widget.
+  void ShowEmojiPanel();
 
   // Retrieves the focus traversable for this widget.
   FocusTraversable* GetFocusTraversable();
@@ -780,6 +808,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   bool IsModal() const override;
   bool IsDialogBox() const override;
   bool CanActivate() const override;
+  bool IsNativeWidgetInitialized() const override;
   bool IsAlwaysRenderAsActive() const override;
   void SetAlwaysRenderAsActive(bool always_render_as_active) override;
   bool OnNativeWidgetActivationChanged(bool active) override;
@@ -788,7 +817,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void OnNativeBlur() override;
   void OnNativeWidgetVisibilityChanging(bool visible) override;
   void OnNativeWidgetVisibilityChanged(bool visible) override;
-  void OnNativeWidgetCreated(bool desktop_widget) override;
+  void OnNativeWidgetCreated() override;
   void OnNativeWidgetDestroying() override;
   void OnNativeWidgetDestroyed() override;
   gfx::Size GetMinimumSize() const override;
@@ -809,7 +838,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void OnGestureEvent(ui::GestureEvent* event) override;
   bool ExecuteCommand(int command_id) override;
   bool HasHitTestMask() const override;
-  void GetHitTestMask(gfx::Path* mask) const override;
+  void GetHitTestMask(SkPath* mask) const override;
   Widget* AsWidget() override;
   const Widget* AsWidget() const override;
   bool SetInitialFocus(ui::WindowShowState show_state) override;
@@ -929,7 +958,12 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   bool always_render_as_active_;
 
   // Set to true if the widget is in the process of closing.
-  bool widget_closed_;
+  bool widget_closed_ = false;
+
+  // The reason the widget was closed.
+  // Note that this may be ClosedReason::kUnspecified if the deprecated Close()
+  // method was called rather than CloseWithReason().
+  ClosedReason closed_reason_ = ClosedReason::kUnspecified;
   bool force_closing_;
 
   // The saved "show" state for this window. See note in SetInitialBounds

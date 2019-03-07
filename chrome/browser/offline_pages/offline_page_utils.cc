@@ -29,6 +29,7 @@
 #include "components/offline_pages/core/background/save_page_request.h"
 #include "components/offline_pages/core/client_namespace_constants.h"
 #include "components/offline_pages/core/client_policy_controller.h"
+#include "components/offline_pages/core/offline_clock.h"
 #include "components/offline_pages/core/offline_page_feature.h"
 #include "components/offline_pages/core/offline_page_item.h"
 #include "components/offline_pages/core/offline_page_model.h"
@@ -125,7 +126,7 @@ void CheckDuplicateOngoingDownloads(
           // samples in seconds rather than milliseconds.
           UMA_HISTOGRAM_CUSTOM_COUNTS(
               "OfflinePages.DownloadRequestTimeSinceDuplicateRequested",
-              (base::Time::Now() - latest_request_time).InSeconds(),
+              (OfflineTimeNow() - latest_request_time).InSeconds(),
               base::TimeDelta::FromSeconds(1).InSeconds(),
               base::TimeDelta::FromDays(7).InSeconds(), 50);
 
@@ -320,7 +321,7 @@ void OfflinePageUtils::CheckDuplicateDownloads(
       // samples in seconds rather than milliseconds.
       UMA_HISTOGRAM_CUSTOM_COUNTS(
           "OfflinePages.DownloadRequestTimeSinceDuplicateSaved",
-          (base::Time::Now() - latest_saved_time).InSeconds(),
+          (OfflineTimeNow() - latest_saved_time).InSeconds(),
           base::TimeDelta::FromSeconds(1).InSeconds(),
           base::TimeDelta::FromDays(7).InSeconds(), 50);
 
@@ -384,8 +385,8 @@ bool OfflinePageUtils::GetCachedOfflinePageSizeBetween(
 
 // static
 std::string OfflinePageUtils::ExtractOfflineHeaderValueFromNavigationEntry(
-    const content::NavigationEntry& entry) {
-  std::string extra_headers = entry.GetExtraHeaders();
+    content::NavigationEntry* entry) {
+  std::string extra_headers = entry->GetExtraHeaders();
   if (extra_headers.empty())
     return std::string();
 

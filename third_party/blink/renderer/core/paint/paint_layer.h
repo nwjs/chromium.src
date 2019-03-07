@@ -346,6 +346,8 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
 
   void DirtyVisibleContentStatus();
 
+  // True if this layer paints box decorations or a background. Touch-action
+  // rects are painted as part of the background so these are included here.
   bool HasBoxDecorationsOrBackground() const;
   bool HasVisibleBoxDecorations() const;
   // True if this layer container layoutObjects that paint.
@@ -567,15 +569,6 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
       const LayoutBoxModelObject& paint_invalidation_container,
       LayoutRect&);
 
-  // Adjusts the given rect (in the coordinate space of the LayoutObject) to the
-  // coordinate space of |paintInvalidationContainer|'s GraphicsLayer backing.
-  // Should use PaintInvalidatorContext::MapRectToPaintInvalidationBacking()
-  // instead if PaintInvalidatorContext.
-  static void MapRectToPaintInvalidationBacking(
-      const LayoutObject&,
-      const LayoutBoxModelObject& paint_invalidation_container,
-      LayoutRect&);
-
   bool PaintsWithTransparency(GlobalPaintFlags global_paint_flags) const {
     return IsTransparent() && !PaintsIntoOwnBacking(global_paint_flags);
   }
@@ -614,23 +607,26 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   // only if |filter_on_effect_node_dirty_| is true or the reference box has
   // changed. Otherwise it will be populated unconditionally.
   void UpdateCompositorFilterOperationsForFilter(
-      CompositorFilterOperations&) const;
+      CompositorFilterOperations& operations) const;
   void SetFilterOnEffectNodeDirty() { filter_on_effect_node_dirty_ = true; }
   void ClearFilterOnEffectNodeDirty() { filter_on_effect_node_dirty_ = false; }
 
+  // |backdrop_filter_bounds| is an out param from both of these functions, and
+  // it represents the clipping bounds for the filtered backdrop image only.
+  // This rect lives in the local transform space of the containing
+  // EffectPaintPropertyNode.
   void UpdateCompositorFilterOperationsForBackdropFilter(
-      CompositorFilterOperations&) const;
+      CompositorFilterOperations& operations,
+      gfx::RectF* backdrop_filter_bounds) const;
+  CompositorFilterOperations CreateCompositorFilterOperationsForBackdropFilter()
+      const;
 
   void SetIsUnderSVGHiddenContainer(bool value) {
     is_under_svg_hidden_container_ = value;
   }
   bool IsUnderSVGHiddenContainer() { return is_under_svg_hidden_container_; }
 
-  CompositorFilterOperations CreateCompositorFilterOperationsForBackdropFilter()
-      const;
-
   bool PaintsWithFilters() const;
-  FilterEffect* LastFilterEffect() const;
 
   // Maps "forward" to determine which pixels in a destination rect are
   // affected by pixels in the source rect.
@@ -647,6 +643,13 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   }
   PaintLayerResourceInfo& EnsureResourceInfo();
 
+  // Filter reference box is the area over which the filter is computed, in the
+  // coordinate system of the object with the filter. Filter bounds is the
+  // reference box, offset by the object's location in the graphics layer.
+  FloatRect FilterReferenceBox() const;
+  FloatRect BackdropFilterBounds() const;
+
+  void UpdateFilterReferenceBox();
   void UpdateFilters(const ComputedStyle* old_style,
                      const ComputedStyle& new_style);
   void UpdateClipPath(const ComputedStyle* old_style,
@@ -678,7 +681,10 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
     return scrollable_area_.Get();
   }
 
-  enum GeometryMapperOption { kUseGeometryMapper, kDoNotUseGeometryMapper };
+  enum class GeometryMapperOption {
+    kUseGeometryMapper,
+    kDoNotUseGeometryMapper
+  };
 
   PaintLayerClipper Clipper(GeometryMapperOption) const;
 
@@ -757,8 +763,11 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
 
     bool is_under_video = false;
   };
-
+  void SetNeedsVisualOverflowRecalc();
   void SetNeedsCompositingInputsUpdate();
+
+  // Use this internal method only for cases during the descendant-dependent
+  // tree walk.
   bool ChildNeedsCompositingInputsUpdate() const {
     return child_needs_compositing_inputs_update_;
   }
@@ -1036,11 +1045,11 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   // Whether the value of isSelfPaintingLayer() changed since the last clearing
   // (which happens after the flag is chedked during compositing update).
   bool SelfPaintingStatusChanged() const {
-    DCHECK(!RuntimeEnabledFeatures::SlimmingPaintV2Enabled());
+    DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
     return self_painting_status_changed_;
   }
   void ClearSelfPaintingStatusChanged() {
-    DCHECK(!RuntimeEnabledFeatures::SlimmingPaintV2Enabled());
+    DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
     self_painting_status_changed_ = false;
   }
 
@@ -1175,7 +1184,17 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   bool RequiresScrollableArea() const;
   void UpdateScrollableArea();
 
-  void MarkAncestorChainForDescendantDependentFlagsUpdate();
+  // Indicates whether the descendant-dependent tree walk bit should also
+  // be set.
+  enum DescendantDependentFlagsUpdateFlag {
+    NeedsDescendantDependentUpdate,
+    DoesNotNeedDescendantDependentUpdate
+  };
+
+  // Marks the ancestor chain for paint property update, and if
+  // the flag is set, the descendant-dependent tree walk as well.
+  void MarkAncestorChainForFlagsUpdate(
+      DescendantDependentFlagsUpdateFlag = NeedsDescendantDependentUpdate);
 
   bool AttemptDirectCompositingUpdate(const StyleDifference&,
                                       const ComputedStyle* old_style);
@@ -1215,7 +1234,7 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
       const PaintLayer* stacking_parent,
       CalculateBoundsOptions) const;
 
-  FloatRect FilterReferenceBox(const FilterOperations&, float zoom) const;
+  bool NeedsFilterReferenceBox() const;
 
   LayoutPoint LocationInternal() const;
 
@@ -1238,7 +1257,10 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   const unsigned is_root_layer_ : 1;
 
   unsigned has_visible_content_ : 1;
+
   unsigned needs_descendant_dependent_flags_update_ : 1;
+  unsigned needs_visual_overflow_recalc_ : 1;
+
   unsigned has_visible_descendant_ : 1;
 
 #if DCHECK_IS_ON()

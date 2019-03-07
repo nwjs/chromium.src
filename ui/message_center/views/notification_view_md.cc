@@ -17,10 +17,12 @@
 #include "ui/events/gesture_detection/gesture_provider_config_helper.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/color_palette.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/skia_util.h"
+#include "ui/gfx/text_constants.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/message_center_constants.h"
@@ -36,6 +38,7 @@
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/animation/flood_fill_ink_drop_ripple.h"
 #include "ui/views/animation/ink_drop_highlight.h"
+#include "ui/views/animation/ink_drop_mask.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/button/image_button.h"
@@ -134,16 +137,6 @@ constexpr double kProgressNotificationMessageRatio = 0.7;
 
 // This key/property allows tagging the textfield with its index.
 DEFINE_LOCAL_UI_CLASS_PROPERTY_KEY(int, kTextfieldIndexKey, 0U);
-
-// Users on ChromeOS are used to the Settings and Close buttons not being
-// visible at all times, but users on other platforms expect them to be visible.
-constexpr bool AlwaysShowControlButtons() {
-#if defined(OS_CHROMEOS)
-  return false;
-#else
-  return true;
-#endif
-}
 
 // FontList for the texts except for the header.
 gfx::FontList GetTextFontList() {
@@ -593,7 +586,7 @@ void NotificationViewMD::Layout() {
 
     // Use vertically larger clip path, so that actions row's top coners will
     // not be rounded.
-    gfx::Path path;
+    SkPath path;
     gfx::Rect bounds = actions_row_->GetLocalBounds();
     bounds.set_y(bounds.y() - bounds.height());
     bounds.set_height(bounds.height() * 2);
@@ -612,6 +605,13 @@ void NotificationViewMD::Layout() {
   } else {
     ink_drop_container_->SetBoundsRect(GetLocalBounds());
   }
+}
+
+void NotificationViewMD::OnBoundsChanged(const gfx::Rect& previous_bounds) {
+  if (ink_drop_layer_)
+    ink_drop_layer_->SetBounds(gfx::Rect(size()));
+  if (ink_drop_mask_)
+    ink_drop_mask_->layer()->SetBounds(gfx::Rect(size()));
 }
 
 void NotificationViewMD::OnFocus() {
@@ -766,6 +766,7 @@ void NotificationViewMD::CreateOrUpdateContextTitleView(
                                   ? kNotificationDefaultAccentColor
                                   : notification.accent_color());
   header_row_->SetTimestamp(notification.timestamp());
+  header_row_->SetAppNameElideBehavior(gfx::ELIDE_TAIL);
 
   base::string16 app_name = notification.display_source();
   if (notification.origin_url().is_valid() &&
@@ -773,6 +774,7 @@ void NotificationViewMD::CreateOrUpdateContextTitleView(
     app_name = url_formatter::FormatUrlForSecurityDisplay(
         notification.origin_url(),
         url_formatter::SchemeDisplay::OMIT_HTTP_AND_HTTPS);
+    header_row_->SetAppNameElideBehavior(gfx::ELIDE_HEAD);
   } else if (app_name.empty() && notification.notifier_id().type ==
                                      NotifierType::SYSTEM_COMPONENT) {
     app_name = MessageCenter::Get()->GetSystemNotificationAppName();
@@ -800,7 +802,7 @@ void NotificationViewMD::CreateOrUpdateTitleView(
 
     title_view_ = new views::Label(title);
     title_view_->SetFontList(font_list);
-    title_view_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
+    title_view_->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
     title_view_->SetEnabledColor(kRegularTextColorMD);
     left_content_->AddChildViewAt(title_view_, left_content_count_);
   } else {
@@ -967,14 +969,17 @@ void NotificationViewMD::CreateOrUpdateIconView(
 
 void NotificationViewMD::CreateOrUpdateSmallIconView(
     const Notification& notification) {
-  if (!notification.vector_small_image().is_empty()) {
-    header_row_->SetAppIcon(
-        gfx::CreateVectorIcon(notification.vector_small_image(),
-                              kSmallImageSizeMD, notification.accent_color()));
-  } else if (!notification.small_image().IsEmpty()) {
-    header_row_->SetAppIcon(notification.small_image().AsImageSkia());
-  } else {
+  // TODO(knollr): figure out if this has a performance impact and
+  // cache images if so. (crbug.com/768748)
+  gfx::Image masked_small_icon = notification.GenerateMaskedSmallIcon(
+      kSmallImageSizeMD, notification.accent_color() == SK_ColorTRANSPARENT
+                             ? message_center::kNotificationDefaultAccentColor
+                             : notification.accent_color());
+
+  if (masked_small_icon.IsEmpty()) {
     header_row_->ClearAppIcon();
+  } else {
+    header_row_->SetAppIcon(masked_small_icon.AsImageSkia());
   }
 }
 
@@ -1242,23 +1247,13 @@ void NotificationViewMD::ToggleInlineSettings(const ui::Event& event) {
     MessageCenter::Get()->DisableNotification(notification_id());
 }
 
-// TODO(yoshiki): Move this to the parent class (MessageView) and share the code
-// among NotificationView and ArcNotificationView.
-void NotificationViewMD::UpdateControlButtonsVisibility() {
-  const bool target_visibility =
-      (AlwaysShowControlButtons() || IsMouseHovered() ||
-       control_buttons_view_->IsCloseButtonFocused() ||
-       control_buttons_view_->IsSettingsButtonFocused()) &&
-      (GetMode() != Mode::SETTING);
-
-  control_buttons_view_->SetVisible(target_visibility);
-}
-
 void NotificationViewMD::UpdateCornerRadius(int top_radius, int bottom_radius) {
   MessageView::UpdateCornerRadius(top_radius, bottom_radius);
   action_buttons_row_->SetBackground(views::CreateBackgroundFromPainter(
       std::make_unique<NotificationBackgroundPainter>(
           0, bottom_radius, kActionsRowBackgroundColor)));
+  top_radius_ = top_radius;
+  bottom_radius_ = bottom_radius;
 }
 
 NotificationControlButtonsView* NotificationViewMD::GetControlButtonsView()
@@ -1326,6 +1321,7 @@ void NotificationViewMD::AddBackgroundAnimation(const ui::Event& event) {
 }
 
 void NotificationViewMD::RemoveBackgroundAnimation() {
+  SetInkDropMode(InkDropMode::OFF);
   AnimateInkDrop(views::InkDropState::HIDDEN, nullptr);
 }
 
@@ -1340,7 +1336,8 @@ void NotificationViewMD::AddInkDropLayer(ui::Layer* ink_drop_layer) {
   settings_done_button_->SetPaintToLayer();
   settings_done_button_->layer()->SetFillsBoundsOpaquely(false);
   ink_drop_container_->AddInkDropLayer(ink_drop_layer);
-  InstallInkDropMask(ink_drop_layer);
+  ink_drop_layer_ = ink_drop_layer;
+  InstallNotificationInkDropMask();
 }
 
 void NotificationViewMD::RemoveInkDropLayer(ui::Layer* ink_drop_layer) {
@@ -1348,16 +1345,36 @@ void NotificationViewMD::RemoveInkDropLayer(ui::Layer* ink_drop_layer) {
   block_all_button_->DestroyLayer();
   dont_block_button_->DestroyLayer();
   settings_done_button_->DestroyLayer();
-  ResetInkDropMask();
+  ink_drop_mask_.reset();
   ink_drop_container_->RemoveInkDropLayer(ink_drop_layer);
   GetInkDrop()->RemoveObserver(this);
+  ink_drop_layer_ = nullptr;
 }
 
 std::unique_ptr<views::InkDropRipple> NotificationViewMD::CreateInkDropRipple()
     const {
   return std::make_unique<views::FloodFillInkDropRipple>(
-      ink_drop_container_->size(), GetInkDropCenterBasedOnLastEvent(),
+      GetPreferredSize(), GetInkDropCenterBasedOnLastEvent(),
       GetInkDropBaseColor(), ink_drop_visible_opacity());
+}
+
+void NotificationViewMD::InstallNotificationInkDropMask() {
+  SkPath path;
+  SkScalar radii[8] = {top_radius_,    top_radius_,    top_radius_,
+                       top_radius_,    bottom_radius_, bottom_radius_,
+                       bottom_radius_, bottom_radius_};
+  gfx::Rect rect(GetPreferredSize());
+  path.addRoundRect(gfx::RectToSkRect(rect), radii);
+  ink_drop_mask_ = std::make_unique<views::PathInkDropMask>(size(), path);
+  ink_drop_layer_->SetMaskLayer(ink_drop_mask_->layer());
+}
+
+std::unique_ptr<views::InkDropMask> NotificationViewMD::CreateInkDropMask()
+    const {
+  // We don't use this as we need access to the |ink_drop_mask_|.
+  // See crbug.com/915222.
+  NOTREACHED();
+  return nullptr;
 }
 
 SkColor NotificationViewMD::GetInkDropBaseColor() const {

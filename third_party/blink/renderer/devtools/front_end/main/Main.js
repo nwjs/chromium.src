@@ -107,7 +107,6 @@ Main.Main = class {
     // Keep this sorted alphabetically: both keys and values.
     Runtime.experiments.register('applyCustomStylesheet', 'Allow custom UI themes');
     Runtime.experiments.register('blackboxJSFramesOnTimeline', 'Blackbox JavaScript frames on Timeline', true);
-    Runtime.experiments.register('colorContrastRatio', 'Color contrast ratio line in color picker', true);
     Runtime.experiments.register('consoleBelowPrompt', 'Console eager evaluation');
     Runtime.experiments.register('consoleKeyboardNavigation', 'Console keyboard navigation', true);
     Runtime.experiments.register('emptySourceMapAutoStepping', 'Empty sourcemap auto-stepping');
@@ -119,6 +118,7 @@ Main.Main = class {
     Runtime.experiments.register('protocolMonitor', 'Protocol Monitor');
     Runtime.experiments.register('samplingHeapProfilerTimeline', 'Sampling heap profiler timeline', true);
     Runtime.experiments.register('sourceDiff', 'Source diff');
+    Runtime.experiments.register('sourcesLogpoints', 'Sources: logpoints');
     Runtime.experiments.register('sourcesPrettyPrint', 'Automatically pretty print in the Sources Panel');
     Runtime.experiments.register(
         'stepIntoAsync', 'Introduce separate step action, stepInto becomes powerful enough to go inside async call');
@@ -150,8 +150,8 @@ Main.Main = class {
     }
 
     Runtime.experiments.setDefaultExperiments([
-      'colorContrastRatio', 'stepIntoAsync', 'oopifInlineDOM', 'consoleBelowPrompt', 'timelineTracingJSProfile',
-      'pinnedExpressions'
+      'stepIntoAsync', 'oopifInlineDOM', 'consoleBelowPrompt', 'timelineTracingJSProfile', 'pinnedExpressions',
+      'consoleKeyboardNavigation', 'sourcesLogpoints'
     ]);
   }
 
@@ -274,7 +274,7 @@ Main.Main = class {
     const instances =
         await Promise.all(self.runtime.extensions('early-initialization').map(extension => extension.instance()));
     for (const instance of instances)
-      /** @type {!Common.Runnable} */ (instance).run();
+      await /** @type {!Common.Runnable} */ (instance).run();
     // Used for browser tests.
     InspectorFrontendHost.readyForTest();
     // Asynchronously run the extensions.

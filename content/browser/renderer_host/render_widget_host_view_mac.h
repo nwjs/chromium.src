@@ -142,7 +142,7 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
       base::OnceCallback<void(const SkBitmap&)> callback) override;
-  void EnsureSurfaceSynchronizedForLayoutTest() override;
+  void EnsureSurfaceSynchronizedForWebTest() override;
   void FocusedNodeChanged(bool is_editable_node,
                           const gfx::Rect& node_bounds_in_screen) override;
   void DidCreateNewRendererCompositorFrameSink(
@@ -159,6 +159,8 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   BrowserAccessibilityManager* CreateBrowserAccessibilityManager(
       BrowserAccessibilityDelegate* delegate, bool for_root_frame) override;
   gfx::NativeViewAccessible AccessibilityGetNativeViewAccessible() override;
+  gfx::NativeViewAccessible AccessibilityGetNativeViewAccessibleForWindow()
+      override;
   base::Optional<SkColor> GetBackgroundColor() const override;
 
   void SetParentUiLayer(ui::Layer* parent_ui_layer) override;
@@ -187,8 +189,9 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   const viz::FrameSinkId& GetFrameSinkId() const override;
   const viz::LocalSurfaceIdAllocation& GetLocalSurfaceIdAllocation()
       const override;
-  // Returns true when we can do SurfaceHitTesting for the event type.
-  bool ShouldRouteEvent(const blink::WebInputEvent& event) const;
+  // Returns true when we can hit test input events with location data to be
+  // sent to the targeted RenderWidgetHost.
+  bool ShouldRouteEvents() const;
   // This method checks |event| to see if a GesturePinch or double tap event
   // can be routed according to ShouldRouteEvent, and if not, sends it directly
   // to the view's RenderWidgetHost.
@@ -304,6 +307,7 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   // RenderWidgetHostNSViewClientHelper implementation.
   id GetRootBrowserAccessibilityElement() override;
   id GetFocusedBrowserAccessibilityElement() override;
+  void SetAccessibilityWindow(NSWindow* window) override;
   RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() override;
   void ForwardKeyboardEvent(const NativeWebKeyboardEvent& key_event,
                             const ui::LatencyInfo& latency_info) override;
@@ -324,8 +328,9 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   void SmartMagnify(const blink::WebGestureEvent& smart_magnify_event) override;
 
   // mojom::RenderWidgetHostNSViewClient implementation.
-  void SyncIsRenderViewHost(SyncIsRenderViewHostCallback callback) override;
-  bool SyncIsRenderViewHost(bool* is_render_view) override;
+  void SyncIsWidgetForMainFrame(
+      SyncIsWidgetForMainFrameCallback callback) override;
+  bool SyncIsWidgetForMainFrame(bool* is_for_main_frame) override;
   void RequestShutdown() override;
   void OnFirstResponderChanged(bool is_first_responder) override;
   void OnWindowIsKeyChanged(bool is_key) override;
@@ -393,10 +398,10 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   void StopSpeaking() override;
   bool SyncIsSpeaking(bool* is_speaking) override;
   void SyncIsSpeaking(SyncIsSpeakingCallback callback) override;
-  void SyncConnectAccessibilityElements(
-      const std::vector<uint8_t>& window_token,
-      const std::vector<uint8_t>& view_token,
-      SyncConnectAccessibilityElementsCallback callback) override;
+  void SyncGetRootAccessibilityElement(
+      SyncGetRootAccessibilityElementCallback callback) override;
+  void SetRemoteAccessibilityWindowToken(
+      const std::vector<uint8_t>& window_token) override;
 
   // BrowserCompositorMacClient implementation.
   SkColor BrowserCompositorMacGetGutterColor() const override;
@@ -633,14 +638,13 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
 
   // Latest capture sequence number which is incremented when the caller
   // requests surfaces be synchronized via
-  // EnsureSurfaceSynchronizedForLayoutTest().
+  // EnsureSurfaceSynchronizedForWebTest().
   uint32_t latest_capture_sequence_number_ = 0u;
 
-  // Remote accessibility objects corresponding to the NSWindow and its root
-  // NSView.
+  // Remote accessibility objects corresponding to the NSWindow that this is
+  // displayed to the user in.
   base::scoped_nsobject<NSAccessibilityRemoteUIElement>
       remote_window_accessible_;
-  base::scoped_nsobject<NSAccessibilityRemoteUIElement> remote_view_accessible_;
 
   // Used to force the NSApplication's focused accessibility element to be the
   // content::BrowserAccessibilityCocoa accessibility tree when the NSView for

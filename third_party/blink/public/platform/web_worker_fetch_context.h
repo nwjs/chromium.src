@@ -14,6 +14,7 @@
 #include "third_party/blink/public/platform/web_application_cache_host.h"
 #include "third_party/blink/public/platform/web_document_subresource_filter.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
+#include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/platform/web_url_loader_factory.h"
 #include "third_party/blink/public/platform/websocket_handshake_throttle.h"
@@ -26,6 +27,13 @@ namespace blink {
 
 class WebURLRequest;
 class WebDocumentSubresourceFilter;
+
+// Helper class allowing WebWorkerFetchContextImpl to notify blink upon an
+// accept languages update. This class will be extended by WorkerNavigator.
+class AcceptLanguagesWatcher {
+ public:
+  virtual void NotifyUpdate() = 0;
+};
 
 // WebWorkerFetchContext is a per-worker object created on the main thread,
 // passed to a worker (dedicated, shared and service worker) and initialized on
@@ -58,7 +66,7 @@ class WebWorkerFetchContext : public base::RefCounted<WebWorkerFetchContext> {
   // pointer is valid throughout the lifetime of this context.
   virtual void SetTerminateSyncLoadEvent(base::WaitableEvent*) = 0;
 
-  virtual void InitializeOnWorkerThread() = 0;
+  virtual void InitializeOnWorkerThread(AcceptLanguagesWatcher*) = 0;
 
   // Returns a WebURLLoaderFactory which is associated with the worker context.
   // The returned WebURLLoaderFactory is owned by |this|.
@@ -110,9 +118,6 @@ class WebWorkerFetchContext : public base::RefCounted<WebWorkerFetchContext> {
                                      const WebURL& insecure_url) {}
 
   virtual void SetApplicationCacheHostID(int id) {}
-  virtual int ApplicationCacheHostID() const {
-    return WebApplicationCacheHost::kAppCacheNoHostId;
-  }
 
   // Sets the builder object of WebDocumentSubresourceFilter on the main thread
   // which will be used in TakeSubresourceFilter() to create a
@@ -133,6 +138,9 @@ class WebWorkerFetchContext : public base::RefCounted<WebWorkerFetchContext> {
   CreateWebSocketHandshakeThrottle() {
     return nullptr;
   }
+
+  // Returns the current list of user prefered languages.
+  virtual blink::WebString GetAcceptLanguages() const = 0;
 };
 
 }  // namespace blink

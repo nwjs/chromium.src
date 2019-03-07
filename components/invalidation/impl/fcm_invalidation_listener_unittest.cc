@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
+#include "base/test/scoped_task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/invalidation/impl/fake_invalidation_state_tracker.h"
 #include "components/invalidation/impl/fcm_invalidation_listener.h"
@@ -184,7 +184,8 @@ class MockRegistrationManager : public PerUserTopicRegistrationManager {
             nullptr /* identity_provider */,
             nullptr /* pref_service */,
             nullptr /* loader_factory */,
-            base::BindRepeating(&syncer::JsonUnsafeParser::Parse)) {}
+            base::BindRepeating(&syncer::JsonUnsafeParser::Parse),
+            "fake_sender_id") {}
   ~MockRegistrationManager() override {}
   MOCK_METHOD2(UpdateRegisteredTopics,
                void(const TopicSet& topics, const std::string& token));
@@ -315,7 +316,7 @@ class FCMInvalidationListenerTest : public testing::Test {
   TopicSet registred_topics_;
 
  private:
-  base::MessageLoop message_loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
   FCMSyncNetworkChannel* fcm_sync_network_channel_;
   MockRegistrationManager* registration_manager_;
 

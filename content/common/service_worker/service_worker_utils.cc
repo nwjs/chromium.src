@@ -17,7 +17,7 @@
 #include "net/http/http_byte_range.h"
 #include "net/http/http_util.h"
 #include "services/network/public/cpp/features.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 
 namespace content {
 
@@ -237,8 +237,6 @@ std::string ServiceWorkerUtils::SerializeFetchRequestToString(
     request_proto.set_integrity(request.integrity.value());
   request_proto.set_keepalive(request.keepalive);
   request_proto.set_is_history_navigation(request.is_history_navigation);
-  if (request.client_id)
-    request_proto.set_client_id(request.client_id.value());
   return request_proto.SerializeAsString();
 }
 
@@ -279,17 +277,25 @@ ServiceWorkerUtils::DeserializeFetchRequestFromString(
     request_ptr->integrity = request_proto.integrity();
   request_ptr->keepalive = request_proto.keepalive();
   request_ptr->is_history_navigation = request_proto.is_history_navigation();
-  if (request_proto.has_client_id())
-    request_ptr->client_id = request_proto.client_id();
   return request_ptr;
 }
 
 // static
-ServiceWorkerHeaderMap ServiceWorkerUtils::ToServiceWorkerHeaderMap(
-    const RequestHeaderMap& header_) {
-  content::ServiceWorkerHeaderMap header;
-  header.insert(header_.begin(), header_.end());
-  return header;
+const char* ServiceWorkerUtils::FetchResponseSourceToSuffix(
+    network::mojom::FetchResponseSource source) {
+  // Don't change these returned strings. They are used for recording UMAs.
+  switch (source) {
+    case network::mojom::FetchResponseSource::kUnspecified:
+      return ".Unspecified";
+    case network::mojom::FetchResponseSource::kNetwork:
+      return ".Network";
+    case network::mojom::FetchResponseSource::kHttpCache:
+      return ".HttpCache";
+    case network::mojom::FetchResponseSource::kCacheStorage:
+      return ".CacheStorage";
+  }
+  NOTREACHED();
+  return ".Unknown";
 }
 
 bool LongestScopeMatcher::MatchLongest(const GURL& scope) {

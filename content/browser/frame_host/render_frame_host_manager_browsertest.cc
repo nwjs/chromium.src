@@ -147,17 +147,6 @@ class RenderFrameHostManagerTest : public ContentBrowserTest {
     replace_host_.SetHostStr(foo_com_);
   }
 
-  static void GetFilePathWithHostAndPortReplacement(
-      const std::string& original_file_path,
-      const net::HostPortPair& host_port_pair,
-      std::string* replacement_path) {
-    base::StringPairs replacement_text;
-    replacement_text.push_back(
-        make_pair("REPLACE_WITH_HOST_AND_PORT", host_port_pair.ToString()));
-    net::test_server::GetFilePathWithReplacements(
-        original_file_path, replacement_text, replacement_path);
-  }
-
   void SetUpCommandLine(base::CommandLine* command_line) override {
     const char kBlinkPageLifecycleFeature[] = "PageLifecycle";
     command_line->AppendSwitchASCII(switches::kEnableBlinkFeatures,
@@ -4342,6 +4331,10 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, ErrorPageNavigationReload) {
 
   scoped_refptr<SiteInstance> success_site_instance =
       shell()->web_contents()->GetMainFrame()->GetSiteInstance();
+  url::Origin expected_origin =
+      shell()->web_contents()->GetMainFrame()->GetLastCommittedOrigin();
+
+  EXPECT_EQ(url::Origin::Create(error_url), expected_origin);
 
   // Install an interceptor which will cause network failure for |error_url|,
   // reload the existing entry and verify.
@@ -4403,6 +4396,8 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, ErrorPageNavigationReload) {
       GURL(kUnreachableWebDataURL),
       policy->GetOriginLock(
           shell()->web_contents()->GetSiteInstance()->GetProcess()->GetID()));
+  EXPECT_EQ(expected_origin,
+            shell()->web_contents()->GetMainFrame()->GetLastCommittedOrigin());
 
   // Test the same scenario as above, but this time initiated by the
   // renderer process.
@@ -4448,6 +4443,119 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest, ErrorPageNavigationReload) {
       GURL(kUnreachableWebDataURL),
       policy->GetOriginLock(
           shell()->web_contents()->GetSiteInstance()->GetProcess()->GetID()));
+  EXPECT_EQ(expected_origin,
+            shell()->web_contents()->GetMainFrame()->GetLastCommittedOrigin());
+}
+
+// Make sure that reload works properly if it redirects to a different site than
+// the initial navigation.  The initial purpose of this test was to make sure
+// the corresponding unit test matches the actual product code behavior
+// (e.g. see NavigationControllerTest.Reload_GeneratesNewPage).
+IN_PROC_BROWSER_TEST_F(RenderFrameHostManagerTest,
+                       ReloadRedirectsToDifferentCrossSitePage) {
+  // Set-up http server handlers for |start_url|.
+  //
+  // |response1| is only required to make sure that |response2| doesn't kick-in
+  // and intercept the http request until step 4.  Note that step 3 won't hit
+  // the http server and therefore doesn't require handling here.
+  auto response1 = std::make_unique<net::test_server::ControllableHttpResponse>(
+      embedded_test_server(), "/title1.html");
+  auto response2 = std::make_unique<net::test_server::ControllableHttpResponse>(
+      embedded_test_server(), "/title1.html");
+
+  // Start the server after all the required handlers have been already
+  // registered.
+  StartEmbeddedServer();
+  NavigationControllerImpl& nav_controller =
+      static_cast<NavigationControllerImpl&>(
+          shell()->web_contents()->GetController());
+
+  // URLs used in the test:
+  // - Step1: Navigate to |start_url|
+  // - Step2: Navigate to |second_url|
+  // - Step3: Go back (to |start_url|)
+  // - Step4: Reload (redirects to a different destination - |redirect_url|).
+  GURL start_url(embedded_test_server()->GetURL("foo.com", "/title1.html"));
+  GURL second_url(embedded_test_server()->GetURL("foo.com", "/title3.html"));
+  GURL redirect_url(embedded_test_server()->GetURL("bar.com", "/title2.html"));
+
+  // Test Step 1: Simple navigation that won't redirect and will just
+  // successfully commit http://foo.com/title1.html.
+  {
+    // Navigate...
+    TestNavigationObserver nav_observer(shell()->web_contents());
+    shell()->LoadURL(start_url);
+    response1->WaitForRequest();
+    response1->Send(net::HTTP_OK, "text/html; charset=utf-8", "<p>Blah</p>");
+    response1->Done();
+    nav_observer.Wait();
+
+    // Verify...
+    EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+    EXPECT_EQ(1, nav_controller.GetEntryCount());
+    EXPECT_EQ(0, nav_controller.GetLastCommittedEntryIndex());
+    EXPECT_EQ(start_url, nav_controller.GetLastCommittedEntry()->GetURL());
+  }
+
+  // Test Step 2: Simple navigation that won't redirect and will just
+  // successfully commit http://foo.com/title3.html.
+  {
+    // Navigate...
+    EXPECT_TRUE(NavigateToURL(shell(), second_url));
+
+    // Verify...
+    EXPECT_EQ(2, nav_controller.GetEntryCount());
+    EXPECT_EQ(1, nav_controller.GetLastCommittedEntryIndex());
+    EXPECT_EQ(second_url, nav_controller.GetLastCommittedEntry()->GetURL());
+  }
+
+  // Test Step 3: Go back (to |start_url|).
+  {
+    // Navigate...
+    TestNavigationObserver nav_observer(shell()->web_contents());
+    nav_controller.GoBack();
+    nav_observer.Wait();
+
+    // Verify...
+    EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+    EXPECT_EQ(2, nav_controller.GetEntryCount());
+    EXPECT_EQ(0, nav_controller.GetLastCommittedEntryIndex());
+    EXPECT_EQ(start_url, nav_controller.GetLastCommittedEntry()->GetURL());
+  }
+
+  // Test Step 4: Reload that will redirect to http://bar.com/title2.html (which
+  // is a different, cross-site location compared to what the initial navigation
+  // committed).
+  {
+    // Navigate...
+    TestNavigationObserver reload_observer(shell()->web_contents());
+    shell()->web_contents()->GetController().Reload(ReloadType::NORMAL, false);
+    response2->WaitForRequest();
+    response2->Send("HTTP/1.1 302 Moved Temporarily\n");
+    response2->Send("Location: " + redirect_url.spec());
+    response2->Done();
+    reload_observer.Wait();
+
+    // Verify that reload 1) replaced the current entry (rather than creating a
+    // new entry) and 2) the tail of the history (e.g. the |second_url|
+    // navigation) was preserved rather than truncated.
+    EXPECT_TRUE(reload_observer.last_navigation_succeeded());
+    EXPECT_EQ(2, nav_controller.GetEntryCount());
+    EXPECT_EQ(0, nav_controller.GetLastCommittedEntryIndex());
+    EXPECT_EQ(redirect_url, nav_controller.GetLastCommittedEntry()->GetURL());
+    EXPECT_EQ(second_url, nav_controller.GetEntryAtIndex(1)->GetURL());
+    if (AreAllSitesIsolatedForTesting()) {
+      // The successful reload should be classified as a NEW_PAGE navigation
+      // with replacement, since it needs to stay at the same entry in session
+      // history, but needs a new entry because of the change in SiteInstance.
+      // (the same as expectations in the ErrorPageNavigationReload test above).
+      EXPECT_EQ(NavigationType::NAVIGATION_TYPE_NEW_PAGE,
+                reload_observer.last_navigation_type());
+    } else {
+      EXPECT_EQ(NavigationType::NAVIGATION_TYPE_EXISTING_PAGE,
+                reload_observer.last_navigation_type());
+    }
+  }
 }
 
 // Test to verify that navigating away from an error page results in correct

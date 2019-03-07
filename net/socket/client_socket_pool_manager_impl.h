@@ -35,6 +35,8 @@ class HttpProxyClientSocketPool;
 class HostResolver;
 class NetLog;
 class NetworkQualityEstimator;
+class ProxyDelegate;
+class ProxyServer;
 class SocketPerformanceWatcherFactory;
 class SOCKSClientSocketPool;
 class SSLClientSocketPool;
@@ -61,6 +63,7 @@ class NET_EXPORT_PRIVATE ClientSocketPoolManagerImpl
       const std::string& ssl_session_cache_shard,
       SSLConfigService* ssl_config_service,
       WebSocketEndpointLockManager* websocket_endpoint_lock_manager,
+      ProxyDelegate* proxy_delegate,
       HttpNetworkSession::SocketPoolType pool_type);
   ~ClientSocketPoolManagerImpl() override;
 
@@ -72,13 +75,13 @@ class NET_EXPORT_PRIVATE ClientSocketPoolManagerImpl
   SSLClientSocketPool* GetSSLSocketPool() override;
 
   SOCKSClientSocketPool* GetSocketPoolForSOCKSProxy(
-      const HostPortPair& socks_proxy) override;
+      const ProxyServer& socks_proxy) override;
 
-  HttpProxyClientSocketPool* GetSocketPoolForHTTPProxy(
-      const HostPortPair& http_proxy) override;
+  HttpProxyClientSocketPool* GetSocketPoolForHTTPLikeProxy(
+      const ProxyServer& http_proxy) override;
 
   SSLClientSocketPool* GetSocketPoolForSSLWithProxy(
-      const HostPortPair& proxy_server) override;
+      const ProxyServer& proxy_server) override;
 
   // Creates a Value summary of the state of the socket pools.
   std::unique_ptr<base::Value> SocketPoolInfoToValue() const override;
@@ -92,13 +95,13 @@ class NET_EXPORT_PRIVATE ClientSocketPoolManagerImpl
 
  private:
   using TransportSocketPoolMap =
-      std::map<HostPortPair, std::unique_ptr<TransportClientSocketPool>>;
+      std::map<ProxyServer, std::unique_ptr<TransportClientSocketPool>>;
   using SOCKSSocketPoolMap =
-      std::map<HostPortPair, std::unique_ptr<SOCKSClientSocketPool>>;
+      std::map<ProxyServer, std::unique_ptr<SOCKSClientSocketPool>>;
   using HTTPProxySocketPoolMap =
-      std::map<HostPortPair, std::unique_ptr<HttpProxyClientSocketPool>>;
+      std::map<ProxyServer, std::unique_ptr<HttpProxyClientSocketPool>>;
   using SSLSocketPoolMap =
-      std::map<HostPortPair, std::unique_ptr<SSLClientSocketPool>>;
+      std::map<ProxyServer, std::unique_ptr<SSLClientSocketPool>>;
 
   NetLog* const net_log_;
   ClientSocketFactory* const socket_factory_;
@@ -112,6 +115,7 @@ class NET_EXPORT_PRIVATE ClientSocketPoolManagerImpl
   CTPolicyEnforcer* const ct_policy_enforcer_;
   const std::string ssl_session_cache_shard_;
   SSLConfigService* const ssl_config_service_;
+  ProxyDelegate* const proxy_delegate_;
   const HttpNetworkSession::SocketPoolType pool_type_;
 
   // Note: this ordering is important.

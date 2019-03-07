@@ -11,7 +11,7 @@ import android.view.ContextMenu;
 import org.chromium.chrome.browser.TabLoadStatus;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.tab.Tab.TabHidingType;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabSelectionType;
+import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.BrowserControlsState;
@@ -226,10 +226,24 @@ public interface TabObserver {
      * @param isInMainFrame Whether the navigation is for the main frame.
      * @param isSameDocument Whether the main frame navigation did not cause changes to the
      *                   document (for example scrolling to a named anchor or PopState).
-     * @param isErrorPage Whether the navigation shows an error page.
+     * @param navigationHandleProxy Pointer to a NavigationHandleProxy representing the navigation.
+     *                              Its lifetime is bound to this function. Do not store it. It can
+     *                              be used to modify headers.
      */
     public void onDidStartNavigation(Tab tab, String url, boolean isInMainFrame,
-            boolean isSameDocument, boolean isErrorPage);
+            boolean isSameDocument, long navigationHandleProxy);
+
+    /**
+     * Called when a navigation is redirected in the WebContents.
+     * @param tab The notifying {@link Tab}.
+     * @param url The validated URL for the loading page.
+     * @param isInMainFrame Whether the navigation is for the main frame.
+     * @param navigationHandleProxy Pointer to a NavigationHandleProxy representing the navigation.
+     *                              Its lifetime is bound to this function. Do not store it. It can
+     *                              be used to modify headers.
+     */
+    public void onDidRedirectNavigation(
+            Tab tab, String url, boolean isInMainFrame, long navigationHandleProxy);
 
     /**
      * Called when a navigation is finished i.e. committed, aborted or replaced by a new one.

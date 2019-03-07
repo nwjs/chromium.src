@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 
-#import <CoreGraphics/CoreGraphics.h>
 #include <memory>
 #include <string>
 #include <utility>
@@ -22,7 +21,6 @@
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
-#include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
 class GURL;
@@ -42,6 +40,7 @@ class Value;
 
 namespace gfx {
 class Image;
+class RectF;
 }
 
 namespace web {
@@ -153,6 +152,11 @@ class WebState : public base::SupportsUserData {
   // Gets the CRWJSInjectionReceiver associated with this WebState.
   virtual CRWJSInjectionReceiver* GetJSInjectionReceiver() const = 0;
 
+  // DISCOURAGED. Prefer using |WebFrame CallJavaScriptFunction| instead because
+  // it restricts JavaScript execution to functions within __gCrWeb and can also
+  // call those functions on any frame in the page. ExecuteJavaScript here can
+  // execute arbitrary JavaScript code, which is not as safe and is retricted to
+  // executing only on the main frame.
   // Runs JavaScript in the main frame's context. If a callback is provided, it
   // will be used to return the result, when the result is available or script
   // execution has failed due to an error.
@@ -304,13 +308,14 @@ class WebState : public base::SupportsUserData {
   virtual void SetHasOpener(bool has_opener) = 0;
 
   // Callback used to handle snapshots. The parameter is the snapshot image.
-  typedef base::OnceCallback<void(gfx::Image)> SnapshotCallback;
+  typedef base::OnceCallback<void(const gfx::Image&)> SnapshotCallback;
 
   // Takes a snapshot of this WebState with |rect|. |rect| should be specified
   // in the coordinate system of the view returned by GetView(). |callback| is
   // asynchronously invoked after performing the snapshot. Prior to iOS 11, the
   // callback is invoked with a nil snapshot.
-  virtual void TakeSnapshot(CGRect rect, SnapshotCallback callback) = 0;
+  virtual void TakeSnapshot(const gfx::RectF& rect,
+                            SnapshotCallback callback) = 0;
 
   // Adds and removes observers for page navigation notifications. The order in
   // which notifications are sent to observers is undefined. Clients must be

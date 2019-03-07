@@ -26,7 +26,7 @@ class MarkRequestCompleteTask : public DatabaseTask {
 
   MarkRequestCompleteTask(
       DatabaseTaskHost* host,
-      BackgroundFetchRegistrationId registration_id,
+      const BackgroundFetchRegistrationId& registration_id,
       scoped_refptr<BackgroundFetchRequestInfo> request_info,
       MarkRequestCompleteCallback callback);
 
@@ -40,12 +40,10 @@ class MarkRequestCompleteTask : public DatabaseTask {
 
   void PopulateResponseBody(blink::mojom::FetchAPIResponse* response);
 
-  void DidGetIsQuotaAvailable(blink::mojom::FetchAPIResponsePtr response,
-                              base::OnceClosure done_closure,
+  void DidGetIsQuotaAvailable(base::OnceClosure done_closure,
                               bool is_available);
 
-  void DidOpenCache(blink::mojom::FetchAPIResponsePtr response,
-                    base::OnceClosure done_closure,
+  void DidOpenCache(base::OnceClosure done_closure,
                     CacheStorageCacheHandle handle,
                     blink::mojom::CacheStorageError error);
 
@@ -76,6 +74,7 @@ class MarkRequestCompleteTask : public DatabaseTask {
 
   BackgroundFetchRegistrationId registration_id_;
   scoped_refptr<BackgroundFetchRequestInfo> request_info_;
+  blink::mojom::FetchAPIResponsePtr response_;
   MarkRequestCompleteCallback callback_;
 
   proto::BackgroundFetchCompletedRequest completed_request_;

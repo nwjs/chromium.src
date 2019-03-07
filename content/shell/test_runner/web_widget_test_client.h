@@ -25,7 +25,8 @@ class WebWidgetTestClient : public blink::WebWidgetClient {
  public:
   // Caller has to ensure that all arguments (i.e. |test_runner| and |delegate|)
   // live longer than |this|.
-  WebWidgetTestClient(WebWidgetTestProxyBase* web_widget_test_proxy_base);
+  explicit WebWidgetTestClient(
+      WebWidgetTestProxyBase* web_widget_test_proxy_base);
 
   ~WebWidgetTestClient() override;
 
@@ -41,9 +42,6 @@ class WebWidgetTestClient : public blink::WebWidgetClient {
                      blink::WebDragOperationsMask mask,
                      const SkBitmap& drag_image,
                      const gfx::Point& image_offset) override;
-
-  // WebWidgetClient overrides that are not used.
-  bool AllowsBrokenNullLayerTreeView() const override;
 
  private:
   void AnimateNow();

@@ -120,7 +120,7 @@ void SpinButtonElement::DefaultEventHandler(Event& event) {
     if (box->PixelSnappedBorderBoxRect().Contains(local)) {
       if (!capturing_) {
         if (LocalFrame* frame = GetDocument().GetFrame()) {
-          frame->GetEventHandler().SetCapturingMouseEventsNode(this);
+          frame->GetEventHandler().SetCapturingMouseEventsElement(this);
           capturing_ = true;
           if (Page* page = GetDocument().GetPage())
             page->GetChromeClient().RegisterPopupOpeningObserver(this);
@@ -191,7 +191,7 @@ void SpinButtonElement::ReleaseCapture(EventDispatch event_dispatch) {
   if (!capturing_)
     return;
   if (LocalFrame* frame = GetDocument().GetFrame()) {
-    frame->GetEventHandler().SetCapturingMouseEventsNode(nullptr);
+    frame->GetEventHandler().SetCapturingMouseEventsElement(nullptr);
     capturing_ = false;
     if (Page* page = GetDocument().GetPage())
       page->GetChromeClient().UnregisterPopupOpeningObserver(this);
@@ -250,7 +250,7 @@ bool SpinButtonElement::ShouldRespondToMouseEvents() {
          spin_button_owner_->ShouldSpinButtonRespondToMouseEvents();
 }
 
-void SpinButtonElement::Trace(blink::Visitor* visitor) {
+void SpinButtonElement::Trace(Visitor* visitor) {
   visitor->Trace(spin_button_owner_);
   HTMLDivElement::Trace(visitor);
 }

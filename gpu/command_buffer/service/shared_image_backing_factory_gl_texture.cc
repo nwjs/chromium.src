@@ -8,6 +8,7 @@
 #include "base/trace_event/memory_dump_manager.h"
 #include "base/trace_event/trace_event.h"
 #include "components/viz/common/resources/resource_format_utils.h"
+#include "gpu/command_buffer/common/gles2_cmd_utils.h"
 #include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/shared_image_trace_utils.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
@@ -20,7 +21,7 @@
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_preferences.h"
-#include "third_party/skia/include/gpu/GrBackendSurface.h"
+#include "third_party/skia/include/core/SkPromiseImageTexture.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gl/gl_bindings.h"
@@ -32,6 +33,106 @@
 namespace gpu {
 
 namespace {
+
+class ScopedResetAndRestoreUnpackState {
+ public:
+  ScopedResetAndRestoreUnpackState(gl::GLApi* api,
+                                   bool es3_capable,
+                                   bool desktop_gl,
+                                   bool supports_unpack_subimage,
+                                   bool uploading_data)
+      : api_(api) {
+    if (es3_capable) {
+      // Need to unbind any GL_PIXEL_UNPACK_BUFFER for the nullptr in
+      // glTexImage2D to mean "no pixels" (as opposed to offset 0 in the
+      // buffer).
+      api_->glGetIntegervFn(GL_PIXEL_UNPACK_BUFFER_BINDING, &unpack_buffer_);
+      if (unpack_buffer_)
+        api_->glBindBufferFn(GL_PIXEL_UNPACK_BUFFER, 0);
+    }
+    if (uploading_data) {
+      api_->glGetIntegervFn(GL_UNPACK_ALIGNMENT, &unpack_alignment_);
+      if (unpack_alignment_ != 4)
+        api_->glPixelStoreiFn(GL_UNPACK_ALIGNMENT, 4);
+
+      if (es3_capable || supports_unpack_subimage) {
+        api_->glGetIntegervFn(GL_UNPACK_ROW_LENGTH, &unpack_row_length_);
+        if (unpack_row_length_)
+          api_->glPixelStoreiFn(GL_UNPACK_ROW_LENGTH, 0);
+        api_->glGetIntegervFn(GL_UNPACK_SKIP_ROWS, &unpack_skip_rows_);
+        if (unpack_skip_rows_)
+          api_->glPixelStoreiFn(GL_UNPACK_SKIP_ROWS, 0);
+        api_->glGetIntegervFn(GL_UNPACK_SKIP_PIXELS, &unpack_skip_pixels_);
+        if (unpack_skip_pixels_)
+          api_->glPixelStoreiFn(GL_UNPACK_SKIP_PIXELS, 0);
+      }
+
+      if (es3_capable) {
+        api_->glGetIntegervFn(GL_UNPACK_SKIP_IMAGES, &unpack_skip_images_);
+        if (unpack_skip_images_)
+          api_->glPixelStoreiFn(GL_UNPACK_SKIP_IMAGES, 0);
+        api_->glGetIntegervFn(GL_UNPACK_IMAGE_HEIGHT, &unpack_image_height_);
+        if (unpack_image_height_)
+          api_->glPixelStoreiFn(GL_UNPACK_IMAGE_HEIGHT, 0);
+      }
+
+      if (desktop_gl) {
+        api->glGetBooleanvFn(GL_UNPACK_SWAP_BYTES, &unpack_swap_bytes_);
+        if (unpack_swap_bytes_)
+          api->glPixelStoreiFn(GL_UNPACK_SWAP_BYTES, GL_FALSE);
+        api->glGetBooleanvFn(GL_UNPACK_LSB_FIRST, &unpack_lsb_first_);
+        if (unpack_lsb_first_)
+          api->glPixelStoreiFn(GL_UNPACK_LSB_FIRST, GL_FALSE);
+      }
+    }
+  }
+
+  ~ScopedResetAndRestoreUnpackState() {
+    if (unpack_buffer_)
+      api_->glBindBufferFn(GL_PIXEL_UNPACK_BUFFER, unpack_buffer_);
+    if (unpack_alignment_ != 4)
+      api_->glPixelStoreiFn(GL_UNPACK_ALIGNMENT, unpack_alignment_);
+    if (unpack_row_length_)
+      api_->glPixelStoreiFn(GL_UNPACK_ROW_LENGTH, unpack_row_length_);
+    if (unpack_image_height_)
+      api_->glPixelStoreiFn(GL_UNPACK_IMAGE_HEIGHT, unpack_image_height_);
+    if (unpack_skip_rows_)
+      api_->glPixelStoreiFn(GL_UNPACK_SKIP_ROWS, unpack_skip_rows_);
+    if (unpack_skip_images_)
+      api_->glPixelStoreiFn(GL_UNPACK_SKIP_IMAGES, unpack_skip_images_);
+    if (unpack_skip_pixels_)
+      api_->glPixelStoreiFn(GL_UNPACK_SKIP_PIXELS, unpack_skip_pixels_);
+    if (unpack_swap_bytes_)
+      api_->glPixelStoreiFn(GL_UNPACK_SWAP_BYTES, unpack_swap_bytes_);
+    if (unpack_lsb_first_)
+      api_->glPixelStoreiFn(GL_UNPACK_LSB_FIRST, unpack_lsb_first_);
+  }
+
+ private:
+  gl::GLApi* const api_;
+
+  // Always used if |es3_capable|.
+  GLint unpack_buffer_ = 0;
+
+  // Always used when |uploading_data|.
+  GLint unpack_alignment_ = 4;
+
+  // Used when |uploading_data_| and (|es3_capable| or
+  // |supports_unpack_subimage|).
+  GLint unpack_row_length_ = 0;
+  GLint unpack_skip_pixels_ = 0;
+  GLint unpack_skip_rows_ = 0;
+
+  // Used when |uploading_data| and |es3_capable|.
+  GLint unpack_skip_images_ = 0;
+  GLint unpack_image_height_ = 0;
+
+  // Used when |desktop_gl|.
+  GLboolean unpack_swap_bytes_ = GL_FALSE;
+  GLboolean unpack_lsb_first_ = GL_FALSE;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedResetAndRestoreUnpackState);
+};
 
 class ScopedRestoreTexture {
  public:
@@ -128,38 +229,45 @@ class SharedImageRepresentationGLTexturePassthroughImpl
 
 class SharedImageRepresentationSkiaImpl : public SharedImageRepresentationSkia {
  public:
-  SharedImageRepresentationSkiaImpl(SharedImageManager* manager,
-                                    SharedImageBacking* backing,
-                                    MemoryTypeTracker* tracker,
-                                    GLenum target,
-                                    GLenum internal_format,
-                                    GLenum driver_internal_format,
-                                    GLuint service_id)
+  SharedImageRepresentationSkiaImpl(
+      SharedImageManager* manager,
+      SharedImageBacking* backing,
+      sk_sp<SkPromiseImageTexture> cached_promise_texture,
+      MemoryTypeTracker* tracker,
+      GLenum target,
+      GLuint service_id)
       : SharedImageRepresentationSkia(manager, backing, tracker),
-        target_(target),
-        internal_format_(internal_format),
-        driver_internal_format_(driver_internal_format),
-        service_id_(service_id) {}
+        promise_texture_(cached_promise_texture) {
+    if (!promise_texture_) {
+      GrBackendTexture backend_texture;
+      GetGrBackendTexture(gl::GLContext::GetCurrent()->GetVersionInfo(), target,
+                          size(), service_id, format(), &backend_texture);
+      promise_texture_ = SkPromiseImageTexture::Make(backend_texture);
+    }
+#if DCHECK_IS_ON()
+    context_ = gl::GLContext::GetCurrent();
+#endif
+  }
 
   ~SharedImageRepresentationSkiaImpl() override { DCHECK(!write_surface_); }
 
   sk_sp<SkSurface> BeginWriteAccess(
       GrContext* gr_context,
       int final_msaa_count,
-      SkColorType color_type,
       const SkSurfaceProps& surface_props) override {
+    CheckContext();
     if (write_surface_)
       return nullptr;
 
-    GrBackendTexture backend_texture;
-    if (!GetGrBackendTexture(target_, size(), internal_format_,
-                             driver_internal_format_, service_id_, color_type,
-                             &backend_texture)) {
+    if (!promise_texture_) {
       return nullptr;
     }
+    SkColorType sk_color_type = viz::ResourceFormatToClosestSkColorType(
+        /*gpu_compositing=*/true, format());
     auto surface = SkSurface::MakeFromBackendTextureAsRenderTarget(
-        gr_context, backend_texture, kTopLeft_GrSurfaceOrigin, final_msaa_count,
-        color_type, nullptr, &surface_props);
+        gr_context, promise_texture_->backendTexture(),
+        kTopLeft_GrSurfaceOrigin, final_msaa_count, sk_color_type, nullptr,
+        &surface_props);
     write_surface_ = surface.get();
     return surface;
   }
@@ -167,31 +275,35 @@ class SharedImageRepresentationSkiaImpl : public SharedImageRepresentationSkia {
   void EndWriteAccess(sk_sp<SkSurface> surface) override {
     DCHECK_EQ(surface.get(), write_surface_);
     DCHECK(surface->unique());
+    CheckContext();
     // TODO(ericrk): Keep the surface around for re-use.
     write_surface_ = nullptr;
   }
 
-  bool BeginReadAccess(SkColorType color_type,
-                       GrBackendTexture* backend_texture) override {
-    if (!GetGrBackendTexture(target_, size(), internal_format_,
-                             driver_internal_format_, service_id_, color_type,
-                             backend_texture)) {
-      return false;
-    }
-    return true;
+  sk_sp<SkPromiseImageTexture> BeginReadAccess(SkSurface* sk_surface) override {
+    CheckContext();
+    return promise_texture_;
   }
 
   void EndReadAccess() override {
     // TODO(ericrk): Handle begin/end correctness checks.
   }
 
+  sk_sp<SkPromiseImageTexture> promise_texture() { return promise_texture_; }
+
  private:
-  GLenum target_;
-  GLenum internal_format_ = 0;
-  GLenum driver_internal_format_ = 0;
-  GLuint service_id_;
+  void CheckContext() {
+#if DCHECK_IS_ON()
+    DCHECK(gl::GLContext::GetCurrent() == context_);
+#endif
+  }
+
+  sk_sp<SkPromiseImageTexture> promise_texture_;
 
   SkSurface* write_surface_ = nullptr;
+#if DCHECK_IS_ON()
+  gl::GLContext* context_;
+#endif
 };
 
 // Implementation of SharedImageBacking that creates a GL Texture and stores it
@@ -203,18 +315,14 @@ class SharedImageBackingGLTexture : public SharedImageBacking {
                               const gfx::Size& size,
                               const gfx::ColorSpace& color_space,
                               uint32_t usage,
-                              gles2::Texture* texture,
-                              GLenum internal_format,
-                              GLenum driver_internal_format)
+                              gles2::Texture* texture)
       : SharedImageBacking(mailbox,
                            format,
                            size,
                            color_space,
                            usage,
                            texture->estimated_size()),
-        texture_(texture),
-        internal_format_(internal_format),
-        driver_internal_format_(driver_internal_format) {
+        texture_(texture) {
     DCHECK(texture_);
   }
 
@@ -288,15 +396,16 @@ class SharedImageBackingGLTexture : public SharedImageBacking {
   std::unique_ptr<SharedImageRepresentationSkia> ProduceSkia(
       SharedImageManager* manager,
       MemoryTypeTracker* tracker) override {
-    return std::make_unique<SharedImageRepresentationSkiaImpl>(
-        manager, this, tracker, texture_->target(), internal_format_,
-        driver_internal_format_, texture_->service_id());
+    auto result = std::make_unique<SharedImageRepresentationSkiaImpl>(
+        manager, this, cached_promise_texture_, tracker, texture_->target(),
+        texture_->service_id());
+    cached_promise_texture_ = result->promise_texture();
+    return result;
   }
 
  private:
   gles2::Texture* texture_ = nullptr;
-  GLenum internal_format_ = 0;
-  GLenum driver_internal_format_ = 0;
+  sk_sp<SkPromiseImageTexture> cached_promise_texture_;
 };
 
 // Implementation of SharedImageBacking that creates a GL Texture and stores it
@@ -311,8 +420,7 @@ class SharedImageBackingPassthroughGLTexture : public SharedImageBacking {
       const gfx::ColorSpace& color_space,
       uint32_t usage,
       scoped_refptr<gles2::TexturePassthrough> passthrough_texture,
-      GLenum internal_format,
-      GLenum driver_internal_format)
+      bool is_cleared)
       : SharedImageBacking(mailbox,
                            format,
                            size,
@@ -320,8 +428,7 @@ class SharedImageBackingPassthroughGLTexture : public SharedImageBacking {
                            usage,
                            passthrough_texture->estimated_size()),
         texture_passthrough_(std::move(passthrough_texture)),
-        internal_format_(internal_format),
-        driver_internal_format_(driver_internal_format) {
+        is_cleared_(is_cleared) {
     DCHECK(texture_passthrough_);
   }
 
@@ -359,6 +466,26 @@ class SharedImageBackingPassthroughGLTexture : public SharedImageBacking {
     texture_passthrough_.reset();
   }
 
+  void OnMemoryDump(const std::string& dump_name,
+                    base::trace_event::MemoryAllocatorDump* dump,
+                    base::trace_event::ProcessMemoryDump* pmd,
+                    uint64_t client_tracing_id) override {
+    // Add a |service_guid| which expresses shared ownership between the
+    // various GPU dumps.
+    auto client_guid = GetSharedImageGUIDForTracing(mailbox());
+    auto service_guid = gl::GetGLTextureServiceGUIDForTracing(
+        texture_passthrough_->service_id());
+    pmd->CreateSharedGlobalAllocatorDump(service_guid);
+
+    int importance = 2;  // This client always owns the ref.
+    pmd->AddOwnershipEdge(client_guid, service_guid, importance);
+
+    auto* gl_image = texture_passthrough_->GetLevelImage(
+        texture_passthrough_->target(), /*level=*/0);
+    if (gl_image)
+      gl_image->OnMemoryDump(pmd, client_tracing_id, dump_name);
+  }
+
  protected:
   std::unique_ptr<SharedImageRepresentationGLTexturePassthrough>
   ProduceGLTexturePassthrough(SharedImageManager* manager,
@@ -369,16 +496,17 @@ class SharedImageBackingPassthroughGLTexture : public SharedImageBacking {
   std::unique_ptr<SharedImageRepresentationSkia> ProduceSkia(
       SharedImageManager* manager,
       MemoryTypeTracker* tracker) override {
-    return std::make_unique<SharedImageRepresentationSkiaImpl>(
-        manager, this, tracker, texture_passthrough_->target(),
-        internal_format_, driver_internal_format_,
-        texture_passthrough_->service_id());
+    auto result = std::make_unique<SharedImageRepresentationSkiaImpl>(
+        manager, this, cached_promise_texture_, tracker,
+        texture_passthrough_->target(), texture_passthrough_->service_id());
+    cached_promise_texture_ = result->promise_texture();
+    return result;
   }
 
  private:
   scoped_refptr<gles2::TexturePassthrough> texture_passthrough_;
-  GLenum internal_format_ = 0;
-  GLenum driver_internal_format_ = 0;
+  sk_sp<SkPromiseImageTexture> cached_promise_texture_;
+
   bool is_cleared_ = false;
 };
 
@@ -406,6 +534,12 @@ SharedImageBackingFactoryGLTexture::SharedImageBackingFactoryGLTexture(
       feature_info->feature_flags().gpu_memory_buffer_formats;
   texture_usage_angle_ = feature_info->feature_flags().angle_texture_usage;
   es3_capable_ = feature_info->IsES3Capable();
+  desktop_gl_ = !feature_info->gl_version_info().is_es;
+  // Can't use the value from feature_info, as we unconditionally enable this
+  // extension, and assume it can't be used if PBOs are not used (which isn't
+  // true for Skia used direclty against GL).
+  supports_unpack_subimage_ =
+      gl::g_current_gl_driver->ext.b_GL_EXT_unpack_subimage;
   bool enable_texture_storage =
       feature_info->feature_flags().ext_texture_storage;
   bool enable_scanout_images =
@@ -414,17 +548,20 @@ SharedImageBackingFactoryGLTexture::SharedImageBackingFactoryGLTexture(
   for (int i = 0; i <= viz::RESOURCE_FORMAT_MAX; ++i) {
     auto format = static_cast<viz::ResourceFormat>(i);
     FormatInfo& info = format_info_[i];
-    // TODO(piman): do we need to support ETC1?
-    if (!viz::GLSupportsFormat(format) ||
-        viz::IsResourceFormatCompressed(format))
+    if (!viz::GLSupportsFormat(format))
       continue;
     GLuint image_internal_format = viz::GLInternalFormat(format);
     GLenum gl_format = viz::GLDataFormat(format);
     GLenum gl_type = viz::GLDataType(format);
-    if (validators->texture_internal_format.IsValid(image_internal_format) &&
-        validators->texture_format.IsValid(gl_format) &&
+    bool uncompressed_format_valid =
+        validators->texture_internal_format.IsValid(image_internal_format) &&
+        validators->texture_format.IsValid(gl_format);
+    bool compressed_format_valid =
+        validators->compressed_texture_format.IsValid(image_internal_format);
+    if ((uncompressed_format_valid || compressed_format_valid) &&
         validators->pixel_type.IsValid(gl_type)) {
       info.enabled = true;
+      info.is_compressed = compressed_format_valid;
       info.gl_format = gl_format;
       info.gl_type = gl_type;
       info.swizzle = gles2::TextureManager::GetCompatibilitySwizzle(
@@ -437,7 +574,7 @@ SharedImageBackingFactoryGLTexture::SharedImageBackingFactoryGLTexture(
     }
     if (!info.enabled)
       continue;
-    if (enable_texture_storage) {
+    if (enable_texture_storage && !info.is_compressed) {
       GLuint storage_internal_format = viz::TextureStorageFormat(format);
       if (validators->texture_internal_format_storage.IsValid(
               storage_internal_format)) {
@@ -481,6 +618,18 @@ SharedImageBackingFactoryGLTexture::CreateSharedImage(
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
     uint32_t usage) {
+  return CreateSharedImage(mailbox, format, size, color_space, usage,
+                           base::span<const uint8_t>());
+}
+
+std::unique_ptr<SharedImageBacking>
+SharedImageBackingFactoryGLTexture::CreateSharedImage(
+    const Mailbox& mailbox,
+    viz::ResourceFormat format,
+    const gfx::Size& size,
+    const gfx::ColorSpace& color_space,
+    uint32_t usage,
+    base::span<const uint8_t> pixel_data) {
   const FormatInfo& format_info = format_info_[format];
   if (!format_info.enabled) {
     LOG(ERROR) << "CreateSharedImage: invalid format";
@@ -501,6 +650,54 @@ SharedImageBackingFactoryGLTexture::CreateSharedImage(
 
   GLenum target = use_buffer ? format_info.target_for_scanout : GL_TEXTURE_2D;
 
+  // If we have initial data to upload, ensure it is sized appropriately.
+  if (!pixel_data.empty()) {
+    if (format_info.is_compressed) {
+      const char* error_message = "unspecified";
+      if (!gles2::ValidateCompressedTexDimensions(
+              target, 0 /* level */, size.width(), size.height(), 1 /* depth */,
+              format_info.image_internal_format, false /* restrict_for_webgl */,
+              &error_message)) {
+        LOG(ERROR) << "CreateSharedImage: "
+                      "ValidateCompressedTexDimensionsFailed with error: "
+                   << error_message;
+        return nullptr;
+      }
+
+      GLsizei bytes_required = 0;
+      if (!gles2::GetCompressedTexSizeInBytes(
+              nullptr /* function_name */, size.width(), size.height(),
+              1 /* depth */, format_info.image_internal_format, &bytes_required,
+              nullptr /* error_state */)) {
+        LOG(ERROR) << "CreateSharedImage: Unable to compute required size for "
+                      "initial texture upload.";
+        return nullptr;
+      }
+
+      if (bytes_required < 0 ||
+          pixel_data.size() != static_cast<size_t>(bytes_required)) {
+        LOG(ERROR) << "CreateSharedImage: Initial data does not have expected "
+                      "size.";
+        return nullptr;
+      }
+    } else {
+      uint32_t bytes_required;
+      if (!gles2::GLES2Util::ComputeImageDataSizes(
+              size.width(), size.height(), 1 /* depth */, format_info.gl_format,
+              format_info.gl_type, 4 /* alignment */, &bytes_required, nullptr,
+              nullptr)) {
+        LOG(ERROR) << "CreateSharedImage: Unable to compute required size for "
+                      "initial texture upload.";
+        return nullptr;
+      }
+      if (pixel_data.size() != bytes_required) {
+        LOG(ERROR) << "CreateSharedImage: Initial data does not have expected "
+                      "size.";
+        return nullptr;
+      }
+    }
+  }
+
   gl::GLApi* api = gl::g_current_gl_context;
   ScopedRestoreTexture scoped_restore(api, target);
 
@@ -516,6 +713,7 @@ SharedImageBackingFactoryGLTexture::CreateSharedImage(
   // the internal format in the LevelInfo. https://crbug.com/628064
   GLuint level_info_internal_format = format_info.gl_format;
   bool is_cleared = false;
+  bool needs_subimage_upload = false;
   if (use_buffer) {
     image = image_factory_->CreateAnonymousImage(
         size, format_info.buffer_format, gfx::BufferUsage::SCANOUT,
@@ -528,32 +726,44 @@ SharedImageBackingFactoryGLTexture::CreateSharedImage(
     level_info_internal_format = image->GetInternalFormat();
     if (color_space.IsValid())
       image->SetColorSpace(color_space);
+    needs_subimage_upload = !pixel_data.empty();
   } else if (format_info.supports_storage) {
     api->glTexStorage2DEXTFn(target, 1, format_info.storage_internal_format,
                              size.width(), size.height());
+    needs_subimage_upload = !pixel_data.empty();
+  } else if (format_info.is_compressed) {
+    ScopedResetAndRestoreUnpackState scoped_unpack_state(
+        api, es3_capable_, desktop_gl_, supports_unpack_subimage_,
+        !pixel_data.empty());
+    api->glCompressedTexImage2DFn(target, 0, format_info.image_internal_format,
+                                  size.width(), size.height(), 0,
+                                  pixel_data.size(), pixel_data.data());
   } else {
-    // Need to unbind any GL_PIXEL_UNPACK_BUFFER for the nullptr in
-    // glTexImage2D to mean "no pixels" (as opposed to offset 0 in the
-    // buffer).
-    GLint bound_pixel_unpack_buffer = 0;
-    if (es3_capable_) {
-      api->glGetIntegervFn(GL_PIXEL_UNPACK_BUFFER_BINDING,
-                           &bound_pixel_unpack_buffer);
-      if (bound_pixel_unpack_buffer)
-        api->glBindBufferFn(GL_PIXEL_UNPACK_BUFFER, 0);
-    }
+    ScopedResetAndRestoreUnpackState scoped_unpack_state(
+        api, es3_capable_, desktop_gl_, supports_unpack_subimage_,
+        !pixel_data.empty());
     api->glTexImage2DFn(target, 0, format_info.image_internal_format,
                         size.width(), size.height(), 0,
                         format_info.adjusted_format, format_info.gl_type,
-                        nullptr);
-    if (bound_pixel_unpack_buffer)
-      api->glBindBufferFn(GL_PIXEL_UNPACK_BUFFER, bound_pixel_unpack_buffer);
+                        pixel_data.data());
+  }
+
+  // If we are using a buffer or TexStorage API but have data to upload, do so
+  // now via TexSubImage2D.
+  if (needs_subimage_upload) {
+    ScopedResetAndRestoreUnpackState scoped_unpack_state(
+        api, es3_capable_, desktop_gl_, supports_unpack_subimage_,
+        !pixel_data.empty());
+    api->glTexSubImage2DFn(target, 0, 0, 0, size.width(), size.height(),
+                           format_info.adjusted_format, format_info.gl_type,
+                           pixel_data.data());
   }
 
   return MakeBacking(mailbox, target, service_id, image, gles2::Texture::BOUND,
                      level_info_internal_format, format_info.gl_format,
-                     format_info.gl_type, format_info.swizzle, is_cleared,
-                     format, size, color_space, usage);
+                     format_info.gl_type, format_info.swizzle,
+                     pixel_data.empty() ? is_cleared : true, format, size,
+                     color_space, usage);
 }
 
 std::unique_ptr<SharedImageBacking>
@@ -608,15 +818,11 @@ SharedImageBackingFactoryGLTexture::CreateSharedImage(
     image_state = gles2::Texture::COPIED;
   }
 
-  // TODO(piman): this is consistent with
-  // GLES2DecoderImpl::BindTexImage2DCHROMIUMImpl or
-  // RasterDecoderImpl::DoBindTexImage2DCHROMIUM but seems wrong:
-  //
-  // - internalformat might be sized, which is wrong for format
-  // - gl_type shouldn't be GL_UNSIGNED_BYTE for RGBA4444 for example.
   GLuint internal_format = image->GetInternalFormat();
-  GLenum gl_format = internal_format;
-  GLenum gl_type = GL_UNSIGNED_BYTE;
+  GLenum gl_format =
+      gles2::TextureManager::ExtractFormatFromStorageFormat(internal_format);
+  GLenum gl_type =
+      gles2::TextureManager::ExtractTypeFromStorageFormat(internal_format);
 
   return MakeBacking(mailbox, target, service_id, image, image_state,
                      internal_format, gl_format, gl_type, nullptr, true, format,
@@ -629,24 +835,23 @@ scoped_refptr<gl::GLImage> SharedImageBackingFactoryGLTexture::MakeGLImage(
     gfx::BufferFormat format,
     SurfaceHandle surface_handle,
     const gfx::Size& size) {
+  if (handle.type == gfx::SHARED_MEMORY_BUFFER) {
+    if (!base::IsValueInRangeForNumericType<size_t>(handle.stride))
+      return nullptr;
+    auto image = base::MakeRefCounted<gl::GLImageSharedMemory>(size);
+    if (!image->Initialize(handle.region, handle.id, format, handle.offset,
+                           handle.stride)) {
+      return nullptr;
+    }
+
+    return image;
+  }
+
   if (!image_factory_)
     return nullptr;
-  switch (handle.type) {
-    case gfx::SHARED_MEMORY_BUFFER: {
-      if (!base::IsValueInRangeForNumericType<size_t>(handle.stride))
-        return nullptr;
-      auto image = base::MakeRefCounted<gl::GLImageSharedMemory>(size);
-      if (!image->Initialize(handle.region, handle.id, format, handle.offset,
-                             handle.stride)) {
-        return nullptr;
-      }
 
-      return image;
-    }
-    default:
-      return image_factory_->CreateImageForGpuMemoryBuffer(
-          std::move(handle), size, format, client_id, surface_handle);
-  }
+  return image_factory_->CreateImageForGpuMemoryBuffer(
+      std::move(handle), size, format, client_id, surface_handle);
 }
 
 std::unique_ptr<SharedImageBacking>
@@ -665,12 +870,6 @@ SharedImageBackingFactoryGLTexture::MakeBacking(
     const gfx::Size& size,
     const gfx::ColorSpace& color_space,
     uint32_t usage) {
-  // Calculate |driver_internal_format| here rather than caching on
-  // format_info, as we need to use the |level_info_internal_format| which may
-  // depend on the generated |image|.
-  GLenum driver_internal_format =
-      gl::GetInternalFormat(gl::GLContext::GetCurrent()->GetVersionInfo(),
-                            level_info_internal_format);
   if (use_passthrough_) {
     scoped_refptr<gles2::TexturePassthrough> passthrough_texture =
         base::MakeRefCounted<gles2::TexturePassthrough>(service_id, target);
@@ -686,8 +885,7 @@ SharedImageBackingFactoryGLTexture::MakeBacking(
 
     return std::make_unique<SharedImageBackingPassthroughGLTexture>(
         mailbox, format, size, color_space, usage,
-        std::move(passthrough_texture), level_info_internal_format,
-        driver_internal_format);
+        std::move(passthrough_texture), is_cleared);
   } else {
     gles2::Texture* texture = new gles2::Texture(service_id);
     texture->SetLightweightRef();
@@ -706,8 +904,7 @@ SharedImageBackingFactoryGLTexture::MakeBacking(
     texture->SetImmutable(true);
 
     return std::make_unique<SharedImageBackingGLTexture>(
-        mailbox, format, size, color_space, usage, texture,
-        level_info_internal_format, driver_internal_format);
+        mailbox, format, size, color_space, usage, texture);
   }
 }
 

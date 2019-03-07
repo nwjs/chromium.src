@@ -19,7 +19,6 @@
 #include "content/common/content_security_policy/csp_disposition_enum.h"
 #include "content/common/frame_message_enums.h"
 #include "content/common/service_worker/service_worker_types.h"
-#include "content/public/common/appcache_info.h"
 #include "content/public/common/page_state.h"
 #include "content/public/common/previews_state.h"
 #include "content/public/common/referrer.h"
@@ -28,7 +27,8 @@
 #include "services/network/public/cpp/resource_request_body.h"
 #include "services/network/public/cpp/resource_response.h"
 #include "services/network/public/cpp/resource_response_info.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom.h"
+#include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
 #include "third_party/blink/public/platform/web_mixed_content_context_type.h"
 #include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
@@ -106,19 +106,26 @@ enum class NavigationDownloadPolicy {
   // and without a user gesture.
   kAllowOpenerCrossOriginNoGesture = 6,
 
-  kMaxValue = kAllowOpenerCrossOriginNoGesture
+  // Download should be prevented when the navigation occurs in an iframe with
+  // |kSandboxDownloads| flag set, and the runtime-enabled-feature
+  // |BlockingDownloadsInSandbox| is enabled.
+  kDisallowSandbox = 7,
+
+  kMaxValue = kDisallowSandbox
 };
 
 // Returns whether the given |policy| should allow for a download. This function
 // should be removed when http://crbug.com/632514 is resolved, when callers will
 // just compare with kAllow.
-bool IsNavigationDownloadAllowed(NavigationDownloadPolicy policy);
+bool CONTENT_EXPORT
+IsNavigationDownloadAllowed(NavigationDownloadPolicy policy);
 
 // Used by all navigation IPCs.
 struct CONTENT_EXPORT CommonNavigationParams {
   CommonNavigationParams();
   CommonNavigationParams(
       const GURL& url,
+      const base::Optional<url::Origin>& initiator_origin,
       const Referrer& referrer,
       ui::PageTransition transition,
       FrameMsg_Navigate_Type::Value navigation_type,
@@ -142,6 +149,11 @@ struct CONTENT_EXPORT CommonNavigationParams {
   // The URL to navigate to.
   // PlzNavigate: May be modified when the navigation is ready to commit.
   GURL url;
+
+  // When a frame navigates another frame, this is the origin of the document
+  // which initiated the navigation. This parameter can be null for
+  // browser-initiated navigations.
+  base::Optional<url::Origin> initiator_origin;
 
   // The URL to send in the "Referer" header field. Can be empty if there is
   // no referrer.
@@ -225,7 +237,7 @@ struct CONTENT_EXPORT CommonNavigationParams {
 
 // PlzNavigate
 // Timings collected in the browser during navigation for the
-// Navigation Timing API. Sent to Blink in RequestNavigationParams when
+// Navigation Timing API. Sent to Blink in CommitNavigationParams when
 // the navigation is ready to be committed.
 struct CONTENT_EXPORT NavigationTiming {
   base::TimeTicks redirect_start;
@@ -233,29 +245,36 @@ struct CONTENT_EXPORT NavigationTiming {
   base::TimeTicks fetch_start;
 };
 
-// Used by FrameMsg_Navigate. Holds the parameters needed by the renderer to
-// start a browser-initiated navigation besides those in CommonNavigationParams.
-// PlzNavigate: sent to the renderer to make it issue a stream request for a
-// navigation that is ready to commit.
-struct CONTENT_EXPORT RequestNavigationParams {
-  RequestNavigationParams();
-  RequestNavigationParams(bool is_overriding_user_agent,
-                          const std::vector<GURL>& redirects,
-                          const GURL& original_url,
-                          const std::string& original_method,
-                          bool can_load_local_resources,
-                          const PageState& page_state,
-                          int nav_entry_id,
-                          bool is_history_navigation_in_new_child,
-                          std::map<std::string, bool> subframe_unique_names,
-                          bool intended_as_new_entry,
-                          int pending_history_list_offset,
-                          int current_history_list_offset,
-                          int current_history_list_length,
-                          bool is_view_source,
-                          bool should_clear_history_list);
-  RequestNavigationParams(const RequestNavigationParams& other);
-  ~RequestNavigationParams();
+// Used by commit IPC messages. Holds the parameters needed by the renderer to
+// commit a navigation besides those in CommonNavigationParams.
+struct CONTENT_EXPORT CommitNavigationParams {
+  CommitNavigationParams();
+  CommitNavigationParams(const base::Optional<url::Origin>& origin_to_commit,
+                         bool is_overriding_user_agent,
+                         const std::vector<GURL>& redirects,
+                         const GURL& original_url,
+                         const std::string& original_method,
+                         bool can_load_local_resources,
+                         const PageState& page_state,
+                         int nav_entry_id,
+                         bool is_history_navigation_in_new_child,
+                         std::map<std::string, bool> subframe_unique_names,
+                         bool intended_as_new_entry,
+                         int pending_history_list_offset,
+                         int current_history_list_offset,
+                         int current_history_list_length,
+                         bool is_view_source,
+                         bool should_clear_history_list);
+  CommitNavigationParams(const CommitNavigationParams& other);
+  ~CommitNavigationParams();
+
+  // The origin to be used for committing the navigation, if specified.
+  // This will be an origin that's compatible with the |url| in the
+  // CommonNavigationParams; if |url| is data: or about:blank, or the frame has
+  // sandbox attributes, this determines the origin of the resulting document.
+  // It is specified for session history navigations, for which the origin is
+  // known and saved in the FrameNavigationEntry.
+  base::Optional<url::Origin> origin_to_commit;
 
   // Whether or not the user agent override string should be used.
   bool is_overriding_user_agent = false;
@@ -351,7 +370,7 @@ struct CONTENT_EXPORT RequestNavigationParams {
 
   // PlzNavigate
   // The AppCache host id to be used to identify this navigation.
-  int appcache_host_id = kAppCacheNoHostId;
+  int appcache_host_id = blink::mojom::kAppCacheNoHostId;
 
   // Set to |kYes| if a navigation is following the rules of user activation
   // propagation. This is different from |has_user_gesture|

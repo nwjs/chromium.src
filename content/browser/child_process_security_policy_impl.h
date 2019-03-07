@@ -20,6 +20,7 @@
 #include "base/memory/singleton.h"
 #include "base/synchronization/lock.h"
 #include "base/thread_annotations.h"
+#include "content/browser/isolation_context.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/common/resource_type.h"
 #include "storage/common/fileapi/file_system_types.h"
@@ -42,6 +43,7 @@ class FileSystemURL;
 
 namespace content {
 
+class IsolationContext;
 class SiteInstance;
 
 class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
@@ -97,15 +99,44 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   bool HasWebUIBindings(int child_id) override;
   void GrantSendMidiSysExMessage(int child_id) override;
   bool CanAccessDataForOrigin(int child_id, const GURL& url) override;
-  bool GetMatchingIsolatedOrigin(const url::Origin& origin,
-                                 url::Origin* result) override;
+
+  // This function will check whether |origin| requires process isolation
+  // within |isolation_context|, and if so, it will return true and put the
+  // most specific matching isolated origin into |result|.
+  //
+  // Such origins may be registered with the --isolate-origins command-line
+  // flag, via features::IsolateOrigins, via an IsolateOrigins enterprise
+  // policy, or by a content/ embedder using
+  // ContentBrowserClient::GetOriginsRequiringDedicatedProcess().
+  //
+  // If |origin| does not require process isolation, this function will return
+  // false, and |result| will be a unique origin. This means that neither
+  // |origin|, nor any origins for which |origin| is a subdomain, have been
+  // registered as isolated origins.
+  //
+  // For example, if both https://isolated.com/ and
+  // https://bar.foo.isolated.com/ are registered as isolated origins, then the
+  // values returned in |result| are:
+  //   https://isolated.com/             -->  https://isolated.com/
+  //   https://foo.isolated.com/         -->  https://isolated.com/
+  //   https://bar.foo.isolated.com/     -->  https://bar.foo.isolated.com/
+  //   https://baz.bar.foo.isolated.com/ -->  https://bar.foo.isolated.com/
+  //   https://unisolated.com/           -->  (unique origin)
+  //
+  // |isolation_context| is used to determine which origins are isolated in
+  // this context.  For example, isolated origins that are dynamically added
+  // will only affect future BrowsingInstances.
+  bool GetMatchingIsolatedOrigin(const IsolationContext& isolation_context,
+                                 const url::Origin& origin,
+                                 url::Origin* result);
 
   // A version of GetMatchingIsolatedOrigin that takes in both the |origin| and
   // the |site_url| that |origin| corresponds to.  |site_url| is the key by
-  // which |origin| will be looked up in |isolated_origins_|; this function
-  // allows it to be passed in when it is already known to avoid recomputing it
-  // internally.
-  bool GetMatchingIsolatedOrigin(const url::Origin& origin,
+  // which |origin| will be looked up in |isolated_origins_| within
+  // |isolation_context|; this function allows it to be passed in when it is
+  // already known to avoid recomputing it internally.
+  bool GetMatchingIsolatedOrigin(const IsolationContext& isolation_context,
+                                 const url::Origin& origin,
                                  const GURL& site_url,
                                  url::Origin* result);
 
@@ -138,14 +169,15 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // this method exactly once.
   void Add(int child_id);
 
-  // Upon creation, worker thread child processes should register themselves by
-  // calling this this method exactly once. Workers that are not shared will
-  // inherit permissions from their parent renderer process identified with
-  // |main_render_process_id|.
-  void AddWorker(int worker_child_id, int main_render_process_id);
-
-  // Upon destruction, child processess should unregister themselves by caling
+  // Upon destruction, child processes should unregister themselves by calling
   // this method exactly once.
+  //
+  // Note: Pre-Remove() permissions remain in effect on the IO thread until
+  // the task posted to the IO thread by this call runs and removes the entry
+  // from |pending_remove_state_|.
+  // This UI -> IO task sequence ensures that any pending tasks, on the IO
+  // thread, for this |child_id| are allowed to run before access is completely
+  // revoked.
   void Remove(int child_id);
 
   // Whenever the browser processes commands the child process to commit a URL,
@@ -205,13 +237,23 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   bool CanDeleteFileSystemFile(int child_id,
                                const storage::FileSystemURL& filesystem_url);
 
+  // True if cookie headers may be exposed to renderer |child_id| for |url| for
+  // display in DevTools. |url| should be a WebSocket URL.
+  bool CanAccessDataForWebSocket(int child_id, const GURL& url);
+
   // Returns true if the specified child_id has been granted ReadRawCookies.
   bool CanReadRawCookies(int child_id);
 
-  // Sets the process as only permitted to use and see the cookies for the
-  // given origin. Most callers should use RenderProcessHostImpl::LockToOrigin
-  // instead of calling this directly.
-  void LockToOrigin(int child_id, const GURL& lock_url);
+  // Sets the process identified by |child_id| as only permitted to access data
+  // for the origin specified by |lock_url|. Most callers should use
+  // RenderProcessHostImpl::LockToOrigin instead of calling this directly.
+  // |isolation_context| provides the context, such as BrowsingInstance, from
+  // which this process was locked to origin.  This information is used when
+  // making isolation decisions for this process, such as determining which
+  // isolated origins pertain to it.
+  void LockToOrigin(const IsolationContext& isolation_context,
+                    int child_id,
+                    const GURL& lock_url);
 
   // Used to indicate the result of comparing a process's origin lock to
   // another value:
@@ -243,10 +285,10 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // Returns true if sending system exclusive messages is allowed.
   bool CanSendMidiSysExMessage(int child_id);
 
-  // Add |origins| to the list of origins that require process isolation.
-  // When making process model decisions for such origins, the full
-  // scheme+host+port tuple rather than scheme and eTLD+1 will be used.
-  // SiteInstances for these origins will also use the full origin as site URL.
+  // Add |origins| to the list of origins that require process isolation.  When
+  // making process model decisions for such origins, the scheme+host tuple
+  // rather than scheme and eTLD+1 will be used.  SiteInstances for these
+  // origins will also use the full host of the isolated origin as site URL.
   //
   // Subdomains of an isolated origin are considered to be part of that
   // origin's site.  For example, if https://isolated.foo.com is added as an
@@ -265,9 +307,20 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   //
   // Note that it is okay if |origins| contains duplicates - the set of origins
   // will be deduplicated inside the method.
+  //
+  // The new isolated origins will apply only to BrowsingInstances and renderer
+  // processes created *after* this call.  This is necessary to not break
+  // scripting relationships between same-origin iframes in existing
+  // BrowsingInstances.  To do this, this function internally determines a
+  // threshold BrowsingInstance ID that is higher than all existing
+  // BrowsingInstance IDs but lower than future BrowsingInstance IDs, and
+  // associates it with each of the |origins|. If an origin had already been
+  // isolated prior to calling this, it is ignored, and its threshold is not
+  // updated.
   void AddIsolatedOrigins(std::vector<url::Origin> origins);
 
-  // Check whether |origin| requires origin-wide process isolation.
+  // Check whether |origin| requires origin-wide process isolation within
+  // |isolation_context|.
   //
   // Subdomains of an isolated origin are considered part of that isolated
   // origin.  Thus, if https://isolated.foo.com/ had been added as an isolated
@@ -275,9 +328,11 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // https://bar.isolated.foo.com/, or https://baz.bar.isolated.foo.com/; and
   // it will return false for https://foo.com/ or https://unisolated.foo.com/.
   //
-  // Note that unlike site URLs for regular web sites, isolated origins care
-  // about port.
-  bool IsIsolatedOrigin(const url::Origin& origin);
+  // |isolation_context| is used to determine which origins are isolated in
+  // this context.  For example, isolated origins that are dynamically added
+  // will only affect future BrowsingInstances.
+  bool IsIsolatedOrigin(const IsolationContext& isolation_context,
+                        const url::Origin& origin);
 
   // Removes a previously added isolated origin, currently only used in tests.
   //
@@ -299,13 +354,48 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
                            NoLeak);
   FRIEND_TEST_ALL_PREFIXES(ChildProcessSecurityPolicyTest, FilePermissions);
   FRIEND_TEST_ALL_PREFIXES(ChildProcessSecurityPolicyTest, AddIsolatedOrigins);
+  FRIEND_TEST_ALL_PREFIXES(ChildProcessSecurityPolicyTest,
+                           DynamicIsolatedOrigins);
 
   class SecurityState;
 
   typedef std::set<std::string> SchemeSet;
   typedef std::map<int, std::unique_ptr<SecurityState>> SecurityStateMap;
-  typedef std::map<int, int> WorkerToMainProcessMap;
   typedef std::map<storage::FileSystemType, int> FileSystemPermissionPolicyMap;
+
+  // This struct holds an isolated origin along with information such as which
+  // BrowsingInstances it applies to.  See |isolated_origins_| below for more
+  // details.
+  struct CONTENT_EXPORT IsolatedOriginEntry {
+    IsolatedOriginEntry(const url::Origin& origin,
+                        BrowsingInstanceId min_browsing_instance_id);
+    // Copyable and movable.
+    IsolatedOriginEntry(const IsolatedOriginEntry& other);
+    IsolatedOriginEntry& operator=(const IsolatedOriginEntry& other);
+    IsolatedOriginEntry(IsolatedOriginEntry&& other);
+    IsolatedOriginEntry& operator=(IsolatedOriginEntry&& other);
+    ~IsolatedOriginEntry();
+
+    // Allow this class to be used as a key in STL.
+    bool operator<(const IsolatedOriginEntry& other) const {
+      return std::tie(origin, min_browsing_instance_id) <
+             std::tie(other.origin, other.min_browsing_instance_id);
+    }
+
+    bool operator==(const IsolatedOriginEntry& other) const {
+      return origin == other.origin &&
+             min_browsing_instance_id == other.min_browsing_instance_id;
+    }
+
+    url::Origin origin;
+    BrowsingInstanceId min_browsing_instance_id;
+    // TODO(alexmos): Track the source of each isolated origin entry, e.g., to
+    // distinguish those that should be displayed to the user from those that
+    // should not.  See https://crbug.com/920911.
+    //
+    // TODO(alexmos): Add a way to associate isolated origin entries with
+    // profiles.  See https://crbug.com/905513.
+  };
 
   // Obtain an instance of ChildProcessSecurityPolicyImpl via GetInstance().
   ChildProcessSecurityPolicyImpl();
@@ -336,9 +426,7 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
       int permission);
 
   // Determines if certain permissions were granted for a file. |permissions|
-  // is an internally defined bit-set. If |child_id| is a worker process,
-  // this returns true if either the worker process or its parent renderer
-  // has permissions for the file.
+  // is an internally defined bit-set.
   bool HasPermissionsForFile(int child_id,
                              const base::FilePath& file,
                              int permissions);
@@ -357,8 +445,14 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
       const std::string& filesystem_id,
       int permission);
 
+  // Gets the SecurityState object associated with |child_id|.
+  // Note: Returned object is only valid for the duration the caller holds
+  // |lock_|.
+  SecurityState* GetSecurityState(int child_id) EXCLUSIVE_LOCKS_REQUIRED(lock_);
+
   // You must acquire this lock before reading or writing any members of this
-  // class.  You must not block while holding this lock.
+  // class, except for isolated_origins_ which uses its own lock.  You must not
+  // block while holding this lock.
   base::Lock lock_;
 
   // These schemes are white-listed for all child processes in various contexts.
@@ -378,16 +472,27 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // not escape this class.
   SecurityStateMap security_state_ GUARDED_BY(lock_);
 
-  // This maps keeps the record of which js worker thread child process
-  // corresponds to which main js thread child process.
-  WorkerToMainProcessMap worker_map_ GUARDED_BY(lock_);
+  // This map holds the SecurityState for a child process after Remove()
+  // is called on the UI thread. An entry stays in this map until a task has
+  // run on the IO thread. This is necessary to provide consistent security
+  // decisions and avoid races between the UI & IO threads during child process
+  // shutdown. This separate map is used to preserve SecurityState info AND
+  // preventing mutation of that state after Remove() is called.
+  SecurityStateMap pending_remove_state_ GUARDED_BY(lock_);
 
   FileSystemPermissionPolicyMap file_system_policy_map_ GUARDED_BY(lock_);
+
+  // You must acquire this lock before reading or writing isolated_origins_.
+  // You must not block while holding this lock.
+  //
+  // It is allowed to hold both |lock_| and |isolated_origins_lock_|, but in
+  // this case, |lock_| should always be acquired first to prevent deadlock.
+  base::Lock isolated_origins_lock_ ACQUIRED_AFTER(lock_);
 
   // Tracks origins for which the entire origin should be treated as a site
   // when making process model decisions, rather than the origin's scheme and
   // eTLD+1. Each of these origins requires a dedicated process.  This set is
-  // protected by |lock_|.
+  // protected by |isolated_origins_lock_|.
   //
   // The origins are stored in a map indexed by a site URL computed for each
   // origin.  For example, adding https://foo.com, https://bar.foo.com, and
@@ -398,8 +503,15 @@ class CONTENT_EXPORT ChildProcessSecurityPolicyImpl
   // found in O(log n) time, and the corresponding list of origins to search
   // using the expensive DoesOriginMatchIsolatedOrigin() comparison is
   // typically small.
-  base::flat_map<GURL, base::flat_set<url::Origin>> isolated_origins_
-      GUARDED_BY(lock_);
+  //
+  // Each origin also stores information about which BrowsingInstances it
+  // applies to, in the form of a minimum BrowsingInstance ID.  This is looked
+  // up at the time the isolated origin is added.  The isolated origin will
+  // apply only to future BrowsingInstances, which will have IDs equal to or
+  // greater than the threshold ID (called |min_browsing_instance_id|) in each
+  // origin's IsolatedOriginEntry.
+  base::flat_map<GURL, base::flat_set<IsolatedOriginEntry>> isolated_origins_
+      GUARDED_BY(isolated_origins_lock_);
 
   DISALLOW_COPY_AND_ASSIGN(ChildProcessSecurityPolicyImpl);
 };

@@ -5,10 +5,11 @@
 #ifndef CHROME_BROWSER_CONFLICTS_MODULE_INFO_WIN_H_
 #define CHROME_BROWSER_CONFLICTS_MODULE_INFO_WIN_H_
 
-#include <memory>
 #include <string>
 
 #include "base/files/file_path.h"
+#include "base/macros.h"
+#include "base/optional.h"
 #include "chrome/browser/conflicts/module_info_util_win.h"
 
 // ModuleInfoKey and ModuleInfoData are used in pair by the ModuleDatabase to
@@ -49,13 +50,15 @@ struct ModuleInfoKey {
 // Holds more detailed information about a given module. Because all of this
 // information is expensive to gather and requires disk access, it should be
 // collected via InspectModule() on a task runner that allow blocking.
+//
+// This struct is move-only to ensure it is not unnecessarily copied.
 struct ModuleInspectionResult {
   ModuleInspectionResult();
+  ModuleInspectionResult(ModuleInspectionResult&& other) noexcept;
+  ModuleInspectionResult& operator=(ModuleInspectionResult&& other) noexcept;
   ~ModuleInspectionResult();
 
-  // The module path, not including the basename. This is cleaned and normalized
-  // so that common paths are converted to their environment variable mappings
-  // (ie, %systemroot%). This makes i18n localized paths easily comparable.
+  // The lowercase module path, not including the basename.
   base::string16 location;
 
   // The basename of the module.
@@ -73,6 +76,9 @@ struct ModuleInspectionResult {
 
   // The certificate info for the module.
   CertificateInfo certificate_info;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ModuleInspectionResult);
 };
 
 // Contains the inspection result of a module and additional information that is
@@ -108,15 +114,13 @@ struct ModuleInfoData {
   uint32_t module_properties;
 
   // The inspection result obtained via InspectModule().
-  std::unique_ptr<ModuleInspectionResult> inspection_result;
+  base::Optional<ModuleInspectionResult> inspection_result;
 };
 
-// Given a module identified by |module_key|, returns a populated
+// Given a module located at |module_path|, returns a populated
 // ModuleInspectionResult that contains detailed information about the module on
 // disk. This is a blocking task that requires access to disk.
-std::unique_ptr<ModuleInspectionResult> InspectModule(
-    const StringMapping& env_variable_mapping,
-    const ModuleInfoKey& module_key);
+ModuleInspectionResult InspectModule(const base::FilePath& module_path);
 
 // Generate the code id of a module.
 std::string GenerateCodeId(const ModuleInfoKey& module_key);

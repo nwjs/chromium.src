@@ -270,6 +270,10 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                                       QuicStreamOffset offset,
                                       bool last_frame_in_packet,
                                       QuicPacketLength data_length);
+  // Returns the overhead of framing a CRYPTO frame with the specific offset and
+  // data length provided, but not counting the size of the data payload.
+  static size_t GetMinCryptoFrameSize(QuicStreamOffset offset,
+                                      QuicPacketLength data_length);
   static size_t GetMessageFrameSize(QuicTransportVersion version,
                                     bool last_frame_in_packet,
                                     QuicByteCount length);
@@ -374,6 +378,12 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                                         char* buffer,
                                         size_t packet_length);
 
+  // Serializes an IETF probing packet, which is a padded PING packet.
+  // Returns the length of the packet. Returns 0 if it fails to serialize.
+  size_t BuildIetfConnectivityProbingPacket(const QuicPacketHeader& header,
+                                            char* buffer,
+                                            size_t packet_length);
+
   // Serialize a probing packet that uses IETF QUIC's PATH CHALLENGE frame. Also
   // fills the packet with padding.
   size_t BuildPaddedPathChallengePacket(const QuicPacketHeader& header,
@@ -417,6 +427,8 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   // header.versions.
   bool AppendPacketHeader(const QuicPacketHeader& header,
                           QuicDataWriter* writer);
+  bool AppendIetfHeaderTypeByte(const QuicPacketHeader& header,
+                                QuicDataWriter* writer);
   bool AppendIetfPacketHeader(const QuicPacketHeader& header,
                               QuicDataWriter* writer);
   bool AppendTypeByte(const QuicFrame& frame,
@@ -489,6 +501,9 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
     version_ = versions[0];
   }
 
+  // Tell framer to infer packet header type from version_.
+  void InferPacketHeaderTypeFromVersion();
+
   // Returns true if data with |offset| of stream |id| starts with 'CHLO'.
   bool StartsWithChlo(QuicStreamId id, QuicStreamOffset offset) const;
 
@@ -501,7 +516,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   // Returns header wire format of last received packet.
   // Please do not use this method.
   // TODO(fayang): Remove last_header_form_ when deprecating
-  // quic_reloadable_flag_quic_proxy_use_real_packet_format_when_reject.
+  // quic_proxy_use_real_packet_format_when_reject flag.
   PacketHeaderFormat GetLastPacketFormat() const;
 
   void set_validate_flags(bool value) { validate_flags_ = value; }
@@ -540,9 +555,9 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
     ~AckFrameInfo();
 
     // The maximum ack block length.
-    QuicPacketNumber max_block_length;
+    QuicPacketCount max_block_length;
     // Length of first ack block.
-    QuicPacketNumber first_block_length;
+    QuicPacketCount first_block_length;
     // Number of ACK blocks needed for the ACK frame.
     size_t num_ack_blocks;
   };
@@ -580,6 +595,8 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   bool ProcessUnauthenticatedHeader(QuicDataReader* encrypted_reader,
                                     QuicPacketHeader* header);
 
+  bool ProcessIetfHeaderTypeByte(QuicDataReader* reader,
+                                 QuicPacketHeader* header);
   bool ProcessIetfPacketHeader(QuicDataReader* reader,
                                QuicPacketHeader* header);
 
@@ -590,7 +607,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
       QuicDataReader* reader,
       QuicPacketNumberLength packet_number_length,
       QuicPacketNumber base_packet_number,
-      QuicPacketNumber* packet_number);
+      uint64_t* packet_number);
   bool ProcessFrameData(QuicDataReader* reader, const QuicPacketHeader& header);
   bool ProcessIetfFrameData(QuicDataReader* reader,
                             const QuicPacketHeader& header);
@@ -628,10 +645,10 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
 
   // Returns the full packet number from the truncated
   // wire format version and the last seen packet number.
-  QuicPacketNumber CalculatePacketNumberFromWire(
+  uint64_t CalculatePacketNumberFromWire(
       QuicPacketNumberLength packet_number_length,
       QuicPacketNumber base_packet_number,
-      QuicPacketNumber packet_number) const;
+      uint64_t packet_number) const;
 
   // Returns the QuicTime::Delta corresponding to the time from when the framer
   // was created.
@@ -668,7 +685,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   // successfully appended.
   static bool AppendAckBlock(uint8_t gap,
                              QuicPacketNumberLength length_length,
-                             QuicPacketNumber length,
+                             uint64_t length,
                              QuicDataWriter* writer);
 
   static uint8_t GetPacketNumberFlags(
@@ -682,7 +699,8 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
       QuicConnectionIdLength destination_connection_id_length,
       QuicConnectionId source_connection_id,
       QuicConnectionIdLength source_connection_id_length,
-      QuicDataWriter* writer);
+      QuicDataWriter* writer,
+      Perspective perspective);
 
   // The Append* methods attempt to write the provided header or frame using the
   // |writer|, and return true if successful.
@@ -865,9 +883,10 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   // owned. TODO(fayang): Consider add data producer to framer's constructor.
   QuicStreamFrameDataProducer* data_producer_;
 
-  // Latched value of
-  // quic_reloadable_flag_quic_process_stateless_reset_at_client_only.
-  const bool process_stateless_reset_at_client_only_;
+  // If true, framer infers packet header type (IETF/GQUIC) from version_.
+  // Otherwise, framer infers packet header type from first byte of a received
+  // packet.
+  bool infer_packet_header_type_from_version_;
 };
 
 }  // namespace quic

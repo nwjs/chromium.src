@@ -30,6 +30,7 @@
 
 namespace blink {
 
+class WebProcessMemoryDump;
 struct CompressionTaskParams;
 
 // A parked string is parked by calling |Park()|, and unparked by calling
@@ -59,6 +60,8 @@ class PLATFORM_EXPORT ParkableStringImpl final
 
   void Lock();
   void Unlock();
+
+  void PurgeMemory();
 
   // The returned string may be used as a normal one, as long as the
   // returned value (or a copy of it) is alive.
@@ -152,6 +155,8 @@ class PLATFORM_EXPORT ParkableString final {
   // Unlocks a string.
   // Can be called from any thread.
   void Unlock() const;
+
+  void OnMemoryDump(WebProcessMemoryDump* pmd, const String& name) const;
 
   // See the matching String methods.
   bool Is8Bit() const;

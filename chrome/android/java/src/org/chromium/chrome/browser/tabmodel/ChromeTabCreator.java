@@ -10,18 +10,14 @@ import android.text.TextUtils;
 import org.chromium.base.SysUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.ServiceTabLauncher;
-import org.chromium.chrome.browser.TabState;
-import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabModel.TabSelectionType;
+import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -63,8 +59,7 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
      * @return The new tab.
      */
     @Override
-    public Tab createNewTab(
-            LoadUrlParams loadUrlParams, @TabModel.TabLaunchType int type, Tab parent) {
+    public Tab createNewTab(LoadUrlParams loadUrlParams, @TabLaunchType int type, Tab parent) {
         return createNewTab(loadUrlParams, type, parent, null);
     }
 
@@ -76,8 +71,8 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
      * @param intent the source of the url if it isn't null.
      * @return The new tab.
      */
-    public Tab createNewTab(LoadUrlParams loadUrlParams, @TabModel.TabLaunchType int type,
-            Tab parent, Intent intent) {
+    public Tab createNewTab(
+            LoadUrlParams loadUrlParams, @TabLaunchType int type, Tab parent, Intent intent) {
         // If parent is in the same tab model, place the new tab next to it.
         int position = TabModel.INVALID_TAB_INDEX;
         int index = mTabModel.indexOf(parent);
@@ -95,8 +90,8 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
      * @param intent the source of the url if it isn't null.
      * @return The new tab.
      */
-    private Tab createNewTab(LoadUrlParams loadUrlParams, @TabModel.TabLaunchType int type,
-            Tab parent, int position, Intent intent) {
+    private Tab createNewTab(LoadUrlParams loadUrlParams, @TabLaunchType int type, Tab parent,
+            int position, Intent intent) {
         try {
             TraceEvent.begin("ChromeTabCreator.createNewTab");
             int parentId = parent != null ? parent.getId() : Tab.INVALID_TAB_ID;
@@ -117,7 +112,6 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
             Tab tab;
             if (asyncParams != null && asyncParams.getTabToReparent() != null) {
                 type = TabLaunchType.FROM_REPARENTING;
-                openInForeground = true;
 
                 TabReparentingParams params = (TabReparentingParams) asyncParams;
                 tab = params.getTabToReparent();
@@ -173,22 +167,6 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
         // The parent tab was already closed.  Do not open child tabs.
         if (mTabModel.isClosurePending(parentId)) return false;
 
-        // For this experiment, avoid creating extra new tabs, if there is already a tab with the
-        // same url and use that tab instead.
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.CHROME_MEMEX) && parent != null) {
-            String parentUrl = parent.getUrl();
-            if (parentUrl.startsWith(UrlConstants.CHROME_MEMEX_URL)
-                    || parentUrl.startsWith(UrlConstants.CHROME_MEMEX_DEV_URL)) {
-                for (int i = 0; i < mTabModel.getCount(); i++) {
-                    String tabUrl = mTabModel.getTabAt(i).getUrl();
-                    if (url.equals(tabUrl)) {
-                        mTabModel.setIndex(i, TabSelectionType.FROM_USER);
-                        return false;
-                    }
-                }
-            }
-        }
-
         // If parent is in the same tab model, place the new tab next to it.
         int position = TabModel.INVALID_TAB_INDEX;
         int index = TabModelUtils.getTabIndexById(mTabModel, parentId);
@@ -205,7 +183,7 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
     }
 
     @Override
-    public Tab launchUrl(String url, @TabModel.TabLaunchType int type) {
+    public Tab launchUrl(String url, @TabLaunchType int type) {
         return launchUrl(url, type, null, 0);
     }
 
@@ -220,8 +198,7 @@ public class ChromeTabCreator extends TabCreatorManager.TabCreator {
      * @param intentTimestamp the time the intent was received.
      * @return the created tab.
      */
-    public Tab launchUrl(
-            String url, @TabModel.TabLaunchType int type, Intent intent, long intentTimestamp) {
+    public Tab launchUrl(String url, @TabLaunchType int type, Intent intent, long intentTimestamp) {
         LoadUrlParams loadUrlParams = new LoadUrlParams(url);
         loadUrlParams.setIntentReceivedTimestamp(intentTimestamp);
         return createNewTab(loadUrlParams, type, null, intent);

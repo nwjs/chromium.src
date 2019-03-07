@@ -66,11 +66,6 @@ Profile* PasswordUIViewAndroid::GetProfile() {
   return ProfileManager::GetLastUsedProfile();
 }
 
-void PasswordUIViewAndroid::ShowPassword(const std::string& sort_key,
-                                         const base::string16& password_value) {
-  NOTIMPLEMENTED();
-}
-
 void PasswordUIViewAndroid::SetPasswordList(
     const std::vector<std::unique_ptr<autofill::PasswordForm>>& password_list) {
   JNIEnv* env = base::android::AttachCurrentThread();
@@ -190,8 +185,7 @@ void PasswordUIViewAndroid::HandleSerializePasswords(
 }
 
 ScopedJavaLocalRef<jstring> JNI_PasswordUIView_GetAccountDashboardURL(
-    JNIEnv* env,
-    const JavaParamRef<jclass>&) {
+    JNIEnv* env) {
   return ConvertUTF16ToJavaString(
       env, l10n_util::GetStringUTF16(IDS_PASSWORDS_WEB_LINK));
 }

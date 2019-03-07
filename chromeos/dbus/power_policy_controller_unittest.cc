@@ -8,8 +8,6 @@
 
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
-#include "base/test/scoped_feature_list.h"
-#include "chromeos/chromeos_features.h"
 #include "chromeos/dbus/fake_power_manager_client.h"
 #include "chromeos/dbus/power_manager/backlight.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -341,42 +339,6 @@ TEST_F(PowerPolicyControllerTest, SuspendOnLidClosedWhileSignedOut) {
                 fake_power_client_->policy()));
 }
 
-TEST_F(PowerPolicyControllerTest, SmartDimEnabledExperimentEnabled) {
-  const std::map<std::string, std::string> params = {
-      {"dim_threshold", "0.651"}};
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeatureWithParameters(
-      chromeos::features::kUserActivityPrediction, params);
-
-  PowerPolicyController::PrefValues prefs;
-  policy_controller_->ApplyPrefs(prefs);
-  const power_manager::PowerManagementPolicy kDefaultPolicy =
-      fake_power_client_->policy();
-
-  // First disable smart dim model.
-  prefs.smart_dim_enabled = false;
-  prefs.presentation_screen_dim_delay_factor = 3.0;
-  prefs.user_activity_screen_dim_delay_factor = 2.0;
-  policy_controller_->ApplyPrefs(prefs);
-
-  power_manager::PowerManagementPolicy expected_policy = kDefaultPolicy;
-  expected_policy.set_presentation_screen_dim_delay_factor(3.0);
-  expected_policy.set_user_activity_screen_dim_delay_factor(2.0);
-  EXPECT_EQ(PowerPolicyController::GetPolicyDebugString(expected_policy),
-            PowerPolicyController::GetPolicyDebugString(
-                fake_power_client_->policy()));
-
-  // Then enable smart dim model.
-  prefs.smart_dim_enabled = true;
-  policy_controller_->ApplyPrefs(prefs);
-
-  expected_policy.set_presentation_screen_dim_delay_factor(1.0);
-  expected_policy.set_user_activity_screen_dim_delay_factor(1.0);
-  EXPECT_EQ(PowerPolicyController::GetPolicyDebugString(expected_policy),
-            PowerPolicyController::GetPolicyDebugString(
-                fake_power_client_->policy()));
-}
-
 TEST_F(PowerPolicyControllerTest, PerSessionScreenBrightnessOverride) {
   const double kAcBrightness = 99.0;
   const double kBatteryBrightness = 77.0;
@@ -424,4 +386,32 @@ TEST_F(PowerPolicyControllerTest, PerSessionScreenBrightnessOverride) {
   EXPECT_FALSE(fake_power_client_->policy().has_battery_brightness_percent());
 }
 
+TEST_F(PowerPolicyControllerTest, PolicyAutoScreenLockDelay) {
+  PowerPolicyController::PrefValues prefs;
+  policy_controller_->ApplyPrefs(prefs);
+
+  // Autolock disabled.
+  prefs.ac_screen_lock_delay_ms = 4000;
+  prefs.battery_screen_lock_delay_ms = 1000;
+  prefs.enable_auto_screen_lock = false;
+  policy_controller_->ApplyPrefs(prefs);
+  EXPECT_EQ(base::TimeDelta(),
+            policy_controller_->Get()->GetMaxPolicyAutoScreenLockDelay());
+
+  // Autolock enabled.
+
+  // Longer AC delay.
+  prefs.enable_auto_screen_lock = true;
+  policy_controller_->ApplyPrefs(prefs);
+  EXPECT_EQ(base::TimeDelta::FromMilliseconds(prefs.ac_screen_lock_delay_ms),
+            policy_controller_->Get()->GetMaxPolicyAutoScreenLockDelay());
+
+  // Longer battery delay.
+  prefs.ac_screen_lock_delay_ms = 1000;
+  prefs.battery_screen_lock_delay_ms = 4000;
+  policy_controller_->ApplyPrefs(prefs);
+  EXPECT_EQ(
+      base::TimeDelta::FromMilliseconds(prefs.battery_screen_lock_delay_ms),
+      policy_controller_->Get()->GetMaxPolicyAutoScreenLockDelay());
+}
 }  // namespace chromeos

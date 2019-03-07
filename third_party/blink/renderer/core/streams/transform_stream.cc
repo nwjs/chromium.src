@@ -12,7 +12,7 @@
 #include "third_party/blink/renderer/core/streams/readable_stream.h"
 #include "third_party/blink/renderer/core/streams/transform_stream_default_controller.h"
 #include "third_party/blink/renderer/core/streams/transform_stream_transformer.h"
-#include "third_party/blink/renderer/core/streams/writable_stream.h"
+#include "third_party/blink/renderer/core/streams/writable_stream_wrapper.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_binding.h"
@@ -30,16 +30,11 @@ class TransformStream::Algorithm : public ScriptFunction {
   static v8::Local<v8::Function> Create(TransformStreamTransformer* transformer,
                                         ScriptState* script_state,
                                         ExceptionState& exception_state) {
-    auto* algorithm = new T(transformer, script_state, exception_state);
+    auto* algorithm =
+        MakeGarbageCollected<T>(transformer, script_state, exception_state);
     return algorithm->BindToV8Function();
   }
 
-  void Trace(Visitor* visitor) override {
-    visitor->Trace(transformer_);
-    ScriptFunction::Trace(visitor);
-  }
-
- protected:
   Algorithm(TransformStreamTransformer* transformer,
             ScriptState* script_state,
             ExceptionState& exception_state)
@@ -48,6 +43,12 @@ class TransformStream::Algorithm : public ScriptFunction {
         interface_name_(exception_state.InterfaceName()),
         property_name_(exception_state.PropertyName()) {}
 
+  void Trace(Visitor* visitor) override {
+    visitor->Trace(transformer_);
+    ScriptFunction::Trace(visitor);
+  }
+
+ protected:
   // AlgorithmScope holds the stack-allocated objects used by the CallRaw()
   // methods for FlushAlgorithm and TransformAlgorithm.
   class AlgorithmScope {
@@ -122,6 +123,9 @@ class TransformStream::TransformAlgorithm : public TransformStream::Algorithm {
 };
 
 TransformStream::TransformStream() = default;
+TransformStream::TransformStream(ReadableStream* readable,
+                                 WritableStream* writable)
+    : readable_(readable), writable_(writable) {}
 
 TransformStream::~TransformStream() = default;
 
@@ -174,8 +178,10 @@ TransformStream* TransformStream::Create(ScriptState* script_state,
     }
   }
   DCHECK(stream->IsObject());
-  ts->InitInternal(script_state, stream.As<v8::Object>(), exception_state);
-  return ts->stream_.IsEmpty() ? nullptr : ts;
+  if (!ts->InitInternal(script_state, stream.As<v8::Object>(), exception_state))
+    return nullptr;
+
+  return ts;
 }
 
 void TransformStream::Init(TransformStreamTransformer* transformer,
@@ -202,13 +208,12 @@ void TransformStream::Init(TransformStreamTransformer* transformer,
 }
 
 void TransformStream::Trace(Visitor* visitor) {
-  visitor->Trace(stream_);
   visitor->Trace(readable_);
   visitor->Trace(writable_);
   ScriptWrappable::Trace(visitor);
 }
 
-void TransformStream::InitInternal(ScriptState* script_state,
+bool TransformStream::InitInternal(ScriptState* script_state,
                                    v8::Local<v8::Object> stream,
                                    ExceptionState& exception_state) {
   v8::Local<v8::Value> readable, writable;
@@ -218,13 +223,13 @@ void TransformStream::InitInternal(ScriptState* script_state,
                                  args)
            .ToLocal(&readable)) {
     exception_state.RethrowV8Exception(block.Exception());
-    return;
+    return false;
   }
   if (!V8ScriptRunner::CallExtra(script_state, "getTransformStreamWritable",
                                  args)
            .ToLocal(&writable)) {
     exception_state.RethrowV8Exception(block.Exception());
-    return;
+    return false;
   }
 
   DCHECK(readable->IsObject());
@@ -232,16 +237,16 @@ void TransformStream::InitInternal(ScriptState* script_state,
       script_state, readable.As<v8::Object>(), exception_state);
 
   if (!readable_)
-    return;
+    return false;
 
   DCHECK(writable->IsObject());
-  writable_ = WritableStream::CreateFromInternalStream(
+  writable_ = WritableStreamWrapper::CreateFromInternalStream(
       script_state, writable.As<v8::Object>(), exception_state);
 
   if (!writable_)
-    return;
+    return false;
 
-  stream_.Set(script_state->GetIsolate(), stream);
+  return true;
 }
 
 }  // namespace blink

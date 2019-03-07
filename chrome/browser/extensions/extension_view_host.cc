@@ -15,7 +15,7 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_dialogs.h"
+#include "chrome/browser/ui/color_chooser.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/core/browser/autofill_manager.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
@@ -107,10 +107,10 @@ void ExtensionViewHost::SetAssociatedWebContents(WebContents* web_contents) {
   }
 }
 
-void ExtensionViewHost::UnhandledKeyboardEvent(
+bool ExtensionViewHost::UnhandledKeyboardEvent(
     WebContents* source,
     const content::NativeWebKeyboardEvent& event) {
-  view_->HandleKeyboardEvent(source, event);
+  return view_->HandleKeyboardEvent(source, event);
 }
 
 // ExtensionHost overrides:
@@ -203,8 +203,7 @@ bool ExtensionViewHost::HandleKeyboardEvent(
       return true;
     }
   }
-  UnhandledKeyboardEvent(source, event);
-  return true;
+  return UnhandledKeyboardEvent(source, event);
 }
 
 bool ExtensionViewHost::PreHandleGestureEvent(

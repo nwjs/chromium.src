@@ -30,7 +30,6 @@
 #include "ui/events/base_event_utils.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/vector2d.h"
-#include "ui/gfx/path.h"
 #include "ui/keyboard/container_floating_behavior.h"
 #include "ui/keyboard/container_full_width_behavior.h"
 #include "ui/keyboard/container_fullscreen_behavior.h"
@@ -55,18 +54,22 @@ namespace {
 // Owned by ash::Shell.
 KeyboardController* g_keyboard_controller = nullptr;
 
-constexpr int kHideKeyboardDelayMs = 100;
+// How long the keyboard stays in WILL_HIDE state before moving to HIDDEN.
+constexpr base::TimeDelta kHideKeyboardDelay =
+    base::TimeDelta::FromMilliseconds(100);
 
 // Reports an error histogram if the keyboard state is lingering in an
 // intermediate state for more than 5 seconds.
-constexpr int kReportLingeringStateDelayMs = 5000;
+constexpr base::TimeDelta kReportLingeringStateDelay =
+    base::TimeDelta::FromMilliseconds(5000);
 
 // Delay threshold after the keyboard enters the WILL_HIDE state. If text focus
 // is regained during this threshold, the keyboard will show again, even if it
 // is an asynchronous event. This is for the benefit of things like login flow
 // where the password field may get text focus after an animation that plays
 // after the user enters their username.
-constexpr int kTransientBlurThresholdMs = 3500;
+constexpr base::TimeDelta kTransientBlurThreshold =
+    base::TimeDelta::FromMilliseconds(3500);
 
 // State transition diagram (document linked from crbug.com/719905)
 bool IsAllowedStateTransition(KeyboardControllerState from,
@@ -254,6 +257,7 @@ void KeyboardController::EnableKeyboard(std::unique_ptr<KeyboardUI> ui,
   ui_ = std::move(ui);
   DCHECK(ui_);
 
+  DCHECK(delegate);
   layout_delegate_ = delegate;
   show_on_keyboard_window_load_ = false;
   keyboard_locked_ = false;
@@ -267,6 +271,9 @@ void KeyboardController::EnableKeyboard(std::unique_ptr<KeyboardUI> ui,
 
   for (KeyboardControllerObserver& observer : observer_list_)
     observer.OnKeyboardEnabledChanged(true);
+
+  ActivateKeyboardInContainer(
+      layout_delegate_->GetContainerForDefaultDisplay());
 }
 
 void KeyboardController::DisableKeyboard() {
@@ -338,6 +345,17 @@ aura::Window* KeyboardController::GetKeyboardWindow() const {
 
 aura::Window* KeyboardController::GetRootWindow() {
   return parent_container_ ? parent_container_->GetRootWindow() : nullptr;
+}
+
+void KeyboardController::MoveToParentContainer(aura::Window* parent) {
+  DCHECK(parent);
+  if (parent_container_ == parent)
+    return;
+
+  TRACE_EVENT0("vk", "MoveKeyboardToDisplayInternal");
+
+  DeactivateKeyboard();
+  ActivateKeyboardInContainer(parent);
 }
 
 // private
@@ -616,7 +634,7 @@ void KeyboardController::HideKeyboardImplicitlyBySystem() {
       base::BindOnce(&KeyboardController::HideKeyboard,
                      weak_factory_will_hide_.GetWeakPtr(),
                      HIDE_REASON_SYSTEM_IMPLICIT),
-      base::TimeDelta::FromMilliseconds(kHideKeyboardDelayMs));
+      kHideKeyboardDelay);
 }
 
 // private
@@ -676,14 +694,14 @@ void KeyboardController::SetContainerBehaviorInternal(
 void KeyboardController::ShowKeyboard(bool lock) {
   DVLOG(1) << "ShowKeyboard";
   set_keyboard_locked(lock);
-  ShowKeyboardInternal(display::Display());
+  ShowKeyboardInternal(layout_delegate_->GetContainerForDefaultDisplay());
 }
 
 void KeyboardController::ShowKeyboardInDisplay(
     const display::Display& display) {
   DVLOG(1) << "ShowKeyboardInDisplay: " << display.id();
   set_keyboard_locked(true);
-  ShowKeyboardInternal(display);
+  ShowKeyboardInternal(layout_delegate_->GetContainerForDisplay(display));
 }
 
 void KeyboardController::LoadKeyboardWindowInBackground() {
@@ -693,7 +711,8 @@ void KeyboardController::LoadKeyboardWindowInBackground() {
   if (state_ != KeyboardControllerState::INITIAL)
     return;
 
-  PopulateKeyboardContent(display::Display(), false);
+  PopulateKeyboardContent(layout_delegate_->GetContainerForDefaultDisplay(),
+                          false);
 }
 
 ui::InputMethod* KeyboardController::GetInputMethodForTest() {
@@ -803,12 +822,7 @@ void KeyboardController::OnTextInputStateChanged(
 }
 
 void KeyboardController::ShowKeyboardIfWithinTransientBlurThreshold() {
-  static const base::TimeDelta kTransientBlurThreshold =
-      base::TimeDelta::FromMilliseconds(kTransientBlurThresholdMs);
-
-  const base::Time now = base::Time::Now();
-  const base::TimeDelta time_since_last_blur = now - time_of_last_blur_;
-  if (time_since_last_blur < kTransientBlurThreshold)
+  if (base::Time::Now() - time_of_last_blur_ < kTransientBlurThreshold)
     ShowKeyboard(false);
 }
 
@@ -816,18 +830,17 @@ void KeyboardController::OnShowVirtualKeyboardIfEnabled() {
   DVLOG(1) << "OnShowVirtualKeyboardIfEnabled: " << IsKeyboardEnableRequested();
   // Calling |ShowKeyboardInternal| may move the keyboard to another display.
   if (IsKeyboardEnableRequested() && !keyboard_locked_)
-    ShowKeyboardInternal(display::Display());
+    ShowKeyboardInternal(layout_delegate_->GetContainerForDefaultDisplay());
 }
 
-void KeyboardController::ShowKeyboardInternal(const display::Display& display) {
+void KeyboardController::ShowKeyboardInternal(aura::Window* target_container) {
   MarkKeyboardLoadStarted();
-  PopulateKeyboardContent(display, true);
+  PopulateKeyboardContent(target_container, true);
   UpdateInputMethodObserver();
 }
 
-void KeyboardController::PopulateKeyboardContent(
-    const display::Display& display,
-    bool show_keyboard) {
+void KeyboardController::PopulateKeyboardContent(aura::Window* target_container,
+                                                 bool show_keyboard) {
   DCHECK(show_keyboard || state_ == KeyboardControllerState::INITIAL);
 
   DVLOG(1) << "PopulateKeyboardContent: " << StateToStr(state_);
@@ -848,12 +861,7 @@ void KeyboardController::PopulateKeyboardContent(
     parent_container_->AddChild(keyboard_window);
   }
 
-  if (layout_delegate_ != nullptr) {
-    if (display.is_valid())
-      layout_delegate_->MoveKeyboardToDisplay(display);
-    else
-      layout_delegate_->MoveKeyboardToTouchableDisplay();
-  }
+  MoveToParentContainer(target_container);
 
   aura::Window* keyboard_window = GetKeyboardWindow();
   DCHECK(keyboard_window);
@@ -973,7 +981,7 @@ void KeyboardController::ChangeState(KeyboardControllerState state) {
           FROM_HERE,
           base::BindOnce(&KeyboardController::ReportLingeringState,
                          weak_factory_report_lingering_state_.GetWeakPtr()),
-          base::TimeDelta::FromMilliseconds(kReportLingeringStateDelayMs));
+          kReportLingeringStateDelay);
       break;
     default:
       // Do nothing
@@ -1090,6 +1098,14 @@ bool KeyboardController::IsKeyboardVisible() {
     return true;
   }
   return false;
+}
+
+void KeyboardController::KeyboardContentsLoaded(
+    const base::UnguessableToken& token,
+    const gfx::Size& size) {
+  if (!IsEnabled())
+    return;
+  ui_->KeyboardContentsLoaded(token, size);
 }
 
 ui::TextInputClient* KeyboardController::GetTextInputClient() {

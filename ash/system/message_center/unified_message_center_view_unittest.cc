@@ -4,6 +4,11 @@
 
 #include "ash/system/message_center/unified_message_center_view.h"
 
+#include "ash/public/cpp/ash_features.h"
+#include "ash/public/cpp/ash_pref_names.h"
+#include "ash/session/session_controller.h"
+#include "ash/shell.h"
+#include "ash/system/message_center/ash_message_center_lock_screen_controller.h"
 #include "ash/system/message_center/message_center_scroll_bar.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/unified/unified_system_tray_controller.h"
@@ -12,6 +17,7 @@
 #include "base/macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/prefs/pref_service.h"
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/views/message_view.h"
 #include "ui/views/controls/scroll_view.h"
@@ -146,6 +152,8 @@ class UnifiedMessageCenterViewTest : public AshTestBase,
 
   int size_changed_count() const { return size_changed_count_; }
 
+  UnifiedSystemTrayModel* model() { return model_.get(); }
+
  private:
   int id_ = 0;
   int size_changed_count_ = 0;
@@ -194,6 +202,14 @@ TEST_F(UnifiedMessageCenterViewTest, ContentsRelayout) {
 }
 
 TEST_F(UnifiedMessageCenterViewTest, NotVisibleWhenLocked) {
+  // Disable the lock screen notification if the feature is enable.
+  PrefService* user_prefs =
+      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+  user_prefs->SetString(prefs::kMessageCenterLockScreenMode,
+                        prefs::kMessageCenterLockScreenModeHide);
+
+  ASSERT_FALSE(AshMessageCenterLockScreenController::IsEnabled());
+
   AddNotification();
   AddNotification();
 
@@ -201,6 +217,29 @@ TEST_F(UnifiedMessageCenterViewTest, NotVisibleWhenLocked) {
   CreateMessageCenterView();
 
   EXPECT_FALSE(message_center_view()->visible());
+}
+
+TEST_F(UnifiedMessageCenterViewTest, VisibleWhenLocked) {
+  // This test is only valid if the lock screen feature is enabled.
+  // TODO(yoshiki): Clean up after the feature is launched crbug.com/913764.
+  if (!features::IsLockScreenNotificationsEnabled())
+    return;
+
+  // Enables the lock screen notification if the feature is disabled.
+  PrefService* user_prefs =
+      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+  user_prefs->SetString(prefs::kMessageCenterLockScreenMode,
+                        prefs::kMessageCenterLockScreenModeShow);
+
+  ASSERT_TRUE(AshMessageCenterLockScreenController::IsEnabled());
+
+  AddNotification();
+  AddNotification();
+
+  BlockUserSession(BLOCKED_BY_LOCK_SCREEN);
+  CreateMessageCenterView();
+
+  EXPECT_TRUE(message_center_view()->visible());
 }
 
 TEST_F(UnifiedMessageCenterViewTest, ClearAllPressed) {
@@ -274,7 +313,7 @@ TEST_F(UnifiedMessageCenterViewTest, InitialPositionWithLargeNotification) {
             message_view_bounds.height());
 
   // Top of the second notification aligns with the top of MessageCenterView.
-  EXPECT_EQ(0, message_view_bounds.y());
+  EXPECT_EQ(kStackingNotificationCounterHeight, message_view_bounds.y());
 }
 
 TEST_F(UnifiedMessageCenterViewTest, ScrollPositionWhenResized) {
@@ -399,6 +438,82 @@ TEST_F(UnifiedMessageCenterViewTest, HeightBelowScroll) {
   GetScroller()->ScrollToPosition(GetScrollBar(), 0);
   message_center_view()->OnMessageCenterScrolled();
   EXPECT_LT(0, message_center_view()->height_below_scroll());
+}
+
+TEST_F(UnifiedMessageCenterViewTest,
+       HeightBelowScrollWithTargetingFirstNotification) {
+  std::vector<std::string> ids;
+  for (size_t i = 0; i < 10; ++i)
+    ids.push_back(AddNotification());
+  // Set the first notification as the target.
+  model()->SetTargetNotification(ids[0]);
+
+  CreateMessageCenterView();
+  EXPECT_TRUE(message_center_view()->visible());
+
+  EXPECT_GT(GetMessageListView()->bounds().height(),
+            message_center_view()->bounds().height());
+  message_center_view()->OnMessageCenterScrolled();
+
+  EXPECT_EQ(0, GetScroller()->GetVisibleRect().y());
+  EXPECT_EQ(
+      GetMessageListView()->height() - GetScroller()->GetVisibleRect().height(),
+      message_center_view()->height_below_scroll());
+}
+
+TEST_F(UnifiedMessageCenterViewTest,
+       HeightBelowScrollWithTargetingNotification) {
+  std::vector<std::string> ids;
+  for (size_t i = 0; i < 10; ++i)
+    ids.push_back(AddNotification());
+  // Set the second last notification as the target.
+  model()->SetTargetNotification(ids[8]);
+
+  CreateMessageCenterView();
+  EXPECT_TRUE(message_center_view()->visible());
+
+  EXPECT_GT(GetMessageListView()->bounds().height(),
+            message_center_view()->bounds().height());
+  message_center_view()->OnMessageCenterScrolled();
+
+  EXPECT_EQ(GetMessageListView()->GetLastNotificationBounds().height(),
+            message_center_view()->height_below_scroll());
+}
+
+TEST_F(UnifiedMessageCenterViewTest,
+       HeightBelowScrollWithTargetingLastNotification) {
+  std::vector<std::string> ids;
+  for (size_t i = 0; i < 10; ++i)
+    ids.push_back(AddNotification());
+  // Set the second last notification as the target.
+  model()->SetTargetNotification(ids[9]);
+
+  CreateMessageCenterView();
+  EXPECT_TRUE(message_center_view()->visible());
+
+  EXPECT_GT(GetMessageListView()->bounds().height(),
+            message_center_view()->bounds().height());
+  message_center_view()->OnMessageCenterScrolled();
+
+  EXPECT_EQ(0, message_center_view()->height_below_scroll());
+}
+
+TEST_F(UnifiedMessageCenterViewTest,
+       HeightBelowScrollWithTargetingInvalidNotification) {
+  std::vector<std::string> ids;
+  for (size_t i = 0; i < 10; ++i)
+    ids.push_back(AddNotification());
+  // Set the second last notification as the target.
+  model()->SetTargetNotification("INVALID_ID");
+
+  CreateMessageCenterView();
+  EXPECT_TRUE(message_center_view()->visible());
+
+  EXPECT_GT(GetMessageListView()->bounds().height(),
+            message_center_view()->bounds().height());
+  message_center_view()->OnMessageCenterScrolled();
+
+  EXPECT_EQ(0, message_center_view()->height_below_scroll());
 }
 
 }  // namespace ash

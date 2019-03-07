@@ -22,6 +22,8 @@
 #include "mojo/public/cpp/bindings/type_converter.h"
 #include "net/base/logging_network_change_observer.h"
 #include "net/base/network_change_notifier.h"
+#include "net/base/network_change_notifier_posix.h"
+#include "net/base/port_util.h"
 #include "net/cert/cert_database.h"
 #include "net/cert/ct_log_response_parser.h"
 #include "net/cert/signed_tree_head.h"
@@ -39,6 +41,7 @@
 #include "services/network/crl_set_distributor.h"
 #include "services/network/cross_origin_read_blocking.h"
 #include "services/network/dns_config_change_manager.h"
+#include "services/network/http_auth_cache_copier.h"
 #include "services/network/net_log_capture_mode_type_converter.h"
 #include "services/network/net_log_exporter.h"
 #include "services/network/network_context.h"
@@ -63,6 +66,7 @@
 
 #if defined(OS_ANDROID)
 #include "base/android/application_status_listener.h"
+#include "net/android/http_auth_negotiate_android.h"
 #endif
 
 namespace network {
@@ -80,15 +84,17 @@ net::NetLog* GetNetLog() {
 constexpr auto kUpdateLoadStatesInterval =
     base::TimeDelta::FromMilliseconds(250);
 
-std::unique_ptr<net::NetworkChangeNotifier>
-CreateNetworkChangeNotifierIfNeeded() {
+std::unique_ptr<net::NetworkChangeNotifier> CreateNetworkChangeNotifierIfNeeded(
+    net::NetworkChangeNotifier::ConnectionType initial_connection_type,
+    net::NetworkChangeNotifier::ConnectionSubtype initial_connection_subtype) {
   // There is a global singleton net::NetworkChangeNotifier if NetworkService
   // is running inside of the browser process.
   if (!net::NetworkChangeNotifier::HasNetworkChangeNotifier()) {
-#if defined(OS_ANDROID)
-    // On Android, NetworkChangeNotifier objects are always set up in process
-    // before NetworkService is run.
-    return nullptr;
+#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
+    // On Android and ChromeOS, network change events are synced from the
+    // browser process.
+    return std::make_unique<net::NetworkChangeNotifierPosix>(
+        initial_connection_type, initial_connection_subtype);
 #elif defined(OS_IOS) || defined(OS_FUCHSIA)
     // iOS doesn't embed //content. Fuchsia doesn't have an implementation yet.
     // TODO(xunjieli): Figure out what to do for these 2 platforms.
@@ -135,13 +141,78 @@ bool LoadInfoIsMoreInteresting(const mojom::LoadInfo& a,
   return a.load_state > b.load_state;
 }
 
+#if defined(OS_ANDROID) && BUILDFLAG(USE_KERBEROS)
+// Used for Negotiate authentication on Android, which needs to generate tokens
+// in the browser process.
+class NetworkServiceAuthNegotiateAndroid : public net::HttpNegotiateAuthSystem {
+ public:
+  NetworkServiceAuthNegotiateAndroid(NetworkService* network_service,
+                                     const net::HttpAuthPreferences* prefs)
+      : network_service_(network_service), auth_negotiate_(prefs) {}
+  ~NetworkServiceAuthNegotiateAndroid() override = default;
+
+  // HttpNegotiateAuthSystem implementation:
+  bool Init() override { return auth_negotiate_.Init(); }
+
+  bool NeedsIdentity() const override {
+    return auth_negotiate_.NeedsIdentity();
+  }
+
+  bool AllowsExplicitCredentials() const override {
+    return auth_negotiate_.AllowsExplicitCredentials();
+  }
+
+  net::HttpAuth::AuthorizationResult ParseChallenge(
+      net::HttpAuthChallengeTokenizer* tok) override {
+    return auth_negotiate_.ParseChallenge(tok);
+  }
+
+  int GenerateAuthToken(const net::AuthCredentials* credentials,
+                        const std::string& spn,
+                        const std::string& channel_bindings,
+                        std::string* auth_token,
+                        net::CompletionOnceCallback callback) override {
+    network_service_->client()->OnGenerateHttpNegotiateAuthToken(
+        auth_negotiate_.server_auth_token(), auth_negotiate_.can_delegate(),
+        auth_negotiate_.GetAuthAndroidNegotiateAccountType(), spn,
+        base::BindOnce(&NetworkServiceAuthNegotiateAndroid::Finish,
+                       weak_factory_.GetWeakPtr(), auth_token,
+                       std::move(callback)));
+    return net::ERR_IO_PENDING;
+  }
+
+  void Delegate() override { auth_negotiate_.Delegate(); }
+
+ private:
+  void Finish(std::string* auth_token_out,
+              net::CompletionOnceCallback callback,
+              int result,
+              const std::string& auth_token) {
+    *auth_token_out = auth_token;
+    std::move(callback).Run(result);
+  }
+
+  NetworkService* network_service_ = nullptr;
+  net::android::HttpAuthNegotiateAndroid auth_negotiate_;
+  base::WeakPtrFactory<NetworkServiceAuthNegotiateAndroid> weak_factory_{this};
+};
+
+std::unique_ptr<net::HttpNegotiateAuthSystem> CreateAuthSystem(
+    NetworkService* network_service,
+    const net::HttpAuthPreferences* prefs) {
+  return std::make_unique<NetworkServiceAuthNegotiateAndroid>(network_service,
+                                                              prefs);
+}
+#endif
+
 }  // namespace
 
 NetworkService::NetworkService(
     std::unique_ptr<service_manager::BinderRegistry> registry,
     mojom::NetworkServiceRequest request,
     net::NetLog* net_log,
-    service_manager::mojom::ServiceRequest service_request)
+    service_manager::mojom::ServiceRequest service_request,
+    bool delay_initialization_until_set_client)
     : registry_(std::move(registry)), binding_(this) {
   DCHECK(!g_network_service);
   g_network_service = this;
@@ -162,6 +233,22 @@ NetworkService::NetworkService(
     Bind(std::move(request));
   }
 
+  if (net_log) {
+    net_log_ = net_log;
+  } else {
+    net_log_ = GetNetLog();
+  }
+
+  if (!delay_initialization_until_set_client)
+    Initialize(mojom::NetworkServiceParams::New());
+}
+
+void NetworkService::Initialize(mojom::NetworkServiceParamsPtr params) {
+  if (initialized_)
+    return;
+
+  initialized_ = true;
+
 #if defined(OS_ANDROID) && defined(ARCH_CPU_ARMEL)
   // Make sure OpenSSL is initialized before using it to histogram data.
   crypto::EnsureOpenSSLInit();
@@ -176,6 +263,13 @@ NetworkService::NetworkService(
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 
+  // Set-up the global port overrides.
+  if (command_line->HasSwitch(switches::kExplicitlyAllowedPorts)) {
+    std::string allowed_ports =
+        command_line->GetSwitchValueASCII(switches::kExplicitlyAllowedPorts);
+    net::SetExplicitlyAllowedPorts(allowed_ports);
+  }
+
   // Record this once per session, though the switch is appled on a
   // per-NetworkContext basis.
   UMA_HISTOGRAM_BOOLEAN(
@@ -183,13 +277,11 @@ NetworkService::NetworkService(
       command_line->HasSwitch(switches::kIgnoreCertificateErrorsSPKIList));
 
   network_change_manager_ = std::make_unique<NetworkChangeManager>(
-      CreateNetworkChangeNotifierIfNeeded());
-
-  if (net_log) {
-    net_log_ = net_log;
-  } else {
-    net_log_ = GetNetLog();
-  }
+      CreateNetworkChangeNotifierIfNeeded(
+          net::NetworkChangeNotifier::ConnectionType(
+              params->initial_connection_type),
+          net::NetworkChangeNotifier::ConnectionSubtype(
+              params->initial_connection_subtype)));
 
   trace_net_log_observer_.WatchForTraceStart(net_log_);
 
@@ -207,6 +299,9 @@ NetworkService::NetworkService(
   host_resolver_ = CreateHostResolver(net_log_);
 
   network_usage_accumulator_ = std::make_unique<NetworkUsageAccumulator>();
+
+  http_auth_cache_copier_ = std::make_unique<HttpAuthCacheCopier>();
+
 #if BUILDFLAG(IS_CT_SUPPORTED)
   sth_distributor_ =
       std::make_unique<certificate_transparency::STHDistributor>();
@@ -286,7 +381,7 @@ void NetworkService::RegisterNetworkContext(NetworkContext* network_context) {
 }
 
 void NetworkService::DeregisterNetworkContext(NetworkContext* network_context) {
-  // If the NetworkContext is bthe primary network context, all other
+  // If the NetworkContext is the primary network context, all other
   // NetworkContexts must already have been destroyed.
   DCHECK(!network_context->IsPrimaryNetworkContext() ||
          network_contexts_.size() == 1);
@@ -303,8 +398,10 @@ void NetworkService::CreateNetLogEntriesForActiveObjects(
   return net::CreateNetLogEntriesForActiveObjects(contexts, observer);
 }
 
-void NetworkService::SetClient(mojom::NetworkServiceClientPtr client) {
+void NetworkService::SetClient(mojom::NetworkServiceClientPtr client,
+                               mojom::NetworkServiceParamsPtr params) {
   client_ = std::move(client);
+  Initialize(std::move(params));
 }
 
 void NetworkService::StartNetLog(base::File file,
@@ -401,7 +498,11 @@ void NetworkService::SetUpHttpAuth(
       ,
       http_auth_static_params->gssapi_library_name
 #endif
-      );
+#if defined(OS_ANDROID) && BUILDFLAG(USE_KERBEROS)
+      ,
+      base::BindRepeating(&CreateAuthSystem, this)
+#endif
+  );
 }
 
 void NetworkService::ConfigureHttpAuthPrefs(
@@ -473,6 +574,17 @@ void NetworkService::GetTotalNetworkUsages(
   std::move(callback).Run(network_usage_accumulator_->GetTotalNetworkUsages());
 }
 
+void NetworkService::GetNetworkList(
+    uint32_t policy,
+    mojom::NetworkService::GetNetworkListCallback callback) {
+  net::NetworkInterfaceList networks;
+  if (net::GetNetworkList(&networks, policy)) {
+    std::move(callback).Run(networks);
+  } else {
+    std::move(callback).Run(base::nullopt);
+  }
+}
+
 #if BUILDFLAG(IS_CT_SUPPORTED)
 void NetworkService::UpdateSignedTreeHead(const net::ct::SignedTreeHead& sth) {
   sth_distributor_->NewSTHObserved(sth);
@@ -535,7 +647,12 @@ void NetworkService::OnApplicationStateChange(
 net::HttpAuthHandlerFactory* NetworkService::GetHttpAuthHandlerFactory() {
   if (!http_auth_handler_factory_) {
     http_auth_handler_factory_ = net::HttpAuthHandlerFactory::CreateDefault(
-        host_resolver_.get(), &http_auth_preferences_);
+        host_resolver_.get(), &http_auth_preferences_
+#if defined(OS_ANDROID) && BUILDFLAG(USE_KERBEROS)
+        ,
+        base::BindRepeating(&CreateAuthSystem, this)
+#endif
+    );
   }
   return http_auth_handler_factory_.get();
 }

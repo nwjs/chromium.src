@@ -10,6 +10,7 @@
 #include "ash/public/interfaces/event_properties.mojom.h"
 #include "ash/shell.h"
 #include "base/macros.h"
+#include "components/session_manager/core/session_manager.h"
 #include "content/public/common/service_manager_connection.h"
 #include "mojo/public/cpp/bindings/type_converter.h"
 #include "services/ws/public/cpp/property_type_converters.h"
@@ -21,6 +22,8 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/views/mus/mus_client.h"
+#include "ui/views/widget/widget.h"
+#include "ui/wm/core/shadow_types.h"
 #include "ui/wm/core/window_animations.h"
 
 namespace ash_util {
@@ -55,6 +58,21 @@ void SetupWidgetInitParamsForContainer(views::Widget::InitParams* params,
     params->parent = ash::Shell::GetContainer(
         ash::Shell::GetPrimaryRootWindow(), container_id);
   }
+}
+
+int GetSystemModalDialogContainerId() {
+  return session_manager::SessionManager::Get()->session_state() ==
+                 session_manager::SessionState::ACTIVE
+             ? ash::kShellWindowId_SystemModalContainer
+             : ash::kShellWindowId_LockSystemModalContainer;
+}
+
+views::Widget::InitParams GetFramelessInitParams() {
+  views::Widget::InitParams params;
+  params.type = views::Widget::InitParams::TYPE_WINDOW_FRAMELESS;
+  params.shadow_type = views::Widget::InitParams::SHADOW_TYPE_DROP;
+  params.shadow_elevation = ::wm::kShadowElevationActiveWindow;
+  return params;
 }
 
 service_manager::Connector* GetServiceManagerConnector() {

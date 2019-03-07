@@ -167,9 +167,7 @@ class CC_EXPORT LayerImpl {
 
   // True if either the layer draws content or has been marked as hit testable
   // without draws_content.
-  bool should_hit_test() const {
-    return draws_content_ || hit_testable_without_draws_content_;
-  }
+  bool ShouldHitTest() const;
 
   LayerImplTestProperties* test_properties() {
     if (!test_properties_)
@@ -195,9 +193,6 @@ class CC_EXPORT LayerImpl {
   // Stable identifier for clients. See comment in cc/trees/element_id.h.
   void SetElementId(ElementId element_id);
   ElementId element_id() const { return element_id_; }
-
-  void SetPosition(const gfx::PointF& position);
-  gfx::PointF position() const { return position_; }
 
   bool IsAffectedByPageScale() const;
 
@@ -309,14 +304,6 @@ class CC_EXPORT LayerImpl {
   gfx::Size scroll_container_bounds() const { return scroll_container_bounds_; }
   bool scrollable() const { return scrollable_; }
 
-  void set_main_thread_scrolling_reasons(
-      uint32_t main_thread_scrolling_reasons) {
-    main_thread_scrolling_reasons_ = main_thread_scrolling_reasons;
-  }
-  uint32_t main_thread_scrolling_reasons() const {
-    return main_thread_scrolling_reasons_;
-  }
-
   void SetNonFastScrollableRegion(const Region& region) {
     non_fast_scrollable_region_ = region;
   }
@@ -348,7 +335,7 @@ class CC_EXPORT LayerImpl {
   void AddDamageRect(const gfx::Rect& damage_rect);
   const gfx::Rect& damage_rect() const { return damage_rect_; }
 
-  virtual std::unique_ptr<base::DictionaryValue> LayerAsJson();
+  virtual std::unique_ptr<base::DictionaryValue> LayerAsJson() const;
   // TODO(pdr): This should be removed because there is no longer a tree
   // of layers, only a list.
   std::unique_ptr<base::DictionaryValue> LayerTreeAsJson();
@@ -398,6 +385,7 @@ class CC_EXPORT LayerImpl {
   virtual void GetAllPrioritizedTilesForTracing(
       std::vector<PrioritizedTile>* prioritized_tiles) const;
   virtual void AsValueInto(base::trace_event::TracedValue* dict) const;
+  std::string ToString() const;
 
   virtual size_t GPUMemoryUsageInBytes() const;
 
@@ -466,11 +454,6 @@ class CC_EXPORT LayerImpl {
   // TODO(sunxd): Remove this function and replace it with visitor pattern.
   virtual bool is_surface_layer() const;
 
-  void set_is_rounded_corner_mask(bool rounded) {
-    is_rounded_corner_mask_ = rounded;
-  }
-  bool is_rounded_corner_mask() const { return is_rounded_corner_mask_; }
-
  protected:
   // When |will_always_push_properties| is true, the layer will not itself set
   // its SetNeedsPushProperties() state, as it expects to be always pushed to
@@ -510,7 +493,6 @@ class CC_EXPORT LayerImpl {
   gfx::Size bounds_;
 
   gfx::Vector2dF offset_to_transform_parent_;
-  uint32_t main_thread_scrolling_reasons_;
 
   // Size of the scroll container that this layer scrolls in.
   gfx::Size scroll_container_bounds_;
@@ -557,8 +539,6 @@ class CC_EXPORT LayerImpl {
   Region wheel_event_handler_region_;
   SkColor background_color_;
   SkColor safe_opaque_background_color_;
-
-  gfx::PointF position_;
 
   int transform_tree_index_;
   int effect_tree_index_;
@@ -612,7 +592,6 @@ class CC_EXPORT LayerImpl {
   bool raster_even_if_not_drawn_ : 1;
 
   bool has_transform_node_ : 1;
-  bool is_rounded_corner_mask_ : 1;
 
   DISALLOW_COPY_AND_ASSIGN(LayerImpl);
 };

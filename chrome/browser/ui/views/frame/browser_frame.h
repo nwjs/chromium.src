@@ -58,7 +58,7 @@ class BrowserFrame : public views::Widget,
 
   // Retrieves the bounds, in non-client view coordinates for the specified
   // TabStrip view.
-  gfx::Rect GetBoundsForTabStrip(views::View* tabstrip) const;
+  gfx::Rect GetBoundsForTabStrip(const views::View* tabstrip) const;
 
   // Returns the inset of the topmost view in the client view from the top of
   // the non-client view. The topmost view depends on the window type. The
@@ -132,7 +132,11 @@ class BrowserFrame : public views::Widget,
   // Callback for MenuRunner.
   void OnMenuClosed();
 
+  // Returns whether this window should be themed with the user's theme or not.
+  bool ShouldUseTheme() const;
+
   bool frameless_;
+
   NativeBrowserFrame* native_browser_frame_;
 
   // A weak reference to the root view associated with the window. We save a

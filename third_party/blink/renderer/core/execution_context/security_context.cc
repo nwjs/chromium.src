@@ -104,6 +104,20 @@ String SecurityContext::addressSpaceForBindings() const {
   return "public";
 }
 
+void SecurityContext::SetRequireTrustedTypes() {
+  DCHECK(require_safe_types_ ||
+         content_security_policy_->IsRequireTrustedTypes());
+  require_safe_types_ = true;
+}
+
+void SecurityContext::SetRequireTrustedTypesForTesting() {
+  require_safe_types_ = true;
+}
+
+bool SecurityContext::RequireTrustedTypes() const {
+  return require_safe_types_;
+}
+
 void SecurityContext::SetFeaturePolicy(
     std::unique_ptr<FeaturePolicy> feature_policy) {
   // This method should be called before a FeaturePolicy has been created.
@@ -111,9 +125,6 @@ void SecurityContext::SetFeaturePolicy(
   feature_policy_ = std::move(feature_policy);
 }
 
-// Uses the parent enforcing policy; parsed_header and container_policy can
-// both contain report-only directives, which will be used to construct the
-// report-only policy for this context.
 void SecurityContext::InitializeFeaturePolicy(
     const ParsedFeaturePolicy& parsed_header,
     const ParsedFeaturePolicy& container_policy,
@@ -126,31 +137,34 @@ void SecurityContext::InitializeFeaturePolicy(
   }
 
   feature_policy_ = FeaturePolicy::CreateFromParentPolicy(
-      parent_feature_policy,
-      *DirectivesWithDisposition(mojom::FeaturePolicyDisposition::kEnforce,
-                                 container_policy),
-      security_origin_->ToUrlOrigin());
-  feature_policy_->SetHeaderPolicy(*DirectivesWithDisposition(
-      mojom::FeaturePolicyDisposition::kEnforce, parsed_header));
-  if (RuntimeEnabledFeatures::FeaturePolicyReportingEnabled()) {
-    report_only_feature_policy_ = FeaturePolicy::CreateFromParentPolicy(
-        parent_feature_policy,
-        *DirectivesWithDisposition(mojom::FeaturePolicyDisposition::kReport,
-                                   container_policy),
-        security_origin_->ToUrlOrigin());
-    report_only_feature_policy_->SetHeaderPolicy(*DirectivesWithDisposition(
-        mojom::FeaturePolicyDisposition::kReport, parsed_header));
-  }
+      parent_feature_policy, container_policy, security_origin_->ToUrlOrigin());
+  feature_policy_->SetHeaderPolicy(parsed_header);
+}
+
+// Uses the parent enforcing policy as the basis for the report-only policy.
+void SecurityContext::AddReportOnlyFeaturePolicy(
+    const ParsedFeaturePolicy& parsed_report_only_header,
+    const ParsedFeaturePolicy& container_policy,
+    const FeaturePolicy* parent_feature_policy) {
+  report_only_feature_policy_ = FeaturePolicy::CreateFromParentPolicy(
+      parent_feature_policy, container_policy, security_origin_->ToUrlOrigin());
+  report_only_feature_policy_->SetHeaderPolicy(parsed_report_only_header);
 }
 
 bool SecurityContext::IsFeatureEnabled(mojom::FeaturePolicyFeature feature,
                                        ReportOptions report_on_failure,
                                        const String& message) const {
+  if (report_on_failure == ReportOptions::kReportOnFailure) {
+    // We are expecting a violation report in case the feature is disabled in
+    // the context. Therefore, this qualifies as a potential violation (i.e.,
+    // if the feature was disabled it would generate a report).
+    CountPotentialFeaturePolicyViolation(feature);
+  }
+
   FeatureEnabledState state = GetFeatureEnabledState(feature);
   if (state == FeatureEnabledState::kEnabled)
     return true;
-  if (report_on_failure == ReportOptions::kReportOnFailure &&
-      RuntimeEnabledFeatures::FeaturePolicyReportingEnabled()) {
+  if (report_on_failure == ReportOptions::kReportOnFailure) {
     ReportFeaturePolicyViolation(
         feature,
         (state == FeatureEnabledState::kReportOnly

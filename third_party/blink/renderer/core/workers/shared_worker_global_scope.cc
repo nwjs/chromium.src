@@ -72,13 +72,8 @@ void SharedWorkerGlobalScope::ImportModuleScript(
   NOTREACHED();
 }
 
-void SharedWorkerGlobalScope::ConnectPausable(MessagePortChannel channel) {
-  if (IsContextPaused()) {
-    AddPausedCall(WTF::Bind(&SharedWorkerGlobalScope::ConnectPausable,
-                            WrapWeakPersistent(this), std::move(channel)));
-    return;
-  }
-
+void SharedWorkerGlobalScope::Connect(MessagePortChannel channel) {
+  DCHECK(!IsContextPaused());
   MessagePort* port = MessagePort::Create(*this);
   port->Entangle(std::move(channel));
   MessageEvent* event =
@@ -97,6 +92,11 @@ void SharedWorkerGlobalScope::ExceptionThrown(ErrorEvent* event) {
 
 void SharedWorkerGlobalScope::Trace(blink::Visitor* visitor) {
   WorkerGlobalScope::Trace(visitor);
+}
+
+mojom::RequestContextType
+SharedWorkerGlobalScope::GetDestinationForMainScript() {
+  return mojom::RequestContextType::SHARED_WORKER;
 }
 
 }  // namespace blink

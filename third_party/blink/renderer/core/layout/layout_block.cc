@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/core/layout/layout_flexible_box.h"
 #include "third_party/blink/renderer/core/layout/layout_flow_thread.h"
 #include "third_party/blink/renderer/core/layout/layout_grid.h"
+#include "third_party/blink/renderer/core/layout/layout_inline.h"
 #include "third_party/blink/renderer/core/layout/layout_multi_column_spanner_placeholder.h"
 #include "third_party/blink/renderer/core/layout/layout_object_factory.h"
 #include "third_party/blink/renderer/core/layout/layout_table_cell.h"
@@ -322,11 +323,13 @@ void LayoutBlock::AddChildBeforeDescendant(LayoutObject* new_child,
   // If the requested insertion point is not one of our children, then this is
   // because there is an anonymous container within this object that contains
   // the beforeDescendant.
-  if (before_descendant_container->IsAnonymousBlock()) {
+  if (before_descendant_container->IsAnonymousBlock() ||
+      (before_descendant_container->IsLayoutInline() &&
+       ToLayoutInline(before_descendant_container)->IsFirstLineAnonymous())) {
     // Insert the child into the anonymous block box instead of here.
     if (new_child->IsInline() ||
-        (new_child->IsFloatingOrOutOfFlowPositioned() && !IsFlexibleBox() &&
-         !IsLayoutGrid()) ||
+        (new_child->IsFloatingOrOutOfFlowPositioned() &&
+         !IsFlexibleBoxIncludingNG() && !IsLayoutGrid()) ||
         before_descendant->Parent()->SlowFirstChild() != before_descendant) {
       before_descendant_container->AddChild(new_child, before_descendant);
     } else {
@@ -366,8 +369,9 @@ void LayoutBlock::AddChild(LayoutObject* new_child,
   // here.
   DCHECK(!ChildrenInline());
 
-  if (new_child->IsInline() || (new_child->IsFloatingOrOutOfFlowPositioned() &&
-                                !IsFlexibleBox() && !IsLayoutGrid())) {
+  if (new_child->IsInline() ||
+      (new_child->IsFloatingOrOutOfFlowPositioned() &&
+       !IsFlexibleBoxIncludingNG() && !IsLayoutGrid())) {
     // If we're inserting an inline child but all of our children are blocks,
     // then we have to make sure it is put into an anomyous block box. We try to
     // use an existing anonymous box if possible, otherwise a new one is created
@@ -434,8 +438,21 @@ void LayoutBlock::UpdateLayout() {
 
   LayoutAnalyzer::Scope analyzer(*this);
 
-  if (LayoutBlockedByDisplayLock())
-    return;
+  base::Optional<DisplayLockContext::ScopedPendingFrameRect>
+      scoped_pending_frame_rect;
+  if (auto* context = GetDisplayLockContext()) {
+    // In a display locked element, we might be prevented from doing layout in
+    // which case we should abort.
+    if (LayoutBlockedByDisplayLock())
+      return;
+    // If we're display locked, then our layout should go into a pending frame
+    // rect without updating the frame rect visible to the ancestors. The
+    // following scoped object provides this functionality: it puts in place the
+    // (previously updated) pending frame rect. When the object is destroyed, it
+    // saves the pending frame rect in the DisplayLockContext and restores the
+    // frame rect that was in place at the time the lock was acquired.
+    scoped_pending_frame_rect.emplace(context->GetScopedPendingFrameRect());
+  }
 
   bool needs_scroll_anchoring =
       HasOverflowClip() && GetScrollableArea()->ShouldPerformScrollAnchoring();
@@ -450,7 +467,7 @@ void LayoutBlock::UpdateLayout() {
   // It's safe to check for control clip here, since controls can never be table
   // cells. If we have a lightweight clip, there can never be any overflow from
   // children.
-  if (HasControlClip() && overflow_)
+  if (HasControlClip() && HasLayoutOverflow())
     ClearLayoutOverflow();
 
   height_available_to_children_changed_ = false;
@@ -505,25 +522,16 @@ void LayoutBlock::AddLayoutOverflowFromChildren() {
     AddLayoutOverflowFromBlockChildren();
 }
 
-void LayoutBlock::ComputeOverflow(LayoutUnit old_client_after_edge,
-                                  bool recompute_floats) {
+void LayoutBlock::ComputeVisualOverflow(bool) {
   LayoutRect previous_visual_overflow_rect = VisualOverflowRect();
-  overflow_.reset();
-  ComputeLayoutOverflow(old_client_after_edge, recompute_floats);
-  ComputeVisualOverflow(previous_visual_overflow_rect, recompute_floats);
-}
-
-void LayoutBlock::ComputeVisualOverflow(
-    const LayoutRect& previous_visual_overflow_rect,
-    bool) {
+  ClearVisualOverflow();
   AddVisualOverflowFromChildren();
 
   AddVisualEffectOverflow();
   AddVisualOverflowFromTheme();
 
   if (VisualOverflowRect() != previous_visual_overflow_rect) {
-    if (Layer())
-      Layer()->SetNeedsCompositingInputsUpdate();
+    SetShouldCheckForPaintInvalidation();
     GetFrameView()->SetIntersectionObservationState(LocalFrameView::kDesired);
   }
 }
@@ -531,6 +539,8 @@ void LayoutBlock::ComputeVisualOverflow(
 DISABLE_CFI_PERF
 void LayoutBlock::ComputeLayoutOverflow(LayoutUnit old_client_after_edge,
                                         bool) {
+  ClearSelfNeedsLayoutOverflowRecalc();
+  ClearLayoutOverflow();
   AddLayoutOverflowFromChildren();
   AddLayoutOverflowFromPositionedObjects();
 
@@ -551,8 +561,7 @@ void LayoutBlock::ComputeLayoutOverflow(LayoutUnit old_client_after_edge,
           (old_client_after_edge - client_rect.X()).ClampNegativeToZero(),
           LayoutUnit(1));
     AddLayoutOverflow(rect_to_apply);
-    if (HasOverflowModel())
-      overflow_->SetLayoutClientAfterEdge(old_client_after_edge);
+    SetLayoutClientAfterEdge(old_client_after_edge);
   }
 }
 
@@ -570,7 +579,6 @@ void LayoutBlock::AddVisualOverflowFromBlockChildren() {
     if (child->IsLayoutBlockFlow() &&
         ToLayoutBlockFlow(child)->ContainsInlineWithOutlineAndContinuation())
       ToLayoutBlockFlow(child)->AddVisualOverflowFromInlineChildren();
-
     AddVisualOverflowFromChild(*child);
   }
 }
@@ -730,10 +738,8 @@ bool LayoutBlock::SimplifiedLayout() {
     // every relayout so it's not a regression. computeOverflow expects the
     // bottom edge before we clamp our height. Since this information isn't
     // available during simplifiedLayout, we cache the value in m_overflow.
-    LayoutUnit old_client_after_edge = HasOverflowModel()
-                                           ? overflow_->LayoutClientAfterEdge()
-                                           : ClientLogicalBottom();
-    ComputeOverflow(old_client_after_edge, true);
+    LayoutUnit old_client_after_edge = LayoutClientAfterEdge();
+    ComputeLayoutOverflow(old_client_after_edge, true);
   }
 
   UpdateAfterLayout();
@@ -792,8 +798,8 @@ LayoutUnit LayoutBlock::MarginIntrinsicLogicalWidthForChild(
   // A margin has three types: fixed, percentage, and auto (variable).
   // Auto and percentage margins become 0 when computing min/max width.
   // Fixed margins can be added in as is.
-  Length margin_left = child.StyleRef().MarginStartUsing(StyleRef());
-  Length margin_right = child.StyleRef().MarginEndUsing(StyleRef());
+  const Length& margin_left = child.StyleRef().MarginStartUsing(StyleRef());
+  const Length& margin_right = child.StyleRef().MarginEndUsing(StyleRef());
   LayoutUnit margin;
   if (margin_left.IsFixed())
     margin += margin_left.Value();
@@ -875,6 +881,7 @@ void LayoutBlock::LayoutPositionedObject(LayoutBox* positioned_object,
   bool needs_block_direction_location_set_before_layout =
       is_paginated &&
       positioned_object->GetPaginationBreakability() != kForbidBreaks;
+  bool bogus_logical_top_estimate = false;
   if (needs_block_direction_location_set_before_layout) {
     // Out-of-flow objects are normally positioned after layout (while in-flow
     // objects are positioned before layout). If the child object is paginated
@@ -882,16 +889,35 @@ void LayoutBlock::LayoutPositionedObject(LayoutBox* positioned_object,
     // know this up-front, to correctly evaluate if we need to mark for
     // relayout, and, if our estimate is correct, we'll even be able to insert
     // correct pagination struts on the first attempt.
-    LogicalExtentComputedValues computed_values;
-    positioned_object->ComputeLogicalHeight(positioned_object->LogicalHeight(),
-                                            positioned_object->LogicalTop(),
-                                            computed_values);
-    logical_top_estimate = computed_values.position_;
+    const ComputedStyle& style = positioned_object->StyleRef();
+    if (!style.LogicalBottom().IsAuto() && style.LogicalTop().IsAuto() &&
+        style.LogicalHeight().IsAuto()) {
+      // This child is bottom-aligned with auto block size. We cannot make a
+      // decent estimate before layout. Just estimate something as far above a
+      // fragmentainer break as possible. This is a way to try our best to avoid
+      // hitting fragmentainer breaks, as that could impact the block size of
+      // the child (increase it if contents need to be pushed to the next
+      // fragmentainer, or decrease it if a descendant margin collides into a
+      // fragmentainer boundary), and thus give us a bad block-start offset.
+      logical_top_estimate = -OffsetFromLogicalTopOfFirstPage();
+      bogus_logical_top_estimate = true;
+    } else {
+      LogicalExtentComputedValues computed_values;
+      positioned_object->ComputeLogicalHeight(
+          positioned_object->LogicalHeight(), positioned_object->LogicalTop(),
+          computed_values);
+      logical_top_estimate = computed_values.position_;
+    }
     positioned_object->SetLogicalTop(logical_top_estimate);
   }
 
-  if (!positioned_object->NeedsLayout())
+  if (!positioned_object->NeedsLayout()) {
     MarkChildForPaginationRelayoutIfNeeded(*positioned_object, layout_scope);
+    // If we're not able to set a decent block start estimate, we need to force
+    // layout to figure it out.
+    if (bogus_logical_top_estimate)
+      layout_scope.SetChildNeedsLayout(positioned_object);
+  }
 
   // FIXME: We should be able to do a r->setNeedsPositionedMovementLayout()
   // here instead of a full layout. Need to investigate why it does not
@@ -905,6 +931,9 @@ void LayoutBlock::LayoutPositionedObject(LayoutBox* positioned_object,
 
   LayoutObject* parent = positioned_object->Parent();
   bool layout_changed = false;
+  // TODO(dgrogan): The NG flexbox implementation doesn't have an analogous
+  // method yet, so abspos children of NG flexboxes that have a legacy
+  // containing block will not be positioned correctly.
   if (parent->IsFlexibleBox() &&
       ToLayoutFlexibleBox(parent)->SetStaticPositionForPositionedLayout(
           *positioned_object)) {
@@ -1028,6 +1057,34 @@ void LayoutBlock::ClearPreviousVisualRects() {
   BlockPaintInvalidator(*this).ClearPreviousVisualRects();
 }
 
+void LayoutBlock::ImageChanged(WrappedImagePtr image,
+                               CanDeferInvalidation defer) {
+  LayoutBox::ImageChanged(image, defer);
+
+  if (!StyleRef().HasPseudoStyle(kPseudoIdFirstLine))
+    return;
+
+  // ImageChanged() is also called when we add image observers. Don't use
+  // FirstLineStyleRef() here because it will update the first line style cache
+  // too early. We should just access the current cached style and bail out if
+  // it's not ready (and we'll update pending image observer when the cache is
+  // updated).
+  const auto* cached_first_line_style =
+      StyleRef().GetCachedPseudoStyle(kPseudoIdFirstLine);
+  if (!cached_first_line_style)
+    return;
+
+  if (auto* first_line_container = NearestInnerBlockWithFirstLine()) {
+    for (const auto* layer = &cached_first_line_style->BackgroundLayers();
+         layer; layer = layer->Next()) {
+      if (layer->GetImage() && image == layer->GetImage()->Data()) {
+        first_line_container->SetShouldDoFullPaintInvalidationForFirstLine();
+        break;
+      }
+    }
+  }
+}
+
 void LayoutBlock::RemovePositionedObjects(
     LayoutObject* o,
     ContainingBlockState containing_block_state) {
@@ -1046,7 +1103,7 @@ void LayoutBlock::RemovePositionedObjects(
         // invalidation container.
         // Invalidate it (including non-compositing descendants) on its original
         // paint invalidation container.
-        if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+        if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
           // This valid because we need to invalidate based on the current
           // status.
           DisableCompositingQueryAsserts compositing_disabler;
@@ -1549,8 +1606,9 @@ void LayoutBlock::ComputeBlockPreferredLogicalWidths(
     // (variable).
     // Auto and percentage margins simply become 0 when computing min/max width.
     // Fixed margins can be added in as is.
-    Length start_margin_length = child_style->MarginStartUsing(style_to_use);
-    Length end_margin_length = child_style->MarginEndUsing(style_to_use);
+    const Length& start_margin_length =
+        child_style->MarginStartUsing(style_to_use);
+    const Length& end_margin_length = child_style->MarginEndUsing(style_to_use);
     LayoutUnit margin;
     LayoutUnit margin_start;
     LayoutUnit margin_end;
@@ -1780,6 +1838,9 @@ LayoutUnit LayoutBlock::MinLineHeightForReplacedObject(
 
 LayoutUnit LayoutBlock::FirstLineBoxBaseline() const {
   DCHECK(!ChildrenInline());
+  if (ShouldApplyLayoutContainment())
+    return LayoutUnit(-1);
+
   if (IsWritingModeRoot() && !IsRubyRun())
     return LayoutUnit(-1);
 
@@ -2071,79 +2132,119 @@ void LayoutBlock::SetCachedConstraintSpace(const NGConstraintSpace& space) {
   cached_constraint_space_.reset(new NGConstraintSpace(space));
 }
 
-bool LayoutBlock::RecalcNormalFlowChildOverflowIfNeeded(
+bool LayoutBlock::RecalcNormalFlowChildLayoutOverflowIfNeeded(
     LayoutObject* layout_object) {
   if (layout_object->IsOutOfFlowPositioned())
     return false;
-  return layout_object->RecalcOverflow();
+  return layout_object->RecalcLayoutOverflow();
 }
 
-bool LayoutBlock::RecalcChildOverflow() {
-  DCHECK(!IsTable());
-  DCHECK(ChildNeedsOverflowRecalc());
-  ClearChildNeedsLayoutOverflowRecalc();
-  ClearChildNeedsVisualOverflowRecalc();
+void LayoutBlock::RecalcNormalFlowChildVisualOverflowIfNeeded(
+    LayoutObject* layout_object) {
+  if (layout_object->IsOutOfFlowPositioned() ||
+      (layout_object->HasLayer() &&
+       ToLayoutBoxModelObject(layout_object)->HasSelfPaintingLayer()))
+    return;
+  layout_object->RecalcVisualOverflow();
+}
 
-  bool children_overflow_changed = false;
+bool LayoutBlock::RecalcChildLayoutOverflow() {
+  DCHECK(!IsTable());
+  DCHECK(ChildNeedsLayoutOverflowRecalc());
+  ClearChildNeedsLayoutOverflowRecalc();
+
+  bool children_layout_overflow_changed = false;
 
   if (ChildrenInline()) {
     SECURITY_DCHECK(IsLayoutBlockFlow());
-    children_overflow_changed =
-        ToLayoutBlockFlow(this)->RecalcInlineChildrenOverflow();
+    children_layout_overflow_changed =
+        ToLayoutBlockFlow(this)->RecalcInlineChildrenLayoutOverflow();
   } else {
     for (LayoutBox* box = FirstChildBox(); box; box = box->NextSiblingBox()) {
-      if (RecalcNormalFlowChildOverflowIfNeeded(box))
-        children_overflow_changed = true;
+      if (RecalcNormalFlowChildLayoutOverflowIfNeeded(box))
+        children_layout_overflow_changed = true;
     }
   }
 
-  return RecalcPositionedDescendantsOverflow() || children_overflow_changed;
+  return RecalcPositionedDescendantsLayoutOverflow() ||
+         children_layout_overflow_changed;
 }
 
-bool LayoutBlock::RecalcPositionedDescendantsOverflow() {
-  bool children_overflow_changed = false;
+void LayoutBlock::RecalcChildVisualOverflow() {
+  DCHECK(!IsTable());
+
+  if (ChildrenInline()) {
+    SECURITY_DCHECK(IsLayoutBlockFlow());
+    ToLayoutBlockFlow(this)->RecalcInlineChildrenVisualOverflow();
+  } else {
+    for (LayoutBox* box = FirstChildBox(); box; box = box->NextSiblingBox()) {
+      RecalcNormalFlowChildVisualOverflowIfNeeded(box);
+    }
+  }
+
+  RecalcPositionedDescendantsVisualOverflow();
+}
+
+bool LayoutBlock::RecalcPositionedDescendantsLayoutOverflow() {
+  bool children_layout_overflow_changed = false;
 
   TrackedLayoutBoxListHashSet* positioned_descendants = PositionedObjects();
   if (!positioned_descendants)
-    return children_overflow_changed;
+    return children_layout_overflow_changed;
 
   for (auto* box : *positioned_descendants) {
-    if (box->RecalcOverflow())
-      children_overflow_changed = true;
+    if (box->RecalcLayoutOverflow())
+      children_layout_overflow_changed = true;
   }
-  return children_overflow_changed;
+  return children_layout_overflow_changed;
 }
 
-bool LayoutBlock::RecalcOverflow() {
-  bool children_overflow_changed = false;
-  if (ChildNeedsOverflowRecalc())
-    children_overflow_changed = RecalcChildOverflow();
+void LayoutBlock::RecalcPositionedDescendantsVisualOverflow() {
+  TrackedLayoutBoxListHashSet* positioned_descendants = PositionedObjects();
+  if (!positioned_descendants)
+    return;
 
-  bool self_needs_overflow_recalc = SelfNeedsOverflowRecalc();
-  if (!self_needs_overflow_recalc && !children_overflow_changed)
+  for (auto* box : *positioned_descendants) {
+    if (box->HasLayer() && box->HasSelfPaintingLayer())
+      continue;
+    box->RecalcVisualOverflow();
+  }
+}
+
+bool LayoutBlock::RecalcLayoutOverflow() {
+  bool children_layout_overflow_changed = false;
+  if (ChildNeedsLayoutOverflowRecalc())
+    children_layout_overflow_changed = RecalcChildLayoutOverflow();
+
+  bool self_needs_overflow_recalc = SelfNeedsLayoutOverflowRecalc();
+  if (!self_needs_overflow_recalc && !children_layout_overflow_changed)
     return false;
 
-  return RecalcSelfOverflow();
+  return RecalcSelfLayoutOverflow();
 }
 
-bool LayoutBlock::RecalcSelfOverflow() {
-  bool self_needs_overflow_recalc = SelfNeedsOverflowRecalc();
-  ClearSelfNeedsLayoutOverflowRecalc();
-  ClearSelfNeedsVisualOverflowRecalc();
+void LayoutBlock::RecalcVisualOverflow() {
+  RecalcChildVisualOverflow();
+  RecalcSelfVisualOverflow();
+}
+
+bool LayoutBlock::RecalcSelfLayoutOverflow() {
+  bool self_needs_layout_overflow_recalc = SelfNeedsLayoutOverflowRecalc();
   // If the current block needs layout, overflow will be recalculated during
   // layout time anyway. We can safely exit here.
   if (NeedsLayout())
     return false;
 
-  LayoutUnit old_client_after_edge = HasOverflowModel()
-                                         ? overflow_->LayoutClientAfterEdge()
-                                         : ClientLogicalBottom();
-  ComputeOverflow(old_client_after_edge, true);
-
+  LayoutUnit old_client_after_edge = LayoutClientAfterEdge();
+  ComputeLayoutOverflow(old_client_after_edge, true);
   if (HasOverflowClip())
     Layer()->GetScrollableArea()->UpdateAfterOverflowRecalc();
 
-  return !HasOverflowClip() || self_needs_overflow_recalc;
+  return !HasOverflowClip() || self_needs_layout_overflow_recalc;
+}
+
+void LayoutBlock::RecalcSelfVisualOverflow() {
+  ComputeVisualOverflow(true);
 }
 
 // Called when a positioned object moves but doesn't necessarily change size.
@@ -2170,7 +2271,7 @@ bool LayoutBlock::TryLayoutDoingPositionedMovementOnly() {
   ComputeLogicalHeight(old_height, LogicalTop(), computed_values);
 
   if (old_height != computed_values.extent_ &&
-      (HasPercentHeightDescendants() || IsFlexibleBox())) {
+      (HasPercentHeightDescendants() || IsFlexibleBoxIncludingNG())) {
     SetIntrinsicContentLogicalHeight(old_intrinsic_content_logical_height);
     return false;
   }

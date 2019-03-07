@@ -23,8 +23,8 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_switches.h"
-#include "chromeos/chromeos_constants.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_constants.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
@@ -198,11 +198,6 @@ std::string ProfileHelper::GetLockScreenAppProfileName() {
 
 // static
 bool ProfileHelper::IsOwnerProfile(const Profile* profile) {
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          chromeos::switches::kStubCrosSettings)) {
-    return true;
-  }
-
   if (!profile)
     return false;
   const user_manager::User* user =
@@ -503,8 +498,8 @@ void ProfileHelper::SetProfileToUserForTestingEnabled(bool enabled) {
 
 // static
 void ProfileHelper::SetAlwaysReturnPrimaryUserForTesting(bool value) {
-  always_return_primary_user_for_testing = true;
-  ProfileHelper::SetProfileToUserForTestingEnabled(true);
+  always_return_primary_user_for_testing = value;
+  ProfileHelper::SetProfileToUserForTestingEnabled(value);
 }
 
 void ProfileHelper::SetUserToProfileMappingForTesting(

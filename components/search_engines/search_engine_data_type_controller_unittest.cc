@@ -10,15 +10,16 @@
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/memory/ptr_util.h"
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/test/scoped_task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/sync/driver/configure_context.h"
 #include "components/sync/driver/data_type_controller_mock.h"
 #include "components/sync/driver/fake_generic_change_processor.h"
 #include "components/sync/driver/fake_sync_client.h"
+#include "components/sync/driver/fake_sync_service.h"
 #include "components/sync/driver/sync_api_component_factory_mock.h"
 #include "components/sync/model/fake_syncable_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -38,7 +39,10 @@ class SyncSearchEngineDataTypeControllerTest : public testing::Test,
   SyncSearchEngineDataTypeControllerTest()
       : syncer::FakeSyncClient(&profile_sync_factory_),
         template_url_service_(nullptr, 0),
-        search_engine_dtc_(base::Closure(), this, &template_url_service_) {
+        search_engine_dtc_(base::RepeatingClosure(),
+                           &sync_service_,
+                           this,
+                           &template_url_service_) {
     // Disallow the TemplateURLService from loading until
     // PreloadTemplateURLService() is called .
     template_url_service_.set_disable_load(true);
@@ -80,7 +84,8 @@ class SyncSearchEngineDataTypeControllerTest : public testing::Test,
     base::RunLoop().RunUntilIdle();
   }
 
-  base::MessageLoop message_loop_;
+  base::test::ScopedTaskEnvironment task_environment_;
+  syncer::FakeSyncService sync_service_;
   TemplateURLService template_url_service_;
   SearchEngineDataTypeController search_engine_dtc_;
   syncer::SyncApiComponentFactoryMock profile_sync_factory_;

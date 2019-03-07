@@ -97,21 +97,23 @@ class NET_EXPORT HostCache {
       SOURCE_HOSTS,
     };
 
+    // |ttl=base::nullopt| for unknown TTL.
     template <typename T>
-    Entry(int error, T&& results, Source source, base::TimeDelta ttl)
-        : error_(error), source_(source), ttl_(ttl) {
-      DCHECK(ttl >= base::TimeDelta());
+    Entry(int error,
+          T&& results,
+          Source source,
+          base::Optional<base::TimeDelta> ttl)
+        : error_(error),
+          source_(source),
+          ttl_(ttl ? ttl.value() : base::TimeDelta::FromSeconds(-1)) {
+      DCHECK(!ttl || ttl.value() >= base::TimeDelta());
       SetResult(std::forward<T>(results));
     }
 
     // Use when |ttl| is unknown.
     template <typename T>
     Entry(int error, T&& results, Source source)
-        : error_(error),
-          source_(source),
-          ttl_(base::TimeDelta::FromSeconds(-1)) {
-      SetResult(std::forward<T>(results));
-    }
+        : Entry(error, std::forward<T>(results), source, base::nullopt) {}
 
     // For errors with no |results|.
     Entry(int error, Source source, base::TimeDelta ttl);
@@ -164,6 +166,10 @@ class NET_EXPORT HostCache {
     // representation of the entry.  The callback must be destroyed before
     // |this| is.
     NetLogParametersCallback CreateNetLogCallback() const;
+
+    // Creates a copy of |this| with the port of all address and hostname values
+    // set to |port| if the current port is 0. Preserves any non-zero ports.
+    HostCache::Entry CopyWithDefaultPort(uint16_t port) const;
 
    private:
     friend class HostCache;

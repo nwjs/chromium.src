@@ -28,6 +28,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
+#include "base/threading/scoped_blocking_call.h"
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/memory_dump_manager.h"
 #include "build/build_config.h"
@@ -500,10 +501,6 @@ void Database::Preload() {
 // spill to the journal.  That could be compensated by setting cache_spill to
 // false.  The downside then is that it allows open-ended use of memory for
 // large transactions.
-//
-// TODO(shess): The TrimMemory() trick of bouncing the cache size would also
-// work.  There could be two prepared statements, one for cache_size=1 one for
-// cache_size=goal.
 void Database::ReleaseCacheMemoryIfNeeded(bool implicit_change_performed) {
   // The database could have been closed during a transaction as part of error
   // recovery.
@@ -953,33 +950,19 @@ size_t Database::GetAppropriateMmapSize() {
   return mmap_ofs;
 }
 
-void Database::TrimMemory(bool aggressively) {
+void Database::TrimMemory() {
   if (!db_)
     return;
 
-  // TODO(shess): investigate using sqlite3_db_release_memory() when possible.
-  int original_cache_size;
-  {
-    Statement sql_get_original(GetUniqueStatement("PRAGMA cache_size"));
-    if (!sql_get_original.Step()) {
-      DLOG(WARNING) << "Could not get cache size " << GetErrorMessage();
-      return;
-    }
-    original_cache_size = sql_get_original.ColumnInt(0);
-  }
-  int shrink_cache_size = aggressively ? 1 : (original_cache_size / 2);
+  sqlite3_db_release_memory(db_);
 
-  // Force sqlite to try to reduce page cache usage.
-  const std::string sql_shrink =
-      base::StringPrintf("PRAGMA cache_size=%d", shrink_cache_size);
-  if (!Execute(sql_shrink.c_str()))
-    DLOG(WARNING) << "Could not shrink cache size: " << GetErrorMessage();
-
-  // Restore cache size.
-  const std::string sql_restore =
-      base::StringPrintf("PRAGMA cache_size=%d", original_cache_size);
-  if (!Execute(sql_restore.c_str()))
-    DLOG(WARNING) << "Could not restore cache size: " << GetErrorMessage();
+  // It is tempting to use sqlite3_release_memory() here as well. However, the
+  // API is documented to be a no-op unless SQLite is built with
+  // SQLITE_ENABLE_MEMORY_MANAGEMENT. We do not use this option, because it is
+  // incompatible with per-database page cache pools. Behind the scenes,
+  // SQLITE_ENABLE_MEMORY_MANAGEMENT causes SQLite to use a global page cache
+  // pool, and sqlite3_release_memory() releases unused pages from this global
+  // pool.
 }
 
 // Create an in-memory database with the existing database's page
@@ -1139,7 +1122,7 @@ void Database::Poison() {
 //
 // static
 bool Database::Delete(const base::FilePath& path) {
-  base::AssertBlockingAllowedDeprecated();
+  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
 
   base::FilePath journal_path = Database::JournalPath(path);
   base::FilePath wal_path = Database::WriteAheadLogPath(path);
@@ -1507,23 +1490,15 @@ bool Database::DoesSchemaItemExist(const char* name, const char* type) const {
 
 bool Database::DoesColumnExist(const char* table_name,
                                const char* column_name) const {
-  std::string sql("PRAGMA TABLE_INFO(");
-  sql.append(table_name);
-  sql.append(")");
-
-  Statement statement(GetUntrackedStatement(sql.c_str()));
-
-  // This can happen if the database is corrupt and the error is a test
-  // expectation.
-  if (!statement.is_valid())
-    return false;
-
-  while (statement.Step()) {
-    if (base::EqualsCaseInsensitiveASCII(statement.ColumnString(1),
-                                         column_name))
-      return true;
-  }
-  return false;
+  // sqlite3_table_column_metadata uses out-params to return column definition
+  // details, such as the column type and whether it allows NULL values. These
+  // aren't needed to compute the current method's result, so we pass in nullptr
+  // for all the out-params.
+  int error = sqlite3_table_column_metadata(
+      db_, "main", table_name, column_name, /* pzDataType= */ nullptr,
+      /* pzCollSeq= */ nullptr, /* pNotNull= */ nullptr,
+      /* pPrimaryKey= */ nullptr, /* pAutoinc= */ nullptr);
+  return error == SQLITE_OK;
 }
 
 int64_t Database::GetLastInsertRowId() const {
@@ -1662,8 +1637,8 @@ bool Database::OpenInternal(const std::string& file_name,
     OnSqliteError(err, nullptr, "PRAGMA auto_vacuum");
 
     // Retry or bail out if the error handler poisoned the handle.
-    // TODO(shess): Move this handling to one place (see also sqlite3_open and
-    // secure_delete).  Possibly a wrapper function?
+    // TODO(shess): Move this handling to one place (see also sqlite3_open).
+    //              Possibly a wrapper function?
     if (poisoned_) {
       Close();
       if (retry_flag == RETRY_ON_POISON)
@@ -1714,13 +1689,8 @@ bool Database::OpenInternal(const std::string& file_name,
     ignore_result(ExecuteWithTimeout(cache_size_sql.c_str(), kBusyTimeout));
   }
 
-  if (!ExecuteWithTimeout("PRAGMA secure_delete=ON", kBusyTimeout)) {
-    bool was_poisoned = poisoned_;
-    Close();
-    if (was_poisoned && retry_flag == RETRY_ON_POISON)
-      return OpenInternal(file_name, NO_RETRY);
-    return false;
-  }
+  static_assert(SQLITE_SECURE_DELETE == 1,
+                "Chrome assumes secure_delete is on by default.");
 
   // Set a reasonable chunk size for larger files.  This reduces churn from
   // remapping memory on size changes.  It also reduces filesystem

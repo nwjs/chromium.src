@@ -57,19 +57,11 @@ enum ImageAnimationPolicy {
 
 enum class ViewportStyle { DEFAULT, MOBILE, TELEVISION, LAST = TELEVISION };
 
-enum class SavePreviousDocumentResources {
-  NEVER,
-  UNTIL_ON_DOM_CONTENT_LOADED,
-  UNTIL_ON_LOAD,
-  LAST = UNTIL_ON_LOAD
-};
-
 // Defines the autoplay policy to be used. Should match the class in
 // WebSettings.h.
 enum class AutoplayPolicy {
   kNoUserGestureRequired,
   kUserGestureRequired,
-  kUserGestureRequiredForCrossOrigin,
   kDocumentUserActivationRequired,
 };
 
@@ -122,10 +114,6 @@ struct CONTENT_EXPORT WebPreferences {
   // appears as disabled to the web consumers even if it has been actually
   // enabled by the user.
   bool data_saver_holdback_web_api_enabled;
-  // Whether data saver holdback is enabled when queried by the media APIs
-  // within Blink. If enabled, data saver appears as disabled to the media APIs
-  // even if it has been actually enabled by the user.
-  bool data_saver_holdback_media_api_enabled;
   bool local_storage_enabled;
   bool databases_enabled;
   bool application_cache_enabled;
@@ -173,6 +161,7 @@ struct CONTENT_EXPORT WebPreferences {
   bool should_print_backgrounds;
   bool should_clear_document_background;
   bool enable_scroll_animator;
+  bool prefers_reduced_motion;
   bool touch_event_feature_detection_enabled;
   bool touch_adjustment_enabled;
   int pointer_events_max_touch_points;
@@ -205,7 +194,6 @@ struct CONTENT_EXPORT WebPreferences {
   bool navigate_on_drag_drop;
   V8CacheOptions v8_cache_options;
   bool record_whole_document;
-  SavePreviousDocumentResources save_previous_document_resources;
 
   // This flags corresponds to a Page's Settings' setCookieEnabled state. It
   // only controls whether or not the "document.cookie" field is properly
@@ -222,6 +210,11 @@ struct CONTENT_EXPORT WebPreferences {
 
   bool user_gesture_required_for_presentation;
 
+  // These fields specify the foreground and background color for WebVTT text
+  // tracks. Their values can be any legal CSS color descriptor.
+  std::string text_track_background_color;
+  std::string text_track_text_color;
+
   // Specifies the margin for WebVTT text tracks as a percentage of media
   // element height/width (for horizontal/vertical text respectively).
   // Cues will not be placed in this margin area.
@@ -233,12 +226,14 @@ struct CONTENT_EXPORT WebPreferences {
 
   bool text_autosizing_enabled;
 
+  // Representation of the Web App Manifest scope if any.
+  GURL web_app_scope;
+
 #if defined(OS_ANDROID)
   float font_scale_factor;
   float device_scale_adjustment;
   bool force_enable_zoom;
   bool fullscreen_supported;
-  GURL media_playback_gesture_whitelist_scope;
   GURL default_video_poster_url;
   bool support_deprecated_target_density_dpi;
   bool use_legacy_background_size_shorthand_behavior;

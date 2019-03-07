@@ -35,7 +35,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/dom/pausable_object.h"
+#include "third_party/blink/renderer/core/execution_context/pausable_object.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/media/media_controls.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
@@ -95,7 +95,7 @@ class CORE_EXPORT HTMLMediaElement
 
  public:
   // Returns attributes that should be checked against Trusted Types
-  const HashSet<AtomicString>& GetCheckedAttributeNames() const override;
+  const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
 
   static MIMETypeRegistry::SupportsType GetSupportsType(const ContentType&);
 
@@ -111,7 +111,7 @@ class CORE_EXPORT HTMLMediaElement
   // for the given document.
   static void OnMediaControlsEnabledChange(Document*);
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
   void ClearWeakMembers(Visitor*);
   WebMediaPlayer* GetWebMediaPlayer() const { return web_media_player_.get(); }
@@ -329,6 +329,10 @@ class CORE_EXPORT HTMLMediaElement
 
   bool HasMediaSource() const { return media_source_; }
 
+  // Return true if element is paused and won't resume automatically if it
+  // becomes visible again.
+  bool PausedWhenVisible() const;
+
  protected:
   HTMLMediaElement(const QualifiedName&, Document&);
   ~HTMLMediaElement() override;
@@ -364,6 +368,7 @@ class CORE_EXPORT HTMLMediaElement
   // Friend class for testing.
   friend class ContextMenuControllerTest;
   friend class MediaElementFillingViewportTest;
+  friend class VideoWakeLockTest;
 
   void ResetMediaPlayerAndMediaSource();
 
@@ -382,6 +387,8 @@ class CORE_EXPORT HTMLMediaElement
   bool IsInteractiveContent() const final;
 
   // PausableObject functions.
+  void ContextPaused(PauseState) override;
+  void ContextUnpaused() override;
   void ContextDestroyed(ExecutionContext*) override;
 
   virtual void UpdateDisplayState() {}
@@ -496,8 +503,6 @@ class CORE_EXPORT HTMLMediaElement
 
   // This does not stop autoplay visibility observation.
   void PauseInternal();
-
-  void AllowVideoRendering();
 
   void UpdateVolume();
   void UpdatePlayState();
@@ -625,7 +630,14 @@ class CORE_EXPORT HTMLMediaElement
 
   DisplayMode display_mode_;
 
-  Member<HTMLMediaSource> media_source_;
+  // If any portion of an attached HTMLMediaElement (HTMLME) and the MediaSource
+  // Extensions (MSE) API is alive (having pending activity or traceable from a
+  // GC root), the whole group is not GC'ed. Here, using TraceWrapperMember,
+  // instead of Member, because |media_source_|'s wrapper needs to remain alive
+  // at least to successfully dispatch any events enqueued by behavior of the
+  // HTMLME+MSE API. It makes |media_source_|'s wrapper remain alive as long as
+  // this HTMLMediaElement's wrapper is alive.
+  TraceWrapperMember<HTMLMediaSource> media_source_;
 
   // Stores "official playback position", updated periodically from "current
   // playback position". Official playback position should not change while
@@ -646,6 +658,7 @@ class CORE_EXPORT HTMLMediaElement
   bool muted_ : 1;
   bool paused_ : 1;
   bool seeking_ : 1;
+  bool paused_by_context_paused_ : 1;
 
   // data has not been loaded since sending a "stalled" event
   bool sent_stalled_event_ : 1;
@@ -699,7 +712,7 @@ class CORE_EXPORT HTMLMediaElement
     // WebAudioSourceProviderClient
     void SetFormat(uint32_t number_of_channels, float sample_rate) override;
 
-    void Trace(blink::Visitor*);
+    void Trace(Visitor*);
 
    private:
     Member<AudioSourceProviderClient> client_;
@@ -722,7 +735,7 @@ class CORE_EXPORT HTMLMediaElement
     void SetClient(AudioSourceProviderClient*) override;
     void ProvideInput(AudioBus*, uint32_t frames_to_process) override;
 
-    void Trace(blink::Visitor*);
+    void Trace(Visitor*);
 
    private:
     WebAudioSourceProvider* web_audio_source_provider_;

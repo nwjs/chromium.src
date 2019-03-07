@@ -6,7 +6,7 @@
 
 #include <utility>
 
-#include "base/memory/singleton.h"
+#include "base/no_destructor.h"
 #include "base/time/time.h"
 #include "components/keyed_service/ios/browser_state_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -21,7 +21,6 @@
 #include "ios/web_view/internal/signin/web_view_gaia_cookie_manager_service_factory.h"
 #include "ios/web_view/internal/signin/web_view_oauth2_token_service_factory.h"
 #include "ios/web_view/internal/signin/web_view_signin_client_factory.h"
-#include "ios/web_view/internal/signin/web_view_signin_error_controller_factory.h"
 #include "ios/web_view/internal/web_view_browser_state.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -38,7 +37,6 @@ WebViewSigninManagerFactory::WebViewSigninManagerFactory()
   DependsOn(WebViewGaiaCookieManagerServiceFactory::GetInstance());
   DependsOn(WebViewOAuth2TokenServiceFactory::GetInstance());
   DependsOn(WebViewAccountTrackerServiceFactory::GetInstance());
-  DependsOn(WebViewSigninErrorControllerFactory::GetInstance());
 }
 
 // static
@@ -57,7 +55,13 @@ SigninManager* WebViewSigninManagerFactory::GetForBrowserStateIfExists(
 
 // static
 WebViewSigninManagerFactory* WebViewSigninManagerFactory::GetInstance() {
-  return base::Singleton<WebViewSigninManagerFactory>::get();
+  static base::NoDestructor<WebViewSigninManagerFactory> instance;
+  return instance.get();
+}
+
+// static
+void WebViewSigninManagerFactory::RegisterPrefs(PrefRegistrySimple* registry) {
+  SigninManagerBase::RegisterPrefs(registry);
 }
 
 void WebViewSigninManagerFactory::RegisterBrowserStatePrefs(
@@ -83,7 +87,6 @@ WebViewSigninManagerFactory::BuildServiceInstanceFor(
       WebViewOAuth2TokenServiceFactory::GetForBrowserState(browser_state),
       WebViewAccountTrackerServiceFactory::GetForBrowserState(browser_state),
       WebViewGaiaCookieManagerServiceFactory::GetForBrowserState(browser_state),
-      WebViewSigninErrorControllerFactory::GetForBrowserState(browser_state),
       signin::AccountConsistencyMethod::kDisabled);
   service->Initialize(ApplicationContext::GetInstance()->GetLocalState());
   return service;

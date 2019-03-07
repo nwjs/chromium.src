@@ -48,11 +48,9 @@ namespace blink {
 
 static void DeflateIfOverlapped(LayoutRect&, LayoutRect&);
 
-FocusCandidate::FocusCandidate(Node* node, WebFocusType direction)
+FocusCandidate::FocusCandidate(Node* node, SpatialNavigationDirection direction)
     : visible_node(nullptr),
       focusable_node(nullptr),
-      enclosing_scrollable_box(nullptr),
-      distance(MaxDistance()),
       is_offscreen(true),
       is_offscreen_after_scrolling(true) {
   DCHECK(node);
@@ -89,15 +87,15 @@ bool SpatialNavigationIgnoresEventHandlers(const LocalFrame* frame) {
           frame->GetSettings()->GetDeviceSupportsTouch());
 }
 
-static bool RectsIntersectOnOrthogonalAxis(WebFocusType direction,
+static bool RectsIntersectOnOrthogonalAxis(SpatialNavigationDirection direction,
                                            const LayoutRect& a,
                                            const LayoutRect& b) {
   switch (direction) {
-    case kWebFocusTypeLeft:
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kLeft:
+    case SpatialNavigationDirection::kRight:
       return a.MaxY() > b.Y() && a.Y() < b.MaxY();
-    case kWebFocusTypeUp:
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kUp:
+    case SpatialNavigationDirection::kDown:
       return a.MaxX() > b.X() && a.X() < b.MaxX();
     default:
       NOTREACHED();
@@ -121,17 +119,17 @@ static inline bool RightOf(const LayoutRect& a, const LayoutRect& b) {
                                a.Y() < b.MaxY() && a.MaxY() > b.Y());
 }
 
-static bool IsRectInDirection(WebFocusType direction,
+static bool IsRectInDirection(SpatialNavigationDirection direction,
                               const LayoutRect& cur_rect,
                               const LayoutRect& target_rect) {
   switch (direction) {
-    case kWebFocusTypeLeft:
+    case SpatialNavigationDirection::kLeft:
       return RightOf(cur_rect, target_rect);
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kRight:
       return RightOf(target_rect, cur_rect);
-    case kWebFocusTypeUp:
+    case SpatialNavigationDirection::kUp:
       return Below(cur_rect, target_rect);
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kDown:
       return Below(target_rect, cur_rect);
     default:
       NOTREACHED();
@@ -149,6 +147,8 @@ static bool IsRectInDirection(WebFocusType direction,
 // account, spatnav could have called it directly; no need to check the
 // LayoutObject's VisibleContentRect.
 bool IsOffscreen(const Node* node) {
+  DCHECK(node);
+
   LocalFrameView* frame_view = node->GetDocument().View();
   if (!frame_view)
     return true;
@@ -166,7 +166,8 @@ bool IsOffscreen(const Node* node) {
   if (rect.IsEmpty())
     return true;
 
-  if (!frame_viewport.Intersects(rect))
+  // A document always intersects with its frame's viewport.
+  if (node != node->GetDocument() && !frame_viewport.Intersects(rect))
     return true;
 
   // Now we know that the node is visible in the its own frame's viewport (it is
@@ -176,14 +177,15 @@ bool IsOffscreen(const Node* node) {
   IntRect rect_in_root_frame;
   if (auto* document = DynamicTo<Document>(node))
     node = document->body();
-  if (node->IsElementNode())
+  if (node && node->IsElementNode())
     rect_in_root_frame = ToElement(*node).VisibleBoundsInVisualViewport();
   return rect_in_root_frame.IsEmpty();
 }
 
 // As IsOffscreen() but returns visibility through the |node|'s frame's viewport
 // after scrolling the frame in |direction|.
-bool IsOffscreenAfterFrameScroll(const Node* node, WebFocusType direction) {
+bool IsOffscreenAfterFrameScroll(const Node* node,
+                                 SpatialNavigationDirection direction) {
   LocalFrameView* frame_view = node->GetDocument().View();
   if (!frame_view)
     return true;
@@ -201,18 +203,18 @@ bool IsOffscreenAfterFrameScroll(const Node* node, WebFocusType direction) {
   int pixels_per_line_step =
       ScrollableArea::PixelsPerLineStep(frame_view->GetChromeClient());
   switch (direction) {
-    case kWebFocusTypeLeft:
+    case SpatialNavigationDirection::kLeft:
       frame_viewport.SetX(frame_viewport.X() - pixels_per_line_step);
       frame_viewport.SetWidth(frame_viewport.Width() + pixels_per_line_step);
       break;
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kRight:
       frame_viewport.SetWidth(frame_viewport.Width() + pixels_per_line_step);
       break;
-    case kWebFocusTypeUp:
+    case SpatialNavigationDirection::kUp:
       frame_viewport.SetY(frame_viewport.Y() - pixels_per_line_step);
       frame_viewport.SetHeight(frame_viewport.Height() + pixels_per_line_step);
       break;
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kDown:
       frame_viewport.SetHeight(frame_viewport.Height() + pixels_per_line_step);
       break;
     default:
@@ -239,83 +241,55 @@ bool HasRemoteFrame(const Node* node) {
          ToHTMLFrameOwnerElement(node)->ContentFrame()->IsRemoteFrame();
 }
 
-bool ScrollInDirection(LocalFrame* frame, WebFocusType direction) {
-  DCHECK(frame);
-
-  if (frame && CanScrollInDirection(frame->GetDocument(), direction)) {
-    int dx = 0;
-    int dy = 0;
-    int pixels_per_line_step =
-        ScrollableArea::PixelsPerLineStep(frame->View()->GetChromeClient());
-    switch (direction) {
-      case kWebFocusTypeLeft:
-        dx = -pixels_per_line_step;
-        break;
-      case kWebFocusTypeRight:
-        dx = pixels_per_line_step;
-        break;
-      case kWebFocusTypeUp:
-        dy = -pixels_per_line_step;
-        break;
-      case kWebFocusTypeDown:
-        dy = pixels_per_line_step;
-        break;
-      default:
-        NOTREACHED();
-        return false;
-    }
-
-    frame->View()->GetScrollableArea()->ScrollBy(ScrollOffset(dx, dy),
-                                                 kUserScroll);
-    return true;
-  }
-  return false;
-}
-
-bool ScrollInDirection(Node* container, WebFocusType direction) {
+bool ScrollInDirection(Node* container, SpatialNavigationDirection direction) {
   DCHECK(container);
-  if (auto* document = DynamicTo<Document>(container))
-    return ScrollInDirection(document->GetFrame(), direction);
 
   if (!container->GetLayoutBox())
     return false;
 
-  if (CanScrollInDirection(container, direction)) {
-    int dx = 0;
-    int dy = 0;
-    // TODO(leviw): Why are these values truncated (toInt) instead of rounding?
-    LocalFrameView* frame_view = container->GetDocument().View();
-    int pixels_per_line_step = ScrollableArea::PixelsPerLineStep(
-        frame_view ? frame_view->GetChromeClient() : nullptr);
-    switch (direction) {
-      case kWebFocusTypeLeft:
-        dx = -pixels_per_line_step;
-        break;
-      case kWebFocusTypeRight:
-        DCHECK_GT(container->GetLayoutBox()->ScrollWidth(),
-                  (container->GetLayoutBox()->ScrollLeft() +
-                   container->GetLayoutBox()->ClientWidth()));
-        dx = pixels_per_line_step;
-        break;
-      case kWebFocusTypeUp:
-        dy = -pixels_per_line_step;
-        break;
-      case kWebFocusTypeDown:
-        DCHECK(container->GetLayoutBox()->ScrollHeight() -
-               (container->GetLayoutBox()->ScrollTop() +
-                container->GetLayoutBox()->ClientHeight()));
-        dy = pixels_per_line_step;
-        break;
-      default:
-        NOTREACHED();
-        return false;
-    }
+  if (!container->GetLayoutBox()->GetScrollableArea())
+    return false;
 
-    container->GetLayoutBox()->ScrollByRecursively(ScrollOffset(dx, dy));
-    return true;
+  if (!CanScrollInDirection(container, direction))
+    return false;
+
+  int dx = 0;
+  int dy = 0;
+  int pixels_per_line_step = ScrollableArea::PixelsPerLineStep(
+      container->GetDocument().GetFrame()->View()->GetChromeClient());
+  switch (direction) {
+    case SpatialNavigationDirection::kLeft:
+      dx = -pixels_per_line_step;
+      break;
+    case SpatialNavigationDirection::kRight:
+      DCHECK_GT(container->GetLayoutBox()->ScrollWidth(),
+                container->GetLayoutBox()->ScrollLeft() +
+                    container->GetLayoutBox()->ClientWidth());
+      dx = pixels_per_line_step;
+      break;
+    case SpatialNavigationDirection::kUp:
+      dy = -pixels_per_line_step;
+      break;
+    case SpatialNavigationDirection::kDown:
+      DCHECK_GT(container->GetLayoutBox()->ScrollHeight(),
+                container->GetLayoutBox()->ScrollTop() +
+                    container->GetLayoutBox()->ClientHeight());
+      dy = pixels_per_line_step;
+      break;
+    default:
+      NOTREACHED();
+      return false;
   }
 
-  return false;
+  // TODO(crbug.com/914775): Use UserScroll() instead. UserScroll() does a
+  // smooth, animated scroll which might make it easier for users to understand
+  // spatnav's moves. Another advantage of using ScrollableArea::UserScroll() is
+  // that it returns a ScrollResult so we don't need to call
+  // CanScrollInDirection(). Regular arrow-key scrolling (without
+  // --enable-spatial-navigation) already uses smooth scrolling by default.
+  container->GetLayoutBox()->GetScrollableArea()->ScrollBy(ScrollOffset(dx, dy),
+                                                           kUserScroll);
+  return true;
 }
 
 static void DeflateIfOverlapped(LayoutRect& a, LayoutRect& b) {
@@ -372,17 +346,8 @@ bool IsScrollableAreaOrDocument(const Node* node) {
          IsScrollableNode(node);
 }
 
-bool IsNavigableContainer(const Node* node, WebFocusType direction) {
-  if (!node)
-    return false;
-
-  return node->IsDocumentNode() ||
-         (node->IsFrameOwnerElement() &&
-          ToHTMLFrameOwnerElement(node)->ContentFrame()) ||
-         CanScrollInDirection(node, direction);
-}
-
-bool CanScrollInDirection(const Node* container, WebFocusType direction) {
+bool CanScrollInDirection(const Node* container,
+                          SpatialNavigationDirection direction) {
   DCHECK(container);
   if (auto* document = DynamicTo<Document>(container))
     return CanScrollInDirection(document->GetFrame(), direction);
@@ -391,21 +356,21 @@ bool CanScrollInDirection(const Node* container, WebFocusType direction) {
     return false;
 
   switch (direction) {
-    case kWebFocusTypeLeft:
+    case SpatialNavigationDirection::kLeft:
       return (container->GetLayoutObject()->Style()->OverflowX() !=
                   EOverflow::kHidden &&
               container->GetLayoutBox()->ScrollLeft() > 0);
-    case kWebFocusTypeUp:
+    case SpatialNavigationDirection::kUp:
       return (container->GetLayoutObject()->Style()->OverflowY() !=
                   EOverflow::kHidden &&
               container->GetLayoutBox()->ScrollTop() > 0);
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kRight:
       return (container->GetLayoutObject()->Style()->OverflowX() !=
                   EOverflow::kHidden &&
               container->GetLayoutBox()->ScrollLeft() +
                       container->GetLayoutBox()->ClientWidth() <
                   container->GetLayoutBox()->ScrollWidth());
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kDown:
       return (container->GetLayoutObject()->Style()->OverflowY() !=
                   EOverflow::kHidden &&
               container->GetLayoutBox()->ScrollTop() +
@@ -417,7 +382,8 @@ bool CanScrollInDirection(const Node* container, WebFocusType direction) {
   }
 }
 
-bool CanScrollInDirection(const LocalFrame* frame, WebFocusType direction) {
+bool CanScrollInDirection(const LocalFrame* frame,
+                          SpatialNavigationDirection direction) {
   if (!frame->View())
     return false;
   LayoutView* layoutView = frame->ContentLayoutObject();
@@ -426,10 +392,12 @@ bool CanScrollInDirection(const LocalFrame* frame, WebFocusType direction) {
   ScrollbarMode vertical_mode;
   ScrollbarMode horizontal_mode;
   layoutView->CalculateScrollbarModes(horizontal_mode, vertical_mode);
-  if ((direction == kWebFocusTypeLeft || direction == kWebFocusTypeRight) &&
+  if ((direction == SpatialNavigationDirection::kLeft ||
+       direction == SpatialNavigationDirection::kRight) &&
       kScrollbarAlwaysOff == horizontal_mode)
     return false;
-  if ((direction == kWebFocusTypeUp || direction == kWebFocusTypeDown) &&
+  if ((direction == SpatialNavigationDirection::kUp ||
+       direction == SpatialNavigationDirection::kDown) &&
       kScrollbarAlwaysOff == vertical_mode)
     return false;
   ScrollableArea* scrollable_area = frame->View()->GetScrollableArea();
@@ -438,13 +406,13 @@ bool CanScrollInDirection(const LocalFrame* frame, WebFocusType direction) {
   LayoutRect rect(scrollable_area->VisibleContentRect(kIncludeScrollbars));
 
   switch (direction) {
-    case kWebFocusTypeLeft:
+    case SpatialNavigationDirection::kLeft:
       return offset.Width() > 0;
-    case kWebFocusTypeUp:
+    case SpatialNavigationDirection::kUp:
       return offset.Height() > 0;
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kRight:
       return rect.Width() + offset.Width() < size.Width();
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kDown:
       return rect.Height() + offset.Height() < size.Height();
     default:
       NOTREACHED();
@@ -479,34 +447,34 @@ LayoutRect NodeRectInRootFrame(const Node* node, bool ignore_border) {
 // into the candidate rect.  The line between those 2 points is the closest
 // distance between the 2 rects.  Takes care of overlapping rects, defining
 // points so that the distance between them is zero where necessary.
-void EntryAndExitPointsForDirection(WebFocusType direction,
+void EntryAndExitPointsForDirection(SpatialNavigationDirection direction,
                                     const LayoutRect& starting_rect,
                                     const LayoutRect& potential_rect,
                                     LayoutPoint& exit_point,
                                     LayoutPoint& entry_point) {
   switch (direction) {
-    case kWebFocusTypeLeft:
+    case SpatialNavigationDirection::kLeft:
       exit_point.SetX(starting_rect.X());
       if (potential_rect.MaxX() < starting_rect.X())
         entry_point.SetX(potential_rect.MaxX());
       else
         entry_point.SetX(starting_rect.X());
       break;
-    case kWebFocusTypeUp:
+    case SpatialNavigationDirection::kUp:
       exit_point.SetY(starting_rect.Y());
       if (potential_rect.MaxY() < starting_rect.Y())
         entry_point.SetY(potential_rect.MaxY());
       else
         entry_point.SetY(starting_rect.Y());
       break;
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kRight:
       exit_point.SetX(starting_rect.MaxX());
       if (potential_rect.X() > starting_rect.MaxX())
         entry_point.SetX(potential_rect.X());
       else
         entry_point.SetX(starting_rect.MaxX());
       break;
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kDown:
       exit_point.SetY(starting_rect.MaxY());
       if (potential_rect.Y() > starting_rect.MaxY())
         entry_point.SetY(potential_rect.Y());
@@ -518,8 +486,8 @@ void EntryAndExitPointsForDirection(WebFocusType direction,
   }
 
   switch (direction) {
-    case kWebFocusTypeLeft:
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kLeft:
+    case SpatialNavigationDirection::kRight:
       if (Below(starting_rect, potential_rect)) {
         exit_point.SetY(starting_rect.Y());
         if (potential_rect.MaxY() < starting_rect.Y())
@@ -537,8 +505,8 @@ void EntryAndExitPointsForDirection(WebFocusType direction,
         entry_point.SetY(exit_point.Y());
       }
       break;
-    case kWebFocusTypeUp:
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kUp:
+    case SpatialNavigationDirection::kDown:
       if (RightOf(starting_rect, potential_rect)) {
         exit_point.SetX(starting_rect.X());
         if (potential_rect.MaxX() < starting_rect.X())
@@ -589,25 +557,26 @@ bool AreElementsOnSameLine(const FocusCandidate& first_candidate,
   return true;
 }
 
-void DistanceDataForNode(WebFocusType direction,
-                         const FocusCandidate& current,
-                         FocusCandidate& candidate) {
-  if (!IsRectInDirection(direction, current.rect_in_root_frame,
+double ComputeDistanceDataForNode(SpatialNavigationDirection direction,
+                                  const FocusCandidate& current_interest,
+                                  const FocusCandidate& candidate) {
+  if (!IsRectInDirection(direction, current_interest.rect_in_root_frame,
                          candidate.rect_in_root_frame))
-    return;
+    return MaxDistance();
 
-  if (AreElementsOnSameLine(current, candidate)) {
-    if ((direction == kWebFocusTypeUp &&
-         current.rect_in_root_frame.Y() > candidate.rect_in_root_frame.Y()) ||
-        (direction == kWebFocusTypeDown &&
-         candidate.rect_in_root_frame.Y() > current.rect_in_root_frame.Y())) {
-      candidate.distance = 0;
-      return;
+  if (AreElementsOnSameLine(current_interest, candidate)) {
+    if ((direction == SpatialNavigationDirection::kUp &&
+         current_interest.rect_in_root_frame.Y() >
+             candidate.rect_in_root_frame.Y()) ||
+        (direction == SpatialNavigationDirection::kDown &&
+         candidate.rect_in_root_frame.Y() >
+             current_interest.rect_in_root_frame.Y())) {
+      return 0.0;
     }
   }
 
   LayoutRect node_rect = candidate.rect_in_root_frame;
-  LayoutRect current_rect = current.rect_in_root_frame;
+  LayoutRect current_rect = current_interest.rect_in_root_frame;
   DeflateIfOverlapped(current_rect, node_rect);
 
   LayoutPoint exit_point;
@@ -633,16 +602,16 @@ void DistanceDataForNode(WebFocusType direction,
   int orthogonal_bias = 0;
 
   switch (direction) {
-    case kWebFocusTypeLeft:
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kLeft:
+    case SpatialNavigationDirection::kRight:
       navigation_axis_distance = x_axis;
       if (!RectsIntersectOnOrthogonalAxis(direction, current_rect, node_rect))
         orthogonal_bias = (current_rect.Height() / 2).ToInt();
       weighted_orthogonal_axis_distance =
           (y_axis + orthogonal_bias) * kOrthogonalWeightForLeftRight;
       break;
-    case kWebFocusTypeUp:
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kUp:
+    case SpatialNavigationDirection::kDown:
       navigation_axis_distance = y_axis;
       if (!RectsIntersectOnOrthogonalAxis(direction, current_rect, node_rect))
         orthogonal_bias = (current_rect.Width() / 2).ToInt();
@@ -651,7 +620,7 @@ void DistanceDataForNode(WebFocusType direction,
       break;
     default:
       NOTREACHED();
-      return;
+      return MaxDistance();
   }
 
   double euclidian_distance_pow2 =
@@ -661,59 +630,27 @@ void DistanceDataForNode(WebFocusType direction,
       (intersection_rect.Width() * intersection_rect.Height()).ToDouble();
 
   // Distance calculation is based on http://www.w3.org/TR/WICD/#focus-handling
-  candidate.distance = sqrt(euclidian_distance_pow2) +
-                       navigation_axis_distance +
-                       weighted_orthogonal_axis_distance - sqrt(overlap);
-}
-
-bool CanBeScrolledIntoView(WebFocusType direction,
-                           const FocusCandidate& candidate) {
-  DCHECK(candidate.visible_node);
-  DCHECK(candidate.is_offscreen);
-  LayoutRect candidate_rect = candidate.rect_in_root_frame;
-  // TODO(ecobos@igalia.com): Investigate interaction with Shadow DOM.
-  for (Node& parent_node :
-       NodeTraversal::AncestorsOf(*candidate.visible_node)) {
-    if (UNLIKELY(!parent_node.GetLayoutObject())) {
-      DCHECK(parent_node.IsElementNode() &&
-             ToElement(parent_node).HasDisplayContentsStyle());
-      continue;
-    }
-
-    LayoutRect parent_rect = NodeRectInRootFrame(&parent_node);
-    if (!candidate_rect.Intersects(parent_rect)) {
-      if (((direction == kWebFocusTypeLeft ||
-            direction == kWebFocusTypeRight) &&
-           parent_node.GetLayoutObject()->Style()->OverflowX() ==
-               EOverflow::kHidden) ||
-          ((direction == kWebFocusTypeUp || direction == kWebFocusTypeDown) &&
-           parent_node.GetLayoutObject()->Style()->OverflowY() ==
-               EOverflow::kHidden))
-        return false;
-    }
-    if (parent_node == candidate.enclosing_scrollable_box)
-      return CanScrollInDirection(&parent_node, direction);
-  }
-  return true;
+  return sqrt(euclidian_distance_pow2) + navigation_axis_distance +
+         weighted_orthogonal_axis_distance - sqrt(overlap);
 }
 
 // Returns a thin rectangle that represents one of box's sides.
-LayoutRect OppositeEdge(WebFocusType side,
+LayoutRect OppositeEdge(SpatialNavigationDirection side,
                         const LayoutRect& box,
                         LayoutUnit thickness) {
   LayoutRect thin_rect = box;
   switch (side) {
-    case kWebFocusTypeLeft:
+    case SpatialNavigationDirection::kLeft:
       thin_rect.SetX(thin_rect.MaxX() - thickness);
       thin_rect.SetWidth(thickness);
       break;
-    case kWebFocusTypeRight:
+    case SpatialNavigationDirection::kRight:
       thin_rect.SetWidth(thickness);
       break;
-    case kWebFocusTypeDown:
+    case SpatialNavigationDirection::kDown:
       thin_rect.SetHeight(thickness);
       break;
-    case kWebFocusTypeUp:
+    case SpatialNavigationDirection::kUp:
       thin_rect.SetY(thin_rect.MaxY() - thickness);
       thin_rect.SetHeight(thickness);
       break;
@@ -725,7 +662,7 @@ LayoutRect OppositeEdge(WebFocusType side,
 }
 
 LayoutRect StartEdgeForAreaElement(const HTMLAreaElement& area,
-                                   WebFocusType direction) {
+                                   SpatialNavigationDirection direction) {
   DCHECK(area.ImageElement());
   // Area elements tend to overlap more than other focusable elements. We
   // flatten the rect of the area elements to minimize the effect of overlapping
@@ -738,7 +675,7 @@ LayoutRect StartEdgeForAreaElement(const HTMLAreaElement& area,
   return rect;
 }
 
-HTMLFrameOwnerElement* FrameOwnerElement(FocusCandidate& candidate) {
+HTMLFrameOwnerElement* FrameOwnerElement(const FocusCandidate& candidate) {
   return candidate.IsFrameOwnerElement()
              ? ToHTMLFrameOwnerElement(candidate.visible_node)
              : nullptr;
@@ -759,7 +696,7 @@ LayoutRect RootViewport(const LocalFrame* current_frame) {
 // a visible scrollable area.
 LayoutRect SearchOrigin(const LayoutRect viewport_rect_of_root_frame,
                         Node* focus_node,
-                        const WebFocusType direction) {
+                        const SpatialNavigationDirection direction) {
   if (!focus_node) {
     // Search from one of the visual viewport's edges towards the navigated
     // direction. For example, UP makes spatnav search upwards, starting at the

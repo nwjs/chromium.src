@@ -98,6 +98,7 @@ ArCoreDevice::ArCoreDevice()
                    std::make_unique<ArCorePermissionHelper>()) {}
 
 ArCoreDevice::~ArCoreDevice() {
+  CallDeferredRequestSessionCallbacks(/*success=*/false);
   // The GL thread must be terminated since it uses our members. For example,
   // there might still be a posted Initialize() call in flight that uses
   // arcore_install_utils_ and arcore_factory_. Ensure that the thread is
@@ -198,10 +199,17 @@ void ArCoreDevice::RequestArModule(int render_process_id,
                                    int render_frame_id,
                                    bool has_user_activation) {
   if (arcore_install_utils_->ShouldRequestInstallArModule()) {
+    if (!arcore_install_utils_->CanRequestInstallArModule()) {
+      OnRequestArModuleResult(render_process_id, render_frame_id,
+                              has_user_activation, false);
+      return;
+    }
+
     on_request_ar_module_result_callback_ =
         base::BindOnce(&ArCoreDevice::OnRequestArModuleResult, GetWeakPtr(),
                        render_process_id, render_frame_id, has_user_activation);
-    arcore_install_utils_->RequestInstallArModule();
+    arcore_install_utils_->RequestInstallArModule(render_process_id,
+                                                  render_frame_id);
     return;
   }
 
@@ -288,18 +296,17 @@ void ArCoreDevice::OnRequestInstallArModuleResult(bool success) {
   }
 }
 
-void ArCoreDevice::OnRequestInstallSupportedArCoreCanceled() {
+void ArCoreDevice::OnRequestInstallSupportedArCoreResult(bool success) {
   DCHECK(IsOnMainThread());
   DCHECK(is_arcore_gl_thread_initialized_);
   DCHECK(on_request_arcore_install_or_update_result_callback_);
 
-  std::move(on_request_arcore_install_or_update_result_callback_).Run(false);
+  std::move(on_request_arcore_install_or_update_result_callback_).Run(success);
 }
 
 void ArCoreDevice::CallDeferredRequestSessionCallbacks(bool success) {
   DCHECK(IsOnMainThread());
-  DCHECK(is_arcore_gl_thread_initialized_);
-  DCHECK(!deferred_request_session_callbacks_.empty());
+  DCHECK(!success || is_arcore_gl_thread_initialized_);
 
   for (auto& deferred_callback : deferred_request_session_callbacks_) {
     mojom::XRSessionControllerPtr controller;

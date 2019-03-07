@@ -35,21 +35,18 @@ void EventTiming::WillDispatchEvent(const Event& event) {
   // we cannot assume that the conditions should still hold true in
   // DidDispatchEvent. These conditions have to be re-tested before an entry is
   // dispatched.
-  if ((performance_->ShouldBufferEventTiming() &&
+  if ((performance_->ShouldBufferEntries() &&
        !performance_->IsEventTimingBufferFull()) ||
-      performance_->HasObserverFor(PerformanceEntry::kEvent)
-      || (performance_->HasObserverFor(PerformanceEntry::kFirstInput)
-         && !performance_->FirstInputDetected())) {
+      performance_->HasObserverFor(PerformanceEntry::kEvent) ||
+      !performance_->FirstInputDetected()) {
     processing_start_ = CurrentTimeTicks();
     finished_will_dispatch_event_ = true;
   }
 }
 
 void EventTiming::DidDispatchEvent(const Event& event) {
-  if (!finished_will_dispatch_event_ ||
-      (!event.executedListenerOrDefaultAction() && !event.DefaultHandled())) {
+  if (!finished_will_dispatch_event_)
     return;
-  }
 
   TimeTicks start_time;
   if (event.IsPointerEvent())

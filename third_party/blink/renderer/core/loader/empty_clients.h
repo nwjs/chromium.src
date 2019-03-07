@@ -34,6 +34,7 @@
 #include "base/macros.h"
 #include "cc/paint/paint_canvas.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/mojom/frame/document_interface_broker.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_menu_source_type.h"
@@ -208,6 +209,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   }
   void SetHasScrollEventHandlers(LocalFrame*, bool) override {}
   void SetNeedsLowLatencyInput(LocalFrame*, bool) override {}
+  void SetNeedsUnbufferedInputForDebugger(LocalFrame*, bool) override {}
   void RequestUnbufferedInputEvents(LocalFrame*) override {}
   void SetTouchAction(LocalFrame*, TouchAction) override {}
 
@@ -256,8 +258,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
 
   void DispatchDidHandleOnloadEvents() override {}
   void DispatchWillCommitProvisionalLoad() override {}
-  void DispatchDidStartProvisionalLoad(DocumentLoader*,
-                                       const ResourceRequest&) override {}
+  void DispatchDidStartProvisionalLoad(DocumentLoader*) override {}
   void DispatchDidReceiveTitle(const String&) override {}
   void DispatchDidChangeIcons(IconType) override {}
   void DispatchDidCommitLoad(HistoryItem*,
@@ -285,6 +286,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
                        mojom::blink::BlobURLTokenPtr,
                        base::TimeTicks,
                        const String&,
+                       WebContentSecurityPolicyList,
                        mojom::blink::NavigationInitiatorPtr) override;
 
   void DispatchWillSendSubmitEvent(HTMLFormElement*) override;
@@ -301,11 +303,6 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
 
   DocumentLoader* CreateDocumentLoader(
       LocalFrame*,
-      const ResourceRequest&,
-      const SubstituteData&,
-      ClientRedirectPolicy,
-      const base::UnguessableToken& devtools_navigation_token,
-      WebFrameLoadType,
       WebNavigationType,
       std::unique_ptr<WebNavigationParams> navigation_params,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override;
@@ -329,6 +326,9 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   void SelectorMatchChanged(const Vector<String>&,
                             const Vector<String>&) override {}
   LocalFrame* CreateFrame(const AtomicString&, HTMLFrameOwnerElement*) override;
+  std::pair<RemoteFrame*, base::UnguessableToken> CreatePortal(
+      HTMLPortalElement*,
+      mojom::blink::PortalRequest) override;
   WebPluginContainerImpl* CreatePlugin(HTMLPlugInElement&,
                                        const KURL&,
                                        const Vector<String>&,
@@ -361,6 +361,8 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
     return &interface_provider_;
   }
 
+  mojom::blink::DocumentInterfaceBroker* GetDocumentInterfaceBroker() override;
+
   WebSpellCheckPanelHostClient* SpellCheckPanelHostClient() const override {
     return nullptr;
   }
@@ -377,7 +379,13 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   WebTextCheckClient* GetTextCheckerClient() const override;
 
   std::unique_ptr<WebURLLoaderFactory> CreateURLLoaderFactory() override {
-    return Platform::Current()->CreateDefaultURLLoaderFactory();
+    // Most consumers of EmptyLocalFrameClient should not make network requests.
+    // If an exception needs to be made (e.g. in test code), then the consumer
+    // should define their own subclass of LocalFrameClient or
+    // EmptyLocalFrameClient and override the CreateURLLoaderFactory method.
+    // See also https://crbug.com/891872.
+    NOTREACHED();
+    return nullptr;
   }
 
   void BubbleLogicalScrollInParentFrame(
@@ -399,6 +407,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   WebTextCheckClient* text_check_client_;
 
   service_manager::InterfaceProvider interface_provider_;
+  mojom::blink::DocumentInterfaceBrokerPtr document_interface_broker_;
 
   DISALLOW_COPY_AND_ASSIGN(EmptyLocalFrameClient);
 };
@@ -423,6 +432,8 @@ class CORE_EXPORT EmptyRemoteFrameClient : public RemoteFrameClient {
   // RemoteFrameClient implementation.
   void Navigate(const ResourceRequest&,
                 bool should_replace_current_entry,
+                bool is_opener_navigation,
+                bool prevent_sandboxed_download,
                 mojom::blink::BlobURLTokenPtr) override {}
   unsigned BackForwardLength() override { return 0; }
   void CheckCompleted() override {}

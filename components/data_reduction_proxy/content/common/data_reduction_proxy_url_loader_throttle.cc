@@ -75,16 +75,20 @@ void DataReductionProxyURLLoaderThrottle::BeforeWillProcessResponse(
   if (params::IsWarmupURL(response_url))
     return;
 
+  MaybeRetry(proxy_server, response_head.headers.get(), net::OK, defer);
+}
+
+void DataReductionProxyURLLoaderThrottle::MaybeRetry(
+    const net::ProxyServer& proxy_server,
+    const net::HttpResponseHeaders* headers,
+    net::Error net_error,
+    bool* defer) {
   // The set of data reduction proxy servers to mark as bad prior to
   // restarting the request.
   std::vector<net::ProxyServer> bad_proxies;
 
   // TODO(https://crbug.com/721403): Implement retry due to authentication
   // failure.
-
-  // TODO(https://crbug.com/721403): Should be calling this for cases where the
-  // request failed with an error too.
-  net::Error net_error = net::OK;
 
   // TODO(https://crbug.com/721403): Need the actual bad proxies map. Since
   // this is only being used for some metrics logging not a big deal.
@@ -94,13 +98,10 @@ void DataReductionProxyURLLoaderThrottle::BeforeWillProcessResponse(
 
   DataReductionProxyBypassType bypass_type = BYPASS_EVENT_TYPE_MAX;
 
-  // TODO(https://crbug.com/721403): Not logging stats.
-  DataReductionProxyBypassProtocol::Stats* stats = nullptr;
-
-  DataReductionProxyBypassProtocol protocol(stats);
+  DataReductionProxyBypassProtocol protocol;
   pending_restart_ = protocol.MaybeBypassProxyAndPrepareToRetry(
-      request_method_, url_chain_, response_head.headers.get(),
-      response_head.proxy_server, net_error, proxy_retry_info,
+      request_method_, url_chain_, headers, proxy_server, net_error,
+      proxy_retry_info,
       manager_->FindConfiguredDataReductionProxy(proxy_server), &bypass_type,
       &data_reduction_proxy_info, &bad_proxies, &pending_restart_load_flags_);
 
@@ -132,6 +133,13 @@ void DataReductionProxyURLLoaderThrottle::WillProcessResponse(
                          is_main_frame_);
 }
 
+void DataReductionProxyURLLoaderThrottle::WillOnCompleteWithError(
+    const network::URLLoaderCompletionStatus& status,
+    bool* defer) {
+  MaybeRetry(status.proxy_server, nullptr,
+             static_cast<net::Error>(status.error_code), defer);
+}
+
 void DataReductionProxyURLLoaderThrottle::MarkProxiesAsBad(
     const std::vector<net::ProxyServer>& bad_proxies,
     base::TimeDelta bypass_duration) {
@@ -144,9 +152,6 @@ void DataReductionProxyURLLoaderThrottle::MarkProxiesAsBad(
   for (const auto& proxy : bad_proxies)
     proxy_list.AddProxyServer(proxy);
 
-  // TODO(https://crbug.com/721403): Does this need to handle the case where
-  // |callback| is never invoked (which can happen on a connection error in
-  // |data_reduction_proxy_|).
   auto callback = base::BindOnce(
       &DataReductionProxyURLLoaderThrottle::OnMarkProxiesAsBadComplete,
       weak_factory_.GetWeakPtr());

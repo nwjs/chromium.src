@@ -319,8 +319,8 @@ CSSSelectorList CSSParserImpl::ParsePageSelector(
 
   std::unique_ptr<CSSParserSelector> selector;
   if (!type_selector.IsNull() && pseudo.IsNull()) {
-    selector = CSSParserSelector::Create(QualifiedName(
-        g_null_atom, type_selector, style_sheet->DefaultNamespace()));
+    selector = CSSParserSelector::Create(
+        QualifiedName(g_null_atom, type_selector, g_star_atom));
   } else {
     selector = CSSParserSelector::Create();
     if (!pseudo.IsNull()) {
@@ -330,8 +330,8 @@ CSSSelectorList CSSParserImpl::ParsePageSelector(
         return CSSSelectorList();
     }
     if (!type_selector.IsNull()) {
-      selector->PrependTagSelector(QualifiedName(
-          g_null_atom, type_selector, style_sheet->DefaultNamespace()));
+      selector->PrependTagSelector(
+          QualifiedName(g_null_atom, type_selector, g_star_atom));
     }
   }
 
@@ -572,9 +572,8 @@ StyleRuleBase* CSSParserImpl::ConsumeQualifiedRule(
     CSSParserTokenStream::BlockGuard guard(stream);
     StyleRuleKeyframe* keyframe_style_rule =
         ConsumeKeyframeStyleRule(prelude, prelude_offset, stream);
-    if (context_->IsLayoutAnimationsPolicyEnforced()) {
+    if (keyframe_style_rule)
       context_->ReportLayoutAnimationsViolationIfNeeded(*keyframe_style_rule);
-    }
     return keyframe_style_rule;
   }
   if (allowed_rules == kFontFeatureRules) {

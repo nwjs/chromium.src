@@ -7,6 +7,7 @@ package org.chromium.content.browser;
 import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SmallTest;
 
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -16,6 +17,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.library_loader.LoaderErrors;
 import org.chromium.base.library_loader.ProcessInitException;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.content_public.browser.BrowserStartupController.StartupCallback;
 
@@ -47,6 +49,9 @@ public class BrowserStartupControllerTest {
         private TestBrowserStartupController() {
             super(LibraryProcessType.PROCESS_BROWSER);
         }
+
+        @Override
+        void recordStartupUma() {}
 
         @Override
         int contentMainStart(boolean startServiceManagerOnly) {
@@ -113,10 +118,16 @@ public class BrowserStartupControllerTest {
     @Before
     public void setUp() throws Exception {
         mController = new TestBrowserStartupController();
+        RecordHistogram.setDisabledForTests(true);
         // Setting the static singleton instance field enables more correct testing, since it is
         // is possible to call {@link BrowserStartupController#browserStartupComplete(int)} instead
         // of {@link BrowserStartupController#executeEnqueuedCallbacks(int, boolean)} directly.
         BrowserStartupControllerImpl.overrideInstanceForTest(mController);
+    }
+
+    @After
+    public void tearDown() {
+        RecordHistogram.setDisabledForTests(false);
     }
 
     @Test

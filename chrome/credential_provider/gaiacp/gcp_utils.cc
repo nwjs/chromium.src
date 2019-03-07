@@ -29,23 +29,64 @@
 
 #include "base/base64.h"
 #include "base/command_line.h"
-#include "base/files/file_path.h"
+#include "base/files/file.h"
+#include "base/files/file_enumerator.h"
+#include "base/files/file_util.h"
 #include "base/json/json_writer.h"
 #include "base/macros.h"
+#include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/scoped_native_library.h"
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/current_module.h"
+#include "base/win/embedded_i18n/language_selector.h"
 #include "base/win/registry.h"
 #include "base/win/win_util.h"
+#include "chrome/common/chrome_version.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
+#include "chrome/credential_provider/gaiacp/gaia_resources.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
 
 namespace credential_provider {
 
 namespace {
+
+constexpr char kSentinelFilename[] = "gcpw_startup.sentinel";
+constexpr base::FilePath::CharType kCredentialProviderFolder[] =
+    L"Credential Provider";
+constexpr int64_t kMaxConsecutiveCrashCount = 5;
+
+constexpr base::win::i18n::LanguageSelector::LangToOffset
+    kLanguageOffsetPairs[] = {
+#define HANDLE_LANGUAGE(l_, o_) {L## #l_, o_},
+        DO_LANGUAGES
+#undef HANDLE_LANGUAGE
+};
+
+base::FilePath GetStartupSentinelLocation() {
+  base::FilePath sentienal_path;
+  if (!base::PathService::Get(base::DIR_COMMON_APP_DATA, &sentienal_path)) {
+    HRESULT hr = HRESULT_FROM_WIN32(::GetLastError());
+    LOGFN(ERROR) << "PathService::Get(DIR_COMMON_APP_DATA) hr=" << putHR(hr);
+    return base::FilePath();
+  }
+
+  sentienal_path = sentienal_path.Append(GetInstallParentDirectoryName())
+                       .Append(kCredentialProviderFolder);
+
+  return sentienal_path.Append(TEXT(CHROME_VERSION_STRING))
+      .AppendASCII(kSentinelFilename);
+}
+
+const base::win::i18n::LanguageSelector& GetLanguageSelector() {
+  static base::NoDestructor<base::win::i18n::LanguageSelector> instance(
+      base::string16(), &kLanguageOffsetPairs[0],
+      &kLanguageOffsetPairs[base::size(kLanguageOffsetPairs)]);
+
+  return *instance;
+}
 
 HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
                                            const base::string16& email,
@@ -74,7 +115,91 @@ HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
       email.c_str(), mdm_url.c_str(), base::UTF8ToWide(data_encoded).c_str());
 }
 
+// Opens |path| with options that prevent the file from being read or written
+// via another handle. As long as the returned object is alive, it is guaranteed
+// that |path| isn't in use. It can however be deleted.
+base::File GetFileLock(const base::FilePath& path) {
+  return base::File(path, base::File::FLAG_OPEN | base::File::FLAG_READ |
+                              base::File::FLAG_EXCLUSIVE_READ |
+                              base::File::FLAG_EXCLUSIVE_WRITE |
+                              base::File::FLAG_SHARE_DELETE);
+}
+
+// Deletes a specific GCP version from the disk.
+void DeleteVersionDirectory(const base::FilePath& version_path) {
+  // Lock all exes and dlls for exclusive access while allowing deletes.  Mark
+  // the files for deletion and release them, causing them to actually be
+  // deleted.  This allows the deletion of the version path itself.
+  std::vector<base::File> locks;
+  const int types = base::FileEnumerator::FILES;
+  base::FileEnumerator enumerator_version(version_path, false, types,
+                                          FILE_PATH_LITERAL("*"));
+  bool all_deletes_succeeded = true;
+  for (base::FilePath path = enumerator_version.Next(); !path.empty();
+       path = enumerator_version.Next()) {
+    if (!path.MatchesExtension(FILE_PATH_LITERAL(".exe")) &&
+        !path.MatchesExtension(FILE_PATH_LITERAL(".dll"))) {
+      continue;
+    }
+
+    // Open the file for exclusive access while allowing deletes.
+    locks.push_back(GetFileLock(path));
+    if (!locks.back().IsValid()) {
+      HRESULT hr = HRESULT_FROM_WIN32(::GetLastError());
+      LOGFN(ERROR) << "Could not lock " << path << " hr=" << putHR(hr);
+      all_deletes_succeeded = false;
+      continue;
+    }
+
+    // Mark the file for deletion.
+    HRESULT hr = base::DeleteFile(path, false);
+    if (FAILED(hr)) {
+      LOGFN(ERROR) << "Could not delete " << path;
+      all_deletes_succeeded = false;
+    }
+  }
+
+  // Release the locks, actually deleting the files.  It is now possible to
+  // delete the version path.
+  locks.clear();
+  if (all_deletes_succeeded && !base::DeleteFile(version_path, true))
+    LOGFN(ERROR) << "Could not delete version " << version_path.BaseName();
+}
+
 }  // namespace
+
+base::FilePath GetInstallDirectory() {
+  base::FilePath dest_path;
+  if (!base::PathService::Get(base::DIR_PROGRAM_FILES, &dest_path)) {
+    HRESULT hr = HRESULT_FROM_WIN32(::GetLastError());
+    LOGFN(ERROR) << "PathService::Get(DIR_PROGRAM_FILES) hr=" << putHR(hr);
+    return base::FilePath();
+  }
+
+  dest_path = dest_path.Append(GetInstallParentDirectoryName())
+                  .Append(kCredentialProviderFolder);
+
+  return dest_path;
+}
+
+void DeleteVersionsExcept(const base::FilePath& gcp_path,
+                          const base::string16& product_version) {
+  base::FilePath version = base::FilePath(product_version);
+  const int types = base::FileEnumerator::DIRECTORIES;
+  base::FileEnumerator enumerator(gcp_path, false, types,
+                                  FILE_PATH_LITERAL("*"));
+  for (base::FilePath name = enumerator.Next(); !name.empty();
+       name = enumerator.Next()) {
+    base::FilePath basename = name.BaseName();
+    if (version == basename)
+      continue;
+
+    // Found an older version on the machine that can be deleted.  This is
+    // best effort only.  If any errors occurred they are logged by
+    // DeleteVersionDirectory().
+    DeleteVersionDirectory(gcp_path.Append(basename));
+  }
+}
 
 // StdParentHandles ///////////////////////////////////////////////////////////
 
@@ -634,16 +759,66 @@ HRESULT GetAuthenticationPackageId(ULONG* id) {
   return hr;
 }
 
-base::string16 GetStringResource(UINT id) {
-  // When LoadStringW receives 0 as the fourth argument (buffer length), it
-  // assumes the third argument (buffer) is a pointer.  The returned pointer
-  // is still owned by the system and must not be freed.  Furthermore the string
-  // pointed at is not null terminated, so the returned length must be used to
-  // construct the final base::string16.
-  wchar_t* str;
-  int length =
-      ::LoadStringW(CURRENT_MODULE(), id, reinterpret_cast<wchar_t*>(&str), 0);
-  return base::string16(str, length);
+bool VerifyStartupSentinel() {
+  // Always try to write to the startup sentinel file. If writing or opening
+  // fails for any reason (file locked, no access etc) consider this a failure.
+  // If no sentinel file path can be found this probably means that we are
+  // running in a unit test so just let the verification pass in this case.
+  base::FilePath startup_sentinel_path = GetStartupSentinelLocation();
+  if (!startup_sentinel_path.empty()) {
+    base::FilePath startup_sentinel_directory = startup_sentinel_path.DirName();
+    if (!base::DirectoryExists(startup_sentinel_directory)) {
+      base::File::Error error;
+      if (!base::CreateDirectoryAndGetError(startup_sentinel_directory,
+                                            &error)) {
+        LOGFN(ERROR) << "Could not create sentinel directory='"
+                     << startup_sentinel_directory << "' error=" << error;
+        return false;
+      }
+    }
+    base::File startup_sentinel(
+        startup_sentinel_path,
+        base::File::FLAG_OPEN_ALWAYS | base::File::FLAG_APPEND);
+
+    // Keep writing to the sentinel file until we have reached
+    // |kMaxConsecutiveCrashCount| at which point it is assumed that GCPW
+    // is crashing continuously and should be disabled.
+    if (!startup_sentinel.IsValid() ||
+        startup_sentinel.GetLength() >= kMaxConsecutiveCrashCount) {
+      return false;
+    }
+
+    return startup_sentinel.WriteAtCurrentPos("0", 1) == 1;
+  }
+
+  return true;
+}
+
+void DeleteStartupSentinel() {
+  base::FilePath startup_sentinel_path = GetStartupSentinelLocation();
+  if (base::PathExists(startup_sentinel_path) &&
+      !base::DeleteFile(startup_sentinel_path, false)) {
+    LOGFN(ERROR) << "Failed to delete sentinel file: " << startup_sentinel_path;
+  }
+}
+
+base::string16 GetStringResource(int base_message_id) {
+  base::string16 localized_string;
+
+  int message_id = base_message_id + GetLanguageSelector().offset();
+  const ATLSTRINGRESOURCEIMAGE* image =
+      AtlGetStringResourceImage(_AtlBaseModule.GetModuleInstance(), message_id);
+  if (image) {
+    localized_string = base::string16(image->achString, image->nLength);
+  } else {
+    NOTREACHED() << "Unable to find resource id " << message_id;
+  }
+
+  return localized_string;
+}
+
+base::string16 GetSelectedLanguage() {
+  return GetLanguageSelector().matched_candidate();
 }
 
 base::string16 GetDictString(const base::DictionaryValue* dict,
@@ -670,6 +845,14 @@ std::string GetDictStringUTF8(
     const std::unique_ptr<base::DictionaryValue>& dict,
     const char* name) {
   return GetDictStringUTF8(dict.get(), name);
+}
+
+base::FilePath::StringType GetInstallParentDirectoryName() {
+#if defined(GOOGLE_CHROME_BUILD)
+  return FILE_PATH_LITERAL("Google");
+#else
+  return FILE_PATH_LITERAL("Chromium");
+#endif
 }
 
 FakesForTesting::FakesForTesting() {}

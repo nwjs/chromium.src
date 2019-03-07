@@ -297,7 +297,6 @@ class ComputedStyle : public ComputedStyleBase,
 
   const ComputedStyle* GetCachedPseudoStyle(PseudoId) const;
   const ComputedStyle* AddCachedPseudoStyle(scoped_refptr<ComputedStyle>);
-  void RemoveCachedPseudoStyle(PseudoId);
 
   /**
    * ComputedStyle properties
@@ -2130,9 +2129,13 @@ class ComputedStyle : public ComputedStyleBase,
   }
 
   // Whitespace utility functions.
+  static bool Is(EWhiteSpace a, EWhiteSpace b) {
+    return static_cast<unsigned>(a) & static_cast<unsigned>(b);
+  }
+  static bool IsNot(EWhiteSpace a, EWhiteSpace b) { return !Is(a, b); }
   static bool AutoWrap(EWhiteSpace ws) {
     // Nowrap and pre don't automatically wrap.
-    return ws != EWhiteSpace::kNowrap && ws != EWhiteSpace::kPre;
+    return IsNot(ws, EWhiteSpace::kNowrap | EWhiteSpace::kPre);
   }
 
   bool AutoWrap() const { return AutoWrap(WhiteSpace()); }
@@ -2150,7 +2153,8 @@ class ComputedStyle : public ComputedStyleBase,
 
   static bool CollapseWhiteSpace(EWhiteSpace ws) {
     // Pre and prewrap do not collapse whitespace.
-    return ws != EWhiteSpace::kPre && ws != EWhiteSpace::kPreWrap;
+    return IsNot(ws, EWhiteSpace::kPre | EWhiteSpace::kPreWrap |
+                         EWhiteSpace::kBreakSpaces);
   }
 
   bool CollapseWhiteSpace() const { return CollapseWhiteSpace(WhiteSpace()); }
@@ -2166,15 +2170,15 @@ class ComputedStyle : public ComputedStyleBase,
     return false;
   }
   bool BreakOnlyAfterWhiteSpace() const {
-    return WhiteSpace() == EWhiteSpace::kPreWrap ||
+    return Is(WhiteSpace(),
+              EWhiteSpace::kPreWrap | EWhiteSpace::kBreakSpaces) ||
            GetLineBreak() == LineBreak::kAfterWhiteSpace;
   }
 
   bool BreakWords() const {
     return (WordBreak() == EWordBreak::kBreakWord ||
             OverflowWrap() == EOverflowWrap::kBreakWord) &&
-           WhiteSpace() != EWhiteSpace::kPre &&
-           WhiteSpace() != EWhiteSpace::kNowrap;
+           IsNot(WhiteSpace(), EWhiteSpace::kPre | EWhiteSpace::kNowrap);
   }
 
   // Text direction utility functions.
@@ -2488,7 +2492,7 @@ class ComputedStyle : public ComputedStyleBase,
 
   StyleColor DecorationColorIncludingFallback(bool visited_link) const;
 
-  Color StopColor() const { return SvgStyle().StopColor(); }
+  const StyleColor& StopColor() const { return SvgStyle().StopColor(); }
   StyleColor FloodColor() const { return SvgStyle().FloodColor(); }
   StyleColor LightingColor() const { return SvgStyle().LightingColor(); }
 

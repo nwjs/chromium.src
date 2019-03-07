@@ -5,11 +5,15 @@
 package org.chromium.chrome.browser.autofill.keyboard_accessory;
 
 import static android.support.test.espresso.Espresso.onView;
+import static android.support.test.espresso.matcher.ViewMatchers.isAssignableFrom;
+import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static android.support.test.espresso.matcher.ViewMatchers.withId;
 import static android.support.test.espresso.matcher.ViewMatchers.withParent;
 
+import static org.hamcrest.core.AllOf.allOf;
+
 import static org.chromium.base.test.util.ScalableTimeout.scaleTimeout;
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.ManualFillingTestHelper.TEST_CREDENTIALS;
+import static org.chromium.chrome.browser.autofill.keyboard_accessory.ManualFillingTestHelper.createTestCredentials;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.ManualFillingTestHelper.scrollToLastElement;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.ManualFillingTestHelper.selectTabAtPosition;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.ManualFillingTestHelper.whenDisplayed;
@@ -75,15 +79,16 @@ public class ManualFillingUiCaptureTest {
         mHelper.addGenerationButton();
 
         mHelper.clickPasswordField();
-        mHelper.sendCredentials(TEST_CREDENTIALS);
+        mHelper.sendCredentials(createTestCredentials());
 
         waitForActionsInAccessory();
         waitForUnrelatedChromeUi();
         mScreenShooter.shoot("AccessoryBar");
 
-        mHelper.sendCredentials(TEST_CREDENTIALS);
+        mHelper.sendCredentials(createTestCredentials());
 
-        whenDisplayed(withId(R.id.tabs)).perform(selectTabAtPosition(0));
+        whenDisplayed(allOf(isDisplayed(), isAssignableFrom(KeyboardAccessoryTabLayoutView.class)))
+                .perform(selectTabAtPosition(0));
         waitForSuggestionsInSheet();
         waitForUnrelatedChromeUi();
         mScreenShooter.shoot("AccessorySheetPasswords");
@@ -103,15 +108,16 @@ public class ManualFillingUiCaptureTest {
         mHelper.loadTestPage(true);
         mHelper.addGenerationButton();
         mHelper.clickPasswordField();
-        mHelper.sendCredentials(TEST_CREDENTIALS);
+        mHelper.sendCredentials(createTestCredentials());
 
         waitForActionsInAccessory();
         waitForUnrelatedChromeUi();
         mScreenShooter.shoot("AccessoryBarRTL");
 
-        mHelper.sendCredentials(TEST_CREDENTIALS);
+        mHelper.sendCredentials(createTestCredentials());
 
-        whenDisplayed(withId(R.id.tabs)).perform(selectTabAtPosition(0));
+        whenDisplayed(allOf(isDisplayed(), isAssignableFrom(KeyboardAccessoryTabLayoutView.class)))
+                .perform(selectTabAtPosition(0));
         waitForSuggestionsInSheet();
         waitForUnrelatedChromeUi();
         mScreenShooter.shoot("AccessorySheetPasswordsRTL");
@@ -132,15 +138,16 @@ public class ManualFillingUiCaptureTest {
         mHelper.addGenerationButton();
         mHelper.clickPasswordField();
         mHelper.addAutofillChips();
-        mHelper.sendCredentials(TEST_CREDENTIALS);
+        mHelper.sendCredentials(createTestCredentials());
 
         waitForActionsInAccessory();
         waitForUnrelatedChromeUi();
         mScreenShooter.shoot("AccessoryBarV2");
 
-        mHelper.sendCredentials(TEST_CREDENTIALS);
+        mHelper.sendCredentials(createTestCredentials());
 
-        whenDisplayed(withId(R.id.tabs)).perform(selectTabAtPosition(0));
+        whenDisplayed(allOf(isDisplayed(), isAssignableFrom(KeyboardAccessoryTabLayoutView.class)))
+                .perform(selectTabAtPosition(0));
         waitForSuggestionsInSheet();
         waitForUnrelatedChromeUi();
         mScreenShooter.shoot("AccessorySheetPasswordsV2");
@@ -161,15 +168,16 @@ public class ManualFillingUiCaptureTest {
         mHelper.addGenerationButton();
         mHelper.clickPasswordField();
         mHelper.addAutofillChips();
-        mHelper.sendCredentials(TEST_CREDENTIALS);
+        mHelper.sendCredentials(createTestCredentials());
 
         waitForActionsInAccessory();
         waitForUnrelatedChromeUi();
         mScreenShooter.shoot("AccessoryBarV2RTL");
 
-        mHelper.sendCredentials(TEST_CREDENTIALS);
+        mHelper.sendCredentials(createTestCredentials());
 
-        whenDisplayed(withId(R.id.tabs)).perform(selectTabAtPosition(0));
+        whenDisplayed(allOf(isDisplayed(), isAssignableFrom(KeyboardAccessoryTabLayoutView.class)))
+                .perform(selectTabAtPosition(0));
         waitForSuggestionsInSheet();
         waitForUnrelatedChromeUi();
         mScreenShooter.shoot("AccessorySheetPasswordsV2RTL");
@@ -192,16 +200,15 @@ public class ManualFillingUiCaptureTest {
     }
 
     private void waitForUnrelatedChromeUi() throws InterruptedException {
-        whenDisplayed(withId(R.id.home_button));
-        Thread.sleep(scaleTimeout(30)); // Reduces flakiness due to delayed events.
+        Thread.sleep(scaleTimeout(50)); // Reduces flakiness due to delayed events.
     }
 
-    private void waitForActionsInAccessory() throws InterruptedException {
-        whenDisplayed(withId(R.id.actions_view));
-        onView(withId(R.id.actions_view)).check(this::waitUntilFilled);
+    private void waitForActionsInAccessory() {
+        whenDisplayed(withId(R.id.bar_items_view));
+        onView(withId(R.id.bar_items_view)).check(this::waitUntilFilled);
     }
 
-    private void waitForSuggestionsInSheet() throws InterruptedException {
+    private void waitForSuggestionsInSheet() {
         whenDisplayed(withId(R.id.keyboard_accessory_sheet));
         onView(withParent(withId(R.id.keyboard_accessory_sheet))).check(this::waitUntilFilled);
     }

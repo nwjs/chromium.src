@@ -165,7 +165,7 @@ class CastContentBrowserClient : public content::ContentBrowserClient {
   bool CanCreateWindow(content::RenderFrameHost* opener,
                        const GURL& opener_url,
                        const GURL& opener_top_level_frame_url,
-                       const GURL& source_origin,
+                       const url::Origin& source_origin,
                        content::mojom::WindowContainerType container_type,
                        const GURL& target_url,
                        const content::Referrer& referrer,
@@ -185,7 +185,7 @@ class CastContentBrowserClient : public content::ContentBrowserClient {
   void HandleServiceRequest(
       const std::string& service_name,
       service_manager::mojom::ServiceRequest request) override;
-  std::unique_ptr<base::Value> GetServiceManifestOverlay(
+  base::Optional<service_manager::Manifest> GetServiceManifestOverlay(
       base::StringPiece service_name) override;
   void GetAdditionalMappedFilesForChildProcess(
       const base::CommandLine& command_line,
@@ -199,12 +199,14 @@ class CastContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldEnableStrictSiteIsolation() override;
   std::vector<std::unique_ptr<content::NavigationThrottle>>
   CreateThrottlesForNavigation(content::NavigationHandle* handle) override;
+  std::string GetUserAgent() const override;
   CastFeatureListCreator* GetCastFeatureListCreator() {
     return cast_feature_list_creator_;
   }
 
 #if BUILDFLAG(USE_CHROMECAST_CDMS)
-  virtual std::unique_ptr<::media::CdmFactory> CreateCdmFactory();
+  virtual std::unique_ptr<::media::CdmFactory> CreateCdmFactory(
+      service_manager::mojom::InterfaceProvider* host_interfaces);
 #endif  // BUILDFLAG(USE_CHROMECAST_CDMS)
 
  protected:
@@ -233,10 +235,11 @@ class CastContentBrowserClient : public content::ContentBrowserClient {
                                 scoped_refptr<net::SSLPrivateKey>)>&
           continue_callback);
 
-#if !defined(OS_ANDROID)
+#if !defined(OS_FUCHSIA)
   // Returns the crash signal FD corresponding to the current process type.
   int GetCrashSignalFD(const base::CommandLine& command_line);
 
+#if !defined(OS_ANDROID)
   // Creates a CrashHandlerHost instance for the given process type.
   breakpad::CrashHandlerHostLinux* CreateCrashHandlerHost(
       const std::string& process_type);
@@ -248,6 +251,7 @@ class CastContentBrowserClient : public content::ContentBrowserClient {
   // with OS for this).
   std::unique_ptr<MemoryPressureControllerImpl> memory_pressure_controller_;
 #endif  // !defined(OS_ANDROID)
+#endif  // !defined(OS_FUCHSIA)
 
 #if BUILDFLAG(IS_CAST_USING_CMA_BACKEND)
   // CMA thread used by AudioManager, MojoRenderer, and MediaPipelineBackend.

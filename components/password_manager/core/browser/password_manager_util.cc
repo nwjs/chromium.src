@@ -5,6 +5,7 @@
 #include "components/password_manager/core/browser/password_manager_util.h"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -15,11 +16,9 @@
 #include "components/autofill/core/browser/popup_item_ids.h"
 #include "components/autofill/core/common/password_form.h"
 #include "components/autofill/core/common/password_generation_util.h"
-#include "components/password_manager/core/browser/blacklisted_duplicates_cleaner.h"
 #include "components/password_manager/core/browser/credentials_cleaner.h"
 #include "components/password_manager/core/browser/credentials_cleaner_runner.h"
 #include "components/password_manager/core/browser/http_credentials_cleaner.h"
-#include "components/password_manager/core/browser/invalid_realm_credential_cleaner.h"
 #include "components/password_manager/core/browser/log_manager.h"
 #include "components/password_manager/core/browser/password_generation_manager.h"
 #include "components/password_manager/core/browser/password_manager.h"
@@ -68,6 +67,11 @@ password_manager::SyncState GetPasswordSyncState(
                : password_manager::SYNCING_NORMAL_ENCRYPTION;
   }
   return password_manager::NOT_SYNCING;
+}
+
+bool IsSyncingWithNormalEncryption(const syncer::SyncService* sync_service) {
+  return GetPasswordSyncState(sync_service) ==
+         password_manager::SYNCING_NORMAL_ENCRYPTION;
 }
 
 void FindDuplicates(std::vector<std::unique_ptr<PasswordForm>>* forms,
@@ -171,56 +175,28 @@ void RemoveUselessCredentials(
     int delay_in_seconds,
     base::RepeatingCallback<network::mojom::NetworkContext*()>
         network_context_getter) {
-  // TODO(https://crbug.com/887889): Remove the knowledge of the particular
-  // preferences from this code.
-
-  const bool need_to_remove_blacklisted_duplicates = !prefs->GetBoolean(
-      password_manager::prefs::kDuplicatedBlacklistedCredentialsRemoved);
-  base::UmaHistogramBoolean(
-      "PasswordManager.BlacklistedSites.NeedRemoveBlacklistDuplicates",
-      need_to_remove_blacklisted_duplicates);
-
-  const bool need_to_remove_invalid_credentials = !prefs->GetBoolean(
-      password_manager::prefs::kCredentialsWithWrongSignonRealmRemoved);
-  base::UmaHistogramBoolean(
-      "PasswordManager.InvalidtHttpsCredentialsNeedToBeCleared",
-      need_to_remove_invalid_credentials);
-
-  // The object will delete itself once the clearing tasks are done.
-  auto* cleaning_tasks_runner =
-      new password_manager::CredentialsCleanerRunner();
-
-  // Cleaning of credentials with invalid signon_realm needs to search for
-  // blacklisted non-HTML HTTPS credentials for a corresponding HTTP
-  // credentials. Thus, this clean-up must be done before cleaning blacklisted
-  // credentials. Otherwise finding a corresponding HTTP credentials will fail.
-  if (need_to_remove_invalid_credentials) {
-    cleaning_tasks_runner->AddCleaningTask(
-        std::make_unique<password_manager::InvalidRealmCredentialCleaner>(
-            store, prefs));
-  }
-
-  if (need_to_remove_blacklisted_duplicates) {
-    cleaning_tasks_runner->AddCleaningTask(
-        std::make_unique<password_manager::BlacklistedDuplicatesCleaner>(
-            store, prefs));
-  }
+  auto cleaning_tasks_runner =
+      std::make_unique<password_manager::CredentialsCleanerRunner>();
 
 #if !defined(OS_IOS)
   // Can be null for some unittests.
-  if (!network_context_getter.is_null() &&
-      password_manager::HttpCredentialCleaner::ShouldRunCleanUp(prefs)) {
-    cleaning_tasks_runner->AddCleaningTask(
+  if (!network_context_getter.is_null()) {
+    cleaning_tasks_runner->MaybeAddCleaningTask(
         std::make_unique<password_manager::HttpCredentialCleaner>(
             store, network_context_getter, prefs));
   }
 #endif  // !defined(OS_IOS)
 
-  base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&password_manager::CredentialsCleanerRunner::StartCleaning,
-                     base::Unretained(cleaning_tasks_runner)),
-      base::TimeDelta::FromSeconds(delay_in_seconds));
+  if (cleaning_tasks_runner->HasPendingTasks()) {
+    // The runner will delete itself once the clearing tasks are done, thus we
+    // are releasing ownership here.
+    base::SequencedTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(
+            &password_manager::CredentialsCleanerRunner::StartCleaning,
+            base::Unretained(cleaning_tasks_runner.release())),
+        base::TimeDelta::FromSeconds(delay_in_seconds));
+  }
 }
 
 base::StringPiece GetSignonRealmWithProtocolExcluded(const PasswordForm& form) {

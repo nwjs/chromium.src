@@ -7,6 +7,8 @@
 #include <sstream>
 
 #include "base/bind.h"
+#include "base/debug/alias.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "components/subresource_filter/content/browser/subresource_filter_observer_manager.h"
@@ -124,7 +126,6 @@ void SubframeNavigationFilteringThrottle::NotifyLoadPolicy() const {
   content::RenderFrameHost* starting_rfh =
       navigation_handle()->GetWebContents()->UnsafeFindFrameByFrameTreeNodeId(
           navigation_handle()->GetFrameTreeNodeId());
-  DCHECK(starting_rfh);
   if (!starting_rfh) {
     // TODO(arthursonzogni): Remove this block, this must not happen.
     // See https://crbug.com/904248.

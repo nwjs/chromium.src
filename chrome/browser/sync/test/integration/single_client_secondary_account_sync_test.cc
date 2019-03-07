@@ -39,13 +39,15 @@ class SingleClientSecondaryAccountSyncTest : public SyncTest {
 
   void SetUpInProcessBrowserTestFixture() override {
     fake_gaia_cookie_manager_factory_ =
-        secondary_account_helper::SetUpFakeGaiaCookieManagerService();
+        secondary_account_helper::SetUpFakeGaiaCookieManagerService(
+            &test_url_loader_factory_);
   }
 
   void SetUpOnMainThread() override {
 #if defined(OS_CHROMEOS)
     secondary_account_helper::InitNetwork();
 #endif  // defined(OS_CHROMEOS)
+    SyncTest::SetUpOnMainThread();
   }
 
   Profile* profile() { return GetProfile(0); }
@@ -59,12 +61,20 @@ class SingleClientSecondaryAccountSyncTest : public SyncTest {
   DISALLOW_COPY_AND_ASSIGN(SingleClientSecondaryAccountSyncTest);
 };
 
-IN_PROC_BROWSER_TEST_F(SingleClientSecondaryAccountSyncTest,
-                       DoesNotStartSyncWithStandaloneTransportDisabled) {
-  base::test::ScopedFeatureList disable_standalone_transport;
-  disable_standalone_transport.InitAndDisableFeature(
-      switches::kSyncStandaloneTransport);
+class SingleClientSecondaryAccountWithoutStandaloneTransportSyncTest
+    : public SingleClientSecondaryAccountSyncTest {
+ public:
+  SingleClientSecondaryAccountWithoutStandaloneTransportSyncTest() {
+    features_.InitAndDisableFeature(switches::kSyncStandaloneTransport);
+  }
 
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    SingleClientSecondaryAccountWithoutStandaloneTransportSyncTest,
+    DoesNotStartSyncWithStandaloneTransportDisabled) {
   ASSERT_TRUE(SetupClients()) << "SetupClients() failed.";
 
   // Since standalone transport is disabled, just signing in (without making the
@@ -74,12 +84,20 @@ IN_PROC_BROWSER_TEST_F(SingleClientSecondaryAccountSyncTest,
             GetSyncService(0)->GetTransportState());
 }
 
-IN_PROC_BROWSER_TEST_F(SingleClientSecondaryAccountSyncTest,
-                       DoesNotStartSyncWithSecondaryAccountSupportDisabled) {
-  base::test::ScopedFeatureList disable_secondary_account_support;
-  disable_secondary_account_support.InitAndDisableFeature(
-      switches::kSyncSupportSecondaryAccount);
+class SingleClientSecondaryAccountWithoutSecondaryAccountSupportSyncTest
+    : public SingleClientSecondaryAccountSyncTest {
+ public:
+  SingleClientSecondaryAccountWithoutSecondaryAccountSupportSyncTest() {
+    features_.InitAndDisableFeature(switches::kSyncSupportSecondaryAccount);
+  }
 
+ private:
+  base::test::ScopedFeatureList features_;
+};
+
+IN_PROC_BROWSER_TEST_F(
+    SingleClientSecondaryAccountWithoutSecondaryAccountSupportSyncTest,
+    DoesNotStartSyncWithSecondaryAccountSupportDisabled) {
   ASSERT_TRUE(SetupClients()) << "SetupClients() failed.";
 
   // Since secondary account support is disabled, just signing in (without
@@ -106,8 +124,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientSecondaryAccountSyncTest,
               GetSyncService(0)->GetTransportState());
   }
 
-  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  EXPECT_TRUE(GetClient(0)->AwaitSyncTransportActive());
 
   EXPECT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
@@ -136,8 +153,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientSecondaryAccountSyncTest,
 
   // Set up Sync in transport mode for a non-primary account.
   secondary_account_helper::SignInSecondaryAccount(profile(), "user@email.com");
-  ASSERT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
   ASSERT_FALSE(GetSyncService(0)->IsSyncFeatureEnabled());
@@ -148,8 +164,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientSecondaryAccountSyncTest,
   secondary_account_helper::MakeAccountPrimary(profile(), "user@email.com");
   GetSyncService(0)->GetUserSettings()->SetFirstSetupComplete();
 
-  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion(
-      /*skip_passphrase_verification=*/false));
+  EXPECT_TRUE(GetClient(0)->AwaitSyncSetupCompletion());
   EXPECT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
   EXPECT_TRUE(GetSyncService(0)->IsSyncFeatureEnabled());

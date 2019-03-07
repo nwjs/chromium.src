@@ -279,6 +279,7 @@ check_targets = [
   "//extensions/renderer:unit_tests",
   "//extensions/shell/*",
   "//extensions/strings/*",
+  "//fuchsia/*",
   "//gin/*",
   "//google_apis/*",
   "//google_update/*",
@@ -317,7 +318,6 @@ check_targets = [
   "//third_party/Python-Markdown/*",
 
   # "//third_party/SPIRV-Tools/*",  # 30ish errors
-  "//third_party/WebKit/*",
   "//third_party/abseil-cpp/*",
   "//third_party/accessibility-audit/*",
   "//third_party/accessibility_test_framework/*",
@@ -413,7 +413,6 @@ check_targets = [
   "//third_party/gif_player/*",
   "//third_party/glfw/*",
   "//third_party/glslang/*",
-  "//third_party/glslang-angle/*",
   "//third_party/google_appengine_cloudstorage/*",
   "//third_party/google_input_tools/*",
   "//third_party/googletest/*",
@@ -561,7 +560,6 @@ check_targets = [
   "//third_party/speech-dispatcher/*",
   "//third_party/spirv-cross/*",
   "//third_party/spirv-headers/*",
-  "//third_party/spirv-tools-angle/*",
   "//third_party/sqlite/*",
   "//third_party/sqlite4java/*",
   "//third_party/stp/*",
@@ -600,8 +598,6 @@ check_targets = [
   "//third_party/yara/*",
   "//third_party/yasm/*",
   "//third_party/zlib/*",
-  "//third_party/webrtc/*",
-  "//third_party/webrtc_overrides/*",
   "//third_party/woff2/*",
 
   "//tools/*",
@@ -609,7 +605,6 @@ check_targets = [
   "//url/*",
 
   #"//v8/*",  # Errors: https://bugs.chromium.org/p/v8/issues/detail?id=7330
-  "//webrunner/*",
 ]
 
 # These are the list of GN files that run exec_script. This whitelist exists

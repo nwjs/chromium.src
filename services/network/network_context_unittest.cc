@@ -43,6 +43,7 @@
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
 #include "net/base/cache_type.h"
+#include "net/base/features.h"
 #include "net/base/hash_value.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/ip_endpoint.h"
@@ -66,6 +67,7 @@
 #include "net/http/http_server_properties_manager.h"
 #include "net/http/http_transaction_factory.h"
 #include "net/http/http_transaction_test_util.h"
+#include "net/http/mock_http_cache.h"
 #include "net/http/transport_security_state_test_util.h"
 #include "net/nqe/network_quality_estimator_test_util.h"
 #include "net/proxy_resolution/proxy_config.h"
@@ -95,6 +97,7 @@
 #include "services/network/network_service.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_service_buildflags.h"
+#include "services/network/public/cpp/resolve_host_client_base.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
 #include "services/network/public/mojom/net_log.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -207,12 +210,16 @@ class TestProxyLookupClient : public mojom::ProxyLookupClient {
 
   // mojom::ProxyLookupClient implementation:
   void OnProxyLookupComplete(
+      int32_t net_error,
       const base::Optional<net::ProxyInfo>& proxy_info) override {
     EXPECT_FALSE(is_done_);
     EXPECT_FALSE(proxy_info_);
 
+    EXPECT_EQ(net_error == net::OK, proxy_info.has_value());
+
     is_done_ = true;
     proxy_info_ = proxy_info;
+    net_error_ = net_error;
     binding_.Close();
     run_loop_.Quit();
   }
@@ -220,6 +227,8 @@ class TestProxyLookupClient : public mojom::ProxyLookupClient {
   const base::Optional<net::ProxyInfo>& proxy_info() const {
     return proxy_info_;
   }
+
+  int32_t net_error() const { return net_error_; }
   bool is_done() const { return is_done_; }
 
  private:
@@ -227,6 +236,7 @@ class TestProxyLookupClient : public mojom::ProxyLookupClient {
 
   bool is_done_ = false;
   base::Optional<net::ProxyInfo> proxy_info_;
+  int32_t net_error_ = net::ERR_UNEXPECTED;
 
   base::RunLoop run_loop_;
 
@@ -711,16 +721,15 @@ TEST_F(NetworkContextTest, DiskCache) {
   ASSERT_TRUE(backend);
 
   EXPECT_EQ(net::DISK_CACHE, backend->GetCacheType());
-  EXPECT_EQ(network_session_configurator::ChooseCacheType(
-                *base::CommandLine::ForCurrentProcess()),
+  EXPECT_EQ(network_session_configurator::ChooseCacheType(),
             GetBackendType(backend));
 }
 
 // This makes sure that network_session_configurator::ChooseCacheType is
 // connected to NetworkContext.
 TEST_F(NetworkContextTest, SimpleCache) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kUseSimpleCacheBackend, "on");
+  base::FieldTrialList field_trials(nullptr);
+  base::FieldTrialList::CreateFieldTrial("SimpleCacheTrial", "ExperimentYes");
   mojom::NetworkContextParamsPtr context_params = CreateContextParams();
   context_params->http_cache_enabled = true;
 
@@ -1282,6 +1291,78 @@ TEST_F(NetworkContextTest, MultipleClearHttpCacheCalls) {
   // If all the callbacks were invoked, we should terminate.
 }
 
+TEST_F(NetworkContextTest, NotifyExternalCacheHit) {
+  net::MockHttpCache mock_cache;
+  mojom::NetworkContextParamsPtr context_params = CreateContextParams();
+  context_params->http_cache_enabled = true;
+
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(std::move(context_params));
+  network_context->url_request_context()->set_http_transaction_factory(
+      mock_cache.http_cache());
+
+  std::vector<std::string> entry_urls = {
+      "http://www.google.com",    "https://www.google.com",
+      "http://www.wikipedia.com", "https://www.wikipedia.com",
+      "http://localhost:1234",    "https://localhost:1234",
+  };
+
+  // The disk cache is lazily instanitated, force it and ensure it's valid.
+  ASSERT_TRUE(mock_cache.disk_cache());
+  EXPECT_EQ(0U, mock_cache.disk_cache()->GetExternalCacheHits().size());
+
+  for (size_t i = 0; i < entry_urls.size(); i++) {
+    GURL test_url(entry_urls[i]);
+
+    network_context->NotifyExternalCacheHit(test_url, test_url.scheme(),
+                                            base::nullopt);
+    EXPECT_EQ(i + 1, mock_cache.disk_cache()->GetExternalCacheHits().size());
+
+    // Potentially a brittle check as the value sent to disk_cache is a "key."
+    // This key just happens to be the same as the GURL from the test input.
+    // So if this breaks check HttpCache::GenerateCacheKey() for changes.
+    EXPECT_EQ(test_url, mock_cache.disk_cache()->GetExternalCacheHits().back());
+  }
+}
+
+TEST_F(NetworkContextTest, NotifyExternalCacheHit_Split) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(net::features::kSplitCacheByTopFrameOrigin);
+  url::Origin origin_a = url::Origin::Create(GURL("http://a.com"));
+
+  net::MockHttpCache mock_cache;
+  mojom::NetworkContextParamsPtr context_params = CreateContextParams();
+  context_params->http_cache_enabled = true;
+
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(std::move(context_params));
+  network_context->url_request_context()->set_http_transaction_factory(
+      mock_cache.http_cache());
+
+  std::vector<std::string> entry_urls = {
+      "http://www.google.com",    "https://www.google.com",
+      "http://www.wikipedia.com", "https://www.wikipedia.com",
+      "http://localhost:1234",    "https://localhost:1234",
+  };
+
+  // The disk cache is lazily instanitated, force it and ensure it's valid.
+  ASSERT_TRUE(mock_cache.disk_cache());
+  EXPECT_EQ(0U, mock_cache.disk_cache()->GetExternalCacheHits().size());
+
+  for (size_t i = 0; i < entry_urls.size(); i++) {
+    GURL test_url(entry_urls[i]);
+
+    network_context->NotifyExternalCacheHit(test_url, test_url.scheme(),
+                                            origin_a);
+    EXPECT_EQ(i + 1, mock_cache.disk_cache()->GetExternalCacheHits().size());
+
+    // Since this is splitting the cache, the key also includes the top-level
+    // frame origin.
+    EXPECT_EQ(base::StrCat({"_dk_http://a.com \n", test_url.spec()}),
+              mock_cache.disk_cache()->GetExternalCacheHits().back());
+  }
+}
+
 TEST_F(NetworkContextTest, CountHttpCache) {
   // Just ensure that a couple of concurrent calls go through, and produce
   // the expected "it's empty!" result. More detailed testing is left to
@@ -1313,206 +1394,13 @@ TEST_F(NetworkContextTest, CountHttpCache) {
   run_loop.Run();
 }
 
-TEST_F(NetworkContextTest, ClearChannelIds) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateContextParams());
-  ASSERT_TRUE(network_context->url_request_context()->channel_id_service());
-
-  net::ChannelIDStore* store = network_context->url_request_context()
-                                   ->channel_id_service()
-                                   ->GetChannelIDStore();
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "google.com", base::Time::FromDoubleT(123),
-      crypto::ECPrivateKey::Create()));
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "chromium.org", base::Time::FromDoubleT(456),
-      crypto::ECPrivateKey::Create()));
-
-  ASSERT_EQ(2, store->GetChannelIDCount());
-
-  base::RunLoop run_loop;
-  network_context->ClearChannelIds(base::Time(), base::Time(),
-                                   nullptr /* filter */,
-                                   base::BindOnce(run_loop.QuitClosure()));
-  run_loop.Run();
-
-  EXPECT_EQ(0, store->GetChannelIDCount());
-}
-
-TEST_F(NetworkContextTest, ClearEmptyChannelIds) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateContextParams());
-  ASSERT_TRUE(network_context->url_request_context()->channel_id_service());
-
-  net::ChannelIDStore* store = network_context->url_request_context()
-                                   ->channel_id_service()
-                                   ->GetChannelIDStore();
-  ASSERT_EQ(0, store->GetChannelIDCount());
-
-  base::RunLoop run_loop;
-  network_context->ClearChannelIds(base::Time(), base::Time(),
-                                   nullptr /* filter */,
-                                   base::BindOnce(run_loop.QuitClosure()));
-  run_loop.Run();
-
-  EXPECT_EQ(0, store->GetChannelIDCount());
-}
-
-void GetAllChannelIdsCallback(
-    base::RunLoop* run_loop,
-    net::ChannelIDStore::ChannelIDList* dest,
-    const net::ChannelIDStore::ChannelIDList& result) {
-  *dest = result;
-  run_loop->Quit();
-}
-
-TEST_F(NetworkContextTest, ClearChannelIdsWithKeepFilter) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateContextParams());
-  ASSERT_TRUE(network_context->url_request_context()->channel_id_service());
-
-  net::ChannelIDStore* store = network_context->url_request_context()
-                                   ->channel_id_service()
-                                   ->GetChannelIDStore();
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "google.com", base::Time::FromDoubleT(123),
-      crypto::ECPrivateKey::Create()));
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "chromium.org", base::Time::FromDoubleT(456),
-      crypto::ECPrivateKey::Create()));
-
-  ASSERT_EQ(2, store->GetChannelIDCount());
-
-  mojom::ClearDataFilterPtr filter = mojom::ClearDataFilter::New();
-  filter->type = mojom::ClearDataFilter_Type::KEEP_MATCHES;
-  filter->domains.push_back("chromium.org");
-
-  base::RunLoop run_loop1;
-  network_context->ClearChannelIds(base::Time(), base::Time(),
-                                   std::move(filter),
-                                   base::BindOnce(run_loop1.QuitClosure()));
-  run_loop1.Run();
-
-  base::RunLoop run_loop2;
-  net::ChannelIDStore::ChannelIDList channel_ids;
-  store->GetAllChannelIDs(
-      base::BindRepeating(&GetAllChannelIdsCallback, &run_loop2, &channel_ids));
-  run_loop2.Run();
-  ASSERT_EQ(1u, channel_ids.size());
-  EXPECT_EQ("chromium.org", channel_ids.front().server_identifier());
-}
-
-TEST_F(NetworkContextTest, ClearChannelIdsWithDeleteFilter) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateContextParams());
-  ASSERT_TRUE(network_context->url_request_context()->channel_id_service());
-
-  net::ChannelIDStore* store = network_context->url_request_context()
-                                   ->channel_id_service()
-                                   ->GetChannelIDStore();
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "google.com", base::Time::FromDoubleT(123),
-      crypto::ECPrivateKey::Create()));
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "chromium.org", base::Time::FromDoubleT(456),
-      crypto::ECPrivateKey::Create()));
-
-  ASSERT_EQ(2, store->GetChannelIDCount());
-
-  mojom::ClearDataFilterPtr filter = mojom::ClearDataFilter::New();
-  filter->type = mojom::ClearDataFilter_Type::DELETE_MATCHES;
-  filter->domains.push_back("chromium.org");
-
-  base::RunLoop run_loop1;
-  network_context->ClearChannelIds(base::Time(), base::Time(),
-                                   std::move(filter),
-                                   base::BindOnce(run_loop1.QuitClosure()));
-  run_loop1.Run();
-
-  base::RunLoop run_loop2;
-  net::ChannelIDStore::ChannelIDList channel_ids;
-  store->GetAllChannelIDs(
-      base::BindRepeating(&GetAllChannelIdsCallback, &run_loop2, &channel_ids));
-  run_loop2.Run();
-  ASSERT_EQ(1u, channel_ids.size());
-  EXPECT_EQ("google.com", channel_ids.front().server_identifier());
-}
-
-TEST_F(NetworkContextTest, ClearChannelIdsWithTimeRange) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateContextParams());
-  ASSERT_TRUE(network_context->url_request_context()->channel_id_service());
-
-  net::ChannelIDStore* store = network_context->url_request_context()
-                                   ->channel_id_service()
-                                   ->GetChannelIDStore();
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "google.com", base::Time::FromDoubleT(123),
-      crypto::ECPrivateKey::Create()));
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "chromium.org", base::Time::FromDoubleT(456),
-      crypto::ECPrivateKey::Create()));
-  store->SetChannelID(std::make_unique<net::ChannelIDStore::ChannelID>(
-      "gmail.com", base::Time::FromDoubleT(789),
-      crypto::ECPrivateKey::Create()));
-
-  ASSERT_EQ(3, store->GetChannelIDCount());
-
-  base::RunLoop run_loop1;
-  network_context->ClearChannelIds(
-      base::Time::FromDoubleT(450), base::Time::FromDoubleT(460),
-      nullptr /* filter */, base::BindOnce(run_loop1.QuitClosure()));
-  run_loop1.Run();
-
-  base::RunLoop run_loop2;
-  net::ChannelIDStore::ChannelIDList channel_ids;
-  store->GetAllChannelIDs(
-      base::BindRepeating(&GetAllChannelIdsCallback, &run_loop2, &channel_ids));
-  run_loop2.Run();
-
-  std::vector<std::string> identifiers;
-  for (const auto& id : channel_ids) {
-    identifiers.push_back(id.server_identifier());
-  }
-  EXPECT_THAT(identifiers,
-              testing::UnorderedElementsAre("google.com", "gmail.com"));
-}
-
-TEST_F(NetworkContextTest, ClearChannelIdTriggersSslChangeNotification) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateContextParams());
-  ASSERT_TRUE(network_context->url_request_context()->channel_id_service());
-
-  network_context->url_request_context()->ssl_config_service()->AddObserver(
-      this);
-
-  ASSERT_EQ(0, ssl_config_changed_count_);
-
-  base::RunLoop run_loop;
-  network_context->ClearChannelIds(base::Time(), base::Time(),
-                                   nullptr /* filter */,
-                                   base::BindOnce(run_loop.QuitClosure()));
-  run_loop.Run();
-
-  EXPECT_EQ(1, ssl_config_changed_count_);
-}
-
-TEST_F(NetworkContextTest, ClearChannelIdWithNoService) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateContextParams());
-  network_context->url_request_context()->set_channel_id_service(nullptr);
-
-  base::RunLoop run_loop;
-  network_context->ClearChannelIds(base::Time(), base::Time(),
-                                   nullptr /* filter */,
-                                   base::BindOnce(run_loop.QuitClosure()));
-  run_loop.Run();
-}
-
 TEST_F(NetworkContextTest, ClearHostCache) {
   // List of domains added to the host cache before running each test case.
   const char* kDomains[] = {
-      "domain0", "domain1", "domain2", "domain3",
+      "domain0",
+      "domain1",
+      "domain2",
+      "domain3",
   };
 
   // Each bit correponds to one of the 4 domains above.
@@ -2353,6 +2241,7 @@ TEST_F(NetworkContextTest, DestroyedWithoutProxyConfig) {
   network_context.reset();
   proxy_lookup_client.WaitForResult();
   EXPECT_FALSE(proxy_lookup_client.proxy_info());
+  EXPECT_EQ(net::ERR_ABORTED, proxy_lookup_client.net_error());
 }
 
 TEST_F(NetworkContextTest, CancelPendingProxyLookup) {
@@ -2679,7 +2568,7 @@ net::IPEndPoint CreateExpectedEndPoint(const std::string& address,
   return net::IPEndPoint(ip_address, port);
 }
 
-class TestResolveHostClient : public mojom::ResolveHostClient {
+class TestResolveHostClient : public ResolveHostClientBase {
  public:
   TestResolveHostClient(mojom::ResolveHostClientPtr* interface_ptr,
                         base::RunLoop* run_loop)
@@ -3201,15 +3090,17 @@ TEST_F(NetworkContextTest, CreateHostResolverWithConfigOverrides) {
   const std::string kResult = "1.2.3.4";
   net::IPAddress result;
   CHECK(result.AssignFromIPLiteral(kResult));
-  net::MockDnsClientRuleList rules{
-      net::MockDnsClientRule(kQueryHostname, net::dns_protocol::kTypeA,
-                             net::MockDnsClientRule::Result(result), false),
-      net::MockDnsClientRule(kQueryHostname, net::dns_protocol::kTypeAAAA,
-                             net::MockDnsClientRule::Result(
-                                 net::MockDnsClientRule::ResultType::EMPTY),
-                             false)};
+  net::MockDnsClientRuleList rules;
+  rules.emplace_back(kQueryHostname, net::dns_protocol::kTypeA,
+                     net::MockDnsClientRule::Result(
+                         net::BuildTestDnsResponse(kQueryHostname, result)),
+                     false);
+  rules.emplace_back(
+      kQueryHostname, net::dns_protocol::kTypeAAAA,
+      net::MockDnsClientRule::Result(net::MockDnsClientRule::ResultType::EMPTY),
+      false);
   auto mock_dns_client =
-      std::make_unique<net::MockDnsClient>(net::DnsConfig(), rules);
+      std::make_unique<net::MockDnsClient>(net::DnsConfig(), std::move(rules));
   auto* mock_dns_client_ptr = mock_dns_client.get();
   internal_resolver->SetDnsClient(std::move(mock_dns_client));
 
@@ -4378,27 +4269,42 @@ TEST_F(NetworkContextTest, EnsureProperProxyServerIsUsed) {
   }
 }
 
-class TestHeaderClient : public mojom::TrustedURLLoaderHeaderClient {
+class TestURLLoaderHeaderClient : public mojom::TrustedURLLoaderHeaderClient {
  public:
+  class TestHeaderClient : public mojom::TrustedHeaderClient {
+   public:
+    TestHeaderClient() : binding(this) {}
+
+    // network::mojom::TrustedHeaderClient:
+    void OnBeforeSendHeaders(const net::HttpRequestHeaders& headers,
+                             OnBeforeSendHeadersCallback callback) override {
+      auto new_headers = headers;
+      new_headers.SetHeader("foo", "bar");
+      std::move(callback).Run(on_before_send_headers_result, new_headers);
+    }
+    void OnHeadersReceived(const std::string& headers,
+                           OnHeadersReceivedCallback callback) override {
+      auto new_headers =
+          base::MakeRefCounted<net::HttpResponseHeaders>(headers);
+      new_headers->AddHeader("baz: qux");
+      std::move(callback).Run(on_headers_received_result,
+                              new_headers->raw_headers(), GURL());
+    }
+
+    int on_before_send_headers_result = net::OK;
+    int on_headers_received_result = net::OK;
+    mojo::Binding<mojom::TrustedHeaderClient> binding;
+  };
+
   // network::mojom::TrustedURLLoaderHeaderClient:
-  void OnBeforeSendHeaders(int32_t request_id,
-                           const net::HttpRequestHeaders& headers,
-                           OnBeforeSendHeadersCallback callback) override {
-    auto new_headers = headers;
-    new_headers.SetHeader("foo", "bar");
-    std::move(callback).Run(on_before_send_headers_result, new_headers);
-  }
-  void OnHeadersReceived(int32_t request_id,
-                         const std::string& headers,
-                         OnHeadersReceivedCallback callback) override {
-    auto new_headers = base::MakeRefCounted<net::HttpResponseHeaders>(headers);
-    new_headers->AddHeader("baz: qux");
-    std::move(callback).Run(on_headers_received_result,
-                            new_headers->raw_headers(), GURL());
+  void OnLoaderCreated(
+      int32_t request_id,
+      network::mojom::TrustedHeaderClientRequest request) override {
+    header_client.binding.Close();
+    header_client.binding.Bind(std::move(request));
   }
 
-  int on_before_send_headers_result = net::OK;
-  int on_headers_received_result = net::OK;
+  TestHeaderClient header_client;
 };
 
 TEST_F(NetworkContextTest, HeaderClientModifiesHeaders) {
@@ -4417,7 +4323,7 @@ TEST_F(NetworkContextTest, HeaderClientModifiesHeaders) {
       mojom::URLLoaderFactoryParams::New();
   params->process_id = mojom::kBrowserProcessId;
   params->is_corb_enabled = false;
-  mojo::MakeStrongBinding(std::make_unique<TestHeaderClient>(),
+  mojo::MakeStrongBinding(std::make_unique<TestURLLoaderHeaderClient>(),
                           mojo::MakeRequest(&params->header_client));
   network_context->CreateURLLoaderFactory(mojo::MakeRequest(&loader_factory),
                                           std::move(params));
@@ -4479,7 +4385,7 @@ TEST_F(NetworkContextTest, HeaderClientFailsRequest) {
   ResourceRequest request;
   request.url = test_server.GetURL("/echo");
 
-  auto header_client = std::make_unique<TestHeaderClient>();
+  auto header_client = std::make_unique<TestURLLoaderHeaderClient>();
   auto* raw_header_client = header_client.get();
 
   mojom::URLLoaderFactoryPtr loader_factory;
@@ -4494,7 +4400,8 @@ TEST_F(NetworkContextTest, HeaderClientFailsRequest) {
 
   // First, fail request on OnBeforeSendHeaders.
   {
-    raw_header_client->on_before_send_headers_result = net::ERR_FAILED;
+    raw_header_client->header_client.on_before_send_headers_result =
+        net::ERR_FAILED;
     mojom::URLLoaderPtr loader;
     TestURLLoaderClient client;
     loader_factory->CreateLoaderAndStart(
@@ -4509,8 +4416,9 @@ TEST_F(NetworkContextTest, HeaderClientFailsRequest) {
 
   // Next, fail request on OnHeadersReceived.
   {
-    raw_header_client->on_before_send_headers_result = net::OK;
-    raw_header_client->on_headers_received_result = net::ERR_FAILED;
+    raw_header_client->header_client.on_before_send_headers_result = net::OK;
+    raw_header_client->header_client.on_headers_received_result =
+        net::ERR_FAILED;
     mojom::URLLoaderPtr loader;
     TestURLLoaderClient client;
     loader_factory->CreateLoaderAndStart(
@@ -4873,6 +4781,80 @@ TEST_F(NetworkContextMockHostTest, CustomProxyUsesAlternateProxyList) {
   EXPECT_EQ(response, "Echo");
   EXPECT_EQ(client->response_head().proxy_server,
             ConvertToProxyServer(proxy_test_server));
+}
+
+TEST_F(NetworkContextTest, MaximumCount) {
+  net::EmbeddedTestServer test_server;
+  test_server.AddDefaultHandlers(
+      base::FilePath(FILE_PATH_LITERAL("services/test/data")));
+
+  const char kPath1[] = "/foobar";
+  const char kPath2[] = "/hung";
+  const char kPath3[] = "/hello.html";
+  net::test_server::ControllableHttpResponse controllable_response1(
+      &test_server, kPath1);
+
+  ASSERT_TRUE(test_server.Start());
+
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateContextParams());
+  network_context->set_max_loaders_per_process_for_testing(2);
+
+  mojom::URLLoaderFactoryPtr loader_factory;
+  mojom::URLLoaderFactoryParamsPtr params =
+      mojom::URLLoaderFactoryParams::New();
+  params->process_id = mojom::kBrowserProcessId;
+  params->is_corb_enabled = false;
+  network_context->CreateURLLoaderFactory(mojo::MakeRequest(&loader_factory),
+                                          std::move(params));
+
+  ResourceRequest request;
+  request.url = test_server.GetURL(kPath1);
+  auto client1 = std::make_unique<TestURLLoaderClient>();
+  mojom::URLLoaderPtr loader1;
+  loader_factory->CreateLoaderAndStart(
+      mojo::MakeRequest(&loader1), 0 /* routing_id */, 0 /* request_id */,
+      0 /* options */, request, client1->CreateInterfacePtr(),
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  request.url = test_server.GetURL(kPath2);
+  auto client2 = std::make_unique<TestURLLoaderClient>();
+  mojom::URLLoaderPtr loader2;
+  loader_factory->CreateLoaderAndStart(
+      mojo::MakeRequest(&loader2), 0 /* routing_id */, 0 /* request_id */,
+      0 /* options */, request, client2->CreateInterfacePtr(),
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  // A third request should fail, since the first two are outstanding and the
+  // limit is 2.
+  request.url = test_server.GetURL(kPath3);
+  auto client3 = std::make_unique<TestURLLoaderClient>();
+  mojom::URLLoaderPtr loader3;
+  loader_factory->CreateLoaderAndStart(
+      mojo::MakeRequest(&loader3), 0 /* routing_id */, 0 /* request_id */,
+      0 /* options */, request, client3->CreateInterfacePtr(),
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  client3->RunUntilComplete();
+  ASSERT_EQ(client3->completion_status().error_code,
+            net::ERR_INSUFFICIENT_RESOURCES);
+
+  // Complete the first request and try the third again.
+  controllable_response1.WaitForRequest();
+  controllable_response1.Send("HTTP/1.1 200 OK\r\n");
+  controllable_response1.Done();
+
+  client1->RunUntilComplete();
+  ASSERT_EQ(client1->completion_status().error_code, net::OK);
+
+  client3 = std::make_unique<TestURLLoaderClient>();
+  loader_factory->CreateLoaderAndStart(
+      mojo::MakeRequest(&loader3), 0 /* routing_id */, 0 /* request_id */,
+      0 /* options */, request, client3->CreateInterfacePtr(),
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  client3->RunUntilComplete();
+  ASSERT_EQ(client3->completion_status().error_code, net::OK);
 }
 
 }  // namespace

@@ -103,7 +103,7 @@ public class InfoBarAppearanceTest {
         EmptyTabObserver navigationWaiter = new EmptyTabObserver() {
             @Override
             public void onDidStartNavigation(Tab tab, String url, boolean isInMainFrame,
-                    boolean isSameDocument, boolean isErrorPage) {
+                    boolean isSameDocument, long navigationHandleProxy) {
                 callbackHelper.notifyCalled();
             }
         };

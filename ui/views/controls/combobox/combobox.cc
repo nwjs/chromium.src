@@ -41,9 +41,11 @@ namespace {
 constexpr int kNoSelection = -1;
 
 SkColor GetTextColorForEnableState(const Combobox& combobox, bool enabled) {
-  return style::GetColor(
-      combobox, style::CONTEXT_TEXTFIELD,
-      enabled ? style::STYLE_PRIMARY : style::STYLE_DISABLED);
+  SkColor color =
+      style::GetColor(combobox, style::CONTEXT_TEXTFIELD, style::STYLE_PRIMARY);
+  if (!enabled)
+    color = SkColorSetA(color, gfx::kDisabledControlAlpha);
+  return color;
 }
 
 // The transparent button which holds a button state but is not rendered.
@@ -161,7 +163,7 @@ class Combobox::ComboboxMenuModel : public ui::MenuModel,
   bool IsItemDynamicAt(int index) const override { return true; }
 
   const gfx::FontList* GetLabelFontListAt(int index) const override {
-    return &GetFontList();
+    return &owner_->GetFontList();
   }
 
   bool GetAcceleratorAt(int index,
@@ -184,8 +186,6 @@ class Combobox::ComboboxMenuModel : public ui::MenuModel,
   bool IsEnabledAt(int index) const override {
     return model_->IsItemEnabledAt(index);
   }
-
-  void HighlightChangedTo(int index) override {}
 
   void ActivatedAt(int index) override {
     owner_->selected_index_ = index;
@@ -217,13 +217,17 @@ class Combobox::ComboboxMenuModel : public ui::MenuModel,
 ////////////////////////////////////////////////////////////////////////////////
 // Combobox, public:
 
-Combobox::Combobox(std::unique_ptr<ui::ComboboxModel> model)
-    : Combobox(model.get()) {
+Combobox::Combobox(std::unique_ptr<ui::ComboboxModel> model,
+                   int text_context,
+                   int text_style)
+    : Combobox(model.get(), text_context, text_style) {
   owned_model_ = std::move(model);
 }
 
-Combobox::Combobox(ui::ComboboxModel* model)
+Combobox::Combobox(ui::ComboboxModel* model, int text_context, int text_style)
     : model_(model),
+      text_context_(text_context),
+      text_style_(text_style),
       listener_(nullptr),
       selected_index_(model_->GetDefaultIndex()),
       invalid_(false),
@@ -257,9 +261,8 @@ Combobox::~Combobox() {
   }
 }
 
-// static
-const gfx::FontList& Combobox::GetFontList() {
-  return style::GetFont(style::CONTEXT_BUTTON, style::STYLE_PRIMARY);
+const gfx::FontList& Combobox::GetFontList() const {
+  return style::GetFont(text_context_, text_style_);
 }
 
 void Combobox::ModelChanged() {
@@ -521,7 +524,7 @@ void Combobox::ButtonPressed(Button* sender, const ui::Event& event) {
 
   // TODO(hajimehoshi): Fix the problem that the arrow button blinks when
   // cliking this while the dropdown menu is opened.
-  const base::TimeDelta delta = base::Time::Now() - closed_time_;
+  const base::TimeDelta delta = base::TimeTicks::Now() - closed_time_;
   if (delta.InMilliseconds() <= kMinimumMsBetweenButtonClicks)
     return;
 
@@ -564,7 +567,7 @@ void Combobox::PaintText(gfx::Canvas* canvas) {
 
   int disclosure_arrow_offset = width() - GetArrowContainerWidth();
 
-  const gfx::FontList& font_list = Combobox::GetFontList();
+  const gfx::FontList& font_list = GetFontList();
   int text_width = gfx::GetStringWidth(text, font_list);
   if ((text_width + insets.width()) > disclosure_arrow_offset)
     text_width = disclosure_arrow_offset - insets.width();
@@ -597,10 +600,7 @@ void Combobox::PaintText(gfx::Canvas* canvas) {
     path.rLineTo(height, -height);
     path.close();
     cc::PaintFlags flags;
-    SkColor arrow_color = GetTextColorForEnableState(*this, true);
-    if (!enabled())
-      arrow_color = SkColorSetA(arrow_color, gfx::kDisabledControlAlpha);
-    flags.setColor(arrow_color);
+    flags.setColor(text_color);
     flags.setAntiAlias(true);
     canvas->DrawPath(path, flags);
   }
@@ -644,7 +644,7 @@ void Combobox::ShowDropDownMenu(ui::MenuSourceType source_type) {
 void Combobox::OnMenuClosed(Button::ButtonState original_button_state) {
   menu_runner_.reset();
   arrow_button_->SetState(original_button_state);
-  closed_time_ = base::Time::Now();
+  closed_time_ = base::TimeTicks::Now();
 }
 
 void Combobox::OnPerformAction() {

@@ -11,10 +11,10 @@
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
-#include "base/json/json_reader.h"
 #include "base/lazy_instance.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted_delete_on_sequence.h"
+#include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/sequenced_task_runner.h"
 #include "base/strings/string_util.h"
@@ -27,90 +27,14 @@
 #include "services/catalog/constants.h"
 #include "services/catalog/entry_cache.h"
 #include "services/catalog/instance.h"
-#include "services/service_manager/public/cpp/binder_registry.h"
-#include "services/service_manager/public/cpp/service_context.h"
 
 namespace catalog {
 
 namespace {
 
-const char kCatalogServicesKey[] = "services";
-const char kCatalogServiceEmbeddedKey[] = "embedded";
-const char kCatalogServiceExecutableKey[] = "executable";
-const char kCatalogServiceManifestKey[] = "manifest";
-
-base::LazyInstance<std::unique_ptr<base::Value>>::DestructorAtExit
-    g_default_static_manifest = LAZY_INSTANCE_INITIALIZER;
-
-void LoadCatalogManifestIntoCache(const base::Value* root, EntryCache* cache) {
-  DCHECK(root);
-  const base::DictionaryValue* catalog = nullptr;
-  if (!root->GetAsDictionary(&catalog)) {
-    LOG(ERROR) << "Catalog manifest is not a dictionary value.";
-    return;
-  }
-  DCHECK(catalog);
-
-  const base::DictionaryValue* services = nullptr;
-  if (!catalog->GetDictionary(kCatalogServicesKey, &services)) {
-    LOG(ERROR) << "Catalog manifest \"services\" is not a dictionary value.";
-    return;
-  }
-
-  for (base::DictionaryValue::Iterator it(*services); !it.IsAtEnd();
-       it.Advance()) {
-    const base::DictionaryValue* service_entry = nullptr;
-    if (!it.value().GetAsDictionary(&service_entry)) {
-      LOG(ERROR) << "Catalog service entry for \"" << it.key()
-                 << "\" is not a dictionary value.";
-      continue;
-    }
-
-    bool is_embedded = false;
-    service_entry->GetBoolean(kCatalogServiceEmbeddedKey, &is_embedded);
-
-    base::FilePath executable_path;
-    std::string executable_path_string;
-    if (service_entry->GetString(kCatalogServiceExecutableKey,
-                                 &executable_path_string)) {
-      base::FilePath exe_dir;
-      CHECK(base::PathService::Get(base::DIR_EXE, &exe_dir));
-#if defined(OS_WIN)
-      executable_path_string += ".exe";
-      base::ReplaceFirstSubstringAfterOffset(
-          &executable_path_string, 0, "@EXE_DIR",
-          base::UTF16ToUTF8(exe_dir.value()));
-      executable_path =
-          base::FilePath(base::UTF8ToUTF16(executable_path_string));
-#else
-      base::ReplaceFirstSubstringAfterOffset(
-          &executable_path_string, 0, "@EXE_DIR", exe_dir.value());
-      executable_path = base::FilePath(executable_path_string);
-#endif
-    }
-
-    const base::DictionaryValue* manifest = nullptr;
-    if (!service_entry->GetDictionary(kCatalogServiceManifestKey, &manifest)) {
-      LOG(ERROR) << "Catalog entry for \"" << it.key() << "\" has an invalid "
-                 << "\"manifest\" value.";
-      continue;
-    }
-
-    DCHECK(!(is_embedded && !executable_path.empty()));
-
-    if (is_embedded)
-      executable_path = base::CommandLine::ForCurrentProcess()->GetProgram();
-
-    auto entry = Entry::Deserialize(*manifest);
-    if (entry) {
-      if (!executable_path.empty())
-        entry->set_path(std::move(executable_path));
-      bool added = cache->AddRootEntry(std::move(entry));
-      DCHECK(added);
-    } else {
-      LOG(ERROR) << "Failed to read manifest entry for \"" << it.key() << "\".";
-    }
-  }
+std::vector<service_manager::Manifest>& GetDefaultManifests() {
+  static base::NoDestructor<std::vector<service_manager::Manifest>> manifests;
+  return *manifests;
 }
 
 }  // namespace
@@ -143,72 +67,32 @@ class Catalog::DirectoryThreadState
   DISALLOW_COPY_AND_ASSIGN(DirectoryThreadState);
 };
 
-class Catalog::ServiceImpl : public service_manager::Service {
- public:
-  explicit ServiceImpl(Catalog* catalog) : catalog_(catalog) {
-    registry_.AddInterface<mojom::Catalog>(
-        base::Bind(&Catalog::BindCatalogRequest, base::Unretained(catalog_)));
-    registry_.AddInterface<filesystem::mojom::Directory>(
-        base::Bind(&Catalog::BindDirectoryRequest, base::Unretained(catalog_)));
-  }
-  ~ServiceImpl() override {}
-
-  // service_manager::Service:
-  void OnBindInterface(const service_manager::BindSourceInfo& source_info,
-                       const std::string& interface_name,
-                       mojo::ScopedMessagePipeHandle interface_pipe) override {
-    registry_.BindInterface(interface_name, std::move(interface_pipe),
-                            source_info);
+Catalog::Catalog(const std::vector<service_manager::Manifest>& manifests) {
+  if (!manifests.empty()) {
+    for (const auto& manifest : manifests)
+      system_cache_.AddRootEntryFromManifest(manifest);
+  } else {
+    for (const auto& manifest : GetDefaultManifests())
+      system_cache_.AddRootEntryFromManifest(manifest);
   }
 
- private:
-  Catalog* const catalog_;
-  service_manager::BinderRegistryWithArgs<
-      const service_manager::BindSourceInfo&>
-      registry_;
-
-  DISALLOW_COPY_AND_ASSIGN(ServiceImpl);
-};
-
-Catalog::Catalog(std::unique_ptr<base::Value> static_manifest,
-                 ManifestProvider* service_manifest_provider)
-    : service_context_(new service_manager::ServiceContext(
-          std::make_unique<ServiceImpl>(this),
-          mojo::MakeRequest(&service_))),
-      service_manifest_provider_(service_manifest_provider),
-      weak_factory_(this) {
-  if (static_manifest) {
-    LoadCatalogManifestIntoCache(static_manifest.get(), &system_cache_);
-  } else if (g_default_static_manifest.Get()) {
-    LoadCatalogManifestIntoCache(
-        g_default_static_manifest.Get().get(), &system_cache_);
-  }
+  registry_.AddInterface<mojom::Catalog>(base::BindRepeating(
+      &Catalog::BindCatalogRequest, base::Unretained(this)));
+  registry_.AddInterface<filesystem::mojom::Directory>(base::BindRepeating(
+      &Catalog::BindDirectoryRequest, base::Unretained(this)));
 }
 
-Catalog::~Catalog() {}
+Catalog::~Catalog() = default;
 
-service_manager::mojom::ServicePtr Catalog::TakeService() {
-  return std::move(service_);
+void Catalog::BindServiceRequest(
+    service_manager::mojom::ServiceRequest request) {
+  service_binding_.Bind(std::move(request));
 }
 
 // static
 void Catalog::SetDefaultCatalogManifest(
-    std::unique_ptr<base::Value> static_manifest) {
-  g_default_static_manifest.Get() = std::move(static_manifest);
-}
-
-// static
-void Catalog::LoadDefaultCatalogManifest(const base::FilePath& path) {
-  std::string catalog_contents;
-  base::FilePath exe_path;
-  base::PathService::Get(base::DIR_EXE, &exe_path);
-  base::FilePath catalog_path = exe_path.Append(path);
-  bool result = base::ReadFileToString(catalog_path, &catalog_contents);
-  DCHECK(result);
-  std::unique_ptr<base::Value> manifest_value =
-      base::JSONReader::Read(catalog_contents);
-  DCHECK(manifest_value);
-  catalog::Catalog::SetDefaultCatalogManifest(std::move(manifest_value));
+    const std::vector<service_manager::Manifest>& manifests) {
+  GetDefaultManifests() = manifests;
 }
 
 Instance* Catalog::GetInstanceForGroup(const base::Token& instance_group) {
@@ -216,9 +100,8 @@ Instance* Catalog::GetInstanceForGroup(const base::Token& instance_group) {
   if (it != instances_.end())
     return it->second.get();
 
-  auto result = instances_.emplace(
-      instance_group,
-      std::make_unique<Instance>(&system_cache_, service_manifest_provider_));
+  auto result = instances_.emplace(instance_group,
+                                   std::make_unique<Instance>(&system_cache_));
   return result.first->second.get();
 }
 
@@ -259,6 +142,14 @@ void Catalog::BindDirectoryRequestOnBackgroundThread(
           resources_path, scoped_refptr<filesystem::SharedTempDir>(),
           thread_state->lock_table()),
       std::move(request));
+}
+
+void Catalog::OnBindInterface(
+    const service_manager::BindSourceInfo& source_info,
+    const std::string& interface_name,
+    mojo::ScopedMessagePipeHandle interface_pipe) {
+  registry_.BindInterface(interface_name, std::move(interface_pipe),
+                          source_info);
 }
 
 }  // namespace catalog

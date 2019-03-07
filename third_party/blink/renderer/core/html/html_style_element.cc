@@ -30,6 +30,7 @@
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
 
@@ -150,7 +151,7 @@ void HTMLStyleElement::setDisabled(bool set_disabled) {
     style_sheet->setDisabled(set_disabled);
 }
 
-void HTMLStyleElement::Trace(blink::Visitor* visitor) {
+void HTMLStyleElement::Trace(Visitor* visitor) {
   StyleElement::Trace(visitor);
   HTMLElement::Trace(visitor);
 }

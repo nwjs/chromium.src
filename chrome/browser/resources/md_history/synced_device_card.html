@@ -7,10 +7,11 @@
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button-light.html">
 <link rel="import" href="chrome://resources/html/icon.html">
-<link rel="import" href="chrome://history/browser_service.html">
-<link rel="import" href="chrome://history/constants.html">
-<link rel="import" href="chrome://history/searched_label.html">
-<link rel="import" href="chrome://history/shared_style.html">
+<link rel="import" href="browser_service.html">
+<link rel="import" href="constants.html">
+<link rel="import" href="searched_label.html">
+<link rel="import" href="shared_style.html">
+<link rel="import" href="strings.html">
 
 <dom-module id="history-synced-device-card">
   <template>
@@ -58,7 +59,7 @@
 
       #history-item-container {
         @apply --cr-card-elevation;
-        background: #fff;
+        background-color: var(--cr-card-background-color);
         border-radius: var(--cr-card-border-radius);
       }
 
@@ -109,11 +110,12 @@
           <template is="dom-repeat" items="[[tabs]]" as="tab" id="tab-list"
               notify-dom-change>
             <div class="item-container">
-              <div class="website-icon"></div>
-              <a href="[[tab.url]]" class="website-title" title="[[tab.title]]"
+              <a href="[[tab.url]]" class="website-link" title="[[tab.title]]"
                   on-click="openTab_" on-contextmenu="onLinkRightClick_">
-                <history-searched-label title="[[tab.title]]"
-                    search-term="[[searchTerm]]"></history-searched-label>
+              <div class="website-icon"></div>
+              <history-searched-label class="website-title"
+                  title="[[tab.title]]"
+                  search-term="[[searchTerm]]"></history-searched-label>
               </a>
             </div>
             <div class="window-separator"
@@ -124,5 +126,5 @@
       </iron-collapse>
     </div>
   </template>
-  <script src="chrome://history/synced_device_card.js"></script>
+  <script src="synced_device_card.js"></script>
 </dom-module>

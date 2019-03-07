@@ -29,12 +29,13 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.consent_auditor.ConsentAuditorFeature;
 import org.chromium.chrome.browser.externalauth.UserRecoverableErrorHandler;
 import org.chromium.chrome.browser.preferences.PrefServiceBridge;
-import org.chromium.chrome.browser.signin.AccountTrackerService.OnSystemAccountsSeededListener;
 import org.chromium.chrome.browser.signin.ConfirmImportSyncDataDialog.ImportSyncType;
 import org.chromium.components.signin.AccountIdProvider;
 import org.chromium.components.signin.AccountManagerDelegateException;
 import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.AccountManagerResult;
+import org.chromium.components.signin.AccountTrackerService;
+import org.chromium.components.signin.AccountTrackerService.OnSystemAccountsSeededListener;
 import org.chromium.components.signin.AccountsChangeObserver;
 import org.chromium.components.signin.ChildAccountStatus;
 import org.chromium.components.signin.GmsAvailabilityException;
@@ -342,12 +343,13 @@ public class AccountSigninView extends FrameLayout {
 
         // The clickable "Settings" link.
         NoUnderlineClickableSpan settingsSpan = new NoUnderlineClickableSpan((widget) -> {
+            if (mSelectedAccountName == null) return;
             mListener.onAccountSelected(mSelectedAccountName, mIsDefaultAccountSelected, true);
             RecordUserAction.record("Signin_Signin_WithAdvancedSyncSettings");
 
             // Record the fact that the user consented to the consent text by clicking
             // on |mSigninSettingsControl|.
-            recordConsent((TextView) widget);
+            recordConsent((TextView) widget, mSelectedAccountName);
         });
         mConsentTextTracker.setText(mSigninSettingsControl,
                 getSettingsControlDescription(mChildAccountStatus), input -> {
@@ -648,15 +650,17 @@ public class AccountSigninView extends FrameLayout {
         // Ensure that the AccountTrackerService has a fully up to date GAIA id <-> email mapping,
         // as this is needed for the previous account check.
         final long seedingStartTime = SystemClock.elapsedRealtime();
-        if (AccountTrackerService.get().checkAndSeedSystemAccounts()) {
+        final AccountTrackerService accountTrackerService =
+                IdentityServicesProvider.getAccountTrackerService();
+        if (accountTrackerService.checkAndSeedSystemAccounts()) {
             recordAccountTrackerServiceSeedingTime(seedingStartTime);
             runStateMachineAndShowConfirmationPage();
         } else {
-            AccountTrackerService.get().addSystemAccountsSeededListener(
+            accountTrackerService.addSystemAccountsSeededListener(
                     new OnSystemAccountsSeededListener() {
                         @Override
                         public void onSystemAccountsSeedingComplete() {
-                            AccountTrackerService.get().removeSystemAccountsSeededListener(this);
+                            accountTrackerService.removeSystemAccountsSeededListener(this);
                             recordAccountTrackerServiceSeedingTime(seedingStartTime);
                             // Don't show dialogs and confirmation page if activity was destroyed.
                             if (ViewCompat.isAttachedToWindow(AccountSigninView.this)) {
@@ -749,12 +753,14 @@ public class AccountSigninView extends FrameLayout {
     private void setUpConfirmButton() {
         mConsentTextTracker.setText(mPositiveButton, R.string.signin_accept);
         mPositiveButton.setOnClickListener(view -> {
+            if (mSelectedAccountName == null) return;
+
             mListener.onAccountSelected(mSelectedAccountName, mIsDefaultAccountSelected, false);
             RecordUserAction.record("Signin_Signin_WithDefaultSyncSettings");
 
             // Record the fact that the user consented to the consent text by clicking
             // on |mPositiveButton|.
-            recordConsent((TextView) view);
+            recordConsent((TextView) view, mSelectedAccountName);
         });
         setUpMoreButtonVisible(true);
     }
@@ -802,13 +808,14 @@ public class AccountSigninView extends FrameLayout {
      * Records the Sync consent.
      * @param confirmationView The view that the user clicked when consenting.
      */
-    private void recordConsent(TextView confirmationView) {
+    private void recordConsent(TextView confirmationView, String selectedAccountName) {
         // TODO(crbug.com/831257): Provide the account id synchronously from AccountManagerFacade.
+        assert selectedAccountName != null;
         final AccountIdProvider accountIdProvider = AccountIdProvider.getInstance();
         new AsyncTask<String>() {
             @Override
             public String doInBackground() {
-                return accountIdProvider.getAccountId(mSelectedAccountName);
+                return accountIdProvider.getAccountId(selectedAccountName);
             }
 
             @Override

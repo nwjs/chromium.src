@@ -5,6 +5,7 @@
 #ifndef ASH_ASSISTANT_MODEL_ASSISTANT_UI_MODEL_H_
 #define ASH_ASSISTANT_MODEL_ASSISTANT_UI_MODEL_H_
 
+#include "base/component_export.h"
 #include "base/macros.h"
 #include "base/observer_list.h"
 #include "ui/gfx/geometry/rect.h"
@@ -61,8 +62,21 @@ enum class AssistantVisibility {
   kVisible,  // Assistant UI is visible and a session is in progress.
 };
 
+// Enumeration of Assistant button ID. These values are persisted to logs.
+// Entries should not be renumbered and numeric values should never be reused.
+// Only append to this enum is allowed if more buttons will be added.
+enum class AssistantButtonId {
+  kBack = 1,
+  kClose = 2,
+  kMinimize = 3,
+  kKeyboardInputToggle = 4,
+  kVoiceInputToggle = 5,
+  kSettings = 6,
+  kMaxValue = kSettings,
+};
+
 // Models the Assistant UI.
-class AssistantUiModel {
+class COMPONENT_EXPORT(ASSISTANT_MODEL) AssistantUiModel {
  public:
   AssistantUiModel();
   ~AssistantUiModel();

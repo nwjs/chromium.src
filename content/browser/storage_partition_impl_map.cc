@@ -4,6 +4,7 @@
 
 #include "content/browser/storage_partition_impl_map.h"
 
+#include <unordered_set>
 #include <utility>
 
 #include "base/bind.h"
@@ -271,8 +272,8 @@ void BlockingObliteratePath(
 
 // Ensures each path in |active_paths| is a direct child of storage_root.
 void NormalizeActivePaths(const base::FilePath& storage_root,
-                          base::hash_set<base::FilePath>* active_paths) {
-  base::hash_set<base::FilePath> normalized_active_paths;
+                          std::unordered_set<base::FilePath>* active_paths) {
+  std::unordered_set<base::FilePath> normalized_active_paths;
 
   for (auto iter = active_paths->begin(); iter != active_paths->end(); ++iter) {
     base::FilePath relative_path;
@@ -309,7 +310,7 @@ void NormalizeActivePaths(const base::FilePath& storage_root,
 void BlockingGarbageCollect(
     const base::FilePath& storage_root,
     const scoped_refptr<base::TaskRunner>& file_access_runner,
-    std::unique_ptr<base::hash_set<base::FilePath>> active_paths) {
+    std::unique_ptr<std::unordered_set<base::FilePath>> active_paths) {
   CHECK(storage_root.IsAbsolute());
 
   NormalizeActivePaths(storage_root, active_paths.get());
@@ -412,30 +413,51 @@ StoragePartitionImpl* StoragePartitionImplMap::Get(
   }
 
   URLRequestInterceptorScopedVector request_interceptors;
-  request_interceptors.push_back(
-      std::make_unique<DevToolsURLRequestInterceptor>(browser_context_));
+
+  auto devtools_interceptor =
+      DevToolsURLRequestInterceptor::MaybeCreate(browser_context_);
+  if (devtools_interceptor)
+    request_interceptors.push_back(std::move(devtools_interceptor));
   request_interceptors.push_back(ServiceWorkerRequestHandler::CreateInterceptor(
       browser_context_->GetResourceContext()));
   request_interceptors.push_back(std::make_unique<AppCacheInterceptor>());
 
-  // These calls must happen after StoragePartitionImpl::Create().
-  if (partition_domain.empty()) {
-    partition->SetURLRequestContext(
-        browser_context_->CreateRequestContext(
-            &protocol_handlers, std::move(request_interceptors)));
-  } else {
-    partition->SetURLRequestContext(
-        browser_context_->CreateRequestContextForStoragePartition(
-            partition->GetPath(), in_memory, &protocol_handlers,
-            std::move(request_interceptors)));
+  bool create_request_context = true;
+  if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+    // These ifdefs should match StoragePartitionImpl::GetURLRequestContext.
+#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
+    create_request_context = false;
+#elif defined(OS_ANDROID)
+    create_request_context =
+        GetContentClient()->browser()->NeedURLRequestContext();
+#endif
   }
-  partition->SetMediaURLRequestContext(
-      partition_domain.empty() ?
-      browser_context_->CreateMediaRequestContext() :
-      browser_context_->CreateMediaRequestContextForStoragePartition(
-          partition->GetPath(), in_memory));
+
+  if (create_request_context) {
+    // These calls must happen after StoragePartitionImpl::Create().
+    if (partition_domain.empty()) {
+      partition->SetURLRequestContext(browser_context_->CreateRequestContext(
+          &protocol_handlers, std::move(request_interceptors)));
+    } else {
+      partition->SetURLRequestContext(
+          browser_context_->CreateRequestContextForStoragePartition(
+              partition->GetPath(), in_memory, &protocol_handlers,
+              std::move(request_interceptors)));
+    }
+  }
+
+  // A separate media cache isn't used with the network service.
+  if (!base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+    partition->SetMediaURLRequestContext(
+        partition_domain.empty()
+            ? browser_context_->CreateMediaRequestContext()
+            : browser_context_->CreateMediaRequestContextForStoragePartition(
+                  partition->GetPath(), in_memory));
+  }
+
+  // Arm the serviceworker cookie change observation API.
   partition->GetCookieStoreContext()->ListenToCookieChanges(
-      partition->GetNetworkContext(), base::DoNothing());
+      partition->GetNetworkContext(), /*success_callback=*/base::DoNothing());
 
   if (!base::FeatureList::IsEnabled(network::features::kNetworkService)) {
     // This needs to happen after SetURLRequestContext() since we need this
@@ -504,7 +526,7 @@ void StoragePartitionImplMap::AsyncObliterate(
 }
 
 void StoragePartitionImplMap::GarbageCollect(
-    std::unique_ptr<base::hash_set<base::FilePath>> active_paths,
+    std::unique_ptr<std::unordered_set<base::FilePath>> active_paths,
     const base::Closure& done) {
   // Include all paths for current StoragePartitions in the active_paths since
   // they cannot be deleted safely.

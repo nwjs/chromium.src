@@ -10,16 +10,11 @@ import android.util.AttributeSet;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.View.OnClickListener;
-import android.view.View.OnCreateContextMenuListener;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.modelutil.PropertyKey;
-import org.chromium.chrome.browser.modelutil.PropertyModel;
-import org.chromium.chrome.browser.modelutil.PropertyModelChangeProcessor;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.native_page.NativePageNavigationDelegate;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -27,6 +22,9 @@ import org.chromium.chrome.browser.suggestions.TileGridLayout;
 import org.chromium.chrome.browser.widget.RoundedIconGenerator;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.PageTransition;
+import org.chromium.ui.modelutil.PropertyKey;
+import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 
 import java.util.ArrayList;
@@ -65,6 +63,7 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
         public void onClick(View view) {
             recordCategoryClick(mCategory.getType());
             recordTileIndexClick(mCategoryCardIndex, mTileIndex);
+            ExploreSitesBridge.recordClick(mProfile, mSiteUrl, mCategory.getType());
             mNavigationDelegate.openUrl(WindowOpenDisposition.CURRENT_TAB,
                     new LoadUrlParams(getUrl(), PageTransition.AUTO_BOOKMARK));
         }
@@ -89,10 +88,9 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
             // Remove from model (category).
             mCategory.removeSite(mTileIndex);
 
-            // Update the view This may add any sites that we didn't have room for before.  It
-            // should reset the tile indexeds for views we keep.
-            updateTileViews(
-                    mCategory.getSites(), mCategory.getNumDisplayed(), mCategory.getMaxRows());
+            // Update the view. This may add sites that we didn't have room for before.  It
+            // should reset the tile indexes for views we keep.
+            updateTileViews(mCategory);
         }
         @Override
         public String getUrl() {
@@ -160,14 +158,14 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
         mCategory = category;
 
         updateTitle(category.getTitle());
-        updateTileViews(category.getSites(), category.getNumDisplayed(), category.getMaxRows());
+        updateTileViews(category);
     }
 
     public void updateTitle(String categoryTitle) {
         mTitleView.setText(categoryTitle);
     }
 
-    public void updateTileViews(List<ExploreSitesSite> sites, int numSitesToShow, int maxRows) {
+    public void updateTileViews(ExploreSitesCategory category) {
         // Clear observers.
         for (PropertyModelChangeProcessor<PropertyModel, ExploreSitesTileView, PropertyKey>
                         observer : mModelChangeProcessors) {
@@ -177,11 +175,12 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
 
         // Only show rows that would be fully populated by original list of sites. This is
         // calculated within the category.
-        mTileView.setMaxRows(maxRows);
+        mTileView.setMaxRows(Math.min(category.getMaxRows(), MAX_ROWS));
 
         // Maximum number of sites that can be shown, defined as min of
         // numSitesToShow and maxRows * maxCols.
-        int tileMax = Math.min(maxRows * ExploreSitesCategory.MAX_COLUMNS, numSitesToShow);
+        int tileMax = Math.min(category.getMaxRows() * ExploreSitesCategory.MAX_COLUMNS,
+                category.getNumDisplayed());
 
         // Remove extra tiles if too many.
         if (mTileView.getChildCount() > tileMax) {
@@ -199,7 +198,7 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
 
         // Initialize all the non-empty tiles again to update.
         int tileIndex = 0;
-        for (ExploreSitesSite site : sites) {
+        for (ExploreSitesSite site : category.getSites()) {
             if (tileIndex >= tileMax) break;
             final PropertyModel siteModel = site.getModel();
             // Skip blacklisted sites.

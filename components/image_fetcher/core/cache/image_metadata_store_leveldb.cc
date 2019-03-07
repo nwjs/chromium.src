@@ -9,10 +9,11 @@
 
 #include "base/bind.h"
 #include "base/sequenced_task_runner.h"
+#include "base/system/sys_info.h"
 #include "base/time/clock.h"
 #include "base/time/time.h"
 #include "components/image_fetcher/core/cache/proto/cached_image_metadata.pb.h"
-#include "components/leveldb_proto/proto_database_impl.h"
+#include "components/leveldb_proto/public/proto_database_provider.h"
 
 using image_fetcher::CachedImageMetadataProto;
 
@@ -37,7 +38,8 @@ const char kImageDatabaseFolder[] = "cached_image_fetcher_images";
 
 // The amount of data to build up in memory before converting to a sorted on-
 // disk file.
-const size_t kDatabaseWriteBufferSizeBytes = 128 * 1024;
+const size_t kDatabaseWriteBufferSizeBytes = 64 * 1024;                 // 64KB
+const size_t kDatabaseWriteBufferSizeBytesForLowEndDevice = 32 * 1024;  // 32KB
 
 bool KeyMatcherFilter(std::string key, const std::string& other_key) {
   return key.compare(other_key) == 0;
@@ -59,9 +61,8 @@ ImageMetadataStoreLevelDB::ImageMetadataStoreLevelDB(
     base::Clock* clock)
     : ImageMetadataStoreLevelDB(
           database_dir,
-          std::make_unique<
-              leveldb_proto::ProtoDatabaseImpl<CachedImageMetadataProto>>(
-              task_runner),
+          leveldb_proto::ProtoDatabaseProvider::CreateUniqueDB<
+              CachedImageMetadataProto>(task_runner),
           clock) {}
 
 ImageMetadataStoreLevelDB::ImageMetadataStoreLevelDB(
@@ -80,7 +81,12 @@ ImageMetadataStoreLevelDB::~ImageMetadataStoreLevelDB() = default;
 
 void ImageMetadataStoreLevelDB::Initialize(base::OnceClosure callback) {
   leveldb_env::Options options = leveldb_proto::CreateSimpleOptions();
-  options.write_buffer_size = kDatabaseWriteBufferSizeBytes;
+  if (base::SysInfo::IsLowEndDevice()) {
+    options.write_buffer_size = kDatabaseWriteBufferSizeBytesForLowEndDevice;
+  } else {
+    options.write_buffer_size = kDatabaseWriteBufferSizeBytes;
+  }
+
   base::FilePath image_dir = database_dir_.AppendASCII(kImageDatabaseFolder);
   database_->Init(
       kImageDatabaseUMAClientName, image_dir, options,

@@ -4,6 +4,8 @@
 
 #include "ui/views/widget/widget.h"
 
+#include <utility>
+
 #include "base/auto_reset.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -41,7 +43,6 @@
 
 #if defined(USE_AURA)
 #include "ui/aura/env.h"     // nogncheck
-#include "ui/aura/window.h"  // nogncheck
 #endif
 
 namespace views {
@@ -169,7 +170,6 @@ Widget::Widget()
       is_secondary_widget_(true),
       frame_type_(FRAME_TYPE_DEFAULT),
       always_render_as_active_(false),
-      widget_closed_(false),
       force_closing_(false),
       saved_show_state_(ui::SHOW_STATE_DEFAULT),
       focus_on_creation_(true),
@@ -297,7 +297,6 @@ gfx::Size Widget::GetLocalizedContentsSize(int col_resource_id,
 // static
 bool Widget::RequiresNonClientView(InitParams::Type type) {
   return type == InitParams::TYPE_WINDOW ||
-         type == InitParams::TYPE_PANEL ||
          type == InitParams::TYPE_BUBBLE;
 }
 
@@ -315,9 +314,9 @@ void Widget::Init(const InitParams& in_params) {
   is_top_level_ = !params.child;
 
   if (params.opacity == views::Widget::InitParams::INFER_OPACITY &&
-      params.type != views::Widget::InitParams::TYPE_WINDOW &&
-      params.type != views::Widget::InitParams::TYPE_PANEL)
+      params.type != views::Widget::InitParams::TYPE_WINDOW) {
     params.opacity = views::Widget::InitParams::OPAQUE_WINDOW;
+  }
 
   if (ViewsDelegate::GetInstance())
     ViewsDelegate::GetInstance()->OnBeforeWidgetInit(&params, this);
@@ -384,6 +383,10 @@ void Widget::Init(const InitParams& in_params) {
   observer_manager_.Add(GetNativeTheme());
   native_widget_initialized_ = true;
   native_widget_->OnWidgetInitDone();
+}
+
+void Widget::ShowEmojiPanel() {
+  native_widget_->ShowEmojiPanel();
 }
 
 // Unconverted methods (see header) --------------------------------------------
@@ -570,7 +573,7 @@ void Widget::SetShape(std::unique_ptr<ShapeRects> shape) {
   native_widget_->SetShape(std::move(shape));
 }
 
-void Widget::Close(bool force) {
+void Widget::CloseWithReason(ClosedReason closed_reason, bool force) {
   if (widget_closed_) {
     // It appears we can hit this code path if you close a modal dialog then
     // close the last browser before the destructor is hit, which triggers
@@ -586,9 +589,14 @@ void Widget::Close(bool force) {
   if (non_client_view_ && !non_client_view_->CanClose())
     return;
 
+  // This is the last chance to cancel closing.
+  if (widget_delegate_ && !widget_delegate_->OnCloseRequested(closed_reason))
+    return;
+
   // The actions below can cause this function to be called again, so mark
   // |this| as closed early. See crbug.com/714334
   widget_closed_ = true;
+  closed_reason_ = closed_reason;
   SaveWindowPlacement();
 
   // During tear-down the top-level focus manager becomes unavailable to
@@ -603,6 +611,10 @@ void Widget::Close(bool force) {
     observer.OnWidgetClosing(this);
 
   native_widget_->Close();
+}
+
+void Widget::Close(bool force) {
+  CloseWithReason(ClosedReason::kUnspecified, force);
 }
 
 void Widget::CloseNow() {
@@ -1044,6 +1056,10 @@ bool Widget::IsAlwaysRenderAsActive() const {
   return always_render_as_active_;
 }
 
+bool Widget::IsNativeWidgetInitialized() const {
+  return native_widget_initialized_;
+}
+
 bool Widget::NWCanClose(bool user_force) const {
   return widget_delegate_->NWCanClose(user_force);
 }
@@ -1092,9 +1108,9 @@ void Widget::OnNativeWidgetVisibilityChanged(bool visible) {
     root->layer()->SetVisible(visible);
 }
 
-void Widget::OnNativeWidgetCreated(bool desktop_widget) {
+void Widget::OnNativeWidgetCreated() {
   if (is_top_level())
-    focus_manager_ = FocusManagerFactory::Create(this, desktop_widget);
+    focus_manager_ = FocusManagerFactory::Create(this);
 
   native_widget_->InitModalType(widget_delegate_->GetModalType());
 
@@ -1325,7 +1341,7 @@ bool Widget::HasHitTestMask() const {
   return widget_delegate_->WidgetHasHitTestMask();
 }
 
-void Widget::GetHitTestMask(gfx::Path* mask) const {
+void Widget::GetHitTestMask(SkPath* mask) const {
   DCHECK(mask);
   widget_delegate_->GetWidgetHitTestMask(mask);
 }

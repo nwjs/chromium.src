@@ -256,7 +256,6 @@ const SkBitmap NotificationViewMDTest::CreateBitmap(int width,
 
 std::vector<ButtonInfo> NotificationViewMDTest::CreateButtons(int number) {
   ButtonInfo info(base::ASCIIToUTF16("Test button."));
-  info.icon = CreateTestImage(4, 4);
   return std::vector<ButtonInfo>(number, info);
 }
 
@@ -1040,19 +1039,21 @@ TEST_F(NotificationViewMDTest, InlineSettings) {
   generator.ClickLeftButton();
   EXPECT_TRUE(notification_view()->settings_row_->visible());
 
-  // By clicking settings button again, it will toggle.
+#if !defined(OS_CHROMEOS)
+  // By clicking settings button again, it will toggle. Skip this on ChromeOS as
+  // the control_buttons_view gets hidden when the inline settings are shown.
   generator.ClickLeftButton();
   EXPECT_FALSE(notification_view()->settings_row_->visible());
 
   // Show inline settings again.
   generator.ClickLeftButton();
   EXPECT_TRUE(notification_view()->settings_row_->visible());
+#endif
 
   // Construct a mouse click event 1 pixel inside the done button.
   gfx::Point done_cursor_location(1, 1);
-  views::View::ConvertPointToTarget(
-      notification_view()->control_buttons_view_->settings_button(),
-      notification_view(), &done_cursor_location);
+  views::View::ConvertPointToTarget(notification_view()->settings_done_button_,
+                                    notification_view(), &done_cursor_location);
   generator.MoveMouseTo(done_cursor_location);
   generator.ClickLeftButton();
 

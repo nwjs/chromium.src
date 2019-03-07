@@ -6,6 +6,7 @@
 
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/screen_util.h"
+#include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/wm/overview/rounded_rect_view.h"
@@ -100,6 +101,17 @@ gfx::Transform ComputeLabelTransform(bool main_transform,
   return transform;
 }
 
+// Returns the work area bounds that has no overlap with shelf.
+gfx::Rect GetWorkAreaBoundsNoOverlapWithShelf(aura::Window* root_window) {
+  aura::Window* window =
+      root_window->GetChildById(kShellWindowId_OverlayContainer);
+  gfx::Rect bounds = screen_util::GetDisplayWorkAreaBoundsInParent(window);
+  ::wm::ConvertRectToScreen(root_window, &bounds);
+
+  bounds.Subtract(Shelf::ForWindow(root_window)->GetIdealBounds());
+  return bounds;
+}
+
 }  // namespace
 
 // static
@@ -134,15 +146,13 @@ bool SplitViewDragIndicators::IsCannotSnapState(
 // static
 bool SplitViewDragIndicators::IsPreviewAreaOnLeftTopOfScreen(
     IndicatorState indicator_state) {
-  SplitViewController* split_view_controller =
-      Shell::Get()->split_view_controller();
   // kPreviewAreaLeft and kPreviewAreaRight correspond with LEFT_SNAPPED and
   // RIGHT_SNAPPED which do not always correspond to the physical left and right
   // of the screen. See split_view_controller.h for more details.
   return (indicator_state == IndicatorState::kPreviewAreaLeft &&
-          split_view_controller->IsCurrentScreenOrientationPrimary()) ||
+          IsCurrentScreenOrientationPrimary()) ||
          (indicator_state == IndicatorState::kPreviewAreaRight &&
-          !split_view_controller->IsCurrentScreenOrientationPrimary());
+          !IsCurrentScreenOrientationPrimary());
 }
 
 // View which contains a label and can be rotated. Used by and rotated by
@@ -319,10 +329,7 @@ class SplitViewDragIndicators::SplitViewDragIndicatorsView
   // animate when changing states, but not when bounds or orientation is
   // changed.
   void Layout(bool animate) {
-    const bool landscape = Shell::Get()
-                               ->split_view_controller()
-                               ->IsCurrentScreenOrientationLandscape();
-
+    const bool landscape = IsCurrentScreenOrientationLandscape();
     const int display_width = landscape ? width() : height();
     const int display_height = landscape ? height() : width();
 
@@ -339,9 +346,9 @@ class SplitViewDragIndicators::SplitViewDragIndicatorsView
         display_width - highlight_width - kHighlightScreenEdgePaddingDp,
         kHighlightScreenEdgePaddingDp);
 
-    const gfx::Point hightlight_padding_point(kHighlightScreenEdgePaddingDp,
-                                              kHighlightScreenEdgePaddingDp);
-    gfx::Rect left_highlight_bounds(hightlight_padding_point, highlight_size);
+    const gfx::Point highlight_padding_point(kHighlightScreenEdgePaddingDp,
+                                             kHighlightScreenEdgePaddingDp);
+    gfx::Rect left_highlight_bounds(highlight_padding_point, highlight_size);
     gfx::Rect right_highlight_bounds(right_bottom_origin, highlight_size);
     if (!landscape) {
       left_highlight_bounds.Transpose();
@@ -356,10 +363,15 @@ class SplitViewDragIndicators::SplitViewDragIndicatorsView
               GetWidget()->GetNativeWindow(), preview_left
                                                   ? SplitViewController::LEFT
                                                   : SplitViewController::RIGHT);
-      gfx::Rect work_area_bounds = Shell::Get()
-                                       ->split_view_controller()
-                                       ->GetDisplayWorkAreaBoundsInScreen(
-                                           GetWidget()->GetNativeWindow());
+
+      aura::Window* root_window =
+          GetWidget()->GetNativeWindow()->GetRootWindow();
+      // Preview area should have no overlap with the shelf.
+      preview_area_bounds.Subtract(
+          Shelf::ForWindow(root_window)->GetIdealBounds());
+
+      const gfx::Rect work_area_bounds =
+          GetWorkAreaBoundsNoOverlapWithShelf(root_window);
       preview_area_bounds.set_y(preview_area_bounds.y() - work_area_bounds.y());
       preview_area_bounds.Inset(kHighlightScreenEdgePaddingDp,
                                 kHighlightScreenEdgePaddingDp);
@@ -379,7 +391,7 @@ class SplitViewDragIndicators::SplitViewDragIndicatorsView
         left_highlight_bounds = preview_area_bounds;
         right_highlight_bounds = other_bounds;
       } else {
-        other_bounds.set_origin(hightlight_padding_point);
+        other_bounds.set_origin(highlight_padding_point);
         left_highlight_bounds = other_bounds;
         right_highlight_bounds = preview_area_bounds;
       }
@@ -404,8 +416,8 @@ class SplitViewDragIndicators::SplitViewDragIndicatorsView
         highlight_size.height() / 2 - size.height() / 2, size.width(),
         size.height());
     gfx::Rect right_rotated_bounds = left_rotated_bounds;
-    left_rotated_bounds.Offset(hightlight_padding_point.x(),
-                               hightlight_padding_point.y());
+    left_rotated_bounds.Offset(highlight_padding_point.x(),
+                               highlight_padding_point.y());
     if (!landscape) {
       right_bottom_origin.SetPoint(right_bottom_origin.y(),
                                    right_bottom_origin.x());
@@ -483,10 +495,7 @@ void SplitViewDragIndicators::SetIndicatorState(
         Shell::GetContainer(root_window, kShellWindowId_OverlayContainer));
     widget_->SetContentsView(indicators_view_);
   }
-  gfx::Rect bounds = screen_util::GetDisplayWorkAreaBoundsInParent(
-      root_window->GetChildById(kShellWindowId_OverlayContainer));
-  ::wm::ConvertRectToScreen(root_window, &bounds);
-  widget_->SetBounds(bounds);
+  widget_->SetBounds(GetWorkAreaBoundsNoOverlapWithShelf(root_window));
 
   current_indicator_state_ = indicator_state;
   indicators_view_->OnIndicatorTypeChanged(current_indicator_state_);
@@ -494,10 +503,7 @@ void SplitViewDragIndicators::SetIndicatorState(
 
 void SplitViewDragIndicators::OnDisplayBoundsChanged() {
   aura::Window* root_window = widget_->GetNativeView()->GetRootWindow();
-  gfx::Rect bounds = screen_util::GetDisplayWorkAreaBoundsInParent(
-      root_window->GetChildById(kShellWindowId_OverlayContainer));
-  ::wm::ConvertRectToScreen(root_window, &bounds);
-  widget_->SetBounds(bounds);
+  widget_->SetBounds(GetWorkAreaBoundsNoOverlapWithShelf(root_window));
 }
 
 bool SplitViewDragIndicators::GetIndicatorTypeVisibilityForTesting(

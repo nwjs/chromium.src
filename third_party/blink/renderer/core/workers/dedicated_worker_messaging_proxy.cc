@@ -51,24 +51,32 @@ void DedicatedWorkerMessagingProxy::StartWorkerGlobalScope(
     return;
   }
 
+  OffMainThreadWorkerScriptFetchOption off_main_thread_fetch_option =
+      creation_params->off_main_thread_fetch_option;
+
   InitializeWorkerThread(
       std::move(creation_params),
-      CreateBackingThreadStartupData(ToIsolate(GetExecutionContext())));
+      CreateBackingThreadStartupData(GetExecutionContext()->GetIsolate()));
 
   // Step 13: "Obtain script by switching on the value of options's type
   // member:"
   if (options->type() == "classic") {
     // "classic: Fetch a classic worker script given url, outside settings,
     // destination, and inside settings."
-    if (RuntimeEnabledFeatures::OffMainThreadWorkerScriptFetchEnabled()) {
-      GetWorkerThread()->ImportClassicScript(script_url,
-                                             outside_settings_object, stack_id);
-    } else {
-      // Legacy code path (to be deprecated, see https://crbug.com/835717):
-      GetWorkerThread()->EvaluateClassicScript(
-          script_url, source_code, nullptr /* cached_meta_data */, stack_id);
+    switch (off_main_thread_fetch_option) {
+      case OffMainThreadWorkerScriptFetchOption::kEnabled:
+        GetWorkerThread()->ImportClassicScript(
+            script_url, outside_settings_object, stack_id);
+        break;
+      case OffMainThreadWorkerScriptFetchOption::kDisabled:
+        // Legacy code path (to be deprecated, see https://crbug.com/835717):
+        GetWorkerThread()->EvaluateClassicScript(
+            script_url, source_code, nullptr /* cached_meta_data */, stack_id);
+        break;
     }
   } else if (options->type() == "module") {
+    DCHECK_EQ(off_main_thread_fetch_option,
+              OffMainThreadWorkerScriptFetchOption::kEnabled);
     // "module: Fetch a module worker script graph given url, outside settings,
     // destination, the value of the credentials member of options, and inside
     // settings."
@@ -106,6 +114,13 @@ bool DedicatedWorkerMessagingProxy::HasPendingActivity() const {
   return !AskedToTerminate();
 }
 
+void DedicatedWorkerMessagingProxy::DidFailToFetchScript() {
+  DCHECK(IsParentContextThread());
+  if (!worker_object_ || AskedToTerminate())
+    return;
+  worker_object_->DispatchErrorEventForScriptFetchFailure();
+}
+
 void DedicatedWorkerMessagingProxy::DidEvaluateScript(bool success) {
   DCHECK(IsParentContextThread());
   was_script_evaluated_ = true;
@@ -140,7 +155,7 @@ void DedicatedWorkerMessagingProxy::PostMessageToWorkerObject(
     return;
 
   ThreadDebugger* debugger =
-      ThreadDebugger::From(ToIsolate(GetExecutionContext()));
+      ThreadDebugger::From(GetExecutionContext()->GetIsolate());
   MessagePortArray* ports = MessagePort::EntanglePorts(
       *GetExecutionContext(), std::move(message.ports));
   debugger->ExternalAsyncTaskStarted(message.sender_stack_trace_id);

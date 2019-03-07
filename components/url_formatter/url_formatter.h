@@ -84,6 +84,9 @@ extern const FormatUrlType kFormatUrlTrimAfterHost;
 // If the scheme is 'file://', it's removed. Not in kFormatUrlOmitDefaults.
 extern const FormatUrlType kFormatUrlOmitFileScheme;
 
+// If the scheme is 'mailto:', it's removed. Not in kFormatUrlOmitDefaults.
+extern const FormatUrlType kFormatUrlOmitMailToScheme;
+
 // Convenience for omitting all unecessary types. Does not include HTTPS scheme
 // removal, or experimental flags.
 extern const FormatUrlType kFormatUrlOmitDefaults;
@@ -183,6 +186,10 @@ base::string16 StripWWWFromHost(const GURL& url);
 
 // Returns skeleton strings computed from |host| for spoof checking.
 Skeletons GetSkeletons(const base::string16& host);
+
+// Returns a domain from the top 10K list matching the given skeleton. Used for
+// spoof checking.
+std::string LookupSkeletonInTopDomains(const std::string& skeleton);
 
 }  // namespace url_formatter
 

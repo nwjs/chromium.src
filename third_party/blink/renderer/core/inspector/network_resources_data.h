@@ -54,17 +54,20 @@ class XHRReplayData final : public GarbageCollectedFinalized<XHRReplayData> {
   static XHRReplayData* Create(const AtomicString& method,
                                const KURL&,
                                bool async,
+                               scoped_refptr<EncodedFormData>,
                                bool include_credentials);
 
   XHRReplayData(const AtomicString& method,
                 const KURL&,
                 bool async,
+                scoped_refptr<EncodedFormData>,
                 bool include_credentials);
 
   void AddHeader(const AtomicString& key, const AtomicString& value);
   const AtomicString& Method() const { return method_; }
   const KURL& Url() const { return url_; }
   bool Async() const { return async_; }
+  EncodedFormData* FormData() const { return form_data_.get(); }
   const HTTPHeaderMap& Headers() const { return headers_; }
   bool IncludeCredentials() const { return include_credentials_; }
 
@@ -74,6 +77,7 @@ class XHRReplayData final : public GarbageCollectedFinalized<XHRReplayData> {
   AtomicString method_;
   KURL url_;
   bool async_;
+  scoped_refptr<EncodedFormData> form_data_;
   HTTPHeaderMap headers_;
   bool include_credentials_;
 };
@@ -162,13 +166,13 @@ class NetworkResourcesData final
     void SetPostData(scoped_refptr<EncodedFormData> post_data) {
       post_data_ = post_data;
     }
-    scoped_refptr<EncodedFormData> PostData() const { return post_data_; }
+    EncodedFormData* PostData() const { return post_data_.get(); }
     ExecutionContext* GetExecutionContext() const { return execution_context_; }
     void Trace(blink::Visitor*);
 
    private:
     bool HasData() const { return data_buffer_.get(); }
-    size_t DataLength() const;
+    uint64_t DataLength() const;
     void AppendData(const char* data, size_t data_length);
     size_t DecodeDataToContent();
     void ClearWeakMembers(Visitor*);
@@ -225,7 +229,7 @@ class NetworkResourcesData final
                           bool base64_encoded = false);
   void MaybeAddResourceData(const String& request_id,
                             const char* data,
-                            size_t data_length);
+                            uint64_t data_length);
   void MaybeDecodeDataToContent(const String& request_id);
   void AddResource(const String& request_id, Resource*);
   ResourceData const* Data(const String& request_id);
@@ -247,9 +251,9 @@ class NetworkResourcesData final
  private:
   ResourceData* ResourceDataForRequestId(const String& request_id) const;
   void EnsureNoDataForRequestId(const String& request_id);
-  bool EnsureFreeSpace(size_t);
+  bool EnsureFreeSpace(uint64_t);
   ResourceData* PrepareToAddResourceData(const String& request_id,
-                                         size_t data_length);
+                                         uint64_t data_length);
   void MaybeAddResourceData(const String& request_id,
                             scoped_refptr<const SharedBuffer>);
 

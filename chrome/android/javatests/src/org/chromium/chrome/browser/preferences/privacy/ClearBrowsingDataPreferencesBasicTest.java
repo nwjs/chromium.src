@@ -61,6 +61,7 @@ public class ClearBrowsingDataPreferencesBasicTest {
     @After
     public void tearDown() throws Exception {
         ThreadUtils.runOnUiThreadBlocking(() -> ProfileSyncService.resetForTests());
+        SigninTestUtil.tearDownAuthForTest();
     }
 
     private static class StubProfileSyncService extends ProfileSyncService {
@@ -108,8 +109,6 @@ public class ClearBrowsingDataPreferencesBasicTest {
     @Test
     @SmallTest
     public void testCheckBoxTextNonsigned() throws Exception {
-        SigninTestUtil.resetSigninState();
-
         final Preferences preferences = mActivityTestRule.startPreferences(
                 ClearBrowsingDataPreferencesBasic.class.getName());
 
@@ -135,7 +134,8 @@ public class ClearBrowsingDataPreferencesBasicTest {
 
     /**
      * Tests that for users who are signed in but don't have sync activated,
-     * only information about "other activity" is shown in the history summary.
+     * only information about your "google account" which will stay signed in
+     * and "other activity" is shown.
      */
     @Test
     @SmallTest
@@ -153,9 +153,13 @@ public class ClearBrowsingDataPreferencesBasicTest {
                         (ClearBrowsingDataPreferencesBasic) preferences.getFragmentForTest();
                 PreferenceScreen screen = fragment.getPreferenceScreen();
 
+                String cookiesSummary = getCheckboxSummary(screen,
+                        ClearBrowsingDataPreferences.getPreferenceKey(
+                                DialogOption.CLEAR_COOKIES_AND_SITE_DATA));
                 String historySummary = getCheckboxSummary(screen,
                         ClearBrowsingDataPreferences.getPreferenceKey(DialogOption.CLEAR_HISTORY));
 
+                assertThat(cookiesSummary, containsString(GOOGLE_ACCOUNT));
                 assertThat(historySummary, containsString(OTHER_ACTIVITY));
                 assertThat(historySummary, not(containsString(SIGNED_IN_DEVICES)));
             }
@@ -164,7 +168,8 @@ public class ClearBrowsingDataPreferencesBasicTest {
 
     /**
      * Tests that users who are signed in, and have sync enabled see information
-     * about their "other activity" and history on "signed in devices".
+     * about their "google account", "other activity" and history on "signed in
+     * devices".
      */
     @Test
     @SmallTest
@@ -182,9 +187,13 @@ public class ClearBrowsingDataPreferencesBasicTest {
                         (ClearBrowsingDataPreferencesBasic) preferences.getFragmentForTest();
                 PreferenceScreen screen = fragment.getPreferenceScreen();
 
+                String cookiesSummary = getCheckboxSummary(screen,
+                        ClearBrowsingDataPreferences.getPreferenceKey(
+                                DialogOption.CLEAR_COOKIES_AND_SITE_DATA));
                 String historySummary = getCheckboxSummary(screen,
                         ClearBrowsingDataPreferences.getPreferenceKey(DialogOption.CLEAR_HISTORY));
 
+                assertThat(cookiesSummary, containsString(GOOGLE_ACCOUNT));
                 assertThat(historySummary, containsString(OTHER_ACTIVITY));
                 assertThat(historySummary, containsString(SIGNED_IN_DEVICES));
             }

@@ -14,8 +14,8 @@
 #include "third_party/blink/renderer/core/layout/layout_table_section.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_physical_offset_rect.h"
+#include "third_party/blink/renderer/core/layout/ng/legacy_layout_tree_walking.h"
 #include "third_party/blink/renderer/core/layout/svg/svg_layout_support.h"
-#include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/paint/clip_path_clipper.h"
 #include "third_party/blink/renderer/core/paint/find_paint_offset_and_visual_rect_needing_update.h"
 #include "third_party/blink/renderer/core/paint/ng/ng_paint_fragment.h"
@@ -35,8 +35,8 @@ void PaintInvalidator::ExcludeCompositedLayerSubpixelAccumulation(
     const LayoutObject& object,
     const PaintInvalidatorContext& context,
     Rect& rect) {
-  // TODO(wangxianzhu): How to handle sub-pixel location animation for SPv2?
-  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled())
+  // TODO(wangxianzhu): How to handle sub-pixel location animation for CAP?
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
     return;
 
   // One of the following conditions happened in crbug.com/837226.
@@ -96,7 +96,7 @@ LayoutRect PaintInvalidator::MapLocalRectToVisualRect(
         ToLayoutBox(object).FlipForWritingMode(rect);
       } else if (!(context.subtree_flags &
                    PaintInvalidatorContext::kSubtreeSlowPathRect)) {
-        // For SPv2 and the GeometryMapper path, we also need to convert the
+        // For CAP and the GeometryMapper path, we also need to convert the
         // rect for non-boxes into physical coordinates before applying paint
         // offset. (Otherwise we'll call mapToVisualrectInAncestorSpace() which
         // requires physical coordinates for boxes, but "physical coordinates
@@ -162,8 +162,7 @@ LayoutRect PaintInvalidator::ComputeVisualRect(
 
 static LayoutRect ComputeFragmentLocalSelectionRect(
     const NGPaintFragment& fragment) {
-  if (!fragment.PhysicalFragment().IsText())
-    return LayoutRect();
+  DCHECK(fragment.PhysicalFragment().IsText());
   const FrameSelection& frame_selection =
       fragment.GetLayoutObject()->GetFrame()->Selection();
   const LayoutSelectionStatus status =
@@ -193,12 +192,20 @@ void PaintInvalidator::UpdatePaintingLayer(const LayoutObject& object,
     context.painting_layer = ToLayoutBoxModelObject(object).Layer();
   } else if (object.IsColumnSpanAll() ||
              object.IsFloatingWithNonContainingBlockParent()) {
-    // See LayoutObject::paintingLayer() for the special-cases of floating under
+    // See |LayoutObject::PaintingLayer| for the special-cases of floating under
     // inline and multicolumn.
+    // Post LayoutNG the |LayoutObject::IsFloatingWithNonContainingBlockParent|
+    // check can be removed as floats will be painted by the correct layer.
     context.painting_layer = object.PaintingLayer();
   }
 
-  if (object.IsLayoutBlockFlow() && ToLayoutBlockFlow(object).ContainsFloats())
+  if (object.IsLayoutBlockFlow() && !object.IsLayoutNGBlockFlow() &&
+      ToLayoutBlockFlow(object).ContainsFloats())
+    context.painting_layer->SetNeedsPaintPhaseFloat();
+
+  if (object.IsFloating() &&
+      (object.IsInLayoutNGInlineFormattingContext() ||
+       IsLayoutNGContainingBlock(object.ContainingBlock())))
     context.painting_layer->SetNeedsPaintPhaseFloat();
 
   // Table collapsed borders are painted in PaintPhaseDescendantBlockBackgrounds
@@ -240,17 +247,20 @@ void PaintInvalidator::UpdatePaintInvalidationContainer(
       context.paint_invalidation_container_for_stacked_contents =
           ToLayoutBoxModelObject(&object);
   } else if (object.IsLayoutView()) {
-    // paintInvalidationContainerForStackedContents is only for stacked
+    // paint_invalidation_container_for_stacked_contents is only for stacked
     // descendants in its own frame, because it doesn't establish stacking
     // context for stacked contents in sub-frames.
     // Contents stacked in the root stacking context in this frame should use
-    // this frame's paintInvalidationContainer.
+    // this frame's PaintInvalidationContainer.
     context.paint_invalidation_container_for_stacked_contents =
-        context.paint_invalidation_container;
-  } else if (object.IsFloatingWithNonContainingBlockParent() ||
-             object.IsColumnSpanAll()) {
+        context.paint_invalidation_container =
+            &object.ContainerForPaintInvalidation();
+  } else if (object.IsColumnSpanAll() ||
+             object.IsFloatingWithNonContainingBlockParent()) {
     // In these cases, the object may belong to an ancestor of the current
     // paint invalidation container, in paint order.
+    // Post LayoutNG the |LayoutObject::IsFloatingWithNonContainingBlockParent|
+    // check can be removed as floats will be painted by the correct layer.
     context.paint_invalidation_container =
         &object.ContainerForPaintInvalidation();
   } else if (object.StyleRef().IsStacked() &&
@@ -331,67 +341,49 @@ void PaintInvalidator::UpdateVisualRect(const LayoutObject& object,
     // VisualRect for each fragment from |new_visual_rect|.
     auto fragments = NGPaintFragment::InlineFragmentsFor(&object);
     if (fragments.IsInLayoutNGInlineFormattingContext()) {
-      for (NGPaintFragment* fragment : fragments) {
-        LayoutRect local_selection_rect =
-            ComputeFragmentLocalSelectionRect(*fragment);
-        LayoutRect local_visual_rect =
-            UnionRect(fragment->SelfInkOverflow(), local_selection_rect);
-        fragment->SetVisualRect(MapFragmentLocalRectToVisualRect(
-            local_visual_rect, object, *fragment, context));
+      bool has_selection_in_this_object =
+          object.IsText() && ToLayoutText(object).IsSelected();
+      if (!has_selection_in_this_object) {
+        for (NGPaintFragment* fragment : fragments) {
+          LayoutRect local_visual_rect = fragment->SelfInkOverflow();
+          fragment->SetVisualRect(MapFragmentLocalRectToVisualRect(
+              local_visual_rect, object, *fragment, context));
 
-        LayoutRect selection_visual_rect = MapFragmentLocalRectToVisualRect(
-            local_selection_rect, object, *fragment, context);
-        const bool should_invalidate =
-            object.ShouldInvalidateSelection() ||
-            selection_visual_rect != fragment->SelectionVisualRect();
-        const bool rect_exists = !selection_visual_rect.IsEmpty() ||
-                                 !fragment->SelectionVisualRect().IsEmpty();
-        if (should_invalidate && rect_exists) {
-          context.painting_layer->SetNeedsRepaint();
-          ObjectPaintInvalidator(object).InvalidateDisplayItemClient(
-              *fragment, PaintInvalidationReason::kSelection);
-          fragment->SetSelectionVisualRect(selection_visual_rect);
+          if (UNLIKELY(!fragment->SelectionVisualRect().IsEmpty())) {
+            context.painting_layer->SetNeedsRepaint();
+            ObjectPaintInvalidator(object).InvalidateDisplayItemClient(
+                *fragment, PaintInvalidationReason::kSelection);
+            fragment->SetSelectionVisualRect(LayoutRect());
+          }
+        }
+      } else {
+        // TODO(kojii): It's not clear why we need to pre-compute selection rect
+        // for all fragments when legacy can handle it as needed. yoichio will
+        // look into this.
+        for (NGPaintFragment* fragment : fragments) {
+          LayoutRect local_selection_rect =
+              ComputeFragmentLocalSelectionRect(*fragment);
+          LayoutRect local_visual_rect =
+              UnionRect(fragment->SelfInkOverflow(), local_selection_rect);
+          fragment->SetVisualRect(MapFragmentLocalRectToVisualRect(
+              local_visual_rect, object, *fragment, context));
+
+          LayoutRect selection_visual_rect = MapFragmentLocalRectToVisualRect(
+              local_selection_rect, object, *fragment, context);
+          const bool should_invalidate =
+              object.ShouldInvalidateSelection() ||
+              selection_visual_rect != fragment->SelectionVisualRect();
+          const bool rect_exists = !selection_visual_rect.IsEmpty() ||
+                                   !fragment->SelectionVisualRect().IsEmpty();
+          if (should_invalidate && rect_exists) {
+            context.painting_layer->SetNeedsRepaint();
+            ObjectPaintInvalidator(object).InvalidateDisplayItemClient(
+                *fragment, PaintInvalidationReason::kSelection);
+            fragment->SetSelectionVisualRect(selection_visual_rect);
+          }
         }
       }
     }
-  }
-}
-
-void PaintInvalidator::InvalidatePaint(
-    LocalFrameView& frame_view,
-    const PaintPropertyTreeBuilderContext* tree_builder_context,
-
-    PaintInvalidatorContext& context) {
-  LayoutView* layout_view = frame_view.GetLayoutView();
-  CHECK(layout_view);
-
-  context.paint_invalidation_container =
-      context.paint_invalidation_container_for_stacked_contents =
-          &layout_view->ContainerForPaintInvalidation();
-  context.painting_layer = layout_view->Layer();
-  context.fragment_data = &layout_view->FirstFragment();
-  if (tree_builder_context) {
-    context.tree_builder_context_ = &tree_builder_context->fragments[0];
-#if DCHECK_IS_ON()
-    context.tree_builder_context_actually_needed_ =
-        tree_builder_context->is_actually_needed;
-#endif
-  }
-}
-
-static void InvalidateChromeClient(
-    const LayoutBoxModelObject& paint_invalidation_container) {
-  if (paint_invalidation_container.GetDocument().Printing() &&
-      !RuntimeEnabledFeatures::PrintBrowserEnabled())
-    return;
-
-  DCHECK(paint_invalidation_container.IsLayoutView());
-  DCHECK(!paint_invalidation_container.IsPaintInvalidationContainer());
-
-  auto* frame_view = paint_invalidation_container.GetFrameView();
-  DCHECK(!frame_view->GetFrame().OwnerLayoutObject());
-  if (auto* client = frame_view->GetChromeClient()) {
-    client->InvalidateRect(IntRect(IntPoint(), frame_view->Size()));
   }
 }
 
@@ -404,7 +396,7 @@ void PaintInvalidator::UpdateEmptyVisualRectFlag(
   // Content under transforms needs to invalidate, even if visual
   // rects before and after update were the same. This is because
   // we don't know whether this transform will end up composited in
-  // SPv2, so such transforms are painted even if not visible
+  // CAP, so such transforms are painted even if not visible
   // due to ancestor clips. This does not apply in SPv1 mode when
   // crossing paint invalidation container boundaries.
   if (is_paint_invalidation_container) {
@@ -417,7 +409,7 @@ void PaintInvalidator::UpdateEmptyVisualRectFlag(
   }
 }
 
-void PaintInvalidator::InvalidatePaint(
+bool PaintInvalidator::InvalidatePaint(
     const LayoutObject& object,
     const PaintPropertyTreeBuilderContext* tree_builder_context,
     PaintInvalidatorContext& context) {
@@ -425,11 +417,11 @@ void PaintInvalidator::InvalidatePaint(
                "PaintInvalidator::InvalidatePaint()", "object",
                object.DebugName().Ascii());
 
-  if (object.IsSVGHiddenContainer()) {
+  if (object.IsSVGHiddenContainer())
     context.subtree_flags |= PaintInvalidatorContext::kSubtreeNoInvalidation;
-  }
+
   if (context.subtree_flags & PaintInvalidatorContext::kSubtreeNoInvalidation)
-    return;
+    return false;
 
   object.GetMutableForPainting().EnsureIsReadyForPaintInvalidation();
 
@@ -449,7 +441,7 @@ void PaintInvalidator::InvalidatePaint(
   UpdateEmptyVisualRectFlag(object, context);
 
   if (!object.ShouldCheckForPaintInvalidation() && !context.NeedsSubtreeWalk())
-    return;
+    return false;
 
   unsigned tree_builder_index = 0;
 
@@ -521,14 +513,7 @@ void PaintInvalidator::InvalidatePaint(
         PaintInvalidatorContext::kSubtreeInvalidationChecking;
   }
 
-  // The object is under a frame for WebViewPlugin, SVG images etc. Need to
-  // inform the chrome client of the invalidation so that the client will
-  // initiate painting of the contents.
-  // TODO(wangxianzhu): Do we need this for SPv2?
-  if (!RuntimeEnabledFeatures::SlimmingPaintV2Enabled() &&
-      !context.paint_invalidation_container->IsPaintInvalidationContainer() &&
-      reason != PaintInvalidationReason::kNone)
-    InvalidateChromeClient(*context.paint_invalidation_container);
+  return reason != PaintInvalidationReason::kNone;
 }
 
 void PaintInvalidator::ProcessPendingDelayedPaintInvalidations() {

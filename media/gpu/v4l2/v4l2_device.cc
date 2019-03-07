@@ -40,6 +40,7 @@ class V4L2Buffer {
   ~V4L2Buffer();
 
   void* GetPlaneMapping(const size_t plane);
+  size_t GetMemoryUsage() const;
   const struct v4l2_buffer* v4l2_buffer() const { return &v4l2_buffer_; }
 
  private:
@@ -143,6 +144,14 @@ void* V4L2Buffer::GetPlaneMapping(const size_t plane) {
 
   plane_mappings_[plane] = p;
   return p;
+}
+
+size_t V4L2Buffer::GetMemoryUsage() const {
+  size_t usage = 0;
+  for (size_t i = 0; i < v4l2_buffer_.length; i++) {
+    usage += v4l2_buffer_.m.planes[i].length;
+  }
+  return usage;
 }
 
 // Module-private class that let users query/write V4L2 buffer information.
@@ -620,6 +629,19 @@ bool V4L2Queue::DeallocateBuffers() {
   DCHECK_EQ(queued_buffers_.size(), 0u);
 
   return true;
+}
+
+size_t V4L2Queue::GetMemoryUsage() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  size_t usage = 0;
+  for (const auto& buf : buffers_) {
+    usage += buf->GetMemoryUsage();
+  }
+  return usage;
+}
+
+v4l2_memory V4L2Queue::GetMemoryType() const {
+  return memory_;
 }
 
 V4L2WritableBufferRef V4L2Queue::GetFreeBuffer() {
@@ -1104,7 +1126,7 @@ int32_t V4L2Device::H264LevelIdcToV4L2H264Level(uint8_t level_idc) {
 }
 
 // static
-gfx::Size V4L2Device::CodedSizeFromV4L2Format(struct v4l2_format format) {
+gfx::Size V4L2Device::AllocatedSizeFromV4L2Format(struct v4l2_format format) {
   gfx::Size coded_size;
   gfx::Size visible_size;
   VideoPixelFormat frame_format = PIXEL_FORMAT_UNKNOWN;
@@ -1166,13 +1188,6 @@ gfx::Size V4L2Device::CodedSizeFromV4L2Format(struct v4l2_format format) {
   int coded_height = sizeimage * 8 / coded_width / total_bpp;
 
   coded_size.SetSize(coded_width, coded_height);
-  // It's possible the driver gave us a slightly larger sizeimage than what
-  // would be calculated from coded size. This is technically not allowed, but
-  // some drivers (Exynos) like to have some additional alignment that is not a
-  // multiple of bytesperline. The best thing we can do is to compensate by
-  // aligning to next full row.
-  if (sizeimage > VideoFrame::AllocationSize(frame_format, coded_size))
-    coded_size.SetSize(coded_width, coded_height + 1);
   DVLOGF(3) << "coded_size=" << coded_size.ToString();
 
   // Sanity checks. Calculated coded size has to contain given visible size
@@ -1181,6 +1196,22 @@ gfx::Size V4L2Device::CodedSizeFromV4L2Format(struct v4l2_format format) {
   DCHECK_LE(sizeimage, VideoFrame::AllocationSize(frame_format, coded_size));
 
   return coded_size;
+}
+
+// static
+std::string V4L2Device::V4L2MemoryToString(const v4l2_memory memory) {
+  switch (memory) {
+    case V4L2_MEMORY_MMAP:
+      return "V4L2_MEMORY_MMAP";
+    case V4L2_MEMORY_USERPTR:
+      return "V4L2_MEMORY_USERPTR";
+    case V4L2_MEMORY_DMABUF:
+      return "V4L2_MEMORY_DMABUF";
+    case V4L2_MEMORY_OVERLAY:
+      return "V4L2_MEMORY_OVERLAY";
+    default:
+      return "UNKNOWN";
+  }
 }
 
 // static
@@ -1208,6 +1239,43 @@ std::string V4L2Device::V4L2FormatToString(const struct v4l2_format& format) {
       const struct v4l2_plane_pix_format& plane_fmt = pix_mp.plane_fmt[i];
       s << ", plane_fmt[" << i << "].sizeimage: " << plane_fmt.sizeimage
         << ", plane_fmt[" << i << "].bytesperline: " << plane_fmt.bytesperline;
+    }
+  } else {
+    s << " unsupported yet.";
+  }
+  return s.str();
+}
+
+// static
+std::string V4L2Device::V4L2BufferToString(const struct v4l2_buffer& buffer) {
+  std::ostringstream s;
+  s << "v4l2_buffer type: " << buffer.type << ", memory: " << buffer.memory
+    << ", index: " << buffer.index << " bytesused: " << buffer.bytesused
+    << ", length: " << buffer.length;
+  if (buffer.type == V4L2_BUF_TYPE_VIDEO_CAPTURE ||
+      buffer.type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
+    //  single-planar
+    if (buffer.memory == V4L2_MEMORY_MMAP) {
+      s << ", m.offset: " << buffer.m.offset;
+    } else if (buffer.memory == V4L2_MEMORY_USERPTR) {
+      s << ", m.userptr: " << buffer.m.userptr;
+    } else if (buffer.memory == V4L2_MEMORY_DMABUF) {
+      s << ", m.fd: " << buffer.m.fd;
+    }
+  } else if (V4L2_TYPE_IS_MULTIPLANAR(buffer.type)) {
+    for (size_t i = 0; i < buffer.length; ++i) {
+      const struct v4l2_plane& plane = buffer.m.planes[i];
+      s << ", m.planes[" << i << "](bytesused: " << plane.bytesused
+        << ", length: " << plane.length
+        << ", data_offset: " << plane.data_offset;
+      if (buffer.memory == V4L2_MEMORY_MMAP) {
+        s << ", m.mem_offset: " << plane.m.mem_offset;
+      } else if (buffer.memory == V4L2_MEMORY_USERPTR) {
+        s << ", m.userptr: " << plane.m.userptr;
+      } else if (buffer.memory == V4L2_MEMORY_DMABUF) {
+        s << ", m.fd: " << plane.m.fd;
+      }
+      s << ")";
     }
   } else {
     s << " unsupported yet.";

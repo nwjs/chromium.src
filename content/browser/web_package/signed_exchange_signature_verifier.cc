@@ -52,7 +52,7 @@ constexpr uint8_t kMessageHeader[] =
     // draft-specific string beginning with "HTTP Exchange 1 " instead."
     // [spec text]
     // 5.3. "A single 0 byte which serves as a separator." [spec text]
-    "HTTP Exchange 1 b2";
+    "HTTP Exchange 1 b3";
 
 constexpr base::TimeDelta kOneWeek = base::TimeDelta::FromDays(7);
 constexpr base::TimeDelta kFourWeeks = base::TimeDelta::FromDays(4 * 7);
@@ -137,6 +137,7 @@ void AppendToBuf8BytesBigEndian(std::vector<uint8_t>* buf, uint64_t n) {
 }
 
 base::Optional<std::vector<uint8_t>> GenerateSignedMessage(
+    SignedExchangeVersion version,
     const SignedExchangeEnvelope& envelope) {
   TRACE_EVENT_BEGIN0(TRACE_DISABLED_BY_DEFAULT("loading"),
                      "GenerateSignedMessage");
@@ -161,10 +162,10 @@ base::Optional<std::vector<uint8_t>> GenerateSignedMessage(
 
   // Step 5.5. "The 8-byte big-endian encoding of the length in bytes of
   // validity-url, followed by the bytes of validity-url." [spec text]
-  const auto& validity_url_spec = signature.validity_url.spec();
-  AppendToBuf8BytesBigEndian(&message, validity_url_spec.size());
-  message.insert(message.end(), std::begin(validity_url_spec),
-                 std::end(validity_url_spec));
+  const auto& validity_url_bytes = signature.validity_url.raw_string;
+  AppendToBuf8BytesBigEndian(&message, validity_url_bytes.size());
+  message.insert(message.end(), std::begin(validity_url_bytes),
+                 std::end(validity_url_bytes));
 
   // Step 5.6. "The 8-byte big-endian encoding of date." [spec text]
   AppendToBuf8BytesBigEndian(&message, signature.date);
@@ -174,11 +175,11 @@ base::Optional<std::vector<uint8_t>> GenerateSignedMessage(
 
   // Step 5.8. "The 8-byte big-endian encoding of the length in bytes of
   // requestUrl, followed by the bytes of requestUrl." [spec text]
-  const auto& request_url_spec = envelope.request_url().spec();
+  const auto& request_url_bytes = envelope.request_url().raw_string;
 
-  AppendToBuf8BytesBigEndian(&message, request_url_spec.size());
-  message.insert(message.end(), std::begin(request_url_spec),
-                 std::end(request_url_spec));
+  AppendToBuf8BytesBigEndian(&message, request_url_bytes.size());
+  message.insert(message.end(), std::begin(request_url_bytes),
+                 std::end(request_url_bytes));
 
   // Step 5.9. "The 8-byte big-endian encoding of the length in bytes of
   // headers, followed by the bytes of headers." [spec text]
@@ -246,6 +247,7 @@ bool ShouldIgnoreTimestampError(
 }  // namespace
 
 SignedExchangeSignatureVerifier::Result SignedExchangeSignatureVerifier::Verify(
+    SignedExchangeVersion version,
     const SignedExchangeEnvelope& envelope,
     scoped_refptr<net::X509Certificate> certificate,
     const base::Time& verification_time,
@@ -287,7 +289,7 @@ SignedExchangeSignatureVerifier::Result SignedExchangeSignatureVerifier::Verify(
     return Result::kErrCertificateSHA256Mismatch;
   }
 
-  auto message = GenerateSignedMessage(envelope);
+  auto message = GenerateSignedMessage(version, envelope);
   if (!message) {
     signed_exchange_utils::ReportErrorAndTraceEvent(
         devtools_proxy, "Failed to reconstruct signed message.");

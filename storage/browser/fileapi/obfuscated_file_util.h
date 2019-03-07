@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "base/callback_forward.h"
+#include "base/component_export.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/macros.h"
@@ -24,7 +25,6 @@
 #include "storage/browser/fileapi/file_system_url.h"
 #include "storage/browser/fileapi/sandbox_directory_database.h"
 #include "storage/browser/fileapi/sandbox_file_system_backend_delegate.h"
-#include "storage/browser/storage_browser_export.h"
 #include "storage/common/fileapi/file_system_types.h"
 
 namespace content {
@@ -66,7 +66,8 @@ class SandboxOriginDatabaseInterface;
 //
 // This class must be deleted on the FILE thread, because that's where
 // DropDatabases needs to be called.
-class STORAGE_EXPORT ObfuscatedFileUtil : public FileSystemFileUtil {
+class COMPONENT_EXPORT(STORAGE_BROWSER) ObfuscatedFileUtil
+    : public FileSystemFileUtil {
  public:
   // Origin enumerator interface.
   // An instance of this interface is assumed to be called on the file thread.
@@ -121,7 +122,8 @@ class STORAGE_EXPORT ObfuscatedFileUtil : public FileSystemFileUtil {
                                 base::FilePath* platform_file) override;
   std::unique_ptr<AbstractFileEnumerator> CreateFileEnumerator(
       FileSystemOperationContext* context,
-      const FileSystemURL& root_url) override;
+      const FileSystemURL& root_url,
+      bool recursive) override;
   base::File::Error GetLocalFilePath(FileSystemOperationContext* context,
                                      const FileSystemURL& file_system_url,
                                      base::FilePath* local_path) override;
@@ -150,12 +152,6 @@ class STORAGE_EXPORT ObfuscatedFileUtil : public FileSystemFileUtil {
       base::File::Error* error,
       base::File::Info* file_info,
       base::FilePath* platform_path) override;
-
-  // Same as the other CreateFileEnumerator, but with recursive support.
-  std::unique_ptr<AbstractFileEnumerator> CreateFileEnumerator(
-      FileSystemOperationContext* context,
-      const FileSystemURL& root_url,
-      bool recursive);
 
   // Returns true if the directory |url| is empty.
   bool IsDirectoryEmpty(
@@ -211,6 +207,9 @@ class STORAGE_EXPORT ObfuscatedFileUtil : public FileSystemFileUtil {
   // at most one database).
   void MaybePrepopulateDatabase(
       const std::vector<std::string>& type_strings_to_prepopulate);
+
+  // This will rewrite the databases to remove traces of deleted data from disk.
+  void RewriteDatabases();
 
  private:
   using FileId = SandboxDirectoryDatabase::FileId;

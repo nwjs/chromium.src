@@ -9,10 +9,10 @@
 #include <utility>
 #include <vector>
 
-#include "content/common/media/media_stream_controls.h"
 #include "content/renderer/media/stream/media_stream_constraints_util_sets.h"
 #include "content/renderer/media/stream/media_stream_video_source.h"
 #include "media/base/limits.h"
+#include "third_party/blink/public/common/mediastream/media_stream_controls.h"
 #include "third_party/blink/public/platform/web_media_constraints.h"
 #include "third_party/blink/public/platform/web_string.h"
 
@@ -137,7 +137,7 @@ ResolutionSet ScreenCastResolutionCapabilities() {
 // algorithm in order to be more compatible with existing applications.
 // TODO(guidou): Update this algorithm to properly take into account the minimum
 // width and height, and the aspect_ratio constraint once most existing
-// applications migrate to the new syntax. See http://crbug.com/701302.
+// applications migrate to the new syntax. See https://crbug.com/701302.
 media::ResolutionChangePolicy SelectResolutionPolicyFromCandidates(
     const ResolutionSet& resolution_set,
     media::ResolutionChangePolicy default_policy) {
@@ -290,7 +290,7 @@ int ClampToValidScreenCastDimension(int value) {
 VideoCaptureSettings SelectResultFromCandidates(
     const VideoContentCaptureCandidates& candidates,
     const blink::WebMediaTrackConstraintSet& basic_constraint_set,
-    MediaStreamType stream_type,
+    blink::MediaStreamType stream_type,
     int screen_width,
     int screen_height) {
   std::string device_id = SelectDeviceIDFromCandidates(
@@ -324,13 +324,13 @@ VideoCaptureSettings SelectResultFromCandidates(
   // If a maximum frame rate is explicitly given, use it as default for
   // better compatibility with the old constraints algorithm.
   // TODO(guidou): Use the actual default when applications migrate to the new
-  // constraint syntax.  http://crbug.com/710800
+  // constraint syntax.  https://crbug.com/710800
   double default_frame_rate =
       candidates.frame_rate_set().Max().value_or(kDefaultScreenCastFrameRate);
 
   // This default comes from the old algorithm.
   media::ResolutionChangePolicy default_resolution_policy =
-      stream_type == MEDIA_GUM_TAB_VIDEO_CAPTURE
+      stream_type == blink::MEDIA_GUM_TAB_VIDEO_CAPTURE
           ? media::ResolutionChangePolicy::FIXED_RESOLUTION
           : media::ResolutionChangePolicy::ANY_WITHIN_LIMIT;
 
@@ -382,7 +382,7 @@ VideoCaptureSettings UnsatisfiedConstraintsResult(
 
 VideoCaptureSettings SelectSettingsVideoContentCapture(
     const blink::WebMediaConstraints& constraints,
-    MediaStreamType stream_type,
+    blink::MediaStreamType stream_type,
     int screen_width,
     int screen_height) {
   VideoContentCaptureCandidates candidates;

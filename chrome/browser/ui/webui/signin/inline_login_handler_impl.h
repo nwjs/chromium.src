@@ -130,7 +130,7 @@ class InlineLoginHandlerImpl : public InlineLoginHandler,
   DISALLOW_COPY_AND_ASSIGN(InlineLoginHandlerImpl);
 };
 
-// Handles details of signing the user in with SigninManager and turning on
+// Handles details of signing the user in with IdentityManager and turning on
 // sync after InlineLoginHandlerImpl has acquired the auth tokens from GAIA.
 // This is a separate class from InlineLoginHandlerImpl because the full signin
 // process is asynchronous and can outlive the signin UI.
@@ -148,7 +148,6 @@ class InlineSigninHelper : public GaiaAuthConsumer {
       const std::string& password,
       const std::string& auth_code,
       const std::string& signin_scoped_device_id,
-      bool choose_what_to_sync,
       bool confirm_untrusted_signin,
       bool is_force_sign_in_with_usermanager);
   ~InlineSigninHelper() override;
@@ -161,17 +160,12 @@ class InlineSigninHelper : public GaiaAuthConsumer {
   // the last signed in email of the current profile, then Chrome will show a
   // confirmation dialog before starting sync. It returns true if there is a
   // cross account error, and false otherwise.
-  bool HandleCrossAccountError(
-      const std::string& refresh_token,
-      OneClickSigninSyncStarter::ConfirmationRequired confirmation_required,
-      OneClickSigninSyncStarter::StartSyncMode start_mode);
+  bool HandleCrossAccountError(const std::string& refresh_token);
 
   // Callback used with ConfirmEmailDialogDelegate.
   void ConfirmEmailAction(
       content::WebContents* web_contents,
       const std::string& refresh_token,
-      OneClickSigninSyncStarter::ConfirmationRequired confirmation_required,
-      OneClickSigninSyncStarter::StartSyncMode start_mode,
       SigninEmailConfirmationDialog::Action action);
 
   // Overridden from GaiaAuthConsumer.
@@ -183,15 +177,18 @@ class InlineSigninHelper : public GaiaAuthConsumer {
                                             Profile* profile,
                                             Profile::CreateStatus status);
 
+  // Callback invoked once the user has responded to the signin confirmation UI.
+  // If confirmed is false, the signin is aborted.
+  void UntrustedSigninConfirmed(const std::string& refresh_token,
+                                bool confirmed);
+
   // Creates the sync starter.  Virtual for tests. Call to exchange oauth code
   // for tokens.
   virtual void CreateSyncStarter(
       Browser* browser,
       const GURL& current_url,
       const std::string& refresh_token,
-      OneClickSigninSyncStarter::ProfileMode profile_mode,
-      OneClickSigninSyncStarter::StartSyncMode start_mode,
-      OneClickSigninSyncStarter::ConfirmationRequired confirmation_required);
+      OneClickSigninSyncStarter::ProfileMode profile_mode);
 
   GaiaAuthFetcher gaia_auth_fetcher_;
   base::WeakPtr<InlineLoginHandlerImpl> handler_;
@@ -202,7 +199,6 @@ class InlineSigninHelper : public GaiaAuthConsumer {
   std::string gaia_id_;
   std::string password_;
   std::string auth_code_;
-  bool choose_what_to_sync_;
   bool confirm_untrusted_signin_;
   bool is_force_sign_in_with_usermanager_;
 

@@ -19,7 +19,7 @@
 #include "content/browser/background_fetch/storage/get_initialization_data_task.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_thread.h"
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
 
 namespace storage {
 class QuotaManagerProxy;
@@ -28,14 +28,12 @@ class QuotaManagerProxy;
 namespace content {
 
 class BackgroundFetchDataManager;
-struct BackgroundFetchOptions;
 class BackgroundFetchRegistrationId;
 class BackgroundFetchRegistrationNotifier;
 class BackgroundFetchRequestMatchParams;
 class BackgroundFetchScheduler;
 class BrowserContext;
 class CacheStorageContextImpl;
-class RenderFrameHost;
 class ServiceWorkerContextWrapper;
 
 // The BackgroundFetchContext is the central moderator of ongoing background
@@ -81,10 +79,11 @@ class CONTENT_EXPORT BackgroundFetchContext
   // been registered, or an error occurred that prevents it from doing so.
   void StartFetch(const BackgroundFetchRegistrationId& registration_id,
                   std::vector<blink::mojom::FetchAPIRequestPtr> requests,
-                  const BackgroundFetchOptions& options,
+                  blink::mojom::BackgroundFetchOptionsPtr options,
                   const SkBitmap& icon,
                   blink::mojom::BackgroundFetchUkmDataPtr ukm_data,
-                  RenderFrameHost* render_frame_host,
+                  int render_frame_tree_node_id,
+                  const ResourceRequestInfo::WebContentsGetter& wc_getter,
                   blink::mojom::BackgroundFetchService::FetchCallback callback);
 
   // Gets display size for the icon for Background Fetch UI.
@@ -122,6 +121,10 @@ class CONTENT_EXPORT BackgroundFetchContext
       const base::Optional<SkBitmap>& icon,
       blink::mojom::BackgroundFetchService::UpdateUICallback callback);
 
+  BackgroundFetchRegistrationNotifier* registration_notifier() const {
+    return registration_notifier_.get();
+  }
+
  private:
   using GetPermissionCallback =
       base::OnceCallback<void(BackgroundFetchPermission)>;
@@ -144,21 +147,23 @@ class CONTENT_EXPORT BackgroundFetchContext
   void DidGetRegistration(
       blink::mojom::BackgroundFetchService::GetRegistrationCallback callback,
       blink::mojom::BackgroundFetchError error,
-      const BackgroundFetchRegistration& registration);
+      blink::mojom::BackgroundFetchRegistrationPtr registration);
 
   // Called when a new registration has been created by the data manager.
   void DidCreateRegistration(
       const BackgroundFetchRegistrationId& registration_id,
       blink::mojom::BackgroundFetchError error,
-      const BackgroundFetchRegistration& registration);
+      blink::mojom::BackgroundFetchRegistrationPtr registration);
 
   // Called when the sequence of matching settled fetches have been received
   // from storage, and |callback| can be invoked to pass these on to the
   // renderer.
   void DidGetMatchingRequests(
+      const std::string& unique_id,
       blink::mojom::BackgroundFetchService::MatchRequestsCallback callback,
       blink::mojom::BackgroundFetchError error,
-      std::vector<BackgroundFetchSettledFetch> settled_fetches);
+      std::vector<blink::mojom::BackgroundFetchSettledFetchPtr>
+          settled_fetches);
 
   // Called when the data manager finishes getting the initialization data.
   void DidGetInitializationData(
@@ -171,16 +176,10 @@ class CONTENT_EXPORT BackgroundFetchContext
   void SetDataManagerForTesting(
       std::unique_ptr<BackgroundFetchDataManager> data_manager);
 
-  // Check if |origin| has permission to start a fetch.
-  // virtual for testing.
-  void GetPermissionForOrigin(const url::Origin& origin,
-                              RenderFrameHost* render_frame_host,
-                              GetPermissionCallback callback);
-
   // Callback for GetPermissionForOrigin.
   void DidGetPermission(const BackgroundFetchRegistrationId& registration_id,
                         std::vector<blink::mojom::FetchAPIRequestPtr> requests,
-                        const BackgroundFetchOptions& options,
+                        blink::mojom::BackgroundFetchOptionsPtr options,
                         const SkBitmap& icon,
                         blink::mojom::BackgroundFetchUkmDataPtr ukm_data,
                         int frame_tree_node_id,

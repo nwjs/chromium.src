@@ -8,7 +8,7 @@
 #include "third_party/blink/renderer/modules/webgl/webgl2_rendering_context.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_framebuffer.h"
 #include "third_party/blink/renderer/modules/webgl/webgl_rendering_context.h"
-#include "third_party/blink/renderer/modules/xr/xr_device.h"
+#include "third_party/blink/renderer/modules/xr/xr.h"
 #include "third_party/blink/renderer/modules/xr/xr_frame_provider.h"
 #include "third_party/blink/renderer/modules/xr/xr_presentation_context.h"
 #include "third_party/blink/renderer/modules/xr/xr_session.h"
@@ -61,10 +61,10 @@ XRWebGLLayer* XRWebGLLayer::Create(
     return nullptr;
   }
 
-  if (!webgl_context->IsXRDeviceCompatible(session->device())) {
+  if (!webgl_context->IsXRCompatible()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
-        "The session's device is not the compatible device for this context.");
+        "This context is not marked as XR compatible.");
     return nullptr;
   }
 
@@ -72,7 +72,6 @@ XRWebGLLayer* XRWebGLLayer::Create(
   bool want_depth_buffer = initializer->depth();
   bool want_stencil_buffer = initializer->stencil();
   bool want_alpha_channel = initializer->alpha();
-  bool want_multiview = initializer->multiview();
 
   double framebuffer_scale = 1.0;
 
@@ -99,10 +98,10 @@ XRWebGLLayer* XRWebGLLayer::Create(
   WebGLFramebuffer* framebuffer = WebGLFramebuffer::CreateOpaque(webgl_context);
 
   scoped_refptr<XRWebGLDrawingBuffer> drawing_buffer =
-      XRWebGLDrawingBuffer::Create(
-          webgl_context->GetDrawingBuffer(), framebuffer->Object(),
-          desired_size, want_alpha_channel, want_depth_buffer,
-          want_stencil_buffer, want_antialiasing, want_multiview);
+      XRWebGLDrawingBuffer::Create(webgl_context->GetDrawingBuffer(),
+                                   framebuffer->Object(), desired_size,
+                                   want_alpha_channel, want_depth_buffer,
+                                   want_stencil_buffer, want_antialiasing);
 
   if (!drawing_buffer) {
     exception_state.ThrowDOMException(DOMExceptionCode::kOperationError,
@@ -129,14 +128,19 @@ XRWebGLLayer::XRWebGLLayer(XRSession* session,
   // If the contents need mirroring, indicate that to the drawing buffer.
   if (session->immersive() && session->outputContext() && session->External()) {
     mirroring_ = true;
-    drawing_buffer_->SetMirrorClient(this);
+
+    mirror_client_ = base::AdoptRef(new XRWebGLDrawingBuffer::MirrorClient());
+    drawing_buffer_->SetMirrorClient(mirror_client_);
   }
   UpdateViewports();
 }
 
 XRWebGLLayer::~XRWebGLLayer() {
-  if (mirroring_)
+  if (mirroring_) {
     drawing_buffer_->SetMirrorClient(nullptr);
+    mirror_client_->BeginDestruction();
+  }
+  mirror_client_ = nullptr;
   drawing_buffer_->BeginDestruction();
 }
 
@@ -205,7 +209,7 @@ void XRWebGLLayer::UpdateViewports() {
         framebuffer_width * 0.5 * viewport_scale_,
         framebuffer_height * viewport_scale_);
 
-    session()->device()->frameProvider()->UpdateWebGLLayerViewports(this);
+    session()->xr()->frameProvider()->UpdateWebGLLayerViewports(this);
 
     // When mirroring make sure to also update the mirrored canvas UVs so it
     // only shows a single eye's data, cropped to display proportionally.
@@ -285,7 +289,7 @@ void XRWebGLLayer::OnFrameEnd() {
   // Submit the frame to the XR compositor.
   if (session()->immersive()) {
     // Always call submit, but notify if the contents were changed or not.
-    session()->device()->frameProvider()->SubmitWebGLLayer(
+    session()->xr()->frameProvider()->SubmitWebGLLayer(
         this, framebuffer_->HaveContentsChanged());
   } else if (session()->outputContext()) {
     // Nothing to do if the framebuffer contents have not changed.
@@ -324,21 +328,15 @@ scoped_refptr<StaticBitmapImage> XRWebGLLayer::TransferToStaticBitmapImage(
   return drawing_buffer_->TransferToStaticBitmapImage(out_release_callback);
 }
 
-void XRWebGLLayer::OnMirrorImageAvailable(
-    scoped_refptr<StaticBitmapImage> image,
-    std::unique_ptr<viz::SingleReleaseCallback> release_callback) {
-  ImageBitmap* image_bitmap = ImageBitmap::Create(std::move(image));
-
-  session()->outputContext()->SetImage(image_bitmap);
-
-  if (mirror_release_callback_) {
-    // TODO(bajones): We should probably have the compositor report to us when
-    // it's done with the image, rather than reporting back that it's usable as
-    // soon as we receive a new one.
-    mirror_release_callback_->Run(gpu::SyncToken(), false /* lost_resource */);
+void XRWebGLLayer::UpdateWebXRMirror() {
+  if (mirroring_) {
+    scoped_refptr<StaticBitmapImage> image = mirror_client_->GetLastImage();
+    if (image) {
+      ImageBitmap* image_bitmap = ImageBitmap::Create(std::move(image));
+      session()->outputContext()->SetImage(image_bitmap);
+      mirror_client_->CallLastReleaseCallback();
+    }
   }
-
-  mirror_release_callback_ = std::move(release_callback);
 }
 
 void XRWebGLLayer::Trace(blink::Visitor* visitor) {

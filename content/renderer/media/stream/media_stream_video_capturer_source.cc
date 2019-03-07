@@ -13,7 +13,6 @@
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
-#include "content/public/common/media_stream_request.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/renderer/media/stream/media_stream_constraints_util.h"
 #include "content/renderer/media/video_capture_impl_manager.h"
@@ -23,6 +22,7 @@
 #include "media/base/video_frame.h"
 #include "media/capture/video_capturer_source.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 
 namespace content {
@@ -65,7 +65,7 @@ class LocalVideoCapturerSource final : public media::VideoCapturerSource {
   base::Closure stop_capture_cb_;
 
   // Bound to the main render thread.
-  base::ThreadChecker thread_checker_;
+  THREAD_CHECKER(thread_checker_);
 
   base::WeakPtrFactory<LocalVideoCapturerSource> weak_factory_;
 
@@ -81,12 +81,12 @@ LocalVideoCapturerSource::LocalVideoCapturerSource(int session_id)
 }
 
 LocalVideoCapturerSource::~LocalVideoCapturerSource() {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   release_device_cb_.Run();
 }
 
 media::VideoCaptureFormats LocalVideoCapturerSource::GetPreferredFormats() {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   return media::VideoCaptureFormats();
 }
 
@@ -95,7 +95,7 @@ void LocalVideoCapturerSource::StartCapture(
     const VideoCaptureDeliverFrameCB& new_frame_callback,
     const RunningCallback& running_callback) {
   DCHECK(params.requested_format.IsValid());
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   running_callback_ = running_callback;
 
   stop_capture_cb_ =
@@ -107,31 +107,31 @@ void LocalVideoCapturerSource::StartCapture(
 }
 
 void LocalVideoCapturerSource::RequestRefreshFrame() {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   if (stop_capture_cb_.is_null())
     return;  // Do not request frames if the source is stopped.
   manager_->RequestRefreshFrame(session_id_);
 }
 
 void LocalVideoCapturerSource::MaybeSuspend() {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   manager_->Suspend(session_id_);
 }
 
 void LocalVideoCapturerSource::Resume() {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   manager_->Resume(session_id_);
 }
 
 void LocalVideoCapturerSource::StopCapture() {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   // Immediately make sure we don't provide more frames.
   if (!stop_capture_cb_.is_null())
     base::ResetAndReturn(&stop_capture_cb_).Run();
 }
 
 void LocalVideoCapturerSource::OnStateUpdate(VideoCaptureState state) {
-  DCHECK(thread_checker_.CalledOnValidThread());
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   if (running_callback_.is_null())
     return;
   switch (state) {
@@ -176,7 +176,7 @@ MediaStreamVideoCapturerSource::MediaStreamVideoCapturerSource(
 MediaStreamVideoCapturerSource::MediaStreamVideoCapturerSource(
     int render_frame_id,
     const SourceStoppedCallback& stop_callback,
-    const MediaStreamDevice& device,
+    const blink::MediaStreamDevice& device,
     const media::VideoCaptureParams& capture_params)
     : render_frame_id_(render_frame_id),
       source_(new LocalVideoCapturerSource(device.session_id)),
@@ -247,7 +247,7 @@ void MediaStreamVideoCapturerSource::StopSourceForRestartImpl() {
 
   // Force state update for nondevice sources, since they do not
   // automatically update state after StopCapture().
-  if (device().type == MEDIA_NO_SERVICE)
+  if (device().type == blink::MEDIA_NO_SERVICE)
     OnRunStateChanged(capture_params_, false);
 }
 
@@ -276,7 +276,7 @@ MediaStreamVideoCapturerSource::GetCurrentCaptureParams() const {
 }
 
 void MediaStreamVideoCapturerSource::ChangeSourceImpl(
-    const MediaStreamDevice& new_device) {
+    const blink::MediaStreamDevice& new_device) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(device_video_capturer_factory_callback_);
 
@@ -303,10 +303,10 @@ void MediaStreamVideoCapturerSource::OnRunStateChanged(
       if (is_running) {
         state_ = STARTED;
         DCHECK(capture_params_ == new_capture_params);
-        OnStartDone(MEDIA_DEVICE_OK);
+        OnStartDone(blink::MEDIA_DEVICE_OK);
       } else {
         state_ = STOPPED;
-        OnStartDone(MEDIA_DEVICE_TRACK_START_FAILURE_VIDEO);
+        OnStartDone(blink::MEDIA_DEVICE_TRACK_START_FAILURE_VIDEO);
       }
       break;
     case STARTED:
@@ -336,7 +336,7 @@ void MediaStreamVideoCapturerSource::OnRunStateChanged(
   }
 }
 
-const mojom::MediaStreamDispatcherHostPtr&
+const blink::mojom::MediaStreamDispatcherHostPtr&
 MediaStreamVideoCapturerSource::GetMediaStreamDispatcherHost(
     RenderFrame* render_frame) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);

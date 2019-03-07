@@ -32,7 +32,8 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extensions_browser_client.h"
-#include "extensions/browser/lazy_background_task_queue.h"
+#include "extensions/browser/lazy_context_id.h"
+#include "extensions/browser/lazy_context_task_queue.h"
 #include "extensions/browser/notification_types.h"
 #include "extensions/browser/process_manager_delegate.h"
 #include "extensions/browser/process_manager_factory.h"
@@ -114,9 +115,10 @@ static void CreateBackgroundHostForExtensionLoad(
                                   BackgroundInfo::GetBackgroundURL(extension));
 }
 
-void PropagateExtensionWakeResult(base::OnceCallback<void(bool)> callback,
-                                  extensions::ExtensionHost* host) {
-  std::move(callback).Run(host != nullptr);
+void PropagateExtensionWakeResult(
+    base::OnceCallback<void(bool)> callback,
+    std::unique_ptr<LazyContextTaskQueue::ContextInfo> context_info) {
+  std::move(callback).Run(context_info != nullptr);
 }
 
 }  // namespace
@@ -430,10 +432,9 @@ bool ProcessManager::WakeEventPage(const std::string& extension_id,
     // The extension is already awake.
     return false;
   }
-  LazyBackgroundTaskQueue* queue =
-      LazyBackgroundTaskQueue::Get(browser_context_);
-  queue->AddPendingTask(
-      browser_context_, extension_id,
+  const LazyContextId context_id(browser_context_, extension_id);
+  context_id.GetTaskQueue()->AddPendingTask(
+      context_id,
       base::BindOnce(&PropagateExtensionWakeResult, std::move(callback)));
   return true;
 }
@@ -460,8 +461,7 @@ const Extension* ProcessManager::GetExtensionForWebContents(
     // For hosted apps, be sure to exclude URLs outside of the app that might
     // be loaded in the same SiteInstance (extensions guarantee that only
     // extension urls are loaded in that SiteInstance).
-    const content::NavigationController& controller =
-        web_contents->GetController();
+    content::NavigationController& controller = web_contents->GetController();
     content::NavigationEntry* entry = controller.GetLastCommittedEntry();
     // If there is no last committed entry, check the pending entry. This can
     // happen in cases where we query this before any entry is fully committed,

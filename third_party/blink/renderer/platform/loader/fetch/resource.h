@@ -26,6 +26,7 @@
 
 #include <memory>
 #include "base/auto_reset.h"
+#include "base/callback.h"
 #include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "third_party/blink/public/mojom/loader/code_cache.mojom-shared.h"
@@ -83,19 +84,8 @@ enum class ResourceType : uint8_t {
   kAudio,
   kVideo,
   kManifest,
-  kMock  // Only for testing
-};
-
-// A callback for sending the serialized data of cached metadata back to the
-// platform.
-class CachedMetadataSender {
- public:
-  virtual ~CachedMetadataSender() = default;
-  virtual void Send(const char*, size_t) = 0;
-
-  // IsServedFromCacheStorage is used to alter caching strategy to be more
-  // aggressive. See ScriptController.cpp CacheOptions() for an example.
-  virtual bool IsServedFromCacheStorage() = 0;
+  kMock,  // Only for testing
+  kLast = kMock
 };
 
 // A resource that is held in the cache. Classes who want to use this object
@@ -282,7 +272,7 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
   // Sets the serialized metadata retrieved from the platform's cache.
   // Subclasses of Resource that support cached metadata should override this
   // method with one that fills the current CachedMetadataHandler.
-  virtual void SetSerializedCachedMetadata(const char*, size_t);
+  virtual void SetSerializedCachedMetadata(const uint8_t*, size_t);
 
   AtomicString HttpContentType() const;
 
@@ -350,7 +340,7 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
 
   virtual void DidSendData(unsigned long long /* bytesSent */,
                            unsigned long long /* totalBytesToBeSent */) {}
-  virtual void DidDownloadData(int) {}
+  virtual void DidDownloadData(unsigned long long) {}
   virtual void DidDownloadToBlob(scoped_refptr<BlobDataHandle>) {}
 
   TimeTicks LoadFinishTime() const { return load_finish_time_; }
@@ -426,6 +416,14 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
 
   WebScopedVirtualTimePauser& VirtualTimePauser() {
     return virtual_time_pauser_;
+  }
+
+  // See WebURLLoaderClient.
+  base::OnceClosure TakeContinueNavigationRequestCallback() {
+    return std::move(continue_navigation_request_callback_);
+  }
+  void SetContinueNavigationRequestCallback(base::OnceClosure closure) {
+    continue_navigation_request_callback_ = std::move(closure);
   }
 
  protected:
@@ -530,10 +528,6 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
   void CheckResourceIntegrity();
   void TriggerNotificationForFinishObservers(base::SingleThreadTaskRunner*);
 
-  // Helper for creating the send callback function for the cached metadata
-  // handler.
-  std::unique_ptr<CachedMetadataSender> CreateCachedMetadataSender() const;
-
   ResourceType type_;
   ResourceStatus status_;
 
@@ -590,6 +584,7 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
   scoped_refptr<SharedBuffer> data_;
 
   WebScopedVirtualTimePauser virtual_time_pauser_;
+  base::OnceClosure continue_navigation_request_callback_;
 };
 
 class ResourceFactory {

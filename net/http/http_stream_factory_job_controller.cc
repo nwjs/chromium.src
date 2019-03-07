@@ -57,6 +57,16 @@ std::unique_ptr<base::Value> NetLogJobControllerCallback(
   return std::move(dict);
 }
 
+std::unique_ptr<base::Value> NetLogAltSvcCallback(
+    const AlternativeServiceInfo* alt_svc_info,
+    bool is_broken,
+    NetLogCaptureMode /* capture_mode */) {
+  auto dict = std::make_unique<base::DictionaryValue>();
+  dict->SetString("alt_svc", alt_svc_info->ToString());
+  dict->SetBoolean("is_broken", is_broken);
+  return std::move(dict);
+}
+
 HttpStreamFactory::JobController::JobController(
     HttpStreamFactory* factory,
     HttpStreamRequest::Delegate* delegate,
@@ -404,7 +414,7 @@ void HttpStreamFactory::JobController::OnCertificateError(
   delegate_->OnCertificateError(status, used_ssl_config, ssl_info);
 }
 
-void HttpStreamFactory::JobController::OnHttpsProxyTunnelResponse(
+void HttpStreamFactory::JobController::OnHttpsProxyTunnelResponseRedirect(
     Job* job,
     const HttpResponseInfo& response_info,
     const SSLConfig& used_ssl_config,
@@ -423,8 +433,8 @@ void HttpStreamFactory::JobController::OnHttpsProxyTunnelResponse(
     BindJob(job);
   if (!request_)
     return;
-  delegate_->OnHttpsProxyTunnelResponse(response_info, used_ssl_config,
-                                        used_proxy_info, std::move(stream));
+  delegate_->OnHttpsProxyTunnelResponseRedirect(
+      response_info, used_ssl_config, used_proxy_info, std::move(stream));
 }
 
 void HttpStreamFactory::JobController::OnNeedsClientAuth(
@@ -813,9 +823,13 @@ int HttpStreamFactory::JobController::DoCreateJobs() {
   HostPortPair destination(HostPortPair::FromURL(request_info_.url));
   GURL origin_url = ApplyHostMappingRules(request_info_.url, &destination);
 
-  // Create an alternative job if alternative service is set up for this domain.
-  alternative_service_info_ =
-      GetAlternativeServiceInfoFor(request_info_, delegate_, stream_type_);
+  // Create an alternative job if alternative service is set up for this domain,
+  // but only if we'll be speaking directly to the server, since QUIC through
+  // proxies is not supported.
+  if (proxy_info_.is_direct()) {
+    alternative_service_info_ =
+        GetAlternativeServiceInfoFor(request_info_, delegate_, stream_type_);
+  }
   quic::QuicTransportVersion quic_version = quic::QUIC_VERSION_UNSUPPORTED;
   if (alternative_service_info_.protocol() == kProtoQUIC) {
     quic_version =
@@ -1145,8 +1159,13 @@ HttpStreamFactory::JobController::GetAlternativeServiceInfoInternal(
     DCHECK(IsAlternateProtocolValid(alternative_service_info.protocol()));
     if (!quic_advertised && alternative_service_info.protocol() == kProtoQUIC)
       quic_advertised = true;
-    if (http_server_properties.IsAlternativeServiceBroken(
-            alternative_service_info.alternative_service())) {
+    const bool is_broken = http_server_properties.IsAlternativeServiceBroken(
+        alternative_service_info.alternative_service());
+    net_log_.AddEvent(
+        NetLogEventType::HTTP_STREAM_JOB_CONTROLLER_ALT_SVC_FOUND,
+        base::BindRepeating(&NetLogAltSvcCallback, &alternative_service_info,
+                            is_broken));
+    if (is_broken) {
       HistogramAlternateProtocolUsage(ALTERNATE_PROTOCOL_USAGE_BROKEN, false);
       continue;
     }

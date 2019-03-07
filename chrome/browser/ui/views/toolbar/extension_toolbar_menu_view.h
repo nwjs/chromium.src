@@ -9,6 +9,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observer.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_bar_observer.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_observer.h"
 #include "ui/views/controls/scroll_view.h"
 
 class AppMenu;
@@ -25,18 +26,14 @@ class MenuItemView;
 // the app menu.
 // In the event that the app menu was opened for an Extension Action drag-and-
 // drop, this will also close the menu upon completion.
-class ExtensionToolbarMenuView : public views::ScrollView,
+class ExtensionToolbarMenuView : public AppMenuObserver,
+                                 public views::ScrollView,
                                  public ToolbarActionsBarObserver {
  public:
   ExtensionToolbarMenuView(Browser* browser,
                            AppMenu* app_menu,
                            views::MenuItemView* menu_item);
   ~ExtensionToolbarMenuView() override;
-
-  // views::View:
-  gfx::Size CalculatePreferredSize() const override;
-  int GetHeightForWidth(int width) const override;
-  void Layout() override;
 
   BrowserActionsContainer* container_for_testing() {
     return container_;
@@ -46,17 +43,25 @@ class ExtensionToolbarMenuView : public views::ScrollView,
   // operation.
   static void set_close_menu_delay_for_testing(int delay);
 
+ protected:
+  // views::View:
+  gfx::Size CalculatePreferredSize() const override;
+  int GetHeightForWidth(int width) const override;
+  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
+
  private:
   // ToolbarActionsBarObserver:
   void OnToolbarActionsBarDestroyed() override;
   void OnToolbarActionDragDone() override;
-  void OnToolbarActionsBarDidStartResize() override;
+
+  // AppMenuObserver:
+  void AppMenuShown() override;
 
   // Closes the |app_menu_|.
   void CloseAppMenu();
 
-  // Resizes and lays out the view.
-  void Redraw();
+  // Updates our margins and invalidates layout.
+  void UpdateMargins();
 
   // Returns the padding before the BrowserActionsContainer in the menu.
   int start_padding() const;
@@ -78,6 +83,12 @@ class ExtensionToolbarMenuView : public views::ScrollView,
 
   ScopedObserver<ToolbarActionsBar, ToolbarActionsBarObserver>
       toolbar_actions_bar_observer_;
+
+  // Instances of this class are always indirectly owned by |AppMenu|, as part
+  // of the |MenuItemView| tree owned by the |MenuRunner|. Therefore, this is
+  // safe and we don't have to worry about the |AppMenu| being destroyed before
+  // us.
+  ScopedObserver<AppMenu, AppMenuObserver> app_menu_observer_;
 
   base::WeakPtrFactory<ExtensionToolbarMenuView> weak_factory_;
 

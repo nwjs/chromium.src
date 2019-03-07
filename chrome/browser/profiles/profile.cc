@@ -34,7 +34,7 @@
 #if defined(OS_CHROMEOS)
 #include "base/command_line.h"
 #include "chrome/common/chrome_switches.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #endif
 
 #if !defined(OS_ANDROID)
@@ -269,8 +269,8 @@ bool Profile::IsNewProfile() {
 
 bool Profile::IsSyncAllowed() {
   if (ProfileSyncServiceFactory::HasProfileSyncService(this)) {
-    browser_sync::ProfileSyncService* sync_service =
-        ProfileSyncServiceFactory::GetForProfile(this);
+    syncer::SyncService* sync_service =
+        ProfileSyncServiceFactory::GetSyncServiceForProfile(this);
     return !sync_service->HasDisableReason(
                syncer::SyncService::DISABLE_REASON_PLATFORM_OVERRIDE) &&
            !sync_service->HasDisableReason(

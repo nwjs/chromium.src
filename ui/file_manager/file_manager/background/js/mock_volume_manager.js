@@ -45,13 +45,14 @@ MockVolumeManager.installMockSingleton = function(opt_singleton) {
  * @param {!VolumeManagerCommon.VolumeType} type
  * @param {string} volumeId
  * @param {string} label
+ * @param {string=} providerId
  *
  * @return {!VolumeInfo}
  */
-MockVolumeManager.prototype.createVolumeInfo =
-    function(type, volumeId, label) {
-  var volumeInfo =
-      MockVolumeManager.createMockVolumeInfo(type, volumeId, label);
+MockVolumeManager.prototype.createVolumeInfo = function(
+    type, volumeId, label, providerId) {
+  var volumeInfo = MockVolumeManager.createMockVolumeInfo(
+      type, volumeId, label, undefined, providerId);
   this.volumeInfoList.add(volumeInfo);
   return volumeInfo;
 };
@@ -126,8 +127,9 @@ MockVolumeManager.prototype.getCurrentProfileVolumeInfo = function(volumeType) {
   for (var i = 0; i < this.volumeInfoList.length; i++) {
     var volumeInfo = this.volumeInfoList.item(i);
     if (volumeInfo.profile.isCurrentProfile &&
-        volumeInfo.volumeType === volumeType)
+        volumeInfo.volumeType === volumeType) {
       return volumeInfo;
+    }
   }
   return null;
 };
@@ -145,9 +147,12 @@ MockVolumeManager.prototype.getDriveConnectionState = function() {
  * @param {!VolumeManagerCommon.VolumeType} type Volume type.
  * @param {string} volumeId Volume id.
  * @param {string=} label Label.
+ * @param {string=} devicePath Device path.
+ * @param {string=} providerId Provider id.
  * @return {!VolumeInfo} Created mock VolumeInfo.
  */
-MockVolumeManager.createMockVolumeInfo = function(type, volumeId, label) {
+MockVolumeManager.createMockVolumeInfo = function(
+    type, volumeId, label, devicePath, providerId) {
   var fileSystem = new MockFileSystem(volumeId, 'filesystem:' + volumeId);
 
   // If there's no label set it to volumeId to make it shorter to write tests.
@@ -160,13 +165,14 @@ MockVolumeManager.createMockVolumeInfo = function(type, volumeId, label) {
       false,                                       // isReadOnlyRemovableDevice
       {isCurrentProfile: true, displayName: ''},   // profile
       label || volumeId,                           // label
-      undefined,                                   // providerId
+      providerId,                                  // providerId
       false,                                       // hasMedia
       false,                                       // configurable
       false,                                       // watchable
       VolumeManagerCommon.Source.NETWORK,          // source
       VolumeManagerCommon.FileSystemType.UNKNOWN,  // diskFileSystemType
-      {});                                         // iconSet
+      {},                                          // iconSet
+      '');                                         // driveLabel
 
   return volumeInfo;
 };

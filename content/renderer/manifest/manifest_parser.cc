@@ -299,7 +299,7 @@ std::vector<gfx::Size> ManifestParser::ParseIconSizes(
   return sizes;
 }
 
-std::vector<blink::Manifest::ImageResource::Purpose>
+base::Optional<std::vector<blink::Manifest::ImageResource::Purpose>>
 ManifestParser::ParseIconPurpose(const base::DictionaryValue& icon) {
   base::NullableString16 purpose_str = ParseString(icon, "purpose", NoTrim);
   std::vector<blink::Manifest::ImageResource::Purpose> purposes;
@@ -312,6 +312,15 @@ ManifestParser::ParseIconPurpose(const base::DictionaryValue& icon) {
   std::vector<base::string16> keywords = base::SplitString(
       purpose_str.string(), base::ASCIIToUTF16(" "),
       base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+
+  // "any" is the default if there are no other keywords.
+  if (keywords.empty()) {
+    purposes.push_back(blink::Manifest::ImageResource::Purpose::ANY);
+    return purposes;
+  }
+
+  bool unrecognised_purpose = false;
+
   for (const base::string16& keyword : keywords) {
     if (base::LowerCaseEqualsASCII(keyword, "any")) {
       purposes.push_back(blink::Manifest::ImageResource::Purpose::ANY);
@@ -320,14 +329,20 @@ ManifestParser::ParseIconPurpose(const base::DictionaryValue& icon) {
     } else if (base::LowerCaseEqualsASCII(keyword, "maskable")) {
       purposes.push_back(blink::Manifest::ImageResource::Purpose::MASKABLE);
     } else {
-      AddErrorInfo(
-          "found icon with invalid purpose. "
-          "Using default value 'any'.");
+      unrecognised_purpose = true;
     }
   }
 
+  // This implies there was at least one purpose given, but none recognised.
+  // Instead of defaulting to "any" (which would not be future proof),
+  // invalidate the whole icon.
   if (purposes.empty()) {
-    purposes.push_back(blink::Manifest::ImageResource::Purpose::ANY);
+    AddErrorInfo("found icon with no valid purpose; ignoring it.");
+    return base::nullopt;
+  } else if (unrecognised_purpose) {
+    AddErrorInfo(
+        "found icon with one or more invalid purposes; those purposes are "
+        "ignored.");
   }
 
   return purposes;
@@ -355,9 +370,14 @@ std::vector<blink::Manifest::ImageResource> ManifestParser::ParseIcons(
     // An icon MUST have a valid src. If it does not, it MUST be ignored.
     if (!icon.src.is_valid())
       continue;
+
     icon.type = ParseIconType(*icon_dictionary);
     icon.sizes = ParseIconSizes(*icon_dictionary);
-    icon.purpose = ParseIconPurpose(*icon_dictionary);
+    auto purpose = ParseIconPurpose(*icon_dictionary);
+    if (!purpose)
+      continue;
+
+    icon.purpose = std::move(*purpose);
 
     icons.push_back(icon);
   }
@@ -387,15 +407,28 @@ std::vector<base::string16> ManifestParser::ParseShareTargetFileAccept(
     return accept_types;
   }
 
-  const base::ListValue* accept_list = nullptr;
-  if (!dictionary.GetList("accept", &accept_list)) {
-    AddErrorInfo("property 'accept' ignored, type array expected.");
-    accept_types.push_back(base::ASCIIToUTF16("invalid mimetype"));
+  base::string16 accept_str;
+  if (dictionary.GetString("accept", &accept_str)) {
+    accept_types.push_back(accept_str);
     return accept_types;
   }
 
-  for (const base::Value& accept_value : accept_list->GetList())
+  const base::ListValue* accept_list = nullptr;
+  if (!dictionary.GetList("accept", &accept_list)) {
+    // 'accept' property is the wrong type. Returning an empty vector here
+    // causes the 'files' entry to be discarded.
+    AddErrorInfo("property 'accept' ignored, type array or string expected.");
+    return accept_types;
+  }
+
+  for (const base::Value& accept_value : accept_list->GetList()) {
+    if (!accept_value.is_string()) {
+      // A particular 'accept' entry is invalid - just drop that one entry.
+      AddErrorInfo("'accept' entry ignored, expected to be of type string.");
+      continue;
+    }
     accept_types.push_back(base::ASCIIToUTF16(accept_value.GetString()));
+  }
 
   return accept_types;
 }
@@ -409,24 +442,52 @@ ManifestParser::ParseShareTargetFiles(
 
   const base::ListValue* file_list = nullptr;
   if (!share_target_params.GetList("files", &file_list)) {
-    AddErrorInfo("property 'files' ignored, type array expected.");
+    // https://wicg.github.io/web-share-target/level-2/#share_target-member
+    // step 5 indicates that the 'files' attribute is allowed to be a single
+    // (non-array) ShareTargetFile.
+    const base::DictionaryValue* file_dictionary = nullptr;
+    if (!share_target_params.GetDictionary("files", &file_dictionary)) {
+      AddErrorInfo(
+          "property 'files' ignored, type array or ShareTargetFile expected.");
+      return files;
+    }
+
+    ParseShareTargetFile(*file_dictionary, &files);
+
     return files;
   }
 
   for (const base::Value& file_value : file_list->GetList()) {
     const base::DictionaryValue* file_dictionary = nullptr;
     if (!file_value.GetAsDictionary(&file_dictionary)) {
-      AddErrorInfo("files must be a sequence of non-empty file entires.");
+      AddErrorInfo("files must be a sequence of non-empty file entries.");
       continue;
     }
 
-    blink::Manifest::ShareTargetFile file;
-    file.name = ParseShareTargetFileName(*file_dictionary);
-    file.accept = ParseShareTargetFileAccept(*file_dictionary);
-    files.push_back(file);
+    ParseShareTargetFile(*file_dictionary, &files);
   }
 
   return files;
+}
+
+void ManifestParser::ParseShareTargetFile(
+    const base::DictionaryValue& file_dictionary,
+    std::vector<blink::Manifest::ShareTargetFile>* files) {
+  blink::Manifest::ShareTargetFile file;
+  file.name = ParseShareTargetFileName(file_dictionary);
+  if (file.name.empty()) {
+    // https://wicg.github.io/web-share-target/level-2/#share_target-member
+    // step 7.1 requires that we invalidate this ShareTargetFile if 'name' is an
+    // empty string. We also invalidate if 'name' is undefined or not a
+    // string.
+    return;
+  }
+
+  file.accept = ParseShareTargetFileAccept(file_dictionary);
+  if (file.accept.empty())
+    return;
+
+  files->push_back(file);
 }
 
 base::Optional<blink::Manifest::ShareTarget::Method>

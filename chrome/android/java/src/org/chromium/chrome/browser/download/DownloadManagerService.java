@@ -32,6 +32,7 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.download.DownloadMetrics.DownloadOpenSource;
+import org.chromium.chrome.browser.download.DownloadNotificationUmaHelper.UmaBackgroundDownload;
 import org.chromium.chrome.browser.download.DownloadNotificationUmaHelper.UmaDownloadResumption;
 import org.chromium.chrome.browser.download.ui.BackendProvider;
 import org.chromium.chrome.browser.externalnav.ExternalNavigationDelegateImpl;
@@ -122,6 +123,7 @@ public class DownloadManagerService
             "application/x-wifi-config"));
 
     private static final Set<String> sFirstSeenDownloadIds = new HashSet<String>();
+    private static final Set<String> sBackgroundDownloadIds = new HashSet<String>();
 
     private static DownloadManagerService sDownloadManagerService;
     private static boolean sIsNetworkListenerDisabled;
@@ -352,11 +354,19 @@ public class DownloadManagerService
         DownloadItem item = new DownloadItem(false, downloadInfo);
         if (!downloadInfo.isResumable()) {
             status = DownloadStatus.FAILED;
+            maybeRecordBackgroundDownload(
+                    UmaBackgroundDownload.FAILED, downloadInfo.getDownloadGuid());
         } else if (isAutoResumable) {
             addAutoResumableDownload(item.getId());
         }
+
+        if (status == DownloadStatus.INTERRUPTED) {
+            maybeRecordBackgroundDownload(
+                    UmaBackgroundDownload.INTERRUPTED, downloadInfo.getDownloadGuid());
+        }
         updateDownloadProgress(item, status);
 
+        if (FeatureUtilities.isDownloadAutoResumptionEnabledInNative()) return;
         DownloadProgress progress = mDownloadProgressMap.get(item.getId());
         if (progress == null) return;
         if (!isAutoResumable || sIsNetworkListenerDisabled) return;
@@ -535,6 +545,8 @@ public class DownloadManagerService
                     mDownloadNotifier.notifyDownloadSuccessful(
                             info, result.first, result.second, isSupportedMimeType);
                     broadcastDownloadSuccessful(info);
+                    maybeRecordBackgroundDownload(
+                            UmaBackgroundDownload.COMPLETED, info.getDownloadGuid());
                 } else {
                     info = DownloadInfo.Builder.fromDownloadInfo(info)
                                    .setFailState(FailState.CANNOT_DOWNLOAD)
@@ -542,6 +554,8 @@ public class DownloadManagerService
                     mDownloadNotifier.notifyDownloadFailed(info);
                     // TODO(qinmin): get the failure message from native.
                     onDownloadFailed(item, DownloadManager.ERROR_UNKNOWN);
+                    maybeRecordBackgroundDownload(
+                            UmaBackgroundDownload.FAILED, info.getDownloadGuid());
                 }
             }
         };
@@ -997,17 +1011,18 @@ public class DownloadManagerService
             incrementDownloadRetryCount(item.getId(), false);
         }
         nativeResumeDownload(getNativeDownloadManagerService(), item.getId(),
-                item.getDownloadInfo().isOffTheRecord());
+                item.getDownloadInfo().isOffTheRecord(), hasUserGesture);
     }
 
     /**
      * Called to retry a download. May resume the current download or start a new one.
      * @param id The {@link ContentId} of the download to retry.
      * @param item The current download that needs to retry.
+     * @param hasUserGesture Whether the request was originated due to user gesture.
      */
-    public void retryDownload(ContentId id, DownloadItem item) {
+    public void retryDownload(ContentId id, DownloadItem item, boolean hasUserGesture) {
         nativeRetryDownload(getNativeDownloadManagerService(), item.getId(),
-                item.getDownloadInfo().isOffTheRecord());
+                item.getDownloadInfo().isOffTheRecord(), hasUserGesture);
     }
 
     /**
@@ -1029,6 +1044,7 @@ public class DownloadManagerService
             mDownloadNotifier.notifyDownloadCanceled(id);
         }
         recordDownloadFinishedUMA(DownloadStatus.CANCELLED, id.id, 0);
+        maybeRecordBackgroundDownload(UmaBackgroundDownload.CANCELLED, id.id);
     }
 
     /**
@@ -1311,6 +1327,7 @@ public class DownloadManagerService
      * @param guid Id of the download item.
      */
     private void addAutoResumableDownload(String guid) {
+        if (FeatureUtilities.isDownloadAutoResumptionEnabledInNative()) return;
         if (mAutoResumableDownloadIds.isEmpty() && !sIsNetworkListenerDisabled) {
             mNetworkChangeNotifier = new NetworkChangeNotifierAutoDetect(
                     this, new RegistrationPolicyAlwaysRegister());
@@ -1325,6 +1342,7 @@ public class DownloadManagerService
      * @param guid Id of the download item.
      */
     private void removeAutoResumableDownload(String guid) {
+        if (FeatureUtilities.isDownloadAutoResumptionEnabledInNative()) return;
         if (mAutoResumableDownloadIds.isEmpty()) return;
         mAutoResumableDownloadIds.remove(guid);
         stopListenToConnectionChangeIfNotNeeded();
@@ -1342,6 +1360,7 @@ public class DownloadManagerService
 
     @Override
     public void onConnectionTypeChanged(int connectionType) {
+        if (FeatureUtilities.isDownloadAutoResumptionEnabledInNative()) return;
         if (mAutoResumableDownloadIds.isEmpty()) return;
         if (connectionType == ConnectionType.CONNECTION_NONE) return;
         boolean isMetered = isActiveNetworkMetered(ContextUtils.getApplicationContext());
@@ -1861,6 +1880,39 @@ public class DownloadManagerService
     }
 
     /**
+     * Called when a background download is started.
+     * @param downloadGuid Download GUID
+     */
+    public void onBackgroundDownloadStarted(String downloadGuid) {
+        DownloadNotificationUmaHelper.recordBackgroundDownloadHistogram(
+                UmaBackgroundDownload.STARTED);
+        sBackgroundDownloadIds.add(downloadGuid);
+    }
+
+    /**
+     * Record metrics for a download if it was started in background.
+     * @param event UmaBackgroundDownload event to log
+     * @param downloadGuid Download GUID
+     */
+    private void maybeRecordBackgroundDownload(
+            @UmaBackgroundDownload int event, String downloadGuid) {
+        if (sBackgroundDownloadIds.remove(downloadGuid)) {
+            DownloadNotificationUmaHelper.recordBackgroundDownloadHistogram(event);
+        }
+    }
+
+    /**
+     * Creates an interrupted download in native code to be used by instrumentation tests.
+     * @param url URL of the download.
+     * @param guid Download GUID.
+     * @param targetPath Target file path.
+     */
+    void createInterruptedDownloadForTest(String url, String guid, String targetPath) {
+        nativeCreateInterruptedDownloadForTest(
+                getNativeDownloadManagerService(), url, guid, targetPath);
+    }
+
+    /**
      * Updates the last access time of a download.
      * @param downloadGuid Download GUID.
      * @param isOffTheRecord Whether the download is off the record.
@@ -1893,10 +1945,10 @@ public class DownloadManagerService
     private native long nativeInit(boolean isFullBrowserStarted);
     private native void nativeOpenDownload(long nativeDownloadManagerService, String downloadGuid,
             boolean isOffTheRecord, int source);
-    private native void nativeResumeDownload(
-            long nativeDownloadManagerService, String downloadGuid, boolean isOffTheRecord);
-    private native void nativeRetryDownload(
-            long nativeDownloadManagerService, String downloadGuid, boolean isOffTheRecord);
+    private native void nativeResumeDownload(long nativeDownloadManagerService, String downloadGuid,
+            boolean isOffTheRecord, boolean hasUserGesture);
+    private native void nativeRetryDownload(long nativeDownloadManagerService, String downloadGuid,
+            boolean isOffTheRecord, boolean hasUserGesture);
     private native void nativeCancelDownload(
             long nativeDownloadManagerService, String downloadGuid, boolean isOffTheRecord);
     private native void nativePauseDownload(long nativeDownloadManagerService, String downloadGuid,
@@ -1910,4 +1962,6 @@ public class DownloadManagerService
     private native void nativeUpdateLastAccessTime(
             long nativeDownloadManagerService, String downloadGuid, boolean isOffTheRecord);
     private native void nativeOnFullBrowserStarted(long nativeDownloadManagerService);
+    private native void nativeCreateInterruptedDownloadForTest(
+            long nativeDownloadManagerService, String url, String guid, String targetPath);
 }

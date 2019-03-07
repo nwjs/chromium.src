@@ -75,9 +75,22 @@ bool IsSameHostAndPort(const GURL& app_url, const GURL& page_url) {
          app_url.port() == page_url.port();
 }
 
-// Returns true if |page_url| is in the scope of the app for |app_url|. If the
-// app has no scope defined (as in a bookmark app), we fall back to checking
-// |page_url| has the same origin as |app_url|.
+// Gets the icon to use if the extension app icon is not available.
+gfx::ImageSkia GetFallbackAppIcon(Browser* browser) {
+  gfx::ImageSkia page_icon = browser->GetCurrentPageIcon().AsImageSkia();
+  if (!page_icon.isNull())
+    return page_icon;
+
+  // The extension icon may be loading still. Return a transparent icon rather
+  // than using a placeholder to avoid flickering.
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(gfx::kFaviconSize, gfx::kFaviconSize);
+  bitmap.eraseColor(SK_ColorTRANSPARENT);
+  return gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
+}
+
+}  // namespace
+
 bool IsSameScope(const GURL& app_url,
                  const GURL& page_url,
                  content::BrowserContext* profile) {
@@ -99,22 +112,7 @@ bool IsSameScope(const GURL& app_url,
              profile, page_url, extensions::LAUNCH_CONTAINER_WINDOW);
 }
 
-// Gets the icon to use if the extension app icon is not available.
-gfx::ImageSkia GetFallbackAppIcon(Browser* browser) {
-  gfx::ImageSkia page_icon = browser->GetCurrentPageIcon().AsImageSkia();
-  if (!page_icon.isNull())
-    return page_icon;
-
-  // The extension icon may be loading still. Return a transparent icon rather
-  // than using a placeholder to avoid flickering.
-  SkBitmap bitmap;
-  bitmap.allocN32Pixels(gfx::kFaviconSize, gfx::kFaviconSize);
-  bitmap.eraseColor(SK_ColorTRANSPARENT);
-  return gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
-}
-
-}  // namespace
-
+// TODO(loyso): Erase this histogram. crbug.com/918089.
 const char kPwaWindowEngagementTypeHistogram[] =
     "Webapp.Engagement.EngagementType";
 
@@ -184,7 +182,6 @@ bool HostedAppBrowserController::IsForExperimentalHostedAppBrowser() const {
 }
 
 bool HostedAppBrowserController::ShouldShowToolbar() const {
-  // The extension can be null if this is invoked after uninstall.
   const Extension* extension = GetExtension();
   if (!extension)
     return false;
@@ -313,6 +310,14 @@ base::string16 HostedAppBrowserController::GetTitle() const {
   return entry ? entry->GetTitle() : base::string16();
 }
 
+GURL HostedAppBrowserController::GetAppLaunchURL() const {
+  const Extension* extension = GetExtension();
+  if (!extension)
+    return GURL();
+
+  return AppLaunchInfo::GetLaunchWebURL(extension);
+}
+
 const Extension* HostedAppBrowserController::GetExtension() const {
   return ExtensionRegistry::Get(browser_->profile())
       ->GetExtensionById(extension_id_, ExtensionRegistry::EVERYTHING);
@@ -338,9 +343,13 @@ bool HostedAppBrowserController::CanUninstall() const {
 
 void HostedAppBrowserController::Uninstall(UninstallReason reason,
                                            UninstallSource source) {
-  uninstall_dialog_.reset(ExtensionUninstallDialog::Create(
-      browser_->profile(), browser_->window()->GetNativeWindow(), this));
+  uninstall_dialog_ = ExtensionUninstallDialog::Create(
+      browser_->profile(), browser_->window()->GetNativeWindow(), this);
   uninstall_dialog_->ConfirmUninstall(GetExtension(), reason, source);
+}
+
+bool HostedAppBrowserController::IsInstalled() const {
+  return GetExtension();
 }
 
 void HostedAppBrowserController::OnEngagementEvent(

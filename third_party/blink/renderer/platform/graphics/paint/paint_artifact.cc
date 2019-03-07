@@ -30,7 +30,8 @@ void ComputeChunkDerivedData(const DisplayItemList& display_items,
     chunk.outset_for_raster_effects = std::max(chunk.outset_for_raster_effects,
                                                item.OutsetForRasterEffects());
 
-    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled() && item.IsDrawing()) {
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
+        item.IsDrawing()) {
       const auto& drawing = static_cast<const DrawingDisplayItem&>(item);
       if (drawing.GetPaintRecord() && drawing.KnownToBeOpaque()) {
         known_to_be_opaque_region.op(
@@ -100,7 +101,7 @@ void PaintArtifact::AppendDebugDrawing(
     const PropertyTreeState& property_tree_state) {
   DEFINE_STATIC_LOCAL(DebugDrawingClient, debug_drawing_client, ());
 
-  DCHECK(!RuntimeEnabledFeatures::SlimmingPaintV2Enabled());
+  DCHECK(!RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
   auto& display_item =
       display_item_list_.AllocateAndConstruct<DrawingDisplayItem>(
           debug_drawing_client, DisplayItem::kDebugDrawing, std::move(record));
@@ -121,20 +122,17 @@ void PaintArtifact::Replay(cc::PaintCanvas& canvas,
                            const PropertyTreeState& replay_state,
                            const IntPoint& offset) const {
   TRACE_EVENT0("blink,benchmark", "PaintArtifact::replay");
-  scoped_refptr<cc::DisplayItemList> display_item_list =
-      PaintChunksToCcLayer::Convert(
-          PaintChunks(), replay_state, gfx::Vector2dF(offset.X(), offset.Y()),
-          GetDisplayItemList(),
-          cc::DisplayItemList::kToBeReleasedAsPaintOpBuffer);
-  canvas.drawPicture(display_item_list->ReleaseAsRecord());
+  canvas.drawPicture(GetPaintRecord(replay_state, offset));
 }
 
-DISABLE_CFI_PERF
-void PaintArtifact::AppendToDisplayItemList(const FloatSize& visual_rect_offset,
-                                            cc::DisplayItemList& list) const {
-  TRACE_EVENT0("blink,benchmark", "PaintArtifact::AppendToDisplayItemList");
-  for (const DisplayItem& item : display_item_list_)
-    item.AppendToDisplayItemList(visual_rect_offset, list);
+sk_sp<PaintRecord> PaintArtifact::GetPaintRecord(
+    const PropertyTreeState& replay_state,
+    const IntPoint& offset) const {
+  return PaintChunksToCcLayer::Convert(
+             PaintChunks(), replay_state,
+             gfx::Vector2dF(offset.X(), offset.Y()), GetDisplayItemList(),
+             cc::DisplayItemList::kToBeReleasedAsPaintOpBuffer)
+      ->ReleaseAsRecord();
 }
 
 void PaintArtifact::FinishCycle() {
@@ -142,7 +140,8 @@ void PaintArtifact::FinishCycle() {
   // for clearing the property tree changed state at the end of paint instead of
   // in FinishCycle. See: LocalFrameView::RunPaintLifecyclePhase.
   bool clear_property_tree_changed =
-      !RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled();
+      !RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled() ||
+      RuntimeEnabledFeatures::CompositeAfterPaintEnabled();
   for (auto& chunk : chunks_) {
     chunk.client_is_just_created = false;
     if (clear_property_tree_changed)

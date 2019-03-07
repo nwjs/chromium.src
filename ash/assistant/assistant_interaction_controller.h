@@ -25,6 +25,8 @@ namespace ash {
 
 class AssistantController;
 class AssistantInteractionModelObserver;
+enum class AssistantButtonId;
+enum class AssistantQuerySource;
 
 class AssistantInteractionController
     : public chromeos::assistant::mojom::AssistantInteractionSubscriber,
@@ -99,7 +101,7 @@ class AssistantInteractionController
   void OnTtsStarted(bool due_to_error) override;
 
   // DialogPlateObserver:
-  void OnDialogPlateButtonPressed(DialogPlateButtonId id) override;
+  void OnDialogPlateButtonPressed(AssistantButtonId id) override;
   void OnDialogPlateContentsCommitted(const std::string& text) override;
 
   // Invoked on suggestion chip pressed event.
@@ -114,8 +116,11 @@ class AssistantInteractionController
   void OnUiVisible(AssistantEntryPoint entry_point);
 
   void StartMetalayerInteraction(const gfx::Rect& region);
-  void StartScreenContextInteraction();
-  void StartTextInteraction(const std::string text, bool allow_tts);
+  void StartScreenContextInteraction(AssistantQuerySource query_source);
+  void StartTextInteraction(const std::string text,
+                            bool allow_tts,
+                            AssistantQuerySource query_source);
+
   void StartVoiceInteraction();
   void StopActiveInteraction(bool cancel_conversation);
 
@@ -130,6 +135,8 @@ class AssistantInteractionController
       assistant_interaction_subscriber_binding_;
 
   AssistantInteractionModel model_;
+
+  bool should_attempt_warmer_welcome_ = true;
 
   base::WeakPtrFactory<AssistantInteractionController> weak_factory_;
 

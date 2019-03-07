@@ -17,6 +17,10 @@
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 
+#if defined(OS_MACOSX)
+#include "base/enterprise_util.h"
+#endif  // defined(OS_MACOSX)
+
 namespace nux {
 // This feature flag is used to force the feature to be turned on for non-win
 // and non-branded builds, like with tests or development on other platforms.
@@ -50,30 +54,42 @@ std::string GetOnboardingGroup() {
 bool IsNuxOnboardingEnabled(Profile* profile) {
   if (base::FeatureList::IsEnabled(nux::kNuxOnboardingForceEnabled)) {
     return true;
-  } else {
-#if defined(OS_WIN) && defined(GOOGLE_CHROME_BUILD)
-    // To avoid diluting data collection, existing users should not be assigned
-    // an onboarding group. So, |prefs::kNaviOnboardGroup| is used to
-    // short-circuit the feature checks below.
-    PrefService* prefs = profile->GetPrefs();
-    if (!prefs)
-      return false;
-
-    std::string onboard_group = prefs->GetString(prefs::kNaviOnboardGroup);
-
-    if (onboard_group.empty())
-      return false;
-
-    // User will be tied to their original onboarding group, even after
-    // experiment ends.
-    ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-        "NaviOnboardingSynthetic", onboard_group);
-
-    return base::FeatureList::IsEnabled(nux::kNuxOnboardingFeature);
-#else
-    return false;
-#endif  // defined(OS_WIN) && defined(GOOGLE_CHROME_BUILD)
   }
+
+#if defined(GOOGLE_CHROME_BUILD)
+
+#if defined(OS_MACOSX)
+  return !base::IsMachineExternallyManaged();
+#endif  // defined(OS_MACOSX)
+
+#if defined(OS_WIN)
+  // To avoid diluting data collection, existing users should not be assigned
+  // an onboarding group. So, |prefs::kNaviOnboardGroup| is used to
+  // short-circuit the feature checks below.
+  PrefService* prefs = profile->GetPrefs();
+  if (!prefs) {
+    return false;
+  }
+
+  std::string onboard_group = prefs->GetString(prefs::kNaviOnboardGroup);
+
+  if (onboard_group.empty()) {
+    return false;
+  }
+
+  // User will be tied to their original onboarding group, even after
+  // experiment ends.
+  ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+      "NaviOnboardingSynthetic", onboard_group);
+
+  if (base::FeatureList::IsEnabled(nux::kNuxOnboardingFeature)) {
+    return true;
+  }
+#endif  // defined(OS_WIN)
+
+#endif  // defined(GOOGLE_CHROME_BUILD)
+
+  return false;
 }
 
 base::DictionaryValue GetNuxOnboardingModules(Profile* profile) {

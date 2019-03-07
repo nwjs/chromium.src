@@ -9,8 +9,10 @@
 #include <string>
 
 #include "ash/public/interfaces/assistant_controller.mojom.h"
+#include "base/component_export.h"
 #include "base/macros.h"
 #include "chromeos/services/assistant/assistant_manager_service.h"
+#include "chromeos/services/assistant/fake_assistant_settings_manager_impl.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
 
 namespace chromeos {
@@ -18,7 +20,8 @@ namespace assistant {
 
 // Stub implementation of AssistantManagerService.  Should return deterministic
 // result for testing.
-class FakeAssistantManagerServiceImpl : public AssistantManagerService {
+class COMPONENT_EXPORT(ASSISTANT_SERVICE) FakeAssistantManagerServiceImpl
+    : public AssistantManagerService {
  public:
   FakeAssistantManagerServiceImpl();
   ~FakeAssistantManagerServiceImpl() override;
@@ -32,38 +35,30 @@ class FakeAssistantManagerServiceImpl : public AssistantManagerService {
   void EnableListening(bool enable) override;
   State GetState() const override;
   AssistantSettingsManager* GetAssistantSettingsManager() override;
-  void SendGetSettingsUiRequest(
-      const std::string& selector,
-      GetSettingsUiResponseCallback callback) override;
-  void SendUpdateSettingsUiRequest(
-      const std::string& update,
-      UpdateSettingsUiResponseCallback callback) override;
-  void StartSpeakerIdEnrollment(
-      bool skip_cloud_enrollment,
-      mojom::SpeakerIdEnrollmentClientPtr client) override;
-  void StopSpeakerIdEnrollment(
-      AssistantSettingsManager::StopSpeakerIdEnrollmentCallback on_stopped)
-      override;
 
   // mojom::Assistant overrides:
   void StartCachedScreenContextInteraction() override;
   void StartMetalayerInteraction(const gfx::Rect& region) override;
   void StartTextInteraction(const std::string& query, bool allow_tts) override;
   void StartVoiceInteraction() override;
+  void StartWarmerWelcomeInteraction(int num_warmer_welcome_triggered,
+                                     bool allow_tts) override;
   void StopActiveInteraction(bool cancel_conversation) override;
   void AddAssistantInteractionSubscriber(
       mojom::AssistantInteractionSubscriberPtr subscriber) override;
-  void AddAssistantNotificationSubscriber(
-      mojom::AssistantNotificationSubscriberPtr subscriber) override;
   void RetrieveNotification(mojom::AssistantNotificationPtr notification,
                             int action_index) override;
   void DismissNotification(
       mojom::AssistantNotificationPtr notification) override;
   void CacheScreenContext(CacheScreenContextCallback callback) override;
+  void ClearScreenContextCache() override;
   void OnAccessibilityStatusChanged(bool spoken_feedback_enabled) override;
+  void SendAssistantFeedback(mojom::AssistantFeedbackPtr feedback) override;
 
  private:
   State state_ = State::STOPPED;
+  FakeAssistantSettingsManagerImpl assistant_settings_manager_;
+
   DISALLOW_COPY_AND_ASSIGN(FakeAssistantManagerServiceImpl);
 };
 

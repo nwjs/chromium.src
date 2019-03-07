@@ -87,6 +87,8 @@ bool ConstraintSetHasNonImageCapture(
          constraint_set->hasChannelCount() || constraint_set->hasDepthFar() ||
          constraint_set->hasDepthNear() || constraint_set->hasDeviceId() ||
          constraint_set->hasEchoCancellation() ||
+         constraint_set->hasNoiseSuppression() ||
+         constraint_set->hasAutoGainControl() ||
          constraint_set->hasFacingMode() || constraint_set->hasResizeMode() ||
          constraint_set->hasFocalLengthX() ||
          constraint_set->hasFocalLengthY() || constraint_set->hasFrameRate() ||
@@ -348,6 +350,13 @@ MediaTrackCapabilities* MediaStreamTrack::getCapabilities() const {
     for (String value : platform_capabilities.echo_cancellation_type)
       echo_cancellation_type.push_back(value);
     capabilities->setEchoCancellationType(echo_cancellation_type);
+    // Sample size.
+    if (platform_capabilities.sample_size.size() == 2) {
+      LongRange* sample_size = LongRange::Create();
+      sample_size->setMin(platform_capabilities.sample_size[0]);
+      sample_size->setMax(platform_capabilities.sample_size[1]);
+      capabilities->setSampleSize(sample_size);
+    }
   }
 
   if (component_->Source()->GetType() == MediaStreamSource::kTypeVideo) {

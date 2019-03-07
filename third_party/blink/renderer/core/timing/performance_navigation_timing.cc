@@ -4,7 +4,6 @@
 
 #include "third_party/blink/renderer/core/timing/performance_navigation_timing.h"
 
-#include "third_party/blink/public/mojom/page/page_visibility_state.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_timing.h"
@@ -23,7 +22,8 @@ PerformanceNavigationTiming::PerformanceNavigationTiming(
     TimeTicks time_origin,
     const WebVector<WebServerTimingInfo>& server_timing)
     : PerformanceResourceTiming(
-          info ? AtomicString(info->FinalResponse().Url().GetString())
+          info ? AtomicString(
+                     info->FinalResponse().CurrentRequestUrl().GetString())
                : g_empty_atom,
           time_origin,
           server_timing),
@@ -99,10 +99,6 @@ unsigned long long PerformanceNavigationTiming::GetDecodedBodySize() const {
 AtomicString PerformanceNavigationTiming::GetNavigationType(
     WebNavigationType type,
     const Document* document) {
-  if (document && document->GetPageVisibilityState() ==
-                      mojom::PageVisibilityState::kPrerender) {
-    return "prerender";
-  }
   switch (type) {
     case kWebNavigationTypeReload:
       return "reload";

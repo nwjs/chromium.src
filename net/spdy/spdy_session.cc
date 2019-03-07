@@ -56,8 +56,8 @@
 #include "net/ssl/ssl_cipher_suite_names.h"
 #include "net/ssl/ssl_connection_status_flags.h"
 #include "net/third_party/quic/core/http/spdy_utils.h"
-#include "net/third_party/spdy/core/spdy_frame_builder.h"
-#include "net/third_party/spdy/core/spdy_protocol.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_frame_builder.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_protocol.h"
 #include "url/url_constants.h"
 
 namespace net {
@@ -404,8 +404,8 @@ std::unique_ptr<base::Value> NetLogSpdyRecvGoAwayCallback(
   dict->SetString(
       "error_code",
       base::StringPrintf("%u (%s)", error_code, ErrorCodeToString(error_code)));
-  dict->SetString("debug_data",
-                  ElideGoAwayDebugDataForNetLog(capture_mode, debug_data));
+  dict->SetKey("debug_data",
+               ElideGoAwayDebugDataForNetLog(capture_mode, debug_data));
   return std::move(dict);
 }
 
@@ -1002,8 +1002,8 @@ void SpdySession::InitializeWithSocket(
   auto it = initial_settings_.find(spdy::SETTINGS_MAX_HEADER_LIST_SIZE);
   uint32_t spdy_max_header_list_size =
       (it == initial_settings_.end()) ? kSpdyMaxHeaderListSize : it->second;
-  buffered_spdy_framer_ =
-      std::make_unique<BufferedSpdyFramer>(spdy_max_header_list_size, net_log_);
+  buffered_spdy_framer_ = std::make_unique<BufferedSpdyFramer>(
+      spdy_max_header_list_size, net_log_, time_func_);
   buffered_spdy_framer_->set_visitor(this);
   buffered_spdy_framer_->set_debug_visitor(this);
   buffered_spdy_framer_->UpdateHeaderDecoderTableSize(max_header_table_size_);
@@ -1554,7 +1554,8 @@ bool SpdySession::ChangeSocketTag(const SocketTag& new_tag) {
 
   SpdySessionKey new_key(spdy_session_key_.host_port_pair(),
                          spdy_session_key_.proxy_server(),
-                         spdy_session_key_.privacy_mode(), new_tag);
+                         spdy_session_key_.privacy_mode(),
+                         spdy_session_key_.is_proxy_session(), new_tag);
   spdy_session_key_ = new_key;
 
   return true;
@@ -3163,7 +3164,8 @@ void SpdySession::OnHeaders(spdy::SpdyStreamId stream_id,
                             spdy::SpdyStreamId parent_stream_id,
                             bool exclusive,
                             bool fin,
-                            spdy::SpdyHeaderBlock headers) {
+                            spdy::SpdyHeaderBlock headers,
+                            base::TimeTicks recv_first_byte_time) {
   CHECK(in_io_loop_);
 
   if (net_log().IsCapturing()) {
@@ -3204,7 +3206,6 @@ void SpdySession::OnHeaders(spdy::SpdyStreamId stream_id,
   }
 
   base::Time response_time = base::Time::Now();
-  base::TimeTicks recv_first_byte_time = time_func_();
   // May invalidate |stream|.
   stream->OnHeadersReceived(headers, response_time, recv_first_byte_time);
 }

@@ -62,6 +62,8 @@ class FontFaceSet;
 class OffscreenFontSelector;
 class V8VoidFunction;
 class WorkerClassicScriptLoader;
+class StringOrTrustedScriptURL;
+class TrustedTypePolicyFactory;
 class WorkerLocation;
 class WorkerNavigator;
 class WorkerThread;
@@ -80,7 +82,7 @@ class CORE_EXPORT WorkerGlobalScope
   // Returns null if caching is not supported.
   virtual SingleCachedMetadataHandler* CreateWorkerScriptCachedMetadataHandler(
       const KURL& script_url,
-      const Vector<char>* meta_data) {
+      const Vector<uint8_t>* meta_data) {
     return nullptr;
   }
 
@@ -94,7 +96,7 @@ class CORE_EXPORT WorkerGlobalScope
   // WorkerGlobalScope
   WorkerGlobalScope* self() { return this; }
   WorkerLocation* location() const;
-  WorkerNavigator* navigator() const;
+  WorkerNavigator* navigator() const override;
   void close();
   bool isSecureContextForBindings() const {
     return ExecutionContext::IsSecureContext();
@@ -103,12 +105,14 @@ class CORE_EXPORT WorkerGlobalScope
   String origin() const;
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(languagechange, kLanguagechange);
   DEFINE_ATTRIBUTE_EVENT_LISTENER(rejectionhandled, kRejectionhandled);
   DEFINE_ATTRIBUTE_EVENT_LISTENER(unhandledrejection, kUnhandledrejection);
 
   // WorkerUtils
+  virtual void importScripts(const HeapVector<StringOrTrustedScriptURL>& urls,
+                             ExceptionState&);
   ScriptValue importNWBin(ScriptState* state, DOMArrayBuffer* buffer);
-  virtual void importScripts(const Vector<String>& urls, ExceptionState&);
 
   // ExecutionContext
   const KURL& Url() const final { return url_; }
@@ -139,23 +143,24 @@ class CORE_EXPORT WorkerGlobalScope
   ExecutionContext* GetExecutionContext() const final;
   bool IsWindowOrWorkerGlobalScope() const final { return true; }
 
-  // The following methods implement PausbaleObject semantic
-  // so that WorkerGlobalScope can be paused.
-  void EvaluateClassicScriptPausable(
-      const KURL& script_url,
-      String source_code,
-      std::unique_ptr<Vector<char>> cached_meta_data,
-      const v8_inspector::V8StackTraceId& stack_id);
-  void ImportClassicScriptPausable(
+  // These methods should be called in the scope of a pausable
+  // task runner. ie. They should not be called when the context
+  // is paused.
+  void EvaluateClassicScript(const KURL& script_url,
+                             String source_code,
+                             std::unique_ptr<Vector<uint8_t>> cached_meta_data,
+                             const v8_inspector::V8StackTraceId& stack_id);
+  void ImportClassicScript(
       const KURL& script_url,
       FetchClientSettingsObjectSnapshot* outside_settings_object,
       const v8_inspector::V8StackTraceId& stack_id);
-  void ImportModuleScriptPausable(
+  // Imports the top-level module script for |module_url_record|.
+  virtual void ImportModuleScript(
       const KURL& module_url_record,
       FetchClientSettingsObjectSnapshot* outside_settings_object,
-      network::mojom::FetchCredentialsMode);
-  void ReceiveMessagePausable(BlinkTransferableMessage);
+      network::mojom::FetchCredentialsMode) = 0;
 
+  void ReceiveMessage(BlinkTransferableMessage);
   base::TimeTicks TimeOrigin() const { return time_origin_; }
   WorkerSettings* GetWorkerSettings() const { return worker_settings_.get(); }
 
@@ -175,8 +180,7 @@ class CORE_EXPORT WorkerGlobalScope
     return animation_frame_provider_;
   }
 
-  // Returns true when this is a nested worker.
-  virtual bool IsNestedWorker() const { return false; }
+  TrustedTypePolicyFactory* trustedTypes();
 
  protected:
   WorkerGlobalScope(std::unique_ptr<GlobalScopeCreationParams>,
@@ -190,29 +194,18 @@ class CORE_EXPORT WorkerGlobalScope
   void RemoveURLFromMemoryCache(const KURL&) final;
 
   // Evaluates the given top-level classic script.
-  virtual void EvaluateClassicScript(
+  virtual void EvaluateClassicScriptInternal(
       const KURL& script_url,
       String source_code,
-      std::unique_ptr<Vector<char>> cached_meta_data);
-
-  // Imports the top-level module script for |module_url_record|.
-  virtual void ImportModuleScript(
-      const KURL& module_url_record,
-      FetchClientSettingsObjectSnapshot* outside_settings_object,
-      network::mojom::FetchCredentialsMode) = 0;
-
-  void AddPausedCall(base::OnceClosure closure);
-
-  void MaybeRunPausedTasks();
+      std::unique_ptr<Vector<uint8_t>> cached_meta_data);
 
   mojom::ScriptType GetScriptType() const { return script_type_; }
 
  private:
-  void SetWorkerSettings(std::unique_ptr<WorkerSettings>);
+  virtual void importScriptsFromStrings(const Vector<String>& urls,
+                                        ExceptionState&);
 
-  // Returns true if this worker script is supposed to be fetched on the main
-  // thread and passed to the worker thread.
-  bool IsScriptFetchedOnMainThread();
+  void SetWorkerSettings(std::unique_ptr<WorkerSettings>);
 
   void DidReceiveResponseForClassicScript(
       WorkerClassicScriptLoader* classic_script_loader);
@@ -235,7 +228,7 @@ class CORE_EXPORT WorkerGlobalScope
       const KURL& script_url,
       KURL* out_response_url,
       String* out_source_code,
-      std::unique_ptr<Vector<char>>* out_cached_meta_data);
+      std::unique_ptr<Vector<uint8_t>>* out_cached_meta_data);
 
   // Tries to load the script synchronously from the WorkerClassicScriptLoader,
   // which requests the script from the browser. This blocks until the script is
@@ -244,11 +237,10 @@ class CORE_EXPORT WorkerGlobalScope
       const KURL& script_url,
       KURL* out_response_url,
       String* out_source_code,
-      std::unique_ptr<Vector<char>>* out_cached_meta_data);
+      std::unique_ptr<Vector<uint8_t>>* out_cached_meta_data);
 
   // ExecutionContext
   EventTarget* ErrorEventTarget() final { return this; }
-  void TasksWereUnpaused() override;
 
   const KURL url_;
   const mojom::ScriptType script_type_;
@@ -259,6 +251,7 @@ class CORE_EXPORT WorkerGlobalScope
 
   mutable Member<WorkerLocation> location_;
   mutable TraceWrapperMember<WorkerNavigator> navigator_;
+  Member<TrustedTypePolicyFactory> trusted_types_;
 
   WorkerThread* thread_;
 
@@ -279,8 +272,6 @@ class CORE_EXPORT WorkerGlobalScope
   const base::UnguessableToken agent_cluster_id_;
 
   HttpsState https_state_;
-
-  Vector<base::OnceClosure> paused_calls_;
 };
 
 template <>

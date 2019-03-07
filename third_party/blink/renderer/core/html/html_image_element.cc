@@ -38,6 +38,7 @@
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/forms/form_associated.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/html_dimension.h"
 #include "third_party/blink/renderer/core/html/html_image_fallback_helper.h"
 #include "third_party/blink/renderer/core/html/html_picture_element.h"
 #include "third_party/blink/renderer/core/html/html_source_element.h"
@@ -55,6 +56,7 @@
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_block_flow.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/core/media_type_names.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/style/content_data.h"
@@ -84,7 +86,7 @@ class HTMLImageElement::ViewportChangeListener final
       element_->NotifyViewportChanged();
   }
 
-  void Trace(blink::Visitor* visitor) override {
+  void Trace(Visitor* visitor) override {
     visitor->Trace(element_);
     MediaQueryListListener::Trace(visitor);
   }
@@ -126,7 +128,7 @@ HTMLImageElement* HTMLImageElement::Create(Document& document,
 
 HTMLImageElement::~HTMLImageElement() = default;
 
-void HTMLImageElement::Trace(blink::Visitor* visitor) {
+void HTMLImageElement::Trace(Visitor* visitor) {
   visitor->Trace(image_loader_);
   visitor->Trace(listener_);
   visitor->Trace(form_);
@@ -134,10 +136,11 @@ void HTMLImageElement::Trace(blink::Visitor* visitor) {
   HTMLElement::Trace(visitor);
 }
 
-const HashSet<AtomicString>& HTMLImageElement::GetCheckedAttributeNames()
+const AttrNameToTrustedType& HTMLImageElement::GetCheckedAttributeTypes()
     const {
-  DEFINE_STATIC_LOCAL(HashSet<AtomicString>, attribute_set, ({"src"}));
-  return attribute_set;
+  DEFINE_STATIC_LOCAL(AttrNameToTrustedType, attribute_map,
+                      ({{"src", SpecificTrustedType::kTrustedURL}}));
+  return attribute_map;
 }
 
 void HTMLImageElement::NotifyViewportChanged() {
@@ -318,6 +321,12 @@ void HTMLImageElement::ParseAttribute(
              EqualIgnoringASCIICase(params.new_value, "off") &&
              !GetDocument().IsLazyLoadPolicyEnforced()) {
     GetImageLoader().LoadDeferredImage(referrer_policy_);
+  } else if (name == kImportanceAttr &&
+             origin_trials::PriorityHintsEnabled(&GetDocument())) {
+    // We only need to keep track of usage here, as the communication of the
+    // |importance| attribute to the loading pipeline takes place in
+    // ImageLoader.
+    UseCounter::Count(GetDocument(), WebFeature::kPriorityHints);
   } else {
     HTMLElement::ParseAttribute(params);
   }
@@ -682,7 +691,7 @@ bool HTMLImageElement::IsServerMap() const {
 }
 
 Image* HTMLImageElement::ImageContents() {
-  if (!GetImageLoader().ImageComplete())
+  if (!GetImageLoader().ImageComplete() || !GetImageLoader().GetContent())
     return nullptr;
 
   return GetImageLoader().GetContent()->GetImage();
@@ -862,6 +871,33 @@ void HTMLImageElement::AssociateWith(HTMLFormElement* form) {
     form_->Associate(*this);
     form_->DidAssociateByParser();
   }
+}
+
+// Minimum height or width of the image to start lazyloading.
+constexpr int kMinDimensionToLazyLoad = 10;
+
+bool HTMLImageElement::IsDimensionSmallAndAbsoluteForLazyLoad(
+    const String& attribute_value) {
+  HTMLDimension dimension;
+  return ParseDimensionValue(attribute_value, dimension) &&
+         dimension.IsAbsolute() && dimension.Value() <= kMinDimensionToLazyLoad;
+}
+
+bool HTMLImageElement::IsInlineStyleDimensionsSmall(
+    const CSSPropertyValueSet* property_set) {
+  if (!property_set)
+    return false;
+  const CSSValue* height = property_set->GetPropertyCSSValue(CSSPropertyHeight);
+  const CSSValue* width = property_set->GetPropertyCSSValue(CSSPropertyWidth);
+  if (!height || !height->IsPrimitiveValue() || !width ||
+      !width->IsPrimitiveValue())
+    return false;
+  const CSSPrimitiveValue* width_prim = ToCSSPrimitiveValue(width);
+  const CSSPrimitiveValue* height_prim = ToCSSPrimitiveValue(height);
+  return height_prim->IsPx() &&
+         (height_prim->GetDoubleValue() <= kMinDimensionToLazyLoad) &&
+         width_prim->IsPx() &&
+         (width_prim->GetDoubleValue() <= kMinDimensionToLazyLoad);
 }
 
 }  // namespace blink

@@ -40,6 +40,9 @@ class UkmPageLoadMetricsObserver
                         const GURL& currently_committed_url,
                         bool started_in_foreground) override;
 
+  ObservePolicy OnRedirect(
+      content::NavigationHandle* navigation_handle) override;
+
   ObservePolicy OnCommit(content::NavigationHandle* navigation_handle,
                          ukm::SourceId source_id) override;
 
@@ -76,7 +79,9 @@ class UkmPageLoadMetricsObserver
       base::TimeTicks app_background_time);
 
   // Adds main resource timing metrics to |builder|.
-  void ReportMainResourceTimingMetrics(ukm::builders::PageLoad* builder);
+  void ReportMainResourceTimingMetrics(
+      const page_load_metrics::mojom::PageLoadTiming& timing,
+      ukm::builders::PageLoad* builder);
 
   void ReportLayoutStability(const page_load_metrics::PageLoadExtraInfo& info);
 
@@ -102,8 +107,17 @@ class UkmPageLoadMetricsObserver
   // PAGE_TRANSITION_LINK is the default PageTransition value.
   ui::PageTransition page_transition_ = ui::PAGE_TRANSITION_LINK;
 
+  // Time of navigation start.
+  base::TimeTicks navigation_start_;
+
   // True if the page started hidden, or ever became hidden.
   bool was_hidden_ = false;
+
+  // True if the page main resource was served from disk cache.
+  bool was_cached_ = false;
+
+  // The number of main frame redirects that occurred before commit.
+  uint32_t main_frame_request_redirect_count_ = 0;
 
   DISALLOW_COPY_AND_ASSIGN(UkmPageLoadMetricsObserver);
 };

@@ -8,8 +8,8 @@
 #include "base/time/time.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
+#include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_error_type.mojom-shared.h"
-#include "third_party/blink/public/platform/modules/fetch/fetch_api_request.mojom-shared.h"
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_private_ptr.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -58,6 +58,9 @@ class BLINK_PLATFORM_EXPORT WebServiceWorkerResponse {
 
   void SetResponseType(network::mojom::FetchResponseType);
   network::mojom::FetchResponseType ResponseType() const;
+
+  void SetResponseSource(network::mojom::FetchResponseSource);
+  network::mojom::FetchResponseSource ResponseSource() const;
 
   void SetHeader(const WebString& key, const WebString& value);
 

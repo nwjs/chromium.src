@@ -357,6 +357,9 @@ TabDragController::~TabDragController() {
   if (move_loop_widget_)
     move_loop_widget_->RemoveObserver(this);
 
+  if (is_dragging_window())
+    GetAttachedBrowserWidget()->EndMoveLoop();
+
   if (source_tabstrip_)
     GetModel(source_tabstrip_)->RemoveObserver(this);
 
@@ -594,7 +597,20 @@ void TabDragController::OnWidgetBoundsChanged(views::Widget* widget,
                                               const gfx::Rect& new_bounds) {
   TRACE_EVENT1("views", "TabDragController::OnWidgetBoundsChanged",
                "new_bounds", new_bounds.ToString());
-
+  // Detaching and attaching can be suppresed temporarily to suppress attaching
+  // to incorrect window on changing bounds. We should prevent Drag() itself,
+  // otherwise it can clear deferred attaching tab.
+  if (!CanDetachFromTabStrip(GetTabStripForWindow(widget->GetNativeWindow())))
+    return;
+#if defined(USE_AURA)
+  aura::Env* env = widget->GetNativeWindow()->env();
+  // WidgetBoundsChanged happens as a step of ending a drag, but Drag() doesn't
+  // have to be called -- GetCursorScreenPoint() may return an incorrect
+  // location in such case and causes a weird effect. See
+  // https://crbug.com/914527 for the details.
+  if (!env->IsMouseButtonDown() && !env->is_touch_down())
+    return;
+#endif
   Drag(GetCursorScreenPoint());
 }
 
@@ -1004,13 +1020,6 @@ TabDragController::Liveness TabDragController::GetTargetTabStripForPoint(
   TRACE_EVENT1("views", "TabDragController::GetTargetTabStripForPoint",
                "point_in_screen", point_in_screen.ToString());
 
-  // Do not change the current attached tabstrip if it's not allowed to detach
-  // from the current tabstrip and attach into another window's tabstrip.
-  if (attached_tabstrip_ && !CanDetachFromTabStrip(attached_tabstrip_)) {
-    *tab_strip = attached_tabstrip_;
-    return Liveness::ALIVE;
-  }
-
   if (move_only() && attached_tabstrip_) {
     // move_only() is intended for touch, in which case we only want to detach
     // if the touch point moves significantly in the vertical distance.
@@ -1415,11 +1424,16 @@ void TabDragController::EndDragImpl(EndDragType type) {
     // is false, the user just clicked and released and didn't move the mouse
     // enough to trigger a drag.
     if (previous_state != DragState::kNotStarted) {
-      // After the drag ends, if |attached_tabstrip_| is showing in overview
-      // mode, do not restore focus, otherwise overview mode may be ended
-      // unexpectly because of the window activation.
-      if (!IsShowingInOverview(attached_tabstrip_))
+      // After the drag ends, sometimes it shouldn't restore the focus, because
+      // - if |attached_tabstrip_| is showing in overview mode, overview mode
+      //   may be ended unexpectly because of the window activation.
+      // - Some dragging gesture (like fling down) minimizes the window, but the
+      //   window activation cancels minimized status. See
+      //   https://crbug.com/902897
+      if (!IsShowingInOverview(attached_tabstrip_) &&
+          !attached_tabstrip_->GetWidget()->IsMinimized()) {
         RestoreFocus();
+      }
 
       if (type == CANCELED)
         RevertDrag();
@@ -1464,10 +1478,6 @@ void TabDragController::PerformDeferredAttach() {
   // after the drag ends.
   did_restore_window_ = false;
 
-  TabStrip* target_tabstrip = deferred_target_tabstrip;
-  SetDeferredTargetTabstrip(nullptr);
-  deferred_target_tabstrip_observer_.reset();
-
   // GetCursorScreenPoint() needs to be called before Detach() is called as
   // GetCursorScreenPoint() may use the current attached tabstrip to get the
   // touch event position but Detach() sets attached tabstrip to nullptr.
@@ -1475,7 +1485,10 @@ void TabDragController::PerformDeferredAttach() {
   Detach(DONT_RELEASE_CAPTURE);
   // If we're attaching the dragged tabs to an overview window's tabstrip, the
   // tabstrip should not have focus.
-  Attach(target_tabstrip, current_screen_point, /*set_capture=*/false);
+  Attach(deferred_target_tabstrip, current_screen_point, /*set_capture=*/false);
+
+  SetDeferredTargetTabstrip(nullptr);
+  deferred_target_tabstrip_observer_.reset();
 #endif
 }
 

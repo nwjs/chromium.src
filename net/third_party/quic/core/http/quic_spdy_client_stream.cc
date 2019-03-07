@@ -11,7 +11,7 @@
 #include "net/third_party/quic/core/http/spdy_utils.h"
 #include "net/third_party/quic/core/quic_alarm.h"
 #include "net/third_party/quic/platform/api/quic_logging.h"
-#include "net/third_party/spdy/core/spdy_protocol.h"
+#include "net/third_party/quiche/src/spdy/core/spdy_protocol.h"
 
 using spdy::SpdyHeaderBlock;
 
@@ -21,6 +21,17 @@ QuicSpdyClientStream::QuicSpdyClientStream(QuicStreamId id,
                                            QuicSpdyClientSession* session,
                                            StreamType type)
     : QuicSpdyStream(id, session, type),
+      content_length_(-1),
+      response_code_(0),
+      header_bytes_read_(0),
+      header_bytes_written_(0),
+      session_(session),
+      has_preliminary_headers_(false) {}
+
+QuicSpdyClientStream::QuicSpdyClientStream(PendingStream pending,
+                                           QuicSpdyClientSession* session,
+                                           StreamType type)
+    : QuicSpdyStream(std::move(pending), session, type),
       content_length_(-1),
       response_code_(0),
       header_bytes_read_(0),

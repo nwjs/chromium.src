@@ -12,6 +12,7 @@
 #include "base/sequenced_task_runner.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/cached_image_fetcher/cached_image_fetcher_service_factory.h"
+#include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/download/download_service_factory.h"
 #include "chrome/browser/ntp_snippets/content_suggestions_service_factory.h"
 #include "chrome/browser/offline_pages/offline_page_model_factory.h"
@@ -22,7 +23,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_content_client.h"
 #include "components/feed/feed_feature_list.h"
 #include "components/image_fetcher/core/cached_image_fetcher.h"
 #include "components/image_fetcher/core/cached_image_fetcher_service.h"
@@ -84,7 +84,8 @@ KeyedService* PrefetchServiceFactory::BuildServiceInstanceFor(
 
   auto prefetch_network_request_factory =
       std::make_unique<PrefetchNetworkRequestFactoryImpl>(
-          profile->GetURLLoaderFactory(), chrome::GetChannel(), GetUserAgent());
+          profile->GetURLLoaderFactory(), chrome::GetChannel(), GetUserAgent(),
+          profile->GetPrefs());
 
   scoped_refptr<base::SequencedTaskRunner> background_task_runner =
       base::CreateSequencedTaskRunnerWithTraits({base::MayBlock()});
@@ -112,7 +113,7 @@ KeyedService* PrefetchServiceFactory::BuildServiceInstanceFor(
 
   auto prefetch_downloader = std::make_unique<PrefetchDownloaderImpl>(
       DownloadServiceFactory::GetForBrowserContext(context),
-      chrome::GetChannel());
+      chrome::GetChannel(), profile->GetPrefs());
 
   auto prefetch_importer = std::make_unique<PrefetchImporterImpl>(
       prefetch_dispatcher.get(), offline_page_model, background_task_runner);

@@ -153,6 +153,7 @@ class MockCastMessageHandler : public CastMessageHandler {
                void(CastSocket* socket,
                     const std::string& app_id,
                     GetAppAvailabilityCallback callback));
+  MOCK_METHOD1(RequestReceiverStatus, void(int channel_id));
   MOCK_METHOD3(SendBroadcastMessage,
                void(int,
                     const std::vector<std::string>&,
@@ -165,8 +166,19 @@ class MockCastMessageHandler : public CastMessageHandler {
   MOCK_METHOD3(StopSession,
                void(int channel_id,
                     const std::string& session_id,
-                    StopSessionCallback callback));
-  MOCK_METHOD2(SendAppMessage, void(int, const CastMessage&));
+                    ResultCallback callback));
+  MOCK_METHOD2(SendAppMessage,
+               Result(int channel_id, const CastMessage& message));
+  MOCK_METHOD4(SendMediaRequest,
+               base::Optional<int>(int channel_id,
+                                   const base::Value& body,
+                                   const std::string& source_id,
+                                   const std::string& destination_id));
+  MOCK_METHOD4(SendSetVolumeRequest,
+               Result(int channel_id,
+                      const base::Value& body,
+                      const std::string& source_id,
+                      ResultCallback callback));
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockCastMessageHandler);

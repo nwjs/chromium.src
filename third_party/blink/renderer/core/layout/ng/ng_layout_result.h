@@ -21,9 +21,9 @@
 namespace blink {
 
 class NGBoxFragmentBuilder;
+class NGContainerFragmentBuilder;
 class NGExclusionSpace;
 class NGLineBoxFragmentBuilder;
-struct NGPositionedFloat;
 
 // The NGLayoutResult stores the resulting data from layout. This includes
 // geometry information in form of a NGPhysicalFragment, which is kept around
@@ -56,14 +56,6 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
   const Vector<NGOutOfFlowPositionedDescendant>&
   OutOfFlowPositionedDescendants() const {
     return oof_positioned_descendants_;
-  }
-
-  // A line-box can have a list of positioned floats. These should be added to
-  // the line-box's parent fragment (as floats which occur within a line-box do
-  // not appear a children).
-  const Vector<NGPositionedFloat>& PositionedFloats() const {
-    DCHECK(root_fragment_->Type() == NGPhysicalFragment::kFragmentLineBox);
-    return positioned_floats_;
   }
 
   const NGUnpositionedListMarker& UnpositionedListMarker() const {
@@ -119,6 +111,12 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
 
   bool HasOrthogonalFlowRoots() const { return has_orthogonal_flow_roots_; }
 
+  // Returns true if we aren't able to re-use this layout result if the
+  // PercentageResolutionBlockSize changes.
+  bool DependsOnPercentageBlockSize() const {
+    return depends_on_percentage_block_size_;
+  }
+
  private:
   friend class NGBoxFragmentBuilder;
   friend class NGLineBoxFragmentBuilder;
@@ -135,10 +133,10 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
   // default copy constructor will not work because RefCounted can't be copied.
   NGLayoutResult(const NGLayoutResult&) = delete;
 
+  static bool DependsOnPercentageBlockSize(const NGContainerFragmentBuilder&);
+
   NGLink root_fragment_;
   Vector<NGOutOfFlowPositionedDescendant> oof_positioned_descendants_;
-
-  Vector<NGPositionedFloat> positioned_floats_;
 
   NGUnpositionedListMarker unpositioned_list_marker_;
 
@@ -158,6 +156,7 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
   unsigned adjoining_floats_ : 2;  // NGFloatTypes
 
   unsigned has_orthogonal_flow_roots_ : 1;
+  unsigned depends_on_percentage_block_size_ : 1;
 
   unsigned status_ : 1;
 };

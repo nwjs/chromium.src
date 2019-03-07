@@ -16,19 +16,43 @@ struct App {
   Readiness readiness;
   string? name;
   IconKey? icon_key;
+  // This vector must be treated atomically, if there is a permission
+  // change, the publisher must send through the entire list of permissions.
+  // Should contain no duplicate IDs.
+  // If empty during updates, Subscriber can assume no changes.
+  // There is no guarantee that this is sorted by any criteria.
+  array<Permission> permissions;
+
+  // Whether the app was installed by sync, policy or as a default app.
+  OptionalBool installed_internally;
+
+  // TODO(nigeltao): be more principled, instead of ad hoc show_in_xxx and
+  // show_in_yyy fields?
   OptionalBool show_in_launcher;
+  OptionalBool show_in_search;
 
   // When adding new fields, also update the Merge method and other helpers in
   // chrome/services/app_service/public/cpp/app_update.*
 };
 
+struct Permission {
+  // An AppType-specific value, opaque to the App Service.
+  // Different publishers (with different AppType's) can
+  // re-use the same numerical value to mean different things.
+  uint32 permission_id;
+  PermissionValueType value_type;
+  // The semantics of value depends on the value_type.
+  uint32 value;
+};
+
 // The types of apps available in the registry.
 enum AppType {
   kUnknown = 0,
-  kArc,       // Android app.
-  kBuiltIn,   // Built-in app.
-  kCrostini,  // Linux app.
-  kWeb,       // Web app.
+  kArc,        // Android app.
+  kBuiltIn,    // Built-in app.
+  kCrostini,   // Linux app.
+  kExtension,  // Extension-backed app.
+  kWeb,        // Web app.
 };
 
 // Whether an app is ready to launch, i.e. installed.
@@ -38,6 +62,7 @@ enum Readiness {
   kDisabledByBlacklist,  // Disabled by SafeBrowsing.
   kDisabledByPolicy,     // Disabled by admin policy.
   kDisabledByUser,       // Disabled by explicit user action.
+  kTerminated,           // Renderer process crashed.
   kUninstalledByUser,
 };
 
@@ -50,6 +75,7 @@ enum OptionalBool {
 
 enum IconType {
   kUnknown,
+  kArc,
   kExtension,
   kResource,
 };
@@ -71,4 +97,24 @@ struct IconValue {
   IconCompression icon_compression;
   gfx.mojom.ImageSkia? uncompressed;
   array<uint8>? compressed;
+};
+
+enum LaunchSource {
+  kUnknown,
+  kFromAppListGrid,              // Grid of apps, not the search box.
+  kFromAppListGridContextMenu,   // Grid of apps; context menu.
+  kFromAppListQuery,             // Query-dependent results (larger icons).
+  kFromAppListQueryContextMenu,  // Query-dependent results; context menu.
+  kFromAppListRecommendation,    // Query-less recommendations (smaller icons).
+};
+
+enum TriState {
+  kAllow,
+  kBlock,
+  kAsk,
+};
+
+enum PermissionValueType {
+  kBool,                       // Permission.value is a Bool (either 0 or 1).
+  kTriState,                   // Permission.value is a TriState.
 };

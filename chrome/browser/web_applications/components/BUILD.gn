@@ -8,6 +8,8 @@ source_set("components") {
     "install_manager.h",
     "pending_app_manager.cc",
     "pending_app_manager.h",
+    "web_app_audio_focus_id_map.cc",
+    "web_app_audio_focus_id_map.h",
     "web_app_constants.h",
     "web_app_data_retriever.cc",
     "web_app_data_retriever.h",
@@ -24,6 +26,8 @@ source_set("components") {
     "web_app_shortcut_mac.mm",
     "web_app_shortcut_win.cc",
     "web_app_shortcut_win.h",
+    "web_app_tab_helper_base.cc",
+    "web_app_tab_helper_base.h",
 
     # TODO(nigeltao): move these two files from
     # //chrome/browser/web_applications/components to a stand-alone

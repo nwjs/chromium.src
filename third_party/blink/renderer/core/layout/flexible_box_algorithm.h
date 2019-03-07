@@ -67,6 +67,7 @@ typedef Vector<FlexItem, 8> FlexItemVector;
 class FlexItem {
  public:
   // flex_base_content_size includes scrollbar width but not border or padding.
+  // min_max_sizes is the min and max size in the main axis direction.
   FlexItem(LayoutBox*,
            LayoutUnit flex_base_content_size,
            MinMaxSize min_max_sizes,
@@ -135,8 +136,7 @@ class FlexItem {
 
   bool frozen;
 
-  // TODO(dgrogan): Change this to NGBlockNode when all items are blockified.
-  NGLayoutInputNode ng_input_node;
+  NGBlockNode ng_input_node;
   scoped_refptr<NGLayoutResult> layout_result;
 };
 

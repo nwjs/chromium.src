@@ -15,6 +15,7 @@
 #include "base/task_runner_util.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/android/explore_sites/explore_sites_schema.h"
+#include "components/offline_pages/core/offline_clock.h"
 #include "sql/database.h"
 
 namespace explore_sites {
@@ -169,7 +170,7 @@ void ExploreSitesStore::CloseInternal() {
   TRACE_EVENT_ASYNC_STEP_PAST0("explore_sites", "ExploreSitesStore", this,
                                "Open");
 
-  last_closing_time_ = base::Time::Now();
+  last_closing_time_ = offline_pages::OfflineTimeNow();
   ReportStoreEvent(ExploreSitesStoreEvent::kClosed);
 
   initialization_status_ = InitializationStatus::NOT_INITIALIZED;

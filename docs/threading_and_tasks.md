@@ -310,7 +310,9 @@ using is incorrectly thread-affine (i.e. using
 [`base::ThreadChecker`](https://cs.chromium.org/chromium/src/base/threading/thread_checker.h)
 when it’s merely thread-unsafe and should use
 [`base::SequenceChecker`](https://cs.chromium.org/chromium/src/base/sequence_checker.h)),
-please consider fixing it instead of making things worse by also making your API thread-affine.
+please consider
+[`fixing it`](threading_and_tasks_faq.md#How-to-migrate-from-SingleThreadTaskRunner-to-SequencedTaskRunner)
+instead of making things worse by also making your API thread-affine.
 ***
 
 ### Posting to the Current Thread
@@ -562,6 +564,15 @@ To test code that uses `base::ThreadTaskRunnerHandle`,
 [`base/task/post_task.h`](https://cs.chromium.org/chromium/src/base/task/post_task.h), instantiate a
 [`base::test::ScopedTaskEnvironment`](https://cs.chromium.org/chromium/src/base/test/scoped_task_environment.h)
 for the scope of the test.
+
+Tests can run the ScopedTaskEnvironment's message pump using a RunLoop, which
+can be made to run until Quit, or to execute ready-to-run tasks and immediately
+return.
+
+ScopedTaskEnvironment configures RunLoop::Run() to LOG(FATAL) if it hasn't been
+explicitly quit after TestTimeouts::action_timeout(). This is preferable to
+having the test hang if the code under test fails to trigger the RunLoop to
+quit. The timeout can be overridden with ScopedRunTimeoutForTest.
 
 ```cpp
 class MyTest : public testing::Test {

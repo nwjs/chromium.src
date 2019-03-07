@@ -4,9 +4,9 @@
 
 package org.chromium.base.task;
 
-import java.util.Arrays;
+import android.support.annotation.Nullable;
 
-import javax.annotation.Nullable;
+import java.util.Arrays;
 
 /**
  * TaskTraits are metadata that influence how the TaskSecheduler deals with that task.
@@ -55,6 +55,13 @@ public class TaskTraits {
 
     protected void setExtensionData(byte[] extensionData) {
         mExtensionData = extensionData;
+    }
+
+    /**
+     * @return true if this task is using some TaskTraits extension.
+     */
+    public boolean hasExtension() {
+        return mExtensionId != INVALID_EXTENSION_ID;
     }
 
     @Override

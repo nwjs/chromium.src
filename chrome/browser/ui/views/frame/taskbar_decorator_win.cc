@@ -15,7 +15,14 @@
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "skia/ext/image_operations.h"
 #include "skia/ext/platform_canvas.h"
+#include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkCanvas.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "third_party/skia/include/core/SkFont.h"
+#include "third_party/skia/include/core/SkImageEncoder.h"
+#include "third_party/skia/include/core/SkImageInfo.h"
 #include "third_party/skia/include/core/SkRRect.h"
+#include "third_party/skia/include/core/SkStream.h"
 #include "ui/gfx/icon_util.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/win/hwnd_util.h"
@@ -43,7 +50,7 @@ void SetOverlayIcon(HWND hwnd, std::unique_ptr<SkBitmap> bitmap) {
     return;
 
   base::win::ScopedGDIObject<HICON> icon;
-  if (bitmap.get()) {
+  if (bitmap) {
     DCHECK_GE(bitmap.get()->width(), bitmap.get()->height());
 
     // Maintain aspect ratio on resize, but prefer more square.
@@ -82,7 +89,66 @@ void SetOverlayIcon(HWND hwnd, std::unique_ptr<SkBitmap> bitmap) {
   taskbar->SetOverlayIcon(hwnd, icon.get(), L"");
 }
 
+void PostSetOverlayIcon(HWND hwnd, std::unique_ptr<SkBitmap> bitmap) {
+  base::CreateCOMSTATaskRunnerWithTraits(
+      {base::MayBlock(), base::TaskPriority::USER_VISIBLE})
+      ->PostTask(FROM_HERE,
+                 base::BindOnce(&SetOverlayIcon, hwnd, base::Passed(&bitmap)));
+}
+
 }  // namespace
+
+void DrawTaskbarDecorationString(gfx::NativeWindow window,
+                                 const std::string& content) {
+  HWND hwnd = views::HWNDForNativeWindow(window);
+
+  // This is the color used by the Windows 10 Badge API, for platform
+  // consistency.
+  constexpr int kBackgroundColor = SkColorSetRGB(0x26, 0x25, 0x2D);
+  constexpr int kForegroundColor = SK_ColorWHITE;
+  constexpr int kRadius = kOverlayIconSize / 2;
+  // The minimum gap to have between our content and the edge of the badge.
+  constexpr int kMinMargin = 3;
+  // The amount of space we have to render the icon.
+  constexpr int kMaxBounds = kOverlayIconSize - 2 * kMinMargin;
+  constexpr int kMaxTextSize = 24;  // Max size for our text.
+  constexpr int kMinTextSize = 7;   // Min size for our text.
+
+  auto badge = std::make_unique<SkBitmap>();
+  badge->allocN32Pixels(kOverlayIconSize, kOverlayIconSize);
+
+  SkCanvas canvas(*badge.get());
+
+  SkPaint paint;
+  paint.setAntiAlias(true);
+  paint.setColor(kBackgroundColor);
+
+  canvas.clear(SK_ColorTRANSPARENT);
+  canvas.drawCircle(kRadius, kRadius, kRadius, paint);
+
+  paint.reset();
+  paint.setColor(kForegroundColor);
+
+  SkFont font;
+
+  SkRect bounds;
+  int text_size = kMaxTextSize;
+  // Find the largest |text_size| larger than |kMinTextSize| in which
+  // |content| fits into our 16x16px icon, with margins.
+  do {
+    font.setSize(text_size--);
+    font.measureText(content.c_str(), content.size(), kUTF8_SkTextEncoding,
+                     &bounds);
+  } while (text_size >= kMinTextSize &&
+           (bounds.width() > kMaxBounds || bounds.height() > kMaxBounds));
+
+  canvas.drawSimpleText(content.c_str(), content.size(), kUTF8_SkTextEncoding,
+                        kRadius - bounds.width() / 2 - bounds.x(),
+                        kRadius - bounds.height() / 2 - bounds.y(), font,
+                        paint);
+
+  PostSetOverlayIcon(hwnd, std::move(badge));
+}
 
 void DrawTaskbarDecoration(gfx::NativeWindow window, const gfx::Image* image) {
   HWND hwnd = views::HWNDForNativeWindow(window);
@@ -99,10 +165,8 @@ void DrawTaskbarDecoration(gfx::NativeWindow window, const gfx::Image* image) {
     bitmap.reset(new SkBitmap(
         profiles::GetAvatarIconAsSquare(*image->ToSkBitmap(), 1)));
   }
-  base::CreateCOMSTATaskRunnerWithTraits(
-      {base::MayBlock(), base::TaskPriority::USER_VISIBLE})
-      ->PostTask(FROM_HERE,
-                 base::Bind(&SetOverlayIcon, hwnd, base::Passed(&bitmap)));
+
+  PostSetOverlayIcon(hwnd, std::move(bitmap));
 }
 
 }  // namespace chrome

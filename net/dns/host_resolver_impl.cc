@@ -23,7 +23,6 @@
 #include <memory>
 #include <unordered_set>
 #include <utility>
-#include <vector>
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -33,6 +32,7 @@
 #include "base/containers/linked_list.h"
 #include "base/debug/debugger.h"
 #include "base/debug/stack_trace.h"
+#include "base/logging.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/field_trial.h"
@@ -40,6 +40,8 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
+#include "base/numerics/checked_math.h"
+#include "base/rand_util.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -65,10 +67,12 @@
 #include "net/dns/dns_response.h"
 #include "net/dns/dns_transaction.h"
 #include "net/dns/dns_util.h"
+#include "net/dns/host_resolver_mdns_listener_impl.h"
 #include "net/dns/host_resolver_mdns_task.h"
 #include "net/dns/host_resolver_proc.h"
 #include "net/dns/mdns_client.h"
 #include "net/dns/public/dns_protocol.h"
+#include "net/dns/record_parsed.h"
 #include "net/log/net_log.h"
 #include "net/log/net_log_capture_mode.h"
 #include "net/log/net_log_event_type.h"
@@ -152,16 +156,6 @@ bool ContainsIcannNameCollisionIp(const AddressList& addr_list) {
   return false;
 }
 
-void UmaAsyncDnsResolveStatus(DnsResolveStatus result) {
-  UMA_HISTOGRAM_ENUMERATION("AsyncDNS.ResolveStatus",
-                            result,
-                            RESOLVE_STATUS_MAX);
-}
-
-bool ResemblesNetBIOSName(const std::string& hostname) {
-  return (hostname.size() < 16) && (hostname.find('.') == std::string::npos);
-}
-
 // True if |hostname| ends with either ".local" or ".local.".
 bool ResemblesMulticastDNSName(const std::string& hostname) {
   DCHECK(!hostname.empty());
@@ -175,38 +169,6 @@ bool ResemblesMulticastDNSName(const std::string& hostname) {
   return hostname.size() > kSuffixLenTrimmed &&
       !hostname.compare(hostname.size() - kSuffixLenTrimmed, kSuffixLenTrimmed,
                         kSuffix, kSuffixLenTrimmed);
-}
-
-// A macro to simplify code and readability.
-#define DNS_HISTOGRAM_BY_PRIORITY(basename, priority, time)        \
-  do {                                                             \
-    switch (priority) {                                            \
-      case HIGHEST:                                                \
-        UMA_HISTOGRAM_LONG_TIMES_100(basename ".HIGHEST", time);   \
-        break;                                                     \
-      case MEDIUM:                                                 \
-        UMA_HISTOGRAM_LONG_TIMES_100(basename ".MEDIUM", time);    \
-        break;                                                     \
-      case LOW:                                                    \
-        UMA_HISTOGRAM_LONG_TIMES_100(basename ".LOW", time);       \
-        break;                                                     \
-      case LOWEST:                                                 \
-        UMA_HISTOGRAM_LONG_TIMES_100(basename ".LOWEST", time);    \
-        break;                                                     \
-      case IDLE:                                                   \
-        UMA_HISTOGRAM_LONG_TIMES_100(basename ".IDLE", time);      \
-        break;                                                     \
-      case THROTTLED:                                              \
-        UMA_HISTOGRAM_LONG_TIMES_100(basename ".THROTTLED", time); \
-        break;                                                     \
-    }                                                              \
-    UMA_HISTOGRAM_LONG_TIMES_100(basename, time);                  \
-  } while (0)
-
-void RecordTTL(base::TimeDelta ttl) {
-  UMA_HISTOGRAM_CUSTOM_TIMES("AsyncDNS.TTL", ttl,
-                             base::TimeDelta::FromSeconds(1),
-                             base::TimeDelta::FromDays(1), 100);
 }
 
 bool ConfigureAsyncDnsNoFallbackFieldTrial() {
@@ -235,42 +197,6 @@ const base::FeatureParam<base::TaskPriority> priority_mode{
     base::TaskPriority::USER_VISIBLE, &prio_modes};
 
 //-----------------------------------------------------------------------------
-
-// Creates a copy of |results| with the port of all address and hostname values
-// set to |port| if the current port is 0. Preserves any non-zero ports.
-HostCache::Entry SetPortOnResults(HostCache::Entry results, uint16_t port) {
-  if (results.addresses() &&
-      std::any_of(results.addresses().value().begin(),
-                  results.addresses().value().end(),
-                  [](const IPEndPoint& e) { return e.port() == 0; })) {
-    AddressList addresses_with_port;
-    addresses_with_port.set_canonical_name(
-        results.addresses().value().canonical_name());
-    for (const IPEndPoint& endpoint : results.addresses().value()) {
-      if (endpoint.port() == 0)
-        addresses_with_port.push_back(IPEndPoint(endpoint.address(), port));
-      else
-        addresses_with_port.push_back(endpoint);
-    }
-    results.set_addresses(addresses_with_port);
-  }
-
-  if (results.hostnames() &&
-      std::any_of(results.hostnames().value().begin(),
-                  results.hostnames().value().end(),
-                  [](const HostPortPair& h) { return h.port() == 0; })) {
-    std::vector<HostPortPair> hostnames_with_port;
-    for (const HostPortPair& hostname : results.hostnames().value()) {
-      if (hostname.port() == 0)
-        hostnames_with_port.push_back(HostPortPair(hostname.host(), port));
-      else
-        hostnames_with_port.push_back(hostname);
-    }
-    results.set_hostnames(std::move(hostnames_with_port));
-  }
-
-  return results;
-}
 
 // Returns true if |addresses| contains only IPv4 loopback addresses.
 bool IsAllIPv4Loopback(const AddressList& addresses) {
@@ -309,7 +235,7 @@ bool HaveOnlyLoopbackAddresses() {
   struct ifaddrs* interface_addr = NULL;
   int rv = getifaddrs(&interface_addr);
   if (rv != 0) {
-    DVLOG(1) << "getifaddrs() failed with errno = " << errno;
+    DVPLOG(1) << "getifaddrs() failed";
     return false;
   }
 
@@ -1125,6 +1051,12 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
   }
 
  private:
+  static const HostCache::Entry& GetMalformedResponseResult() {
+    static const base::NoDestructor<HostCache::Entry> kMalformedResponseResult(
+        ERR_DNS_MALFORMED_RESPONSE, HostCache::Entry::SOURCE_DNS);
+    return *kMalformedResponseResult;
+  }
+
   std::unique_ptr<DnsTransaction> CreateTransaction(
       DnsQueryType dns_query_type) {
     DCHECK_NE(DnsQueryType::UNSPECIFIED, dns_query_type);
@@ -1146,23 +1078,10 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
                              int net_error,
                              const DnsResponse* response) {
     DCHECK(transaction);
-    base::TimeDelta duration = tick_clock_->NowTicks() - start_time;
     if (net_error != OK && !(net_error == ERR_NAME_NOT_RESOLVED && response &&
                              response->IsValid())) {
-      UMA_HISTOGRAM_LONG_TIMES_100("AsyncDNS.TransactionFailure", duration);
       OnFailure(net_error, DnsResponse::DNS_PARSE_OK, base::nullopt);
       return;
-    }
-
-    UMA_HISTOGRAM_LONG_TIMES_100("AsyncDNS.TransactionSuccess", duration);
-    switch (transaction->GetType()) {
-      case dns_protocol::kTypeA:
-        UMA_HISTOGRAM_LONG_TIMES_100("AsyncDNS.TransactionSuccess_A", duration);
-        break;
-      case dns_protocol::kTypeAAAA:
-        UMA_HISTOGRAM_LONG_TIMES_100("AsyncDNS.TransactionSuccess_AAAA",
-                                     duration);
-        break;
     }
 
     DnsResponse::Result parse_result = DnsResponse::DNS_PARSE_RESULT_MAX;
@@ -1175,6 +1094,15 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
       case DnsQueryType::A:
       case DnsQueryType::AAAA:
         parse_result = ParseAddressDnsResponse(response, &results);
+        break;
+      case DnsQueryType::TXT:
+        parse_result = ParseTxtDnsResponse(response, &results);
+        break;
+      case DnsQueryType::PTR:
+        parse_result = ParsePointerDnsResponse(response, &results);
+        break;
+      case DnsQueryType::SRV:
+        parse_result = ParseServiceDnsResponse(response, &results);
         break;
     }
     DCHECK_LT(parse_result, DnsResponse::DNS_PARSE_RESULT_MAX);
@@ -1241,12 +1169,9 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
     base::TimeDelta ttl;
     DnsResponse::Result parse_result =
         response->ParseToAddressList(&addresses, &ttl);
-    UMA_HISTOGRAM_ENUMERATION("AsyncDNS.ParseToAddressList", parse_result,
-                              DnsResponse::DNS_PARSE_RESULT_MAX);
 
     if (parse_result != DnsResponse::DNS_PARSE_OK) {
-      *out_results = HostCache::Entry(ERR_DNS_MALFORMED_RESPONSE, AddressList(),
-                                      HostCache::Entry::SOURCE_DNS);
+      *out_results = GetMalformedResponseResult();
     } else if (addresses.empty()) {
       *out_results = HostCache::Entry(ERR_NAME_NOT_RESOLVED, AddressList(),
                                       HostCache::Entry::SOURCE_DNS, ttl);
@@ -1257,6 +1182,186 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
     return parse_result;
   }
 
+  DnsResponse::Result ParseTxtDnsResponse(const DnsResponse* response,
+                                          HostCache::Entry* out_results) {
+    std::vector<std::unique_ptr<const RecordParsed>> records;
+    base::Optional<base::TimeDelta> response_ttl;
+    DnsResponse::Result parse_result = ParseAndFilterResponseRecords(
+        response, dns_protocol::kTypeTXT, &records, &response_ttl);
+
+    if (parse_result != DnsResponse::DNS_PARSE_OK) {
+      *out_results = GetMalformedResponseResult();
+      return parse_result;
+    }
+
+    std::vector<std::string> text_records;
+    for (const auto& record : records) {
+      const TxtRecordRdata* rdata = record->rdata<net::TxtRecordRdata>();
+      text_records.insert(text_records.end(), rdata->texts().begin(),
+                          rdata->texts().end());
+    }
+
+    *out_results = HostCache::Entry(
+        text_records.empty() ? ERR_NAME_NOT_RESOLVED : OK,
+        std::move(text_records), HostCache::Entry::SOURCE_DNS, response_ttl);
+    return DnsResponse::DNS_PARSE_OK;
+  }
+
+  DnsResponse::Result ParsePointerDnsResponse(const DnsResponse* response,
+                                              HostCache::Entry* out_results) {
+    std::vector<std::unique_ptr<const RecordParsed>> records;
+    base::Optional<base::TimeDelta> response_ttl;
+    DnsResponse::Result parse_result = ParseAndFilterResponseRecords(
+        response, dns_protocol::kTypePTR, &records, &response_ttl);
+
+    if (parse_result != DnsResponse::DNS_PARSE_OK) {
+      *out_results = GetMalformedResponseResult();
+      return parse_result;
+    }
+
+    std::vector<HostPortPair> pointers;
+    for (const auto& record : records) {
+      const PtrRecordRdata* rdata = record->rdata<net::PtrRecordRdata>();
+      std::string pointer = rdata->ptrdomain();
+
+      // Skip pointers to the root domain.
+      if (!pointer.empty())
+        pointers.emplace_back(std::move(pointer), 0);
+    }
+
+    *out_results = HostCache::Entry(
+        pointers.empty() ? ERR_NAME_NOT_RESOLVED : OK, std::move(pointers),
+        HostCache::Entry::SOURCE_DNS, response_ttl);
+    return DnsResponse::DNS_PARSE_OK;
+  }
+
+  DnsResponse::Result ParseServiceDnsResponse(const DnsResponse* response,
+                                              HostCache::Entry* out_results) {
+    std::vector<std::unique_ptr<const RecordParsed>> records;
+    base::Optional<base::TimeDelta> response_ttl;
+    DnsResponse::Result parse_result = ParseAndFilterResponseRecords(
+        response, dns_protocol::kTypeSRV, &records, &response_ttl);
+
+    if (parse_result != DnsResponse::DNS_PARSE_OK) {
+      *out_results = GetMalformedResponseResult();
+      return parse_result;
+    }
+
+    std::vector<const SrvRecordRdata*> fitered_rdatas;
+    for (const auto& record : records) {
+      const SrvRecordRdata* rdata = record->rdata<net::SrvRecordRdata>();
+
+      // Skip pointers to the root domain.
+      if (!rdata->target().empty())
+        fitered_rdatas.push_back(rdata);
+    }
+
+    std::vector<HostPortPair> ordered_service_targets =
+        SortServiceTargets(fitered_rdatas);
+
+    *out_results = HostCache::Entry(
+        ordered_service_targets.empty() ? ERR_NAME_NOT_RESOLVED : OK,
+        std::move(ordered_service_targets), HostCache::Entry::SOURCE_DNS,
+        response_ttl);
+    return DnsResponse::DNS_PARSE_OK;
+  }
+
+  // Sort service targets per RFC2782.  In summary, sort first by |priority|,
+  // lowest first.  For targets with the same priority, secondary sort randomly
+  // using |weight| with higher weighted objects more likely to go first.
+  std::vector<HostPortPair> SortServiceTargets(
+      const std::vector<const SrvRecordRdata*>& rdatas) {
+    std::map<uint16_t, std::unordered_set<const SrvRecordRdata*>>
+        ordered_by_priority;
+    for (const SrvRecordRdata* rdata : rdatas)
+      ordered_by_priority[rdata->priority()].insert(rdata);
+
+    std::vector<HostPortPair> sorted_targets;
+    for (auto& priority : ordered_by_priority) {
+      // With (num results) <= UINT16_MAX (and in practice, much less) and
+      // (weight per result) <= UINT16_MAX, then it should be the case that
+      // (total weight) <= UINT32_MAX, but use CheckedNumeric for extra safety.
+      auto total_weight = base::MakeCheckedNum<uint32_t>(0);
+      for (const SrvRecordRdata* rdata : priority.second)
+        total_weight += rdata->weight();
+
+      // Add 1 to total weight because, to deal with 0-weight targets, we want
+      // our random selection to be inclusive [0, total].
+      total_weight++;
+
+      // Order by weighted random. Make such random selections, removing from
+      // |priority.second| until |priority.second| only contains 1 rdata.
+      while (priority.second.size() >= 2) {
+        uint32_t random_selection =
+            base::RandGenerator(total_weight.ValueOrDie());
+        const SrvRecordRdata* selected_rdata = nullptr;
+        for (const SrvRecordRdata* rdata : priority.second) {
+          // >= to always select the first target on |random_selection| == 0,
+          // even if its weight is 0.
+          if (rdata->weight() >= random_selection) {
+            selected_rdata = rdata;
+            break;
+          }
+          random_selection -= rdata->weight();
+        }
+
+        DCHECK(selected_rdata);
+        sorted_targets.emplace_back(selected_rdata->target(),
+                                    selected_rdata->port());
+        total_weight -= selected_rdata->weight();
+        size_t removed = priority.second.erase(selected_rdata);
+        DCHECK_EQ(1u, removed);
+      }
+
+      DCHECK_EQ(1u, priority.second.size());
+      DCHECK_EQ((total_weight - 1).ValueOrDie(),
+                (*priority.second.begin())->weight());
+      const SrvRecordRdata* rdata = *priority.second.begin();
+      sorted_targets.emplace_back(rdata->target(), rdata->port());
+    }
+
+    return sorted_targets;
+  }
+
+  DnsResponse::Result ParseAndFilterResponseRecords(
+      const DnsResponse* response,
+      uint16_t filter_dns_type,
+      std::vector<std::unique_ptr<const RecordParsed>>* out_records,
+      base::Optional<base::TimeDelta>* out_response_ttl) {
+    out_records->clear();
+    out_response_ttl->reset();
+
+    DnsRecordParser parser = response->Parser();
+
+    // Expected to be validated by DnsTransaction.
+    DCHECK_EQ(filter_dns_type, response->qtype());
+
+    for (unsigned i = 0; i < response->answer_count(); ++i) {
+      std::unique_ptr<const RecordParsed> record =
+          RecordParsed::CreateFrom(&parser, base::Time::Now());
+
+      if (!record)
+        return DnsResponse::DNS_MALFORMED_RESPONSE;
+      if (!base::EqualsCaseInsensitiveASCII(record->name(),
+                                            response->GetDottedName())) {
+        return DnsResponse::DNS_NAME_MISMATCH;
+      }
+
+      // Ignore any records that are not class Internet and type
+      // |filter_dns_type|.
+      if (record->klass() == dns_protocol::kClassIN &&
+          record->type() == filter_dns_type) {
+        base::TimeDelta ttl = base::TimeDelta::FromSeconds(record->ttl());
+        *out_response_ttl =
+            std::min(out_response_ttl->value_or(base::TimeDelta::Max()), ttl);
+
+        out_records->push_back(std::move(record));
+      }
+    }
+
+    return DnsResponse::DNS_PARSE_OK;
+  }
+
   void OnSortComplete(base::TimeTicks sort_start_time,
                       HostCache::Entry results,
                       bool success,
@@ -1264,15 +1369,10 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
     results.set_addresses(addr_list);
 
     if (!success) {
-      UMA_HISTOGRAM_LONG_TIMES_100("AsyncDNS.SortFailure",
-                                   tick_clock_->NowTicks() - sort_start_time);
       OnFailure(ERR_DNS_SORT_ERROR, DnsResponse::DNS_PARSE_OK,
                 results.GetOptionalTtl());
       return;
     }
-
-    UMA_HISTOGRAM_LONG_TIMES_100("AsyncDNS.SortSuccess",
-                                 tick_clock_->NowTicks() - sort_start_time);
 
     // AddressSorter prunes unusable destinations.
     if (addr_list.empty() &&
@@ -1605,10 +1705,23 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
 
     switch (key_.host_resolver_source) {
       case HostResolverSource::ANY:
-        if (!ResemblesMulticastDNSName(key_.hostname)) {
-          StartDnsTask(true /* allow_fallback_resolution */);
-        } else {
+        // Force address queries with canonname to use ProcTask to counter poor
+        // CNAME support in DnsTask. See https://crbug.com/872665
+        //
+        // Otherwise, default to DnsTask (with allowed fallback to ProcTask for
+        // address queries). But if hostname appears to be an MDNS name (ends in
+        // *.local), go with ProcTask for address queries and MdnsTask for non-
+        // address queries.
+        if ((key_.host_resolver_flags & HOST_RESOLVER_CANONNAME) &&
+            IsAddressType(key_.dns_query_type)) {
           StartProcTask();
+        } else if (!ResemblesMulticastDNSName(key_.hostname)) {
+          StartDnsTask(IsAddressType(
+              key_.dns_query_type) /* allow_fallback_resolution */);
+        } else if (IsAddressType(key_.dns_query_type)) {
+          StartProcTask();
+        } else {
+          StartMdnsTask();
         }
         break;
       case HostResolverSource::SYSTEM:
@@ -1631,6 +1744,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
   // PrioritizedDispatcher with tighter limits.
   void StartProcTask() {
     DCHECK(!is_running());
+    DCHECK(IsAddressType(key_.dns_query_type));
+
     proc_task_ = std::make_unique<ProcTask>(
         key_, resolver_->proc_params_,
         base::BindOnce(&Job::OnProcTaskComplete, base::Unretained(this),
@@ -1650,21 +1765,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
 
     if (dns_task_error_ != OK) {
       // This ProcTask was a fallback resolution after a failed DnsTask.
-      base::TimeDelta duration = tick_clock_->NowTicks() - start_time;
       if (net_error == OK) {
-        UMA_HISTOGRAM_LONG_TIMES_100("AsyncDNS.FallbackSuccess", duration);
-        if ((dns_task_error_ == ERR_NAME_NOT_RESOLVED) &&
-            ResemblesNetBIOSName(key_.hostname)) {
-          UmaAsyncDnsResolveStatus(RESOLVE_STATUS_SUSPECT_NETBIOS);
-        } else {
-          UmaAsyncDnsResolveStatus(RESOLVE_STATUS_PROC_SUCCESS);
-        }
-        base::UmaHistogramSparse("Net.DNS.DnsTask.Errors",
-                                 std::abs(dns_task_error_));
         resolver_->OnFallbackResolve(dns_task_error_);
-      } else {
-        UMA_HISTOGRAM_LONG_TIMES_100("AsyncDNS.FallbackFail", duration);
-        UmaAsyncDnsResolveStatus(RESOLVE_STATUS_FAIL);
       }
     }
 
@@ -1757,7 +1859,6 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
       KillDnsTask();
       StartProcTask();
     } else {
-      UmaAsyncDnsResolveStatus(RESOLVE_STATUS_FAIL);
       base::TimeDelta ttl = failure_results.has_ttl()
                                 ? failure_results.ttl()
                                 : base::TimeDelta::FromSeconds(0);
@@ -1778,9 +1879,6 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
     }
 
     UMA_HISTOGRAM_LONG_TIMES_100("Net.DNS.DnsTask.SuccessTime", duration);
-
-    UmaAsyncDnsResolveStatus(RESOLVE_STATUS_DNS_SUCCESS);
-    RecordTTL(results.ttl());
 
     resolver_->OnDnsTaskResolve();
 
@@ -1970,13 +2068,6 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
 
     DCHECK(!requests_.empty());
 
-    if (results.error() == OK || results.error() == ERR_ICANN_NAME_COLLISION) {
-      // Record this histogram here, when we know the system has a valid DNS
-      // configuration.
-      UMA_HISTOGRAM_BOOLEAN("AsyncDNS.HaveDnsConfig",
-                            resolver_->received_dns_config_);
-    }
-
     bool did_complete = (results.error() != ERR_NETWORK_CHANGED) &&
                         (results.error() != ERR_HOST_RESOLVER_QUEUE_TOO_LARGE);
     if (did_complete && allow_cache)
@@ -1999,7 +2090,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
             tick_clock_->NowTicks() - req->request_time());
       }
       if (results.error() == OK && !req->parameters().is_speculative) {
-        req->set_results(SetPortOnResults(results, req->request_host().port()));
+        req->set_results(
+            results.CopyWithDefaultPort(req->request_host().port()));
       }
       req->OnJobCompleted(this, results.error());
 
@@ -2176,8 +2268,6 @@ void HostResolverImpl::SetDnsClient(std::unique_ptr<DnsClient> dns_client) {
       num_dns_failures_ < kMaximumDnsFailures) {
     dns_client_->SetConfig(GetBaseDnsConfig(false));
     num_dns_failures_ = 0;
-    if (dns_client_->GetConfig())
-      UMA_HISTOGRAM_BOOLEAN("AsyncDNS.DnsClientEnabled", true);
   }
 
   AbortDnsTasks(ERR_NETWORK_CHANGED, false /* fallback_only */);
@@ -2282,6 +2372,22 @@ int HostResolverImpl::ResolveStaleFromCache(
 
   LogFinishRequest(source_net_log, results.error());
   return results.error();
+}
+
+std::unique_ptr<HostResolver::MdnsListener>
+HostResolverImpl::CreateMdnsListener(const HostPortPair& host,
+                                     DnsQueryType query_type) {
+  DCHECK_NE(DnsQueryType::UNSPECIFIED, query_type);
+
+  auto listener =
+      std::make_unique<HostResolverMdnsListenerImpl>(host, query_type);
+
+  MDnsClient* client = GetOrCreateMdnsClient();
+  std::unique_ptr<net::MDnsListener> inner_listener = client->CreateListener(
+      DnsQueryTypeToQtype(query_type), host.host(), listener.get());
+
+  listener->set_inner_listener(std::move(inner_listener));
+  return listener;
 }
 
 void HostResolverImpl::SetDnsClientEnabled(bool enabled) {
@@ -2433,7 +2539,7 @@ int HostResolverImpl::Resolve(RequestImpl* request) {
       nullptr /* stale_info */, request->source_net_log(), &key);
   if (results.error() == OK && !request->parameters().is_speculative) {
     request->set_results(
-        SetPortOnResults(results, request->request_host().port()));
+        results.CopyWithDefaultPort(request->request_host().port()));
   }
   if (results.error() != ERR_DNS_CACHE_MISS) {
     LogFinishRequest(request->source_net_log(), results.error());
@@ -2591,11 +2697,6 @@ base::Optional<HostCache::Entry> HostResolverImpl::ServeFromCache(
     cache_entry = cache_->Lookup(key, tick_clock_->NowTicks());
   if (!cache_entry)
     return base::nullopt;
-
-  if (cache_entry->error() == OK) {
-    if (cache_entry->has_ttl())
-      RecordTTL(cache_entry->ttl());
-  }
 
   return *cache_entry;
 }
@@ -2973,8 +3074,6 @@ void HostResolverImpl::UpdateDNSConfig(bool config_changed) {
     DCHECK(config_changed || !dns_client_->GetConfig() ||
            dns_client_->GetConfig()->Equals(dns_config));
     dns_client_->SetConfig(dns_config);
-    if (dns_client_->GetConfig())
-      UMA_HISTOGRAM_BOOLEAN("AsyncDNS.DnsClientEnabled", true);
   }
   use_proctask_by_default_ = false;
 
@@ -3031,10 +3130,6 @@ void HostResolverImpl::OnFallbackResolve(int dns_task_error) {
 
   // Fallback all fallback-allowed DnsTasks to ProcTasks.
   AbortDnsTasks(ERR_FAILED, true /* fallback_only */);
-
-  UMA_HISTOGRAM_BOOLEAN("AsyncDNS.DnsClientEnabled", false);
-  base::UmaHistogramSparse("AsyncDNS.DnsClientDisabledReason",
-                           std::abs(dns_task_error));
 }
 
 MDnsClient* HostResolverImpl::GetOrCreateMdnsClient() {

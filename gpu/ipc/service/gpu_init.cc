@@ -23,7 +23,7 @@
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/switches.h"
-#include "ui/gl/gl_features.h"
+#include "ui/gl/buildflags.h"
 #include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_surface.h"
 #include "ui/gl/gl_switches.h"
@@ -517,6 +517,10 @@ void GpuInit::AdjustInfoToSwiftShader() {
   gpu_feature_info_for_hardware_gpu_ = gpu_feature_info_;
   gpu_feature_info_ = ComputeGpuFeatureInfoForSwiftShader();
   CollectContextGraphicsInfo(&gpu_info_, gpu_preferences_);
+}
+
+scoped_refptr<gl::GLSurface> GpuInit::TakeDefaultOffscreenSurface() {
+  return std::move(default_offscreen_surface_);
 }
 
 }  // namespace gpu

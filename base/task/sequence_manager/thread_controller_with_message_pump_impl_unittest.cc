@@ -7,6 +7,7 @@
 #include "base/bind_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/single_thread_task_runner.h"
+#include "base/test/bind_test_util.h"
 #include "base/test/mock_callback.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -153,11 +154,16 @@ TEST_F(ThreadControllerWithMessagePumpTest, ScheduleDelayedWork) {
   MockCallback<OnceClosure> task3;
   task_source_.AddTask(PendingTask(FROM_HERE, task3.Get(), Seconds(20)));
 
-  // Call a no-op DoWork. Expect that it doesn't do any work, but
-  // schedules a delayed wake-up appropriately.
+  // Call a no-op DoWork. Expect that it doesn't do any work.
   clock_.SetNowTicks(Seconds(5));
-  EXPECT_CALL(*message_pump_, ScheduleDelayedWork(Seconds(10)));
+  EXPECT_CALL(*message_pump_, ScheduleDelayedWork(_)).Times(0);
   EXPECT_FALSE(thread_controller_.DoWork());
+  testing::Mock::VerifyAndClearExpectations(message_pump_);
+
+  // DoDelayedWork is always called after DoWork. Expect that it doesn't do
+  // any work, but schedules a delayed wake-up appropriately.
+  EXPECT_FALSE(thread_controller_.DoDelayedWork(&next_run_time));
+  EXPECT_EQ(next_run_time, Seconds(10));
   testing::Mock::VerifyAndClearExpectations(message_pump_);
 
   // Call DoDelayedWork after the expiration of the delay.
@@ -165,6 +171,8 @@ TEST_F(ThreadControllerWithMessagePumpTest, ScheduleDelayedWork) {
   // TimeTicks() as we have immediate work to do.
   clock_.SetNowTicks(Seconds(11));
   EXPECT_CALL(task1, Run()).Times(1);
+  // There's no pending DoWork so a ScheduleWork gets called.
+  EXPECT_CALL(*message_pump_, ScheduleWork());
   EXPECT_TRUE(thread_controller_.DoDelayedWork(&next_run_time));
   EXPECT_EQ(next_run_time, TimeTicks());
   testing::Mock::VerifyAndClearExpectations(message_pump_);
@@ -173,10 +181,14 @@ TEST_F(ThreadControllerWithMessagePumpTest, ScheduleDelayedWork) {
   // Call DoWork immediately after the previous call. Expect a new task
   // to be run.
   EXPECT_CALL(task2, Run()).Times(1);
-  EXPECT_CALL(*message_pump_, ScheduleDelayedWork(Seconds(20)));
   EXPECT_TRUE(thread_controller_.DoWork());
   testing::Mock::VerifyAndClearExpectations(message_pump_);
   testing::Mock::VerifyAndClearExpectations(&task2);
+
+  // DoDelayedWork is always called after DoWork.
+  EXPECT_FALSE(thread_controller_.DoDelayedWork(&next_run_time));
+  EXPECT_EQ(next_run_time, Seconds(20));
+  testing::Mock::VerifyAndClearExpectations(message_pump_);
 
   // Call DoDelayedWork for the last task and expect to be told
   // about the lack of further delayed work (next run time being TimeTicks()).
@@ -206,7 +218,16 @@ TEST_F(ThreadControllerWithMessagePumpTest, DelayedWork_CapAtOneDay) {
   MockCallback<OnceClosure> task1;
   task_source_.AddTask(PendingTask(FROM_HERE, task1.Get(), Days(10)));
 
-  EXPECT_CALL(*message_pump_, ScheduleDelayedWork(Days(1)));
+  TimeTicks next_run_time;
+  EXPECT_FALSE(thread_controller_.DoDelayedWork(&next_run_time));
+  EXPECT_EQ(next_run_time, Days(1));
+}
+
+TEST_F(ThreadControllerWithMessagePumpTest, DoWorkDoesntScheduleDelayedWork) {
+  MockCallback<OnceClosure> task1;
+  task_source_.AddTask(PendingTask(FROM_HERE, task1.Get(), Seconds(10)));
+
+  EXPECT_CALL(*message_pump_, ScheduleDelayedWork(_)).Times(0);
   EXPECT_FALSE(thread_controller_.DoWork());
 }
 
@@ -349,6 +370,25 @@ TEST_F(ThreadControllerWithMessagePumpTest,
   testing::Mock::VerifyAndClearExpectations(message_pump_);
 }
 
+TEST_F(ThreadControllerWithMessagePumpTest, ScheduleWorkFromDelayedTask) {
+  ThreadTaskRunnerHandle handle(MakeRefCounted<FakeTaskRunner>());
+
+  EXPECT_CALL(*message_pump_, Run(_))
+      .WillOnce(Invoke([](MessagePump::Delegate* delegate) {
+        base::TimeTicks run_time;
+        delegate->DoDelayedWork(&run_time);
+      }));
+  EXPECT_CALL(*message_pump_, ScheduleWork());
+
+  task_source_.AddTask(PendingTask(FROM_HERE, base::BindLambdaForTesting([&]() {
+                                     thread_controller_.ScheduleWork();
+                                   }),
+                                   TimeTicks()));
+  RunLoop().Run();
+
+  testing::Mock::VerifyAndClearExpectations(message_pump_);
+}
+
 TEST_F(ThreadControllerWithMessagePumpTest, SetDefaultTaskRunner) {
   scoped_refptr<SingleThreadTaskRunner> task_runner1 =
       MakeRefCounted<FakeTaskRunner>();
@@ -380,49 +420,65 @@ TEST_F(ThreadControllerWithMessagePumpTest, EnsureWorkScheduled) {
   testing::Mock::VerifyAndClearExpectations(message_pump_);
 }
 
-TEST_F(ThreadControllerWithMessagePumpTest, NoWorkAfterQuit) {
-  // Ensure that multiple DoWork calls are no-ops after Quit() is called
-  // in the current RunLoop.
-
+TEST_F(ThreadControllerWithMessagePumpTest, WorkBatching) {
   ThreadTaskRunnerHandle handle(MakeRefCounted<FakeTaskRunner>());
 
-  std::vector<std::string> log;
+  const int kBatchSize = 5;
+  thread_controller_.SetWorkBatchSize(kBatchSize);
 
+  int task_count = 0;
   EXPECT_CALL(*message_pump_, Run(_))
-      .WillOnce(Invoke([this](MessagePump::Delegate* delegate) {
-        EXPECT_EQ(delegate, &thread_controller_);
-        base::TimeTicks next_time;
+      .WillOnce(Invoke([&](MessagePump::Delegate* delegate) {
         EXPECT_TRUE(delegate->DoWork());
-        EXPECT_FALSE(delegate->DoDelayedWork(&next_time));
-        // We still have work to do, but subsequent calls to DoWork should
-        // do nothing as we're in the process of quitting the current loop.
-        EXPECT_FALSE(delegate->DoWork());
-        EXPECT_FALSE(delegate->DoDelayedWork(&next_time));
-        EXPECT_FALSE(delegate->DoWork());
-        EXPECT_FALSE(delegate->DoDelayedWork(&next_time));
+        EXPECT_EQ(5, task_count);
+      }));
+
+  for (int i = 0; i < kBatchSize; i++) {
+    task_source_.AddTask(PendingTask(
+        FROM_HERE, BindLambdaForTesting([&] { task_count++; }), TimeTicks()));
+  }
+
+  RunLoop run_loop;
+  run_loop.Run();
+  testing::Mock::VerifyAndClearExpectations(message_pump_);
+}
+
+TEST_F(ThreadControllerWithMessagePumpTest, QuitInterruptsBatch) {
+  // This check ensures that RunLoop::Quit() makes us drop back to a work batch
+  // size of 1.
+  ThreadTaskRunnerHandle handle(MakeRefCounted<FakeTaskRunner>());
+
+  const int kBatchSize = 5;
+  thread_controller_.SetWorkBatchSize(kBatchSize);
+
+  int task_count = 0;
+  EXPECT_CALL(*message_pump_, Run(_))
+      .WillOnce(Invoke([&](MessagePump::Delegate* delegate) {
+        TimeTicks next_time;
+        EXPECT_TRUE(delegate->DoWork());
+        EXPECT_EQ(1, task_count);
+
+        // Somewhat counter-intuitive, but if the pump keeps calling us after
+        // Quit(), the delegate should still run tasks as normally. This is
+        // needed to support nested OS-level runloops that still pump
+        // application tasks (e.g., showing a popup menu on Mac).
+        EXPECT_TRUE(delegate->DoDelayedWork(&next_time));
+        EXPECT_EQ(2, task_count);
+        EXPECT_TRUE(delegate->DoWork());
+        EXPECT_EQ(3, task_count);
       }));
   EXPECT_CALL(*message_pump_, Quit());
 
   RunLoop run_loop;
-
-  task_source_.AddTask(
-      PendingTask(FROM_HERE,
-                  base::BindOnce(
-                      [](std::vector<std::string>* log, RunLoop* run_loop) {
-                        log->push_back("task1");
-                        run_loop->Quit();
-                      },
-                      &log, &run_loop),
-                  TimeTicks()));
-  task_source_.AddTask(PendingTask(
-      FROM_HERE,
-      base::BindOnce(
-          [](std::vector<std::string>* log) { log->push_back("task2"); }, &log),
-      TimeTicks()));
+  for (int i = 0; i < kBatchSize; i++) {
+    task_source_.AddTask(PendingTask(FROM_HERE, BindLambdaForTesting([&] {
+                                       if (!task_count++)
+                                         run_loop.Quit();
+                                     }),
+                                     TimeTicks()));
+  }
 
   run_loop.Run();
-
-  EXPECT_THAT(log, ElementsAre("task1"));
   testing::Mock::VerifyAndClearExpectations(message_pump_);
 }
 

@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/layout/logical_values.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/layout_ng_text.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_bidi_paragraph.h"
+#include "third_party/blink/renderer/core/layout/ng/inline/ng_caret_navigator.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_item.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_items_builder.h"
@@ -81,6 +82,112 @@ void ClearNeedsLayout(LayoutObject* object) {
     ToLayoutText(object)->ClearInlineItems();
 }
 
+// This class marks appropriate line box fragments as dirty.
+//
+// |CollectInlinesInternal| calls this class when traversing the LayoutObject
+// tree in pre-order DFS
+class NGLineBoxMarker {
+  STACK_ALLOCATED();
+
+ public:
+  NGLineBoxMarker(NGPaintFragment* block_fragment)
+      : block_fragment_(block_fragment) {
+    DCHECK(block_fragment_);
+  }
+
+  bool HandleText(LayoutText* layout_text) {
+    if (layout_text->SelfNeedsLayout())
+      return Mark();
+    return UpdateLastFragment(layout_text->FirstInlineFragment());
+  }
+
+  bool HandleInlineBox(LayoutInline* layout_inline) {
+    if (layout_inline->SelfNeedsLayout())
+      return Mark();
+
+    // Do not keep fragments of LayoutInline unless it's a leaf, because
+    // the last fragment of LayoutInline is not the previous fragment of its
+    // descendants.
+    if (layout_inline->FirstChild())
+      return false;
+    return UpdateLastFragment(layout_inline->FirstInlineFragment());
+  }
+
+  bool HandleAtomicInline(LayoutBox* layout_box) {
+    if (layout_box->NeedsLayout())
+      return Mark();
+    return UpdateLastFragment(layout_box->FirstInlineFragment());
+  }
+
+ private:
+  bool Mark() {
+    if (last_fragment_) {
+      // Changes in this LayoutObject may affect the line that contains its
+      // previous object. Mark the line box that contains the last fragment
+      // of the previous object.
+      last_fragment_->LastForSameLayoutObject()->MarkContainingLineBoxDirty();
+    } else {
+      // If there were no fragments so far in this pre-order traversal, mark
+      // the first line box dirty.
+      DCHECK(block_fragment_);
+      if (NGPaintFragment* first_line = block_fragment_->FirstLineBox())
+        first_line->MarkLineBoxDirty();
+    }
+    return true;
+  }
+
+  bool UpdateLastFragment(NGPaintFragment* fragment) {
+    if (fragment)
+      last_fragment_ = fragment;
+    return false;
+  }
+
+  NGPaintFragment* block_fragment_;
+  NGPaintFragment* last_fragment_ = nullptr;
+};
+
+// This class has the same interface as NGInlineItemsBuilder but does nothing
+// except tracking if floating or out-of-flow objects are added.
+//
+// |MarkLineBoxesDirty| uses this class to traverse tree without buildling
+// |NGInlineItem|.
+class ItemsBuilderForMarkLineBoxesDirty {
+ public:
+  void Append(const String&, const ComputedStyle*, LayoutText*) {}
+  bool Append(const String&, LayoutText*) { return false; }
+  void AppendOpaque(NGInlineItem::NGInlineItemType,
+                    const ComputedStyle*,
+                    LayoutObject*) {}
+  void AppendBreakOpportunity(const ComputedStyle*, LayoutObject*) {}
+  void AppendAtomicInline(const ComputedStyle*, LayoutObject*) {}
+  void AppendFloating(LayoutObject*) {
+    has_floating_or_out_of_flow_positioned_ = true;
+  }
+  void AppendOutOfFlowPositioned(LayoutObject*) {
+    has_floating_or_out_of_flow_positioned_ = true;
+  }
+  void SetIsSymbolMarker(bool) {}
+  void EnterBlock(const ComputedStyle*) {}
+  void ExitBlock() {}
+  void EnterInline(LayoutObject*) {}
+  void ExitInline(LayoutObject*) {}
+
+  bool ShouldAbort() const {
+    // Aborting in the middle of the traversal is safe because this function
+    // ClearNeedsLayout() on text and LayoutInline, but since an inline
+    // formatting context is laid out as a whole, these flags don't matter.
+    // For that reason, the traversal should not ClearNeedsLayout() atomic
+    // inlines, floats, or OOF -- objects that need to be laid out separately
+    // from the inline formatting context.
+    // TODO(kojii): This looks a bit tricky, better to come up with clearner
+    // solution if any.
+    return has_floating_or_out_of_flow_positioned_;
+  }
+
+ private:
+  bool has_floating_or_out_of_flow_positioned_ = false;
+};
+
 // The function is templated to indicate the purpose of collected inlines:
 // - With EmptyOffsetMappingBuilder: updating layout;
 // - With NGOffsetMappingBuilder: building offset mapping on clean layout.
@@ -91,21 +198,19 @@ void ClearNeedsLayout(LayoutObject* object) {
 //
 // There are also performance considerations, since template saves the overhead
 // for condition checking and branching.
-template <typename OffsetMappingBuilder>
-void CollectInlinesInternal(
-    LayoutBlockFlow* block,
-    NGInlineItemsBuilderTemplate<OffsetMappingBuilder>* builder,
-    String* previous_text,
-    bool update_layout) {
+template <typename ItemsBuilder>
+void CollectInlinesInternal(LayoutBlockFlow* block,
+                            ItemsBuilder* builder,
+                            String* previous_text,
+                            NGLineBoxMarker* marker,
+                            bool update_layout) {
   builder->EnterBlock(block->Style());
   LayoutObject* node = GetLayoutObjectForFirstChildNode(block);
 
   const LayoutObject* symbol =
       LayoutNGListItem::FindSymbolMarkerLayoutText(block);
   while (node) {
-    if (node->IsText()) {
-      LayoutText* layout_text = ToLayoutText(node);
-
+    if (LayoutText* layout_text = ToLayoutTextOrNull(node)) {
       // If the LayoutText element hasn't changed, reuse the existing items.
 
       // if the last ended with space and this starts with space, do not allow
@@ -125,22 +230,30 @@ void CollectInlinesInternal(
       if (symbol == layout_text)
         builder->SetIsSymbolMarker(true);
 
+      if (marker && marker->HandleText(layout_text))
+        marker = nullptr;
+
       if (update_layout)
         ClearNeedsLayout(layout_text);
 
     } else if (node->IsFloating()) {
-      // Add floats and positioned objects in the same way as atomic inlines.
-      // Because these objects need positions, they will be handled in
-      // NGInlineLayoutAlgorithm.
-      builder->AppendOpaque(NGInlineItem::kFloating,
-                            kObjectReplacementCharacter, nullptr, node);
+      builder->AppendFloating(node);
+      if (builder->ShouldAbort())
+        return;
+
+      if (update_layout)
+        ClearInlineFragment(node);
 
     } else if (node->IsOutOfFlowPositioned()) {
-      builder->AppendOpaque(NGInlineItem::kOutOfFlowPositioned,
-                            kObjectReplacementCharacter, nullptr, node);
+      builder->AppendOutOfFlowPositioned(node);
+      if (builder->ShouldAbort())
+        return;
+
+      if (update_layout)
+        ClearInlineFragment(node);
 
     } else if (node->IsAtomicInlineLevel()) {
-      if (node->IsLayoutNGListMarker()) {
+      if (node->IsLayoutNGListMarker() || node->IsListMarker()) {
         // LayoutNGListItem produces the 'outside' list marker as an inline
         // block. This is an out-of-flow item whose position is computed
         // automatically.
@@ -150,6 +263,9 @@ void CollectInlinesInternal(
         // signal the presence of a non-text object to the unicode bidi
         // algorithm.
         builder->AppendAtomicInline(node->Style(), node);
+
+        if (marker && marker->HandleAtomicInline(ToLayoutBox(node)))
+          marker = nullptr;
 
         if (update_layout)
           ClearInlineFragment(node);
@@ -165,6 +281,9 @@ void CollectInlinesInternal(
         layout_inline->UpdateShouldCreateBoxFragment();
 
       builder->EnterInline(layout_inline);
+
+      if (marker && marker->HandleInlineBox(layout_inline))
+        marker = nullptr;
 
       // Traverse to children if they exist.
       if (LayoutObject* child = layout_inline->FirstChild()) {
@@ -226,6 +345,13 @@ void TruncateOrPadText(String* text, unsigned length) {
       builder.Append(kSpaceCharacter);
     *text = builder.ToString();
   }
+}
+
+template <typename OffsetMappingBuilder>
+bool MayBeBidiEnabled(
+    const String& text_content,
+    const NGInlineItemsBuilderTemplate<OffsetMappingBuilder>& builder) {
+  return !text_content.Is8Bit() || builder.HasBidiControls();
 }
 
 }  // namespace
@@ -310,21 +436,46 @@ void NGInlineNode::ComputeOffsetMapping(LayoutBlockFlow* layout_block_flow,
   builder.GetOffsetMappingBuilder().ReserveCapacity(
       EstimateOffsetMappingItemsCount(*layout_block_flow));
   const bool update_layout = false;
-  CollectInlinesInternal(layout_block_flow, &builder, nullptr, update_layout);
+  CollectInlinesInternal(layout_block_flow, &builder, nullptr, nullptr,
+                         update_layout);
 
-  // We need the text for non-NG object. Otherwise |data| already has the text
-  // from the pre-layout phase, check they match.
-  if (data->text_content.IsNull())
+  // For non-NG object, we need the text, and also the inline items to resolve
+  // bidi levels. Otherwise |data| already has the text from the pre-layout
+  // phase, check they match.
+  if (data->text_content.IsNull()) {
+    DCHECK(!layout_block_flow->IsLayoutNGMixin());
     data->text_content = builder.ToString();
-  else
+    if (RuntimeEnabledFeatures::BidiCaretAffinityEnabled()) {
+      // Set |is_bidi_enabled_| for all UTF-16 strings for now, because at this
+      // point the string may or may not contain RTL characters.
+      // |SegmentText()| will analyze the text and reset |is_bidi_enabled_| if
+      // it doesn't contain any RTL characters.
+      data->is_bidi_enabled_ = MayBeBidiEnabled(data->text_content, builder);
+      if (data->is_bidi_enabled_) {
+        // |builder| performs some validity checks with |items|, so we can't
+        // simply move them to |data|, but have to copy.
+        // TODO(xiaochengh): Change it into a move.
+        data->items = items;
+        SegmentBidiRunsInternal(data, layout_block_flow->StyleRef());
+      } else {
+        data->SetBaseDirection(TextDirection::kLtr);
+      }
+    }
+  } else {
+    DCHECK(layout_block_flow->IsLayoutNGMixin());
     DCHECK_EQ(data->text_content, builder.ToString());
+  }
+
+  std::unique_ptr<NGCaretNavigator> caret_navigator;
+  if (RuntimeEnabledFeatures::BidiCaretAffinityEnabled())
+    caret_navigator = std::make_unique<NGCaretNavigator>(*data);
 
   // TODO(xiaochengh): This doesn't compute offset mapping correctly when
   // text-transform CSS property changes text length.
   NGOffsetMappingBuilder& mapping_builder = builder.GetOffsetMappingBuilder();
   mapping_builder.SetDestinationString(data->text_content);
-  data->offset_mapping =
-      std::make_unique<NGOffsetMapping>(mapping_builder.Build());
+  data->offset_mapping = std::make_unique<NGOffsetMapping>(
+      mapping_builder.Build(std::move(caret_navigator)));
   DCHECK(data->offset_mapping);
 }
 
@@ -346,6 +497,7 @@ const NGOffsetMapping* NGInlineNode::GetOffsetMapping(
 
   // If this is not LayoutNG, compute the offset mapping and store in |storage|.
   // The caller is responsible to keep |storage| for the life cycle.
+  DCHECK(storage);
   NGInlineNodeData data;
   ComputeOffsetMapping(layout_block_flow, &data);
   *storage = std::move(data.offset_mapping);
@@ -364,20 +516,26 @@ void NGInlineNode::CollectInlines(NGInlineNodeData* data,
   LayoutBlockFlow* block = GetLayoutBlockFlow();
   block->WillCollectInlines();
 
+  // If we have PaintFragment, mark line boxes dirty from |NeedsLayout| flag.
+  base::Optional<NGLineBoxMarker> marker;
+  if (NGPaintFragment* block_fragment = block->PaintFragment())
+    marker.emplace(block_fragment);
+
   String* previous_text =
       previous_data ? &previous_data->text_content : nullptr;
   data->items.ReserveCapacity(EstimateInlineItemsCount(*block));
   NGInlineItemsBuilder builder(&data->items);
   const bool update_layout = true;
-  CollectInlinesInternal(block, &builder, previous_text, update_layout);
+  CollectInlinesInternal(block, &builder, previous_text,
+                         marker.has_value() ? &marker.value() : nullptr,
+                         update_layout);
   data->text_content = builder.ToString();
 
   // Set |is_bidi_enabled_| for all UTF-16 strings for now, because at this
   // point the string may or may not contain RTL characters.
   // |SegmentText()| will analyze the text and reset |is_bidi_enabled_| if it
   // doesn't contain any RTL characters.
-  data->is_bidi_enabled_ =
-      !data->text_content.Is8Bit() || builder.HasBidiControls();
+  data->is_bidi_enabled_ = MayBeBidiEnabled(data->text_content, builder);
   data->is_empty_inline_ = builder.IsEmptyInline();
 }
 
@@ -385,32 +543,48 @@ void NGInlineNode::SegmentText(NGInlineNodeData* data) {
   SegmentBidiRuns(data);
   SegmentScriptRuns(data);
   SegmentFontOrientation(data);
+  if (data->segments)
+    data->segments->ComputeItemIndex(data->items);
 }
 
 // Segment NGInlineItem by script, Emoji, and orientation using RunSegmenter.
 void NGInlineNode::SegmentScriptRuns(NGInlineNodeData* data) {
-  if (data->text_content.Is8Bit() && !data->is_bidi_enabled_) {
+  String& text_content = data->text_content;
+  if (text_content.IsEmpty()) {
+    data->segments = nullptr;
+    return;
+  }
+
+  if (text_content.Is8Bit() && !data->is_bidi_enabled_) {
     if (data->items.size()) {
       RunSegmenter::RunSegmenterRange range = {
           0u, data->text_content.length(), USCRIPT_LATIN,
           OrientationIterator::kOrientationKeep, FontFallbackPriority::kText};
-      NGInlineItem::PopulateItemsFromRun(data->items, 0, range);
+      NGInlineItem::SetSegmentData(range, &data->items);
     }
+    data->segments = nullptr;
     return;
   }
 
   // Segment by script and Emoji.
   // Orientation is segmented separately, because it may vary by items.
-  Vector<NGInlineItem>& items = data->items;
-  String& text_content = data->text_content;
   text_content.Ensure16Bit();
   RunSegmenter segmenter(text_content.Characters16(), text_content.length(),
                          FontOrientation::kHorizontal);
   RunSegmenter::RunSegmenterRange range = RunSegmenter::NullRange();
-  for (unsigned item_index = 0; segmenter.Consume(&range);) {
-    DCHECK_EQ(items[item_index].start_offset_, range.start);
-    item_index = NGInlineItem::PopulateItemsFromRun(items, item_index, range);
+  bool consumed = segmenter.Consume(&range);
+  DCHECK(consumed);
+  if (range.end == text_content.length()) {
+    NGInlineItem::SetSegmentData(range, &data->items);
+    data->segments = nullptr;
+    return;
   }
+
+  // This node has multiple segments.
+  if (!data->segments)
+    data->segments = std::make_unique<NGInlineItemSegments>();
+  data->segments->ComputeSegments(&segmenter, &range);
+  DCHECK_EQ(range.end, text_content.length());
 }
 
 void NGInlineNode::SegmentFontOrientation(NGInlineNodeData* data) {
@@ -420,33 +594,40 @@ void NGInlineNode::SegmentFontOrientation(NGInlineNodeData* data) {
     return;
 
   Vector<NGInlineItem>& items = data->items;
+  if (items.IsEmpty())
+    return;
   String& text_content = data->text_content;
   text_content.Ensure16Bit();
 
-  for (unsigned item_index = 0; item_index < items.size();) {
-    NGInlineItem& item = items[item_index];
-    if (item.Type() != NGInlineItem::kText ||
-        item.Style()->GetFont().GetFontDescription().Orientation() !=
+  // If we don't have |NGInlineItemSegments| yet, create a segment for the
+  // entire content.
+  const unsigned capacity = items.size() + text_content.length() / 10;
+  if (!data->segments) {
+    data->segments = std::make_unique<NGInlineItemSegments>();
+    data->segments->ReserveCapacity(capacity);
+    data->segments->Append(text_content.length(), items.front());
+  } else {
+    DCHECK(!data->segments->IsEmpty());
+    data->segments->ReserveCapacity(capacity);
+  }
+  DCHECK_EQ(text_content.length(), data->segments->EndOffset());
+  unsigned segment_index = 0;
+
+  for (const NGInlineItem& item : items) {
+    if (item.Type() == NGInlineItem::kText &&
+        item.Style()->GetFont().GetFontDescription().Orientation() ==
             FontOrientation::kVerticalMixed) {
-      item_index++;
-      continue;
-    }
-    unsigned start_offset = item.StartOffset();
-    OrientationIterator iterator(text_content.Characters16() + start_offset,
-                                 item.Length(),
-                                 FontOrientation::kVerticalMixed);
-    unsigned end_offset;
-    OrientationIterator::RenderOrientation orientation;
-    while (iterator.Consume(&end_offset, &orientation)) {
-      item_index = NGInlineItem::PopulateItemsFromFontOrientation(
-          items, item_index, end_offset + start_offset, orientation);
+      segment_index = data->segments->AppendMixedFontOrientation(
+          text_content, item.StartOffset(), item.EndOffset(), segment_index);
     }
   }
 }
 
+// static
 // Segment bidi runs by resolving bidi embedding levels.
 // http://unicode.org/reports/tr9/#Resolving_Embedding_Levels
-void NGInlineNode::SegmentBidiRuns(NGInlineNodeData* data) {
+void NGInlineNode::SegmentBidiRunsInternal(NGInlineNodeData* data,
+                                           const ComputedStyle& style) {
   if (!data->is_bidi_enabled_) {
     data->SetBaseDirection(TextDirection::kLtr);
     return;
@@ -454,7 +635,7 @@ void NGInlineNode::SegmentBidiRuns(NGInlineNodeData* data) {
 
   NGBidiParagraph bidi;
   data->text_content.Ensure16Bit();
-  if (!bidi.SetParagraph(data->text_content, Style())) {
+  if (!bidi.SetParagraph(data->text_content, style)) {
     // On failure, give up bidi resolving and reordering.
     data->is_bidi_enabled_ = false;
     data->SetBaseDirection(TextDirection::kLtr);
@@ -489,18 +670,23 @@ void NGInlineNode::SegmentBidiRuns(NGInlineNodeData* data) {
 #endif
 }
 
-void NGInlineNode::ShapeText(NGInlineItemsData* data,
-                             NGInlineItemsData* previous_data) {
-  ShapeText(data->text_content, &data->items,
-            previous_data ? &previous_data->text_content : nullptr);
+void NGInlineNode::SegmentBidiRuns(NGInlineNodeData* data) {
+  SegmentBidiRunsInternal(data, Style());
 }
 
-void NGInlineNode::ShapeText(const String& text_content,
-                             Vector<NGInlineItem>* items,
-                             const String* previous_text) {
+void NGInlineNode::ShapeText(NGInlineItemsData* data,
+                             NGInlineItemsData* previous_data) {
+  const String& text_content = data->text_content;
+  Vector<NGInlineItem>* items = &data->items;
+  const String* previous_text =
+      previous_data ? &previous_data->text_content : nullptr;
+
   // Provide full context of the entire node to the shaper.
   HarfBuzzShaper shaper(text_content);
   ShapeResultSpacing<String> spacing(text_content);
+
+  DCHECK(!data->segments ||
+         data->segments->EndOffset() == text_content.length());
 
   for (unsigned index = 0; index < items->size();) {
     NGInlineItem& start_item = (*items)[index];
@@ -580,17 +766,29 @@ void NGInlineNode::ShapeText(const String& text_content,
     }
 
     // Shape each item with the full context of the entire node.
-    RunSegmenter::RunSegmenterRange range =
-        start_item.CreateRunSegmenterRange();
-    range.end = end_offset;
-    scoped_refptr<ShapeResult> shape_result = shaper.Shape(
-        &font, direction, start_item.StartOffset(), end_offset, &range);
+    scoped_refptr<ShapeResult> shape_result;
+    if (!data->segments) {
+      RunSegmenter::RunSegmenterRange range =
+          start_item.CreateRunSegmenterRange();
+      range.end = end_offset;
+      shape_result = shaper.Shape(&font, direction, start_item.StartOffset(),
+                                  end_offset, &range);
+    } else {
+      shape_result = data->segments->ShapeText(
+          &shaper, &font, direction, start_item.StartOffset(), end_offset,
+          &start_item - items->begin());
+    }
+
     if (UNLIKELY(spacing.SetSpacing(font.GetFontDescription())))
       shape_result->ApplySpacing(spacing);
 
     // If the text is from one item, use the ShapeResult as is.
     if (end_offset == start_item.EndOffset()) {
       start_item.shape_result_ = std::move(shape_result);
+      DCHECK_EQ(start_item.TextShapeResult()->StartIndex(),
+                start_item.StartOffset());
+      DCHECK_EQ(start_item.TextShapeResult()->EndIndex(),
+                start_item.EndOffset());
       index++;
       continue;
     }
@@ -611,8 +809,21 @@ void NGInlineNode::ShapeText(const String& text_content,
       // item that has its first code unit keeps the glyph.
       item.shape_result_ = shape_result->SubRange(
           item.StartOffset(), item.EndOffset(), &opaque_context);
+      DCHECK(item.TextShapeResult());
+      DCHECK_EQ(item.TextShapeResult()->StartIndex(), item.StartOffset());
+      DCHECK_EQ(item.TextShapeResult()->EndIndex(), item.EndOffset());
     }
   }
+
+#if DCHECK_IS_ON()
+  for (const NGInlineItem& item : *items) {
+    if (item.Type() == NGInlineItem::kText) {
+      DCHECK(item.TextShapeResult());
+      DCHECK_EQ(item.TextShapeResult()->StartIndex(), item.StartOffset());
+      DCHECK_EQ(item.TextShapeResult()->EndIndex(), item.EndOffset());
+    }
+  }
+#endif
 }
 
 // Create Vector<NGInlineItem> with :first-line rules applied if needed.
@@ -697,20 +908,48 @@ void NGInlineNode::AssociateItemsWithInlines(NGInlineNodeData* data) {
   }
 }
 
-// Clear associated fragments for all LayoutObjects. They are associated when
-// NGPaintFragment is constructed.
 void NGInlineNode::ClearAssociatedFragments(
-    const NGInlineBreakToken* break_token) {
-  if (!IsPrepareLayoutFinished())
+    const NGPhysicalFragment& fragment,
+    const NGBlockBreakToken* block_break_token) {
+  LayoutBlockFlow* block_flow = ToLayoutBlockFlow(fragment.GetLayoutObject());
+  if (!block_flow->ChildrenInline())
     return;
+  NGInlineNode node = NGInlineNode(block_flow);
+#if DCHECK_IS_ON()
+  // We assume this function is called for the LayoutObject of an NGInlineNode.
+  NGLayoutInputNode first_child = NGBlockNode(block_flow).FirstChild();
+  DCHECK(first_child && first_child.IsInline());
+  DCHECK(first_child == node);
+#endif
+
+  DCHECK(node.IsPrepareLayoutFinished());
+  const Vector<NGInlineItem>& items = node.MaybeDirtyData().items;
+
+  unsigned start_index;
+  if (!block_break_token) {
+    start_index = 0;
+  } else {
+    // TODO(kojii): Not fully supported, need more logic when the block is
+    // fragmented, because one inline LayoutObject may span across
+    // fragmentainers.
+    // TODO(kojii): Not sure if using |block_break_token->InputNode()| is
+    // correct for multicol. Should verify and somehow get NGInlineNode from it.
+    // Also change |InlineBreakTokenFor| to receive NGInlineNode instead of
+    // NGLayoutInputNode once this is done.
+    const NGInlineBreakToken* inline_break_token =
+        block_break_token->InlineBreakTokenFor(block_break_token->InputNode());
+    // TODO(kojii): This needs to investigate in what case this happens. It's
+    // probably wrong to create NGPaintFragment when there's no inline break
+    // token.
+    if (!inline_break_token)
+      return;
+    start_index = inline_break_token->ItemIndex();
+  }
 
   LayoutObject* last_object = nullptr;
-  const Vector<NGInlineItem>& items = Data().items;
-  for (unsigned i = break_token ? break_token->ItemIndex() : 0;
-       i < items.size(); i++) {
+  for (unsigned i = start_index; i < items.size(); i++) {
     const NGInlineItem& item = items[i];
-    if (item.Type() == NGInlineItem::kFloating ||
-        item.Type() == NGInlineItem::kOutOfFlowPositioned ||
+    if (item.Type() == NGInlineItem::kOutOfFlowPositioned ||
         item.Type() == NGInlineItem::kListMarker)
       continue;
     LayoutObject* object = item.GetLayoutObject();
@@ -725,15 +964,10 @@ scoped_refptr<NGLayoutResult> NGInlineNode::Layout(
     const NGConstraintSpace& constraint_space,
     const NGBreakToken* break_token,
     NGInlineChildLayoutContext* context) {
-  bool needs_clear_fragments = IsPrepareLayoutFinished();
   PrepareLayoutIfNeeded();
 
   const NGInlineBreakToken* inline_break_token =
       ToNGInlineBreakToken(break_token);
-  if (needs_clear_fragments && !constraint_space.IsIntermediateLayout()) {
-    ClearAssociatedFragments(inline_break_token);
-  }
-
   NGInlineLayoutAlgorithm algorithm(*this, constraint_space, inline_break_token,
                                     context);
   return algorithm.Layout();
@@ -770,87 +1004,11 @@ bool NGInlineNode::PrepareReuseFragments(
 // |DirtyLinesFromChangedChild()|, but insertions and style changes are not
 // marked yet.
 bool NGInlineNode::MarkLineBoxesDirty(LayoutBlockFlow* block_flow) {
-  DCHECK(block_flow);
-  DCHECK(block_flow->PaintFragment());
-  bool has_dirtied_lines = false;
-  NGPaintFragment* last_fragment = nullptr;
-  for (LayoutObject* layout_object = block_flow->NextInPreOrder(block_flow);
-       layout_object;) {
-    bool should_dirty_lines = false;
-    NGPaintFragment* fragment = nullptr;
-    LayoutObject* next = nullptr;
-    if (LayoutText* layout_text = ToLayoutTextOrNull(layout_object)) {
-      if (!has_dirtied_lines) {
-        should_dirty_lines = layout_object->SelfNeedsLayout();
-        if (!should_dirty_lines)
-          fragment = layout_text->FirstInlineFragment();
-      }
-      next = layout_object->NextInPreOrderAfterChildren(block_flow);
-      layout_object->ClearNeedsLayout();
-    } else if (LayoutInline* layout_inline =
-                   ToLayoutInlineOrNull(layout_object)) {
-      if (!has_dirtied_lines) {
-        should_dirty_lines = layout_object->SelfNeedsLayout();
-        // Do not keep fragments of LayoutInline unless it's a leaf, because
-        // the last fragment of LayoutInline is not the previous fragment of its
-        // descendants.
-        if (!should_dirty_lines && !layout_inline->FirstChild())
-          fragment = layout_inline->FirstInlineFragment();
-      }
-      next = layout_object->NextInPreOrder(block_flow);
-      layout_object->ClearNeedsLayout();
-    } else if (UNLIKELY(layout_object->IsFloatingOrOutOfFlowPositioned())) {
-      // Aborting in the middle of the traversal is safe because this function
-      // ClearNeedsLayout() on text and LayoutInline, but since an inline
-      // formatting context is laid out as a whole, these flags don't matter.
-      // For that reason, this traversal should not ClearNeedsLayout() atomic
-      // inlines, floats, or OOF -- objects that need to be laid out separately
-      // from the inline formatting context.
-      // TODO(kojii): This looks a bit tricky, better to come up with clearner
-      // solution if any.
-      return false;
-    } else if (layout_object->IsAtomicInlineLevel()) {
-      if (!has_dirtied_lines) {
-        should_dirty_lines = layout_object->NeedsLayout();
-        if (!should_dirty_lines)
-          fragment = layout_object->FirstInlineFragment();
-      }
-      next = layout_object->NextInPreOrderAfterChildren(block_flow);
-    } else {
-      NOTREACHED();
-      // With LayoutNGBlockFragmentation, LayoutFlowThread/LayoutMultiColumnSet
-      // appear in fast/multicol/paged-becomes-multicol-auto-height.html.
-      // crbug.com/897141
-      next = layout_object->NextInPreOrder(block_flow);
-    }
-
-    if (!has_dirtied_lines) {
-      if (should_dirty_lines) {
-        if (last_fragment) {
-          // Changes in this LayoutObject may affect the line that contains its
-          // previous object. Mark the line box that contains the last fragment
-          // of the previous object.
-          last_fragment->LastForSameLayoutObject()
-              ->MarkContainingLineBoxDirty();
-        } else {
-          // If there were no fragments so far in this pre-order traversal, mark
-          // the first line box dirty.
-          NGPaintFragment* block_fragment = block_flow->PaintFragment();
-          DCHECK(block_fragment);
-          if (NGPaintFragment* first_line = block_fragment->FirstLineBox())
-            first_line->MarkLineBoxDirty();
-        }
-        has_dirtied_lines = true;
-      } else if (fragment) {
-        last_fragment = fragment;
-      }
-    }
-
-    ClearInlineFragment(layout_object);
-    layout_object = next;
-  }
-  block_flow->ClearNeedsLayout();
-  return true;
+  NGLineBoxMarker marker(block_flow->PaintFragment());
+  ItemsBuilderForMarkLineBoxesDirty builder;
+  const bool update_layout = true;
+  CollectInlinesInternal(block_flow, &builder, nullptr, &marker, update_layout);
+  return !builder.ShouldAbort();
 }
 
 static LayoutUnit ComputeContentSize(
@@ -870,24 +1028,25 @@ static LayoutUnit ComputeContentSize(
                                /* is_new_fc */ false)
           .SetTextDirection(style.Direction())
           .SetAvailableSize({available_inline_size, NGSizeIndefinite})
+          .SetPercentageResolutionSize({LayoutUnit(), LayoutUnit()})
+          .SetReplacedPercentageResolutionSize({LayoutUnit(), LayoutUnit()})
           .SetIsIntermediateLayout(true)
           .ToConstraintSpace();
 
-  Vector<NGPositionedFloat> positioned_floats;
-  NGUnpositionedFloatVector unpositioned_floats;
-
   NGExclusionSpace empty_exclusion_space;
+  NGPositionedFloatVector empty_leading_floats;
+  Vector<LayoutObject*> floats_for_min_max;
   NGLineLayoutOpportunity line_opportunity(available_inline_size);
   LayoutUnit result;
   LayoutUnit previous_floats_inline_size =
       input.float_left_inline_size + input.float_right_inline_size;
   DCHECK_GE(previous_floats_inline_size, 0);
   NGLineBreaker line_breaker(
-      node, mode, space, &positioned_floats, &unpositioned_floats,
-      nullptr /* container_builder */, &empty_exclusion_space, 0u,
-      line_opportunity, nullptr /* break_token */);
+      node, mode, space, line_opportunity, empty_leading_floats,
+      /* handled_leading_floats_index */ 0u,
+      /* break_token */ nullptr, &empty_exclusion_space, &floats_for_min_max);
   do {
-    unpositioned_floats.Shrink(0);
+    floats_for_min_max.Shrink(0);
 
     NGLineInfo line_info;
     line_breaker.NextLine(&line_info);
@@ -896,9 +1055,6 @@ static LayoutUnit ComputeContentSize(
 
     LayoutUnit inline_size = line_info.Width();
     DCHECK_EQ(inline_size, line_info.ComputeWidth().ClampNegativeToZero());
-
-    // There should be no positioned floats while determining the min/max sizes.
-    DCHECK_EQ(positioned_floats.size(), 0u);
 
     // These variables are only used for the max-content calculation.
     LayoutUnit floats_inline_size = mode == NGLineBreakerMode::kMaxContent
@@ -910,8 +1066,10 @@ static LayoutUnit ComputeContentSize(
     // them now.
     previous_floats_inline_size = LayoutUnit();
 
-    for (const auto& unpositioned_float : unpositioned_floats) {
-      NGBlockNode float_node = unpositioned_float.node;
+    for (auto* floating_object : floats_for_min_max) {
+      DCHECK(floating_object->IsFloating());
+
+      NGBlockNode float_node(ToLayoutBox(floating_object));
       const ComputedStyle& float_style = float_node.Style();
 
       MinMaxSizeInput zero_input;  // Floats don't intrude into floats.
@@ -983,6 +1141,11 @@ MinMaxSize NGInlineNode::ComputeMinMaxSize(
   sizes.min_size = std::min(sizes.min_size, sizes.max_size);
 
   return sizes;
+}
+
+bool NGInlineNode::UseFirstLineStyle() const {
+  return GetLayoutBox() &&
+         GetLayoutBox()->GetDocument().GetStyleEngine().UsesFirstLineRules();
 }
 
 void NGInlineNode::CheckConsistency() const {

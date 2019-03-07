@@ -22,9 +22,9 @@
 #include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/test/material_design_controller_test_api.h"
 #include "ui/events/base_event_utils.h"
+#include "ui/gfx/animation/animation_test_api.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/rect_conversions.h"
-#include "ui/gfx/path.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/views/accessibility/ax_event_manager.h"
 #include "ui/views/accessibility/ax_event_observer.h"
@@ -146,7 +146,10 @@ class TestTabStripObserver : public TabStripObserver {
 class TabStripTest : public ChromeViewsTestBase,
                      public testing::WithParamInterface<bool> {
  public:
-  TabStripTest() : test_api_(GetParam()) {}
+  TabStripTest()
+      : test_api_(GetParam()),
+        animation_mode_reset_(gfx::AnimationTestApi::SetRichAnimationRenderMode(
+            gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED)) {}
 
   ~TabStripTest() override {}
 
@@ -157,8 +160,8 @@ class TabStripTest : public ChromeViewsTestBase,
     tab_strip_ = new TabStrip(std::unique_ptr<TabStripController>(controller_));
     controller_->set_tab_strip(tab_strip_);
     // Do this to force TabStrip to create the buttons.
-    parent_.AddChildView(tab_strip_);
-    parent_.set_owned_by_client();
+    auto* parent = new views::View;
+    parent->AddChildView(tab_strip_);
 
     widget_.reset(new views::Widget);
     views::Widget::InitParams init_params =
@@ -167,7 +170,7 @@ class TabStripTest : public ChromeViewsTestBase,
         views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
     init_params.bounds = gfx::Rect(0, 0, 200, 200);
     widget_->Init(init_params);
-    widget_->SetContentsView(&parent_);
+    widget_->SetContentsView(parent);
   }
 
   void TearDown() override {
@@ -218,13 +221,13 @@ class TabStripTest : public ChromeViewsTestBase,
 
   // Owned by TabStrip.
   FakeBaseTabStripController* controller_ = nullptr;
-  // Owns |tab_strip_|.
-  views::View parent_;
   TabStrip* tab_strip_ = nullptr;
   std::unique_ptr<views::Widget> widget_;
 
  private:
   ui::test::MaterialDesignControllerTestAPI test_api_;
+  std::unique_ptr<base::AutoReset<gfx::Animation::RichAnimationRenderMode>>
+      animation_mode_reset_;
 
   DISALLOW_COPY_AND_ASSIGN(TabStripTest);
 };
@@ -874,6 +877,21 @@ TEST_P(TabStripTest, NewTabButtonInkDrop) {
     tab_strip_->new_tab_button()->AnimateInkDropToStateForTesting(
         views::InkDropState::HIDDEN);
   }
+}
+
+// Closing tab should be targeted during event dispatching.
+TEST_P(TabStripTest, EventsOnClosingTab) {
+  tab_strip_->SetBounds(0, 0, 200, 20);
+
+  controller_->AddTab(0, false);
+  controller_->AddTab(1, true);
+
+  Tab* first_tab = tab_strip_->tab_at(0);
+  gfx::Point tab_center = first_tab->bounds().CenterPoint();
+
+  EXPECT_EQ(first_tab, tab_strip_->GetEventHandlerForPoint(tab_center));
+  tab_strip_->CloseTab(first_tab, CLOSE_TAB_FROM_MOUSE);
+  EXPECT_EQ(first_tab, tab_strip_->GetEventHandlerForPoint(tab_center));
 }
 
 INSTANTIATE_TEST_CASE_P(, TabStripTest, ::testing::Values(false, true));

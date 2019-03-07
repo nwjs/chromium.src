@@ -58,7 +58,7 @@ class CORE_EXPORT DateTimeChooserImpl final : public DateTimeChooser,
   void EndChooser() override;
   AXObject* RootAXObject() override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   // PagePopupClient functions:
@@ -67,7 +67,7 @@ class CORE_EXPORT DateTimeChooserImpl final : public DateTimeChooser,
   Locale& GetLocale() override;
   void SetValueAndClosePopup(int, const String&) override;
   void SetValue(const String&) override;
-  void ClosePopup() override;
+  void CancelPopup() override;
   Element& OwnerElement() override;
   void DidClosePopup() override;
 

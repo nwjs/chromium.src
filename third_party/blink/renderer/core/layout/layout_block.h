@@ -324,13 +324,18 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
   void SetCachedConstraintSpace(const NGConstraintSpace& space);
 
  protected:
-  bool RecalcNormalFlowChildOverflowIfNeeded(LayoutObject*);
-  bool RecalcPositionedDescendantsOverflow();
-  bool RecalcSelfOverflow();
+  bool RecalcNormalFlowChildLayoutOverflowIfNeeded(LayoutObject*);
+  void RecalcNormalFlowChildVisualOverflowIfNeeded(LayoutObject*);
+  bool RecalcPositionedDescendantsLayoutOverflow();
+  void RecalcPositionedDescendantsVisualOverflow();
+  bool RecalcSelfLayoutOverflow();
+  void RecalcSelfVisualOverflow();
 
  public:
-  bool RecalcChildOverflow();
-  bool RecalcOverflow() override;
+  bool RecalcChildLayoutOverflow();
+  void RecalcChildVisualOverflow();
+  bool RecalcLayoutOverflow() override;
+  void RecalcVisualOverflow() override;
 
   // An example explaining layout tree structure about first-line style:
   // <style>
@@ -395,9 +400,6 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
                              const LayoutPoint& paint_offset) const;
   void UpdateAfterLayout() override;
 
-  void ComputeOverflow(LayoutUnit old_client_after_edge,
-                       bool recompute_floats = false);
-
  protected:
   virtual void AdjustInlineDirectionLineBounds(
       unsigned /* expansionOpportunityCount */,
@@ -455,10 +457,9 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
  protected:
   void AddVisualOverflowFromTheme();
   virtual void ComputeVisualOverflow(
-      const LayoutRect& previous_visual_overflow_rect,
       bool recompute_floats);
   virtual void ComputeLayoutOverflow(LayoutUnit old_client_after_edge,
-                                     bool recompute_floats);
+                                     bool recompute_floats = false);
 
   virtual void AddLayoutOverflowFromChildren();
   void AddVisualOverflowFromChildren();
@@ -517,8 +518,9 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
 
  protected:
   void InvalidatePaint(const PaintInvalidatorContext&) const override;
-
   void ClearPreviousVisualRects() override;
+
+  void ImageChanged(WrappedImagePtr, CanDeferInvalidation) override;
 
  private:
   LayoutRect LocalCaretRect(
@@ -593,7 +595,7 @@ class CORE_EXPORT LayoutBlock : public LayoutBox {
 
  public:
   // TODO(loonybear): Temporary in order to ensure compatibility with existing
-  // layout test results.
+  // web test results.
   virtual void AdjustChildDebugRect(LayoutRect&) const {}
 };
 

@@ -167,14 +167,15 @@ void AsyncLayerTreeFrameSink::SetLocalSurfaceId(
 
 void AsyncLayerTreeFrameSink::SubmitCompositorFrame(
     viz::CompositorFrame frame,
+    bool hit_test_data_changed,
     bool show_hit_test_borders) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(compositor_frame_sink_ptr_);
   DCHECK(frame.metadata.begin_frame_ack.has_damage);
   DCHECK_LE(viz::BeginFrameArgs::kStartingFrameNumber,
             frame.metadata.begin_frame_ack.sequence_number);
-  TRACE_EVENT0("cc,benchmark",
-               "AsyncLayerTreeFrameSink::SubmitCompositorFrame");
+  TRACE_EVENT1("cc,benchmark", "AsyncLayerTreeFrameSink::SubmitCompositorFrame",
+               "source_frame_number_", source_frame_number_);
 
   // It's possible to request an immediate composite from cc which will bypass
   // BeginFrame. In that case, we cannot collect full graphics pipeline data.
@@ -216,6 +217,28 @@ void AsyncLayerTreeFrameSink::SubmitCompositorFrame(
 
   if (show_hit_test_borders && hit_test_region_list)
     hit_test_region_list->flags |= viz::HitTestRegionFlags::kHitTestDebug;
+
+  // If |hit_test_data_changed| was set or local_surface_id has been updated,
+  // we always send hit-test data; otherwise we check for equality with the
+  // last submitted hit-test data for possible optimization.
+  if (!hit_test_region_list) {
+    last_hit_test_data_ = viz::HitTestRegionList();
+  } else if (!hit_test_data_changed &&
+             local_surface_id_ == last_submitted_local_surface_id_) {
+    if (viz::HitTestRegionList::IsEqual(*hit_test_region_list,
+                                        last_hit_test_data_)) {
+      DCHECK(!viz::HitTestRegionList::IsEqual(*hit_test_region_list,
+                                              viz::HitTestRegionList()));
+      hit_test_region_list = base::nullopt;
+    } else {
+      last_hit_test_data_ = *hit_test_region_list;
+    }
+
+    UMA_HISTOGRAM_BOOLEAN("Event.VizHitTest.HitTestDataIsEqualAccuracy",
+                          !hit_test_region_list);
+  } else {
+    last_hit_test_data_ = *hit_test_region_list;
+  }
 
   if (last_submitted_local_surface_id_ != local_surface_id_) {
     last_submitted_local_surface_id_ = local_surface_id_;
@@ -314,7 +337,8 @@ void AsyncLayerTreeFrameSink::OnBeginFrame(
                            TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
                            "step", "ReceiveBeginFrameDiscard");
     // We had a race with SetNeedsBeginFrame(false) and still need to let the
-    // sink know that we didn't use this BeginFrame.
+    // sink know that we didn't use this BeginFrame. OnBeginFrame() can also be
+    // called to deliver presentation feedback.
     DidNotProduceFrame(viz::BeginFrameAck(args, false));
     return;
   }

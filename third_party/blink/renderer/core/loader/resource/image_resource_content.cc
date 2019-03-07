@@ -49,7 +49,6 @@ class NullImageResourceInfo final
     return false;
   }
   bool IsAccessAllowed(
-      const SecurityOrigin*,
       DoesCurrentFrameHaveSingleSecurityOrigin) const override {
     return true;
   }
@@ -105,7 +104,7 @@ ImageResourceContent::ImageResourceContent(scoped_refptr<blink::Image> image)
       has_device_pixel_ratio_header_value_(false),
       image_(std::move(image)) {
   DEFINE_STATIC_LOCAL(Persistent<NullImageResourceInfo>, null_info,
-                      (new NullImageResourceInfo()));
+                      (MakeGarbageCollected<NullImageResourceInfo>()));
   info_ = null_info;
 }
 
@@ -511,7 +510,12 @@ bool ImageResourceContent::IsAcceptableCompressionRatio() {
   if (!pixels)
     return true;
   DCHECK(image_);
-  double resource_length = GetResponse().ExpectedContentLength();
+  double resource_length =
+      static_cast<double>(GetResponse().ExpectedContentLength());
+  if (resource_length <= 0 && GetImage() && GetImage()->Data()) {
+    // WPT and LayoutTests server returns -1 or 0 for the content length.
+    resource_length = static_cast<double>(GetImage()->Data()->size());
+  }
   // Allow no more than 10 bits per compressed pixel
   return (resource_length - 1024) / pixels <= 0.5;
 }
@@ -570,12 +574,11 @@ void ImageResourceContent::Changed(const blink::Image* image) {
   NotifyObservers(kDoNotNotifyFinish, CanDeferInvalidation::kYes);
 }
 
-bool ImageResourceContent::IsAccessAllowed(
-    const SecurityOrigin* security_origin) {
+bool ImageResourceContent::IsAccessAllowed() {
   return info_->IsAccessAllowed(
-      security_origin, GetImage()->CurrentFrameHasSingleSecurityOrigin()
-                           ? ImageResourceInfo::kHasSingleSecurityOrigin
-                           : ImageResourceInfo::kHasMultipleSecurityOrigin);
+      GetImage()->CurrentFrameHasSingleSecurityOrigin()
+          ? ImageResourceInfo::kHasSingleSecurityOrigin
+          : ImageResourceInfo::kHasMultipleSecurityOrigin);
 }
 
 void ImageResourceContent::EmulateLoadStartedForInspector(

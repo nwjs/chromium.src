@@ -20,9 +20,11 @@
 #include "content/public/browser/background_fetch_description.h"
 #include "content/public/browser/background_fetch_response.h"
 #include "content/public/browser/browser_thread.h"
-#include "third_party/blink/public/platform/modules/background_fetch/background_fetch.mojom.h"
+#include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
 
 namespace content {
+
+class BrowserContext;
 
 // Proxy class for passing messages between BackgroundFetchJobControllers on the
 // IO thread and BackgroundFetchDelegate on the UI thread.
@@ -39,9 +41,11 @@ class CONTENT_EXPORT BackgroundFetchDelegateProxy {
         const scoped_refptr<BackgroundFetchRequestInfo>& request) = 0;
 
     // Called when the given |request| has an update, meaning that a total of
+    // |bytes_uploaded| of the request were uploaded, and a total of
     // |bytes_downloaded| are now available for the response.
     virtual void DidUpdateRequest(
         const scoped_refptr<BackgroundFetchRequestInfo>& request,
+        uint64_t bytes_uploaded,
         uint64_t bytes_downloaded) = 0;
 
     // Called when the given |request| has been completed.
@@ -55,13 +59,13 @@ class CONTENT_EXPORT BackgroundFetchDelegateProxy {
     // Called by the delegate when the Download Service is requesting the
     // upload data.
     virtual void GetUploadData(
-        blink::mojom::FetchAPIRequestPtr request,
+        const scoped_refptr<BackgroundFetchRequestInfo>& request,
         BackgroundFetchDelegate::GetUploadDataCallback callback) = 0;
 
     virtual ~Controller() {}
   };
 
-  explicit BackgroundFetchDelegateProxy(BackgroundFetchDelegate* delegate);
+  explicit BackgroundFetchDelegateProxy(BrowserContext* browser_context);
 
   ~BackgroundFetchDelegateProxy();
 
@@ -139,9 +143,11 @@ class CONTENT_EXPORT BackgroundFetchDelegateProxy {
                           std::unique_ptr<BackgroundFetchResult> result);
 
   // Called when progress has been made for the download identified by |guid|.
-  // Should only be called on the IO thread.
+  // Progress is either the request body being uploaded or response body being
+  // downloaded. Should only be called on the IO thread.
   void OnDownloadUpdated(const std::string& job_unique_id,
                          const std::string& guid,
+                         uint64_t bytes_uploaded,
                          uint64_t bytes_downloaded);
 
   // Should only be called from the BackgroundFetchDelegate (on the IO thread).

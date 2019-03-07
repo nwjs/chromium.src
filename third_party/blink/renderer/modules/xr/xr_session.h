@@ -27,13 +27,13 @@ class Element;
 class ResizeObserver;
 class ScriptPromiseResolver;
 class V8XRFrameRequestCallback;
+class XR;
 class XRCanvasInputProvider;
-class XRCoordinateSystem;
-class XRDevice;
-class XRFrameOfReferenceOptions;
+class XRSpace;
 class XRInputSourceEvent;
 class XRLayer;
 class XRPresentationContext;
+class XRReferenceSpaceOptions;
 class XRView;
 
 class XRSession final : public EventTargetWithInlineData,
@@ -43,25 +43,37 @@ class XRSession final : public EventTargetWithInlineData,
   USING_GARBAGE_COLLECTED_MIXIN(XRSession);
 
  public:
+  enum SessionMode {
+    kModeUnknown = 0,
+    kModeInline = 1,
+    kModeImmersiveVR = 2,
+    kModeImmersiveAR = 3,
+    kModeInlineAR = 4
+  };
+
+  static SessionMode stringToSessionMode(const String&);
+  static String sessionModeToString(SessionMode);
+
   enum EnvironmentBlendMode {
     kBlendModeOpaque = 1,
     kBlendModeAdditive = 2,
     kBlendModeAlphaBlend = 3
   };
 
-  XRSession(XRDevice*,
+  XRSession(XR*,
             device::mojom::blink::XRSessionClientRequest client_request,
-            bool immersive,
-            bool environment_integration,
+            SessionMode mode,
             XRPresentationContext* output_context,
             EnvironmentBlendMode environment_blend_mode);
   ~XRSession() override = default;
 
-  XRDevice* device() const { return device_; }
-  bool immersive() const { return immersive_; }
+  XR* xr() const { return xr_; }
+  const String& mode() const { return mode_string_; }
   bool environmentIntegration() const { return environment_integration_; }
   XRPresentationContext* outputContext() const { return output_context_; }
   const String& environmentBlendMode() const { return blend_mode_string_; }
+
+  bool immersive() const;
 
   // Near and far depths are used when computing projection matrices for this
   // Session's views. Changes will propegate to the appropriate matrices on the
@@ -83,9 +95,8 @@ class XRSession final : public EventTargetWithInlineData,
   DEFINE_ATTRIBUTE_EVENT_LISTENER(selectend, kSelectend);
   DEFINE_ATTRIBUTE_EVENT_LISTENER(select, kSelect);
 
-  ScriptPromise requestFrameOfReference(ScriptState*,
-                                        const String& type,
-                                        const XRFrameOfReferenceOptions*);
+  ScriptPromise requestReferenceSpace(ScriptState*,
+                                      const XRReferenceSpaceOptions*);
 
   int requestAnimationFrame(V8XRFrameRequestCallback*);
   void cancelAnimationFrame(int id);
@@ -98,7 +109,7 @@ class XRSession final : public EventTargetWithInlineData,
   ScriptPromise requestHitTest(ScriptState* script_state,
                                NotShared<DOMFloat32Array> origin,
                                NotShared<DOMFloat32Array> direction,
-                               XRCoordinateSystem* coordinate_system);
+                               XRSpace* space);
 
   // Called by JavaScript to manually end the session.
   ScriptPromise end(ScriptState*);
@@ -186,8 +197,9 @@ class XRSession final : public EventTargetWithInlineData,
       base::Optional<WTF::Vector<device::mojom::blink::XRHitResultPtr>>
           results);
 
-  const Member<XRDevice> device_;
-  const bool immersive_;
+  const Member<XR> xr_;
+  const SessionMode mode_;
+  const String mode_string_;
   const bool environment_integration_;
   const Member<XRPresentationContext> output_context_;
   String blend_mode_string_;
@@ -197,7 +209,7 @@ class XRSession final : public EventTargetWithInlineData,
   Member<ResizeObserver> resize_observer_;
   Member<XRCanvasInputProvider> canvas_input_provider_;
 
-  bool has_device_focus_ = true;
+  bool has_xr_focus_ = true;
   bool is_external_ = false;
   int display_info_id_ = 0;
   device::mojom::blink::VRDisplayInfoPtr display_info_;
@@ -221,7 +233,7 @@ class XRSession final : public EventTargetWithInlineData,
   // Indicates that we've already logged a metric, so don't need to log it
   // again.
   mutable bool did_log_getInputSources_ = false;
-  mutable bool did_log_getDevicePose_ = false;
+  mutable bool did_log_getViewerPose_ = false;
 
   // Dimensions of the output canvas.
   int output_width_ = 1;

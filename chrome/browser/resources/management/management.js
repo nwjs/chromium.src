@@ -45,8 +45,9 @@ cr.define('management', function() {
       // Show descriptions of the types of reporting in the |reportingSources|
       // list.
       this.browserProxy_.getReportingInfo().then(function(reportingSources) {
-        if (reportingSources.length == 0)
+        if (reportingSources.length == 0) {
           return;
+        }
 
         $('policies').hidden = false;
 
@@ -56,11 +57,28 @@ cr.define('management', function() {
           $('reporting-info-list').appendChild(element);
         }
       });
+      // Show descriptions of the types of reporting in the |reportingSources|
+      // list.
+      this.browserProxy_.getBrowserReportingInfo().then(function(
+          reportingSources) {
+        if (reportingSources.length == 0) {
+          return;
+        }
+
+        $('browser-policies').hidden = false;
+
+        for (const id of reportingSources) {
+          const element = document.createElement('li');
+          element.textContent = loadTimeData.getString(id);
+          $('browser-reporting-info-list').appendChild(element);
+        }
+      });
 
       // Show names and permissions of |extensions| in a table.
       this.browserProxy_.getExtensions().then(function(extensions) {
-        if (extensions.length == 0)
+        if (extensions.length == 0) {
           return;
+        }
 
         const table = $('extensions-table');
 
@@ -118,6 +136,11 @@ cr.define('management', function() {
     getReportingInfo() {}
 
     /**
+     * @return {!Promise<!Array<string>>} List of reporting info.
+     */
+    getBrowserReportingInfo() {}
+
+    /**
      * Each extension has a name and a list of permission messages.
      * @return {!Promise<!Array<!Extension>>} List of extensions.
      */
@@ -142,6 +165,11 @@ cr.define('management', function() {
     /** @override */
     getReportingInfo() {
       return cr.sendWithPromise('getReportingInfo');
+    }
+
+    /** @override */
+    getBrowserReportingInfo() {
+      return cr.sendWithPromise('getBrowserReportingInfo');
     }
 
     /** @override */

@@ -53,7 +53,7 @@ class StaticNodeTypeList final : public NodeList {
   unsigned length() const override;
   NodeType* item(unsigned index) const override;
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
 
  private:
   HeapVector<TraceWrapperMember<NodeType>> nodes_;
@@ -64,7 +64,8 @@ using StaticNodeList = StaticNodeTypeList<Node>;
 template <typename NodeType>
 StaticNodeTypeList<NodeType>* StaticNodeTypeList<NodeType>::Adopt(
     HeapVector<Member<NodeType>>& nodes) {
-  StaticNodeTypeList<NodeType>* node_list = new StaticNodeTypeList<NodeType>;
+  StaticNodeTypeList<NodeType>* node_list =
+      MakeGarbageCollected<StaticNodeTypeList<NodeType>>();
   swap(node_list->nodes_, nodes);
   return node_list;
 }

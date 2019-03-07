@@ -9,10 +9,12 @@
 namespace {
 
 // This variable must be able to be found and parsed by the upload script.
-const int kMinimumSupportedChromeVersion[] = {69, 0, 3497, 0};
+const int kMinimumSupportedChromeVersion[] = {70, 0, 3538, 0};
 
 }  // namespace
 
+const int kMinimumSupportedChromeMajorVersion =
+    kMinimumSupportedChromeVersion[0];
 const int kMinimumSupportedChromeBuildNo = kMinimumSupportedChromeVersion[2];
 
 std::string GetMinimumSupportedChromeVersion() {

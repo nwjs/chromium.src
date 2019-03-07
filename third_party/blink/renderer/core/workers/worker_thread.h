@@ -41,6 +41,7 @@
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/workers/parent_execution_context_task_runners.h"
 #include "third_party/blink/renderer/core/workers/worker_backing_thread_startup_data.h"
+#include "third_party/blink/renderer/platform/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
@@ -108,7 +109,7 @@ class CORE_EXPORT WorkerThread : public Thread::TaskObserver {
   // Called on the main thread after Start().
   void EvaluateClassicScript(const KURL& script_url,
                              const String& source_code,
-                             std::unique_ptr<Vector<char>> cached_meta_data,
+                             std::unique_ptr<Vector<uint8_t>> cached_meta_data,
                              const v8_inspector::V8StackTraceId& stack_id);
 
   // Posts a task to import a top-level classic script on the worker thread.
@@ -183,11 +184,12 @@ class CORE_EXPORT WorkerThread : public Thread::TaskObserver {
   // adds the current WorkerThread* as the first parameter |function|.
   template <typename FunctionType, typename... Parameters>
   static void CallOnAllWorkerThreads(FunctionType function,
+                                     TaskType task_type,
                                      Parameters&&... parameters) {
     MutexLocker lock(ThreadSetMutex());
     for (WorkerThread* thread : WorkerThreads()) {
       PostCrossThreadTask(
-          *thread->GetTaskRunner(TaskType::kInternalWorker), FROM_HERE,
+          *thread->GetTaskRunner(task_type), FROM_HERE,
           CrossThreadBind(function, WTF::CrossThreadUnretained(thread),
                           parameters...));
     }
@@ -291,7 +293,7 @@ class CORE_EXPORT WorkerThread : public Thread::TaskObserver {
   void EvaluateClassicScriptOnWorkerThread(
       const KURL& script_url,
       String source_code,
-      std::unique_ptr<Vector<char>> cached_meta_data,
+      std::unique_ptr<Vector<uint8_t>> cached_meta_data,
       const v8_inspector::V8StackTraceId& stack_id);
   void ImportClassicScriptOnWorkerThread(
       const KURL& script_url,

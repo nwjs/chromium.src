@@ -74,6 +74,8 @@ class VIEWS_EXPORT FocusRing : public View, public ViewObserver {
   // focus, but the FocusRing sits on the parent instead of the inner view.
   void SetHasFocusPredicate(const ViewPredicate& predicate);
 
+  void SetColor(base::Optional<SkColor> color);
+
   // View:
   const char* GetClassName() const override;
   void Layout() override;
@@ -105,11 +107,16 @@ class VIEWS_EXPORT FocusRing : public View, public ViewObserver {
   // the focus ring shows an invalid appearance (usually a different color).
   bool invalid_ = false;
 
+  // Overriding color for the focus ring.
+  base::Optional<SkColor> color_;
+
   // The predicate used to determine whether the parent has focus.
   ViewPredicate has_focus_predicate_;
 
   DISALLOW_COPY_AND_ASSIGN(FocusRing);
 };
+
+VIEWS_EXPORT SkPath GetHighlightPath(const View* view);
 
 }  // views
 

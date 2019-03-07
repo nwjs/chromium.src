@@ -4,18 +4,18 @@
 
 #include "android_webview/browser/deferred_gpu_command_service.h"
 
-#include "android_webview/browser/gl_view_renderer_manager.h"
 #include "android_webview/browser/render_thread_manager.h"
+#include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/synchronization/lock.h"
 #include "base/trace_event/trace_event.h"
 #include "content/public/browser/gpu_data_manager.h"
 #include "content/public/browser/gpu_utils.h"
 #include "content/public/common/content_switches.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
+#include "gpu/command_buffer/service/mailbox_manager_factory.h"
 #include "gpu/command_buffer/service/sync_point_manager.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_info.h"
@@ -39,18 +39,16 @@ ScopedAllowGL::ScopedAllowGL() {
 
   DeferredGpuCommandService* service = DeferredGpuCommandService::GetInstance();
   DCHECK(service);
-  service->RunTasks();
+  DCHECK(!service->HasMoreTasks());
 }
 
 ScopedAllowGL::~ScopedAllowGL() {
-  allow_gl.Get().Set(false);
-
   DeferredGpuCommandService* service = DeferredGpuCommandService::GetInstance();
   DCHECK(service);
   service->RunTasks();
-  if (service->IdleQueueSize()) {
-    service->RequestProcessGL(true);
-  }
+  service->PerformAllIdleWork();
+  DCHECK(!service->HasMoreTasks());
+  allow_gl.Get().Set(false);
 }
 
 // gpu::CommandBufferTaskExectuor::Sequence implementation that encapsulates a
@@ -71,10 +69,6 @@ class TaskForwardingSequence : public gpu::CommandBufferTaskExecutor::Sequence {
   }
 
   bool ShouldYield() override { return false; }
-
-  // Should not be called because BlockThreadOnWaitSyncToken() returns true,
-  // and the client should not disable sequences to wait for sync tokens.
-  void SetEnabled(bool enabled) override { NOTREACHED(); }
 
   void ScheduleTask(base::OnceClosure task,
                     std::vector<gpu::SyncToken> sync_token_fences) override {
@@ -140,7 +134,9 @@ DeferredGpuCommandService::CreateDeferredGpuCommandService() {
     LOG(FATAL) << "gpu::InitializeGLThreadSafe() failed.";
   }
   return new DeferredGpuCommandService(
-      std::make_unique<gpu::SyncPointManager>(), gpu_preferences, gpu_info,
+      std::make_unique<gpu::SyncPointManager>(),
+      gpu::gles2::CreateMailboxManager(gpu_preferences),
+      std::make_unique<gpu::SharedImageManager>(), gpu_preferences, gpu_info,
       gpu_feature_info);
 }
 
@@ -153,55 +149,41 @@ DeferredGpuCommandService* DeferredGpuCommandService::GetInstance() {
 
 DeferredGpuCommandService::DeferredGpuCommandService(
     std::unique_ptr<gpu::SyncPointManager> sync_point_manager,
+    std::unique_ptr<gpu::MailboxManager> mailbox_manager,
+    std::unique_ptr<gpu::SharedImageManager> shared_image_manager,
     const gpu::GpuPreferences& gpu_preferences,
     const gpu::GPUInfo& gpu_info,
     const gpu::GpuFeatureInfo& gpu_feature_info)
     : gpu::CommandBufferTaskExecutor(gpu_preferences,
                                      gpu_feature_info,
                                      sync_point_manager.get(),
+                                     mailbox_manager.get(),
                                      nullptr,
-                                     nullptr,
-                                     gl::GLSurfaceFormat()),
+                                     gl::GLSurfaceFormat(),
+                                     shared_image_manager.get(),
+                                     nullptr),
       sync_point_manager_(std::move(sync_point_manager)),
-      gpu_info_(gpu_info) {}
-
-DeferredGpuCommandService::~DeferredGpuCommandService() {
-  base::AutoLock lock(tasks_lock_);
-  DCHECK(tasks_.empty());
+      mailbox_manager_(std::move(mailbox_manager)),
+      gpu_info_(gpu_info),
+      shared_image_manager_(std::move(shared_image_manager)) {
+  DETACH_FROM_THREAD(task_queue_thread_checker_);
 }
 
-// This method can be called on any thread.
-// static
-void DeferredGpuCommandService::RequestProcessGL(bool for_idle) {
-  RenderThreadManager* renderer_state =
-      GLViewRendererManager::GetInstance()->GetMostRecentlyDrawn();
-  if (!renderer_state) {
-    LOG(ERROR) << "No hardware renderer. Deadlock likely";
-    return;
-  }
-  renderer_state->ClientRequestInvokeGL(for_idle);
+DeferredGpuCommandService::~DeferredGpuCommandService() {
+  DCHECK(tasks_.empty());
 }
 
 // Called from different threads!
 void DeferredGpuCommandService::ScheduleTask(base::OnceClosure task,
                                              bool out_of_order) {
-  {
-    base::AutoLock lock(tasks_lock_);
-    if (out_of_order)
-      tasks_.emplace_front(std::move(task));
-    else
-      tasks_.emplace_back(std::move(task));
-  }
-  if (ScopedAllowGL::IsAllowed()) {
-    RunTasks();
-  } else {
-    RequestProcessGL(false);
-  }
-}
-
-size_t DeferredGpuCommandService::IdleQueueSize() {
-  base::AutoLock lock(tasks_lock_);
-  return idle_tasks_.size();
+  DCHECK_CALLED_ON_VALID_THREAD(task_queue_thread_checker_);
+  LOG_IF(FATAL, !ScopedAllowGL::IsAllowed())
+      << "ScheduleTask outside of ScopedAllowGL";
+  if (out_of_order)
+    tasks_.emplace_front(std::move(task));
+  else
+    tasks_.emplace_back(std::move(task));
+  RunTasks();
 }
 
 std::unique_ptr<gpu::CommandBufferTaskExecutor::Sequence>
@@ -215,44 +197,23 @@ void DeferredGpuCommandService::ScheduleOutOfOrderTask(base::OnceClosure task) {
 
 void DeferredGpuCommandService::ScheduleDelayedWork(
     base::OnceClosure callback) {
-  {
-    base::AutoLock lock(tasks_lock_);
-    idle_tasks_.push(std::make_pair(base::Time::Now(), std::move(callback)));
-  }
-  RequestProcessGL(true);
-}
-
-void DeferredGpuCommandService::PerformIdleWork(bool is_idle) {
-  TRACE_EVENT1("android_webview", "DeferredGpuCommandService::PerformIdleWork",
-               "is_idle", is_idle);
-  DCHECK(ScopedAllowGL::IsAllowed());
-  static const base::TimeDelta kMaxIdleAge =
-      base::TimeDelta::FromMilliseconds(16);
-
-  const base::Time now = base::Time::Now();
-  size_t queue_size = IdleQueueSize();
-  while (queue_size--) {
-    base::OnceClosure task;
-    {
-      base::AutoLock lock(tasks_lock_);
-      if (!is_idle) {
-        // Only run old tasks if we are not really idle right now.
-        base::TimeDelta age(now - idle_tasks_.front().first);
-        if (age < kMaxIdleAge)
-          break;
-      }
-      task = std::move(idle_tasks_.front().second);
-      idle_tasks_.pop();
-    }
-    std::move(task).Run();
-  }
+  LOG_IF(FATAL, !ScopedAllowGL::IsAllowed())
+      << "ScheduleDelayedWork outside of ScopedAllowGL";
+  DCHECK_CALLED_ON_VALID_THREAD(task_queue_thread_checker_);
+  idle_tasks_.push(std::make_pair(base::Time::Now(), std::move(callback)));
 }
 
 void DeferredGpuCommandService::PerformAllIdleWork() {
   TRACE_EVENT0("android_webview",
                "DeferredGpuCommandService::PerformAllIdleWork");
-  while (IdleQueueSize()) {
-    PerformIdleWork(true);
+  DCHECK_CALLED_ON_VALID_THREAD(task_queue_thread_checker_);
+  if (inside_run_idle_tasks_)
+    return;
+  base::AutoReset<bool> inside(&inside_run_idle_tasks_, true);
+  while (idle_tasks_.size()) {
+    base::OnceClosure task = std::move(idle_tasks_.front().second);
+    idle_tasks_.pop();
+    std::move(task).Run();
   }
 }
 
@@ -266,29 +227,19 @@ bool DeferredGpuCommandService::ShouldCreateMemoryTracker() const {
 
 void DeferredGpuCommandService::RunTasks() {
   TRACE_EVENT0("android_webview", "DeferredGpuCommandService::RunTasks");
-  bool has_more_tasks;
-  {
-    base::AutoLock lock(tasks_lock_);
-    has_more_tasks = tasks_.size() > 0;
-  }
-
-  while (has_more_tasks) {
-    base::OnceClosure task;
-    {
-      base::AutoLock lock(tasks_lock_);
-      task = std::move(tasks_.front());
-      tasks_.pop_front();
-    }
-    std::move(task).Run();
-    {
-      base::AutoLock lock(tasks_lock_);
-      has_more_tasks = tasks_.size() > 0;
-    }
+  DCHECK_CALLED_ON_VALID_THREAD(task_queue_thread_checker_);
+  if (inside_run_tasks_)
+    return;
+  base::AutoReset<bool> inside(&inside_run_tasks_, true);
+  while (tasks_.size()) {
+    std::move(tasks_.front()).Run();
+    tasks_.pop_front();
   }
 }
 
-bool DeferredGpuCommandService::BlockThreadOnWaitSyncToken() const {
-  return true;
+bool DeferredGpuCommandService::HasMoreTasks() {
+  DCHECK_CALLED_ON_VALID_THREAD(task_queue_thread_checker_);
+  return tasks_.size() || idle_tasks_.size();
 }
 
 bool DeferredGpuCommandService::CanSupportThreadedTextureMailbox() const {

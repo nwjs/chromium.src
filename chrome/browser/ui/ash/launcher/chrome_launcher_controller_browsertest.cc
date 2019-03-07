@@ -14,7 +14,7 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/shelf/app_list_button.h"
 #include "ash/shelf/shelf.h"
-#include "ash/shelf/shelf_button.h"
+#include "ash/shelf/shelf_app_button.h"
 #include "ash/shelf/shelf_view.h"
 #include "ash/shelf/shelf_view_test_api.h"
 #include "ash/shelf/shelf_widget.h"
@@ -302,7 +302,7 @@ class ShelfAppBrowserTest : public extensions::ExtensionBrowserTest {
                        ui::test::EventGenerator* generator,
                        ash::ShelfViewTestAPI* test,
                        RipOffCommand command) {
-    ash::ShelfButton* button = test->GetButton(index);
+    ash::ShelfAppButton* button = test->GetButton(index);
     gfx::Point start_point = button->GetBoundsInScreen().CenterPoint();
     gfx::Point rip_off_point(start_point.x(), 0);
     generator->MoveMouseTo(start_point.x(), start_point.y());
@@ -955,12 +955,9 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, LaunchInBackground) {
 // activates the right window.
 IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, LaunchMaximized) {
   MaximizeWindow(browser()->window());
-  content::WindowedNotificationObserver open_observer(
-      chrome::NOTIFICATION_BROWSER_OPENED,
-      content::NotificationService::AllSources());
-  chrome::NewEmptyWindow(browser()->profile());
-  open_observer.Wait();
-  Browser* browser2 = content::Source<Browser>(open_observer.source()).ptr();
+  // Load about:blank in a new window.
+  Browser* browser2 = CreateBrowser(browser()->profile());
+  EXPECT_NE(browser(), browser2);
   TabStripModel* tab_strip = browser2->tab_strip_model();
   int tab_count = tab_strip->count();
   MaximizeWindow(browser2->window());
@@ -1603,8 +1600,8 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTest, DISABLED_DragOffShelf) {
   EXPECT_EQ(browser_index, GetIndexOfShelfItemType(ash::TYPE_BROWSER_SHORTCUT));
   // Make sure that the hide state has been unset after the snap back animation
   // finished.
-  ash::ShelfButton* button = test.GetButton(browser_index);
-  EXPECT_FALSE(button->state() & ash::ShelfButton::STATE_HIDDEN);
+  ash::ShelfAppButton* button = test.GetButton(browser_index);
+  EXPECT_FALSE(button->state() & ash::ShelfAppButton::STATE_HIDDEN);
 
   // Test #2: Ripping out the application and canceling the operation should
   // not change anything.
@@ -1746,7 +1743,8 @@ IN_PROC_BROWSER_TEST_F(ShelfAppBrowserTestNoDefaultBrowser,
             prefs->GetLastLaunchTime(extension_misc::kChromeAppId));
 
   base::Time time_before_launch = base::Time::Now();
-  chrome::NewEmptyWindow(profile());
+  // Load about:blank in a new window.
+  CreateBrowser(profile());
   base::Time time_after_launch = base::Time::Now();
   const base::Time time_launch =
       prefs->GetLastLaunchTime(extension_misc::kChromeAppId);

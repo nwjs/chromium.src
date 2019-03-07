@@ -185,7 +185,7 @@ class TestAnimateInAndOutOfScreen : public RenderingTest {
     on_draw_count_++;
   }
 
-  bool WillDrawOnRT(AwDrawGLInfo* draw_info) override {
+  bool WillDrawOnRT(HardwareRendererDrawParams* params) override {
     if (draw_gl_count_on_rt_ == 1) {
       draw_gl_count_on_rt_++;
       ui_task_runner_->PostTask(FROM_HERE,
@@ -194,15 +194,15 @@ class TestAnimateInAndOutOfScreen : public RenderingTest {
       return false;
     }
 
-    draw_info->width = window_->surface_size().width();
-    draw_info->height = window_->surface_size().height();
-    draw_info->is_layer = false;
+    params->width = window_->surface_size().width();
+    params->height = window_->surface_size().height();
+    params->is_layer = false;
 
     gfx::Transform transform;
     if (draw_gl_count_on_rt_ == 0)
       transform = new_constraints_.transform;
 
-    transform.matrix().asColMajorf(draw_info->transform);
+    transform.matrix().asColMajorf(params->transform);
     return true;
   }
 
@@ -268,15 +268,15 @@ class TestAnimateOnScreenWithoutOnDraw : public RenderingTest {
     on_draw_count_++;
   }
 
-  bool WillDrawOnRT(AwDrawGLInfo* draw_info) override {
+  bool WillDrawOnRT(HardwareRendererDrawParams* params) override {
     will_draw_on_rt_count_++;
     // What happens in practice is draw functor is skipped initially since
     // it is offscreen so entirely clipped. Then later, the webview is moved
     // onscreen without another OnDrawon UI thread, and draw functor is called
     // with non-empty clip. Here in the test we pretend this second draw happens
     // immediately.
-    bool result = RenderingTest::WillDrawOnRT(draw_info);
-    assertNonEmptyClip(draw_info);
+    bool result = RenderingTest::WillDrawOnRT(params);
+    assertNonEmptyClip(params);
     return result;
   }
 
@@ -302,10 +302,10 @@ class TestAnimateOnScreenWithoutOnDraw : public RenderingTest {
   }
 
  private:
-  void assertNonEmptyClip(AwDrawGLInfo* draw_info) {
-    gfx::Rect clip(draw_info->clip_left, draw_info->clip_top,
-                   draw_info->clip_right - draw_info->clip_left,
-                   draw_info->clip_bottom - draw_info->clip_top);
+  void assertNonEmptyClip(HardwareRendererDrawParams* params) {
+    gfx::Rect clip(params->clip_left, params->clip_top,
+                   params->clip_right - params->clip_left,
+                   params->clip_bottom - params->clip_top);
     ASSERT_FALSE(clip.IsEmpty());
   }
 
@@ -500,10 +500,15 @@ class SwitchLayerTreeFrameSinkIdTest : public ResourceRenderingTest {
   }
 
   void CheckResults() override {
-    GetCompositorFrameConsumer()->DeleteHardwareRendererOnUI();
     window_->Detach();
-    window_.reset();
+    functor_->ReleaseOnUIWithInvoke();
+    ui_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&SwitchLayerTreeFrameSinkIdTest::PostedCheckResults,
+                       base::Unretained(this)));
+  }
 
+  void PostedCheckResults() {
     // Make sure resources for the last output surface are returned.
     EXPECT_EQ(expected_return_count_,
               GetReturnedResourceCounts()[last_layer_tree_frame_sink_id_]);
@@ -537,8 +542,14 @@ class RenderThreadManagerDeletionTest : public ResourceRenderingTest {
   }
 
   void CheckResults() override {
-    LayerTreeFrameSinkResourceCountMap resource_counts;
     functor_.reset();
+    ui_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&RenderThreadManagerDeletionTest::PostedCheckResults,
+                       base::Unretained(this)));
+  }
+
+  void PostedCheckResults() {
     // Make sure resources for the last frame are returned.
     EXPECT_EQ(expected_return_count_, GetReturnedResourceCounts());
     EndTest();
@@ -549,6 +560,43 @@ class RenderThreadManagerDeletionTest : public ResourceRenderingTest {
 };
 
 RENDERING_TEST_F(RenderThreadManagerDeletionTest);
+
+class RenderThreadManagerDeletionOnRTTest : public ResourceRenderingTest {
+  std::unique_ptr<content::SynchronousCompositor::Frame> GetFrame(
+      int frame_number) override {
+    if (frame_number > 0) {
+      return nullptr;
+    }
+
+    const uint32_t layer_tree_frame_sink_id = 0u;
+    const viz::ResourceId resource_id =
+        static_cast<viz::ResourceId>(frame_number);
+
+    std::unique_ptr<content::SynchronousCompositor::Frame> frame(
+        new content::SynchronousCompositor::Frame);
+    frame->layer_tree_frame_sink_id = layer_tree_frame_sink_id;
+    frame->frame = ConstructFrame(resource_id);
+    ++expected_return_count_[layer_tree_frame_sink_id][resource_id];
+    return frame;
+  }
+
+  void CheckResults() override {
+    functor_->ReleaseOnUIWithoutInvoke(
+        base::BindOnce(&RenderThreadManagerDeletionOnRTTest::PostedCheckResults,
+                       base::Unretained(this)));
+  }
+
+  void PostedCheckResults() {
+    // Make sure resources for the last frame are returned.
+    EXPECT_EQ(expected_return_count_, GetReturnedResourceCounts());
+    EndTest();
+  }
+
+ private:
+  LayerTreeFrameSinkResourceCountMap expected_return_count_;
+};
+
+RENDERING_TEST_F(RenderThreadManagerDeletionOnRTTest);
 
 class RenderThreadManagerSwitchTest : public ResourceRenderingTest {
   std::unique_ptr<content::SynchronousCompositor::Frame> GetFrame(
@@ -561,9 +609,8 @@ class RenderThreadManagerSwitchTest : public ResourceRenderingTest {
       case 1: {
         // Switch to new RTM.
         std::unique_ptr<FakeFunctor> functor(new FakeFunctor);
-        functor->Init(window_.get(),
-                      std::make_unique<RenderThreadManager>(
-                          functor.get(), base::ThreadTaskRunnerHandle::Get()));
+        functor->Init(window_.get(), std::make_unique<RenderThreadManager>(
+                                         base::ThreadTaskRunnerHandle::Get()));
         browser_view_renderer_->SetCurrentCompositorFrameConsumer(
             functor->GetCompositorFrameConsumer());
         saved_functor_ = std::move(functor_);
@@ -599,8 +646,14 @@ class RenderThreadManagerSwitchTest : public ResourceRenderingTest {
   }
 
   void CheckResults() override {
-    LayerTreeFrameSinkResourceCountMap resource_counts;
     functor_.reset();
+    ui_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&RenderThreadManagerSwitchTest::PostedCheckResults,
+                       base::Unretained(this)));
+  }
+
+  void PostedCheckResults() {
     // Make sure resources for all frames are returned.
     EXPECT_EQ(expected_return_count_, GetReturnedResourceCounts());
     EndTest();

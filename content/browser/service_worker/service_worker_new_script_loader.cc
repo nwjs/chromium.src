@@ -137,9 +137,8 @@ ServiceWorkerNewScriptLoader::ServiceWorkerNewScriptLoader(
 ServiceWorkerNewScriptLoader::~ServiceWorkerNewScriptLoader() = default;
 
 void ServiceWorkerNewScriptLoader::FollowRedirect(
-    const base::Optional<std::vector<std::string>>&
-        to_be_removed_request_headers,
-    const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
+    const std::vector<std::string>& removed_headers,
+    const net::HttpRequestHeaders& modified_headers,
     const base::Optional<GURL>& new_url) {
   // Resource requests for service worker scripts should not follow redirects.
   // See comments in OnReceiveRedirect().
@@ -152,15 +151,18 @@ void ServiceWorkerNewScriptLoader::ProceedWithResponse() {
 
 void ServiceWorkerNewScriptLoader::SetPriority(net::RequestPriority priority,
                                                int32_t intra_priority_value) {
-  network_loader_->SetPriority(priority, intra_priority_value);
+  if (network_loader_)
+    network_loader_->SetPriority(priority, intra_priority_value);
 }
 
 void ServiceWorkerNewScriptLoader::PauseReadingBodyFromNet() {
-  network_loader_->PauseReadingBodyFromNet();
+  if (network_loader_)
+    network_loader_->PauseReadingBodyFromNet();
 }
 
 void ServiceWorkerNewScriptLoader::ResumeReadingBodyFromNet() {
-  network_loader_->ResumeReadingBodyFromNet();
+  if (network_loader_)
+    network_loader_->ResumeReadingBodyFromNet();
 }
 
 // URLLoaderClient for network loader ------------------------------------------
@@ -186,6 +188,7 @@ void ServiceWorkerNewScriptLoader::OnReceiveResponse(
       response_head.alpn_negotiated_protocol;
   response_info->connection_info = response_head.connection_info;
   response_info->socket_address = response_head.socket_address;
+  response_info->response_time = response_head.response_time;
 
   // The following sequence is equivalent to
   // ServiceWorkerWriteToCacheJob::OnResponseStarted.
@@ -564,7 +567,7 @@ void ServiceWorkerNewScriptLoader::CommitCompleted(
     // TODO(nhiroki): Consider replacing this hacky way with the new error code
     // handling mechanism in URLLoader.
     version_->embedded_worker()->AddMessageToConsole(
-        blink::WebConsoleMessage::kLevelError, status_message);
+        blink::mojom::ConsoleMessageLevel::kError, status_message);
   }
   version_->script_cache_map()->NotifyFinishedCaching(
       request_url_, bytes_written, error_code, status_message);

@@ -93,7 +93,7 @@ class MockHost(MockSystemHost):
                 'is_try_builder': True,
             },
             'android_blink_rel': {
-                'bucket': 'master.tryserver.chromium.android',
+                'bucket': 'luci.chromium.try',
                 'port_name': 'android-kitkat',
                 'specifiers': ['KitKat', 'Release'],
                 'is_try_builder': True,
@@ -113,7 +113,7 @@ class MockHost(MockSystemHost):
     def _add_base_manifest_to_mock_filesystem(self, filesystem):
         path_finder = PathFinder(filesystem)
 
-        external_dir = path_finder.path_from_layout_tests('external')
+        external_dir = path_finder.path_from_web_tests('external')
         filesystem.maybe_make_directory(filesystem.join(external_dir, 'wpt'))
 
         # This filename should match the constant BASE_MANIFEST_NAME.

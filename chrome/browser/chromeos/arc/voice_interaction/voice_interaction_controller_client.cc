@@ -14,7 +14,7 @@
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "components/arc/arc_prefs.h"
 #include "components/arc/arc_util.h"
 #include "components/language/core/browser/pref_names.h"
@@ -107,6 +107,13 @@ void VoiceInteractionControllerClient::NotifyHotwordEnabled() {
   PrefService* prefs = profile_->GetPrefs();
   bool enabled = prefs->GetBoolean(prefs::kVoiceInteractionHotwordEnabled);
   voice_interaction_controller_->NotifyHotwordEnabled(enabled);
+}
+
+void VoiceInteractionControllerClient::NotifyHotwordAlwaysOn() {
+  DCHECK(profile_);
+  PrefService* prefs = profile_->GetPrefs();
+  bool always_on = prefs->GetBoolean(prefs::kVoiceInteractionHotwordAlwaysOn);
+  voice_interaction_controller_->NotifyHotwordAlwaysOn(always_on);
 }
 
 void VoiceInteractionControllerClient::NotifySetupCompleted() {
@@ -215,6 +222,11 @@ void VoiceInteractionControllerClient::SetProfile(Profile* profile) {
           &VoiceInteractionControllerClient::NotifyHotwordEnabled,
           base::Unretained(this)));
   pref_change_registrar_->Add(
+      prefs::kVoiceInteractionHotwordAlwaysOn,
+      base::BindRepeating(
+          &VoiceInteractionControllerClient::NotifyHotwordAlwaysOn,
+          base::Unretained(this)));
+  pref_change_registrar_->Add(
       prefs::kVoiceInteractionNotificationEnabled,
       base::BindRepeating(
           &VoiceInteractionControllerClient::NotifyNotificationEnabled,
@@ -232,6 +244,7 @@ void VoiceInteractionControllerClient::SetProfile(Profile* profile) {
   NotifyNotificationEnabled();
   NotifyLaunchWithMicOpen();
   NotifyHotwordEnabled();
+  NotifyHotwordAlwaysOn();
 }
 
 void VoiceInteractionControllerClient::Observe(

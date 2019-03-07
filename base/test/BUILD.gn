@@ -3,8 +3,8 @@
 # found in the LICENSE file.
 
 import("//build/compiled_action.gni")
-import("//build/config/ui.gni")
 import("//build/config/nacl/config.gni")
+import("//build/config/ui.gni")
 
 if (is_android) {
   import("//build/config/android/rules.gni")
@@ -46,6 +46,7 @@ static_library("test_support") {
     "android/java_handler_thread_helpers.h",
     "android/url_utils.cc",
     "android/url_utils.h",
+    "bind_test_util.cc",
     "bind_test_util.h",
     "copy_only_int.h",
     "fuzzed_data_provider.h",
@@ -273,6 +274,24 @@ static_library("test_support") {
   }
 }
 
+component("test_support_component") {
+  testonly = true
+  sources = [
+    "type_id_test_support_a.cc",
+    "type_id_test_support_a.h",
+    "type_id_test_support_b.cc",
+    "type_id_test_support_b.h",
+  ]
+  deps = [
+    "//base",
+  ]
+  configs += [ ":base_test_implementation" ]
+}
+
+config("base_test_implementation") {
+  defines = [ "IS_BASE_TEST_IMPL" ]
+}
+
 config("perf_test_config") {
   defines = [ "PERF_TEST" ]
 }
@@ -377,7 +396,10 @@ if (is_linux) {
     compiled_action("do_generate_fontconfig_caches") {
       testonly = true
       tool = ":generate_fontconfig_caches"
-      data_deps = [
+
+      # The copied test fonts are inputs to generate_fontconfig_caches, so must
+      # be listed in deps, not data_deps (https://crbug.com/919422).
+      deps = [
         "//third_party/test_fonts",
       ]
       args = []

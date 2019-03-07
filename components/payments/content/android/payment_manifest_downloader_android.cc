@@ -27,7 +27,8 @@ class DownloadCallback {
 
   ~DownloadCallback() {}
 
-  void OnPaymentMethodManifestDownload(const std::string& content) {
+  void OnPaymentMethodManifestDownload(const GURL& url_after_redirects,
+                                       const std::string& content) {
     JNIEnv* env = base::android::AttachCurrentThread();
 
     if (content.empty()) {
@@ -39,7 +40,8 @@ class DownloadCallback {
     }
   }
 
-  void OnWebAppManifestDownload(const std::string& content) {
+  void OnWebAppManifestDownload(const GURL& url_after_redirects,
+                                const std::string& content) {
     JNIEnv* env = base::android::AttachCurrentThread();
 
     if (content.empty()) {
@@ -100,7 +102,6 @@ void PaymentManifestDownloaderAndroid::Destroy(
 // Caller owns the result. Returns 0 on error.
 static jlong JNI_PaymentManifestDownloader_Init(
     JNIEnv* env,
-    const base::android::JavaParamRef<jclass>& jcaller,
     const base::android::JavaParamRef<jobject>& jweb_contents) {
   content::WebContents* web_contents =
       content::WebContents::FromJavaWebContents(jweb_contents);

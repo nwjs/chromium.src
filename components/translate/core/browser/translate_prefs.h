@@ -31,10 +31,6 @@ class PrefRegistrySyncable;
 
 namespace translate {
 
-// Enables or disables the new improved language settings.
-// These settings support the new UI.
-extern const base::Feature kImprovedLanguageSettings;
-
 // Enables or disables the regional locales as valid selection for the display
 // UI.
 extern const base::Feature kRegionalLocalesAsDisplayUI;
@@ -48,6 +44,9 @@ extern const base::Feature kTranslateUI;
 
 // Enable the "Translate" item in the overflow menu on Android.
 extern const base::Feature kTranslateAndroidManualTrigger;
+
+// Enables the new compact Translate infobar on iOS.
+extern const base::Feature kCompactTranslateInfobarIOS;
 
 // Minimum number of times the user must accept a translation before we show
 // a shortcut to the "Always Translate" functionality.
@@ -331,10 +330,11 @@ class TranslatePrefs {
   FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest, AddToLanguageList);
   FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest, RemoveFromLanguageList);
   FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest,
-                           RemoveFromLanguageListClearsRecentLanguage);
-  FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest, AddToLanguageListFeatureEnabled);
+                           RemoveFromLanguageListRemovesRemainingUnsupported);
   FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest,
-                           RemoveFromLanguageListFeatureEnabled);
+                           RemoveFromLanguageListClearsRecentLanguage);
+  FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest, AddToLanguageList);
+  FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest, RemoveFromLanguageList);
   FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest, MoveLanguageToTheTop);
   FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest, MoveLanguageUp);
   FRIEND_TEST_ALL_PREFIXES(TranslatePrefsTest, MoveLanguageDown);
@@ -359,6 +359,13 @@ class TranslatePrefs {
                      const std::string& value) const;
   bool IsListEmpty(const char* pref_id) const;
   bool IsDictionaryEmpty(const char* pref_id) const;
+  // Removes from the language list any language that isn't supported as an
+  // Accept-Language (it's not in kAcceptLanguageList) if and only if there
+  // aren't any other languages from the same family in the list that are
+  // supported.
+  void PurgeUnsupportedLanguagesInLanguageFamily(
+      const std::string& language,
+      std::vector<std::string>* list);
 
   // Path to the preference storing the accept languages.
   const std::string accept_languages_pref_;

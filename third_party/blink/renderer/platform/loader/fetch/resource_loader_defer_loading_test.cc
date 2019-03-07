@@ -10,7 +10,9 @@
 #include "third_party/blink/public/platform/web_url_loader_factory.h"
 #include "third_party/blink/renderer/platform/loader/fetch/raw_resource.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
+#include "third_party/blink/renderer/platform/loader/fetch/unique_identifier.h"
 #include "third_party/blink/renderer/platform/loader/testing/mock_fetch_context.h"
+#include "third_party/blink/renderer/platform/loader/testing/test_resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support_with_mock_scheduler.h"
 
 namespace blink {
@@ -26,14 +28,15 @@ class ResourceLoaderDefersLoadingTest : public testing::Test {
 
   ResourceLoaderDefersLoadingTest();
 
-  void SetUp() override {
-    context_ =
-        MockFetchContext::Create(MockFetchContext::kShouldLoadNewResource);
-  }
+  void SetUp() override { context_ = MakeGarbageCollected<MockFetchContext>(); }
 
   void SaveCodeCacheCallback(CodeCacheLoader::FetchCodeCacheCallback callback) {
     // Store the callback to send back a response.
     code_cache_response_callback_ = std::move(callback);
+  }
+
+  static scoped_refptr<base::SingleThreadTaskRunner> CreateTaskRunner() {
+    return base::MakeRefCounted<scheduler::FakeTaskRunner>();
   }
 
   CodeCacheLoader::FetchCodeCacheCallback code_cache_response_callback_;
@@ -162,7 +165,9 @@ ResourceLoaderDefersLoadingTest::ResourceLoaderDefersLoadingTest()
 }
 
 TEST_F(ResourceLoaderDefersLoadingTest, CodeCacheFetchCheckDefers) {
-  ResourceFetcher* fetcher = ResourceFetcher::Create(context_);
+  auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>();
+  auto* fetcher = MakeGarbageCollected<ResourceFetcher>(
+      ResourceFetcherInit(*properties, context_, CreateTaskRunner()));
 
   ResourceRequest request;
   request.SetURL(test_url_);
@@ -170,8 +175,9 @@ TEST_F(ResourceLoaderDefersLoadingTest, CodeCacheFetchCheckDefers) {
   request.SetFrameType(network::mojom::RequestContextFrameType::kTopLevel);
   FetchParameters fetch_parameters(request);
 
-  Resource* resource = RawResource::FetchMainResource(
-      fetch_parameters, fetcher, nullptr, SubstituteData());
+  Resource* resource = RawResource::FetchMainResource(fetch_parameters, fetcher,
+                                                      nullptr, SubstituteData(),
+                                                      CreateUniqueIdentifier());
 
   // After code cache fetch it should have deferred WebURLLoader.
   DCHECK(web_url_loader_defers_);
@@ -188,7 +194,9 @@ TEST_F(ResourceLoaderDefersLoadingTest, CodeCacheFetchSyncReturn) {
         std::move(callback).Run(base::Time(), std::vector<uint8_t>());
       }));
 
-  ResourceFetcher* fetcher = ResourceFetcher::Create(context_);
+  auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>();
+  auto* fetcher = MakeGarbageCollected<ResourceFetcher>(
+      ResourceFetcherInit(*properties, context_, CreateTaskRunner()));
 
   ResourceRequest request;
   request.SetURL(test_url_);
@@ -196,15 +204,18 @@ TEST_F(ResourceLoaderDefersLoadingTest, CodeCacheFetchSyncReturn) {
   request.SetFrameType(network::mojom::RequestContextFrameType::kTopLevel);
   FetchParameters fetch_parameters(request);
 
-  Resource* resource = RawResource::FetchMainResource(
-      fetch_parameters, fetcher, nullptr, SubstituteData());
+  Resource* resource = RawResource::FetchMainResource(fetch_parameters, fetcher,
+                                                      nullptr, SubstituteData(),
+                                                      CreateUniqueIdentifier());
   DCHECK(resource);
   // The callback would be called so it should not be deferred.
   DCHECK(!web_url_loader_defers_);
 }
 
 TEST_F(ResourceLoaderDefersLoadingTest, ChangeDefersToFalse) {
-  ResourceFetcher* fetcher = ResourceFetcher::Create(context_);
+  auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>();
+  auto* fetcher = MakeGarbageCollected<ResourceFetcher>(
+      ResourceFetcherInit(*properties, context_, CreateTaskRunner()));
 
   ResourceRequest request;
   request.SetURL(test_url_);
@@ -212,8 +223,9 @@ TEST_F(ResourceLoaderDefersLoadingTest, ChangeDefersToFalse) {
   request.SetFrameType(network::mojom::RequestContextFrameType::kTopLevel);
   FetchParameters fetch_parameters(request);
 
-  Resource* resource = RawResource::FetchMainResource(
-      fetch_parameters, fetcher, nullptr, SubstituteData());
+  Resource* resource = RawResource::FetchMainResource(fetch_parameters, fetcher,
+                                                      nullptr, SubstituteData(),
+                                                      CreateUniqueIdentifier());
   DCHECK(web_url_loader_defers_);
 
   // Change Defers loading to false. This should not be sent to
@@ -224,7 +236,9 @@ TEST_F(ResourceLoaderDefersLoadingTest, ChangeDefersToFalse) {
 }
 
 TEST_F(ResourceLoaderDefersLoadingTest, ChangeDefersToTrue) {
-  ResourceFetcher* fetcher = ResourceFetcher::Create(context_);
+  auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>();
+  auto* fetcher = MakeGarbageCollected<ResourceFetcher>(
+      ResourceFetcherInit(*properties, context_, CreateTaskRunner()));
 
   ResourceRequest request;
   request.SetURL(test_url_);
@@ -232,8 +246,9 @@ TEST_F(ResourceLoaderDefersLoadingTest, ChangeDefersToTrue) {
   request.SetFrameType(network::mojom::RequestContextFrameType::kTopLevel);
   FetchParameters fetch_parameters(request);
 
-  Resource* resource = RawResource::FetchMainResource(
-      fetch_parameters, fetcher, nullptr, SubstituteData());
+  Resource* resource = RawResource::FetchMainResource(fetch_parameters, fetcher,
+                                                      nullptr, SubstituteData(),
+                                                      CreateUniqueIdentifier());
   DCHECK(web_url_loader_defers_);
 
   ResourceLoader* loader = resource->Loader();
@@ -248,7 +263,9 @@ TEST_F(ResourceLoaderDefersLoadingTest, ChangeDefersToTrue) {
 }
 
 TEST_F(ResourceLoaderDefersLoadingTest, ChangeDefersMultipleTimes) {
-  ResourceFetcher* fetcher = ResourceFetcher::Create(context_);
+  auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>();
+  auto* fetcher = MakeGarbageCollected<ResourceFetcher>(
+      ResourceFetcherInit(*properties, context_, CreateTaskRunner()));
 
   ResourceRequest request;
   request.SetURL(test_url_);
@@ -256,8 +273,9 @@ TEST_F(ResourceLoaderDefersLoadingTest, ChangeDefersMultipleTimes) {
   request.SetFrameType(network::mojom::RequestContextFrameType::kTopLevel);
 
   FetchParameters fetch_parameters(request);
-  Resource* resource = RawResource::FetchMainResource(
-      fetch_parameters, fetcher, nullptr, SubstituteData());
+  Resource* resource = RawResource::FetchMainResource(fetch_parameters, fetcher,
+                                                      nullptr, SubstituteData(),
+                                                      CreateUniqueIdentifier());
   DCHECK(web_url_loader_defers_);
 
   ResourceLoader* loader = resource->Loader();

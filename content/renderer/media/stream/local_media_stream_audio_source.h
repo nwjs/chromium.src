@@ -25,7 +25,7 @@ class CONTENT_EXPORT LocalMediaStreamAudioSource
   // audio data. Audio parameters and (optionally) a pre-existing audio session
   // ID are read from |device_info|.
   LocalMediaStreamAudioSource(int consumer_render_frame_id,
-                              const MediaStreamDevice& device,
+                              const blink::MediaStreamDevice& device,
                               bool hotword_enabled,
                               bool disable_local_echo,
                               const ConstraintsCallback& started_callback);
@@ -33,7 +33,7 @@ class CONTENT_EXPORT LocalMediaStreamAudioSource
   ~LocalMediaStreamAudioSource() final;
 
   // MediaStreamAudioSource implementation.
-  void ChangeSourceImpl(const MediaStreamDevice& new_device) final;
+  void ChangeSourceImpl(const blink::MediaStreamDevice& new_device) final;
 
  private:
   // MediaStreamAudioSource implementation.
@@ -61,7 +61,7 @@ class CONTENT_EXPORT LocalMediaStreamAudioSource
 
   // In debug builds, check that all methods that could cause object graph
   // or data flow changes are being called on the main thread.
-  base::ThreadChecker thread_checker_;
+  THREAD_CHECKER(thread_checker_);
 
   DISALLOW_COPY_AND_ASSIGN(LocalMediaStreamAudioSource);
 };

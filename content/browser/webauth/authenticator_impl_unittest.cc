@@ -718,7 +718,6 @@ TEST_F(AuthenticatorImplTest, AppIdExtensionValues) {
 
 // Verify that a request coming from Cryptotoken bypasses origin checks.
 TEST_F(AuthenticatorImplTest, CryptotokenBypass) {
-  EnableFeature(device::kWebAuthProxyCryptotoken);
   SimulateNavigation(GURL(kTestOrigin1));
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>(
       base::Time::Now(), base::TimeTicks::Now());
@@ -775,7 +774,6 @@ TEST_F(AuthenticatorImplTest, CryptotokenBypass) {
 
 // Requests originating from cryptotoken should only target U2F devices.
 TEST_F(AuthenticatorImplTest, CryptoTokenU2fOnly) {
-  EnableFeature(device::kWebAuthProxyCryptotoken);
   TestServiceManagerContext smc;
   SimulateNavigation(GURL(kTestOrigin1));
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>(
@@ -813,7 +811,6 @@ TEST_F(AuthenticatorImplTest, CryptoTokenU2fOnly) {
 
 // Requests originating from cryptotoken should only target U2F devices.
 TEST_F(AuthenticatorImplTest, AttestationPermitted) {
-  EnableFeature(device::kWebAuthProxyCryptotoken);
   TestServiceManagerContext smc;
   SimulateNavigation(GURL(kTestOrigin1));
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>(
@@ -998,9 +995,7 @@ TEST_F(AuthenticatorImplTest, TestCableDiscoveryDisabledWithFlag) {
 }
 
 #if defined(OS_WIN)
-TEST_F(AuthenticatorImplTest, TestCableDiscoveryEnabledWithWinFlag) {
-  EnableFeature(features::kWebAuthCableWin);
-
+TEST_F(AuthenticatorImplTest, TestCableDiscoveryEnabled) {
   auto authenticator = ConnectToAuthenticator();
 
   // Should be enabled if the new Windows BLE stack is.
@@ -1008,24 +1003,6 @@ TEST_F(AuthenticatorImplTest, TestCableDiscoveryEnabledWithWinFlag) {
       device::BluetoothAdapterFactory::Get().IsLowEnergySupported(),
       SupportsTransportProtocol(
           device::FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy));
-}
-
-// Tests that caBLE is not supported when features::kWebAuthCable is disabled,
-// regardless of the state of features::kWebAuthCableWin.
-TEST_F(AuthenticatorImplTest, TestCableDiscoveryDisabledWithoutFlagWin) {
-  for (bool enable_win_flag : {false, true}) {
-    std::vector<base::Feature> enabled_features;
-    std::vector<base::Feature> disabled_features = {features::kWebAuthCable};
-    enable_win_flag ? enabled_features.push_back(features::kWebAuthCableWin)
-                    : disabled_features.push_back(features::kWebAuthCableWin);
-
-    scoped_feature_list_.emplace();
-    scoped_feature_list_->InitWithFeatures(enabled_features, disabled_features);
-
-    auto authenticator = ConnectToAuthenticator();
-    EXPECT_FALSE(SupportsTransportProtocol(
-        device::FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy));
-  }
 }
 #endif
 
@@ -1897,9 +1874,7 @@ TEST_F(AuthenticatorContentBrowserClientTest,
 TEST_F(AuthenticatorContentBrowserClientTest,
        IsUVPAAFalseIfEmbedderDoesNotSupportTouchId) {
   if (__builtin_available(macOS 10.12.2, *)) {
-    // Touch ID is hardware-supported, and flag-enabled, but not enabled by the
-    // embedder.
-    EnableFeature(device::kWebAuthTouchId);
+    // Touch ID is hardware-supported, but not enabled by the embedder.
     device::fido::mac::ScopedTouchIdTestEnvironment touch_id_test_environment;
     touch_id_test_environment.SetTouchIdAvailable(true);
     test_client_.supports_touch_id = false;
@@ -1914,28 +1889,8 @@ TEST_F(AuthenticatorContentBrowserClientTest,
   }
 }
 
-TEST_F(AuthenticatorContentBrowserClientTest, IsUVPAAFalseIfFeatureFlagOff) {
-  if (__builtin_available(macOS 10.12.2, *)) {
-    // Touch ID is hardware-supported and embedder-enabled, but the flag is off.
-    DisableFeature(device::kWebAuthTouchId);
-    device::fido::mac::ScopedTouchIdTestEnvironment touch_id_test_environment;
-    touch_id_test_environment.SetTouchIdAvailable(true);
-    test_client_.supports_touch_id = true;
-
-    NavigateAndCommit(GURL(kTestOrigin1));
-    AuthenticatorPtr authenticator = ConnectToAuthenticator();
-
-    TestIsUvpaaCallback cb;
-    authenticator->IsUserVerifyingPlatformAuthenticatorAvailable(cb.callback());
-    cb.WaitForCallback();
-    EXPECT_FALSE(cb.value());
-  }
-}
-
 TEST_F(AuthenticatorContentBrowserClientTest, IsUVPAATrueIfTouchIdAvailable) {
   if (__builtin_available(macOS 10.12.2, *)) {
-    // Touch ID is available.
-    EnableFeature(device::kWebAuthTouchId);
     device::fido::mac::ScopedTouchIdTestEnvironment touch_id_test_environment;
     touch_id_test_environment.SetTouchIdAvailable(true);
     test_client_.supports_touch_id = true;
@@ -1953,32 +1908,22 @@ TEST_F(AuthenticatorContentBrowserClientTest, IsUVPAATrueIfTouchIdAvailable) {
 
 #if defined(OS_WIN)
 TEST_F(AuthenticatorContentBrowserClientTest, WinIsUVPAA) {
-  for (const bool enable_feature_flag : {false, true}) {
-    SCOPED_TRACE(enable_feature_flag ? "enable_feature_flag"
-                                     : "!enable_feature_flag");
-    for (const bool enable_win_webauthn_api : {false, true}) {
-      SCOPED_TRACE(enable_win_webauthn_api ? "enable_win_webauthn_api"
-                                           : "!enable_win_webauthn_api");
-      for (const bool is_uvpaa : {false, true}) {
-        SCOPED_TRACE(is_uvpaa ? "is_uvpaa" : "!is_uvpaa");
+  for (const bool enable_win_webauthn_api : {false, true}) {
+    SCOPED_TRACE(enable_win_webauthn_api ? "enable_win_webauthn_api"
+                                         : "!enable_win_webauthn_api");
+    for (const bool is_uvpaa : {false, true}) {
+      SCOPED_TRACE(is_uvpaa ? "is_uvpaa" : "!is_uvpaa");
 
-        base::test::ScopedFeatureList scoped_feature_list;
-        if (enable_feature_flag) {
-          scoped_feature_list.InitAndEnableFeature(
-              device::kWebAuthUseNativeWinApi);
-        }
-        device::ScopedFakeWinWebAuthnApi fake_api;
-        fake_api.set_available(enable_win_webauthn_api);
-        fake_api.set_is_uvpaa(is_uvpaa);
+      device::ScopedFakeWinWebAuthnApi fake_api;
+      fake_api.set_available(enable_win_webauthn_api);
+      fake_api.set_is_uvpaa(is_uvpaa);
 
-        AuthenticatorPtr authenticator = ConnectToAuthenticator();
-        TestIsUvpaaCallback cb;
-        authenticator->IsUserVerifyingPlatformAuthenticatorAvailable(
-            cb.callback());
-        cb.WaitForCallback();
-        EXPECT_EQ(enable_feature_flag && enable_win_webauthn_api && is_uvpaa,
-                  cb.value());
-      }
+      AuthenticatorPtr authenticator = ConnectToAuthenticator();
+      TestIsUvpaaCallback cb;
+      authenticator->IsUserVerifyingPlatformAuthenticatorAvailable(
+          cb.callback());
+      cb.WaitForCallback();
+      EXPECT_EQ(enable_win_webauthn_api && is_uvpaa, cb.value());
     }
   }
 }
@@ -2000,7 +1945,6 @@ TEST_F(AuthenticatorContentBrowserClientTest, IsUVPAAFalse) {
 
 TEST_F(AuthenticatorContentBrowserClientTest,
        CryptotokenBypassesAttestationConsentPrompt) {
-  EnableFeature(device::kWebAuthProxyCryptotoken);
   TestServiceManagerContext smc;
   SimulateNavigation(GURL(kTestOrigin1));
   auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>(

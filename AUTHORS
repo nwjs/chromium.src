@@ -38,6 +38,7 @@ Alex Gartrell <agartrell@cmu.edu>
 Alex Henrie <alexhenrie24@gmail.com>
 Alex Scheele <alexscheele@gmail.com>
 Alexander Douglas <agdoug@amazon.com>
+Alexander Guettler <alexander@guettler.io>
 Alexander Shalamov <alexander.shalamov@intel.com>
 Alexander Sulfrian <alexander@sulfrian.net>
 Alexandre Abreu <wiss1976@gmail.com>
@@ -103,11 +104,13 @@ Asish Singh <asish.singh@samsung.com>
 Attila Dusnoki <dati91@gmail.com>
 Avinaash Doreswamy <avi.nitk@samsung.com>
 Ayush Khandelwal <k.ayush@samsung.com>
+Azhar Shaikh <azhar.shaikh@intel.com>
 Balazs Kelemen <b.kelemen@samsung.com>
 Baul Eun <baul.eun@samsung.com>
 Behara Mani Shyam Patro <behara.ms@samsung.com>
 Bem Jones-Bey <bemajaniman@gmail.com>
 Bem Jones-Bey <bjonesbe@adobe.com>
+Ben Coe <bencoe@gmail.com>
 Ben Fiola <benfiola@gmail.com>
 Ben Karel <eschew@gmail.com>
 Ben Noordhuis <ben@strongloop.com>
@@ -115,6 +118,7 @@ Benjamin Dupont <bedupont@cisco.com>
 Benjamin Jemlich <pcgod99@gmail.com>
 Bernard Cafarelli <voyageur@gentoo.org>
 Bernhard M. Wiedemann <bwiedemann@suse.de>
+Bert Belder <bertbelder@gmail.com>
 Bhagirathi Satpathy <bhagirathi.s@samsung.com>
 Bhanukrushana Rout <b.rout@samsung.com>
 Biljith Jayan <billy.jayan@samsung.com>
@@ -252,6 +256,7 @@ Eriq Augustine <eriq.augustine@gmail.com>
 Ernesto Mudu <ernesto.mudu@gmail.com>
 Etienne Laurin <etienne@atnnn.com>
 Eugene Kim <eugene70kim@gmail.com>
+Eugene Sudin <eugene@sudin.pro>
 Eunseok Oh <fivesilverstone@gmail.com>
 Evan Peterson <evan.peterson.ep@gmail.com>
 Evan Wallace <evan.exe@gmail.com>
@@ -271,6 +276,7 @@ Franklin Ta <fta2012@gmail.com>
 Frédéric Jacob <frederic.jacob.78@gmail.com>
 Frédéric Wang <fred.wang@free.fr>
 Fu Junwei <junwei.fu@intel.com>
+Gabor Rapcsanyi <g.rapcsanyi@samsung.com>
 Gaetano Mendola <mendola@gmail.com>
 Gajendra N <gajendra.n@samsung.com>
 Gajendra Singh <wxjg68@motorola.com>
@@ -309,6 +315,7 @@ Halley Zhao <halley.zhao@intel.com>
 Halton Huo <halton.huo@gmail.com>
 Halton Huo <halton.huo@intel.com>
 Hans Hillen <hans.hillen@gmail.com>
+Hao Li <hao.x.li@intel.com>
 Haojian Wu <hokein.wu@gmail.com>
 Hari Singh <hari.singh1@samsung.com>
 Harpreet Singh Khurana <harpreet.sk@samsung.com>
@@ -422,7 +429,6 @@ Johannes Rudolph <johannes.rudolph@googlemail.com>
 John Yani <vanuan@gmail.com>
 John Yoo <nearbyh13@gmail.com>
 Johnson Lin <johnson.lin@intel.com>
-Jon Kunkee <jkunkee@microsoft.com>
 Jonathan Frazer <listedegarde@gmail.com>
 Jonathan Garbee <jonathan@garbee.me>
 Jonathan Hacker <jhacker@arcanefour.com>
@@ -491,7 +497,6 @@ Kimberly Hunter <kimberhu@amazon.com>
 Kingshuk Jana <kingshuk.j@samsung.com>
 Kirill Bobyrev <kirillbobyrev@gmail.com>
 Kirill Ovchinnikov <kirill.ovchinn@gmail.com>
-Kirk Shoop <kirk.shoop@microsoft.com>
 Klemen Forstnerič <klemen.forstneric@gmail.com>
 Kodam Nagaraju <k2.nagaraju@samsung.com>
 Konrad Dzwinel <kdzwinel@gmail.com>
@@ -665,6 +670,7 @@ Paul Roskell <blurrech@gmail.com>
 Paul Sapunaru <paul.sapunaru@intel.com>
 Paul Wicks <pwicks86@gmail.com>
 Pavan Kumar Emani <pavan.e@samsung.com>
+Pavel Golikov <paullo612@ya.ru>
 Pavel Ivanov <paivanof@gmail.com>
 Pawel Forysiuk <p.forysiuk@samsung.com>
 Paweł Hajdan jr <phajdan.jr@gmail.com>
@@ -678,6 +684,7 @@ Peter Collingbourne <peter@pcc.me.uk>
 Peter Gal <pgal.u-szeged@partner.samsung.com>
 Peter Molnar <pmolnar.u-szeged@partner.samsung.com>
 Peter Snyder <snyderp@gmail.com>
+Peter Wong <peter.wm.wong@gmail.com>
 Philip Hanson <philip.hanson@intel.com>
 Philipp Hancke <fippo@andyet.net>
 Philipp Hancke <philipp.hancke@googlemail.com>
@@ -689,6 +696,7 @@ Pierre-Antoine LaFayette <pierre.lafayette@gmail.com>
 Po-Chun Chang <pochang0403@gmail.com>
 Pramod Begur Srinath <pramod.bs@samsung.com>
 Pranay Kumar <pranay.kumar@samsung.com>
+Pranjal Jumde <pranjal@brave.com>
 Prashant Hiremath <prashhir@cisco.com>
 Prashant Nevase <prashant.n@samsung.com>
 Prashant Patil <prashant.patil@imgtec.com>
@@ -712,6 +720,7 @@ Ramkumar Ramachandra <artagnon@gmail.com>
 Ramya Vadlamudi <ramya.v@samsung.com>
 Randy Posynick <randy.posynick@gmail.com>
 Raphael Kubo da Costa <raphael.kubo.da.costa@intel.com>
+Raul Tambre <raul@tambre.ee>
 Raveendra Karu <r.karu@samsung.com>
 Ravi Nanjundappa <nravi.n@samsung.com>
 Ravi Phaneendra Kasibhatla <r.kasibhatla@samsung.com>
@@ -771,7 +780,6 @@ Saravanan KR <sramajay@cisco.com>
 Sathish Kuppuswamy <sathish.kuppuswamy@intel.com>
 Satoshi Matsuzaki <satoshi.matsuzaki@gmail.com>
 Sayan Nayak <sayan.nayak@samsung.com>
-Scott Blomquist <sblom@microsoft.com>
 Scott D Phillips <scott.d.phillips@intel.com>
 Sean Bryant <sean@cyberwang.net>
 Sean DuBois <seaduboi@amazon.com>
@@ -795,6 +803,7 @@ ShankarGanesh K <blr.bmlab@gmail.com>
 Shanmuga Pandi M <shanmuga.m@samsung.com>
 Shaobo Yan <shaobo.yan@intel.com>
 Shashi Kumar <sk.kumar@samsung.com>
+Shen Yu <shenyu.tcv@gmail.com>
 Sherry Mou <wenjinm@amazon.com>
 Shez Baig <sbaig1@bloomberg.net>
 Shigeki Ohtsu <shigeki.ohtsu@gmail.com>
@@ -876,7 +885,6 @@ Timo Witte <timo.witte@gmail.com>
 Ting Shao <ting.shao@intel.com>
 Tom Callaway <tcallawa@redhat.com>
 Tom Harwood <tfh@skip.org>
-Tom Tan <Tom.Tan@microsoft.com>
 Tomas Popela <tomas.popela@gmail.com>
 Torsten Kurbad <google@tk-webart.de>
 Trent Willis <trentmwillis@gmail.com>
@@ -905,9 +913,10 @@ Vitaliy Kharin <kvserr@gmail.com>
 Vivek Galatage <vivek.vg@samsung.com>
 Volker Sorge <volker.sorge@gmail.com>
 Waihung Fu <fufranci@amazon.com>
+Wanming Lin <wanming.lin@intel.com>
+Wei Li <wei.c.li@intel.com>
 WenSheng He <wensheng.he@samsung.com>
 Wesley Lancel <wesleylancel@gmail.com>
-Wesley Wigham <t-weswig@microsoft.com>
 Wesley Wigham <wwigham@gmail.com>
 Will Hirsch <chromium@willhirsch.co.uk>
 Will Shackleton <w.shackleton@gmail.com>
@@ -1005,9 +1014,12 @@ IBM Inc. <*@ibm.com>
 Igalia S.L. <*@igalia.com>
 Imagination Technologies Limited <*@imagination.corp-partner.google.com>
 Impossible Dreams Network <*@impossibledreams.net>
+Intel Corporation <*@intel.com>
 LG Electronics, Inc. <*@lge.com>
 Loongson Technology Corporation Limited. <*@loongson.cn>
 Macadamian <*@macadamian.com>
+Mediatek <*@mediatek.com>
+Microsoft <*@microsoft.com>
 MIPS Technologies, Inc. <*@mips.com>
 Mozilla Corporation <*@mozilla.com>
 Neverware Inc. <*@neverware.com>
@@ -1029,3 +1041,4 @@ Venture 3 Systems LLC <*@venture3systems.com>
 Vewd Software AS <*@vewd.com>
 Vivaldi Technologies AS <*@vivaldi.com>
 Yandex LLC <*@yandex-team.ru>
+Make Positive Provar Limited <*@provartesting.com>

@@ -22,12 +22,19 @@ ExecutionContext* ContextClient::GetExecutionContext() const {
              : nullptr;
 }
 
+Document* ContextClient::GetDocument() const {
+  return execution_context_
+             ? DynamicTo<Document>(
+                   static_cast<ExecutionContext*>(execution_context_))
+             : nullptr;
+}
+
 LocalFrame* ContextClient::GetFrame() const {
-  auto* document = DynamicTo<Document>(GetExecutionContext());
+  auto* document = GetDocument();
   return document ? document->GetFrame() : nullptr;
 }
 
-void ContextClient::Trace(blink::Visitor* visitor) {
+void ContextClient::Trace(Visitor* visitor) {
   visitor->Trace(execution_context_);
 }
 
@@ -50,7 +57,7 @@ LocalFrame* DOMWindowClient::GetFrame() const {
   return dom_window_ ? dom_window_->GetFrame() : nullptr;
 }
 
-void DOMWindowClient::Trace(blink::Visitor* visitor) {
+void DOMWindowClient::Trace(Visitor* visitor) {
   visitor->Trace(dom_window_);
 }
 }

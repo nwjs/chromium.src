@@ -35,6 +35,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part_chromeos.h"
 #include "chrome/browser/chrome_notification_types.h"
+#include "chrome/browser/chromeos/account_manager/account_manager_migrator.h"
 #include "chrome/browser/chromeos/arc/arc_migration_guide_notification.h"
 #include "chrome/browser/chromeos/arc/arc_service_launcher.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
@@ -62,7 +63,6 @@
 #include "chrome/browser/chromeos/login/saml/saml_offline_signin_limiter_factory.h"
 #include "chrome/browser/chromeos/login/screens/arc_terms_of_service_screen.h"
 #include "chrome/browser/chromeos/login/screens/sync_consent_screen.h"
-#include "chrome/browser/chromeos/login/signin/oauth2_login_manager.h"
 #include "chrome/browser/chromeos/login/signin/oauth2_login_manager_factory.h"
 #include "chrome/browser/chromeos/login/signin/token_handle_fetcher.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
@@ -107,7 +107,8 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/assistant/buildflags.h"
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_features.h"
+#include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "chromeos/dbus/cryptohome_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
@@ -118,7 +119,7 @@
 #include "chromeos/network/portal_detector/network_portal_detector.h"
 #include "chromeos/network/portal_detector/network_portal_detector_strategy.h"
 #include "chromeos/settings/cros_settings_names.h"
-#include "chromeos/settings/install_attributes.h"
+#include "chromeos/tpm/install_attributes.h"
 #include "components/account_id/account_id.h"
 #include "components/component_updater/component_updater_service.h"
 #include "components/flags_ui/pref_service_flags_storage.h"
@@ -133,7 +134,6 @@
 #include "components/session_manager/core/session_manager.h"
 #include "components/signin/core/browser/account_tracker_service.h"
 #include "components/signin/core/browser/signin_error_controller.h"
-#include "components/signin/core/browser/signin_manager_base.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
@@ -489,7 +489,7 @@ void UserSessionManager::MaybeAppendPolicySwitches(
   }
 
   if (disable_site_isolation) {
-    user_flags->AppendSwitch(::switches::kDisableSiteIsolation);
+    user_flags->AppendSwitch(::switches::kDisableSiteIsolationForPolicy);
   }
 
   if (use_policy_sentinels) {
@@ -959,6 +959,8 @@ void UserSessionManager::OnSessionRestoreStateChanged(
       OAuth2LoginManagerFactory::GetInstance()->GetForProfile(user_profile);
 
   bool connection_error = false;
+  identity::IdentityManager* const identity_manager =
+      IdentityManagerFactory::GetForProfile(user_profile);
   switch (state) {
     case OAuth2LoginManager::SESSION_RESTORE_DONE:
       // Session restore done does not always mean valid token because the
@@ -967,7 +969,9 @@ void UserSessionManager::OnSessionRestoreStateChanged(
       // the token could still be invalid in some edge cases. See
       // http://crbug.com/760610
       user_status =
-          SigninErrorControllerFactory::GetForProfile(user_profile)->HasError()
+          (identity_manager &&
+           identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+               identity_manager->GetPrimaryAccountInfo().account_id))
               ? user_manager::User::OAUTH2_TOKEN_STATUS_INVALID
               : user_manager::User::OAUTH2_TOKEN_STATUS_VALID;
       break;
@@ -1194,11 +1198,22 @@ void UserSessionManager::OnProfileCreated(const UserContext& user_context,
 }
 
 // http://crbug/866790: After Supervised Users are deprecated, remove this.
-void ShowSupervisedUserDeprecationNotification(Profile* profile) {
-  base::string16 title = l10n_util::GetStringUTF16(
-      IDS_SUPERVISED_USER_EXPIRING_NOTIFICATION_TITLE);
-  base::string16 message =
-      l10n_util::GetStringUTF16(IDS_SUPERVISED_USER_EXPIRING_NOTIFICATION_BODY);
+void ShowSupervisedUserDeprecationNotification(Profile* profile,
+                                               bool is_manager) {
+  base::string16 title;
+  base::string16 message;
+
+  if (is_manager) {
+    title = l10n_util::GetStringUTF16(
+        IDS_MANAGER_SUPERVISED_USER_EXPIRING_NOTIFICATION_TITLE);
+    message = l10n_util::GetStringUTF16(
+        IDS_MANAGER_SUPERVISED_USER_EXPIRING_NOTIFICATION_BODY);
+  } else {
+    title = l10n_util::GetStringUTF16(
+        IDS_SUPERVISED_USER_EXPIRING_NOTIFICATION_TITLE);
+    message = l10n_util::GetStringUTF16(
+        IDS_SUPERVISED_USER_EXPIRING_NOTIFICATION_BODY);
+  }
 
   auto delegate =
       base::MakeRefCounted<message_center::HandleNotificationClickDelegate>(
@@ -1209,11 +1224,11 @@ void ShowSupervisedUserDeprecationNotification(Profile* profile) {
               Profile* profile = ProfileHelper::Get()->GetProfileByUser(
                   user_manager->GetPrimaryUser());
 
-              NavigateParams params(profile,
-                                    GURL("https://support.google.com/chrome/"
-                                         "?p=ui_supervised_user"),
-                                    ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
-              params.disposition = WindowOpenDisposition::SINGLETON_TAB;
+              NavigateParams params(
+                  profile,
+                  GURL("https://support.google.com/chromebook/?p=new_account"),
+                  ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
+              params.disposition = WindowOpenDisposition::NEW_WINDOW;
               Navigate(&params);
             }
           }));
@@ -1344,9 +1359,15 @@ void UserSessionManager::UserProfileInitialized(Profile* profile,
                                                 bool is_incognito_profile,
                                                 const AccountId& account_id) {
   // http://crbug/866790: After Supervised Users are deprecated, remove this.
-  if (ash::features::IsSupervisedUserDeprecationNoticeEnabled() &&
-      user_manager::UserManager::Get()->IsLoggedInAsSupervisedUser())
-    ShowSupervisedUserDeprecationNotification(profile);
+  if (ash::features::IsSupervisedUserDeprecationNoticeEnabled()) {
+    bool is_supervised_user =
+        user_manager::UserManager::Get()->IsLoggedInAsSupervisedUser();
+    bool is_manager = ChromeUserManager::Get()
+                          ->GetSupervisedUserManager()
+                          ->HasSupervisedUsers(account_id.GetUserEmail());
+    if (is_manager || is_supervised_user)
+      ShowSupervisedUserDeprecationNotification(profile, is_manager);
+  }
 
   // Demo user signed in.
   if (is_incognito_profile) {
@@ -1509,8 +1530,7 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
     InitializeCerts(profile);
     InitializeCRLSetFetcher(user);
     InitializeCertificateTransparencyComponents(user);
-    if (lock_screen_apps::StateController::IsEnabled())
-      lock_screen_apps::StateController::Get()->SetPrimaryProfile(profile);
+    lock_screen_apps::StateController::Get()->SetPrimaryProfile(profile);
 
     if (user->GetType() == user_manager::USER_TYPE_REGULAR) {
       // App install logs are uploaded via the user's communication channel with
@@ -1645,6 +1665,9 @@ bool UserSessionManager::InitializeUserSession(Profile* profile) {
   if (start_session_type_ == PRIMARY_USER_SESSION) {
 #if BUILDFLAG(ENABLE_CROS_ASSISTANT)
     // Initialize Assistant early to be used in post login Oobe steps.
+    // Note: AssistantClient::MaybeInit is also called in
+    // SessionControllerClient::OnSessionStateChanged, which happends after the
+    // post login Oobe steps. Therefore Assistant is initialized here.
     if (chromeos::switches::IsAssistantEnabled())
       AssistantClient::Get()->MaybeInit(profile);
 #endif
@@ -1672,6 +1695,13 @@ bool UserSessionManager::InitializeUserSession(Profile* profile) {
         StartupUtils::MarkDeviceRegistered(base::Closure());
 
       ActivateWizard(OobeScreen::SCREEN_TERMS_OF_SERVICE);
+      return false;
+    } else if (base::FeatureList::IsEnabled(
+                   chromeos::features::kEnableSupervisionTransitionScreens) &&
+               !user_manager->IsCurrentUserNew() &&
+               arc::GetSupervisionTransition(profile) !=
+                   arc::ArcSupervisionTransition::NO_TRANSITION) {
+      ActivateWizard(OobeScreen::SCREEN_SUPERVISION_TRANSITION);
       return false;
     }
   }
@@ -2031,6 +2061,14 @@ void UserSessionManager::CheckEolStatus(Profile* profile) {
   iter->second->CheckEolStatus();
 }
 
+void UserSessionManager::StartAccountManagerMigration(Profile* profile) {
+  // |migrator| is nullptr for incognito profiles.
+  auto* migrator =
+      chromeos::AccountManagerMigratorFactory::GetForBrowserContext(profile);
+  if (migrator)
+    migrator->Start();
+}
+
 EasyUnlockKeyManager* UserSessionManager::GetEasyUnlockKeyManager() {
   if (!easy_unlock_key_manager_)
     easy_unlock_key_manager_.reset(new EasyUnlockKeyManager);
@@ -2114,6 +2152,7 @@ void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
     ArcTermsOfServiceScreen::MaybeLaunchArcSettings(profile);
     SyncConsentScreen::MaybeLaunchSyncConsentSettings(profile);
   }
+  StartAccountManagerMigration(profile);
 }
 
 void UserSessionManager::RespectLocalePreferenceWrapper(

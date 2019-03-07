@@ -217,6 +217,26 @@ TEST_F('CrExtensionsActivityLogTest', 'All', () => {
 });
 
 ////////////////////////////////////////////////////////////////////////////////
+// Extension Activity Log Item Tests
+
+CrExtensionsActivityLogItemTest = class extends CrExtensionsBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://extensions/activity_log_item.html';
+  }
+
+  get extraLibraries() {
+    return super.extraLibraries.concat([
+      'activity_log_item_test.js',
+    ]);
+  }
+};
+
+TEST_F('CrExtensionsActivityLogItemTest', 'All', () => {
+  mocha.run();
+});
+
+////////////////////////////////////////////////////////////////////////////////
 // Extension Detail View Tests
 
 CrExtensionsDetailViewTest = class extends CrExtensionsBrowserTest {
@@ -304,6 +324,10 @@ TEST_F('CrExtensionsItemListTest', 'NoSearchResults', function() {
   this.runMochaTest(extension_item_list_tests.TestNames.NoSearchResultsMsg);
 });
 
+TEST_F('CrExtensionsItemListTest', 'LoadTimeData', function() {
+  this.runMochaTest(extension_item_list_tests.TestNames.LoadTimeData);
+});
+
 ////////////////////////////////////////////////////////////////////////////////
 // Extension Load Error Tests
 
@@ -372,9 +396,11 @@ TEST_F('CrExtensionsManagerUnitTest', 'Uninstall', function() {
   this.runMochaTest(extension_manager_tests.TestNames.Uninstall);
 });
 
-TEST_F('CrExtensionsManagerUnitTest', 'UninstallFromDetails', function() {
-  this.runMochaTest(extension_manager_tests.TestNames.UninstallFromDetails);
-});
+// Flaky since r621915: https://crbug.com/922490
+TEST_F(
+    'CrExtensionsManagerUnitTest', 'DISABLED_UninstallFromDetails', function() {
+      this.runMochaTest(extension_manager_tests.TestNames.UninstallFromDetails);
+    });
 
 TEST_F('CrExtensionsManagerUnitTest', 'ToggleIncognito', function() {
   this.runMochaTest(extension_manager_tests.TestNames.ToggleIncognitoMode);
@@ -390,6 +416,22 @@ TEST_F('CrExtensionsManagerUnitTest', 'KioskMode', function() {
 });
 GEN('#endif');
 
+CrExtensionsManagerUnitTestWithActivityLogFlag =
+    class extends CrExtensionsManagerUnitTest {
+  /** @override */
+  get commandLineSwitches() {
+    return [{
+      switchName: 'enable-extension-activity-logging',
+    }];
+  }
+};
+
+TEST_F(
+    'CrExtensionsManagerUnitTestWithActivityLogFlag', 'UpdateFromActivityLog',
+    function() {
+      this.runMochaTest(
+          extension_manager_tests.TestNames.UpdateFromActivityLog);
+    });
 
 CrExtensionsManagerTestWithMultipleExtensionTypesInstalled =
     class extends CrExtensionsBrowserTest {

@@ -15,7 +15,6 @@ using base::android::JavaParamRef;
 
 static jboolean JNI_UnifiedConsentServiceBridge_IsUnifiedConsentGiven(
     JNIEnv* env,
-    const base::android::JavaParamRef<jclass>& jcaller,
     const base::android::JavaParamRef<jobject>& profileAndroid) {
   // TODO(crbug.com/907856): Remove.
   return false;
@@ -23,16 +22,23 @@ static jboolean JNI_UnifiedConsentServiceBridge_IsUnifiedConsentGiven(
 
 static void JNI_UnifiedConsentServiceBridge_SetUnifiedConsentGiven(
     JNIEnv* env,
-    const base::android::JavaParamRef<jclass>& jcaller,
     const base::android::JavaParamRef<jobject>& profileAndroid,
     jboolean unifiedConsentGiven) {
   // TODO(crbug.com/907856): Remove.
 }
 
+static void JNI_UnifiedConsentServiceBridge_EnableGoogleServices(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& profileAndroid) {
+  Profile* profile = ProfileAndroid::FromProfileAndroid(profileAndroid);
+  auto* unifiedConsentService =
+      UnifiedConsentServiceFactory::GetForProfile(profile);
+  return unifiedConsentService->EnableGoogleServices();
+}
+
 static jboolean
 JNI_UnifiedConsentServiceBridge_IsUrlKeyedAnonymizedDataCollectionEnabled(
     JNIEnv* env,
-    const base::android::JavaParamRef<jclass>& jcaller,
     const base::android::JavaParamRef<jobject>& profileAndroid) {
   Profile* profile = ProfileAndroid::FromProfileAndroid(profileAndroid);
   return profile->GetPrefs()->GetBoolean(
@@ -42,7 +48,6 @@ JNI_UnifiedConsentServiceBridge_IsUrlKeyedAnonymizedDataCollectionEnabled(
 static void
 JNI_UnifiedConsentServiceBridge_SetUrlKeyedAnonymizedDataCollectionEnabled(
     JNIEnv* env,
-    const base::android::JavaParamRef<jclass>& jcaller,
     const base::android::JavaParamRef<jobject>& profileAndroid,
     const jboolean enabled) {
   Profile* profile = ProfileAndroid::FromProfileAndroid(profileAndroid);
@@ -54,7 +59,6 @@ JNI_UnifiedConsentServiceBridge_SetUrlKeyedAnonymizedDataCollectionEnabled(
 static jboolean
 JNI_UnifiedConsentServiceBridge_IsUrlKeyedAnonymizedDataCollectionManaged(
     JNIEnv* env,
-    const base::android::JavaParamRef<jclass>& jcaller,
     const base::android::JavaParamRef<jobject>& profileAndroid) {
   Profile* profile = ProfileAndroid::FromProfileAndroid(profileAndroid);
   return profile->GetPrefs()->IsManagedPreference(

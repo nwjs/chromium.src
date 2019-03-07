@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include <queue>
+#include <unordered_map>
 #include <utility>
 
 #include "base/feature_list.h"
@@ -34,7 +35,7 @@ namespace {
 
 // This is a global map between frame_tree_node_ids and pointers to
 // FrameTreeNodes.
-typedef base::hash_map<int, FrameTreeNode*> FrameTreeNodeIdMap;
+typedef std::unordered_map<int, FrameTreeNode*> FrameTreeNodeIdMap;
 
 base::LazyInstance<FrameTreeNodeIdMap>::DestructorAtExit
     g_frame_tree_node_id_map = LAZY_INSTANCE_INITIALIZER;
@@ -549,8 +550,12 @@ void FrameTreeNode::BeforeUnloadCanceled() {
 }
 
 bool FrameTreeNode::NotifyUserActivation() {
-  for (FrameTreeNode* node = this; node; node = node->parent())
+  for (FrameTreeNode* node = this; node; node = node->parent()) {
+    if (!node->user_activation_state_.HasBeenActive() &&
+        node->current_frame_host())
+      node->current_frame_host()->DidReceiveFirstUserActivation();
     node->user_activation_state_.Activate();
+  }
   replication_state_.has_received_user_gesture = true;
 
   // TODO(mustaq): The following block relaxes UAv2 a bit to make it slightly

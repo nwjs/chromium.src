@@ -18,7 +18,9 @@ namespace {
 class ForeignLayerDisplayItemClient final : public DisplayItemClient {
  public:
   ForeignLayerDisplayItemClient(scoped_refptr<cc::Layer> layer)
-      : layer_(std::move(layer)) {}
+      : layer_(std::move(layer)) {
+    Invalidate(PaintInvalidationReason::kUncacheable);
+  }
 
   String DebugName() const final { return "ForeignLayer"; }
 
@@ -41,10 +43,11 @@ ForeignLayerDisplayItem::ForeignLayerDisplayItem(Type type,
     : DisplayItem(*new ForeignLayerDisplayItemClient(std::move(layer)),
                   type,
                   sizeof(*this)) {
-  DCHECK(RuntimeEnabledFeatures::SlimmingPaintV2Enabled() ||
+  DCHECK(RuntimeEnabledFeatures::CompositeAfterPaintEnabled() ||
          RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled());
   DCHECK(IsForeignLayerType(type));
   DCHECK(GetLayer());
+  DCHECK(!IsCacheable());
 }
 
 ForeignLayerDisplayItem::~ForeignLayerDisplayItem() {
@@ -55,22 +58,8 @@ cc::Layer* ForeignLayerDisplayItem::GetLayer() const {
   return static_cast<const ForeignLayerDisplayItemClient&>(Client()).GetLayer();
 }
 
-void ForeignLayerDisplayItem::Replay(GraphicsContext&) const {
-  NOTREACHED();
-}
-
-void ForeignLayerDisplayItem::AppendToDisplayItemList(
-    const FloatSize&,
-    cc::DisplayItemList&) const {
-  NOTREACHED();
-}
-
-bool ForeignLayerDisplayItem::DrawsContent() const {
-  return false;
-}
-
 bool ForeignLayerDisplayItem::Equals(const DisplayItem& other) const {
-  return DisplayItem::Equals(other) &&
+  return GetType() == other.GetType() &&
          GetLayer() ==
              static_cast<const ForeignLayerDisplayItem&>(other).GetLayer();
 }
@@ -84,13 +73,26 @@ void ForeignLayerDisplayItem::PropertiesAsJSON(JSONObject& json) const {
 
 void RecordForeignLayer(GraphicsContext& context,
                         DisplayItem::Type type,
-                        scoped_refptr<cc::Layer> layer) {
+                        scoped_refptr<cc::Layer> layer,
+                        const base::Optional<PropertyTreeState>& properties) {
   PaintController& paint_controller = context.GetPaintController();
   if (paint_controller.DisplayItemConstructionIsDisabled())
     return;
 
+  // This is like ScopedPaintChunkProperties but uses null id because foreign
+  // layer chunk doesn't need an id nor a client.
+  base::Optional<PropertyTreeState> previous_properties;
+  if (properties) {
+    previous_properties.emplace(paint_controller.CurrentPaintChunkProperties());
+    paint_controller.UpdateCurrentPaintChunkProperties(base::nullopt,
+                                                       *properties);
+  }
   paint_controller.CreateAndAppend<ForeignLayerDisplayItem>(type,
                                                             std::move(layer));
+  if (properties) {
+    paint_controller.UpdateCurrentPaintChunkProperties(base::nullopt,
+                                                       *previous_properties);
+  }
 }
 
 }  // namespace blink

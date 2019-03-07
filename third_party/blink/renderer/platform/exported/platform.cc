@@ -39,7 +39,6 @@
 #include "services/service_manager/public/cpp/connector.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/platform/interface_provider.h"
-#include "third_party/blink/public/platform/modules/webmidi/web_midi_accessor.h"
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
 #include "third_party/blink/public/platform/web_canvas_capture_handler.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
@@ -51,6 +50,7 @@
 #include "third_party/blink/public/platform/web_rtc_peer_connection_handler.h"
 #include "third_party/blink/public/platform/web_storage_namespace.h"
 #include "third_party/blink/public/platform/websocket_handshake_throttle.h"
+#include "third_party/blink/renderer/platform/bindings/parkable_string_manager.h"
 #include "third_party/blink/renderer/platform/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/font_family_names.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache_memory_dump_provider.h"
@@ -67,8 +67,9 @@
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
-#include "third_party/webrtc/api/rtpparameters.h"
-#include "third_party/webrtc/p2p/base/portallocator.h"
+#include "third_party/webrtc/api/async_resolver_factory.h"
+#include "third_party/webrtc/api/rtp_parameters.h"
+#include "third_party/webrtc/p2p/base/port_allocator.h"
 
 namespace blink {
 
@@ -215,6 +216,9 @@ void Platform::InitializeCommon(Platform* platform,
   base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
       InstanceCountersMemoryDumpProvider::Instance(), "BlinkObjectCounters",
       base::ThreadTaskRunnerHandle::Get());
+  base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
+      ParkableStringManagerDumpProvider::Instance(), "ParkableStrings",
+      base::ThreadTaskRunnerHandle::Get());
 
   RendererResourceCoordinator::Initialize();
 }
@@ -262,11 +266,6 @@ service_manager::Connector* Platform::GetConnector() {
 
 InterfaceProvider* Platform::GetInterfaceProvider() {
   return InterfaceProvider::GetEmptyInterfaceProvider();
-}
-
-std::unique_ptr<WebMIDIAccessor> Platform::CreateMIDIAccessor(
-    WebMIDIAccessorClient*) {
-  return nullptr;
 }
 
 std::unique_ptr<WebStorageNamespace> Platform::CreateLocalStorageNamespace() {
@@ -330,6 +329,11 @@ Platform::CreateRTCPeerConnectionHandler(
 
 std::unique_ptr<cricket::PortAllocator> Platform::CreateWebRtcPortAllocator(
     WebLocalFrame* frame) {
+  return nullptr;
+}
+
+std::unique_ptr<webrtc::AsyncResolverFactory>
+Platform::CreateWebRtcAsyncResolverFactory() {
   return nullptr;
 }
 

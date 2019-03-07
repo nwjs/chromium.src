@@ -21,6 +21,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/net/profile_network_context_service.h"
 #include "chrome/browser/net/profile_network_context_service_factory.h"
@@ -28,7 +29,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/common/chrome_content_client.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -698,7 +698,7 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
     "permissions": ["<all_urls>"]
    })");
   extension_dir.WriteFile(FILE_PATH_LITERAL("background.js"), "");
-  extensions::ChromeTestExtensionLoader loader(browser()->profile());
+  extensions::ChromeTestExtensionLoader loader(GetProfile());
   loader.set_allow_incognito_access(true);
   scoped_refptr<const extensions::Extension> extension =
       loader.LoadExtension(extension_dir.UnpackedPath());
@@ -1191,7 +1191,9 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, SSLConfig) {
   EXPECT_EQ(net::ERR_SSL_VERSION_OR_CIPHER_MISMATCH, simple_loader->NetError());
 }
 
-IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, ProxyConfig) {
+// Flaky on several platforms: https://crbug.com/922876
+IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
+                       DISABLED_ProxyConfig) {
   if (IsRestartStateWithInProcessNetworkService())
     return;
   SetProxyPref(embedded_test_server()->host_port_pair());
@@ -1574,8 +1576,9 @@ class NetworkContextConfigurationProxyOnStartBrowserTest
 
 // Test that when there's a proxy configuration at startup, the initial requests
 // use that configuration.
+// Flaky on several platforms: https://crbug.com/922876
 IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationProxyOnStartBrowserTest,
-                       TestInitialProxyConfig) {
+                       DISABLED_TestInitialProxyConfig) {
   if (IsRestartStateWithInProcessNetworkService())
     return;
   TestProxyConfigured(/*expect_success=*/true);

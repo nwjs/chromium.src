@@ -112,6 +112,9 @@ class CONTENT_EXPORT RenderViewHostImpl : public RenderViewHost,
   void RenderProcessExited(RenderProcessHost* host,
                            const ChildProcessTerminationInfo& info) override;
 
+  // GpuSwitchingObserver implementation.
+  void OnGpuSwitched() override;
+
   // Set up the RenderView child process. Virtual because it is overridden by
   // TestRenderViewHost.
   // The |opener_route_id| parameter indicates which RenderView created this
@@ -193,8 +196,11 @@ class CONTENT_EXPORT RenderViewHostImpl : public RenderViewHost,
   // re-entrantly.
   void PostRenderViewReady();
 
-  // GpuSwitchingObserver implementation.
-  void OnGpuSwitched() override;
+  // Passes current web preferences to the renderer after recomputing all of
+  // them, including the slow-to-compute hardware preferences.
+  // (RenderViewHost::OnWebkitPreferencesChanged is a faster alternate that
+  // avoids slow recomputations.)
+  void OnHardwareConfigurationChanged();
 
   // Sets the routing id for the main frame. When set to MSG_ROUTING_NONE, the
   // view is not considered active.
@@ -226,7 +232,6 @@ class CONTENT_EXPORT RenderViewHostImpl : public RenderViewHost,
   void RenderWidgetDidInit() override;
   void RenderWidgetDidClose() override;
   void RenderWidgetNeedsToRouteCloseEvent() override;
-  void RenderWidgetWillSetIsLoading(bool is_loading) override;
   void RenderWidgetDidFirstVisuallyNonEmptyPaint() override;
   void RenderWidgetDidCommitAndDrawCompositorFrame() override;
   void RenderWidgetGotFocus() override;
@@ -237,6 +242,13 @@ class CONTENT_EXPORT RenderViewHostImpl : public RenderViewHost,
       const NativeWebKeyboardEvent& key_event) override;
   bool ShouldContributePriorityToProcess() override;
   void RequestSetBounds(const gfx::Rect& bounds) override;
+  void SetBackgroundOpaque(bool opaque) override;
+  bool IsMainFrameActive() override;
+  bool IsNeverVisible() override;
+  WebPreferences GetWebkitPreferencesForWidget() override;
+  FrameTreeNode* GetFocusedFrame() override;
+  void ShowContextMenu(RenderFrameHost* render_frame_host,
+                       const ContextMenuParams& params) override;
 
   // IPC message handlers.
   void OnShowView(int route_id,
@@ -282,11 +294,20 @@ class CONTENT_EXPORT RenderViewHostImpl : public RenderViewHost,
   // to fire.
   static const int64_t kUnloadTimeoutMS;
 
-  // Returns the content specific prefs for this RenderViewHost.
+  // Returns the content specific preferences for this RenderViewHost.
+  // Recomputes only the "fast" preferences (those not requiring slow
+  // platform/device polling); the remaining "slow" ones are recomputed only if
+  // the preference cache is empty.
+  //
   // TODO(creis): Move most of this method to RenderProcessHost, since it's
   // mostly the same across all RVHs in a process.  Move the rest to RFH.
   // See https://crbug.com/304341.
-  WebPreferences ComputeWebkitPrefs();
+  const WebPreferences ComputeWebPreferences();
+
+  // Sets the hardware-related fields in |prefs| that are slow to compute.  The
+  // fields are set from cache if available, otherwise recomputed.
+  void SetSlowWebPreferences(const base::CommandLine& command_line,
+                             WebPreferences* prefs);
 
   // The RenderWidgetHost.
   std::unique_ptr<RenderWidgetHostImpl> render_widget_host_;

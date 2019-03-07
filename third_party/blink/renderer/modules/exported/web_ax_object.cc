@@ -427,6 +427,13 @@ WebAXObject WebAXObject::AriaActiveDescendant() const {
   return WebAXObject(private_->ActiveDescendant());
 }
 
+WebAXObject WebAXObject::ErrorMessage() const {
+  if (IsDetached())
+    return WebAXObject();
+
+  return WebAXObject(private_->ErrorMessage());
+}
+
 ax::mojom::HasPopup WebAXObject::HasPopup() const {
   if (IsDetached())
     return ax::mojom::HasPopup::kFalse;
@@ -1096,7 +1103,7 @@ unsigned WebAXObject::AriaColumnIndex() const {
   if (IsDetached())
     return 0;
 
-  return private_->IsTableCellLikeRole() ? private_->AriaColumnIndex() : 0;
+  return private_->AriaColumnIndex();
 }
 
 int WebAXObject::AriaRowCount() const {
@@ -1324,17 +1331,16 @@ void WebAXObject::GetWordBoundaries(WebVector<int>& starts,
   if (IsDetached())
     return;
 
-  Vector<AXRange> word_boundaries;
-  private_->GetWordBoundaries(word_boundaries);
+  Vector<int> src_starts;
+  Vector<int> src_ends;
+  private_->GetWordBoundaries(src_starts, src_ends);
+  DCHECK_EQ(src_starts.size(), src_ends.size());
 
-  WebVector<int> word_start_offsets(word_boundaries.size());
-  WebVector<int> word_end_offsets(word_boundaries.size());
-  for (wtf_size_t i = 0; i < word_boundaries.size(); ++i) {
-    DCHECK(word_boundaries[i].IsValid());
-    DCHECK_EQ(word_boundaries[i].Start().ContainerObject(),
-              word_boundaries[i].End().ContainerObject());
-    word_start_offsets[i] = word_boundaries[i].Start().TextOffset();
-    word_end_offsets[i] = word_boundaries[i].End().TextOffset();
+  WebVector<int> word_start_offsets(src_starts.size());
+  WebVector<int> word_end_offsets(src_ends.size());
+  for (wtf_size_t i = 0; i < src_starts.size(); ++i) {
+    word_start_offsets[i] = src_starts[i];
+    word_end_offsets[i] = src_ends[i];
   }
 
   starts.Swap(word_start_offsets);

@@ -151,8 +151,6 @@ MockConnect::MockConnect(IoMode io_mode, int r, IPEndPoint addr) :
 
 MockConnect::~MockConnect() = default;
 
-void SocketDataProvider::OnEnableTCPFastOpenIfSupported() {}
-
 bool SocketDataProvider::IsIdle() const {
   return true;
 }
@@ -344,7 +342,6 @@ SequencedSocketData::SequencedSocketData(base::span<const MockRead> reads,
       read_state_(IDLE),
       write_state_(IDLE),
       busy_before_sync_reads_(false),
-      is_using_tcp_fast_open_(false),
       weak_factory_(this) {
   // Check that reads and writes have a contiguous set of sequence numbers
   // starting from 0 and working their way up, with no repeats and skipping
@@ -533,10 +530,6 @@ bool SequencedSocketData::AllWriteDataConsumed() const {
   return helper_.AllWriteDataConsumed();
 }
 
-void SequencedSocketData::OnEnableTCPFastOpenIfSupported() {
-  is_using_tcp_fast_open_ = true;
-}
-
 bool SequencedSocketData::IsIdle() const {
   // If |busy_before_sync_reads_| is not set, always considered idle.  If
   // no reads left, or the next operation is a write, also consider it idle.
@@ -632,10 +625,6 @@ void SequencedSocketData::MaybePostReadCompleteTask() {
   read_state_ = COMPLETING;
 }
 
-bool SequencedSocketData::IsUsingTCPFastOpen() const {
-  return is_using_tcp_fast_open_;
-}
-
 void SequencedSocketData::MaybePostWriteCompleteTask() {
   NET_TRACE(1, " ****** ") << " current: " << sequence_number_;
   // Only trigger the next write to complete if there is already a write pending
@@ -668,7 +657,6 @@ void SequencedSocketData::Reset() {
   sequence_number_ = 0;
   read_state_ = IDLE;
   write_state_ = IDLE;
-  is_using_tcp_fast_open_ = false;
   weak_factory_.InvalidateWeakPtrs();
 }
 
@@ -808,10 +796,12 @@ MockClientSocketFactory::CreateProxyClientSocket(
     std::unique_ptr<ClientSocketHandle> transport_socket,
     const std::string& user_agent,
     const HostPortPair& endpoint,
+    const ProxyServer& proxy_server,
     HttpAuthController* http_auth_controller,
     bool tunnel,
     bool using_spdy,
     NextProto negotiated_protocol,
+    ProxyDelegate* proxy_delegate,
     bool is_https_proxy,
     const NetworkTrafficAnnotationTag& traffic_annotation) {
   if (use_mock_proxy_client_sockets_) {
@@ -820,9 +810,9 @@ MockClientSocketFactory::CreateProxyClientSocket(
         std::move(transport_socket), http_auth_controller, next_proxy_data);
   } else {
     return GetDefaultFactory()->CreateProxyClientSocket(
-        std::move(transport_socket), user_agent, endpoint, http_auth_controller,
-        tunnel, using_spdy, negotiated_protocol, is_https_proxy,
-        traffic_annotation);
+        std::move(transport_socket), user_agent, endpoint, proxy_server,
+        http_auth_controller, tunnel, using_spdy, negotiated_protocol,
+        proxy_delegate, is_https_proxy, traffic_annotation);
   }
 }
 
@@ -1130,12 +1120,6 @@ int MockTCPClientSocket::GetPeerAddress(IPEndPoint* address) const {
 
 bool MockTCPClientSocket::WasEverUsed() const {
   return was_used_to_convey_data_;
-}
-
-void MockTCPClientSocket::EnableTCPFastOpenIfSupported() {
-  EXPECT_FALSE(IsConnected()) << "Can't enable fast open after connect.";
-
-  data_->OnEnableTCPFastOpenIfSupported();
 }
 
 bool MockTCPClientSocket::GetSSLInfo(SSLInfo* ssl_info) {
@@ -1826,6 +1810,9 @@ void MockUDPClientSocket::SetMaxPacketSize(size_t max_packet_size) {}
 void MockUDPClientSocket::SetWriteMultiCoreEnabled(bool enabled) {}
 void MockUDPClientSocket::SetSendmmsgEnabled(bool enabled) {}
 void MockUDPClientSocket::SetWriteBatchingActive(bool active) {}
+int MockUDPClientSocket::SetMulticastInterface(uint32_t interface_index) {
+  return OK;
+}
 
 const NetLogWithSource& MockUDPClientSocket::NetLog() const {
   return net_log_;
@@ -2337,6 +2324,9 @@ MockTaggingClientSocketFactory::CreateDatagramClientSocket(
   return socket;
 }
 
+const char kSOCKS4TestHost[] = "127.0.0.1";
+const int kSOCKS4TestPort = 80;
+
 const char kSOCKS4OkRequestLocalHostPort80[] = {0x04, 0x01, 0x00, 0x50, 127,
                                                 0,    0,    1,    0};
 const int kSOCKS4OkRequestLocalHostPort80Length =
@@ -2344,6 +2334,9 @@ const int kSOCKS4OkRequestLocalHostPort80Length =
 
 const char kSOCKS4OkReply[] = {0x00, 0x5A, 0x00, 0x00, 0, 0, 0, 0};
 const int kSOCKS4OkReplyLength = base::size(kSOCKS4OkReply);
+
+const char kSOCKS5TestHost[] = "host";
+const int kSOCKS5TestPort = 80;
 
 const char kSOCKS5GreetRequest[] = { 0x05, 0x01, 0x00 };
 const int kSOCKS5GreetRequestLength = base::size(kSOCKS5GreetRequest);

@@ -45,15 +45,6 @@
   self.inIncognito = command.inIncognito;
 }
 
-- (void)loadSessionTab:(const sessions::SessionTab*)sessionTab {
-}
-
-- (void)restoreTabWithSessionID:(const SessionID)sessionID {
-}
-
-- (void)loadJavaScriptFromLocationBar:(NSString*)script {
-}
-
 - (const GURL&)url {
   return _url;
 }

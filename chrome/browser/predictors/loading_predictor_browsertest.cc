@@ -61,10 +61,8 @@ const std::string kHtmlSubresourcesHosts[] = {"test.com", "baz.com", "foo.com",
 
 std::string GetPathWithPortReplacement(const std::string& path, uint16_t port) {
   std::string string_port = base::StringPrintf("%d", port);
-  std::string path_with_replacements;
-  net::test_server::GetFilePathWithReplacements(
-      path, {{"REPLACE_WITH_PORT", string_port}}, &path_with_replacements);
-  return path_with_replacements;
+  return net::test_server::GetFilePathWithReplacements(
+      path, {{"REPLACE_WITH_PORT", string_port}});
 }
 
 GURL GetDataURLWithContent(const std::string& content) {
@@ -467,10 +465,16 @@ IN_PROC_BROWSER_TEST_F(LoadingPredictorBrowserTest, SimpleNavigation) {
   auto observer = NavigateToURLAsync(url);
   EXPECT_TRUE(observer->WaitForRequestStart());
   EXPECT_EQ(1u, loading_predictor()->GetActiveNavigationsSizeForTesting());
-  EXPECT_EQ(1u, loading_predictor()->GetActiveHintsSizeForTesting());
+  // Checking GetActiveHintsSizeForTesting() is racy since the active hint
+  // is removed after the preconnect finishes. Instead check for total
+  // hints activated.
+  EXPECT_LE(1u, loading_predictor()->GetTotalHintsActivatedForTesting());
+  EXPECT_GE(2u, loading_predictor()->GetTotalHintsActivatedForTesting());
   observer->WaitForNavigationFinished();
   EXPECT_EQ(0u, loading_predictor()->GetActiveNavigationsSizeForTesting());
   EXPECT_EQ(0u, loading_predictor()->GetActiveHintsSizeForTesting());
+  EXPECT_LE(1u, loading_predictor()->GetTotalHintsActivatedForTesting());
+  EXPECT_GE(2u, loading_predictor()->GetTotalHintsActivatedForTesting());
 }
 
 // Tests that two concurrenct navigations are recorded correctly by the
@@ -483,11 +487,17 @@ IN_PROC_BROWSER_TEST_F(LoadingPredictorBrowserTest, TwoConcurrentNavigations) {
   EXPECT_TRUE(observer1->WaitForRequestStart());
   EXPECT_TRUE(observer2->WaitForRequestStart());
   EXPECT_EQ(2u, loading_predictor()->GetActiveNavigationsSizeForTesting());
-  EXPECT_EQ(2u, loading_predictor()->GetActiveHintsSizeForTesting());
+  // Checking GetActiveHintsSizeForTesting() is racy since the active hint
+  // is removed after the preconnect finishes. Instead check for total
+  // hints activated.
+  EXPECT_LE(2u, loading_predictor()->GetTotalHintsActivatedForTesting());
+  EXPECT_GE(4u, loading_predictor()->GetTotalHintsActivatedForTesting());
   observer1->WaitForNavigationFinished();
   observer2->WaitForNavigationFinished();
   EXPECT_EQ(0u, loading_predictor()->GetActiveNavigationsSizeForTesting());
   EXPECT_EQ(0u, loading_predictor()->GetActiveHintsSizeForTesting());
+  EXPECT_LE(2u, loading_predictor()->GetTotalHintsActivatedForTesting());
+  EXPECT_GE(4u, loading_predictor()->GetTotalHintsActivatedForTesting());
 }
 
 // Tests that two navigations to the same URL are deduplicated.
@@ -499,11 +509,19 @@ IN_PROC_BROWSER_TEST_F(LoadingPredictorBrowserTest,
   EXPECT_TRUE(observer1->WaitForRequestStart());
   EXPECT_TRUE(observer2->WaitForRequestStart());
   EXPECT_EQ(2u, loading_predictor()->GetActiveNavigationsSizeForTesting());
-  EXPECT_EQ(1u, loading_predictor()->GetActiveHintsSizeForTesting());
+  // Checking GetActiveHintsSizeForTesting() is racy since the active hint
+  // is removed after the preconnect finishes. Instead check for total
+  // hints activated. The total hints activated may be only 1 if the second
+  // navigation arrives before the first preconnect finishes. However, if the
+  // second navigation arrives later, then two hints may get activated.
+  EXPECT_LE(1u, loading_predictor()->GetTotalHintsActivatedForTesting());
+  EXPECT_GE(4u, loading_predictor()->GetTotalHintsActivatedForTesting());
   observer1->WaitForNavigationFinished();
   observer2->WaitForNavigationFinished();
   EXPECT_EQ(0u, loading_predictor()->GetActiveNavigationsSizeForTesting());
   EXPECT_EQ(0u, loading_predictor()->GetActiveHintsSizeForTesting());
+  EXPECT_LE(1u, loading_predictor()->GetTotalHintsActivatedForTesting());
+  EXPECT_GE(4u, loading_predictor()->GetTotalHintsActivatedForTesting());
 }
 
 // Tests that the LoadingPredictor doesn't record non-http(s) navigations.

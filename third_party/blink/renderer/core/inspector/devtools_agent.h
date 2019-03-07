@@ -11,7 +11,7 @@
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/associated_binding.h"
 #include "mojo/public/cpp/bindings/binding.h"
-#include "third_party/blink/public/web/devtools_agent.mojom-blink.h"
+#include "third_party/blink/public/mojom/devtools/devtools_agent.mojom-blink.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
@@ -75,7 +75,9 @@ class CORE_EXPORT DevToolsAgent
       mojom::blink::DevToolsSessionRequest io_session,
       mojom::blink::DevToolsSessionStatePtr reattach_session_state) override;
   void InspectElement(const WebPoint& point) override;
-  void ReportChildWorkers(bool report, bool wait_for_debugger) override;
+  void ReportChildWorkers(bool report,
+                          bool wait_for_debugger,
+                          base::OnceClosure callback) override;
 
   struct WorkerData {
     KURL url;

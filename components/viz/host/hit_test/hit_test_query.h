@@ -41,7 +41,7 @@ class VIZ_HOST_EXPORT HitTestQuery {
  public:
   explicit HitTestQuery(
       base::RepeatingClosure shut_down_gpu_callback = base::RepeatingClosure());
-  ~HitTestQuery();
+  virtual ~HitTestQuery();
 
   // TODO(riajiang): Need to validate the data received.
   // http://crbug.com/746470
@@ -57,7 +57,9 @@ class VIZ_HOST_EXPORT HitTestQuery {
   // 1. The list is in ascending (front to back) z-order.
   // 2. Children count includes children of children.
   // 3. After applying transform to the incoming point, point is in the same
-  // coordinate system as the bounds it is comparing against.
+  // coordinate system as the bounds it is comparing against. We shouldn't
+  // need to apply rect's origin offset as it should be included in this
+  // transform.
   // For example,
   //  +e-------------+
   //  |   +c---------|
@@ -74,6 +76,14 @@ class VIZ_HOST_EXPORT HitTestQuery {
   // coordinate system of b.
   Target FindTargetForLocation(EventSource event_source,
                                const gfx::PointF& location_in_root) const;
+
+  // Same as FindTargetForLocation(), but starts from |frame_sink_id|.
+  // |location| is in the coordinate space of |frame_sink_id|. Returns an empty
+  // target if |frame_sink_id| is not found.
+  Target FindTargetForLocationStartingFrom(
+      EventSource event_source,
+      const gfx::PointF& location,
+      const FrameSinkId& frame_sink_id) const;
 
   // When a target window is already known, e.g. capture/latched window, convert
   // |location_in_root| to be in the coordinate space of the target and store
@@ -104,14 +114,29 @@ class VIZ_HOST_EXPORT HitTestQuery {
   // Returns hit-test data, using indentation to visualize the tree structure.
   std::string PrintHitTestData() const;
 
+ protected:
+  // The FindTargetForLocation() functions call into this.
+  // If |is_location_relative_to_parent| is true, |location| is relative to
+  // the parent, otherwise it is in the coordinate space of |frame_sink_id|.
+  // Virtual for testing.
+  virtual Target FindTargetForLocationStartingFromImpl(
+      EventSource event_source,
+      const gfx::PointF& location,
+      const FrameSinkId& frame_sink_id,
+      bool is_location_relative_to_parent) const;
+
  private:
   friend class content::HitTestRegionObserver;
-  // Helper function to find |target| for |location_in_parent| in the
-  // |region_index|, returns true if a target is found and false otherwise.
-  // |location_in_parent| is in the coordinate space of |region_index|'s parent.
+
+  // Helper function to find |target| for |location| in the |region_index|,
+  // returns true if a target is found and false otherwise. If
+  // |is_location_relative_to_parent| is true, |location| is in the coordinate
+  // space of |region_index|'s parent, otherwise it is in the coordinate space
+  // of |region_index|.
   bool FindTargetInRegionForLocation(EventSource event_source,
-                                     const gfx::PointF& location_in_parent,
+                                     const gfx::PointF& location,
                                      size_t region_index,
+                                     bool is_location_relative_to_parent,
                                      Target* target) const;
 
   // Transform |location_in_target| to be in |region_index|'s coordinate space.
@@ -131,6 +156,10 @@ class VIZ_HOST_EXPORT HitTestQuery {
   void ReceivedBadMessageFromGpuProcess() const;
 
   void RecordSlowPathHitTestReasons(uint32_t) const;
+
+  // Returns true if |id| is present in |hit_test_data|. If |id| is present
+  // |index| is set accordingly.
+  bool FindIndexOfFrameSink(const FrameSinkId& id, size_t* index) const;
 
   std::vector<AggregatedHitTestRegion> hit_test_data_;
 

@@ -114,7 +114,7 @@ class HarfBuzzShaperTest : public testing::Test {
 class ScopedSubpixelOverride {
  public:
   ScopedSubpixelOverride(bool b) {
-    prev_layout_test_ = WebTestSupport::IsRunningWebTest();
+    prev_web_test_ = WebTestSupport::IsRunningWebTest();
     prev_subpixel_allowed_ =
         WebTestSupport::IsTextSubpixelPositioningAllowedForTest();
     prev_antialias_ = WebTestSupport::IsFontAntialiasingEnabledForTest();
@@ -147,7 +147,7 @@ class ScopedSubpixelOverride {
     WebTestSupport::SetFontAntialiasingEnabledForTest(prev_antialias_);
     WebTestSupport::SetTextSubpixelPositioningAllowedForTest(
         prev_subpixel_allowed_);
-    WebTestSupport::SetIsRunningWebTest(prev_layout_test_);
+    WebTestSupport::SetIsRunningWebTest(prev_web_test_);
 
     // Fonts cached with a different subpixel positioning state are not
     // automatically invalidated and need to be cleared between test
@@ -156,7 +156,7 @@ class ScopedSubpixelOverride {
   }
 
  private:
-  bool prev_layout_test_;
+  bool prev_web_test_;
   bool prev_subpixel_allowed_;
   bool prev_antialias_;
   bool prev_fd_subpixel_;
@@ -1232,13 +1232,13 @@ TEST_F(HarfBuzzShaperTest, ShapeResultCopyRangeIntoArabicThaiHanLatin) {
             composite_result->SnappedStartPositionForOffset(8));
 }
 
-TEST_F(HarfBuzzShaperTest, ShapeResultCopyRangeAcrossRuns) {
+TEST_P(ShapeParameterTest, ShapeResultCopyRangeAcrossRuns) {
   // Create 3 runs:
   // [0]: 1 character.
   // [1]: 5 characters.
   // [2]: 2 character.
   String mixed_string(u"\u65E5Hello\u65E5\u65E5");
-  TextDirection direction = TextDirection::kLtr;
+  TextDirection direction = GetParam();
   HarfBuzzShaper shaper(mixed_string);
   scoped_refptr<ShapeResult> result = shaper.Shape(&font, direction);
 
@@ -1249,6 +1249,23 @@ TEST_F(HarfBuzzShaperTest, ShapeResultCopyRangeAcrossRuns) {
   scoped_refptr<ShapeResult> target = ShapeResult::Create(&font, 0, direction);
   result->CopyRange(5, 7, target.get());
   EXPECT_EQ(2u, target->NumCharacters());
+}
+
+TEST_P(ShapeParameterTest, ShapeResultCopyRangeContextMultiRuns) {
+  // Create 2 runs:
+  // [0]: 5 characters.
+  // [1]: 4 character.
+  String mixed_string(u"Hello\u65E5\u65E5\u65E5\u65E5");
+  TextDirection direction = GetParam();
+  HarfBuzzShaper shaper(mixed_string);
+  scoped_refptr<ShapeResult> result = shaper.Shape(&font, direction);
+
+  // Copy multiple times using |context| from multiple runs
+  unsigned context = 0;
+  scoped_refptr<ShapeResult> sub2to4 = result->SubRange(2, 4, &context);
+  EXPECT_EQ(2u, sub2to4->NumCharacters());
+  scoped_refptr<ShapeResult> sub5to9 = result->SubRange(5, 9, &context);
+  EXPECT_EQ(4u, sub5to9->NumCharacters());
 }
 
 TEST_F(HarfBuzzShaperTest, ShapeResultCopyRangeSegmentGlyphBoundingBox) {

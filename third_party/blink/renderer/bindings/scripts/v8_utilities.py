@@ -206,9 +206,9 @@ def activity_logging_world_check(member):
 
 # [CallWith]
 CALL_WITH_ARGUMENTS = {
+    'Isolate': 'info.GetIsolate()',
     'ScriptState': 'script_state',
     'ExecutionContext': 'execution_context',
-    'ScriptArguments': 'script_arguments',
     'CurrentWindow': 'CurrentDOMWindow(info.GetIsolate())',
     'EnteredWindow': 'EnteredDOMWindow(info.GetIsolate())',
     'Document': 'document',
@@ -216,9 +216,9 @@ CALL_WITH_ARGUMENTS = {
 }
 # List because key order matters, as we want arguments in deterministic order
 CALL_WITH_VALUES = [
+    'Isolate',
     'ScriptState',
     'ExecutionContext',
-    'ScriptArguments',
     'CurrentWindow',
     'EnteredWindow',
     'Document',
@@ -400,6 +400,19 @@ def measure_as(definition_or_member, interface):
             measure_as_name = '%s_%s' % (capitalize(interface.name), measure_as_name)
         return lambda suffix: 'V8%s_%s' % (measure_as_name, suffix)
     return None
+
+
+# [HighEntropy]
+def high_entropy(definition_or_member):
+    extended_attributes = definition_or_member.extended_attributes
+    if 'HighEntropy' in extended_attributes:
+        includes.add('core/frame/dactyloscoper.h')
+        if not ('Measure' in extended_attributes or 'MeasureAs' in extended_attributes):
+            raise Exception('%s specified [HighEntropy], but does not include '
+                            'either [Measure] or [MeasureAs]'
+                            % definition_or_member.name)
+        return True
+    return False
 
 
 # [OriginTrialEnabled]

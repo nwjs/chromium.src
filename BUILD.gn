@@ -116,7 +116,6 @@ group("gn_all") {
       "//ppapi/examples/2d",
       "//ppapi/examples/audio",
       "//ppapi/examples/audio_input",
-      "//ppapi/examples/compositor",
       "//ppapi/examples/crxfs",
       "//ppapi/examples/enumerate_devices",
       "//ppapi/examples/file_chooser",
@@ -144,8 +143,8 @@ group("gn_all") {
       "//third_party/SPIRV-Tools/src:SPIRV-Tools",
       "//third_party/SPIRV-Tools/src/test/fuzzers",
       "//third_party/cacheinvalidation:cacheinvalidation_unittests",
-      "//third_party/dawn:dawn_end2end_tests",
-      "//third_party/dawn:dawn_unittests",
+      "//third_party/dawn:dawn_end2end_tests_temp_group",
+      "//third_party/dawn:dawn_unittests_temp_group",
       "//third_party/pdfium/samples:pdfium_test",
       "//third_party/webrtc/rtc_tools:frame_analyzer",
       "//tools/perf/clear_system_cache",
@@ -189,7 +188,7 @@ group("gn_all") {
       "//chrome/test:telemetry_perf_unittests",
       "//chrome/test:unit_tests",
       "//components:components_browsertests",
-      "//components/ui_devtools/viz_views",
+      "//components/ui_devtools/viz",
       "//components/viz:viz_perftests",
       "//components/viz:viz_unittests",
       "//components/viz/common:viz_benchmark",
@@ -335,7 +334,6 @@ group("gn_all") {
         "//components/cronet/android:cronet_perf_test_apk",
         "//components/cronet/android:cronet_sample_apk",
         "//components/cronet/android:cronet_sample_test_apk",
-        "//components/cronet/android:cronet_test_apk",
         "//components/cronet/android:cronet_test_instrumentation_apk",
         "//components/cronet/android:cronet_unittests_android",
       ]
@@ -396,7 +394,6 @@ group("gn_all") {
 
   if (is_chromeos) {
     deps += [
-      "//ash:ash_content_unittests",
       "//ash:ash_shell_with_content",
       "//ash:ash_unittests",
       "//ash/app_list:app_list_demo",
@@ -656,8 +653,6 @@ group("gn_all") {
       "//mash:all",
       "//media/mojo/services:media_service_unittests",
       "//mojo",
-      "//ui/views/mus:views_mus_interactive_ui_tests",
-      "//ui/views/mus:views_mus_unittests",
     ]
 
     # crbug.com/676055: media_service_unittests fails to link under Windows
@@ -667,11 +662,11 @@ group("gn_all") {
     }
   }
 
-  if (is_mac || is_linux || is_android) {
+  if (is_mac || is_linux || is_android || is_fuchsia) {
     deps += [ "//third_party/perfetto:all" ]
   }
 
-  if (is_mac || is_linux) {
+  if (is_win || is_mac || is_linux) {
     deps += [ "//third_party/sqlite:sqlite_shell" ]
   }
 
@@ -770,14 +765,10 @@ group("gn_all") {
 
   if (is_fuchsia) {
     deps += [
+      "//fuchsia:webrunner_unittests",
+      "//fuchsia/http:http_service_tests",
+      "//fuchsia/runners:cast_runner_unittests",
       "//headless",
-      "//headless:headless_shell",
-      "//headless:headless_tests",
-      "//webrunner",
-      "//webrunner:archive_sources",
-      "//webrunner:webrunner_unittests",
-      "//webrunner/net_http:http_pkg",
-      "//webrunner/net_http:http_service_tests",
     ]
   }
 
@@ -981,11 +972,12 @@ if (!is_ios) {
       ":layout_test_data_mojo_bindings",
       ":layout_test_data_mojo_bindings_lite",
       "//content/shell:content_shell",
-      "//content/test:mojo_layouttest_bindings_js_data_deps",
+      "//content/test:mojo_web_test_bindings_js_data_deps",
       "//device/bluetooth/public/mojom:fake_bluetooth_interfaces_js_data_deps",
       "//device/usb/public/mojom:mojom_js_data_deps",
       "//device/vr/public/mojom:mojom_js_data_deps",
       "//media/capture/mojom:image_capture_js_data_deps",
+      "//media/midi:mojo_js_data_deps",
       "//mojo/public/interfaces/bindings/tests:test_data_deps",
       "//mojo/public/mojom/base:base_js_data_deps",
       "//services/shape_detection/public/mojom:mojom_js_data_deps",
@@ -1031,7 +1023,6 @@ if (!is_ios) {
     }
 
     data = [
-      "$root_build_dir/resources/inspector/",
       "//testing/scripts/common.py",
       "//testing/scripts/run_isolated_script_test.py",
       "//testing/xvfb.py",
@@ -1189,10 +1180,7 @@ if (!is_ios && !is_android && !is_chromecast && !is_fuchsia) {
       ]
     }
     if (enable_ipc_fuzzer && !is_component_build) {
-      deps += [
-        "//chrome/app:service_manifests",
-        "//tools/ipc_fuzzer:ipc_fuzzer_all",
-      ]
+      deps += [ "//tools/ipc_fuzzer:ipc_fuzzer_all" ]
     }
     if (!is_chromeos) {
       deps += [
@@ -1248,9 +1236,10 @@ if (closure_compile) {
     testonly = true
     data_deps = [
       "chrome/browser/resources:closure_compile",
-      "content/browser/resources:closure_compile",
-      "ui/webui/resources:closure_compile",
       "components/ukm/debug:closure_compile",
+      "content/browser/resources:closure_compile",
+      "mojo/public/tools/bindings/generators/js_templates/lite/test:closure_compile",
+      "ui/webui/resources:closure_compile",
     ]
     if (is_chromeos) {
       data_deps += [ "ui/file_manager:closure_compile" ]

@@ -65,7 +65,9 @@ ContentClient* GetContentClient();
 #endif
 
 // Used for tests to override the relevant embedder interfaces. Each method
-// returns the old value.
+// returns the old value. In browser tests it seems safest to call these in
+// SetUpOnMainThread() or you may get TSan errors due a race between the
+// browser "process" and the child "process" for the test both accessing it.
 CONTENT_EXPORT ContentBrowserClient* SetBrowserClientForTesting(
     ContentBrowserClient* b);
 CONTENT_EXPORT ContentRendererClient* SetRendererClientForTesting(
@@ -151,15 +153,6 @@ class CONTENT_EXPORT ContentClient {
 
   // Returns whether the given message should be sent in a swapped out renderer.
   virtual bool CanSendWhileSwappedOut(const IPC::Message* message);
-
-  // Returns a string describing the embedder product name and version,
-  // of the form "productname/version", with no other slashes.
-  // Used as part of the user agent string.
-  virtual std::string GetProduct() const;
-
-  // Returns the user agent.  Content may cache this value.
-  // TODO(yhirano): Move this to ContentBrowserClient.
-  virtual std::string GetUserAgent() const;
 
   // Returns a string resource given its id.
   virtual base::string16 GetLocalizedString(int message_id) const;

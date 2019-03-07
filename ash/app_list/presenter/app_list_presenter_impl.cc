@@ -101,7 +101,6 @@ AppListPresenterImpl::AppListPresenterImpl(
 
 AppListPresenterImpl::~AppListPresenterImpl() {
   Dismiss(base::TimeTicks());
-  delegate_.reset();
   // Ensures app list view goes before the controller since pagination model
   // lives in the controller and app list view would access it on destruction.
   if (view_) {
@@ -169,7 +168,6 @@ void AppListPresenterImpl::Dismiss(base::TimeTicks event_time_stamp) {
   delegate_->OnClosing();
   ScheduleAnimation();
   NotifyTargetVisibilityChanged(GetTargetVisibility());
-  NotifyVisibilityChanged(GetTargetVisibility(), display_id);
   base::RecordAction(base::UserMetricsAction("Launcher_Dismiss"));
 }
 
@@ -183,13 +181,15 @@ bool AppListPresenterImpl::CloseOpenedPage() {
   return view_->CloseOpenedPage();
 }
 
-void AppListPresenterImpl::ToggleAppList(int64_t display_id,
-                                         base::TimeTicks event_time_stamp) {
+ash::ShelfAction AppListPresenterImpl::ToggleAppList(
+    int64_t display_id,
+    base::TimeTicks event_time_stamp) {
   if (IsVisible()) {
     Dismiss(event_time_stamp);
-    return;
+    return ash::SHELF_ACTION_APP_LIST_DISMISSED;
   }
   Show(display_id, event_time_stamp);
+  return ash::SHELF_ACTION_APP_LIST_SHOWN;
 }
 
 bool AppListPresenterImpl::IsVisible() const {
@@ -351,8 +351,7 @@ void AppListPresenterImpl::NotifyVisibilityChanged(bool visible,
   last_display_id_ = display_id;
 
   // Notify the Shell and its observers of the app list visibility change.
-  delegate_->OnVisibilityChanged(
-      visible, delegate_->GetRootWindowForDisplayId(display_id));
+  delegate_->OnVisibilityChanged(visible, display_id);
 }
 
 void AppListPresenterImpl::NotifyTargetVisibilityChanged(bool visible) {
@@ -390,6 +389,8 @@ void AppListPresenterImpl::OnWindowFocused(aura::Window* gained_focus,
 // AppListPresenterImpl, ui::ImplicitAnimationObserver implementation:
 
 void AppListPresenterImpl::OnImplicitAnimationsCompleted() {
+  NotifyVisibilityChanged(GetTargetVisibility(), GetDisplayId());
+
   if (is_visible_) {
     view_->GetWidget()->Activate();
   } else {

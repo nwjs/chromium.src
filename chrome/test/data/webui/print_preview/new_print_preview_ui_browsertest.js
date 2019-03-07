@@ -8,7 +8,6 @@ const ROOT_PATH = '../../../../../';
 
 GEN_INCLUDE(
     [ROOT_PATH + 'chrome/test/data/webui/polymer_browser_test_base.js']);
-GEN('#include "chrome/common/chrome_features.h"');
 
 function PrintPreviewSettingsSectionsTest() {}
 
@@ -16,11 +15,6 @@ const NewPrintPreviewTest = class extends PolymerTest {
   /** @override */
   get browsePreload() {
     return 'chrome://print/';
-  }
-
-  /** @override */
-  get featureList() {
-    return ['features::kNewPrintPreview', ''];
   }
 
   /** @override */
@@ -40,6 +34,35 @@ const NewPrintPreviewTest = class extends PolymerTest {
     runMochaTest(this.suiteName, testName);
   }
 };
+
+PrintPreviewAppTest = class extends NewPrintPreviewTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://print/new/app.html';
+  }
+
+  /** @override */
+  get extraLibraries() {
+    return super.extraLibraries.concat([
+      '../settings/test_util.js',
+      '../test_browser_proxy.js',
+      'cloud_print_interface_stub.js',
+      'native_layer_stub.js',
+      'plugin_stub.js',
+      'print_preview_test_utils.js',
+      'print_preview_app_test.js',
+    ]);
+  }
+
+  /** @override */
+  get suiteName() {
+    return print_preview_app_test.suiteName;
+  }
+};
+
+TEST_F('PrintPreviewAppTest', 'PrintToGoogleDrive', function() {
+  this.runMochaTest(print_preview_app_test.TestNames.PrintToGoogleDrive);
+});
 
 PrintPreviewSettingsSectionsTest = class extends NewPrintPreviewTest {
   /** @override */
@@ -264,32 +287,6 @@ TEST_F('PrintPreviewSelectBehaviorTest', 'CallProcessSelectChange', function() {
   this.runMochaTest(select_behavior_test.TestNames.CallProcessSelectChange);
 });
 
-PrintPreviewBaseSettingsSectionTest = class extends NewPrintPreviewTest {
-  /** @override */
-  get browsePreload() {
-    return 'chrome://print/new/settings_section.html';
-  }
-
-  /** @override */
-  get extraLibraries() {
-    return super.extraLibraries.concat([
-      'base_settings_section_test.js',
-    ]);
-  }
-
-  /** @override */
-  get suiteName() {
-    return base_settings_section_test.suiteName;
-  }
-};
-
-TEST_F(
-    'PrintPreviewBaseSettingsSectionTest', 'ManagedShowsEnterpriseIcon',
-    function() {
-      this.runMochaTest(
-          base_settings_section_test.TestNames.ManagedShowsEnterpriseIcon);
-    });
-
 PrintPreviewNumberSettingsSectionTest = class extends NewPrintPreviewTest {
   /** @override */
   get browsePreload() {
@@ -385,6 +382,10 @@ TEST_F('PrintPreviewModelTest', 'GetPrintTicket', function() {
 
 TEST_F('PrintPreviewModelTest', 'GetCloudPrintTicket', function() {
   this.runMochaTest(model_test.TestNames.GetCloudPrintTicket);
+});
+
+TEST_F('PrintPreviewModelTest', 'UpdateRecentDestinations', function() {
+  this.runMochaTest(model_test.TestNames.UpdateRecentDestinations);
 });
 
 PrintPreviewPreviewGenerationTest = class extends NewPrintPreviewTest {
@@ -620,6 +621,7 @@ PrintPreviewDestinationSelectTest = class extends NewPrintPreviewTest {
     return super.extraLibraries.concat([
       '../settings/test_util.js',
       '../test_browser_proxy.js',
+      'cloud_print_interface_stub.js',
       'native_layer_stub.js',
       'print_preview_test_utils.js',
       'destination_select_test.js',
@@ -682,6 +684,24 @@ TEST_F('PrintPreviewDestinationSelectTest', 'NoPrintersShowsError', function() {
 });
 GEN('#endif');
 
+TEST_F(
+    'PrintPreviewDestinationSelectTest', 'UnreachableRecentCloudPrinter',
+    function() {
+      this.runMochaTest(
+          destination_select_test.TestNames.UnreachableRecentCloudPrinter);
+    });
+
+TEST_F('PrintPreviewDestinationSelectTest', 'RecentSaveAsPdf', function() {
+  this.runMochaTest(destination_select_test.TestNames.RecentSaveAsPdf);
+});
+
+TEST_F(
+    'PrintPreviewDestinationSelectTest', 'MultipleRecentDestinationsAccounts',
+    function() {
+      this.runMochaTest(
+          destination_select_test.TestNames.MultipleRecentDestinationsAccounts);
+    });
+
 PrintPreviewDestinationDialogTest = class extends NewPrintPreviewTest {
   /** @override */
   get browsePreload() {
@@ -691,7 +711,7 @@ PrintPreviewDestinationDialogTest = class extends NewPrintPreviewTest {
   /** @override */
   get extraLibraries() {
     return super.extraLibraries.concat([
-      ROOT_PATH + 'ui/webui/resources/js/webui_listener_tracker.js',
+      ROOT_PATH + 'ui/webui/resources/js/web_ui_listener_behavior.js',
       ROOT_PATH + 'ui/webui/resources/js/cr/event_target.js',
       '../settings/test_util.js',
       '../test_browser_proxy.js',
@@ -712,14 +732,20 @@ TEST_F('PrintPreviewDestinationDialogTest', 'PrinterList', function() {
   this.runMochaTest(destination_dialog_test.TestNames.PrinterList);
 });
 
+GEN('#if defined(OS_CHROMEOS)');
 TEST_F(
     'PrintPreviewDestinationDialogTest', 'ShowProvisionalDialog', function() {
       this.runMochaTest(
           destination_dialog_test.TestNames.ShowProvisionalDialog);
     });
+GEN('#endif');
 
 TEST_F('PrintPreviewDestinationDialogTest', 'ReloadPrinterList', function() {
   this.runMochaTest(destination_dialog_test.TestNames.ReloadPrinterList);
+});
+
+TEST_F('PrintPreviewDestinationDialogTest', 'UserAccounts', function() {
+  this.runMochaTest(destination_dialog_test.TestNames.UserAccounts);
 });
 
 PrintPreviewAdvancedDialogTest = class extends NewPrintPreviewTest {
@@ -836,6 +862,13 @@ TEST_F(
           custom_margins_test.TestNames.MediaSizeClearsCustomMarginsPDF);
     });
 
+TEST_F(
+    'PrintPreviewCustomMarginsTest', 'RequestScrollToOutOfBoundsTextbox',
+    function() {
+      this.runMochaTest(
+          custom_margins_test.TestNames.RequestScrollToOutOfBoundsTextbox);
+    });
+
 PrintPreviewNewDestinationSearchTest = class extends NewPrintPreviewTest {
   /** @override */
   get browsePreload() {
@@ -845,7 +878,7 @@ PrintPreviewNewDestinationSearchTest = class extends NewPrintPreviewTest {
   /** @override */
   get extraLibraries() {
     return super.extraLibraries.concat([
-      ROOT_PATH + 'ui/webui/resources/js/webui_listener_tracker.js',
+      ROOT_PATH + 'ui/webui/resources/js/web_ui_listener_behavior.js',
       '../settings/test_util.js',
       '../test_browser_proxy.js',
       'native_layer_stub.js',
@@ -931,6 +964,10 @@ TEST_F('PrintPreviewHeaderTest', 'HeaderChangesForState', function() {
 
 TEST_F('PrintPreviewHeaderTest', 'ButtonOrder', function() {
   this.runMochaTest(header_test.TestNames.ButtonOrder);
+});
+
+TEST_F('PrintPreviewHeaderTest', 'EnterprisePolicy', function() {
+  this.runMochaTest(header_test.TestNames.EnterprisePolicy);
 });
 
 PrintPreviewDestinationItemTest = class extends NewPrintPreviewTest {
@@ -1149,9 +1186,13 @@ PrintPreviewDestinationSettingsTest = class extends NewPrintPreviewTest {
   /** @override */
   get extraLibraries() {
     return super.extraLibraries.concat([
-      ROOT_PATH + 'ui/webui/resources/js/webui_listener_tracker.js',
+      ROOT_PATH + 'ui/webui/resources/js/web_ui_listener_behavior.js',
       '../test_browser_proxy.js',
+      '../settings/test_util.js',
+      'cloud_print_interface_stub.js',
+      'print_preview_test_utils.js',
       'native_layer_stub.js',
+      'print_preview_test_utils.js',
       'destination_settings_test.js',
     ]);
   }
@@ -1162,6 +1203,52 @@ PrintPreviewDestinationSettingsTest = class extends NewPrintPreviewTest {
   }
 };
 
-TEST_F('PrintPreviewDestinationSettingsTest', 'ChangeButtonState', function() {
-  this.runMochaTest(destination_settings_test.TestNames.ChangeButtonState);
+TEST_F(
+    'PrintPreviewDestinationSettingsTest', 'ChangeDropdownState', function() {
+      this.runMochaTest(
+          destination_settings_test.TestNames.ChangeDropdownState);
+    });
+
+TEST_F(
+    'PrintPreviewDestinationSettingsTest', 'NoRecentDestinations', function() {
+      this.runMochaTest(
+          destination_settings_test.TestNames.NoRecentDestinations);
+    });
+
+TEST_F('PrintPreviewDestinationSettingsTest', 'RecentDestinations', function() {
+  this.runMochaTest(destination_settings_test.TestNames.RecentDestinations);
 });
+
+TEST_F('PrintPreviewDestinationSettingsTest', 'SaveAsPdfRecent', function() {
+  this.runMochaTest(destination_settings_test.TestNames.SaveAsPdfRecent);
+});
+
+TEST_F('PrintPreviewDestinationSettingsTest', 'GoogleDriveRecent', function() {
+  this.runMochaTest(destination_settings_test.TestNames.GoogleDriveRecent);
+});
+
+TEST_F('PrintPreviewDestinationSettingsTest', 'SelectSaveAsPdf', function() {
+  this.runMochaTest(destination_settings_test.TestNames.SelectSaveAsPdf);
+});
+
+TEST_F('PrintPreviewDestinationSettingsTest', 'SelectGoogleDrive', function() {
+  this.runMochaTest(destination_settings_test.TestNames.SelectGoogleDrive);
+});
+
+TEST_F(
+    'PrintPreviewDestinationSettingsTest', 'SelectRecentDestination',
+    function() {
+      this.runMochaTest(
+          destination_settings_test.TestNames.SelectRecentDestination);
+    });
+
+TEST_F('PrintPreviewDestinationSettingsTest', 'OpenDialog', function() {
+  this.runMochaTest(destination_settings_test.TestNames.OpenDialog);
+});
+
+TEST_F(
+    'PrintPreviewDestinationSettingsTest', 'TwoAccountsRecentDestinations',
+    function() {
+      this.runMochaTest(
+          destination_settings_test.TestNames.TwoAccountsRecentDestinations);
+    });

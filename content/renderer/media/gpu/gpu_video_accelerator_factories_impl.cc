@@ -136,9 +136,9 @@ void GpuVideoAcceleratorFactoriesImpl::BindOnTaskRunner(
 }
 
 void GpuVideoAcceleratorFactoriesImpl::OnSupportedDecoderConfigs(
-    std::vector<media::mojom::SupportedVideoDecoderConfigPtr>
-        supported_configs) {
-  supported_decoder_configs_ = std::move(supported_configs);
+    const std::vector<media::SupportedVideoDecoderConfig>& supported_configs) {
+  base::AutoLock lock(supported_decoder_configs_lock_);
+  supported_decoder_configs_ = supported_configs;
   video_decoder_.reset();
 }
 
@@ -191,24 +191,17 @@ int32_t GpuVideoAcceleratorFactoriesImpl::GetCommandBufferRouteId() {
 
 bool GpuVideoAcceleratorFactoriesImpl::IsDecoderConfigSupported(
     const media::VideoDecoderConfig& config) {
+  base::AutoLock lock(supported_decoder_configs_lock_);
+
   // If GetSupportedConfigs() has not completed (or was never started), report
   // that all configs are supported. Clients will find out that configs are not
   // supported when VideoDecoder::Initialize() fails.
   if (!supported_decoder_configs_)
     return true;
 
-  for (const media::mojom::SupportedVideoDecoderConfigPtr& supported :
-       *supported_decoder_configs_) {
-    if (config.profile() >= supported->profile_min &&
-        config.profile() <= supported->profile_max &&
-        config.coded_size().width() >= supported->coded_size_min.width() &&
-        config.coded_size().width() <= supported->coded_size_max.width() &&
-        config.coded_size().height() >= supported->coded_size_min.height() &&
-        config.coded_size().height() <= supported->coded_size_max.height() &&
-        (config.is_encrypted() ? supported->allow_encrypted
-                               : !supported->require_encrypted)) {
+  for (const auto& supported : *supported_decoder_configs_) {
+    if (supported.Matches(config))
       return true;
-    }
   }
   return false;
 }
@@ -479,6 +472,12 @@ GpuVideoAcceleratorFactoriesImpl::GetVideoEncodeAcceleratorSupportedProfiles() {
 scoped_refptr<ws::ContextProviderCommandBuffer>
 GpuVideoAcceleratorFactoriesImpl::GetMediaContextProvider() {
   return CheckContextLost() ? nullptr : context_provider_;
+}
+
+gpu::ContextSupport*
+GpuVideoAcceleratorFactoriesImpl::GetMediaContextProviderContextSupport() {
+  auto context_provider = GetMediaContextProvider();
+  return context_provider ? context_provider->ContextSupport() : nullptr;
 }
 
 void GpuVideoAcceleratorFactoriesImpl::SetRenderingColorSpace(

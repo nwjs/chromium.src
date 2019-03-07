@@ -6,6 +6,7 @@
 
 #include "ui/aura/mus/property_converter.h"
 #include "ui/aura/window.h"
+#include "ui/display/screen.h"
 
 namespace ws {
 
@@ -69,6 +70,17 @@ void TestWindowServiceDelegate::RunDragLoop(
 
 void TestWindowServiceDelegate::CancelDragLoop(aura::Window* window) {
   cancel_drag_loop_called_ = true;
+}
+
+ui::EventTarget* TestWindowServiceDelegate::GetGlobalEventTarget() {
+  return top_level_parent_->GetRootWindow();
+}
+
+aura::Window* TestWindowServiceDelegate::GetRootWindowForDisplayId(
+    int64_t display_id) {
+  if (display::Screen::GetScreen()->GetAllDisplays().size() > 1)
+    NOTIMPLEMENTED_LOG_ONCE() << "Add test support for multiple displays.";
+  return top_level_parent_->GetRootWindow();
 }
 
 aura::Window* TestWindowServiceDelegate::GetTopmostWindowAtPoint(

@@ -26,12 +26,12 @@ import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.AsyncTask;
-import org.chromium.chrome.browser.TabState;
 import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabIdManager;
+import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.content_public.browser.LoadUrlParams;
 
 import java.io.BufferedInputStream;
@@ -629,8 +629,9 @@ public class TabPersistentStore extends TabPersister {
             }
 
             Log.w(TAG, "Failed to restore TabState; creating Tab with last known URL.");
-            Tab fallbackTab = mTabCreatorManager.getTabCreator(isIncognito).createNewTab(
-                    new LoadUrlParams(tabToRestore.url), TabModel.TabLaunchType.FROM_RESTORE, null);
+            Tab fallbackTab = mTabCreatorManager.getTabCreator(isIncognito)
+                                      .createNewTab(new LoadUrlParams(tabToRestore.url),
+                                              TabLaunchType.FROM_RESTORE, null);
 
             if (fallbackTab == null) return;
 

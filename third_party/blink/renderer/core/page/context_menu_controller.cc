@@ -73,7 +73,7 @@ ContextMenuController::ContextMenuController(Page* page) : page_(page) {}
 ContextMenuController::~ContextMenuController() = default;
 
 ContextMenuController* ContextMenuController::Create(Page* page) {
-  return new ContextMenuController(page);
+  return MakeGarbageCollected<ContextMenuController>(page);
 }
 
 void ContextMenuController::Trace(blink::Visitor* visitor) {
@@ -128,17 +128,12 @@ Node* ContextMenuController::ContextMenuNodeForFrame(LocalFrame* frame) {
              : nullptr;
 }
 
-// Figure out the URL of a page or subframe. Returns |page_type| as the type,
-// which indicates page or subframe, or ContextNodeType::kNone if the URL could
-// not be determined for some reason.
+// Figure out the URL of a page or subframe.
 static KURL UrlFromFrame(LocalFrame* frame) {
   if (frame) {
     DocumentLoader* document_loader = frame->Loader().GetDocumentLoader();
-    if (document_loader) {
-      return document_loader->UnreachableURL().IsEmpty()
-                 ? document_loader->GetRequest().Url()
-                 : document_loader->UnreachableURL();
-    }
+    if (document_loader)
+      return document_loader->UrlForHistory();
   }
   return KURL();
 }
@@ -264,10 +259,9 @@ bool ContextMenuController::ShowContextMenu(LocalFrame* frame,
         data.media_type = WebContextMenuData::kMediaTypeVideo;
       if (media_element->SupportsPictureInPicture()) {
         data.media_flags |= WebContextMenuData::kMediaCanPictureInPicture;
-        if (PictureInPictureController::From(media_element->GetDocument())
-                .IsPictureInPictureElement(media_element)) {
+        if (PictureInPictureController::IsElementInPictureInPicture(
+                media_element))
           data.media_flags |= WebContextMenuData::kMediaPictureInPicture;
-        }
       }
     } else if (IsHTMLAudioElement(*media_element))
       data.media_type = WebContextMenuData::kMediaTypeAudio;

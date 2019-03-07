@@ -66,16 +66,16 @@ BLINK_EXPORT void CreateMainThreadAndInitialize(
 BLINK_EXPORT v8::Isolate* MainThreadIsolate();
 
 // Alters the rendering of content to conform to a fixed set of rules.
-BLINK_EXPORT void SetLayoutTestMode(bool);
-BLINK_EXPORT bool LayoutTestMode();
+BLINK_EXPORT void SetWebTestMode(bool);
+BLINK_EXPORT bool WebTestMode();
 
 BLINK_EXPORT void set_web_worker_hooks(void*);
 BLINK_EXPORT void fix_gamepad_nw(WebLocalFrame*);
-// Enables or disables the use of the mock theme for layout tests. This function
-// must be called only if setLayoutTestMode(true).
+// Enables or disables the use of the mock theme for web tests. This function
+// must be called only if SetWebTestMode(true).
 BLINK_EXPORT void SetMockThemeEnabledForTest(bool);
 
-// Alters the rendering of fonts for layout tests.
+// Alters the rendering of fonts for web tests.
 BLINK_EXPORT void SetFontAntialiasingEnabledForTest(bool);
 BLINK_EXPORT bool FontAntialiasingEnabledForTest();
 

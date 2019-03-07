@@ -10,12 +10,12 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "build/build_config.h"
-#include "media/base/media_log.h"
+#include "media/base/media_util.h"
 #include "media/base/timestamp_constants.h"
 #include "media/base/video_frame_pool.h"
 #include "media/base/wall_clock_time_source.h"
@@ -333,7 +333,7 @@ class VideoRendererAlgorithmTest : public testing::Test {
   }
 
  protected:
-  MediaLog media_log_;
+  NullMediaLog media_log_;
   VideoFramePool frame_pool_;
   std::unique_ptr<base::SimpleTestTickClock> tick_clock_;
   WallClockTimeSource time_source_;
@@ -1389,10 +1389,10 @@ TEST_F(VideoRendererAlgorithmTest, VariablePlaybackRateCadence) {
   TickGenerator display_tg(tick_clock_->NowTicks(), 60);
 
   const double kTestRates[] = {1.0, 2, 0.215, 0.5, 1.0, 3.15};
-  const bool kTestRateHasCadence[arraysize(kTestRates)] = {true, true, true,
-                                                           true, true, false};
+  const bool kTestRateHasCadence[base::size(kTestRates)] = {true, true, true,
+                                                            true, true, false};
 
-  for (size_t i = 0; i < arraysize(kTestRates); ++i) {
+  for (size_t i = 0; i < base::size(kTestRates); ++i) {
     const double playback_rate = kTestRates[i];
     SCOPED_TRACE(base::StringPrintf("Playback Rate: %.03f", playback_rate));
     time_source_.SetPlaybackRate(playback_rate);
@@ -1423,11 +1423,11 @@ TEST_F(VideoRendererAlgorithmTest, UglyTimestampsHaveCadence) {
   // Run throught ~1.6 seconds worth of frames.
   bool cadence_detected = false;
   base::TimeDelta timestamp;
-  for (size_t i = 0; i < arraysize(kBadTimestampsMs) * 2; ++i) {
+  for (size_t i = 0; i < base::size(kBadTimestampsMs) * 2; ++i) {
     while (EffectiveFramesQueued() < 3) {
       algorithm_.EnqueueFrame(CreateFrame(timestamp));
       timestamp += base::TimeDelta::FromMilliseconds(
-          kBadTimestampsMs[i % arraysize(kBadTimestampsMs)]);
+          kBadTimestampsMs[i % base::size(kBadTimestampsMs)]);
     }
 
     size_t frames_dropped = 0;
@@ -1458,11 +1458,11 @@ TEST_F(VideoRendererAlgorithmTest, VariableFrameRateNoCadence) {
   bool cadence_detected = false;
   bool cadence_turned_off = false;
   base::TimeDelta timestamp;
-  for (size_t i = 0; i < arraysize(kBadTimestampsMs);) {
+  for (size_t i = 0; i < base::size(kBadTimestampsMs);) {
     while (EffectiveFramesQueued() < 3) {
       algorithm_.EnqueueFrame(CreateFrame(timestamp));
       timestamp += base::TimeDelta::FromMilliseconds(
-          kBadTimestampsMs[i % arraysize(kBadTimestampsMs)]);
+          kBadTimestampsMs[i % base::size(kBadTimestampsMs)]);
       ++i;
     }
 

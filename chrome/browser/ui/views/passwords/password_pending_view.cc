@@ -110,10 +110,13 @@ void BuildCredentialRows(views::GridLayout* layout,
   password_label->SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT);
   int labels_width = std::max(username_label->GetPreferredSize().width(),
                               password_label->GetPreferredSize().width());
+  int fields_height = std::max(username_field->GetPreferredSize().height(),
+                               password_field->GetPreferredSize().height());
 
   layout->AddView(username_label.release(), 1, 1, views::GridLayout::LEADING,
                   views::GridLayout::FILL, labels_width, 0);
-  layout->AddView(username_field);
+  layout->AddView(username_field, 1, 1, views::GridLayout::FILL,
+                  views::GridLayout::FILL, 0, fields_height);
 
   layout->AddPaddingRow(views::GridLayout::kFixedSize,
                         ChromeLayoutProvider::Get()->GetDistanceMetric(
@@ -127,7 +130,8 @@ void BuildCredentialRows(views::GridLayout* layout,
   layout->StartRow(views::GridLayout::kFixedSize, type);
   layout->AddView(password_label.release(), 1, 1, views::GridLayout::LEADING,
                   views::GridLayout::FILL, labels_width, 0);
-  layout->AddView(password_field);
+  layout->AddView(password_field, 1, 1, views::GridLayout::FILL,
+                  views::GridLayout::FILL, 0, fields_height);
   // The eye icon is also added to the layout if it was passed.
   if (password_view_button) {
     layout->AddView(password_view_button);
@@ -186,9 +190,9 @@ class PasswordDropdownModel : public ui::ComboboxModel {
 std::unique_ptr<views::ToggleImageButton> CreatePasswordViewButton(
     views::ButtonListener* listener,
     bool are_passwords_revealed) {
-  std::unique_ptr<views::ToggleImageButton> button(
-      new views::ToggleImageButton(listener));
+  auto button = std::make_unique<views::ToggleImageButton>(listener);
   button->SetFocusForPlatform();
+  button->SetInstallFocusRingOnFocus(true);
   button->set_request_focus_on_press(true);
   button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_MANAGE_PASSWORDS_SHOW_PASSWORD));
@@ -212,9 +216,10 @@ std::unique_ptr<views::Combobox> CreatePasswordDropdownView(
     const autofill::PasswordForm& form,
     bool are_passwords_revealed) {
   DCHECK(!form.all_possible_passwords.empty());
-  std::unique_ptr<views::Combobox> combobox =
-      std::make_unique<views::Combobox>(std::make_unique<PasswordDropdownModel>(
-          are_passwords_revealed, form.all_possible_passwords));
+  std::unique_ptr<views::Combobox> combobox = std::make_unique<views::Combobox>(
+      std::make_unique<PasswordDropdownModel>(are_passwords_revealed,
+                                              form.all_possible_passwords),
+      views::style::CONTEXT_BUTTON, STYLE_PRIMARY_MONOSPACED);
   size_t index =
       std::distance(form.all_possible_passwords.begin(),
                     find_if(form.all_possible_passwords.begin(),
@@ -417,6 +422,11 @@ bool PasswordPendingView::ShouldShowWindowIcon() const {
 
 bool PasswordPendingView::ShouldShowCloseButton() const {
   return true;
+}
+
+void PasswordPendingView::AddedToWidget() {
+  static_cast<views::Label*>(GetBubbleFrameView()->title())
+      ->SetAllowCharacterBreak(true);
 }
 
 void PasswordPendingView::TogglePasswordVisibility() {

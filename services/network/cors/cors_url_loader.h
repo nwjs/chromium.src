@@ -58,11 +58,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
   void Start();
 
   // mojom::URLLoader overrides:
-  void FollowRedirect(
-      const base::Optional<std::vector<std::string>>&
-          to_be_removed_request_headers,
-      const base::Optional<net::HttpRequestHeaders>& modified_request_headers,
-      const base::Optional<GURL>& new_url) override;
+  void FollowRedirect(const std::vector<std::string>& removed_headers,
+                      const net::HttpRequestHeaders& modified_headers,
+                      const base::Optional<GURL>& new_url) override;
   void ProceedWithResponse() override;
   void SetPriority(net::RequestPriority priority,
                    int intra_priority_value) override;
@@ -81,6 +79,20 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
   void OnStartLoadingResponseBody(
       mojo::ScopedDataPipeConsumerHandle body) override;
   void OnComplete(const URLLoaderCompletionStatus& status) override;
+
+  // Public for testing.
+  //
+  // Returns the response tainting value
+  // (https://fetch.spec.whatwg.org/#concept-request-response-tainting) for a
+  // request and the CORS flag, as specified in
+  // https://fetch.spec.whatwg.org/#main-fetch.
+  static network::mojom::FetchResponseType CalculateResponseTainting(
+      const GURL& url,
+      mojom::FetchRequestMode request_mode,
+      const base::Optional<url::Origin>& origin,
+      bool cors_flag,
+      bool tainted_origin,
+      const OriginAccessList* origin_access_list);
 
  private:
   void StartRequest();

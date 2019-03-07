@@ -53,7 +53,8 @@ class INVALIDATION_EXPORT PerUserTopicRegistrationManager {
       invalidation::IdentityProvider* identity_provider,
       PrefService* local_state,
       network::mojom::URLLoaderFactory* url_loader_factory,
-      const ParseJSONCallback& parse_json);
+      const ParseJSONCallback& parse_json,
+      const std::string& project_id);
 
   virtual ~PerUserTopicRegistrationManager();
 
@@ -70,6 +71,12 @@ class INVALIDATION_EXPORT PerUserTopicRegistrationManager {
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
+  std::unique_ptr<base::DictionaryValue> CollectDebugData() const;
+
+  bool HaveAllRequestsFinishedForTest() const {
+    return registration_statuses_.empty();
+  }
+
  private:
   struct RegistrationEntry;
 
@@ -78,6 +85,11 @@ class INVALIDATION_EXPORT PerUserTopicRegistrationManager {
   // Tries to register |id|. No retry in case of failure.
   void StartRegistrationRequest(const Topic& id);
 
+  void ActOnSuccesfullRegistration(
+      const Topic& topic,
+      const std::string& private_topic_name,
+      PerUserTopicRegistrationRequest::RequestType type);
+  void ScheduleRequestForRepetition(const Topic& topic);
   void RegistrationFinishedForTopic(
       Topic topic,
       Status code,
@@ -116,7 +128,10 @@ class INVALIDATION_EXPORT PerUserTopicRegistrationManager {
   ParseJSONCallback parse_json_;
   network::mojom::URLLoaderFactory* url_loader_factory_;
 
+  const std::string project_id_;
+
   base::ObserverList<Observer>::Unchecked observers_;
+  InvalidatorState last_issued_state_ = TRANSIENT_INVALIDATION_ERROR;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

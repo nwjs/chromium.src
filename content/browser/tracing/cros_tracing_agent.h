@@ -15,10 +15,6 @@ namespace base {
 class RefCountedString;
 }  // namespace base
 
-namespace service_manager {
-class Connector;
-}  // namespace service_manager
-
 namespace content {
 
 class CrOSSystemTracingSession;
@@ -27,7 +23,7 @@ class CrOSSystemTracingSession;
 // service with perfetto.
 class CrOSTracingAgent : public tracing::BaseAgent {
  public:
-  explicit CrOSTracingAgent(service_manager::Connector* connector);
+  CrOSTracingAgent();
 
  private:
   friend std::default_delete<CrOSTracingAgent>;
@@ -36,12 +32,10 @@ class CrOSTracingAgent : public tracing::BaseAgent {
 
   // tracing::mojom::Agent. Called by Mojo internals on the UI thread.
   void StartTracing(const std::string& config,
-                    base::TimeTicks coordinator_time,
-                    Agent::StartTracingCallback callback) override;
+                    base::TimeTicks coordinator_time) override;
   void StopAndFlush(tracing::mojom::RecorderPtr recorder) override;
 
-  void StartTracingCallbackProxy(Agent::StartTracingCallback callback,
-                                 bool success);
+  void StartTracingCallbackProxy(bool success);
   void RecorderProxy(const scoped_refptr<base::RefCountedString>& events);
 
   std::unique_ptr<CrOSSystemTracingSession> session_;

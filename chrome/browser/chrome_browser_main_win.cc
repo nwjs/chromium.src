@@ -15,6 +15,7 @@
 #include "base/base_switches.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
+#include "base/enterprise_util.h"
 #include "base/environment.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -25,10 +26,12 @@
 #include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/scoped_native_library.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/threading/sequenced_task_runner_handle.h"
+#include "base/trace_event/trace_event.h"
 #include "base/version.h"
 #include "base/win/pe_image.h"
 #include "base/win/registry.h"
@@ -317,7 +320,7 @@ bool TryGetModuleTimeDateStamp(void* module_load_address,
       return false;
 
     *time_date_stamp = GetModuleTimeDateStamp(module_load_address);
-  } __except (FilterAccessViolation(GetExceptionCode(),
+  } __except(FilterAccessViolation(GetExceptionCode(),
                                     GetExceptionInformation(),
                                     module_load_address, size_of_image)) {
     return false;
@@ -328,6 +331,9 @@ bool TryGetModuleTimeDateStamp(void* module_load_address,
 // Used as the callback for ModuleWatcher events in this process. Dispatches
 // them to the ModuleDatabase.
 void OnModuleEvent(const ModuleWatcher::ModuleEvent& event) {
+  TRACE_EVENT1("browser", "OnModuleEvent", "module_path",
+               event.module_path.BaseName().AsUTF8Unsafe());
+
   auto* module_database = ModuleDatabase::GetInstance();
 
   switch (event.event_type) {
@@ -408,6 +414,14 @@ void MaybePostSettingsResetPrompt() {
 }
 #endif
 
+// This error message is not localized because we failed to load the
+// localization data files.
+const char kMissingLocaleDataTitle[] = "Missing File Error";
+
+// TODO(http://crbug.com/338969): This should be used on Linux Aura as well.
+const char kMissingLocaleDataMessage[] =
+    "Unable to find locale data files. Please reinstall.";
+
 }  // namespace
 
 int DoUninstallTasks(bool chrome_still_running) {
@@ -439,7 +453,7 @@ int DoUninstallTasks(bool chrome_still_running) {
           ShellUtil::SHORTCUT_LOCATION_START_MENU_CHROME_DIR_DEPRECATED,
           ShellUtil::SHORTCUT_LOCATION_START_MENU_CHROME_APPS_DIR,
       };
-      for (size_t i = 0; i < arraysize(user_shortcut_locations); ++i) {
+      for (size_t i = 0; i < base::size(user_shortcut_locations); ++i) {
         if (!ShellUtil::RemoveShortcuts(user_shortcut_locations[i],
                                         ShellUtil::CURRENT_USER, chrome_exe)) {
           VLOG(1) << "Failed to delete shortcut at location "
@@ -488,7 +502,7 @@ int ChromeBrowserMainPartsWin::PreCreateThreads() {
   // be used to better identify whether crashes are from enterprise users.
   static crash_reporter::CrashKeyString<4> is_enterprise_managed(
       "is-enterprise-managed");
-  is_enterprise_managed.Set(base::win::IsEnterpriseManaged() ? "yes" : "no");
+  is_enterprise_managed.Set(base::IsMachineExternallyManaged() ? "yes" : "no");
 
   // Set crash keys containing the registry values used to determine Chrome's
   // update channel at process startup; see https://crbug.com/579504.
@@ -509,9 +523,8 @@ int ChromeBrowserMainPartsWin::PreCreateThreads() {
 }
 
 void ChromeBrowserMainPartsWin::ShowMissingLocaleMessageBox() {
-  ui::MessageBox(NULL,
-                 base::ASCIIToUTF16(chrome_browser::kMissingLocaleDataMessage),
-                 base::ASCIIToUTF16(chrome_browser::kMissingLocaleDataTitle),
+  ui::MessageBox(NULL, base::ASCIIToUTF16(kMissingLocaleDataMessage),
+                 base::ASCIIToUTF16(kMissingLocaleDataTitle),
                  MB_OK | MB_ICONERROR | MB_TOPMOST);
 }
 
@@ -528,7 +541,7 @@ void ChromeBrowserMainPartsWin::PostProfileInit() {
   // What truly controls if the blocking is enabled is the presence of the
   // module blacklist cache file. This means that to disable the feature, the
   // cache must be deleted and the browser relaunched.
-  if (base::win::IsEnterpriseManaged() ||
+  if (base::IsMachineExternallyManaged() ||
       !ModuleDatabase::IsThirdPartyBlockingPolicyEnabled() ||
       !base::FeatureList::IsEnabled(features::kThirdPartyModulesBlocking))
     ThirdPartyConflictsManager::DisableThirdPartyModuleBlocking(
@@ -728,13 +741,13 @@ base::string16 TranslationDelegate::GetLocalizedString(
     int installer_string_id) {
   int resource_id = 0;
   switch (installer_string_id) {
-  // HANDLE_STRING is used by the DO_INSTALLER_STRING_MAPPING macro which is in
-  // the generated header installer_util_strings.h.
+    // HANDLE_STRING is used by the DO_STRING_MAPPING macro which is in the
+    // generated header installer_util_strings.h.
 #define HANDLE_STRING(base_id, chrome_id) \
   case base_id: \
     resource_id = chrome_id; \
     break;
-  DO_INSTALLER_STRING_MAPPING
+    DO_STRING_MAPPING
 #undef HANDLE_STRING
   default:
     NOTREACHED();

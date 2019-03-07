@@ -24,12 +24,8 @@ static const LayoutBoxModelObject* ClippingContainerFromClipChainParent(
              : clip_chain_parent->ClippingContainer();
 }
 
-CompositingInputsUpdater::CompositingInputsUpdater(
-    PaintLayer* root_layer,
-    CompositingReasonFinder& compositing_reason_finder)
-    : geometry_map_(kUseTransforms),
-      root_layer_(root_layer),
-      compositing_reason_finder_(compositing_reason_finder) {}
+CompositingInputsUpdater::CompositingInputsUpdater(PaintLayer* root_layer)
+    : geometry_map_(kUseTransforms), root_layer_(root_layer) {}
 
 CompositingInputsUpdater::~CompositingInputsUpdater() = default;
 
@@ -80,14 +76,16 @@ void CompositingInputsUpdater::UpdateRecursive(PaintLayer* layer,
 
   geometry_map_.PushMappingsToAncestor(layer, layer->Parent());
 
-  PaintLayer* enclosing_composited_layer = info.enclosing_composited_layer;
+  PaintLayer* enclosing_stacking_composited_layer =
+      info.enclosing_stacking_composited_layer;
   PaintLayer* enclosing_squashing_composited_layer =
       info.enclosing_squashing_composited_layer;
   switch (layer->GetCompositingState()) {
     case kNotComposited:
       break;
     case kPaintsIntoOwnBacking:
-      enclosing_composited_layer = layer;
+      if (layer->GetLayoutObject().StyleRef().IsStackingContext())
+        enclosing_stacking_composited_layer = layer;
       break;
     case kPaintsIntoGroupedBacking:
       enclosing_squashing_composited_layer =
@@ -96,8 +94,8 @@ void CompositingInputsUpdater::UpdateRecursive(PaintLayer* layer,
   }
 
   if (layer->NeedsCompositingInputsUpdate()) {
-    if (enclosing_composited_layer) {
-      enclosing_composited_layer->GetCompositedLayerMapping()
+    if (enclosing_stacking_composited_layer) {
+      enclosing_stacking_composited_layer->GetCompositedLayerMapping()
           ->SetNeedsGraphicsLayerUpdate(kGraphicsLayerUpdateSubtree);
     }
     if (enclosing_squashing_composited_layer) {
@@ -121,7 +119,8 @@ void CompositingInputsUpdater::UpdateRecursive(PaintLayer* layer,
   if (update_type == kForceUpdate)
     UpdateAncestorDependentCompositingInputs(layer, info);
 
-  info.enclosing_composited_layer = enclosing_composited_layer;
+  info.enclosing_stacking_composited_layer =
+      enclosing_stacking_composited_layer;
   info.enclosing_squashing_composited_layer =
       enclosing_squashing_composited_layer;
 
@@ -223,14 +222,8 @@ void CompositingInputsUpdater::UpdateRecursive(PaintLayer* layer,
   //    child.
   // 6. If |layer| is the root, composite if
   //    DescendantHasDirectCompositingReason is true for |layer|.
-  bool ignore_lcd_text =
-      (layer->AncestorScrollingLayer() &&
-       !layer->AncestorScrollingLayer()->IsRootLayer() &&
-       layer->AncestorScrollingLayer()->NeedsCompositedScrolling());
-
   layer->SetPotentialCompositingReasonsFromNonStyle(
-      compositing_reason_finder_.NonStyleDeterminedDirectReasons(
-          layer, ignore_lcd_text));
+      CompositingReasonFinder::NonStyleDeterminedDirectReasons(*layer));
 
   if (layer->GetScrollableArea()) {
     layer->GetScrollableArea()->UpdateNeedsCompositedScrolling(
@@ -309,7 +302,7 @@ void CompositingInputsUpdater::UpdateAncestorDependentCompositingInputs(
   }
 
   ClipRect clip_rect;
-  layer->Clipper(PaintLayer::kDoNotUseGeometryMapper)
+  layer->Clipper(PaintLayer::GeometryMapperOption::kDoNotUseGeometryMapper)
       .CalculateBackgroundClipRect(
           ClipRectsContext(root_layer_,
                            &root_layer_->GetLayoutObject().FirstFragment(),

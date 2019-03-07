@@ -493,6 +493,28 @@ void GLES2InterfaceStub::ShaderSource(GLuint /* shader */,
 void GLES2InterfaceStub::ShallowFinishCHROMIUM() {}
 void GLES2InterfaceStub::ShallowFlushCHROMIUM() {}
 void GLES2InterfaceStub::OrderingBarrierCHROMIUM() {}
+void GLES2InterfaceStub::MultiDrawArraysWEBGL(GLenum /* mode */,
+                                              const GLint* /* firsts */,
+                                              const GLsizei* /* counts */,
+                                              GLsizei /* drawcount */) {}
+void GLES2InterfaceStub::MultiDrawArraysInstancedWEBGL(
+    GLenum /* mode */,
+    const GLint* /* firsts */,
+    const GLsizei* /* counts */,
+    const GLsizei* /* instance_counts */,
+    GLsizei /* drawcount */) {}
+void GLES2InterfaceStub::MultiDrawElementsWEBGL(GLenum /* mode */,
+                                                const GLsizei* /* counts */,
+                                                GLenum /* type */,
+                                                const GLsizei* /* offsets */,
+                                                GLsizei /* drawcount */) {}
+void GLES2InterfaceStub::MultiDrawElementsInstancedWEBGL(
+    GLenum /* mode */,
+    const GLsizei* /* counts */,
+    GLenum /* type */,
+    const GLsizei* /* offsets */,
+    const GLsizei* /* instance_counts */,
+    GLsizei /* drawcount */) {}
 void GLES2InterfaceStub::StencilFunc(GLenum /* func */,
                                      GLint /* ref */,
                                      GLuint /* mask */) {}
@@ -1042,20 +1064,29 @@ void GLES2InterfaceStub::FlushDriverCachesCHROMIUM() {}
 GLuint GLES2InterfaceStub::GetLastFlushIdCHROMIUM() {
   return 0;
 }
-void GLES2InterfaceStub::ScheduleDCLayerSharedStateCHROMIUM(
-    GLfloat /* opacity */,
-    GLboolean /* is_clipped */,
-    const GLfloat* /* clip_rect */,
-    GLint /* z_order */,
-    const GLfloat* /* transform */) {}
 void GLES2InterfaceStub::ScheduleDCLayerCHROMIUM(
-    GLsizei /* num_textures */,
-    const GLuint* /* contents_texture_ids */,
-    const GLfloat* /* contents_rect */,
-    GLuint /* background_color */,
-    GLuint /* edge_aa_mask */,
-    const GLfloat* /* bounds_rect */,
-    GLuint /* filter */,
+    GLuint /* y_texture_id */,
+    GLuint /* uv_texture_id */,
+    GLint /* z_order */,
+    GLint /* content_x */,
+    GLint /* content_y */,
+    GLint /* content_width */,
+    GLint /* content_height */,
+    GLint /* quad_x */,
+    GLint /* quad_y */,
+    GLint /* quad_width */,
+    GLint /* quad_height */,
+    GLfloat /* transform_c1r1 */,
+    GLfloat /* transform_c2r1 */,
+    GLfloat /* transform_c1r2 */,
+    GLfloat /* transform_c2r2 */,
+    GLfloat /* transform_tx */,
+    GLfloat /* transform_ty */,
+    GLboolean /* is_clipped */,
+    GLint /* clip_x */,
+    GLint /* clip_y */,
+    GLint /* clip_width */,
+    GLint /* clip_height */,
     GLuint /* protected_video_type */) {}
 void GLES2InterfaceStub::SetActiveURLCHROMIUM(const char* /* url */) {}
 void GLES2InterfaceStub::MatrixLoadfCHROMIUM(GLenum /* matrixMode */,
@@ -1246,7 +1277,6 @@ void GLES2InterfaceStub::FramebufferTextureMultiviewLayeredANGLE(
     GLsizei /* numViews */) {}
 void GLES2InterfaceStub::MaxShaderCompilerThreadsKHR(GLuint /* count */) {}
 GLuint GLES2InterfaceStub::CreateAndTexStorage2DSharedImageCHROMIUM(
-    GLenum /* internalFormat */,
     const GLbyte* /* mailbox */) {
   return 0;
 }

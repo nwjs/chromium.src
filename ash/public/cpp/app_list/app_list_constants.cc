@@ -11,8 +11,6 @@ namespace app_list {
 
 const SkColor kContentsBackgroundColor = SkColorSetRGB(0xF2, 0xF2, 0xF2);
 
-const SkColor kLabelBackgroundColor = SK_ColorTRANSPARENT;
-
 // Color of bottom separtor under folder title (12% white) in full screen mode.
 const SkColor kBottomSeparatorColor = SkColorSetARGB(0x1F, 0xFF, 0xFF, 0xFF);
 
@@ -42,7 +40,7 @@ const SkColor kFolderTitleHintTextColor = SkColorSetRGB(0xA0, 0xA0, 0xA0);
 const SkColor kFolderShadowColor = SkColorSetRGB(0xBF, 0xBF, 0xBF);
 const float kFolderBubbleOpacity = 0.12f;
 
-const SkColor kCardBackgroundColor = SkColorSetRGB(0xFA, 0xFA, 0xFC);
+const SkColor kCardBackgroundColor = SK_ColorWHITE;
 
 // Duration in milliseconds for page transition.
 const int kPageTransitionDurationInMs = 250;
@@ -195,7 +193,7 @@ const char kSearchResultDistanceFromOrigin[] =
     "Apps.AppListSearchResultDistanceFromOrigin";
 
 // The height of tiles in search result.
-const int kSearchTileHeight = 90;
+const int kSearchTileHeight = 92;
 
 gfx::ShadowValue GetShadowForZHeight(int z_height) {
   if (z_height <= 0)

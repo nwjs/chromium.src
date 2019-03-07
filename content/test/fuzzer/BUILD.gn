@@ -18,6 +18,7 @@ source_set("fuzzer_support") {
   ]
   public_deps = [
     "//base",
+    "//base/test:test_config",
     "//content/renderer:for_content_tests",
     "//content/shell:content_shell_lib",
     "//content/test:test_support",
@@ -68,7 +69,6 @@ fuzzer_test("renderer_tree_fuzzer") {
   deps = [
     ":fuzzer_support",
   ]
-  additional_configs = [ "//testing/libfuzzer:no_clusterfuzz" ]
 }
 
 fuzzer_test("clear_site_data_fuzzer") {
@@ -90,7 +90,6 @@ fuzzer_test("renderer_proto_tree_fuzzer") {
     ":html_tree_proto",
     "//third_party/libprotobuf-mutator",
   ]
-  additional_configs = [ "//testing/libfuzzer:no_clusterfuzz" ]
 }
 
 proto_library("html_tree_proto") {
@@ -191,4 +190,33 @@ fuzzer_test("appcache_fuzzer") {
     "//storage/browser:test_support",
     "//third_party/libprotobuf-mutator",
   ]
+}
+
+# Note: this compiles and runs on Mac but may cause
+# system instability; if you try it out, close other
+# programs and then reboot afterwards. It should be
+# possible to make it work on Linux if you use the
+# --enable-speech-dispatcher flag.
+if (is_win) {
+  fuzzer_test("tts_platform_fuzzer") {
+    sources = [
+      "../../browser/speech/mock_tts_controller.cc",
+      "../../browser/speech/tts_mac.mm",
+      "../../browser/speech/tts_platform_fuzzer.cc",
+      "../../browser/speech/tts_platform_impl.cc",
+      "../../browser/speech/tts_platform_impl.h",
+      "../../browser/speech/tts_win.cc",
+      "../../public/browser/tts_controller.h",
+      "../../public/browser/tts_platform.h",
+      "//content/common/content_export.h",
+    ]
+
+    deps = [
+      "//base",
+      "//base/test:test_support",
+      "//content/public/browser:browser_sources",
+      "//ui/base",
+      "//url:url",
+    ]
+  }
 }

@@ -73,7 +73,6 @@
 #include "ios/web/public/favicon_status.h"
 #include "ios/web/public/favicon_url.h"
 #include "ios/web/public/interstitials/web_interstitial.h"
-#include "ios/web/public/load_committed_details.h"
 #import "ios/web/public/navigation_item.h"
 #import "ios/web/public/navigation_manager.h"
 #include "ios/web/public/referrer.h"
@@ -203,14 +202,6 @@ NSString* const kTabUrlKey = @"url";
   return _webStateImpl;
 }
 
-- (BOOL)canGoBack {
-  return self.navigationManager && self.navigationManager->CanGoBack();
-}
-
-- (BOOL)canGoForward {
-  return self.navigationManager && self.navigationManager->CanGoForward();
-}
-
 - (void)setOverscrollActionsControllerDelegate:
     (id<OverscrollActionsControllerDelegate>)
         overscrollActionsControllerDelegate {
@@ -236,10 +227,6 @@ NSString* const kTabUrlKey = @"url";
   overscrollActionsControllerDelegate_ = overscrollActionsControllerDelegate;
 }
 
-- (BOOL)loadFinished {
-  return self.webState && !self.webState->IsLoading();
-}
-
 #pragma mark - Public API
 
 - (UIView*)viewForPrinting {
@@ -260,22 +247,6 @@ NSString* const kTabUrlKey = @"url";
   return self.webState ? self.webState->GetNavigationManager() : nullptr;
 }
 
-- (void)goBack {
-  if (self.navigationManager) {
-    DCHECK(self.navigationManager->CanGoBack());
-    base::RecordAction(base::UserMetricsAction("Back"));
-    self.navigationManager->GoBack();
-  }
-}
-
-- (void)goForward {
-  if (self.navigationManager) {
-    DCHECK(self.navigationManager->CanGoForward());
-    base::RecordAction(base::UserMetricsAction("Forward"));
-    self.navigationManager->GoForward();
-  }
-}
-
 - (void)willUpdateSnapshot {
   [_overscrollActionsController clear];
 }
@@ -288,23 +259,6 @@ NSString* const kTabUrlKey = @"url";
                       object:self
                     userInfo:@{kTabUrlKey : urlString}];
   }
-}
-
-#pragma mark - Public API (relatinge to User agent)
-
-- (BOOL)usesDesktopUserAgent {
-  if (!self.navigationManager)
-    return NO;
-
-  web::NavigationItem* visibleItem = self.navigationManager->GetVisibleItem();
-  return visibleItem &&
-         visibleItem->GetUserAgentType() == web::UserAgentType::DESKTOP;
-}
-
-- (void)reloadWithUserAgentType:(web::UserAgentType)userAgentType {
-  web::NavigationManager* navigationManager = [self navigationManager];
-  DCHECK(navigationManager);
-  navigationManager->ReloadWithUserAgentType(userAgentType);
 }
 
 #pragma mark - Public API (relating to U2F)
@@ -348,8 +302,6 @@ NSString* const kTabUrlKey = @"url";
 
 - (void)webState:(web::WebState*)webState
     didLoadPageWithSuccess:(BOOL)loadSuccess {
-  DCHECK([self loadFinished]);
-
   if (loadSuccess) {
     scoped_refptr<net::HttpResponseHeaders> headers =
         _webStateImpl->GetHttpResponseHeaders();
@@ -410,7 +362,9 @@ NSString* const kTabUrlKey = @"url";
     headers->GetNormalizedHeader("content-disposition", &contentDisposition);
   std::string defaultFilename =
       l10n_util::GetStringUTF8(IDS_IOS_OPEN_IN_FILE_DEFAULT_TITLE);
-  const GURL& lastCommittedURL = self.webState->GetLastCommittedURL();
+  web::NavigationItem* item =
+      self.webState->GetNavigationManager()->GetLastCommittedItem();
+  const GURL& lastCommittedURL = item ? item->GetURL() : GURL::EmptyGURL();
   base::string16 filename =
       net::GetSuggestedFilename(lastCommittedURL, contentDisposition,
                                 "",                 // referrer-charset

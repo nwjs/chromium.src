@@ -9,9 +9,9 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/path_service.h"
+#include "base/stl_util.h"
 #include "base/strings/pattern.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind_test_util.h"
@@ -21,16 +21,18 @@
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_function_test_utils.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/sync/profile_sync_service_factory.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/session_sync_service_factory.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/sync/base/hash_util.h"
-#include "components/sync/device_info/local_device_info_provider_mock.h"
+#include "components/sync/device_info/device_info_sync_service.h"
+#include "components/sync/engine/data_type_activation_response.h"
 #include "components/sync/model/data_type_activation_request.h"
+#include "components/sync/model/model_type_controller_delegate.h"
+#include "components/sync/model/sync_data.h"
 #include "components/sync/test/engine/mock_model_type_worker.h"
 #include "components/sync_sessions/session_store.h"
 #include "components/sync_sessions/session_sync_service.h"
@@ -38,7 +40,7 @@
 #include "extensions/common/extension_builder.h"
 
 #if defined(OS_CHROMEOS)
-#include "chromeos/chromeos_switches.h"
+#include "chromeos/constants/chromeos_switches.h"
 #endif
 
 namespace utils = extension_function_test_utils;
@@ -116,7 +118,7 @@ testing::AssertionResult CheckSessionModels(const base::ListValue& devices,
     // Only the tabs are interesting.
     const base::ListValue* tabs = NULL;
     EXPECT_TRUE(window->GetList("tabs", &tabs));
-    EXPECT_EQ(arraysize(kTabIDs), tabs->GetSize());
+    EXPECT_EQ(base::size(kTabIDs), tabs->GetSize());
     for (size_t j = 0; j < tabs->GetSize(); ++j) {
       const base::DictionaryValue* tab = NULL;
       EXPECT_TRUE(tabs->GetDictionary(j, &tab));
@@ -179,9 +181,8 @@ void ExtensionSessionsTest::SetUpCommandLine(base::CommandLine* command_line) {
 
 void ExtensionSessionsTest::SetUpOnMainThread() {
   CreateTestExtension();
-  ProfileSyncServiceFactory::GetForProfile(browser()->profile())
-      ->GetLocalDeviceInfoProviderForTest()
-      ->Initialize(kTestCacheGuid, "machine name", "device_id");
+  DeviceInfoSyncServiceFactory::GetForProfile(browser()->profile())
+      ->InitLocalCacheGuid(kTestCacheGuid, "machine name");
 }
 
 void ExtensionSessionsTest::CreateTestExtension() {
@@ -217,12 +218,12 @@ void ExtensionSessionsTest::CreateSessionModels() {
                                      activation_response->type_processor.get());
 
   syncer::SyncDataList initial_data;
-  for (size_t index = 0; index < arraysize(kSessionTags); ++index) {
+  for (size_t index = 0; index < base::size(kSessionTags); ++index) {
     // Fill an instance of session specifics with a foreign session's data.
     sync_pb::EntitySpecifics header_entity;
     BuildSessionSpecifics(kSessionTags[index], header_entity.mutable_session());
     std::vector<SessionID::id_type> tab_list(kTabIDs,
-                                             kTabIDs + arraysize(kTabIDs));
+                                             kTabIDs + base::size(kTabIDs));
     BuildWindowSpecifics(index, tab_list, header_entity.mutable_session());
     std::vector<sync_pb::SessionSpecifics> tabs(tab_list.size());
     for (size_t i = 0; i < tab_list.size(); ++i) {

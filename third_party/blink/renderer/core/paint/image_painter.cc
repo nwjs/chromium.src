@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 #include "third_party/blink/renderer/core/layout/layout_replaced.h"
 #include "third_party/blink/renderer/core/layout/text_run_constructor.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/image_element_timing.h"
@@ -155,8 +156,8 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
   if (pixel_snapped_dest_rect.IsEmpty())
     return;
 
-  scoped_refptr<Image> image = layout_image_.ImageResource()->GetImage(
-      LayoutSize(pixel_snapped_dest_rect.Size()));
+  scoped_refptr<Image> image =
+      layout_image_.ImageResource()->GetImage(pixel_snapped_dest_rect.Size());
   if (!image || image->IsNull())
     return;
 
@@ -202,8 +203,9 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
       image.get(), decode_mode, FloatRect(pixel_snapped_dest_rect), &src_rect,
       SkBlendMode::kSrcOver,
       LayoutObject::ShouldRespectImageOrientation(&layout_image_));
-  if (RuntimeEnabledFeatures::ElementTimingEnabled() &&
-      IsHTMLImageElement(node) && !context.ContextDisabled()) {
+  if (origin_trials::ElementTimingEnabled(&layout_image_.GetDocument()) &&
+      IsHTMLImageElement(node) && !context.ContextDisabled() &&
+      layout_image_.CachedImage() && layout_image_.CachedImage()->IsLoaded()) {
     LocalDOMWindow* window = layout_image_.GetDocument().domWindow();
     DCHECK(window);
     ImageElementTiming::From(*window).NotifyImagePainted(

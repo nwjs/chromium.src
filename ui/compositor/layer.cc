@@ -166,6 +166,9 @@ Layer::~Layer() {
   for (auto* child : children_)
     child->parent_ = nullptr;
 
+  if (content_layer_)
+    content_layer_->ClearClient();
+  cc_layer_->SetLayerClient(nullptr);
   cc_layer_->RemoveFromParent();
   if (transfer_release_callback_)
     transfer_release_callback_->Run(gpu::SyncToken(), false);
@@ -219,6 +222,17 @@ std::unique_ptr<Layer> Layer::Clone() const {
 std::unique_ptr<Layer> Layer::Mirror() {
   auto mirror = Clone();
   mirrors_.emplace_back(std::make_unique<LayerMirror>(this, mirror.get()));
+
+  if (!transfer_resource_.mailbox_holder.mailbox.IsZero()) {
+    // Send an empty release callback because we don't want the resource to be
+    // freed up until the original layer releases it.
+    mirror->SetTransferableResource(
+        transfer_resource_,
+        viz::SingleReleaseCallback::Create(base::BindOnce(
+            [](const gpu::SyncToken& sync_token, bool is_lost) {})),
+        frame_size_in_dip_);
+  }
+
   return mirror;
 }
 
@@ -524,7 +538,6 @@ void Layer::SetLayerBackgroundFilters() {
     filters.Append(cc::FilterOperation::CreateBlurFilter(
         background_blur_sigma_, SkBlurImageFilter::kClamp_TileMode));
   }
-
   cc_layer_->SetBackdropFilters(filters);
 }
 
@@ -626,7 +639,10 @@ void Layer::SwitchToLayer(scoped_refptr<cc::Layer> new_layer) {
   new_layer->SetTrilinearFiltering(cc_layer_->trilinear_filtering());
 
   cc_layer_ = new_layer.get();
-  content_layer_ = nullptr;
+  if (content_layer_) {
+    content_layer_->ClearClient();
+    content_layer_ = nullptr;
+  }
   solid_color_layer_ = nullptr;
   texture_layer_ = nullptr;
   surface_layer_ = nullptr;
@@ -755,6 +771,16 @@ void Layer::SetTransferableResource(
   transfer_release_callback_ = std::move(release_callback);
   transfer_resource_ = resource;
   SetTextureSize(texture_size_in_dip);
+
+  for (const auto& mirror : mirrors_) {
+    // The release callbacks should be empty as only the source layer
+    // should be able to release the texture resource.
+    mirror->dest()->SetTransferableResource(
+        transfer_resource_,
+        viz::SingleReleaseCallback::Create(base::BindOnce(
+            [](const gpu::SyncToken& sync_token, bool is_lost) {})),
+        frame_size_in_dip_);
+  }
 }
 
 void Layer::SetTextureSize(gfx::Size texture_size_in_dip) {
@@ -859,6 +885,9 @@ void Layer::SetShowSolidColorContent() {
     transfer_release_callback_.reset();
   }
   RecomputeDrawsContentAndUVRect();
+
+  for (const auto& mirror : mirrors_)
+    mirror->dest()->SetShowSolidColorContent();
 }
 
 void Layer::UpdateNinePatchLayerImage(const gfx::ImageSkia& image) {
@@ -1181,6 +1210,10 @@ void Layer::SetOpacityFromAnimation(float opacity,
 
 void Layer::SetVisibilityFromAnimation(bool visible,
                                        PropertyChangeReason reason) {
+  // Sync changes with the mirror layers.
+  for (const auto& mirror : mirrors_)
+    mirror->dest()->SetVisible(visible);
+
   if (visible_ == visible)
     return;
 

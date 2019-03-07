@@ -8,7 +8,6 @@
 
 #include "base/metrics/histogram_macros.h"
 #include "base/scoped_observer.h"
-#include "base/strings/sys_string_conversions.h"
 #include "components/favicon/ios/web_favicon_driver.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
@@ -20,6 +19,7 @@
 #import "ios/chrome/browser/snapshots/snapshot_cache_observer.h"
 #import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
 #import "ios/chrome/browser/tabs/tab_model.h"
+#import "ios/chrome/browser/tabs/tab_title_util.h"
 #import "ios/chrome/browser/ui/tab_grid/grid/grid_consumer.h"
 #import "ios/chrome/browser/ui/tab_grid/grid/grid_item.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
@@ -31,7 +31,7 @@
 #import "ios/chrome/browser/web_state_list/web_usage_enabler/web_state_list_web_usage_enabler.h"
 #import "ios/chrome/browser/web_state_list/web_usage_enabler/web_state_list_web_usage_enabler_factory.h"
 #import "ios/web/public/navigation_manager.h"
-#include "ios/web/public/web_state/web_state.h"
+#import "ios/web/public/web_state/web_state.h"
 #import "ios/web/public/web_state/web_state_observer_bridge.h"
 #include "ui/gfx/image/image.h"
 
@@ -48,7 +48,7 @@ GridItem* CreateItem(web::WebState* web_state) {
   if (IsURLNtp(web_state->GetVisibleURL())) {
     item.hidesTitle = YES;
   }
-  item.title = base::SysUTF16ToNSString(web_state->GetTitle());
+  item.title = tab_util::GetTabTitle(web_state);
   return item;
 }
 
@@ -257,12 +257,6 @@ web::WebState* GetWebStateWithId(WebStateList* web_state_list,
 
 - (void)snapshotCache:(SnapshotCache*)snapshotCache
     didUpdateSnapshotForIdentifier:(NSString*)identifier {
-  if (!IsWKWebViewSnapshotsEnabled()) {
-    // This feature guard is here to compare against the existing baseline.
-    // Prior to enabling WKWebViewSnapshots, the mediator was not a
-    // SnapshotCache observer.
-    return;
-  }
   [self.appearanceCache removeObjectForKey:identifier];
   web::WebState* webState = GetWebStateWithId(self.webStateList, identifier);
   if (webState) {

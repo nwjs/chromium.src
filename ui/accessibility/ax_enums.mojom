@@ -56,8 +56,9 @@ enum Event {
   kMenuEnd,                   // Native / Win
   kMenuListItemSelected,      // Web
   kMenuListValueChanged,      // Web
-  kMenuPopupEnd,              // Native / Win
-  kMenuPopupStart,            // Native / Win
+  kMenuPopupEnd,              // Native
+  kMenuPopupHide,             // Native / AuraLinux
+  kMenuPopupStart,            // Native
   kMenuStart,                 // Native / Win
   kMouseCanceled,
   kMouseDragged,
@@ -85,12 +86,18 @@ enum Event {
   kValueChanged,
 };
 
-// Explanation:
+// Accessibility object roles.
 // The majority of these roles come from the ARIA specification. Reference
 // the latest draft for proper usage.
 //
 // Roles not included by the ARIA specification should be avoided, especially
 // internal roles used by the accessibility infrastructure.
+//
+// Explanation of in-lined comments next to some enum values.
+ //
+ // Web: this attribute is only used in web content.
+ //
+ // Native: this attribute is only used in native UI.
 enum Role {
   kNone,
   kAbbr,
@@ -212,6 +219,10 @@ enum Role {
   kList,
   kListBox,
   kListBoxOption,
+  // kListGrid behaves similar to an ARIA grid but is primarily used by
+  // TableView and its subclasses, so that they could be exposed correctly on
+  // certain platforms.
+  kListGrid,  // Native
   kListItem,
   kListMarker,
   kLog,
@@ -872,3 +883,10 @@ enum TreeOrder {
    // First node is after the second one.
   kAfter,
 };
+
+// For internal use by ui::AXTreeID / ax::mojom::AXTreeID.
+enum AXTreeIDType {
+  kUnknown,  // The Tree ID is unknown.
+  kToken,    // Every other tree ID must have a valid unguessable token.
+};
+
