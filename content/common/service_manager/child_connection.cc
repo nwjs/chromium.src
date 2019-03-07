@@ -70,6 +70,13 @@ class ChildConnection::IOThreadContext
                                   this, handle));
   }
 
+  void ForceCrash() {
+    DCHECK(io_task_runner_);
+    io_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&IOThreadContext::ForceCrashOnIOThread, this));
+  }
+
  private:
   friend class base::RefCountedThreadSafe<IOThreadContext>;
 
@@ -100,6 +107,8 @@ class ChildConnection::IOThreadContext
     pid_receiver_->SetPID(base::GetProcId(handle));
     pid_receiver_.reset();
   }
+
+  void ForceCrashOnIOThread() { child_->Crash(); }
 
   scoped_refptr<base::SequencedTaskRunner> io_task_runner_;
   // Usable from the IO thread only.
@@ -139,6 +148,10 @@ void ChildConnection::BindInterface(
 void ChildConnection::SetProcessHandle(base::ProcessHandle handle) {
   process_handle_ = handle;
   context_->SetProcessHandle(handle);
+}
+
+void ChildConnection::ForceCrash() {
+  context_->ForceCrash();
 }
 
 }  // namespace content
