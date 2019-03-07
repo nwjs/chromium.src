@@ -17,6 +17,7 @@ import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
@@ -44,6 +45,7 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
+import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.widget.prefeditor.Completable;
 import org.chromium.chrome.browser.widget.prefeditor.EditableOption;
@@ -602,6 +604,26 @@ public class PaymentRequestImpl
         mObservedTabModel = chromeActivity.getCurrentTabModel();
         mObservedTabModelSelector.addObserver(mSelectorObserver);
         mObservedTabModel.addObserver(mTabModelObserver);
+
+        // Only the currently selected tab is allowed to show the payment UI.
+        if (TabModelUtils.getCurrentWebContents(mObservedTabModel) != mWebContents) {
+            mJourneyLogger.setNotShown(NotShownReason.OTHER);
+            disconnectFromClientWithDebugMessage(
+                    "Background tab is not allowed to show PaymentRequest UI");
+            if (sObserverForTest != null) sObserverForTest.onPaymentRequestServiceShowFailed();
+            return;
+        }
+
+        // Cannot show the payment UI in overview mode.
+        if (chromeActivity instanceof ChromeTabbedActivity) {
+            if (((ChromeTabbedActivity) chromeActivity)
+                    .getOverviewModeBehavior().overviewVisible()) {
+                mJourneyLogger.setNotShown(NotShownReason.OTHER);
+                disconnectFromClientWithDebugMessage("In tab overview mode");
+                if (sObserverForTest != null) sObserverForTest.onPaymentRequestServiceShowFailed();
+                return;
+            }
+        }
 
         mIsUserGestureShow = isUserGesture;
         buildUI(chromeActivity);
