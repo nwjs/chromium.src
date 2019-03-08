@@ -47,7 +47,8 @@ suite('managed-footnote', function() {
         'Your <a target="_blank" href="$1">browser is managed</a> by your ' +
         'organization';
     const targetMessage = 'Your browser is managed by your organization';
-    const supportUrl = 'https://support.google.com/chromebook/answer/1331549';
+    const supportUrl =
+        'https://support.google.com/chromebook/?p=is_chrome_managed';
 
     const footnote = setupTestElement(true, message);
     assertTrue(footnote.shadowRoot.textContent.includes(targetMessage));
