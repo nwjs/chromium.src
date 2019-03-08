@@ -413,6 +413,10 @@ void AwContentBrowserClient::AppendExtraCommandLineSwitches(
             ::switches::kEnableCrashReporter)) {
       command_line->AppendSwitch(::switches::kEnableCrashReporter);
     }
+    if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+            ::switches::kEnableCrashReporterForTesting)) {
+      command_line->AppendSwitch(::switches::kEnableCrashReporterForTesting);
+    }
   }
 }
 
