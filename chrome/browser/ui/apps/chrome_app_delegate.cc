@@ -14,6 +14,7 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
 #include "chrome/browser/external_protocol/external_protocol_observer.h"
+#include "chrome/browser/content_settings/tab_specific_content_settings.h"
 
 #include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
@@ -254,6 +255,7 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
   ManagePasswordsUIController::CreateForWebContents(web_contents);
   PrefsTabHelper::CreateForWebContents(web_contents);
   ExternalProtocolObserver::CreateForWebContents(web_contents);
+  TabSpecificContentSettings::CreateForWebContents(web_contents);
 }
 
 void ChromeAppDelegate::RenderViewCreated(
