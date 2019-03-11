@@ -375,9 +375,14 @@ private:
     // application/javascript). See https://crbug.com/797712. Using an accurate
     // mime type is necessary at least for modules, which enforce strict mime
     // type requirements.
-    return net::GetWellKnownMimeTypeFromExtension(
+    bool ret = net::GetWellKnownMimeTypeFromExtension(
         file_extension.substr(1),  // Trim leading '.'
         mime_type);
+    if (!ret)
+      ret = net::GetMimeTypeFromExtension(
+        file_extension.substr(1),  // Trim leading '.'
+        mime_type);
+    return ret;
   }
 
   scoped_refptr<ContentVerifyJob> verify_job_;
