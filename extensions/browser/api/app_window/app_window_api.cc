@@ -478,12 +478,15 @@ ExtensionFunction::ResponseAction AppWindowCreateFunction::Run() {
 
   if (AppWindowRegistry::Get(browser_context())
           ->HadDevToolsAttached(app_window->web_contents())) {
-    AppWindowClient::Get()->OpenDevToolsWindow(
+    base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+    if (!command_line->HasSwitch("skip-reopen-app-devtools")) {
+      AppWindowClient::Get()->OpenDevToolsWindow(
         app_window->web_contents(),
         base::Bind(&AppWindowCreateFunction::Respond, this,
-                   base::Passed(&result_arg)));
-    // OpenDevToolsWindow might have already responded.
-    return did_respond() ? AlreadyResponded() : RespondLater();
+          base::Passed(&result_arg)));
+      // OpenDevToolsWindow might have already responded.
+      return did_respond() ? AlreadyResponded() : RespondLater();
+    }
   }
 
   // Delay sending the response until the newly created window has been told to
