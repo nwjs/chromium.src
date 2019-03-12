@@ -479,7 +479,7 @@ void PlatformNotificationContextImpl::LazyInitialize(
 
   if (!task_runner_) {
     task_runner_ = base::CreateSequencedTaskRunnerWithTraits(
-        {base::MayBlock(), base::TaskPriority::BEST_EFFORT});
+        {base::MayBlock(), base::TaskPriority::USER_VISIBLE});
   }
 
   task_runner_->PostTask(

@@ -229,7 +229,6 @@
 <translation id="4628757576491864469">Dispositivi</translation>
 <translation id="4659419629803378708">ChromeVox attivato</translation>
 <translation id="4734965478015604180">Orizzontale</translation>
-<translation id="476166673298332917">L'amministratore del dispositivo può controllare l'attività di navigazione.</translation>
 <translation id="4774338217796918551">Puoi riprendere domani alle ore <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776917500594043016">Password per <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4778095205580009397">L'Assistente Google non è disponibile in una sessione demo.</translation>
@@ -331,6 +330,7 @@
 <translation id="6528179044667508675">Non disturbare</translation>
 <translation id="6537270692134705506">Acquisisci schermata</translation>
 <translation id="6542521951477560771">Trasmissione di contenuti a <ph name="RECEIVER_NAME" /> in corso</translation>
+<translation id="6574601967010742428">L'amministratore del dispositivo potrebbe essere in grado di monitorare le tue attività.</translation>
 <translation id="6585808820553845416">La sessione terminerà tra <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Tasto per la ricerca + MAIUSC + K</translation>
 <translation id="6650933572246256093">Il dispositivo Bluetooth "<ph name="DEVICE_NAME" />" chiede l'autorizzazione per essere accoppiato. Inserisci questa passkey sul dispositivo: <ph name="PASSKEY" /></translation>

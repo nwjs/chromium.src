@@ -228,7 +228,6 @@
 <translation id="4628757576491864469">Uređaji</translation>
 <translation id="4659419629803378708">ChromeVox omogućen</translation>
 <translation id="4734965478015604180">Vodoravno</translation>
-<translation id="476166673298332917">Administrator uređaja može pratiti vašu aktivnost pregledavanja.</translation>
 <translation id="4774338217796918551">Vrati se sutra u <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776917500594043016">Zaporka za adresu <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4778095205580009397">Google asistent nije dostupan u demosesiji.</translation>
@@ -330,6 +329,7 @@
 <translation id="6528179044667508675">Ne ometaj</translation>
 <translation id="6537270692134705506">Snimi zaslon</translation>
 <translation id="6542521951477560771">Emitiranje na uređaj <ph name="RECEIVER_NAME" /></translation>
+<translation id="6574601967010742428">Administrator uređaja možda može nadzirati vašu aktivnost.</translation>
 <translation id="6585808820553845416">Sesija će završiti za <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Pretraži + Shift + K</translation>
 <translation id="6650933572246256093">Bluetooth uređaj "<ph name="DEVICE_NAME" />" traži dopuštenje za uparivanje. Unesite ovaj pristupni ključ na tom uređaju: <ph name="PASSKEY" /></translation>

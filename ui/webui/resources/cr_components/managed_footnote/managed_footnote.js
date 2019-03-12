@@ -16,8 +16,8 @@
  * URL of the help article for the clickable link.
  * @type {string}
  */
-// TODO(nicolaso): Use a p-link instead, once it's available. b/117655761
-const HELP_ARTICLE_URL = 'https://support.google.com/chromebook/answer/1331549';
+const HELP_ARTICLE_URL =
+    'https://support.google.com/chromebook/?p=is_chrome_managed';
 
 Polymer({
   is: 'managed-footnote',

@@ -228,7 +228,6 @@
 <translation id="4628757576491864469">Zariadenia</translation>
 <translation id="4659419629803378708">Funkcia ChromeVox je povolená</translation>
 <translation id="4734965478015604180">Na šírku</translation>
-<translation id="476166673298332917">Správca zariadenia môže sledovať vašu aktivitu prehliadania.</translation>
 <translation id="4774338217796918551">Vráť sa zajtra o <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776917500594043016">Heslo pre účet <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4778095205580009397">Asistent Google nie je k dispozícii v relácii ukážky.</translation>
@@ -330,6 +329,7 @@
 <translation id="6528179044667508675">Nerušiť</translation>
 <translation id="6537270692134705506">Nasnímať obrazovku</translation>
 <translation id="6542521951477560771">Prebieha prenášanie do zariadenia <ph name="RECEIVER_NAME" /></translation>
+<translation id="6574601967010742428">Správca zariadenia môže sledovať vašu aktivitu.</translation>
 <translation id="6585808820553845416">Relácia sa skončí o <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="6627638273713273709">Hľadať+Shift+K</translation>
 <translation id="6650933572246256093">Zariadenie Bluetooth s názvom <ph name="DEVICE_NAME" /> žiada o povolenie párovania. Zadajte na danom zariadení tento prístupový kľúč: <ph name="PASSKEY" /></translation>

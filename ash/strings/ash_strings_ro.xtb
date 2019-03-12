@@ -228,7 +228,6 @@
 <translation id="4628757576491864469">Dispozitive</translation>
 <translation id="4659419629803378708">ChromeVox este activat</translation>
 <translation id="4734965478015604180">Orizontal</translation>
-<translation id="476166673298332917">Administratorul dispozitivului îți poate monitoriza activitatea de navigare.</translation>
 <translation id="4774338217796918551">Revino mâine la <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776917500594043016">Parolă pentru <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4778095205580009397">Asistentul Google nu este disponibil într-o sesiune demonstrativă.</translation>
@@ -330,6 +329,7 @@
 <translation id="6528179044667508675">Nu deranja</translation>
 <translation id="6537270692134705506">Capturează ecranul</translation>
 <translation id="6542521951477560771">Se proiectează conținut la <ph name="RECEIVER_NAME" /></translation>
+<translation id="6574601967010742428">Administratorul dispozitivului poate să îți monitorizeze activitatea.</translation>
 <translation id="6585808820553845416">Sesiunea se încheie peste <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Tasta de căutare + Shift + K</translation>
 <translation id="6650933572246256093">Dispozitivul Bluetooth „<ph name="DEVICE_NAME" />” solicită permisiunea de a se conecta. Introduceți această parolă pe dispozitivul respectiv: <ph name="PASSKEY" /></translation>

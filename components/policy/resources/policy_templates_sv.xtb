@@ -503,15 +503,15 @@
       Principen träder bara i kraft när tillägget <ph name="CHROME_REPORTING_EXTENSION_NAME" /> har aktiverats och enheten har registrerats med <ph name="MACHINE_LEVEL_USER_CLOUD_POLICY_ENROLLMENT_TOKEN_POLICY_NAME" />.</translation>
 <translation id="2127599828444728326">Tillåt meddelanden på dessa webbplatser</translation>
 <translation id="2131902621292742709">Skärmdämpningstid när enheten drivs av batteriet</translation>
-<translation id="2132732175597591362">Styr vitlista över webbadressmallar som automatisk uppspelning alltid är aktiverad för.
+<translation id="2132732175597591362">Styr vitlista över webbadressmönster som automatisk uppspelning alltid är aktiverad för.
 
       Om automatisk uppspelning är aktiverat kan videor spelas upp automatiskt (utan användarens tillstånd) tillsammans med ljudinnehåll <ph name="PRODUCT_NAME" />.
 
-      Webbadressmallar måste formateras i enlighet med https://www.chromium.org/administrators/url-blacklist-filter-format.
+      Webbadressmönster måste formateras i enlighet med https://www.chromium.org/administrators/url-blacklist-filter-format.
 
       Om principen AutoplayAllowed är inställd på sant gäller inte värdet för den här principen.
 
-      Om principen AutoplayAllowed är inställd på falskt kan alla webbadressmallar som anges i den här principen fortfarande spela upp media automatiskt.
+      Om principen AutoplayAllowed är inställd på falskt kan alla webbadressmönster som anges i den här principen fortfarande spela upp media automatiskt.
 
       Observera att om <ph name="PRODUCT_NAME" /> körs när principen ändras tillämpas den endast på nya flikar som öppnas. Därför kan den tidigare inställningen gälla för vissa flikar.</translation>
 <translation id="2134437727173969994">Tillåt att skärmen låses</translation>
@@ -3045,9 +3045,9 @@
 <translation id="793473937901685727">Ange om certifikat ska vara tillgängliga för ARC-appar</translation>
 <translation id="7937766917976512374">Tillåta eller neka videoinspelning</translation>
 <translation id="7941975817681987555">Förutsäg inte nätverksåtgärder för någon nätverksanslutning</translation>
-<translation id="7952002811557367112">Den här principen förhindrar att användaren läser in webbsidor från svartlistade webbadresser. Svartlistan är en lista med webbadressmallar som anger vilka webbadresser som ska svartlistas.
+<translation id="7952002811557367112">Den här principen förhindrar att användaren läser in webbsidor från svartlistade webbadresser. Svartlistan är en lista med webbadressmönster som anger vilka webbadresser som ska svartlistas.
 
-      En webbadressmall måste formateras enligt https://www.chromium.org/administrators/url-blacklist-filter-format.
+      Ett webbadressmönster måste formateras enligt https://www.chromium.org/administrators/url-blacklist-filter-format.
 
       Undantag kan definieras i principerna för vitlistade webbadresser. Dessa principer är begränsade till 1000 poster. Ytterligare poster ignoreras.
 
