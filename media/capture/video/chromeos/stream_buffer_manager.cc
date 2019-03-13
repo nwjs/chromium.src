@@ -728,6 +728,7 @@ void StreamBufferManager::SubmitCaptureResultIfComplete(
   CaptureResult& pending_result = pending_results_[frame_number];
   if (!stream_context_[stream_type]->capture_results_with_buffer.count(
           frame_number) ||
+      pending_result.partial_metadata_received.empty() ||
       *pending_result.partial_metadata_received.rbegin() <
           partial_result_count_ ||
       pending_result.reference_time == base::TimeTicks()) {
