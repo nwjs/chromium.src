@@ -491,6 +491,8 @@ public class WebappActivity extends SingleTabActivity {
                 mWebappInfo.id(), new WebappRegistry.FetchWebappDataStorageCallback() {
                     @Override
                     public void onWebappDataStorageRetrieved(WebappDataStorage storage) {
+                        if (isActivityFinishing() || isActivityDestroyed()) return;
+
                         onDeferredStartupWithStorage(storage);
                         // Set force == true to indicate that we need to show a privacy
                         // disclosure for the newly installed unbound WebAPKs which
