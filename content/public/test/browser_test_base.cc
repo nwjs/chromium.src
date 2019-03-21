@@ -69,7 +69,7 @@
 #if defined(OS_CHROMEOS)
 #include "content/public/browser/network_service_instance.h"
 #include "net/base/network_change_notifier.h"
-#include "net/base/network_change_notifier_chromeos.h"
+#include "net/base/network_change_notifier_posix.h"
 #endif
 
 #if defined(USE_AURA)
@@ -398,8 +398,8 @@ void BrowserTestBase::ProxyRunTestOnMainThreadLoop() {
   // Manually set the connection type since ChromeOS's NetworkChangeNotifier
   // implementation relies on some other class controlling it (normally
   // NetworkChangeManagerClient), which may not be set up in all browser tests.
-  net::NetworkChangeNotifierChromeos* network_change_notifier =
-      static_cast<net::NetworkChangeNotifierChromeos*>(
+  net::NetworkChangeNotifierPosix* network_change_notifier =
+      static_cast<net::NetworkChangeNotifierPosix*>(
           content::GetNetworkChangeNotifier());
   network_change_notifier->OnConnectionChanged(
       net::NetworkChangeNotifier::CONNECTION_ETHERNET);

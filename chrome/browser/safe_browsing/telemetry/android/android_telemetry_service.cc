@@ -247,18 +247,8 @@ void AndroidTelemetryService::FillReferrerChain(
 }
 
 void AndroidTelemetryService::MaybeCaptureSafetyNetId() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(sb_service_->database_manager());
-  if (!safety_net_id_on_ui_thread_.empty()) {
-    return;
-  }
-
-  base::PostTaskWithTraitsAndReplyWithResult(
-      FROM_HERE, {content::BrowserThread::IO},
-      base::BindOnce(&SafeBrowsingDatabaseManager::GetSafetyNetId,
-                     sb_service_->database_manager()),
-      base::BindOnce(&AndroidTelemetryService::SetSafetyNetIdOnUIThread,
-                     weak_ptr_factory_.GetWeakPtr()));
+  // NO-OP on M73.
+  return;
 }
 
 void AndroidTelemetryService::MaybeSendApkDownloadReport(
