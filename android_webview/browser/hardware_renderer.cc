@@ -12,7 +12,6 @@
 #include "android_webview/browser/parent_compositor_draw_constraints.h"
 #include "android_webview/browser/render_thread_manager.h"
 #include "android_webview/browser/surfaces_instance.h"
-#include "base/macros.h"
 #include "base/trace_event/trace_event.h"
 #include "components/viz/common/quads/compositor_frame.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
@@ -160,8 +159,6 @@ void HardwareRenderer::DrawGL(HardwareRendererDrawParams* params) {
   surfaces_->DrawAndSwap(viewport, clip, transform, surface_size_,
                          viz::SurfaceId(frame_sink_id_, child_id_),
                          device_scale_factor_);
-  // TODO(crbug.com/938956): Implement presentation feedbacks.
-  ignore_result(support_->TakePresentationFeedbacks());
 }
 
 void HardwareRenderer::AllocateSurface() {

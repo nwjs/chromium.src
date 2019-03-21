@@ -75,13 +75,6 @@ CompositorFrameSinkSupport::~CompositorFrameSinkSupport() {
   DCHECK(!added_frame_observer_);
 }
 
-CompositorFrameSinkSupport::PresentationFeedbackMap
-CompositorFrameSinkSupport::TakePresentationFeedbacks() {
-  PresentationFeedbackMap map;
-  map.swap(presentation_feedbacks_);
-  return map;
-}
-
 void CompositorFrameSinkSupport::SetUpHitTest(
     LatestLocalSurfaceIdLookupDelegate* local_surface_id_lookup_delegate) {
   DCHECK(is_root_);
