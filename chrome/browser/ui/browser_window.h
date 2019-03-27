@@ -89,6 +89,8 @@ enum class ShowTranslateBubbleResult {
   EDITABLE_FIELD_IS_ACTIVE,
 };
 
+enum class BrowserThemeChangeType { kBrowserTheme, kNativeTheme };
+
 #if !defined(OS_CHROMEOS)
 class BadgeServiceDelegate;
 #endif
@@ -372,7 +374,7 @@ class BrowserWindow : public ui::BaseWindow {
 
   // ThemeService calls this when a user has changed their theme, indicating
   // that it's time to redraw everything.
-  virtual void UserChangedTheme() = 0;
+  virtual void UserChangedTheme(BrowserThemeChangeType theme_change_type) = 0;
 
   // Shows the app menu (for accessibility).
   virtual void ShowAppMenu() = 0;
