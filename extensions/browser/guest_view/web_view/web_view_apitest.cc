@@ -789,10 +789,6 @@ IN_PROC_BROWSER_TEST_F(WebViewAPITest, MAYBE_TestWebRequestAPIWithHeaders) {
 }
 
 IN_PROC_BROWSER_TEST_F(WebViewAPITest, TestWebRequestAPIWithExtraHeaders) {
-  // TODO(crbug.com/938095): Make this pass with network service.
-  if (base::FeatureList::IsEnabled(network::features::kNetworkService))
-    return;
-
   std::string app_location = "web_view/apitest";
   StartTestServer(app_location);
   RunTest("testWebRequestAPIWithExtraHeaders", app_location);
