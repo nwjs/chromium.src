@@ -592,6 +592,14 @@ class LocalNtpSource::SearchConfigurationProvider
                            content::BrowserAccessibilityState::GetInstance()
                                ->IsAccessibleBrowser());
 
+    if (is_google) {
+      config_data.SetBoolean("alternateFakebox",
+                             features::IsUseAlternateFakeboxOnNtpEnabled());
+      config_data.SetBoolean(
+          "fakeboxSearchIcon",
+          base::FeatureList::IsEnabled(features::kFakeboxSearchIconOnNtp));
+    }
+
     // Serialize the dictionary.
     std::string js_text;
     JSONStringValueSerializer serializer(&js_text);
