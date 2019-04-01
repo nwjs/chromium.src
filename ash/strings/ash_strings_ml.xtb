@@ -228,6 +228,7 @@
 <translation id="4628757576491864469">ഉപകരണങ്ങൾ</translation>
 <translation id="4659419629803378708">ChromeVox പ്രവർത്തനക്ഷമമാക്കി</translation>
 <translation id="4734965478015604180">സമാന്തരം</translation>
+<translation id="476166673298332917">ഉപകരണ അഡ്‌മിൻ നിങ്ങളുടെ ബ്രൗസിംഗ് ആക്‌റ്റിവിറ്റി നിരീക്ഷിച്ചേക്കാം.</translation>
 <translation id="4774338217796918551">നാളെ <ph name="COME_BACK_TIME" />-ന് തിരികെ വരിക.</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> എന്നതിനായുള്ള പാസ്‌വേഡ്</translation>
 <translation id="4778095205580009397">ഡെമോ സെഷനിൽ Google അസി‌സ്‌റ്റന്റ് ലഭ്യമല്ല.</translation>
@@ -329,7 +330,7 @@
 <translation id="6528179044667508675">ശല്യപ്പെടുത്തരുത്</translation>
 <translation id="6537270692134705506">സ്‌ക്രീൻ ക്യാപ്‌ചർ ചെയ്യുക</translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" /> ഉപകരണത്തിലേക്ക് കാസ്‌റ്റ് ചെയ്യുന്നു</translation>
-<translation id="6574601967010742428">നിങ്ങളുടെ ആക്‌റ്റിവിറ്റി, ഉപകരണ അഡ്‌മിനിസ്‌ട്രേറ്റർക്ക് നിരീക്ഷിക്കാനായേക്കും.</translation>
+<translation id="6574601967010742428">ഉപകരണ അഡ്‌മിനിസ്‌ട്രേറ്റർക്ക് നിങ്ങളുടെ ആക്‌റ്റിവിറ്റി നിരീക്ഷിക്കാനായേക്കും.</translation>
 <translation id="6585808820553845416"><ph name="SESSION_TIME_REMAINING" />-നുള്ളിൽ സെഷൻ അവസാനിക്കുന്നു.</translation>
 <translation id="6627638273713273709">തിരയല്‍+Shift+K</translation>
 <translation id="6650933572246256093">"<ph name="DEVICE_NAME" />" എന്ന Bluetooth ഉപകരണം ജോടിയാക്കുന്നതിനുള്ള അനുമതി ആവശ്യപ്പെടുന്നു. ആ ഉപകരണത്തിൽ ഈ പാസ്‌കീ നൽകുക: <ph name="PASSKEY" /></translation>

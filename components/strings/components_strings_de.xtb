@@ -813,7 +813,7 @@
 <translation id="6071091556643036997">Der Richtlinientyp ist ungültig.</translation>
 <translation id="6080696365213338172">Sie haben über ein vom Administrator bereitgestelltes Zertifikat auf Inhalte zugegriffen. Die Daten, die Sie innerhalb von <ph name="DOMAIN" /> bereitstellen, können von Ihrem Administrator abgefangen werden.</translation>
 <translation id="6094273045989040137">Anmerkung hinzufügen</translation>
-<translation id="610911394827799129">Möglicherweise verfügt Ihr Google-Konto unter <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> über andere Browserverläufe.</translation>
+<translation id="610911394827799129">Unter <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> sind möglicherweise weitere Arten von Browserverlaufsdaten für Ihr Google-Konto gespeichert.</translation>
 <translation id="6144381551823904650">{COUNT,plural, =0{Keine}=1{1 Passwort (synchronisiert)}other{# Passwörter (synchronisiert)}}</translation>
 <translation id="6146055958333702838">Überprüfen Sie alle Kabel und starten Sie alle verwendeten Router, Modems und
     anderen Netzwerkgeräte neu.</translation>
@@ -911,7 +911,7 @@
 <translation id="6891596781022320156">Richtlinienebene wird nicht unterstützt.</translation>
 <translation id="6895330447102777224">Ihre Karte wurde bestätigt</translation>
 <translation id="6897140037006041989">User-Agent</translation>
-<translation id="6903319715792422884">Sie können uns dabei helfen, Safe Browsing weiter zu verbessern, <ph name="BEGIN_WHITEPAPER_LINK" />indem Sie einige Systeminformationen und Seiteninhalte an Google senden<ph name="END_WHITEPAPER_LINK" />. <ph name="PRIVACY_PAGE_LINK" /></translation>
+<translation id="6903319715792422884">Sie können uns dabei helfen, Safe Browsing weiter zu verbessern, indem Sie einige <ph name="BEGIN_WHITEPAPER_LINK" />Systeminformationen und Seiteninhalte<ph name="END_WHITEPAPER_LINK" /> an Google senden. <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="6915804003454593391">Nutzer:</translation>
 <translation id="6934672428414710184">Dieser Name stammt aus Ihrem Google-Konto</translation>
 <translation id="6939583532829045966">Ihr Gerät wird durch <ph name="ENROLLMENT_DOMAIN" /> verwaltet. Dies bedeutet, dass der Administrator Ihr Gerät per Remotezugriff konfigurieren kann.</translation>
