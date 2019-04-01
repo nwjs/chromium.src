@@ -1304,7 +1304,9 @@ function injectSearchSuggestions(suggestions) {
   suggestionsContainer.id = IDS.SUGGESTIONS;
   suggestionsContainer.style.visibility = 'hidden';
   suggestionsContainer.innerHTML += suggestions.suggestionsHtml;
-  $(IDS.NTP_CONTENTS).insertBefore(suggestionsContainer, $('most-visited'));
+  // TODO(crbug/944624): Revert after experiment is complete.
+  $('user-content-wrapper')
+      .insertAdjacentElement('afterbegin', suggestionsContainer);
 
   let endOfBodyScript = document.createElement('script');
   endOfBodyScript.type = 'text/javascript';
