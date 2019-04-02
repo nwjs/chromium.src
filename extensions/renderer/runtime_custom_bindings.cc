@@ -38,7 +38,10 @@ void RuntimeCustomBindings::AddRoutes() {
 
 void RuntimeCustomBindings::GetManifest(
     const v8::FunctionCallbackInfo<v8::Value>& args) {
-  CHECK(context()->extension());
+  if (!context()->extension()) {
+    args.GetReturnValue().Set(v8::Undefined(context()->v8_context()->GetIsolate()));
+    return;
+  }
 
   args.GetReturnValue().Set(content::V8ValueConverter::Create()->ToV8Value(
       context()->extension()->manifest()->value(), context()->v8_context()));
