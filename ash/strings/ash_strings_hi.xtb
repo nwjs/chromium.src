@@ -13,7 +13,7 @@
 <translation id="112308213915226829">अलमारी को स्वत: छिपाएं</translation>
 <translation id="1153356358378277386">युग्‍मित डिवाइस</translation>
 <translation id="1195412055398077112">ओवरस्कैन</translation>
-<translation id="119944043368869598">सभी साफ़ करें</translation>
+<translation id="119944043368869598">सारा डेटा साफ़ करें</translation>
 <translation id="1247372569136754018">माइक्रोफ़ोन (आंतरिक)</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" /> से चार्ज हो रहा है</translation>
 <translation id="1255033239764210633">मौसम कैसा है?</translation>
@@ -97,7 +97,7 @@
 <translation id="2416346634399901812"><ph name="NETWORK_NAME" /> से कनेक्ट है</translation>
 <translation id="2427507373259914951">बायां क्लिक</translation>
 <translation id="2429753432712299108">ब्लूटूथ डिवाइस "<ph name="DEVICE_NAME" />" युग्मित करने की अनुमति चाहता है. स्वीकार करने से पहले, कृपया दुबारा पूछें कि यह पासकुंजी उस डिवाइस पर दिखाई जा रही है: <ph name="PASSKEY" /></translation>
-<translation id="2482878487686419369">अधिसूचनाएं</translation>
+<translation id="2482878487686419369">सूचनाएं</translation>
 <translation id="2484513351006226581">कीबोर्ड लेआउट स्विच करने के लिए <ph name="KEYBOARD_SHORTCUT" /> दबाएं.</translation>
 <translation id="2501920221385095727">रोचक कुंजियां</translation>
 <translation id="2509468283778169019">CAPS LOCK चालू है</translation>
@@ -143,7 +143,7 @@
 <translation id="3126069444801937830">अपडेट करने के लिए पुनरारंभ करें</translation>
 <translation id="315116470104423982">मोबाइल डेटा</translation>
 <translation id="3151786313568798007">अभिविन्‍यास</translation>
-<translation id="3153444934357957346">एक से ज़्यादा साइन-इन की सुविधा में आपके पास ज़्यादा से ज़्यादा <ph name="MULTI_PROFILE_USER_LIMIT" /> खाते हो सकते हैं.</translation>
+<translation id="3153444934357957346">एक से ज़्यादा साइन इन की सुविधा होने पर आपके पास ज़्यादा से ज़्यादा <ph name="MULTI_PROFILE_USER_LIMIT" /> खाते हो सकते हैं.</translation>
 <translation id="3154351730702813399">डिवाइस व्यवस्थापक आपकी ब्राउज़िंग गतिविधि की निगरानी कर सकता है.</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{किसी डिवाइस से कनेक्ट है}one{# डिवाइस से कनेक्ट है}other{# डिवाइस से कनेक्ट है}}</translation>
 <translation id="32244657276328332">नेटवर्क से जुड़ा हुआ नहीं है</translation>
@@ -174,8 +174,8 @@
 <translation id="3712407551474845318">क्षेत्र कैप्‍चर करें</translation>
 <translation id="371370241367527062">सामने वाला माइक्रोफ़ोन</translation>
 <translation id="3771549900096082774">उच्च कंट्रास्ट मोड</translation>
-<translation id="3773700760453577392">किसी एडमिन ने <ph name="USER_EMAIL" /> के लिए एक से ज़्यादा 'साइन इन' नामंज़ूर कर दिए हैं.
-जारी रखने के लिए सभी उपयोगकर्ताओं को साइन आउट करना होगा.</translation>
+<translation id="3773700760453577392">किसी एडमिन ने <ph name="USER_EMAIL" /> के लिए एक से ज़्यादा साइन इन की अनुमति नहीं दी है.
+जारी रखने के लिए सभी उपयोगकर्ताओं को साइन आउट करना ज़रूरी है.</translation>
 <translation id="3783640748446814672">alt</translation>
 <translation id="3784455785234192852">लॉक करें</translation>
 <translation id="3798670284305777884">स्पीकर (आंतरिक)</translation>
@@ -229,6 +229,7 @@
 <translation id="4628757576491864469">डिवाइस</translation>
 <translation id="4659419629803378708">ChromeVox सक्षम है</translation>
 <translation id="4734965478015604180">क्षैतिज</translation>
+<translation id="476166673298332917">इस डिवाइस का एडमिन आपकी ब्राउज़िंग गतिविधि पर नज़र रख सकता है.</translation>
 <translation id="4774338217796918551">कल <ph name="COME_BACK_TIME" /> बजे फिर से देखें.</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> के लिए पासवर्ड</translation>
 <translation id="4778095205580009397">डेमो सत्र में Google Assistant मौजूद नहीं है.</translation>
@@ -251,7 +252,7 @@
 <translation id="5136175204352732067">अलग कीबोर्ड कनेक्ट किया गया</translation>
 <translation id="5168181903108465623">कास्ट डिवाइस उपलब्ध हैं</translation>
 <translation id="5207949376430453814">लेख कैरेट हाइलाइट करें</translation>
-<translation id="5222676887888702881">प्रस्थान करें</translation>
+<translation id="5222676887888702881">साइन आउट करें</translation>
 <translation id="523505283826916779">पहुंच-योग्यता विकल्प</translation>
 <translation id="5283198616748585639">एक मिनट जोड़ें</translation>
 <translation id="5302048478445481009">भाषा</translation>
@@ -410,13 +411,13 @@
 <translation id="7886277072580235377">जब आप साइन आउट करेंगे तो आपके इंटरनेट सत्र की जानकारी हटा दी जाएगी. <ph name="LEARN_MORE" /></translation>
 <translation id="788781083998633524">ईमेल भेजो</translation>
 <translation id="7897375687985782769">आपने 'स्क्रीन घुमाने' की सुविधा का कीबोर्ड शॉर्टकट दबाया है. क्या आप स्क्रीन को घुमाना चाहते हैं?</translation>
-<translation id="7904094684485781019">इस खाते के व्यवस्थापक ने एक से ज़्यादा साइन-इन को अक्षम कर दिया है.</translation>
+<translation id="7904094684485781019">इस खाते के एडमिन ने एक से ज़्यादा साइन-इन को अस्वीकार कर दिया है.</translation>
 <translation id="7933084174919150729">Google Assistant सिर्फ़ प्राथमिक प्रोफ़ाइल के लिए उपलब्ध है.</translation>
 <translation id="79341161159229895"><ph name="FIRST_PARENT_EMAIL" /> और <ph name="SECOND_PARENT_EMAIL" /> खाता संभालते हैं</translation>
 <translation id="7977927628060636163">मोबाइल नेटवर्क खोजे जा रहे हैं...</translation>
 <translation id="7982789257301363584">नेटवर्क</translation>
 <translation id="7984197416080286869">फ़िंगरप्रिंट से बहुत ज़्यादा बार कोशिश की गई</translation>
-<translation id="7994370417837006925">एकाधिक साइन इन</translation>
+<translation id="7994370417837006925">एक से ज़्यादा साइन-इन</translation>
 <translation id="8000066093800657092">नेटवर्क नहीं है</translation>
 <translation id="8029241286966751120">फ़ुलस्क्रीन पर सामग्री को बड़ा दिखाने की सुविधा चालू है. उसे बंद पर टॉगल करने के लिए Ctrl+Search+M फिर से दबाएं.</translation>
 <translation id="8030169304546394654">डिसकनेक्ट किया गया</translation>
@@ -493,7 +494,7 @@
 <translation id="9151726767154816831">अपडेट करने के लिए पुनः प्रारंभ करें और पावरवॉश करें</translation>
 <translation id="9179259655489829027">यह फ़ीचर आपको पासवर्ड के बिना किसी भी साइन इन किए हुए उपयोगकर्ता को जल्दी से एक्सेस करने देता है. इस फ़ीचर का इस्तेमाल सिर्फ़ अपने भरोसेमंद खातों के साथ करें.</translation>
 <translation id="9193626018745640770">ऐसे रिसीवर पर कास्ट किया जा रहा है जिसकी जानकारी नहीं है</translation>
-<translation id="9194617393863864469">किसी अन्‍य उपयोगकर्ता में साइन इन करें...</translation>
+<translation id="9194617393863864469">किसी दूसरे उपयोगकर्ता के रूप में साइन इन करें...</translation>
 <translation id="9201131092683066720">बैटरी <ph name="PERCENTAGE" />% भरी हुई है.</translation>
 <translation id="9210037371811586452">संयुक्त डेस्कटॉप मोड से बाहर निकाला जा रहा है</translation>
 <translation id="9215934040295798075">वॉलपेपर सेट करें</translation>

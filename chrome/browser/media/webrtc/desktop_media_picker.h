@@ -47,6 +47,8 @@ class DesktopMediaPicker {
     base::string16 target_name;
     // Whether audio capture should be shown as an option in the picker.
     bool request_audio = false;
+    // Whether the picker is created by extension desktopCapture API.
+    bool created_by_extension = false;
   };
 
   // Creates default implementation of DesktopMediaPicker for the current

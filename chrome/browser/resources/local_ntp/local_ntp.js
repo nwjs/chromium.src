@@ -70,6 +70,8 @@ var NTP_DESIGN = {
  * @const
  */
 var CLASSES = {
+  // Shows a Google search style fakebox.
+  ALTERNATE_FAKEBOX: 'alternate-fakebox',
   ALTERNATE_LOGO: 'alternate-logo',  // Shows white logo if required by theme
   // Applies styles to dialogs used in customization.
   CUSTOMIZE_DIALOG: 'customize-dialog',
@@ -77,9 +79,11 @@ var CLASSES = {
   DEFAULT_THEME: 'default-theme',
   DELAYED_HIDE_NOTIFICATION: 'mv-notice-delayed-hide',
   FAKEBOX_FOCUS: 'fakebox-focused',  // Applies focus styles to the fakebox
-  SHOW_EDIT_DIALOG: 'show',          // Displays the edit custom link dialog.
-  HIDE_BODY_OVERFLOW: 'hidden',      // Prevents scrolling while the edit custom
-                                     // link dialog is open.
+  // Shows a search icon in the fakebox.
+  SHOW_FAKEBOX_ICON: 'show-fakebox-icon',
+  SHOW_EDIT_DIALOG: 'show',      // Displays the edit custom link dialog.
+  HIDE_BODY_OVERFLOW: 'hidden',  // Prevents scrolling while the edit custom
+                                 // link dialog is open.
   // Applies float animations to the Most Visited notification
   FLOAT_UP: 'float-up',
   // Applies drag focus style to the fakebox
@@ -1063,6 +1067,13 @@ function init() {
 
     customBackgrounds.init(showErrorNotification, hideNotification);
 
+    if (configData.alternateFakebox) {
+      document.body.classList.add(CLASSES.ALTERNATE_FAKEBOX);
+    }
+    if (configData.fakeboxSearchIcon) {
+      document.body.classList.add(CLASSES.SHOW_FAKEBOX_ICON);
+    }
+
     // Set up the fakebox (which only exists on the Google NTP).
     ntpApiHandle.oninputstart = onInputStart;
     ntpApiHandle.oninputcancel = onInputCancel;
@@ -1293,7 +1304,9 @@ function injectSearchSuggestions(suggestions) {
   suggestionsContainer.id = IDS.SUGGESTIONS;
   suggestionsContainer.style.visibility = 'hidden';
   suggestionsContainer.innerHTML += suggestions.suggestionsHtml;
-  $(IDS.NTP_CONTENTS).insertBefore(suggestionsContainer, $('most-visited'));
+  // TODO(crbug/944624): Revert after experiment is complete.
+  $('user-content-wrapper')
+      .insertAdjacentElement('afterbegin', suggestionsContainer);
 
   let endOfBodyScript = document.createElement('script');
   endOfBodyScript.type = 'text/javascript';

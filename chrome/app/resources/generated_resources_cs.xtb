@@ -1185,7 +1185,7 @@ Na následující obrazovce prosím zadejte zpětnou vazbu, která nám problém
 <translation id="2761898608071930085">Použít jiný účet</translation>
 <translation id="2762441749940182211">Kamera je blokována</translation>
 <translation id="2765217105034171413">Malé</translation>
-<translation id="2766006623206032690">Vložit a rovnou otevřít</translation>
+<translation id="2766006623206032690">Vl&amp;ožit a rovnou otevřít</translation>
 <translation id="276969039800130567">Jste přihlášeni pomocí účtu <ph name="USER_EMAIL_ADDRESS" />.</translation>
 <translation id="2770465223704140727">Odstranit ze seznamu</translation>
 <translation id="2770690685823456775">Exportujte hesla do jiné složky</translation>
@@ -3115,7 +3115,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="5723508132121499792">Na pozadí nejsou spuštěny žádné aplikace</translation>
 <translation id="5727728807527375859">Rozšíření, aplikace nebo motivy mohou poškodit váš počítač. Chcete pokračovat?</translation>
 <translation id="5729712731028706266">&amp;Zobrazit</translation>
-<translation id="5731247495086897348">&amp;Vložit a přejít</translation>
+<translation id="5731247495086897348">Vl&amp;ožit a přejít</translation>
 <translation id="5731409020711461763">1 nová fotka</translation>
 <translation id="5734362860645681824">Komunikační příslušenství</translation>
 <translation id="5736796278325406685">Zadejte prosím platné uživatelské jméno</translation>
@@ -3987,7 +3987,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="7039912931802252762">Přihlášení pomocí karty SmartCard Microsoft</translation>
 <translation id="7040138676081995583">Otevřít v aplikaci...</translation>
 <translation id="7040230719604914234">Operátor</translation>
-<translation id="7042418530779813870">Vložit a vyhledat</translation>
+<translation id="7042418530779813870">Vl&amp;ožit a vyhledat</translation>
 <translation id="7043108582968290193">Hotovo. Nebyly nalezeny žádné nekompatibilní aplikace.</translation>
 <translation id="7044124535091449260">Další informace o přístupu k webům</translation>
 <translation id="7049293980323620022">Ponechat soubor?</translation>
