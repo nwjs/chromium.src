@@ -1655,7 +1655,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   //
   // This can't be created in the BrowserProcessImpl constructor because it
   // needs to read prefs that get set after that runs.
-  browser_process_->intranet_redirect_detector();
+  //browser_process_->intranet_redirect_detector();
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW) && !defined(OFFICIAL_BUILD)
   if (parsed_command_line().HasSwitch(switches::kDebugPrint)) {
