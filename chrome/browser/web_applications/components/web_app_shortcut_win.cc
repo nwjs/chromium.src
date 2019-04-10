@@ -40,13 +40,13 @@ namespace {
 constexpr base::FilePath::CharType kIconChecksumFileExt[] =
     FILE_PATH_LITERAL(".ico.md5");
 
-constexpr base::FilePath::CharType kChromeProxyExecutable[] =
-    FILE_PATH_LITERAL("chrome_proxy.exe");
+//constexpr base::FilePath::CharType kChromeProxyExecutable[] =
+//    FILE_PATH_LITERAL("nw.exe");
 
 base::FilePath GetChromeProxyPath() {
   base::FilePath chrome_dir;
-  CHECK(base::PathService::Get(base::DIR_EXE, &chrome_dir));
-  return chrome_dir.Append(kChromeProxyExecutable);
+  CHECK(base::PathService::Get(base::FILE_EXE, &chrome_dir));
+  return chrome_dir; //.Append(kChromeProxyExecutable);
 }
 
 // Calculates checksum of an icon family using MD5.
