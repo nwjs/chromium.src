@@ -198,10 +198,10 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
     params.initial_path = base::FilePath::FromUTF8Unsafe(input.nwworkingdir().GetString().Utf8().data());
     if (input.FastHasAttribute(kNwsaveasAttr))
       params.mode = FileChooserParams::Mode::kSave;
-    params.initial_value = base::FilePath::FromUTF8Unsafe(input.nwsaveas().Utf8().data());
+    params.default_file_name = base::FilePath::FromUTF8Unsafe(input.nwsaveas().Utf8().data());
     params.extract_directory = input.FastHasAttribute(kWebkitdirectoryAttr);
     if (params.selected_files.size() > 0)
-      params.initial_value = params.selected_files[0];
+      params.default_file_name = params.selected_files[0];
     if (input.FastHasAttribute(kNwdirectorydescAttr))
       params.title = input.FastGetAttribute(kNwdirectorydescAttr);
 
