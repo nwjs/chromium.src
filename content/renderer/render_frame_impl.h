@@ -383,7 +383,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void ShowCreatedWindow(bool opened_by_user_gesture,
                          RenderWidget* render_widget_to_show,
                          blink::WebNavigationPolicy policy,
-                         const gfx::Rect& initial_rect);
+                         const gfx::Rect& initial_rect, blink::WebString* manifest = nullptr);
 
   // Called when this frame's widget is focused.
   void RenderWidgetSetFocus(bool enable);

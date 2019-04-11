@@ -325,6 +325,11 @@ Browser::CreateParams::~CreateParams() {}
 Browser::CreateParams::CreateParams(Profile* profile, bool user_gesture)
     : CreateParams(TYPE_POPUP, profile, user_gesture) {}
 
+Browser::CreateParams::CreateParams(Profile* profile, bool user_gesture, const gfx::Rect& bounds)
+  : CreateParams(TYPE_POPUP, profile, user_gesture) {
+  initial_bounds = bounds;
+}
+
 Browser::CreateParams::CreateParams(Type type,
                                     Profile* profile,
                                     bool user_gesture)
@@ -1491,7 +1496,7 @@ void Browser::AddNewContents(WebContents* source,
   if (source && ConsiderForPopupBlocking(disposition))
     PopupTracker::CreateForWebContents(new_contents.get(), source);
   chrome::AddWebContents(this, source, std::move(new_contents), disposition,
-                         initial_rect);
+                         initial_rect, tmp_manifest());
 }
 
 void Browser::ActivateContents(WebContents* contents) {

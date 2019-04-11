@@ -574,7 +574,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                          int main_frame_widget_route_id,
                          WindowOpenDisposition disposition,
                          const gfx::Rect& initial_rect,
-                         bool user_gesture) override;
+                         bool user_gesture, std::string manifest) override;
   void DidDisplayInsecureContent() override;
   void DidRunInsecureContent(const GURL& security_origin,
                              const GURL& target_url) override;

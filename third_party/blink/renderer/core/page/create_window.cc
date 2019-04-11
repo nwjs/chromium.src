@@ -304,7 +304,7 @@ static Frame* CreateNewWindow(LocalFrame& opener_frame,
                           (window_rect.Height() - viewport_size.Height()));
 
   page->GetChromeClient().SetWindowRectWithAdjustment(window_rect, frame);
-  page->GetChromeClient().Show(policy);
+  page->GetChromeClient().Show(policy, &manifest_str);
 
   MaybeLogWindowOpen(opener_frame);
   created = true;

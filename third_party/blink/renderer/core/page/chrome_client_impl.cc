@@ -300,10 +300,10 @@ void ChromeClientImpl::DidOverscroll(const FloatSize& overscroll_delta,
       velocity_in_viewport, behavior);
 }
 
-void ChromeClientImpl::Show(NavigationPolicy navigation_policy) {
+void ChromeClientImpl::Show(NavigationPolicy navigation_policy, WebString* manifest) {
   if (web_view_->WidgetClient()) {
     web_view_->WidgetClient()->Show(
-        static_cast<WebNavigationPolicy>(navigation_policy));
+        static_cast<WebNavigationPolicy>(navigation_policy), manifest);
   }
 }
 

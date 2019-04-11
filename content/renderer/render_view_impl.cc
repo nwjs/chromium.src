@@ -1216,7 +1216,7 @@ void RenderViewImpl::OnPausePageScheduledTasks(bool paused) {
 
 void RenderViewImpl::ShowCreatedPopupWidget(RenderWidget* popup_widget,
                                             WebNavigationPolicy policy,
-                                            const gfx::Rect& initial_rect) {
+                                            const gfx::Rect& initial_rect, blink::WebString* manifest) {
   Send(new ViewHostMsg_ShowWidget(GetRoutingID(), popup_widget->routing_id(),
                                   initial_rect));
 }
@@ -1224,7 +1224,7 @@ void RenderViewImpl::ShowCreatedPopupWidget(RenderWidget* popup_widget,
 void RenderViewImpl::ShowCreatedFullscreenWidget(
     RenderWidget* fullscreen_widget,
     WebNavigationPolicy policy,
-    const gfx::Rect& initial_rect) {
+    const gfx::Rect& initial_rect, blink::WebString* manifest) {
   Send(new ViewHostMsg_ShowFullscreenWidget(GetRoutingID(),
                                             fullscreen_widget->routing_id()));
 }

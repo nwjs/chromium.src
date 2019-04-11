@@ -136,7 +136,7 @@ class CONTENT_EXPORT InterstitialPageImpl : public InterstitialPage,
                          int main_frame_widget_route_id,
                          WindowOpenDisposition disposition,
                          const gfx::Rect& initial_rect,
-                         bool user_gesture) override;
+                         bool user_gesture, std::string manifest) override;
   void SetFocusedFrame(FrameTreeNode* node, SiteInstance* source) override;
   Visibility GetVisibility() override;
   void AudioContextPlaybackStarted(RenderFrameHost* host,

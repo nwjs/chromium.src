@@ -7259,19 +7259,20 @@ void RenderFrameImpl::OnSetPepperVolume(int32_t pp_instance, double volume) {
 void RenderFrameImpl::ShowCreatedWindow(bool opened_by_user_gesture,
                                         RenderWidget* render_widget_to_show,
                                         WebNavigationPolicy policy,
-                                        const gfx::Rect& initial_rect) {
+                                        const gfx::Rect& initial_rect, WebString* manifest) {
   // |render_widget_to_show| is the main RenderWidget for a pending window
   // created by this object, but not yet shown. The tab is currently offscreen,
   // and still owned by the opener. Sending |FrameHostMsg_ShowCreatedWindow|
   // will move it off the opener's pending list, and put it in its own tab or
   // window.
   //
+  std::string mft = manifest ? manifest->Utf8() : "";
   // This call happens only for renderer-created windows; for example, when a
   // tab is created by script via window.open().
   Send(new FrameHostMsg_ShowCreatedWindow(
       GetRoutingID(), render_widget_to_show->routing_id(),
       RenderViewImpl::NavigationPolicyToDisposition(policy), initial_rect,
-      opened_by_user_gesture));
+      opened_by_user_gesture, mft));
 }
 
 void RenderFrameImpl::RenderWidgetSetFocus(bool enable) {

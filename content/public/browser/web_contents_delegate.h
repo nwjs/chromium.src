@@ -96,6 +96,8 @@ class CONTENT_EXPORT WebContentsDelegate {
  public:
   WebContentsDelegate();
 
+  void set_tmp_manifest(const std::string& manifest) {manifest_ = manifest; }
+  const std::string& tmp_manifest() { return manifest_; }
   // Opens a new URL inside the passed in WebContents (if source is 0 open
   // in the current front-most tab), unless |disposition| indicates the url
   // should be opened in a new tab or window.
@@ -652,6 +654,8 @@ class CONTENT_EXPORT WebContentsDelegate {
 
  protected:
   virtual ~WebContentsDelegate();
+
+  std::string manifest_;
 
  private:
   friend class WebContentsImpl;

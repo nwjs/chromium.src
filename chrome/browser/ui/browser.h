@@ -177,6 +177,7 @@ class Browser : public TabStripModelObserver,
 
   struct CreateParams {
     explicit CreateParams(Profile* profile, bool user_gesture);
+    explicit CreateParams(Profile* profile, bool user_gesture, const gfx::Rect& bounds);
     CreateParams(Type type, Profile* profile, bool user_gesture);
     CreateParams(Type type,
                  Profile* profile,

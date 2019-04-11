@@ -1105,7 +1105,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void OnShowCreatedWindow(int pending_widget_routing_id,
                            WindowOpenDisposition disposition,
                            const gfx::Rect& initial_rect,
-                           bool user_gesture);
+                           bool user_gesture, std::string manifest);
 
   // mojom::FrameHost:
   void CreateNewWindow(mojom::CreateNewWindowParamsPtr params,

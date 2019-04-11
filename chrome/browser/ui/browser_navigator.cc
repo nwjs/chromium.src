@@ -96,10 +96,16 @@ bool WindowCanOpenTabs(Browser* browser) {
 
 // Finds an existing Browser compatible with |profile|, making a new one if no
 // such Browser is located.
+Browser* GetOrCreateBrowser(Profile* profile, bool user_gesture, const gfx::Rect& bounds) {
+  Browser* browser = chrome::FindTabbedBrowser(profile, false);
+  return browser ? browser
+                 : new Browser(Browser::CreateParams(profile, user_gesture, bounds));
+}
+
 Browser* GetOrCreateBrowser(Profile* profile, bool user_gesture) {
   Browser* browser = chrome::FindTabbedBrowser(profile, false);
   return browser ? browser
-                 : new Browser(Browser::CreateParams(profile, user_gesture));
+    : new Browser(Browser::CreateParams(profile, user_gesture));
 }
 
 // Change some of the navigation parameters based on the particular URL.
@@ -201,7 +207,7 @@ std::pair<Browser*, int> GetBrowserAndTabForDisposition(
 
       // Find a compatible window and re-execute this command in it. Otherwise
       // re-run with NEW_WINDOW.
-      return {GetOrCreateBrowser(profile, params.user_gesture), -1};
+      return {GetOrCreateBrowser(profile, params.user_gesture, params.window_bounds), -1};
     case WindowOpenDisposition::NEW_POPUP: {
       // Make a new popup window.
       // Coerce app-style if |source| represents an app.
