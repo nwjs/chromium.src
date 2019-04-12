@@ -188,7 +188,7 @@ class TestWebContents : public WebContentsImpl, public WebContentsTester {
                          int route_id,
                          WindowOpenDisposition disposition,
                          const gfx::Rect& initial_rect,
-                         bool user_gesture) override;
+                         bool user_gesture, std::string) override;
   void ShowCreatedWidget(int process_id,
                          int route_id,
                          const gfx::Rect& initial_rect) override;
