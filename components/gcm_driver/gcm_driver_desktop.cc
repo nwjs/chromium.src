@@ -32,6 +32,7 @@
 #include "components/timers/alarm_timer_chromeos.h"
 #endif
 
+#include "content/nw/src/nw_base.h"
 
 namespace gcm {
 
@@ -1253,7 +1254,7 @@ GCMClient::Result GCMDriverDesktop::EnsureStarted(
 
   // Polling for channel status should be invoked when GCM is being requested,
   // no matter whether GCM is enabled or nor.
-  if (false)
+  if (nw::gcm_enabled())
     gcm_channel_status_syncer_->EnsureStarted();
 
   if (!gcm_enabled_)
