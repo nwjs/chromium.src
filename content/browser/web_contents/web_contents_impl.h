@@ -574,7 +574,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                          int main_frame_widget_route_id,
                          WindowOpenDisposition disposition,
                          const gfx::Rect& initial_rect,
-                         bool user_gesture) override;
+                         bool user_gesture, std::string manifest) override;
   void DidDisplayInsecureContent() override;
   void DidRunInsecureContent(const GURL& security_origin,
                              const GURL& target_url) override;
@@ -1226,7 +1226,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void OnDidFinishLoad(RenderFrameHostImpl* source, const GURL& url);
   void OnGoToEntryAtOffset(RenderViewHostImpl* source,
                            int offset,
-                           bool has_user_gesture);
+                           bool has_user_gesture, int);
   void OnUpdateZoomLimits(RenderViewHostImpl* source,
                           int minimum_percent,
                           int maximum_percent);

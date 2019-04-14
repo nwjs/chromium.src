@@ -11,6 +11,7 @@
 namespace blink {
 
 GlobalScopeCreationParams::GlobalScopeCreationParams(
+    bool isNodeJS, const std::string& main_script,
     const KURL& script_url,
     mojom::ScriptType script_type,
     OffMainThreadWorkerScriptFetchOption off_main_thread_fetch_option,
@@ -36,6 +37,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     : script_url(script_url.Copy()),
       script_type(script_type),
       off_main_thread_fetch_option(off_main_thread_fetch_option),
+      nodejs_(isNodeJS), main_script_(main_script),
       user_agent(user_agent.IsolatedCopy()),
       web_worker_fetch_context(std::move(web_worker_fetch_context)),
       referrer_policy(referrer_policy),

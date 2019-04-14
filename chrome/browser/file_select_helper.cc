@@ -176,7 +176,7 @@ void FileSelectHelper::FileSelectedWithExtraInfo(
   }
 
   const base::FilePath& path = file.local_path;
-  if (dialog_type_ == ui::SelectFileDialog::SELECT_UPLOAD_FOLDER) {
+  if (dialog_type_ == ui::SelectFileDialog::SELECT_UPLOAD_FOLDER && extract_directory_) {
     StartNewEnumeration(path);
     return;
   }
@@ -456,6 +456,7 @@ void FileSelectHelper::RunFileChooser(
   // message.
   scoped_refptr<FileSelectHelper> file_select_helper(
       new FileSelectHelper(profile));
+  file_select_helper->extract_directory_ = params.extract_directory;
   file_select_helper->RunFileChooser(render_frame_host, std::move(listener),
                                      params.Clone());
 }
@@ -481,12 +482,14 @@ void FileSelectHelper::RunFileChooser(
   DCHECK(!web_contents_);
   DCHECK(listener);
   DCHECK(!listener_);
+#if 0
   DCHECK(params->default_file_name.empty() ||
          params->mode == FileChooserParams::Mode::kSave)
       << "The default_file_name parameter should only be specified for Save "
          "file choosers";
   DCHECK(params->default_file_name == params->default_file_name.BaseName())
       << "The default_file_name parameter should not contain path separators";
+#endif
 
   render_frame_host_ = render_frame_host;
   web_contents_ = WebContents::FromRenderFrameHost(render_frame_host);
@@ -527,6 +530,11 @@ void FileSelectHelper::GetSanitizedFilenameOnUIThread(
 
   base::FilePath default_file_path = profile_->last_selected_directory().Append(
       GetSanitizedFileName(params->default_file_name));
+
+  if (!params->initial_path.empty())
+    default_file_path = params->initial_path.Append(
+      GetSanitizedFileName(params->default_file_name));
+
 #if defined(FULL_SAFE_BROWSING)
   if (params->mode == FileChooserParams::Mode::kSave) {
     CheckDownloadRequestWithSafeBrowsing(default_file_path, std::move(params));

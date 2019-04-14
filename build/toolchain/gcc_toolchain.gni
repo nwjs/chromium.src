@@ -435,6 +435,9 @@ template("gcc_toolchain") {
       default_output_extension = default_shlib_extension
 
       default_output_dir = "{{root_out_dir}}"
+      if (shlib_subdir != ".") {
+        default_output_dir += "/$shlib_subdir"
+      }
 
       output_prefix = "lib"
 
@@ -495,6 +498,9 @@ template("gcc_toolchain") {
       }
 
       default_output_dir = "{{root_out_dir}}"
+      if (shlib_subdir != ".") {
+        default_output_dir += "/$shlib_subdir"
+      }
 
       output_prefix = "lib"
 

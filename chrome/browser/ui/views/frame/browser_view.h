@@ -285,6 +285,16 @@ class BrowserView : public BrowserWindow,
   }
 
   // BrowserWindow:
+  void ForceClose() override;
+  void SetShowInTaskbar(bool) override;
+  void NativeWindowChanged() override;
+  void SetMinimumSize(gfx::Size) override;
+  void SetMaximumSize(gfx::Size) override;
+  void SetResizable(bool) override;
+  void SetAllVisible(bool) override;
+  void UpdateDraggableRegions(
+      const std::vector<extensions::DraggableRegion>& regions) override;
+  SkRegion* GetDraggableRegion() override;
   void Show() override;
   void ShowInactive() override;
   void Hide() override;
@@ -449,6 +459,10 @@ class BrowserView : public BrowserWindow,
                                   ui::Accelerator* accelerator) const override;
 
   // views::WidgetDelegate:
+  bool NWCanClose(bool user_force = false) const override;
+  bool ShouldDescendIntoChildForEventHandling(
+      gfx::NativeView child,
+      const gfx::Point& location) override;
   bool CanResize() const override;
   bool CanMaximize() const override;
   bool CanMinimize() const override;
@@ -485,6 +499,7 @@ class BrowserView : public BrowserWindow,
   bool CanClose() override;
   int NonClientHitTest(const gfx::Point& point) override;
   gfx::Size GetMinimumSize() const override;
+  gfx::Size GetMaximumSize() const override;
 
   // infobars::InfoBarContainer::Delegate:
   void InfoBarContainerStateChanged(bool is_animating) override;
@@ -577,13 +592,13 @@ class BrowserView : public BrowserWindow,
   // LoadCompleteListener::Delegate implementation. Creates the JumpList after
   // the first page load.
   void OnLoadCompleted() override;
-
+public:
   // Returns the BrowserViewLayout.
   BrowserViewLayout* GetBrowserViewLayout() const;
 
   // Returns the ContentsLayoutManager.
   ContentsLayoutManager* GetContentsLayoutManager() const;
-
+private:
   // Prepare to show the Bookmark Bar for the specified WebContents.
   // Returns true if the Bookmark Bar can be shown (i.e. it's supported for this
   // Browser type) and there should be a subsequent re-layout to show it.
@@ -682,6 +697,10 @@ class BrowserView : public BrowserWindow,
   // the actual child order.
   void EnsureFocusOrder();
 
+  std::unique_ptr<SkRegion> draggable_region_;
+
+  bool resizable_ = true;
+  gfx::Size minimum_size_, maximum_size_;
   // The BrowserFrame that hosts this view.
   BrowserFrame* frame_ = nullptr;
 

@@ -40,7 +40,7 @@ config("runtime_library") {
       # use.  If the system libc++ gets loaded (indirectly through a system
       # library), then it will conflict with our libc++.so.  Add a custom ABI
       # version to avoid conflicts.
-      defines += [ "_LIBCPP_ABI_VERSION=Cr" ]
+      #defines += [ "_LIBCPP_ABI_VERSION=Cr" ]
     } else {
       # Don't leak any symbols on a static build.
       defines += [ "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS" ]
@@ -61,9 +61,9 @@ config("runtime_library") {
 
     # TODO(xiaohuic): https://crbug/917533 Crashes on internal ChromeOS build.
     # Do unconditionally once the underlying problem is fixed.
-    if (!(is_chromeos && is_chrome_branded)) {
-      defines += [ "_LIBCPP_ABI_UNSTABLE" ]
-    }
+    #if (!(is_chromeos && is_chrome_branded)) {
+    #  defines += [ "_LIBCPP_ABI_UNSTABLE" ]
+    #}
 
     # Make sure we don't link against libc++ or libstdc++.
     if (is_clang) {

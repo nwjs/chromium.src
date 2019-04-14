@@ -344,6 +344,8 @@ IPC_STRUCT_TRAITS_BEGIN(content::RendererPreferences)
   IPC_STRUCT_TRAITS_MEMBER(arrow_bitmap_height_vertical_scroll_bar_in_dips)
   IPC_STRUCT_TRAITS_MEMBER(arrow_bitmap_width_horizontal_scroll_bar_in_dips)
 #endif
+  IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_doc_start)
+  IPC_STRUCT_TRAITS_MEMBER(nw_inject_js_doc_end)
 IPC_STRUCT_TRAITS_END()
 
 IPC_ENUM_TRAITS(blink::WebDragOperation)  // Bitmask.

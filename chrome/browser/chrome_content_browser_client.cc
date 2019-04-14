@@ -3,11 +3,19 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/chrome_content_browser_client.h"
+#include "content/browser/renderer_host/render_process_host_impl.h"
+#include "components/crash/content/app/crash_reporter_client.h"
 
 #include <map>
 #include <set>
 #include <utility>
 #include <vector>
+
+#include "content/nw/src/common/nw_content_common_hooks.h"
+#include "content/nw/src/common/shell_switches.h"
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/nw_base.h"
+#include "chrome/browser/profiles/profile_manager.h"
 
 #include "base/base_switches.h"
 #include "base/bind.h"
@@ -508,6 +516,7 @@
 #include "extensions/browser/extension_navigation_throttle.h"
 #include "extensions/browser/extension_protocols.h"
 #include "extensions/browser/extension_registry.h"
+#include "chrome/browser/extensions/extension_service.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_attach_helper.h"
@@ -778,7 +787,7 @@ breakpad::CrashHandlerHostLinux* CreateCrashHandlerHost(
   base::PathService::Get(chrome::DIR_CRASH_DUMPS, &dumps_path);
   {
     ANNOTATE_SCOPED_MEMORY_LEAK;
-    bool upload = (getenv(env_vars::kHeadless) == NULL);
+    bool upload = !crash_reporter::GetCrashReporterClient()->IsRunningUnattended();
     breakpad::CrashHandlerHostLinux* crash_handler =
         new breakpad::CrashHandlerHostLinux(process_type, dumps_path, upload);
     crash_handler->StartUploaderThread();
@@ -861,18 +870,17 @@ class CertificateReportingServiceCertReporter : public SSLCertReporter {
  public:
   explicit CertificateReportingServiceCertReporter(
       content::WebContents* web_contents)
-      : service_(CertificateReportingServiceFactory::GetForBrowserContext(
-            web_contents->GetBrowserContext())) {}
+     {}
   ~CertificateReportingServiceCertReporter() override {}
 
   // SSLCertReporter implementation
   void ReportInvalidCertificateChain(
       const std::string& serialized_report) override {
-    service_->Send(serialized_report);
+    //service_->Send(serialized_report);
   }
 
  private:
-  CertificateReportingService* service_;
+  //CertificateReportingService* service_;
 
   DISALLOW_COPY_AND_ASSIGN(CertificateReportingServiceCertReporter);
 };
@@ -904,6 +912,7 @@ void StartDownloadManager(service_manager::mojom::ServiceRequest request) {
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 
+#if 0
 AppLoadedInTabSource ClassifyAppLoadedInTabSource(
     const GURL& opener_url,
     const extensions::Extension* target_platform_app) {
@@ -925,6 +934,7 @@ AppLoadedInTabSource ClassifyAppLoadedInTabSource(
   // The forbidden app URL was being opened by a non-extension page (e.g. http).
   return APP_LOADED_IN_TAB_SOURCE_OTHER;
 }
+#endif
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 bool GetDataSaverEnabledPref(const PrefService* prefs) {
@@ -1041,6 +1051,10 @@ std::string GetUserAgent() {
     if (net::HttpUtil::IsValidHeaderValue(ua))
       return ua;
     LOG(WARNING) << "Ignored invalid value for flag --" << switches::kUserAgent;
+  }
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent)) {
+    return user_agent;
   }
 
   std::string product = GetProduct();
@@ -1505,6 +1519,9 @@ bool ChromeContentBrowserClient::ShouldLockToOrigin(
     return false;
   }
 #endif
+  if (nw::PinningRenderer())
+    return false;
+
   return true;
 }
 
@@ -1521,6 +1538,17 @@ ChromeContentBrowserClient::GetInitiatorSchemeBypassingDocumentBlocking() {
 #else
   return nullptr;
 #endif
+}
+
+bool ChromeContentBrowserClient::IsNWOrigin(const url::Origin& origin, content::ResourceContext* context) {
+  ProfileIOData* io_data = ProfileIOData::FromResourceContext(context);
+  const Extension* extension =
+    io_data->GetExtensionInfoMap()->extensions().GetByID(nw::GetMainExtensionId());
+  if (!extension)
+    return false;
+  if (extension->web_extent().MatchesURL(origin.GetURL()))
+    return true;
+  return false;
 }
 
 void ChromeContentBrowserClient::LogInitiatorSchemeBypassingDocumentBlocking(
@@ -1717,6 +1745,24 @@ bool ChromeContentBrowserClient::MayReuseHost(
 
 bool ChromeContentBrowserClient::ShouldTryToUseExistingProcessHost(
     content::BrowserContext* browser_context, const GURL& url) {
+  // PDF extension should use new process, or there is a loop of IPC
+  // message BrowserPluginHostMsg_SetFocus and InputMsg_SetFocus
+  // #4335
+
+  if (url.SchemeIs(extensions::kExtensionScheme)) {
+    if (url.host() == nw::GetMainExtensionId() && !content::RenderProcessHostImpl::main_host())
+      return false; //other extensions could load before the main
+                    //extension NWJS#5483
+    if (url.host() == extension_misc::kPdfExtensionId)
+      return false;
+  } else if (url.SchemeIs(content::kGuestScheme))
+    return false;
+
+  if (nw::PinningRenderer())
+    return true;
+  else
+    return false;
+#if 0
   // It has to be a valid URL for us to check for an extension.
   if (!url.is_valid())
     return false;
@@ -1728,6 +1774,7 @@ bool ChromeContentBrowserClient::ShouldTryToUseExistingProcessHost(
           profile, url);
 #else
   return false;
+#endif
 #endif
 }
 
@@ -1804,7 +1851,7 @@ ChromeContentBrowserClient::GetOriginsRequiringDedicatedProcess() {
 
 // Sign-in process isolation is not needed on Android, see
 // https://crbug.com/739418.
-#if !defined(OS_ANDROID)
+#if 0
   isolated_origin_list.emplace_back(
       url::Origin::Create(GaiaUrls::GetInstance()->gaia_url()));
 #endif
@@ -2005,7 +2052,10 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
                                   homedir.value().c_str());
 #endif
 
+  command_line->AppendSwitchPath(switches::kNWAppPath, nw::package()->path());
   if (process_type == switches::kRendererProcess) {
+    command_line->AppendSwitch(switches::kNWJS);
+
     content::RenderProcessHost* process =
         content::RenderProcessHost::FromID(child_process_id);
     Profile* profile =
@@ -2120,6 +2170,7 @@ void ChromeContentBrowserClient::AppendExtraCommandLineSwitches(
 
     // Please keep this in alphabetical order.
     static const char* const kSwitchNames[] = {
+      switches::kEnableSpellChecking,
       autofill::switches::kEnableSuggestionsWithSubstringMatch,
       autofill::switches::kIgnoreAutocompleteOffForAutofill,
       autofill::switches::kShowAutofillSignatures,
@@ -2476,6 +2527,22 @@ void ChromeContentBrowserClient::OnCookieChange(
       FROM_HERE, {BrowserThread::UI},
       base::BindOnce(&TabSpecificContentSettings::CookieChanged, wc_getter, url,
                      first_party_url, cookie, blocked_by_policy));
+}
+
+base::FilePath ChromeContentBrowserClient::GetRootPath() {
+  std::string id = nw::GetMainExtensionId();
+  base::FilePath path;
+  extensions::ExtensionSystem* extension_system =
+    extensions::ExtensionSystem::Get(ProfileManager::GetPrimaryUserProfile());
+  if (extension_system) {
+    extensions::ExtensionService* extension_service =
+      extension_system->extension_service();
+    const extensions::Extension* extension =
+      extension_service->GetExtensionById(id, true);
+    if (extension)
+      path = extension->path();
+  }
+  return path;
 }
 
 void ChromeContentBrowserClient::AllowWorkerFileSystem(
@@ -2933,6 +3000,13 @@ bool ChromeContentBrowserClient::CanCreateWindow(
   DCHECK(profile);
   *no_javascript_access = false;
 
+  auto* registry = extensions::ExtensionRegistry::Get(profile);
+  if (registry) {
+    const Extension* extension =
+        registry->enabled_extensions().GetExtensionOrAppByURL(opener_url);
+    if (extension && extension->is_nwjs_app())
+      return true;
+  }
   // If the opener is trying to create a background window but doesn't have
   // the appropriate permission, fail the attempt.
   if (container_type == content::mojom::WindowContainerType::BACKGROUND) {
@@ -2972,6 +3046,9 @@ bool ChromeContentBrowserClient::CanCreateWindow(
     const Extension* extension =
         registry->enabled_extensions().GetExtensionOrAppByURL(target_url);
     if (extension && extension->is_platform_app()) {
+#if 1
+      return true;
+#else
       UMA_HISTOGRAM_ENUMERATION(
           "Extensions.AppLoadedInTab",
           ClassifyAppLoadedInTabSource(opener_url, extension),
@@ -2979,6 +3056,7 @@ bool ChromeContentBrowserClient::CanCreateWindow(
 
       // window.open() may not be used to load v2 apps in a regular tab.
       return false;
+#endif
     }
   }
 #endif
@@ -3355,7 +3433,7 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
   }
 #endif  // !defined(OS_ANDROID)
 
-  web_prefs->translate_service_available = TranslateService::IsAvailable(prefs);
+  web_prefs->translate_service_available = false; //TranslateService::IsAvailable(prefs);
 
   // Apply native CaptionStyle parameters.
   // TODO(ellyjones): Support more native caption styling.
@@ -3366,6 +3444,8 @@ void ChromeContentBrowserClient::OverrideWebkitPrefs(
 
   for (size_t i = 0; i < extra_parts_.size(); ++i)
     extra_parts_[i]->OverrideWebkitPrefs(rvh, web_prefs);
+
+  nw::OverrideWebkitPrefsHook(rvh, web_prefs);
 }
 
 void ChromeContentBrowserClient::BrowserURLHandlerCreated(
@@ -3643,10 +3723,12 @@ void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
   scoped_refptr<base::SingleThreadTaskRunner> ui_task_runner =
       base::CreateSingleThreadTaskRunnerWithTraits(
           {content::BrowserThread::UI});
+#if 0
   registry->AddInterface(
       base::Bind(&rappor::RapporRecorderImpl::Create,
                  g_browser_process->rappor_service()),
       ui_task_runner);
+#endif
   registry->AddInterface(
       base::BindRepeating(&metrics::CallStackProfileCollector::Create));
 
@@ -3663,7 +3745,7 @@ void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
         ui_task_runner);
   }
 
-#if defined(SAFE_BROWSING_DB_LOCAL) || defined(SAFE_BROWSING_DB_REMOTE)
+#if 0
   if (safe_browsing_service_) {
     content::ResourceContext* resource_context =
         render_process_host->GetBrowserContext()->GetResourceContext();
@@ -4225,7 +4307,7 @@ ChromeContentBrowserClient::CreateThrottlesForNavigation(
     throttles.push_back(std::move(background_tab_navigation_throttle));
 #endif
 
-#if defined(SAFE_BROWSING_DB_LOCAL)
+#if 0 //defined(SAFE_BROWSING_DB_LOCAL)
   std::unique_ptr<content::NavigationThrottle>
       password_protection_navigation_throttle =
           safe_browsing::MaybeCreateNavigationThrottle(handle);
@@ -4282,7 +4364,7 @@ ChromeContentBrowserClient::CreateThrottlesForNavigation(
       PreviewsLitePageDecider::MaybeCreateThrottleFor(handle);
   if (previews_lite_page_throttle)
     throttles.push_back(std::move(previews_lite_page_throttle));
-  if (base::FeatureList::IsEnabled(safe_browsing::kCommittedSBInterstitials)) {
+  if (false) { //base::FeatureList::IsEnabled(safe_browsing::kCommittedSBInterstitials)) {
     throttles.push_back(
         std::make_unique<safe_browsing::SafeBrowsingNavigationThrottle>(
             handle));
@@ -4383,9 +4465,11 @@ void ChromeContentBrowserClient::InitWebContextInterfaces() {
       std::make_unique<service_manager::BinderRegistryWithArgs<
           content::RenderProcessHost*, const url::Origin&>>();
 
+#if 0
   // Register mojo ContentTranslateDriver interface only for main frame.
   frame_interfaces_parameterized_->AddInterface(
       base::BindRepeating(&language::BindContentTranslateDriver));
+#endif
 
   frame_interfaces_parameterized_->AddInterface(
       base::BindRepeating(&ChromePasswordManagerClient::BindCredentialManager));
@@ -4518,6 +4602,7 @@ ChromeContentBrowserClient::CreateURLLoaderThrottles(
   ProfileIOData* io_data = nullptr;
   // Only set |io_data| if needed, as in unit tests |resource_context| is a
   // MockResourceContext and the cast doesn't work.
+#if 0
   if (safe_browsing_service_ ||
       data_reduction_proxy::params::IsEnabledWithNetworkService()) {
     io_data = ProfileIOData::FromResourceContext(resource_context);
@@ -4558,6 +4643,7 @@ ChromeContentBrowserClient::CreateURLLoaderThrottles(
     }
   }
 #endif  // defined(SAFE_BROWSING_DB_LOCAL) || defined(SAFE_BROWSING_DB_REMOTE)
+#endif
 
   ChromeNavigationUIData* chrome_navigation_ui_data =
       static_cast<ChromeNavigationUIData*>(navigation_ui_data);
@@ -4948,7 +5034,7 @@ void ChromeContentBrowserClient::CreateWebUsbService(
   if (!base::FeatureList::IsEnabled(features::kWebUsb))
     return;
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if 0 //BUILDFLAG(ENABLE_EXTENSIONS)
   // WebUSB is not supported in Apps/Extensions. https://crbug.com/770896
   if (render_frame_host->GetSiteInstance()->GetSiteURL().SchemeIs(
           extensions::kExtensionScheme)) {
@@ -5154,6 +5240,9 @@ void ChromeContentBrowserClient::SetDefaultQuotaSettingsForTesting(
 safe_browsing::UrlCheckerDelegate*
 ChromeContentBrowserClient::GetSafeBrowsingUrlCheckerDelegate(
     content::ResourceContext* resource_context) {
+#if 1
+  return nullptr;
+#else
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   ProfileIOData* io_data = ProfileIOData::FromResourceContext(resource_context);
@@ -5169,6 +5258,7 @@ ChromeContentBrowserClient::GetSafeBrowsingUrlCheckerDelegate(
   }
 
   return safe_browsing_url_checker_delegate_.get();
+#endif
 }
 
 base::Optional<std::string>

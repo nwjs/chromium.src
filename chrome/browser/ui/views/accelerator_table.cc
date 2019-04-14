@@ -28,6 +28,7 @@ const AcceleratorMapping kAcceleratorMap[] = {
     //   2) Update GetShortcutsNotPresentInMainMenu() in
     //      global_keyboard_shortcuts_mac.mm.
     {ui::VKEY_F12, ui::EF_NONE, IDC_DEV_TOOLS_TOGGLE},
+#if 0
     {ui::VKEY_ESCAPE, ui::EF_NONE, IDC_STOP},
 
 #if !defined(OS_MACOSX)
@@ -204,6 +205,7 @@ const AcceleratorMapping kAcceleratorMap[] = {
     {ui::VKEY_OEM_PLUS, ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN, IDC_ZOOM_PLUS},
 #endif  // !OS_CHROMEOS
 #endif  // OS_MACOSX
+#endif
 };
 
 const int kRepeatableCommandIds[] = {

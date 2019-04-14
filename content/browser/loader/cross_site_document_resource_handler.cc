@@ -274,6 +274,14 @@ void CrossSiteDocumentResourceHandler::OnResponseStarted(
     is_initiator_scheme_excluded_ =
         initiator_scheme_exception &&
         request()->initiator().value().scheme() == initiator_scheme_exception;
+    if (!is_initiator_scheme_excluded_) {
+      const ResourceRequestInfoImpl* info = GetRequestInfo();
+      if (info) {
+        bool nwjs = GetContentClient()->browser()->IsNWOrigin(request()->initiator().value(), info->GetContext());
+        if (nwjs)
+          is_initiator_scheme_excluded_ = true;
+      }
+    }
   }
 
   network::CrossOriginReadBlocking::LogAction(

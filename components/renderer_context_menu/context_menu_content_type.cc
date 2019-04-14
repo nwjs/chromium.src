@@ -157,7 +157,7 @@ bool ContextMenuContentType::SupportsGroupInternal(int group) {
       return true;
 
     case ITEM_GROUP_DEVTOOLS_UNPACKED_EXT:
-      return false;
+      return true;
 
     case ITEM_GROUP_PRINT_PREVIEW:
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)

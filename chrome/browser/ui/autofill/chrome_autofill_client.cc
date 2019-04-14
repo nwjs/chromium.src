@@ -190,12 +190,14 @@ ChromeAutofillClient::GetSecurityLevelForUmaHistograms() {
 }
 
 std::string ChromeAutofillClient::GetPageLanguage() const {
+#if 0
   // TODO(crbug.com/912597): iOS vs other platforms extracts language from
   // the top level frame vs whatever frame directly holds the form.
   auto* translate_manager =
       ChromeTranslateClient::GetManagerFromWebContents(web_contents());
   if (translate_manager)
     return translate_manager->GetLanguageState().original_language();
+#endif
   return std::string();
 }
 
@@ -461,6 +463,9 @@ bool ChromeAutofillClient::IsContextSecure() {
       web_contents()->GetController().GetLastCommittedEntry();
   if (!navigation_entry)
     return false;
+
+  if (navigation_entry->GetURL().SchemeIs("chrome-extension"))
+    return true;
 
   ssl_status = navigation_entry->GetSSL();
   // Note: If changing the implementation below, also change

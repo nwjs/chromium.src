@@ -57,7 +57,7 @@ void ChromeCrashReporterClient::SetCrashReporterClientIdFromGUID(
 }
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
+#if defined(OS_POSIX)
 void ChromeCrashReporterClient::GetProductNameAndVersion(
     const char** product_name,
     const char** version) {
@@ -69,13 +69,13 @@ void ChromeCrashReporterClient::GetProductNameAndVersion(
   *product_name = "Chrome_ChromeOS";
 #else  // OS_LINUX
 #if !defined(ADDRESS_SANITIZER)
-  *product_name = "Chrome_Linux";
+  *product_name = product_name_.c_str();
 #else
   *product_name = "Chrome_Linux_ASan";
 #endif
 #endif
 
-  *version = PRODUCT_VERSION;
+  *version = product_version_.c_str();
 }
 
 void ChromeCrashReporterClient::GetProductNameAndVersion(
@@ -90,9 +90,11 @@ void ChromeCrashReporterClient::GetProductNameAndVersion(
   *channel = chrome::GetChannelName();
 }
 
+#if !defined(OS_MACOSX)
 base::FilePath ChromeCrashReporterClient::GetReporterLogFilename() {
   return base::FilePath(CrashUploadList::kReporterLogFilename);
 }
+#endif
 #endif
 
 bool ChromeCrashReporterClient::GetCrashDumpLocation(
@@ -110,11 +112,14 @@ bool ChromeCrashReporterClient::GetCrashDumpLocation(
 }
 
 bool ChromeCrashReporterClient::IsRunningUnattended() {
-  std::unique_ptr<base::Environment> env(base::Environment::Create());
-  return env->HasVar(env_vars::kHeadless);
+  // std::unique_ptr<base::Environment> env(base::Environment::Create());
+  // return env->HasVar(env_vars::kHeadless);
+  return !enable_upload_;
 }
 
 bool ChromeCrashReporterClient::GetCollectStatsConsent() {
+  return true;
+#if 0
 #if defined(GOOGLE_CHROME_BUILD)
   bool is_official_chrome_build = true;
 #else
@@ -140,6 +145,7 @@ bool ChromeCrashReporterClient::GetCollectStatsConsent() {
   return is_official_chrome_build &&
       GoogleUpdateSettings::GetCollectStatsConsent();
 #endif  // defined(OS_ANDROID)
+#endif // 0
 }
 
 #if defined(OS_ANDROID)

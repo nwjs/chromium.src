@@ -234,7 +234,7 @@ MojoMapBufferResult* MojoHandle::mapBuffer(unsigned offset,
   result_dict->setResult(result);
   if (result == MOJO_RESULT_OK) {
     WTF::ArrayBufferContents::DataHandle data_handle(
-        data, num_bytes,
+        data, num_bytes, false,
         [](void* buffer, size_t length, void* alloc_data) {
           MojoResult result = MojoUnmapBuffer(buffer);
           DCHECK_EQ(result, MOJO_RESULT_OK);

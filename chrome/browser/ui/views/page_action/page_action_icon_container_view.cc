@@ -43,9 +43,11 @@ PageActionIconContainerView::PageActionIconContainerView(const Params& params)
         break;
       case PageActionIconType::kTranslate:
         DCHECK(params.command_updater);
+#if 0
         translate_icon_ = new TranslateIconView(
             params.command_updater, params.page_action_icon_delegate);
         page_action_icons_.push_back(translate_icon_);
+#endif
         break;
       case PageActionIconType::kZoom:
         zoom_view_ = new ZoomView(params.location_bar_delegate,

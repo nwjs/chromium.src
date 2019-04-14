@@ -11,6 +11,11 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/nw_content.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "extensions/browser/extension_registry.h"
+
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/location.h"
@@ -108,6 +113,8 @@
 #include "ui/base/clipboard/clipboard_types.h"
 #include "ui/base/ui_base_features.h"
 #endif
+
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
 
 using content::BrowserThread;
 using content::NavigationController;
@@ -240,6 +247,8 @@ void ReportRequestedWindowState(windows::WindowState state) {
 
 ui::WindowShowState ConvertToWindowShowState(windows::WindowState state) {
   switch (state) {
+    case windows::WINDOW_STATE_HIDDEN:
+      return ui::SHOW_STATE_HIDDEN;
     case windows::WINDOW_STATE_NORMAL:
     case windows::WINDOW_STATE_DOCKED:
       return ui::SHOW_STATE_NORMAL;
@@ -277,6 +286,7 @@ bool IsValidStateForWindowsCreateFunction(
     case windows::WINDOW_STATE_NORMAL:
     case windows::WINDOW_STATE_DOCKED:
     case windows::WINDOW_STATE_NONE:
+    case windows::WINDOW_STATE_HIDDEN:
       return true;
   }
   NOTREACHED();
@@ -557,12 +567,24 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   if (!IsValidStateForWindowsCreateFunction(create_data))
     return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
 
-  Browser::Type window_type = Browser::TYPE_TABBED;
+  Browser::Type window_type = Browser::TYPE_POPUP;
 
   gfx::Rect window_bounds;
   bool focused = true;
+  bool hidden = false;
+  bool new_instance = false;
+  bool frameless = false;
+  bool transparent = false;
+  bool always_on_top = false;
+  bool all_visible = false;
+  bool show_in_taskbar = true;
+  bool resizable = true;
+  std::string title;
+  int min_width = 0; int min_height = 0; int max_width = 0; int max_height = 0;
   std::string extension_id;
+  std::string position;
 
+  std::string inject_js_start, inject_js_end;
   if (create_data) {
     // Report UMA stats to decide when to remove the deprecated "docked" windows
     // state (crbug.com/703733).
@@ -593,6 +615,14 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
           &ignored_show_state);
     }
 
+    if (create_data->min_width)
+      min_width = *create_data->min_width;
+    if (create_data->max_width)
+      max_width = *create_data->max_width;
+    if (create_data->min_height)
+      min_height = *create_data->min_height;
+    if (create_data->max_height)
+      max_height = *create_data->max_height;
     // Any part of the bounds can optionally be set by the caller.
     if (create_data->left)
       window_bounds.set_x(*create_data->left);
@@ -608,18 +638,62 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
     if (create_data->focused)
       focused = *create_data->focused;
+
+    if (create_data->hidden)
+      hidden = *create_data->hidden;
+    if (create_data->inject_js_start)
+      inject_js_start = *create_data->inject_js_start;
+    if (create_data->inject_js_end)
+      inject_js_end = *create_data->inject_js_end;
+    if (create_data->new_instance)
+      new_instance = *create_data->new_instance;
+    if (create_data->frameless)
+      frameless = *create_data->frameless;
+    if (create_data->alpha_enabled)
+      transparent = *create_data->alpha_enabled;
+    if (create_data->always_on_top)
+      always_on_top = *create_data->always_on_top;
+    if (create_data->all_visible)
+      all_visible = *create_data->all_visible;
+    if (create_data->resizable)
+      resizable = *create_data->resizable;
+    if (create_data->show_in_taskbar)
+      show_in_taskbar = *create_data->show_in_taskbar;
+    if (create_data->title)
+      title = *create_data->title;
+    if (create_data->position)
+      position = *create_data->position;
   }
 
   // Create a new BrowserWindow.
   Browser::CreateParams create_params(window_type, window_profile,
                                       user_gesture());
+
   if (extension_id.empty()) {
     create_params.initial_bounds = window_bounds;
   } else {
     create_params = Browser::CreateParams::CreateForApp(
         web_app::GenerateApplicationNameFromAppId(extension_id),
-        false /* trusted_source */, window_bounds, window_profile,
+        extension() && extension()->is_nwjs_app() /* trusted_source */, window_bounds, window_profile,
         user_gesture());
+  }
+  create_params.frameless = frameless;
+  create_params.alpha_enabled = transparent;
+  create_params.always_on_top = always_on_top;
+  create_params.all_visible = all_visible;
+  create_params.resizable = resizable;
+  create_params.show_in_taskbar = show_in_taskbar;
+  create_params.title = title;
+
+  if (create_data && create_data->icon) {
+    base::ThreadRestrictions::ScopedAllowIO allow_io;
+    gfx::Image app_icon;
+    nw::Package* package = nw::package();
+    if (nw::GetPackageImage(package,
+                            base::FilePath::FromUTF8Unsafe(*create_data->icon),
+                            &app_icon)) {
+      create_params.icon = app_icon;
+    }
   }
   create_params.initial_show_state = ui::SHOW_STATE_NORMAL;
   if (create_data && create_data->state) {
@@ -634,6 +708,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
   Browser* new_window = new Browser(create_params);
 
+  if (position == "center")
+    BrowserView::GetBrowserViewForBrowser(new_window)->frame()->CenterWindow(create_params.initial_bounds.size());
+
   for (const GURL& url : urls) {
     NavigateParams navigate_params(new_window, url, ui::PAGE_TRANSITION_LINK);
     navigate_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
@@ -647,7 +724,14 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     navigate_params.source_site_instance =
         render_frame_host()->GetSiteInstance();
 
+    navigate_params.inject_js_start = inject_js_start;
+    navigate_params.inject_js_end = inject_js_end;
+
+    if (new_instance)
+      nw::SetPinningRenderer(false);
     Navigate(&navigate_params);
+    if (new_instance)
+      nw::SetPinningRenderer(true);
   }
 
   WebContents* contents = NULL;
@@ -671,10 +755,16 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   }
   chrome::SelectNumberedTab(new_window, 0);
 
+  new_window->window()->SetMinimumSize(gfx::Size(min_width, min_height));
+  new_window->window()->SetMaximumSize(gfx::Size(max_width, max_height));
+  if (!hidden) {
   if (focused)
     new_window->window()->Show();
   else
     new_window->window()->ShowInactive();
+  } else {
+    new_window->window()->Hide();
+  }
 
 #if defined(OS_CHROMEOS)
   // Lock the window fullscreen only after the new tab has been created
@@ -773,7 +863,11 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
           true, extension()->url());
       break;
     case ui::SHOW_STATE_NORMAL:
+      browser->window()->Show();
       browser->window()->Restore();
+      break;
+    case ui::SHOW_STATE_HIDDEN:
+      browser->window()->Hide();
       break;
     default:
       break;
@@ -786,6 +880,30 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     bounds = browser->window()->GetBounds();
   bool set_bounds = false;
 
+  bool set_min_size = false;
+  bool set_max_size = false;
+  gfx::Size min_size = BrowserView::GetBrowserViewForBrowser(browser)->GetMinimumSize();
+  gfx::Size max_size = BrowserView::GetBrowserViewForBrowser(browser)->GetMaximumSize();
+  if (params->update_info.min_width) {
+    min_size.set_width(*params->update_info.min_width);
+    set_min_size = true;
+  }
+  if (params->update_info.min_height) {
+    min_size.set_height(*params->update_info.min_height);
+    set_min_size = true;
+  }
+  if (params->update_info.max_width) {
+    max_size.set_width(*params->update_info.max_width);
+    set_max_size = true;
+  }
+  if (params->update_info.max_height) {
+    max_size.set_height(*params->update_info.max_height);
+    set_max_size = true;
+  }
+  if (set_min_size)
+    browser->window()->SetMinimumSize(min_size);
+  if (set_max_size)
+    browser->window()->SetMaximumSize(max_size);
   // Any part of the bounds can optionally be set by the caller.
   if (params->update_info.left) {
     bounds.set_x(*params->update_info.left);
@@ -818,6 +936,10 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     browser->window()->SetBounds(bounds);
   }
 
+  if (params->update_info.position &&
+      *params->update_info.position == "center")
+    BrowserView::GetBrowserViewForBrowser(browser)->frame()->CenterWindow(bounds.size());
+
   if (params->update_info.focused) {
     if (*params->update_info.focused) {
       if (show_state == ui::SHOW_STATE_MINIMIZED)
@@ -832,6 +954,14 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     }
   }
 
+  if (params->update_info.resizable)
+    browser->window()->SetResizable(*params->update_info.resizable);
+  if (params->update_info.all_visible)
+    browser->window()->SetAllVisible(*params->update_info.all_visible);
+  if (params->update_info.always_on_top)
+    browser->window()->SetAlwaysOnTop(*params->update_info.always_on_top);
+  if (params->update_info.show_in_taskbar)
+    browser->window()->SetShowInTaskbar(*params->update_info.show_in_taskbar);
   if (params->update_info.draw_attention)
     browser->window()->FlashFrame(*params->update_info.draw_attention);
 
@@ -1108,6 +1238,7 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
   AssignOptionalValue(params->create_properties.index, &options.index);
   AssignOptionalValue(params->create_properties.url, &options.url);
 
+  options.create_browser_if_needed = true;
   std::string error;
   std::unique_ptr<base::DictionaryValue> result(
       ExtensionTabUtil::OpenTab(this, options, user_gesture(), &error));
@@ -1798,6 +1929,8 @@ ExtensionFunction::ResponseAction TabsDetectLanguageFunction::Run() {
       tabs::DetectLanguage::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
+  return RespondNow(Error("disabled in NW.js"));
+#if 0
   int tab_id = 0;
   Browser* browser = NULL;
   WebContents* contents = NULL;
@@ -1857,6 +1990,7 @@ ExtensionFunction::ResponseAction TabsDetectLanguageFunction::Run() {
       this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(&(contents->GetController())));
   return RespondLater();
+#endif
 }
 
 void TabsDetectLanguageFunction::Observe(
@@ -1993,12 +2127,17 @@ ScriptExecutor* ExecuteCodeInTabFunction::GetScriptExecutor(
   bool success = GetTabById(execute_tab_id_, browser_context(),
                             include_incognito_information(), &browser, nullptr,
                             &contents, nullptr, error) &&
-                 contents && browser;
+                 contents;
 
   if (!success)
     return nullptr;
 
-  return TabHelper::FromWebContents(contents)->script_executor();
+  if (TabHelper::FromWebContents(contents))
+    return TabHelper::FromWebContents(contents)->script_executor();
+  auto* web_view = extensions::WebViewGuest::FromWebContents(contents);
+  if (web_view)
+    return web_view->script_executor();
+  return nullptr;
 }
 
 bool ExecuteCodeInTabFunction::IsWebView() const {

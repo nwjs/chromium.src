@@ -369,8 +369,10 @@ void BrowserProcessImpl::StartTearDown() {
   // that URLFetcher operation before going away.)
   metrics_services_manager_.reset();
   intranet_redirect_detector_.reset();
+#if 0
   if (safe_browsing_service_.get())
     safe_browsing_service()->ShutDown();
+#endif
   network_time_tracker_.reset();
 #if BUILDFLAG(ENABLE_PLUGINS)
   plugins_resource_service_.reset();
@@ -1037,6 +1039,7 @@ net_log::ChromeNetLog* BrowserProcessImpl::net_log() {
   return net_log_.get();
 }
 
+#if 1
 component_updater::ComponentUpdateService*
 BrowserProcessImpl::component_updater() {
   if (component_updater_)
@@ -1065,7 +1068,9 @@ BrowserProcessImpl::component_updater() {
 
   return component_updater_.get();
 }
+#endif
 
+#if 0
 component_updater::SupervisedUserWhitelistInstaller*
 BrowserProcessImpl::supervised_user_whitelist_installer() {
   if (!supervised_user_whitelist_installer_) {
@@ -1077,6 +1082,7 @@ BrowserProcessImpl::supervised_user_whitelist_installer() {
   }
   return supervised_user_whitelist_installer_.get();
 }
+#endif
 
 void BrowserProcessImpl::ResourceDispatcherHostCreated() {
   resource_dispatcher_host_delegate_ =
@@ -1140,8 +1146,11 @@ void BrowserProcessImpl::PreCreateThreads(
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   // chrome-extension:// URLs are safe to request anywhere, but may only
   // commit (including in iframes) in extension processes.
-  ChildProcessSecurityPolicy::GetInstance()->RegisterWebSafeIsolatedScheme(
-      extensions::kExtensionScheme, true);
+  // NWJS: Upstream: Remove command line/field trial support for
+  // disabling Isolate
+  // Extensions. https://codereview.chromium.org/2850793005
+  ChildProcessSecurityPolicy::GetInstance()->RegisterWebSafeScheme(
+      extensions::kExtensionScheme);
 #endif
 
   if (command_line.HasSwitch(network::switches::kLogNetLog) &&
@@ -1297,9 +1306,11 @@ void BrowserProcessImpl::CreateSafeBrowsingService() {
   // Set this flag to true so that we don't retry indefinitely to
   // create the service class if there was an error.
   created_safe_browsing_service_ = true;
+#if 0
   safe_browsing_service_ =
       safe_browsing::SafeBrowsingService::CreateSafeBrowsingService();
   safe_browsing_service_->Initialize();
+#endif
 }
 
 void BrowserProcessImpl::CreateSubresourceFilterRulesetService() {
@@ -1401,10 +1412,12 @@ void BrowserProcessImpl::ApplyAllowCrossOriginAuthPromptPolicy() {
 }
 
 void BrowserProcessImpl::CacheDefaultWebClientState() {
+#if 0
 #if defined(OS_CHROMEOS)
   cached_default_web_client_state_ = shell_integration::IS_DEFAULT;
 #elif !defined(OS_ANDROID)
   cached_default_web_client_state_ = shell_integration::GetDefaultBrowser();
+#endif
 #endif
 }
 

@@ -193,11 +193,11 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // A popup widget opened by this view needs to be shown.
   void ShowCreatedPopupWidget(RenderWidget* popup_widget,
                               blink::WebNavigationPolicy policy,
-                              const gfx::Rect& initial_rect);
+                              const gfx::Rect& initial_rect, blink::WebString* manifest = nullptr);
   // A RenderWidgetFullscreen widget opened by this view needs to be shown.
   void ShowCreatedFullscreenWidget(RenderWidget* fullscreen_widget,
                                    blink::WebNavigationPolicy policy,
-                                   const gfx::Rect& initial_rect);
+                                   const gfx::Rect& initial_rect, blink::WebString* manifest = nullptr);
 
   // Returns the length of the session history of this RenderView. Note that
   // this only coincides with the actual length of the session history if this
@@ -228,7 +228,7 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
                              bool suppress_opener,
                              blink::WebSandboxFlags sandbox_flags,
                              const blink::SessionStorageNamespaceId&
-                                 session_storage_namespace_id) override;
+                             session_storage_namespace_id, blink::WebString* manifest) override;
   blink::WebPagePopup* CreatePopup(blink::WebLocalFrame* creator) override;
   base::StringPiece GetSessionStorageNamespaceId() override;
   void PrintPage(blink::WebLocalFrame* frame) override;
@@ -247,6 +247,7 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void DidUpdateMainFrameLayout() override;
   blink::WebString AcceptLanguages() override;
   void NavigateBackForwardSoon(int offset, bool has_user_gesture) override;
+  void NavigateBackForwardSoon2(int offset, bool has_user_gesture, blink::WebLocalFrame* initiator) override;
   int HistoryBackListCount() override;
   int HistoryForwardListCount() override;
   void ZoomLimitsChanged(double minimum_level, double maximum_level) override;

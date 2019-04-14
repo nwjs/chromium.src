@@ -75,6 +75,9 @@ AutoplayPolicy::Type AutoplayPolicy::GetAutoplayPolicyForDocument(
   if (document.IsInWebAppScope())
     return Type::kNoUserGestureRequired;
 
+  if (document.GetFrame()->isNodeJS())
+    return Type::kNoUserGestureRequired;
+
   if (DocumentHasUserExceptionFlag(document))
     return Type::kNoUserGestureRequired;
 
@@ -288,7 +291,7 @@ bool AutoplayPolicy::RequestAutoplayByAttribute() {
 
 base::Optional<DOMExceptionCode> AutoplayPolicy::RequestPlay() {
   if (!LocalFrame::HasTransientUserActivation(
-          element_->GetDocument().GetFrame())) {
+                                              element_->GetDocument().GetFrame()) && !element_->GetDocument().GetFrame()->isNodeJS()) {
     autoplay_uma_helper_->OnAutoplayInitiated(AutoplaySource::kMethod);
     if (IsGestureNeededForPlayback()) {
       autoplay_uma_helper_->RecordCrossOriginAutoplayResult(

@@ -110,6 +110,7 @@ vars = {
   'boringssl_git': 'https://boringssl.googlesource.com',
   'chromium_git': 'https://chromium.googlesource.com',
   'dawn_git': 'https://dawn.googlesource.com',
+  'nwjs_git': 'https://github.com/nwjs',
   'pdfium_git': 'https://pdfium.googlesource.com',
   'quiche_git': 'https://quiche.googlesource.com',
   'skia_git': 'https://skia.googlesource.com',
@@ -455,6 +456,9 @@ deps = {
     Var('chromium_git') + '/external/github.com/KhronosGroup/SPIRV-Cross.git@' +
         Var('spirv_cross_revision'),
 
+  'src/tools/gyp':
+    Var('chromium_git') + '/external/gyp.git' + '@' + 'd61a9397e668fa9843c4aa7da9e79460fe590bfb',
+
   'src/third_party/spirv-headers/src':
     Var('chromium_git') + '/external/github.com/KhronosGroup/SPIRV-Headers.git@' +
         Var('spv_headers_revision'),
@@ -466,6 +470,17 @@ deps = {
   'src/third_party/shaderc/src':
     Var('chromium_git') + '/external/github.com/google/shaderc.git@' +
         Var('shaderc_revision'),
+
+  'src/tools/clang/dsymutil': {
+    'packages': [
+      {
+        'package': 'chromium/llvm-build-tools/dsymutil',
+        'version': 'kykIT8m8YzNqqLP2xFGBTuo0ZtU9lom3BwiStWleyWkC',
+      }
+    ],
+    'condition': 'checkout_mac',
+    'dep_type': 'cipd',
+  },
 
   'src/third_party/accessibility_test_framework': {
       'packages': [
@@ -1237,8 +1252,8 @@ deps = {
   'src/tools/swarming_client':
     Var('chromium_git') + '/infra/luci/client-py.git' + '@' +  Var('swarming_revision'),
 
-  'src/v8':
-    Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
+  #'src/v8':
+  #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
     'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@8cc00e0adcc4de4d08c28bdeb90f2636fcc215ae',
@@ -2411,7 +2426,15 @@ hooks = [
                 '--no_auth',
                 '--bucket', 'chromium-nodejs/8.9.1',
                 '-s', 'src/third_party/node/linux/node-linux-x64.tar.gz.sha1',
-    ],
+                ],
+  },
+  {
+    'name': 'nw_patch',
+    'pattern': '.',
+    'action': [
+      'python',
+      'src/content/nw/tools/patcher.py'
+      ],
   },
   {
     'name': 'node_mac',

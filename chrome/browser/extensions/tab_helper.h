@@ -9,6 +9,8 @@
 #include <set>
 #include <string>
 
+#include "extensions/common/draggable_region.h"
+
 #include "base/callback_forward.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
@@ -55,6 +57,8 @@ class TabHelper : public content::WebContentsObserver,
 
   void CreateHostedAppFromWebContents(bool shortcut_app_requested,
                                       OnceInstallCallback callback);
+  void UpdateDraggableRegions(content::RenderFrameHost* sender,
+                              const std::vector<DraggableRegion>& regions);
   bool CanCreateBookmarkApp() const;
 
   // Sets the extension denoting this as an app. If |extension| is non-null this
@@ -85,9 +89,7 @@ class TabHelper : public content::WebContentsObserver,
   // extension_misc::EXTENSION_ICON_SMALLISH).
   SkBitmap* GetExtensionAppIcon();
 
-  ScriptExecutor* script_executor() {
-    return script_executor_.get();
-  }
+  ScriptExecutor* script_executor() { return script_executor_.get(); }
 
   ExtensionActionRunner* extension_action_runner() {
     return extension_action_runner_.get();

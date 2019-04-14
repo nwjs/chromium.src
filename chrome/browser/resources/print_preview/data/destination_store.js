@@ -351,8 +351,9 @@ cr.define('print_preview', function() {
      */
     init(
         isInAppKioskMode, systemDefaultDestinationId,
-        serializedDefaultDestinationSelectionRulesStr, recentDestinations) {
+        serializedDefaultDestinationSelectionRulesStr, recentDestinations, isInNWPrintMode) {
       this.pdfPrinterEnabled_ = !isInAppKioskMode;
+      this.isInNWPrintMode_ = isInNWPrintMode;
       this.systemDefaultDestinationId_ = systemDefaultDestinationId;
       this.createLocalPdfPrintDestination_();
 
@@ -379,6 +380,7 @@ cr.define('print_preview', function() {
       let startedAutoSelect = false;
       let selected = false;
       let account = '';
+      if (!this.isInNWPrintMode_) {
       // Run through the destinations forward. As soon as we find a
       // destination, don't select any future destinations, just fetch their
       // capabilities in case the user switches to them later.
@@ -412,6 +414,7 @@ cr.define('print_preview', function() {
             account = destination.account;
           }
         }
+      }
       }
 
       if ((selected || startedAutoSelect) && !this.useSystemDefaultAsDefault_) {
@@ -611,7 +614,7 @@ cr.define('print_preview', function() {
      * @private
      */
     convertPreselectedToDestinationMatch_() {
-      if (this.isDestinationValid_(this.selectedDestination_)) {
+      if (this.isDestinationValid_(this.selectedDestination_) && !this.isInNWPrintMode_) {
         return this.createExactDestinationMatch_(
             this.selectedDestination_.origin, this.selectedDestination_.id);
       }

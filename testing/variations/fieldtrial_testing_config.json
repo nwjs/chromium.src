@@ -35,26 +35,6 @@
             ]
         }
     ],
-    "AccountConsistencyVariations": [
-        {
-            "platforms": [
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "DiceMigration",
-                    "params": {
-                        "method": "dice_migration"
-                    },
-                    "enable_features": [
-                        "AccountConsistency"
-                    ]
-                }
-            ]
-        }
-    ],
     "AdFramePriority": [
         {
             "platforms": [
@@ -2724,8 +2704,8 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled",
-                    "enable_features": [
+                    "name": "Disabled",
+                    "disable_features": [
                         "NativeCrxBindings"
                     ]
                 }
@@ -5197,24 +5177,6 @@
                     "name": "Enabled_V2",
                     "enable_features": [
                         "ViewsCastDialog"
-                    ]
-                }
-            ]
-        }
-    ],
-    "VizDisplayCompositor": [
-        {
-            "platforms": [
-                "windows",
-                "linux",
-                "mac",
-                "android"
-            ],
-            "experiments": [
-                {
-                    "name": "VizDisplayCompositor",
-                    "enable_features": [
-                        "VizDisplayCompositor"
                     ]
                 }
             ]

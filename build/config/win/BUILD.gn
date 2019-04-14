@@ -273,7 +273,7 @@ config("runtime_library") {
     defines += [
       "CR_LIBCXX_REVISION=$libcxx_svn_revision",
       "CR_LIBCXXABI_REVISION=$libcxxabi_svn_revision",
-      "_LIBCPP_ABI_UNSTABLE",
+      #"_LIBCPP_ABI_UNSTABLE",
       "_LIBCPP_ENABLE_NODISCARD",
 
       # Prevent libc++ from embedding linker flags to try to automatically link

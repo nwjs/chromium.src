@@ -10,6 +10,8 @@
 #include "content/renderer/render_thread_impl.h"
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
 
+#include "content/nw/src/nw_content.h"
+
 #if defined(OS_ANDROID)
 #include "base/android/jni_android.h"
 #endif

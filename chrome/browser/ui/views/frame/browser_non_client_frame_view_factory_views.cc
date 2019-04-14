@@ -56,7 +56,7 @@ BrowserNonClientFrameView* CreateBrowserNonClientFrameView(
     BrowserFrame* frame,
     BrowserView* browser_view) {
 #if defined(OS_WIN)
-  if (frame->ShouldUseNativeFrame())
+  if (frame->ShouldUseNativeFrame() && !browser_view->browser()->is_transparent())
     return new GlassBrowserFrameView(frame, browser_view);
 #endif
   OpaqueBrowserFrameView* view =

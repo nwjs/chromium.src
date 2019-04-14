@@ -73,7 +73,7 @@ void SharedWorkerClientHolder::Connect(
     MessagePortChannel port,
     const KURL& url,
     mojom::blink::BlobURLTokenPtr blob_url_token,
-    const String& name) {
+    const String& name, bool isNodeJS) {
   DCHECK(IsMainThread());
   DCHECK(!name.IsNull());
 
@@ -92,6 +92,7 @@ void SharedWorkerClientHolder::Connect(
   }
 
   mojom::blink::SharedWorkerInfoPtr info(mojom::blink::SharedWorkerInfo::New(
+                                                                             isNodeJS, base::FilePath(),
       url, name, header, header_type,
       worker->GetExecutionContext()->GetSecurityContext().AddressSpace()));
 

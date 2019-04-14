@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "extensions/common/draggable_region.h"
+
 #include "base/callback_forward.h"
 #include "build/build_config.h"
 #include "chrome/browser/lifetime/browser_close_manager.h"
@@ -35,6 +37,7 @@
 #include "chrome/browser/chromeos/apps/intent_helper/apps_navigation_types.h"
 #endif  // defined(OS_CHROMEOS)
 
+class SkRegion;
 class Browser;
 class DownloadShelf;
 class ExclusiveAccessContext;
@@ -124,6 +127,15 @@ class BrowserWindow : public ui::BaseWindow {
 
   //////////////////////////////////////////////////////////////////////////////
   // Browser specific methods:
+  virtual void SetShowInTaskbar(bool) = 0;
+  virtual void SetResizable(bool) = 0;
+  virtual void SetAllVisible(bool) = 0;
+  virtual void SetMinimumSize(gfx::Size) = 0;
+  virtual void SetMaximumSize(gfx::Size) = 0;
+  virtual void UpdateDraggableRegions(
+                                      const std::vector<extensions::DraggableRegion>& regions) = 0;
+  virtual SkRegion* GetDraggableRegion() = 0;
+  virtual void NativeWindowChanged() = 0;
 
   // Sets the shown |ratio| of the browser's top controls (a.k.a. top-chrome) as
   // a result of gesture scrolling in |web_contents|.

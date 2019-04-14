@@ -76,7 +76,7 @@ class CORE_EXPORT SharedWorkerClientHolder final
                MessagePortChannel,
                const KURL&,
                mojom::blink::BlobURLTokenPtr,
-               const String& name);
+               const String& name, bool);
 
   // Overrides ContextLifecycleObserver.
   void ContextDestroyed(ExecutionContext*) override;

@@ -53,6 +53,9 @@ VIEWS_EXPORT
 @property(readonly, nonatomic) views::BridgedNativeWidgetImpl* bridge;
 @property(assign, nonatomic) BOOL drawMenuBackgroundForBlur;
 
+// Used by g_force_cpu_draw
+@property(assign, nonatomic) CALayer* forceCPUDrawLayer;
+
 // Initialize the NSView -> views::View bridge. |viewToHost| must be non-NULL.
 - (instancetype)initWithBridge:(views::BridgedNativeWidgetImpl*)bridge
                         bounds:(gfx::Rect)rect;

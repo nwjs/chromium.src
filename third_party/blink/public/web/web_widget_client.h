@@ -105,7 +105,7 @@ class WebWidgetClient {
   virtual void CloseWidgetSoon() {}
 
   // Called to show the widget according to the given policy.
-  virtual void Show(WebNavigationPolicy) {}
+  virtual void Show(WebNavigationPolicy, WebString* manifest = nullptr) {}
 
   // Called to get/set the position of the widget's window in screen
   // coordinates. Note, the window includes any decorations such as borders,

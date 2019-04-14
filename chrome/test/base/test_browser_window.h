@@ -38,7 +38,16 @@ class TestBrowserWindow : public BrowserWindow {
   TestBrowserWindow();
   ~TestBrowserWindow() override;
 
+  void SetShowInTaskbar(bool) override {}
+  void SetResizable(bool) override {}
+  void SetAllVisible(bool) override {}
+  void SetMinimumSize(gfx::Size) override {}
+  void SetMaximumSize(gfx::Size) override {}
+  void NativeWindowChanged() override {}
   // BrowserWindow:
+  void UpdateDraggableRegions(
+         const std::vector<extensions::DraggableRegion>& regions) override;
+  SkRegion* GetDraggableRegion() override;
   void Show() override {}
   void ShowInactive() override {}
   void Hide() override {}

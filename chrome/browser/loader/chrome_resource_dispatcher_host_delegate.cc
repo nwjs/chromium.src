@@ -155,6 +155,7 @@ void AppendComponentUpdaterThrottles(
     content::ResourceContext* resource_context,
     ResourceType resource_type,
     std::vector<std::unique_ptr<content::ResourceThrottle>>* throttles) {
+#if 0
   if (info.IsPrerendering())
     return;
 
@@ -180,6 +181,7 @@ void AppendComponentUpdaterThrottles(
     throttles->push_back(base::WrapUnique(
         component_updater::GetOnDemandResourceThrottle(cus, crx_id)));
   }
+#endif
 }
 #endif  // BUILDFLAG(ENABLE_NACL)
 
@@ -305,8 +307,10 @@ void ChromeResourceDispatcherHostDelegate::RequestBeginning(
     content::AppCacheService* appcache_service,
     ResourceType resource_type,
     std::vector<std::unique_ptr<content::ResourceThrottle>>* throttles) {
+#if defined(FULL_SAFE_BROWSING) || defined(MOBILE_SAFE_BROWSING)
   if (safe_browsing_.get())
     safe_browsing_->OnResourceRequest(request);
+#endif
   ProfileIOData* io_data = ProfileIOData::FromResourceContext(resource_context);
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES) || BUILDFLAG(ENABLE_NACL)
@@ -403,7 +407,7 @@ void ChromeResourceDispatcherHostDelegate::AppendStandardResourceThrottles(
     content::ResourceContext* resource_context,
     ResourceType resource_type,
     std::vector<std::unique_ptr<content::ResourceThrottle>>* throttles) {
-  ProfileIOData* io_data = ProfileIOData::FromResourceContext(resource_context);
+  //ProfileIOData* io_data = ProfileIOData::FromResourceContext(resource_context);
 
   // Insert either safe browsing or data reduction proxy throttle at the front
   // of the list, so one of them gets to decide if the resource is safe.

@@ -235,11 +235,13 @@ void LocationBarView::Init() {
         command_updater(), browser_, this, font_list);
     page_action_icons_.push_back(save_credit_card_icon_view_);
   }
+#if 0
   if (browser_) {
     local_card_migration_icon_view_ = new autofill::LocalCardMigrationIconView(
         command_updater(), browser_, this, font_list);
     page_action_icons_.push_back(local_card_migration_icon_view_);
   }
+#endif
 
 #if defined(OS_CHROMEOS)
   if (browser_)

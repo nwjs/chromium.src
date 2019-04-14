@@ -10,6 +10,7 @@
 
 #include "base/macros.h"
 #include "base/unguessable_token.h"
+#include "base/files/file_path.h"
 #include "content/public/common/renderer_preference_watcher.mojom.h"
 #include "content/public/common/renderer_preferences.h"
 #include "ipc/ipc_listener.h"
@@ -126,6 +127,9 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
   std::vector<PendingChannel> pending_channels_;
 
   const int appcache_host_id_;
+  bool nodejs_ = false;
+  base::FilePath root_path_;
+
   WebApplicationCacheHostImpl* app_cache_host_ = nullptr;  // Not owned.
 
   // S13nServiceWorker: The info needed to connect to the

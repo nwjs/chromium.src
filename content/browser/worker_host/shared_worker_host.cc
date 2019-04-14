@@ -182,7 +182,7 @@ void SharedWorkerHost::Start(
   }
 #endif  // DCHECK_IS_ON()
 
-  blink::mojom::SharedWorkerInfoPtr info(blink::mojom::SharedWorkerInfo::New(
+  blink::mojom::SharedWorkerInfoPtr info(blink::mojom::SharedWorkerInfo::New(instance_->nodejs(), instance_->root_path(),
       instance_->url(), instance_->name(), instance_->content_security_policy(),
       instance_->content_security_policy_type(),
       instance_->creation_address_space()));

@@ -57,6 +57,11 @@
 #include "ui/gfx/mac/scoped_cocoa_disable_screen_updates.h"
 #endif  // defined(OS_MACOSX)
 
+namespace nw {
+typedef bool(*GuestSwapProcessHookFn)(content::BrowserContext*, const GURL& url);
+CONTENT_EXPORT GuestSwapProcessHookFn gGuestSwapProcessHook = nullptr;
+}
+
 namespace content {
 
 namespace {
@@ -1026,9 +1031,11 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
   DCHECK(!source_instance || !dest_instance);
 
   SiteInstance* current_instance = render_frame_host_->GetSiteInstance();
+  BrowserContext* browser_context =
+      delegate_->GetControllerForRenderManager().GetBrowserContext();
 
   // We do not currently swap processes for navigations in webview tag guests.
-  if (current_instance->GetSiteURL().SchemeIs(kGuestScheme))
+  if (current_instance->GetSiteURL().SchemeIs(kGuestScheme) && !(nw::gGuestSwapProcessHook && nw::gGuestSwapProcessHook(browser_context, dest_url)))
     return current_instance;
 
   // Determine if we need a new BrowsingInstance for this entry.  If true, this
@@ -1045,8 +1052,6 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
   // whether to use a new SiteInstance. This happens when navigating a subframe,
   // or when a new RenderFrameHost has been swapped in at the beginning of a
   // navigation to replace a crashed RenderFrameHost.
-  BrowserContext* browser_context =
-      delegate_->GetControllerForRenderManager().GetBrowserContext();
   const GURL& current_effective_url =
       !render_frame_host_->last_successful_url().is_empty()
           ? SiteInstanceImpl::GetEffectiveURL(
@@ -1477,11 +1482,11 @@ bool RenderFrameHostManager::IsRendererTransferNeededForNavigation(
   if (!rfh->GetSiteInstance()->HasSite())
     return false;
 
+  BrowserContext* context = rfh->GetSiteInstance()->GetBrowserContext();
   // We do not currently swap processes for navigations in webview tag guests.
-  if (rfh->GetSiteInstance()->GetSiteURL().SchemeIs(kGuestScheme))
+  if (rfh->GetSiteInstance()->GetSiteURL().SchemeIs(kGuestScheme) && !(nw::gGuestSwapProcessHook && nw::gGuestSwapProcessHook(context, dest_url)))
     return false;
 
-  BrowserContext* context = rfh->GetSiteInstance()->GetBrowserContext();
   // TODO(nasko, nick): These following --site-per-process checks are
   // overly simplistic. Update them to match all the cases
   // considered by DetermineSiteInstanceForURL.
@@ -2018,7 +2023,7 @@ RenderFrameHostManager::GetSiteInstanceForNavigationRequest(
         request.dest_site_instance());
   }
 
-  if (no_renderer_swap_allowed && !should_swap_for_error_isolation)
+  if ((no_renderer_swap_allowed && !should_swap_for_error_isolation) || (was_server_redirect && render_frame_host_->in_window_creation_))
     return scoped_refptr<SiteInstance>(current_site_instance);
 
   // If the navigation can swap SiteInstances, compute the SiteInstance it

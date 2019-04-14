@@ -247,6 +247,9 @@
 
 using base::Time;
 using base::TimeDelta;
+
+#include "content/nw/src/nw_content.h"
+
 using blink::WebContentDecryptionModule;
 using blink::WebContextMenuData;
 using blink::WebData;
@@ -1224,6 +1227,16 @@ blink::WebLocalFrame* RenderFrameImpl::UniqueNameFrameAdapter::GetWebFrame()
   return render_frame_->frame_;
 }
 
+void RenderFrameImpl::willHandleNavigationPolicy(
+                                                blink::WebFrame* frame,
+                                                const blink::WebURLRequest& request,
+                                                blink::WebNavigationPolicy* policy,
+                                                blink::WebString* manifest,
+                                                bool new_win) {
+  GetContentClient()->renderer()
+    ->willHandleNavigationPolicy(render_view_, frame, request, policy, manifest, new_win);
+}
+
 // static
 RenderFrameImpl* RenderFrameImpl::Create(
     RenderViewImpl* render_view,
@@ -1647,7 +1660,7 @@ RenderFrameImpl::CreateParams& RenderFrameImpl::CreateParams::operator=(
 
 // RenderFrameImpl ----------------------------------------------------------
 RenderFrameImpl::RenderFrameImpl(CreateParams params)
-    : frame_(nullptr),
+  : skip_blocking_parser_(true), frame_(nullptr),
       is_main_frame_(true),
       unique_name_frame_adapter_(this),
       unique_name_helper_(&unique_name_frame_adapter_),
@@ -3181,6 +3194,11 @@ void RenderFrameImpl::GetInterfaceProvider(
                               browser_info_.identity, std::move(request),
                               std::move(provider));
 }
+
+void RenderFrameImpl::SetSkipBlockingParser(bool value) {
+  skip_blocking_parser_ = value;
+}
+
 void RenderFrameImpl::GetCanonicalUrlForSharing(
     GetCanonicalUrlForSharingCallback callback) {
   WebURL canonical_url = GetWebFrame()->GetDocument().CanonicalUrlForSharing();
@@ -5277,6 +5295,7 @@ void RenderFrameImpl::DidCreateScriptContext(v8::Local<v8::Context> context,
     blink::WebContextFeatures::EnableMojoJS(context, true);
   }
 
+  GetFrameHost()->SetContextCreated(true);
   for (auto& observer : observers_)
     observer.DidCreateScriptContext(context, world_id);
 }
@@ -5285,6 +5304,7 @@ void RenderFrameImpl::WillReleaseScriptContext(v8::Local<v8::Context> context,
                                                int world_id) {
   for (auto& observer : observers_)
     observer.WillReleaseScriptContext(context, world_id);
+  GetFrameHost()->SetContextCreated(false);
 }
 
 void RenderFrameImpl::DidChangeScrollOffset() {
@@ -5323,6 +5343,10 @@ blink::WebEncryptedMediaClient* RenderFrameImpl::EncryptedMediaClient() {
 }
 
 blink::WebString RenderFrameImpl::UserAgentOverride() {
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent))
+    return WebString::FromUTF8(user_agent);
+
   if (!render_view_->webview() || !render_view_->webview()->MainFrame() ||
       render_view_->renderer_preferences_.user_agent_override.empty()) {
     return blink::WebString();
@@ -7235,19 +7259,20 @@ void RenderFrameImpl::OnSetPepperVolume(int32_t pp_instance, double volume) {
 void RenderFrameImpl::ShowCreatedWindow(bool opened_by_user_gesture,
                                         RenderWidget* render_widget_to_show,
                                         WebNavigationPolicy policy,
-                                        const gfx::Rect& initial_rect) {
+                                        const gfx::Rect& initial_rect, WebString* manifest) {
   // |render_widget_to_show| is the main RenderWidget for a pending window
   // created by this object, but not yet shown. The tab is currently offscreen,
   // and still owned by the opener. Sending |FrameHostMsg_ShowCreatedWindow|
   // will move it off the opener's pending list, and put it in its own tab or
   // window.
   //
+  std::string mft = manifest ? manifest->Utf8() : "";
   // This call happens only for renderer-created windows; for example, when a
   // tab is created by script via window.open().
   Send(new FrameHostMsg_ShowCreatedWindow(
       GetRoutingID(), render_widget_to_show->routing_id(),
       RenderViewImpl::NavigationPolicyToDisposition(policy), initial_rect,
-      opened_by_user_gesture));
+      opened_by_user_gesture, mft));
 }
 
 void RenderFrameImpl::RenderWidgetSetFocus(bool enable) {

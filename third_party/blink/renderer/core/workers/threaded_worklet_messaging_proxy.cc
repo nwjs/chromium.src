@@ -53,7 +53,7 @@ void ThreadedWorkletMessagingProxy::Initialize(
       document->GetFrame()->Client()->CreateWorkerContentSettingsClient());
 
   auto global_scope_creation_params =
-      std::make_unique<GlobalScopeCreationParams>(
+    std::make_unique<GlobalScopeCreationParams>(false, std::string(),
           document->Url(), mojom::ScriptType::kModule,
           OffMainThreadWorkerScriptFetchOption::kEnabled, document->UserAgent(),
           document->GetFrame()->Client()->CreateWorkerFetchContext(),

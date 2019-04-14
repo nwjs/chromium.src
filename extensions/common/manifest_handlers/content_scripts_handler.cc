@@ -125,6 +125,18 @@ std::unique_ptr<UserScript> LoadUserScriptFromDictionary(
     result->set_match_about_blank(match_about_blank->GetBool());
   }
 
+  // in main world
+  const base::Value* in_main_world =
+    content_script.FindKey(keys::kInMainWorld);
+  if (in_main_world != nullptr) {
+    if (!in_main_world->is_bool()) {
+      *error = ErrorUtils::FormatErrorMessageUTF16(
+          errors::kInvalidInMainWorld, base::IntToString(definition_index));
+      return nullptr;
+    }
+    result->set_in_main_world(in_main_world->GetBool());
+  }
+
   // matches (required)
   const base::Value* matches =
       content_script.FindKeyOfType(keys::kMatches, base::Value::Type::LIST);
@@ -143,7 +155,7 @@ std::unique_ptr<UserScript> LoadUserScriptFromDictionary(
 
   const bool can_execute_script_everywhere =
       PermissionsData::CanExecuteScriptEverywhere(extension->id(),
-                                                  extension->location());
+                                                  extension->location(), extension->GetType());
   const int valid_schemes =
       UserScript::ValidUserScriptSchemes(can_execute_script_everywhere);
 

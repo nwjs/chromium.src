@@ -63,6 +63,7 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
   int GetThemeBackgroundXInset() const override;
   void UpdateThrobber(bool running) override;
   gfx::Size GetMinimumSize() const override;
+  gfx::Size GetMaximumSize() const override;
 
   // views::NonClientFrameView:
   gfx::Rect GetBoundsForClientView() const override;
@@ -97,6 +98,7 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
   base::string16 GetWindowTitle() const override;
   int GetIconSize() const override;
   gfx::Size GetBrowserViewMinimumSize() const override;
+  gfx::Size GetBrowserViewMaximumSize() const override;
   bool ShouldShowCaptionButtons() const override;
   bool IsRegularOrGuestSession() const override;
   bool IsMaximized() const override;
@@ -190,7 +192,7 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
   void PaintRestoredFrameBorder(gfx::Canvas* canvas) const;
   void PaintMaximizedFrameBorder(gfx::Canvas* canvas) const;
   void PaintClientEdge(gfx::Canvas* canvas) const;
-
+  bool frameless_;
   // Our layout manager also calculates various bounds.
   OpaqueBrowserFrameViewLayout* layout_;
 

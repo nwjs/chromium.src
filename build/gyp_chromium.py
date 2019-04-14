@@ -23,7 +23,6 @@ def main():
   sys.exit(gyp.main(sys.argv[1:] + [
       '--check',
       '--no-circular-check',
-      '-I', os.path.join(script_dir, 'common.gypi'),
       '-D', 'gyp_output_dir=out']))
 
 if __name__ == '__main__':

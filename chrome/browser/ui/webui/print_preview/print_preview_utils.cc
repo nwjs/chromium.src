@@ -38,19 +38,22 @@ const char kTypeKey[] = "type";
 // The dictionary key for the CDD item containing custom vendor capabilities.
 const char kVendorCapabilityKey[] = "vendor_capability";
 
-namespace {
+}
 
-void PrintersToValues(const PrinterList& printer_list,
+
+namespace chrome {
+
+void PrintersToValues(const printing::PrinterList& printer_list,
                       base::ListValue* printers) {
-  for (const PrinterBasicInfo& printer : printer_list) {
+  for (const printing::PrinterBasicInfo& printer : printer_list) {
     auto printer_info = std::make_unique<base::DictionaryValue>();
-    printer_info->SetString(kSettingDeviceName, printer.printer_name);
+    printer_info->SetString(printing::kSettingDeviceName, printer.printer_name);
 
     const auto printer_name_description = GetPrinterNameAndDescription(printer);
     const std::string& printer_name = printer_name_description.first;
     const std::string& printer_description = printer_name_description.second;
-    printer_info->SetString(kSettingPrinterName, printer_name);
-    printer_info->SetString(kSettingPrinterDescription, printer_description);
+    printer_info->SetString(printing::kSettingPrinterName, printer_name);
+    printer_info->SetString(printing::kSettingPrinterDescription, printer_description);
 
     auto options = std::make_unique<base::DictionaryValue>();
     for (const auto opt_it : printer.options)
@@ -61,7 +64,7 @@ void PrintersToValues(const PrinterList& printer_list,
         base::ContainsKey(printer.options, kCUPSEnterprisePrinter) &&
             printer.options.at(kCUPSEnterprisePrinter) == kValueTrue);
 
-    printer_info->Set(kSettingPrinterOptions, std::move(options));
+    printer_info->Set(printing::kSettingPrinterOptions, std::move(options));
 
     printers->Append(std::move(printer_info));
 
@@ -70,6 +73,9 @@ void PrintersToValues(const PrinterList& printer_list,
   }
 }
 
+}  // namespace chrome
+
+namespace printing {
 template <typename Predicate>
 base::Value GetFilteredList(const base::Value* list, Predicate pred) {
   auto out_list = list->Clone();
@@ -107,8 +113,6 @@ void SystemDialogDone(const base::Value& error) {
   // intentional no-op
 }
 
-}  // namespace
-
 std::unique_ptr<base::DictionaryValue> ValidateCddForPrintPreview(
     const base::DictionaryValue& cdd) {
   auto validated_cdd =
@@ -133,8 +137,8 @@ std::unique_ptr<base::DictionaryValue> ValidateCddForPrintPreview(
     }
 
     bool is_vendor_capability = key == kVendorCapabilityKey;
-    base::Value out_list = GetFilteredList(
-        list, is_vendor_capability ? VendorCapabilityInvalid : ValueIsNull);
+    base::Value out_list = printing::GetFilteredList(
+        list, is_vendor_capability ? printing::VendorCapabilityInvalid : printing::ValueIsNull);
     if (out_list.GetList().empty())  // leave out empty lists.
       continue;
     if (is_vendor_capability) {
@@ -150,7 +154,7 @@ std::unique_ptr<base::DictionaryValue> ValidateCddForPrintPreview(
         const base::Value* options_list =
             options_dict->FindKeyOfType(kOptionKey, base::Value::Type::LIST);
         options_dict->SetKey(kOptionKey,
-                             GetFilteredList(options_list, ValueIsNull));
+                             printing::GetFilteredList(options_list, printing::ValueIsNull));
       }
     }
     if (value.is_dict()) {
@@ -170,7 +174,7 @@ void ConvertPrinterListForCallback(
     PrinterHandler::GetPrintersDoneCallback done_callback,
     const PrinterList& printer_list) {
   base::ListValue printers;
-  PrintersToValues(printer_list, &printers);
+  chrome::PrintersToValues(printer_list, &printers);
 
   VLOG(1) << "Enumerate printers finished, found " << printers.GetSize()
           << " printers";
@@ -201,7 +205,7 @@ void StartLocalPrint(base::Value job_settings,
     // Run the callback early, or the modal dialogs will prevent the preview
     // from closing until they do.
     std::move(callback).Run(base::Value());
-    callback = base::BindOnce(&SystemDialogDone);
+    callback = base::BindOnce(&printing::SystemDialogDone);
   }
   print_view_manager->PrintForPrintPreview(std::move(job_settings), print_data,
                                            preview_web_contents->GetMainFrame(),

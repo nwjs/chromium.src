@@ -5,6 +5,7 @@
 #include "extensions/renderer/runtime_custom_bindings.h"
 
 #include <stdint.h>
+#include "extensions/renderer/script_context_set.h"
 
 #include <memory>
 
@@ -37,7 +38,10 @@ void RuntimeCustomBindings::AddRoutes() {
 
 void RuntimeCustomBindings::GetManifest(
     const v8::FunctionCallbackInfo<v8::Value>& args) {
-  CHECK(context()->extension());
+  if (!context()->extension()) {
+    args.GetReturnValue().Set(v8::Undefined(context()->v8_context()->GetIsolate()));
+    return;
+  }
 
   args.GetReturnValue().Set(content::V8ValueConverter::Create()->ToV8Value(
       context()->extension()->manifest()->value(), context()->v8_context()));
@@ -65,8 +69,13 @@ void RuntimeCustomBindings::GetExtensionViews(
     CHECK_EQ("ALL", view_type_string);
 
   const std::string& extension_id = context()->GetExtensionID();
-  if (extension_id.empty())
-    return;
+  // id is empty while calling from external page. we want to do
+  // this for window controlling. note the case that there are
+  // multiple extensions in the process, e.g. the automation extension
+  // for chromedriver
+
+  // if (extension_id.empty())
+  //   return;
 
   // We ignore iframes here. (Returning subframes can cause broken behavior by
   // treating an app window's iframe as its main frame, and maybe other

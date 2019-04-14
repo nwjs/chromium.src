@@ -69,7 +69,6 @@ BEGIN
     "T",            IDC_FOCUS_TOOLBAR,          VIRTKEY, SHIFT, ALT
     VK_BACK,        IDC_FORWARD,                VIRTKEY, SHIFT
     VK_RIGHT,       IDC_FORWARD,                VIRTKEY, ALT
-    VK_F11,         IDC_FULLSCREEN,             VIRTKEY
     VK_F1,          IDC_HELP_PAGE_VIA_KEYBOARD, VIRTKEY
     VK_HOME,        IDC_HOME,                   VIRTKEY, ALT
     "N",            IDC_NEW_INCOGNITO_WINDOW,   VIRTKEY, CONTROL, SHIFT

@@ -514,7 +514,7 @@ class HDRProxy {
 // The currently-running BrowserMainLoop.  There can be one or zero.
 BrowserMainLoop* g_current_browser_main_loop = nullptr;
 
-#if defined(OS_ANDROID)
+#if 1 //defined(OS_ANDROID)
 bool g_browser_main_loop_shutting_down = false;
 #endif
 
@@ -1031,18 +1031,18 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
       base::BindOnce(
           base::IgnoreResult(&base::ThreadRestrictions::SetWaitAllowed), true));
 
-#if defined(OS_ANDROID)
+#if 1 //defined(OS_ANDROID)
   g_browser_main_loop_shutting_down = true;
 #endif
-
-  if (RenderProcessHost::run_renderer_in_process())
-    RenderProcessHostImpl::ShutDownInProcessRenderer();
 
   if (parts_) {
     TRACE_EVENT0("shutdown",
                  "BrowserMainLoop::Subsystem:PostMainMessageLoopRun");
     parts_->PostMainMessageLoopRun();
   }
+
+  if (RenderProcessHost::run_renderer_in_process())
+    RenderProcessHostImpl::ShutDownInProcessRenderer();
 
   system_stats_monitor_.reset();
 

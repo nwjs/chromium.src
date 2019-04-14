@@ -174,14 +174,14 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
     return;
 
   if (!LocalFrame::HasTransientUserActivation(
-          GetElement().GetDocument().GetFrame()))
+                                              GetElement().GetDocument().GetFrame()) && !GetElement().GetDocument().GetFrame()->isNodeJS())
     return;
 
   if (ChromeClient* chrome_client = GetChromeClient()) {
     FileChooserParams params;
     HTMLInputElement& input = GetElement();
     Document& document = input.GetDocument();
-    bool is_directory = input.FastHasAttribute(kWebkitdirectoryAttr);
+    bool is_directory = input.FastHasAttribute(kWebkitdirectoryAttr) || input.FastHasAttribute(kNwdirectoryAttr);
     if (is_directory)
       params.mode = FileChooserParams::Mode::kUploadFolder;
     else if (input.FastHasAttribute(kMultipleAttr))
@@ -195,6 +195,15 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
     params.use_media_capture = RuntimeEnabledFeatures::MediaCaptureEnabled() &&
                                input.FastHasAttribute(kCaptureAttr);
     params.requestor = document.Url();
+    params.initial_path = base::FilePath::FromUTF8Unsafe(input.nwworkingdir().GetString().Utf8().data());
+    if (input.FastHasAttribute(kNwsaveasAttr))
+      params.mode = FileChooserParams::Mode::kSave;
+    params.default_file_name = base::FilePath::FromUTF8Unsafe(input.nwsaveas().Utf8().data());
+    params.extract_directory = input.FastHasAttribute(kWebkitdirectoryAttr);
+    if (params.selected_files.size() > 0)
+      params.default_file_name = params.selected_files[0];
+    if (input.FastHasAttribute(kNwdirectorydescAttr))
+      params.title = input.FastGetAttribute(kNwdirectorydescAttr);
 
     UseCounter::Count(
         document, document.IsSecureContext()
@@ -241,7 +250,15 @@ String FileInputType::ValueInFilenameValueMode() const {
   // decided to try to parse the value by looking for backslashes
   // (because that's what Windows file paths use). To be compatible
   // with that code, we make up a fake path for the file.
-  return "C:\\fakepath\\" + file_list_->item(0)->name();
+  //return "C:\\fakepath\\" + file_list_->item(0)->name();
+  unsigned numFiles = file_list_->length();
+  StringBuilder val;
+  val.Append(file_list_->item(0)->path());
+  for (unsigned i = 1; i < numFiles; ++i) {
+    val.Append(';');
+    val.Append(file_list_->item(i)->path());
+  }
+  return val.ToString();
 }
 
 void FileInputType::SetValue(const String&,
@@ -389,7 +406,12 @@ void FileInputType::SetFilesAndDispatchEvents(FileList* files) {
 }
 
 void FileInputType::FilesChosen(FileChooserFileInfoList files,
-                                const base::FilePath& base_dir) {
+                                const base::FilePath& base_dir,
+                                bool canceled) {
+  if (canceled) {
+    GetElement().DispatchScopedEvent(*Event::CreateBubble(event_type_names::kCancel));
+    return;
+  }
   for (wtf_size_t i = 0; i < files.size();) {
     // Drop files of which names can not be converted to WTF String. We
     // can't expose such files via File API.

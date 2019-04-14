@@ -1613,18 +1613,18 @@ jumbo_split_static_library("browser") {
     "tracing/crash_service_uploader.h",
     "tracing/navigation_tracing.cc",
     "tracing/navigation_tracing.h",
-    "translate/android/translate_utils.cc",
-    "translate/android/translate_utils.h",
-    "translate/chrome_translate_client.cc",
-    "translate/chrome_translate_client.h",
-    "translate/translate_accept_languages_factory.cc",
-    "translate/translate_accept_languages_factory.h",
-    "translate/translate_ranker_factory.cc",
-    "translate/translate_ranker_factory.h",
-    "translate/translate_ranker_metrics_provider.cc",
-    "translate/translate_ranker_metrics_provider.h",
-    "translate/translate_service.cc",
-    "translate/translate_service.h",
+    #"translate/android/translate_utils.cc",
+    #"translate/android/translate_utils.h",
+    #"translate/chrome_translate_client.cc",
+    #"translate/chrome_translate_client.h",
+    #"translate/translate_accept_languages_factory.cc",
+    #"translate/translate_accept_languages_factory.h",
+    #"translate/translate_ranker_factory.cc",
+    #"translate/translate_ranker_factory.h",
+    #"translate/translate_ranker_metrics_provider.cc",
+    #"translate/translate_ranker_metrics_provider.h",
+    #"translate/translate_service.cc",
+    #"translate/translate_service.h",
     "undo/bookmark_undo_service_factory.cc",
     "undo/bookmark_undo_service_factory.h",
     "unified_consent/chrome_unified_consent_service_client.cc",
@@ -1713,7 +1713,7 @@ jumbo_split_static_library("browser") {
   allow_circular_includes_from = [
     "//chrome/browser/ui",
     "//chrome/browser/ui/webui/bluetooth_internals",
-    "//chrome/browser/safe_browsing",
+    #"//chrome/browser/safe_browsing",
   ]
 
   public_deps = [
@@ -1734,6 +1734,7 @@ jumbo_split_static_library("browser") {
     "//base:i18n",
     "//base/allocator:buildflags",
     "//cc",
+    "//content/nw:nw_browser",
     "//chrome:extra_resources",
     "//chrome:resources",
     "//chrome:strings",
@@ -1750,7 +1751,7 @@ jumbo_split_static_library("browser") {
     "//chrome/browser/profiling_host",
     "//chrome/browser/push_messaging:budget_proto",
     "//chrome/browser/resource_coordinator:mojo_bindings",
-    "//chrome/browser/safe_browsing",
+    #"//chrome/browser/safe_browsing",
     "//chrome/browser/ssl:proto",
     "//chrome/browser/ui",
     "//chrome/browser/ui/webui/bluetooth_internals",
@@ -1774,8 +1775,8 @@ jumbo_split_static_library("browser") {
     "//components/certificate_matching",
     "//components/certificate_transparency",
     "//components/cloud_devices/common",
-    "//components/component_updater",
-    "//components/component_updater:crl_set_remover",
+    #"//components/component_updater",
+    #"//components/component_updater:crl_set_remover",
     "//components/consent_auditor",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
@@ -1853,8 +1854,8 @@ jumbo_split_static_library("browser") {
     "//components/profile_metrics",
     "//components/proxy_config",
     "//components/query_parser",
-    "//components/rappor",
-    "//components/rappor:rappor_recorder",
+    #"//components/rappor",
+    #"//components/rappor:rappor_recorder",
     "//components/renderer_context_menu",
     "//components/resources",
     "//components/safe_search_api",
@@ -5115,7 +5116,11 @@ proto_library("resource_prefetch_predictor_proto") {
 }
 
 grit("resources") {
-  source = "browser_resources.grd"
+  if (nwjs_sdk) {
+    source = "browser_resources.grd"
+  } else {
+    source = "nwjs_resources.grd"
+  }
 
   # The .grd contains references to generated files.
   source_is_generated = true

@@ -112,9 +112,10 @@ enum PersistedWindowShowState {
   PERSISTED_SHOW_STATE_MAXIMIZED = 3,
   // SHOW_STATE_INACTIVE (4) never persisted.
   PERSISTED_SHOW_STATE_FULLSCREEN = 5,
-  PERSISTED_SHOW_STATE_DETACHED_DEPRECATED = 6,
-  PERSISTED_SHOW_STATE_DOCKED_DEPRECATED = 7,
-  PERSISTED_SHOW_STATE_END = 8,
+  // hidden not persisted
+  PERSISTED_SHOW_STATE_DETACHED_DEPRECATED = 7,
+  PERSISTED_SHOW_STATE_DOCKED_DEPRECATED = 8,
+  PERSISTED_SHOW_STATE_END = 9,
 };
 
 using IdToSessionTab = std::map<SessionID, std::unique_ptr<SessionTab>>;
@@ -141,6 +142,7 @@ PersistedWindowShowState ShowStateToPersistedShowState(
       return PERSISTED_SHOW_STATE_FULLSCREEN;
     case ui::SHOW_STATE_DEFAULT:
     case ui::SHOW_STATE_INACTIVE:
+    case ui::SHOW_STATE_HIDDEN:
       return PERSISTED_SHOW_STATE_NORMAL;
 
     case ui::SHOW_STATE_END:

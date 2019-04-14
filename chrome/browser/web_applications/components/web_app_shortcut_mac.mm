@@ -212,7 +212,7 @@ bool IsImageValidForIcon(const gfx::Image& image) {
 bool AppShimsDisabledForTest() {
   // Disable app shims in tests because shims created in ~/Applications will not
   // be cleaned up.
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kTestType);
+  return true; //base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kTestType);
 }
 
 base::FilePath GetWritableApplicationsDirectory() {

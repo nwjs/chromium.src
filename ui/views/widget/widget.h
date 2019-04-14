@@ -485,13 +485,13 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Equivalent to CloseWithReason(ClosedReason::kUnspecified).
   // DEPRECATED: Please use CloseWithReason() instead.
-  void Close();
+  void Close(bool force = false);
 
   // Hides the widget, then closes it after a return to the message loop,
   // specifying the reason for it having been closed.
   // Note that while you can pass ClosedReason::kUnspecified, it is highly
   // discouraged and only supported for backwards-compatibility with Close().
-  void CloseWithReason(ClosedReason closed_reason);
+  void CloseWithReason(ClosedReason closed_reason, bool force = false);
 
   // TODO(beng): Move off public API.
   // Closes the widget immediately. Compare to |Close|. This will destroy the
@@ -812,6 +812,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   bool IsAlwaysRenderAsActive() const override;
   void SetAlwaysRenderAsActive(bool always_render_as_active) override;
   bool OnNativeWidgetActivationChanged(bool active) override;
+  bool NWCanClose(bool user_force = false) const override;
   void OnNativeFocus() override;
   void OnNativeBlur() override;
   void OnNativeWidgetVisibilityChanging(bool visible) override;
@@ -963,6 +964,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Note that this may be ClosedReason::kUnspecified if the deprecated Close()
   // method was called rather than CloseWithReason().
   ClosedReason closed_reason_ = ClosedReason::kUnspecified;
+  bool force_closing_;
 
   // The saved "show" state for this window. See note in SetInitialBounds
   // that explains why we save this.

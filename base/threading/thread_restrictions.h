@@ -106,12 +106,20 @@ class AwFormDatabaseService;
 class CookieManager;
 class ScopedAllowInitGLBindings;
 }
+
 namespace audio {
 class OutputDevice;
 }
+
 namespace blink {
 class VideoFrameResourceProvider;
 }
+
+namespace extensions {
+class NwAppSetProxyConfigFunction;
+class ContentVerifier;
+}
+
 namespace cc {
 class CompletionEvent;
 class SingleThreadTaskGraphRunner;
@@ -460,6 +468,7 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
   // Not used in production yet, https://crbug.com/844078.
   friend class service_manager::ServiceProcessLauncher;
   friend class ui::WindowResizeHelperMac;  // http://crbug.com/902829
+  friend class extensions::NwAppSetProxyConfigFunction;
 
   ScopedAllowBaseSyncPrimitivesOutsideBlockingScope()
       EMPTY_BODY_IF_DCHECK_IS_OFF;
@@ -570,6 +579,8 @@ class BASE_EXPORT ThreadRestrictions {
   friend class ui::CommandBufferClientImpl;
   friend class ui::CommandBufferLocal;
   friend class ui::GpuState;
+
+  friend class extensions::ContentVerifier;
 
   // END ALLOWED USAGE.
   // BEGIN USAGE THAT NEEDS TO BE FIXED.

@@ -1078,7 +1078,7 @@ PDFViewer.prototype = {
     if (this.isPrintPreview_) {
       this.navigator_.navigate(url, Navigator.WindowOpenDisposition.NEW_BACKGROUND_TAB);
     } else {
-      this.navigator_.navigate(url, disposition);
+      this.navigator_.navigate(url, Navigator.WindowOpenDisposition.NEW_BACKGROUND_TAB);
     }
   },
 

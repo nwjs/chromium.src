@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "content/nw/src/nw_base.h"
+
 #include "services/service_manager/embedder/main.h"
 
 #include "base/allocator/buildflags.h"
@@ -74,7 +76,7 @@ namespace {
 
 // Maximum message size allowed to be read from a Mojo message pipe in any
 // service manager embedder process.
-constexpr size_t kMaximumMojoMessageSize = 128 * 1024 * 1024;
+constexpr size_t kMaximumMojoMessageSize = 256 * 1024 * 1024;
 
 class ServiceProcessLauncherDelegateImpl
     : public service_manager::ServiceProcessLauncherDelegate {
@@ -178,7 +180,7 @@ void CommonSubprocessInit() {
   setlocale(LC_NUMERIC, "C");
 #endif
 
-#if !defined(OFFICIAL_BUILD) && defined(OS_WIN)
+#if 0
   base::RouteStdioToConsole(false);
   LoadLibraryA("dbghelp.dll");
 #endif
@@ -358,7 +360,7 @@ int Main(const MainParams& params) {
 
     base::EnableTerminationOnHeapCorruption();
 
-    SetProcessTitleFromCommandLine(argv);
+    //SetProcessTitleFromCommandLine(argv);
 #endif  // !defined(OS_ANDROID)
 
 // On Android setlocale() is not supported, and we don't override the signal
@@ -390,6 +392,8 @@ int Main(const MainParams& params) {
 #endif
 
     mojo::core::Configuration mojo_config;
+    std::string type_switch =
+        command_line.GetSwitchValueASCII(switches::kProcessType);
     if (process_type == ProcessType::kDefault &&
         command_line.GetSwitchValueASCII(switches::kProcessType) ==
             switches::kProcessTypeServiceManager) {
@@ -412,7 +416,7 @@ int Main(const MainParams& params) {
       return exit_code;
     }
 
-#if defined(OS_WIN)
+#if 0 //defined(OS_WIN)
     // Route stdio to parent console (if any) or create one.
     if (base::CommandLine::ForCurrentProcess()->HasSwitch(
             switches::kEnableLogging)) {
@@ -430,9 +434,9 @@ int Main(const MainParams& params) {
   }
 
   const auto& command_line = *base::CommandLine::ForCurrentProcess();
-  if (process_type == ProcessType::kDefault) {
-    std::string type_switch =
+  std::string type_switch =
         command_line.GetSwitchValueASCII(switches::kProcessType);
+  if (process_type == ProcessType::kDefault) {
     if (type_switch == switches::kProcessTypeServiceManager) {
       process_type = ProcessType::kServiceManager;
     } else if (type_switch == switches::kProcessTypeService) {
@@ -461,7 +465,8 @@ int Main(const MainParams& params) {
       exit_code = delegate->RunEmbedderProcess();
       break;
   }
-
+  if (type_switch == "renderer")
+    exit_code = nw::ExitCodeHook();
   if (tracker) {
     if (exit_code == 0) {
       tracker->SetProcessPhaseIfEnabled(

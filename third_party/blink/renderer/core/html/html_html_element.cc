@@ -58,6 +58,7 @@ void HTMLHtmlElement::InsertedByParser() {
   GetDocument().Parser()->DocumentElementAvailable();
   if (GetDocument().GetFrame()) {
     GetDocument().GetFrame()->Loader().DispatchDocumentElementAvailable();
+    if (GetDocument().GetFrame())
     GetDocument().GetFrame()->Loader().RunScriptsAtDocumentElementAvailable();
     // RunScriptsAtDocumentElementAvailable might have invalidated
     // GetDocument().

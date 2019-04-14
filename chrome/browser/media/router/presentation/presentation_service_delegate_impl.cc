@@ -514,7 +514,9 @@ void PresentationServiceDelegateImpl::StartPresentation(
     const content::PresentationRequest& request,
     content::PresentationConnectionCallback success_cb,
     content::PresentationConnectionErrorCallback error_cb) {
+#if defined(NWJS_SDK)
   const auto& render_frame_host_id = request.render_frame_host_id;
+#endif
   const auto& presentation_urls = request.presentation_urls;
   if (presentation_urls.empty()) {
     std::move(error_cb).Run(PresentationError(
@@ -528,6 +530,8 @@ void PresentationServiceDelegateImpl::StartPresentation(
                           "Invalid presentation URL."));
     return;
   }
+
+#if defined(NWJS_SDK)
   auto presentation_context = std::make_unique<StartPresentationContext>(
       request,
       base::BindOnce(
@@ -542,6 +546,9 @@ void PresentationServiceDelegateImpl::StartPresentation(
       MediaRouterDialogController::GetOrCreateForWebContents(web_contents_);
   if (!controller->ShowMediaRouterDialogForPresentation(
           std::move(presentation_context))) {
+#else
+    if (true) {
+#endif
     LOG(ERROR)
         << "StartPresentation failed: unable to create Media Router dialog.";
   }

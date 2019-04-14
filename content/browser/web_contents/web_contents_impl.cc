@@ -10,6 +10,8 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/nw_base.h"
+
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -2795,10 +2797,13 @@ void WebContentsImpl::CreateNewWindow(
   // Track the delegate on which WebContentsCreated may be called.
   // TODO(ericrk): Remove this once debugging complete. https://crbug.com/758186
   web_contents_created_delegate_ = delegate_;
+
+  nw::SetCurrentNewWinManifest(params.nw_window_manifest);
+
   if (delegate_) {
     delegate_->WebContentsCreated(this, render_process_id,
                                   opener->GetRoutingID(), params.frame_name,
-                                  params.target_url, new_contents_impl);
+                                  params.target_url, new_contents_impl, params.nw_window_manifest);
   }
 
   for (auto& observer : observers_) {
@@ -2903,7 +2908,7 @@ void WebContentsImpl::ShowCreatedWindow(int process_id,
                                         int main_frame_widget_route_id,
                                         WindowOpenDisposition disposition,
                                         const gfx::Rect& initial_rect,
-                                        bool user_gesture) {
+                                        bool user_gesture, std::string manifest) {
   // This method is the renderer requesting an existing top level window to
   // show a new top level window that the renderer created. Each top level
   // window is associated with a WebContents. In this case it was created
@@ -2942,8 +2947,10 @@ void WebContentsImpl::ShowCreatedWindow(int process_id,
 
     base::WeakPtr<WebContentsImpl> weak_created =
         created->weak_factory_.GetWeakPtr();
+    delegate->set_tmp_manifest(manifest);
     delegate->AddNewContents(this, std::move(owned_created), disposition,
                              initial_rect, user_gesture, nullptr);
+    delegate->set_tmp_manifest(std::string());
     // The delegate may delete |created| during AddNewContents().
     if (!weak_created)
       return;
@@ -4663,7 +4670,7 @@ void WebContentsImpl::OnDidFinishLoad(RenderFrameHostImpl* source,
 
 void WebContentsImpl::OnGoToEntryAtOffset(RenderViewHostImpl* source,
                                           int offset,
-                                          bool has_user_gesture) {
+                                          bool has_user_gesture, int frame_routing_id) {
   // Non-user initiated navigations coming from the renderer should be ignored
   // if there is an ongoing browser-initiated navigation.
   // See https://crbug.com/879965.
@@ -4680,8 +4687,14 @@ void WebContentsImpl::OnGoToEntryAtOffset(RenderViewHostImpl* source,
   }
 
   // All frames are allowed to navigate the global history.
-  if (!delegate_ || delegate_->OnGoToEntryOffset(offset))
+  if (!delegate_ || delegate_->OnGoToEntryOffset(offset)) {
+    RenderFrameHostImpl* frame_host = nullptr;
+    if (frame_routing_id > -1)
+      frame_host = RenderFrameHostImpl::FromID(source->GetProcess()->GetID(), frame_routing_id);
+    controller_.set_history_initiator(frame_host);
     controller_.GoToOffset(offset);
+    controller_.set_history_initiator(nullptr);
+  }
 }
 
 void WebContentsImpl::OnUpdateZoomLimits(RenderViewHostImpl* source,

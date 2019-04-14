@@ -99,7 +99,7 @@ bool BrowserDesktopWindowTreeHostWin::GetClientAreaInsets(
     // In fullscreen mode there is no frame.
     *insets = gfx::Insets();
   } else {
-    const int frame_thickness = ui::GetFrameThickness(monitor);
+    const int frame_thickness = browser_view_->CanResize() ? ui::GetFrameThickness(monitor) : 1;
     // Reduce the Windows non-client border size because we extend the border
     // into our client area in UpdateDWMFrame(). The top inset must be 0 or
     // else Windows will draw a full native titlebar outside the client area.
@@ -161,7 +161,8 @@ void BrowserDesktopWindowTreeHostWin::HandleDestroying() {
 void BrowserDesktopWindowTreeHostWin::HandleFrameChanged() {
   // Reinitialize the status bubble, since it needs to be initialized
   // differently depending on whether or not DWM composition is enabled
-  browser_view_->InitStatusBubble();
+  //browser_view_->InitStatusBubble();
+
   DesktopWindowTreeHostWin::HandleFrameChanged();
 }
 
@@ -259,7 +260,10 @@ bool BrowserDesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
   // context of the BrowserView destructor.
   if (!browser_view_->browser())
     return false;
-
+  if (browser_view_->browser()->is_transparent())
+    return true;
+  if (browser_view_->browser()->is_frameless())
+    return false;
   if (IsOpaqueHostedAppFrame())
     return false;
 
@@ -275,8 +279,8 @@ bool BrowserDesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
 
 bool BrowserDesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent()
     const {
-  return !ShouldCustomDrawSystemTitlebar() &&
-         views::DesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent();
+  return browser_view_->browser()->is_transparent() || (!ShouldCustomDrawSystemTitlebar() &&
+         views::DesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent());
 }
 
 ////////////////////////////////////////////////////////////////////////////////

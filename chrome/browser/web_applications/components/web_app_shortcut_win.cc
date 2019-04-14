@@ -40,13 +40,13 @@ namespace {
 constexpr base::FilePath::CharType kIconChecksumFileExt[] =
     FILE_PATH_LITERAL(".ico.md5");
 
-constexpr base::FilePath::CharType kChromeProxyExecutable[] =
-    FILE_PATH_LITERAL("chrome_proxy.exe");
+//constexpr base::FilePath::CharType kChromeProxyExecutable[] =
+//    FILE_PATH_LITERAL("nw.exe");
 
 base::FilePath GetChromeProxyPath() {
   base::FilePath chrome_dir;
-  CHECK(base::PathService::Get(base::DIR_EXE, &chrome_dir));
-  return chrome_dir.Append(kChromeProxyExecutable);
+  CHECK(base::PathService::Get(base::FILE_EXE, &chrome_dir));
+  return chrome_dir; //.Append(kChromeProxyExecutable);
 }
 
 // Calculates checksum of an icon family using MD5.
@@ -340,12 +340,18 @@ void CreateIconAndSetRelaunchDetails(
     const base::FilePath& icon_file,
     HWND hwnd,
     const web_app::ShortcutInfo& shortcut_info) {
-  base::CommandLine command_line =
+	base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
+#if 0
       shell_integration::CommandLineArgsForLauncher(shortcut_info.url,
                                                     shortcut_info.extension_id,
                                                     shortcut_info.profile_path);
 
+#endif
   command_line.SetProgram(GetChromeProxyPath());
+  const base::CommandLine::StringVector& args = base::CommandLine::ForCurrentProcess()->GetArgs();
+  if (args.size())
+	  command_line.AppendArgNative(args[0]);
+
   ui::win::SetRelaunchDetailsForWindow(command_line.GetCommandLineString(),
                                        shortcut_info.title, hwnd);
 

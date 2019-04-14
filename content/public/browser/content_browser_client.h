@@ -315,6 +315,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // cross-origin read blocking.  nullptr can be returned to indicate that no
   // exceptions should be granted based on initiator's scheme.
   virtual const char* GetInitiatorSchemeBypassingDocumentBlocking();
+  virtual bool IsNWOrigin(const url::Origin& origin, ResourceContext* context);
 
   // Gives the embedder a chance to log that CORB would have blocked a response
   // if it wasn't for GetInitatorSchemeBypassingDocumentBlocking above.  Called
@@ -615,6 +616,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       const std::vector<GlobalFrameRoutingId>& render_frames,
       base::Callback<void(bool)> callback);
 
+  virtual base::FilePath GetRootPath();
   // Allow the embedder to control if access to IndexedDB by a shared worker
   // is allowed.
   // This is called on the IO thread.

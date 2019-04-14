@@ -4,6 +4,8 @@
 
 #include "ui/base/resource/resource_bundle.h"
 
+#include "base/strings/string_util.h"
+
 #include <stdint.h>
 
 #include <limits>
@@ -71,6 +73,8 @@ const char kPakFileExtension[] = ".pak";
 #endif
 
 ResourceBundle* g_shared_instance_ = NULL;
+
+base::string16 *chromium_name, *nwjs_name;
 
 base::FilePath GetResourcesPakFilePath(const std::string& pak_name) {
   base::FilePath path;
@@ -730,6 +734,8 @@ void ResourceBundle::InitSharedInstance(Delegate* delegate) {
   DCHECK(g_shared_instance_ == NULL) << "ResourceBundle initialized twice";
   g_shared_instance_ = new ResourceBundle(delegate);
   std::vector<ScaleFactor> supported_scale_factors;
+  chromium_name = new base::string16(base::ASCIIToUTF16("Chromium"));
+  nwjs_name     = new base::string16(base::ASCIIToUTF16("NW.js"));
 #if defined(OS_IOS)
   display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
   if (display.device_scale_factor() > 2.0) {
@@ -762,12 +768,12 @@ void ResourceBundle::LoadChromeResources() {
   // scale factor to gfx::ImageSkia::AddRepresentation.
   if (IsScaleFactorSupported(SCALE_FACTOR_100P)) {
     AddDataPackFromPath(GetResourcesPakFilePath(
-        "chrome_100_percent.pak"), SCALE_FACTOR_100P);
+        "nw_100_percent.pak"), SCALE_FACTOR_100P);
   }
 
   if (IsScaleFactorSupported(SCALE_FACTOR_200P)) {
     AddOptionalDataPackFromPath(GetResourcesPakFilePath(
-        "chrome_200_percent.pak"), SCALE_FACTOR_200P);
+        "nw_200_percent.pak"), SCALE_FACTOR_200P);
   }
 }
 
@@ -904,8 +910,10 @@ gfx::Image& ResourceBundle::GetEmptyImage() {
 
 base::string16 ResourceBundle::GetLocalizedStringImpl(int resource_id) {
   base::string16 string;
-  if (delegate_ && delegate_->GetLocalizedString(resource_id, &string))
+  if (delegate_ && delegate_->GetLocalizedString(resource_id, &string)) {
+    base::ReplaceSubstringsAfterOffset(&string, 0, *chromium_name, *nwjs_name);
     return MaybeMangleLocalizedString(string);
+  }
 
   // Ensure that ReloadLocaleResources() doesn't drop the resources while
   // we're using them.
@@ -957,6 +965,7 @@ base::string16 ResourceBundle::GetLocalizedStringImpl(int resource_id) {
   } else if (encoding == ResourceHandle::UTF8) {
     msg = base::UTF8ToUTF16(data);
   }
+  base::ReplaceSubstringsAfterOffset(&msg, 0, *chromium_name, *nwjs_name);
   return MaybeMangleLocalizedString(msg);
 }
 

@@ -266,10 +266,14 @@ GoogleUpdateSettings::CollectStatsConsentTaskRunner() {
 }
 
 bool GoogleUpdateSettings::GetCollectStatsConsent() {
+#if 1
+  return false;
+#else
   return GetCollectStatsConsentImpl(
              &install_static::GetClientStateKeyPath,
              &install_static::GetClientStateMediumKeyPath) ==
          google_update::TRISTATE_TRUE;
+#endif
 }
 
 bool GoogleUpdateSettings::SetCollectStatsConsent(bool consented) {

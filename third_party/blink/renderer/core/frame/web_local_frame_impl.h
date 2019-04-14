@@ -405,6 +405,15 @@ class CORE_EXPORT WebLocalFrameImpl final
     return content_settings_client_;
   }
 
+  void setNodeJS(bool node) override { GetFrame()->setNodeJS(node); }
+  bool isNodeJS() const override { return GetFrame()->isNodeJS(); }
+  bool isNwDisabledChildFrame() const override { return GetFrame()->isNwDisabledChildFrame(); }
+  bool isNwFakeTop() const override { return GetFrame()->isNwFakeTop(); }
+  void setDevtoolsJail(WebFrame* iframe) override {
+    GetFrame()->setDevtoolsJail(iframe ? static_cast<const WebLocalFrameImpl*>(iframe)->GetFrame() : nullptr);
+  }
+  WebFrame* getDevtoolsJail() override { return FromFrame((blink::LocalFrame*)GetFrame()->getDevtoolsJail()); }
+
   WebTextCheckClient* GetTextCheckerClient() const {
     return text_check_client_;
   }

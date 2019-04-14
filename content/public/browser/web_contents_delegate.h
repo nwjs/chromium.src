@@ -96,6 +96,8 @@ class CONTENT_EXPORT WebContentsDelegate {
  public:
   WebContentsDelegate();
 
+  void set_tmp_manifest(const std::string& manifest) {manifest_ = manifest; }
+  const std::string& tmp_manifest() { return manifest_; }
   // Opens a new URL inside the passed in WebContents (if source is 0 open
   // in the current front-most tab), unless |disposition| indicates the url
   // should be opened in a new tab or window.
@@ -327,7 +329,8 @@ class CONTENT_EXPORT WebContentsDelegate {
                                   int opener_render_frame_id,
                                   const std::string& frame_name,
                                   const GURL& target_url,
-                                  WebContents* new_contents) {}
+                                  WebContents* new_contents,
+                                  const base::string16& nw_window_manifest) {}
 
   // Notifies the embedder that a Portal WebContents was created.
   virtual void PortalWebContentsCreated(WebContents* portal_web_contents) {}
@@ -651,6 +654,8 @@ class CONTENT_EXPORT WebContentsDelegate {
 
  protected:
   virtual ~WebContentsDelegate();
+
+  std::string manifest_;
 
  private:
   friend class WebContentsImpl;

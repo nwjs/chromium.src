@@ -65,6 +65,10 @@
 
 DEFINE_UI_CLASS_PROPERTY_TYPE(views::DesktopWindowTreeHostX11*);
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 namespace views {
 
 DesktopWindowTreeHostX11* DesktopWindowTreeHostX11::g_current_capture =

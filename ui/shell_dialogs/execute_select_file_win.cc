@@ -268,11 +268,12 @@ bool ExecuteSelectFolder(HWND owner,
   }
 
   base::string16 ok_button_label;
+#if 0
   if (type == SelectFileDialog::SELECT_UPLOAD_FOLDER) {
     ok_button_label = l10n_util::GetStringUTF16(
         IDS_SELECT_UPLOAD_FOLDER_DIALOG_UPLOAD_BUTTON);
   }
-
+#endif
   DWORD dialog_options = FOS_PICKFOLDERS;
 
   std::vector<FileFilterSpec> no_filter;

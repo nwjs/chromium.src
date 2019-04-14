@@ -109,6 +109,13 @@ Polymer({
       value: null,
     },
 
+    /** @private {boolean} */
+    isInNWPrintMode_: {
+      type: Boolean,
+      notify: true,
+      value: false,
+    },
+
     /** @private {!print_preview_new.PreviewAreaState} */
     previewState_: {
       type: String,
@@ -362,9 +369,10 @@ Polymer({
     this.destinationStore_.init(
         settings.isInAppKioskMode, settings.printerName,
         settings.serializedDefaultDestinationSelectionRulesStr,
-        this.recentDestinations_);
+        this.recentDestinations_, settings.nwPrintMode);
     this.isInAppKioskMode_ = settings.isInAppKioskMode;
     this.isInKioskAutoPrintMode_ = settings.isInKioskAutoPrintMode;
+    this.isInNWPrintMode_ = settings.nwPrintMode;
 
     // This is only visible in the task manager.
     let title = document.head.querySelector('title');

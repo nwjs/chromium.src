@@ -81,10 +81,11 @@ void GetPluginContentSettingInternal(
 
   // Special behavior for non-JavaScript treated plugins (Flash):
   if (!use_javascript_setting) {
+#if 0
     // ALLOW-by-default is obsolete and should be treated as DETECT.
     if (*setting == CONTENT_SETTING_ALLOW && uses_default_content_setting)
       *setting = CONTENT_SETTING_DETECT_IMPORTANT_CONTENT;
-
+#endif
     // Unless the setting is explicitly ALLOW, return BLOCK for any scheme that
     // is not HTTP, HTTPS, FILE, or chrome-extension.
     if (*setting != CONTENT_SETTING_ALLOW &&
